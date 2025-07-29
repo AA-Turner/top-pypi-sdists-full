@@ -59,7 +59,8 @@ def queryParser(kwargs, instance):
 
     key = Word(alphas + "_-")
     operator = oneOf("= in != > < >= <=")
-    single_value = Word(alphanums + "_") | quotedString
+    single_value = Word(alphanums + "_.-") | quotedString
+
     array_value = (
         Suppress("[") + delimitedList(quotedString) + Suppress("]")
     ).setParseAction(lambda t: f"[{','.join(t)}]")
@@ -134,7 +135,8 @@ def lastOutput(state, obj, instance):
   
 _hooks = {
     'search__offers': [queryParser, queryFormatter],
-    'logs': [None, lastOutput]
+    'logs': [None, lastOutput],
+    'execute': [None, lastOutput]
 }
 
 class VastAI(VastAIBase):
@@ -302,7 +304,11 @@ class VastAI(VastAIBase):
                 out_o = sys.stdout
                 sys.stdout = out_b
 
-            res = func(args) 
+            res = ''
+            try:
+                res = func(args) 
+            except:
+                pass
 
             if not logger.isEnabledFor(logging.DEBUG):
                 sys.stdout = out_o

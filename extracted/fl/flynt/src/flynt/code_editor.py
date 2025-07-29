@@ -16,8 +16,12 @@ from flynt.string_concat.candidates import concat_candidates
 from flynt.string_concat.transformer import transform_concat
 from flynt.transform.transform import transform_chunk
 from flynt.utils.format import QuoteTypes as qt
-from flynt.utils.format import get_quote_type
-from flynt.utils.utils import contains_comment
+from flynt.utils.format import get_quote_type, get_string_prefix
+from flynt.utils.utils import (
+    apply_unicode_escape_map,
+    contains_comment,
+    unicode_escape_map,
+)
 
 noqa_regex = re.compile("#[ ]*noqa.*flynt")
 flynt_skip_regex = re.compile(r"#\s*flynt:\s*skip")
@@ -55,6 +59,7 @@ class CodeEditor:
         self.candidates_iter = candidates_iter_factory(code)
         self.transform_func = transform_func
         self.src_lines = code.split("\n")
+        self._src_lines_bytes = [line.encode("utf-8") for line in self.src_lines]
 
         self.results: List[str] = []
         self.count_expressions = 0
@@ -63,6 +68,10 @@ class CodeEditor:
         self.last_idx = 0
         self.used_up = False
         self.output: Optional[str] = None
+
+    def _byte_to_char_idx(self, line_no: int, byte_idx: int) -> int:
+        line_bytes = self._src_lines_bytes[line_no]
+        return len(line_bytes[:byte_idx].decode("utf-8"))
 
     def edit(self) -> Tuple[str, int]:
         """Apply edits to the original code."""
@@ -84,13 +93,17 @@ class CodeEditor:
         result = []
         if start_line == end_line:
             assert end_idx >= start_idx
-            result.append(self.src_lines[start_line][start_idx:end_idx])
+            s = self._byte_to_char_idx(start_line, start_idx)
+            e = self._byte_to_char_idx(end_line, end_idx)
+            result.append(self.src_lines[start_line][s:e])
         else:
-            result.append(self.src_lines[start_line][start_idx:])
+            s = self._byte_to_char_idx(start_line, start_idx)
+            result.append(self.src_lines[start_line][s:])
             full_lines = range(start_line + 1, end_line)
             for line in full_lines:
                 result.append(self.src_lines[line])
-            result.append(self.src_lines[end_line][:end_idx])
+            e = self._byte_to_char_idx(end_line, end_idx)
+            result.append(self.src_lines[end_line][:e])
         return "\n".join(result)
 
     @lru_cache(None)
@@ -100,7 +113,11 @@ class CodeEditor:
         )
 
     def fill_up_to(self, chunk: AstChunk) -> None:
-        start_line, start_idx, _ = (chunk.start_line, chunk.start_idx, chunk.end_idx)
+        start_line, start_idx, _ = (
+            chunk.start_line,
+            self._byte_to_char_idx(chunk.start_line, chunk.start_idx),
+            chunk.end_idx,
+        )
         if start_line == self.last_line:
             self.results.append(
                 self.src_lines[self.last_line][self.last_idx : start_idx],
@@ -130,30 +147,47 @@ class CodeEditor:
         if contains_comment(self.code_in_chunk(chunk)):
             return
 
-        # skip raw strings
-        if self.code_in_chunk(chunk)[0] == "r":
-            return
+        snippet = self.code_in_chunk(chunk)
+        stripped = snippet.lstrip()
+        prefix_match = re.match(r"[furbFURB]*(['\"]{3}|['\"])", stripped)
+        if prefix_match:
+            prefix = get_string_prefix(stripped)
+            if "b" in prefix.lower():
+                return
+            is_raw = "r" in prefix.lower()
+        else:
+            prefix = ""
+            is_raw = False
 
         # skip lines with # noqa comment or # flynt: skip
         for line in self.src_lines[chunk.start_line : chunk.end_line + 1]:
             if noqa_regex.findall(line) or flynt_skip_regex.findall(line):
                 return
 
+        # try/except only needed for python 3.9 due to quote issues
         try:
-            quote_type = get_quote_type(self.code_in_chunk(chunk))
+            quote_type = get_quote_type(snippet)
+            escape_map = unicode_escape_map(snippet)
         except FlyntException:
             quote_type = qt.double
+            escape_map = {}
 
         converted, changed = self.transform_func(chunk.node, quote_type=quote_type)
+        if changed and escape_map and not is_raw:
+            converted = apply_unicode_escape_map(converted, escape_map)
         if changed:
             contract_lines = chunk.n_lines - 1
             if contract_lines == 0:
                 line = self.src_lines[chunk.start_line]
-                rest = line[chunk.end_idx :]
+                end_c = self._byte_to_char_idx(chunk.start_line, chunk.end_idx)
+                rest = line[end_c:]
             else:
                 next_line = self.src_lines[chunk.start_line + contract_lines]
-                rest = next_line[chunk.end_idx :]
-            self.maybe_replace(chunk, contract_lines, converted, rest)
+                end_c = self._byte_to_char_idx(
+                    chunk.start_line + contract_lines, chunk.end_idx
+                )
+                rest = next_line[end_c:]
+            self.maybe_replace(chunk, contract_lines, converted, rest, is_raw)
 
     def maybe_replace(
         self,
@@ -161,24 +195,35 @@ class CodeEditor:
         contract_lines: int,
         converted: str,
         rest: str,
+        is_raw: bool,
     ) -> None:
         """Given a possible edit, see if we want to apply it.
 
         For example, we might not want to change multiple lines."""
         if contract_lines:
-            if get_quote_type(self.code_in_chunk(chunk)) in (
+            try:
+                snippet_quote = get_quote_type(self.code_in_chunk(chunk))
+            except FlyntException:
+                snippet_quote = None
+
+            if snippet_quote in (
                 qt.triple_double,
                 qt.triple_single,
             ):
                 lines = converted.split("\\n")
                 lines[-1] += rest
                 lines_fit = all(
-                    len(line) <= self.len_limit - chunk.start_idx for line in lines
+                    len(line)
+                    <= self.len_limit
+                    - self._byte_to_char_idx(chunk.start_line, chunk.start_idx)
+                    for line in lines
                 )
                 converted = converted.replace("\\n", "\n")
             else:
-                lines_fit = (
-                    len(f"{converted}{rest}") <= self.len_limit - chunk.start_idx
+                lines_fit = len(
+                    f"{converted}{rest}"
+                ) <= self.len_limit - self._byte_to_char_idx(
+                    chunk.start_line, chunk.start_idx
                 )
 
         else:
@@ -192,10 +237,15 @@ class CodeEditor:
             )
             return
 
+        if is_raw:
+            converted = converted.replace("\\\\", "\\")
+            if not converted.startswith(("r", "R")):
+                converted = "r" + converted
+
         self.results.append(converted)
         self.count_expressions += 1
         self.last_line += contract_lines
-        self.last_idx = chunk.end_idx
+        self.last_idx = self._byte_to_char_idx(chunk.end_line, chunk.end_idx)
 
         # remove redundant parenthesis
         if len(self.results) < 2 or not self.results[-2]:

@@ -96,6 +96,7 @@ VirtualInterfaceStateType = Literal[
     "down",
     "pending",
     "rejected",
+    "testing",
     "unknown",
     "verifying",
 ]

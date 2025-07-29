@@ -1,7 +1,7 @@
 r'''
 # `aws_pinpoint_apns_voip_channel`
 
-Refer to the Terraform Registry for docs: [`aws_pinpoint_apns_voip_channel`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel).
+Refer to the Terraform Registry for docs: [`aws_pinpoint_apns_voip_channel`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PinpointApnsVoipChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.pinpointApnsVoipChannel.PinpointApnsVoipChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel aws_pinpoint_apns_voip_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel aws_pinpoint_apns_voip_channel}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class PinpointApnsVoipChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel aws_pinpoint_apns_voip_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel aws_pinpoint_apns_voip_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#application_id PinpointApnsVoipChannel#application_id}.
-        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#bundle_id PinpointApnsVoipChannel#bundle_id}.
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#certificate PinpointApnsVoipChannel#certificate}.
-        :param default_authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#default_authentication_method PinpointApnsVoipChannel#default_authentication_method}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#enabled PinpointApnsVoipChannel#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#id PinpointApnsVoipChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#private_key PinpointApnsVoipChannel#private_key}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#region PinpointApnsVoipChannel#region}
-        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#team_id PinpointApnsVoipChannel#team_id}.
-        :param token_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#token_key PinpointApnsVoipChannel#token_key}.
-        :param token_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#token_key_id PinpointApnsVoipChannel#token_key_id}.
+        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#application_id PinpointApnsVoipChannel#application_id}.
+        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#bundle_id PinpointApnsVoipChannel#bundle_id}.
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#certificate PinpointApnsVoipChannel#certificate}.
+        :param default_authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#default_authentication_method PinpointApnsVoipChannel#default_authentication_method}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#enabled PinpointApnsVoipChannel#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#id PinpointApnsVoipChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#private_key PinpointApnsVoipChannel#private_key}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#region PinpointApnsVoipChannel#region}
+        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#team_id PinpointApnsVoipChannel#team_id}.
+        :param token_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#token_key PinpointApnsVoipChannel#token_key}.
+        :param token_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#token_key_id PinpointApnsVoipChannel#token_key_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class PinpointApnsVoipChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PinpointApnsVoipChannel to import.
-        :param import_from_id: The id of the existing PinpointApnsVoipChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PinpointApnsVoipChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PinpointApnsVoipChannel to import is found.
         '''
         if __debug__:
@@ -445,17 +445,17 @@ class PinpointApnsVoipChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#application_id PinpointApnsVoipChannel#application_id}.
-        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#bundle_id PinpointApnsVoipChannel#bundle_id}.
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#certificate PinpointApnsVoipChannel#certificate}.
-        :param default_authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#default_authentication_method PinpointApnsVoipChannel#default_authentication_method}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#enabled PinpointApnsVoipChannel#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#id PinpointApnsVoipChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#private_key PinpointApnsVoipChannel#private_key}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#region PinpointApnsVoipChannel#region}
-        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#team_id PinpointApnsVoipChannel#team_id}.
-        :param token_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#token_key PinpointApnsVoipChannel#token_key}.
-        :param token_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#token_key_id PinpointApnsVoipChannel#token_key_id}.
+        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#application_id PinpointApnsVoipChannel#application_id}.
+        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#bundle_id PinpointApnsVoipChannel#bundle_id}.
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#certificate PinpointApnsVoipChannel#certificate}.
+        :param default_authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#default_authentication_method PinpointApnsVoipChannel#default_authentication_method}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#enabled PinpointApnsVoipChannel#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#id PinpointApnsVoipChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#private_key PinpointApnsVoipChannel#private_key}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#region PinpointApnsVoipChannel#region}
+        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#team_id PinpointApnsVoipChannel#team_id}.
+        :param token_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#token_key PinpointApnsVoipChannel#token_key}.
+        :param token_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#token_key_id PinpointApnsVoipChannel#token_key_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -583,26 +583,26 @@ class PinpointApnsVoipChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def application_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#application_id PinpointApnsVoipChannel#application_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#application_id PinpointApnsVoipChannel#application_id}.'''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bundle_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#bundle_id PinpointApnsVoipChannel#bundle_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#bundle_id PinpointApnsVoipChannel#bundle_id}.'''
         result = self._values.get("bundle_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def certificate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#certificate PinpointApnsVoipChannel#certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#certificate PinpointApnsVoipChannel#certificate}.'''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_authentication_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#default_authentication_method PinpointApnsVoipChannel#default_authentication_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#default_authentication_method PinpointApnsVoipChannel#default_authentication_method}.'''
         result = self._values.get("default_authentication_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -610,13 +610,13 @@ class PinpointApnsVoipChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#enabled PinpointApnsVoipChannel#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#enabled PinpointApnsVoipChannel#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#id PinpointApnsVoipChannel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#id PinpointApnsVoipChannel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -626,7 +626,7 @@ class PinpointApnsVoipChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def private_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#private_key PinpointApnsVoipChannel#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#private_key PinpointApnsVoipChannel#private_key}.'''
         result = self._values.get("private_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -634,26 +634,26 @@ class PinpointApnsVoipChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#region PinpointApnsVoipChannel#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#region PinpointApnsVoipChannel#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def team_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#team_id PinpointApnsVoipChannel#team_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#team_id PinpointApnsVoipChannel#team_id}.'''
         result = self._values.get("team_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def token_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#token_key PinpointApnsVoipChannel#token_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#token_key PinpointApnsVoipChannel#token_key}.'''
         result = self._values.get("token_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def token_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/pinpoint_apns_voip_channel#token_key_id PinpointApnsVoipChannel#token_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/pinpoint_apns_voip_channel#token_key_id PinpointApnsVoipChannel#token_key_id}.'''
         result = self._values.get("token_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

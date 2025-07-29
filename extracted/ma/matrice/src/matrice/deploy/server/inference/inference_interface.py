@@ -5,12 +5,14 @@ from matrice.deploy.utils.post_processing import (
     create_config_from_template
 )
 from matrice.deploy.utils.post_processing.core.config import BaseConfig
+from matrice.deploy.utils.post_processing.config import (
+    get_usecase_from_app_name,
+    get_category_from_app_name,
+)
 from typing import Dict, Any, Optional, Callable, Tuple, List, Union
 from matrice.action_tracker import ActionTracker
 from datetime import datetime, timezone
-import asyncio
 import logging
-import time
 
 
 class InferenceInterface:
@@ -27,6 +29,7 @@ class InferenceInterface:
         ] = None,
         custom_post_processing_fn: Optional[Callable] = None,
         max_batch_wait_time: float = 0.05,
+        app_name: str = "",
     ):
         """
         Initialize the inference interface.
@@ -40,6 +43,7 @@ class InferenceInterface:
                 Can be a dict, BaseConfig object, or use case name string
             custom_post_processing_fn: Custom post-processing function
             max_batch_wait_time: Maximum wait time for batching
+            app_name: Application name for automatic config loading
         """
         self.logger = logging.getLogger(__name__)
         self.batch_size = batch_size
@@ -49,6 +53,7 @@ class InferenceInterface:
         self.post_processor = PostProcessor()
         self.latest_inference_time = datetime.now(timezone.utc)
         self.max_batch_wait_time = max_batch_wait_time
+        self.app_name = app_name
 
         # Set up index to category mapping
         self.index_to_category = self.action_tracker.get_index_to_category()
@@ -59,10 +64,11 @@ class InferenceInterface:
 
         # Set up default post-processing configuration
         self.post_processing_config = None
-        if post_processing_config:
+        if post_processing_config or self.app_name:
             self.logger.debug(f"Parsing post-processing config: {post_processing_config}")
             self.post_processing_config = self._parse_post_processing_config(
-                post_processing_config
+                post_processing_config,
+                self.app_name
             )
             if self.post_processing_config:
                 self.logger.info(f"Successfully parsed post-processing config for usecase: {self.post_processing_config.usecase}")
@@ -84,13 +90,36 @@ class InferenceInterface:
             )
         
 
+    def _load_config_from_app_name(self, app_name: str) -> Optional[BaseConfig]:
+        """Load default post-processing configuration based on app name.
+        
+        Args:
+            app_name: The application name to map to a post-processing use case
+            
+        Returns:
+            BaseConfig: The automatically loaded configuration, or None if no mapping found
+        """  
+        usecase = get_usecase_from_app_name(app_name)
+        category = get_category_from_app_name(app_name)
+        if not usecase or not category:
+            self.logger.warning(f"No usecase or category found for app: {app_name}")
+            return None
+        config = self.post_processor.create_config(usecase, category)
+        return config
+
     def _parse_post_processing_config(
-        self, config: Union[Dict[str, Any], BaseConfig, str]
+        self, config: Union[Dict[str, Any], BaseConfig, str], app_name: Optional[str] = None
     ) -> Optional[BaseConfig]:
         """Parse post-processing configuration from various formats."""
         try:
-            if not config:
+            if not config and not app_name:
                 return None
+            if not config and app_name:
+                config = self._load_config_from_app_name(app_name)
+                if config:
+                    return config
+                else:
+                    self.logger.warning(f"No config found for app: {app_name}")
             if isinstance(config, BaseConfig):
                 config = config
             elif isinstance(config, dict):

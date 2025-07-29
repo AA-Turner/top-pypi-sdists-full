@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicli"
-version = "99.0.202507131840"
+version = "99.0.202507281209"
 description = "Assisted installer assistant"
 readme = "README.md"
 license = {text = "ASL"}

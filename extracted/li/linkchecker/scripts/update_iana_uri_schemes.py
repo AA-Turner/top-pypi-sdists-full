@@ -16,6 +16,8 @@ iana_uri_schemes_other = {
     "gemini": "Gemini protocol",
     "isbn": "ISBN (int. book numbers)",
     "javascript": "JavaScript",
+    "litecoin": "Litecoin payment",
+    "ltclightning": "Litecoin Lightning invoice",
     "ms-windows-store": "Microsoft Store",
     "slack": "Slack Technologies client",
     "tg": "Telegram",

@@ -1,3 +1,9 @@
+"""Connection pool management for VSP (Velithon Service Protocol).
+
+This module provides connection pooling functionality for efficient management
+of VSP connections including pool sizing, connection reuse, and cleanup.
+"""
+
 import asyncio
 import logging
 import time
@@ -8,11 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 class ConnectionPool:
-    """High-performance connection pool with intelligent resource management"""
+    """High-performance connection pool with intelligent resource management."""
 
     def __init__(
         self, max_connections_per_service: int = 10, connection_timeout: float = 30.0
     ):
+        """Initialize the connection pool with limits and timeouts."""
         self.max_connections_per_service = max_connections_per_service
         self.connection_timeout = connection_timeout
 
@@ -37,7 +44,7 @@ class ConnectionPool:
         }
 
     async def get_connection(self, service_key: str, connection_factory) -> Any:
-        """Get a connection from the pool or create a new one"""
+        """Get a connection from the pool or create a new one."""
         # Check if service is marked as unhealthy
         if service_key in self.unhealthy_services:
             # Retry unhealthy services every 30 seconds
@@ -97,7 +104,7 @@ class ConnectionPool:
                 raise ConnectionError(f'Maximum connections reached for {service_key}')
 
     def return_connection(self, service_key: str, connection: Any) -> None:
-        """Return a connection to the pool"""
+        """Return a connection to the pool."""
         if (
             not connection.is_closed()
             and len(self.pools[service_key]) < self.max_connections_per_service
@@ -112,7 +119,7 @@ class ConnectionPool:
             )
 
     def remove_connection(self, service_key: str, connection: Any) -> None:
-        """Remove a connection permanently (e.g., due to error)"""
+        """Remove a connection permanently (e.g., due to error)."""
         if not connection.is_closed():
             connection.close()
         self.active_connections[service_key] = max(
@@ -120,7 +127,7 @@ class ConnectionPool:
         )
 
     def cleanup_expired_connections(self) -> None:
-        """Clean up expired connections from all pools"""
+        """Clean up expired connections from all pools."""
         current_time = time.time()
         expired_count = 0
 
@@ -150,7 +157,7 @@ class ConnectionPool:
             self.stats['connections_expired'] += expired_count
 
     def get_stats(self) -> dict[str, Any]:
-        """Get connection pool statistics"""
+        """Get connection pool statistics."""
         total_pooled = sum(len(pool) for pool in self.pools.values())
         total_active = sum(self.active_connections.values())
 
@@ -165,7 +172,7 @@ class ConnectionPool:
         }
 
     def close_all(self) -> None:
-        """Close all connections and clean up"""
+        """Close all connections and clean up."""
         for pool in self.pools.values():
             while pool:
                 connection, _ = pool.popleft()
@@ -184,5 +191,5 @@ _connection_pool = ConnectionPool()
 
 
 def get_connection_pool() -> ConnectionPool:
-    """Get the global connection pool instance"""
+    """Get the global connection pool instance."""
     return _connection_pool

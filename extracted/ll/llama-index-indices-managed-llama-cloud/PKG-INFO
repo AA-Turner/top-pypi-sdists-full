@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: llama-index-indices-managed-llama-cloud
-Version: 0.7.10
+Version: 0.8.0
 Summary: llama-index indices llama-cloud integration
 Author-email: Logan Markewich <logan@llamaindex.ai>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
-Requires-Dist: llama-cloud==0.1.32
+Requires-Dist: llama-cloud==0.1.35
 Requires-Dist: llama-index-core<0.13,>=0.12.0
 Description-Content-Type: text/markdown
 
@@ -42,7 +42,7 @@ pip install -U llama-index-indices-managed-llama-cloud
 
 ## Usage
 
-You can create an index on LlamaCloud using the following code:
+You can create an index on LlamaCloud using the following code. By default, new indexes use managed embeddings (OpenAI text-embedding-3-small, 1536 dimensions, 1 credit/page):
 
 ```python
 import os
@@ -54,7 +54,7 @@ os.environ[
 from llama_index.core import SimpleDirectoryReader
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 
-# create a new index
+# create a new index (uses managed embeddings by default)
 index = LlamaCloudIndex.from_documents(
     documents,
     "my_first_index",

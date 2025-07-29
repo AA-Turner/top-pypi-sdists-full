@@ -1,18 +1,20 @@
 Metadata-Version: 2.1
 Name: torchutil
-Version: 0.0.14
+Version: 0.1.1
 Summary: PyTorch utilities for developing deep learning frameworks
-Home-page: https://github.com/maxrmorrison/torchutil
-Author: Max Morrison
-Author-email: maxrmorrison@gmail.com
-License: MIT
-Keywords: pytorch,utility,training
+Author-email: Max Morrison <maxrmorrison@gmail.com>, Cameron Churchwell <cameronchurchwell@icloud.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/maxrmorrison/torchutil
+Project-URL: Issues, https://github.com/maxrmorrison/torchutil/issues
 Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: apprise
-Requires-Dist: tensorboard
 Requires-Dist: torch
+Requires-Dist: tensorboard
+Requires-Dist: tqdm
+Requires-Dist: psutil
 
 <h1 align="center">torchutil</h1>
 <div align="center">

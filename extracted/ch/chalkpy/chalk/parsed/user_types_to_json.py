@@ -1,10 +1,8 @@
 import dataclasses
 import json
-import os
-import re
 import traceback
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union
 
 from chalk._lsp.error_builder import LSPErrorBuilder
 from chalk._monitoring.Chart import Chart
@@ -52,18 +50,6 @@ def _is_relative_to(x: Path, other: Path) -> bool:
 
 
 def project_settings_to_gql(config: ProjectSettings) -> ProjectSettingsGQL:
-    def read_packages(filename: str) -> Optional[List[str]]:
-        reqs = list()
-        try:
-            with open(filename) as f:
-                for r in f.readlines():
-                    cleaned = re.sub("#.*", "", r).rstrip("\n").strip()
-                    if cleaned != "":
-                        reqs.append(cleaned)
-            return reqs
-        except OSError:
-            return None
-
     return ProjectSettingsGQL(
         project=config.project,
         environments=(
@@ -75,16 +61,7 @@ def project_settings_to_gql(config: ProjectSettings) -> ProjectSettingsGQL:
                     runtime=e.runtime,
                     requirements=e.requirements,
                     dockerfile=e.dockerfile,
-                    requiresPackages=(
-                        None
-                        if e.requirements is None
-                        else read_packages(
-                            os.path.join(
-                                os.path.dirname(config.local_path),
-                                e.requirements,
-                            )
-                        )
-                    ),
+                    requiresPackages=None,
                     platformVersion=e.platform_version,
                 )
                 for i, e in config.environments.items()

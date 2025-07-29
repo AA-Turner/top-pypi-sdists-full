@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: channels
-Version: 4.2.2
+Version: 4.3.0
 Summary: Brings async, event-driven capabilities to Django.
 Home-page: http://github.com/django/channels
 Author: Django Software Foundation
@@ -13,7 +13,6 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -21,21 +20,21 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django>=4.2
-Requires-Dist: asgiref<4,>=3.6.0
+Requires-Dist: asgiref<4,>=3.9.0
 Provides-Extra: tests
 Requires-Dist: async-timeout; extra == "tests"
 Requires-Dist: coverage~=4.5; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-django; extra == "tests"
 Requires-Dist: pytest-asyncio; extra == "tests"
+Requires-Dist: selenium; extra == "tests"
 Provides-Extra: daphne
 Requires-Dist: daphne>=4.0.0; extra == "daphne"
 Dynamic: license-file
@@ -77,8 +76,8 @@ and `tutorial <https://channels.readthedocs.io/en/latest/tutorial/index.html>`_ 
 Dependencies
 ------------
 
-All Channels projects currently support Python 3.8 and up. ``channels`` is
-compatible with Django 4.2 and 5.0.
+All Channels projects currently support Python 3.9 and up. ``channels`` is
+compatible with Django 4.2+.
 
 
 Contributing

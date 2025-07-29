@@ -3656,8 +3656,12 @@ async def test_aiohttp_request_coroutine(aiohttp_server: AiohttpServer) -> None:
     not_an_awaitable = aiohttp.request("GET", server.make_url("/"))
     with pytest.raises(
         TypeError,
-        match="^object _SessionRequestContextManager "
-        "can't be used in 'await' expression$",
+        match=(
+            "^'_SessionRequestContextManager' object can't be awaited$"
+            if sys.version_info >= (3, 14)
+            else "^object _SessionRequestContextManager "
+            "can't be used in 'await' expression$"
+        ),
     ):
         await not_an_awaitable  # type: ignore[misc]
 
@@ -5294,8 +5298,8 @@ async def test_file_upload_307_308_redirect(
 ) -> None:
     """Test that file uploads work correctly with 307/308 redirects.
 
-    This demonstrates the bug where file payloads get incorrect Content-Length
-    on redirect because the file position isn't reset.
+    This verifies that file payloads maintain correct Content-Length
+    on redirect by properly handling the file position.
     """
     received_bodies: list[bytes] = []
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthengine-api
-Version: 1.6.0
+Version: 1.6.1
 Summary: Earth Engine Python API
 Author-email: Google LLC <noreply@google.com>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python
 Classifier: Topic :: Multimedia :: Graphics :: Viewers
 Classifier: Topic :: Scientific/Engineering :: GIS

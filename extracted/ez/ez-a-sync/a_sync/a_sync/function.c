@@ -1660,7 +1660,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction {
 };
 
 
-/* "a_sync/a_sync/function.pyx":1019
+/* "a_sync/a_sync/function.pyx":1021
  * 
  * 
  * cdef class ASyncDecorator(_ModifiedMixin):             # <<<<<<<<<<<<<<
@@ -1672,7 +1672,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function_ASyncDecorator {
 };
 
 
-/* "a_sync/a_sync/function.pyx":1275
+/* "a_sync/a_sync/function.pyx":1277
  * 
  * 
  * cdef class ASyncDecoratorSyncDefault(ASyncDecorator):             # <<<<<<<<<<<<<<
@@ -1684,7 +1684,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault {
 };
 
 
-/* "a_sync/a_sync/function.pyx":1326
+/* "a_sync/a_sync/function.pyx":1328
  * 
  * 
  * cdef class ASyncDecoratorAsyncDefault(ASyncDecorator):             # <<<<<<<<<<<<<<
@@ -1696,7 +1696,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault {
 };
 
 
-/* "a_sync/a_sync/function.pyx":366
+/* "a_sync/a_sync/function.pyx":368
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
@@ -1713,7 +1713,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct__any {
 };
 
 
-/* "a_sync/a_sync/function.pyx":395
+/* "a_sync/a_sync/function.pyx":397
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
@@ -1730,7 +1730,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_1_all {
 };
 
 
-/* "a_sync/a_sync/function.pyx":424
+/* "a_sync/a_sync/function.pyx":426
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
@@ -1747,7 +1747,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_2_min {
 };
 
 
-/* "a_sync/a_sync/function.pyx":453
+/* "a_sync/a_sync/function.pyx":455
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
@@ -1764,7 +1764,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_3_max {
 };
 
 
-/* "a_sync/a_sync/function.pyx":482
+/* "a_sync/a_sync/function.pyx":484
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
@@ -1781,7 +1781,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum {
 };
 
 
-/* "a_sync/a_sync/function.pyx":546
+/* "a_sync/a_sync/function.pyx":548
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
@@ -1798,7 +1798,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_5_any {
 };
 
 
-/* "a_sync/a_sync/function.pyx":575
+/* "a_sync/a_sync/function.pyx":577
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
@@ -1815,7 +1815,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_6_all {
 };
 
 
-/* "a_sync/a_sync/function.pyx":604
+/* "a_sync/a_sync/function.pyx":606
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
@@ -1832,7 +1832,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_7_min {
 };
 
 
-/* "a_sync/a_sync/function.pyx":633
+/* "a_sync/a_sync/function.pyx":635
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
@@ -1849,7 +1849,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_8_max {
 };
 
 
-/* "a_sync/a_sync/function.pyx":662
+/* "a_sync/a_sync/function.pyx":664
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
@@ -1866,7 +1866,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum {
 };
 
 
-/* "a_sync/a_sync/function.pyx":745
+/* "a_sync/a_sync/function.pyx":747
  *         return modified_fn
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -1881,7 +1881,7 @@ struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__ {
 };
 
 
-/* "a_sync/a_sync/function.pyx":782
+/* "a_sync/a_sync/function.pyx":784
  *         return async_wrap
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -1942,7 +1942,7 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ModifiedMixin_get_default(
 static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ModifiedMixin_get_await(struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *);
 
 
-/* "a_sync/a_sync/function.pyx":207
+/* "a_sync/a_sync/function.pyx":209
  * 
  * 
  * cdef class _ASyncFunction(_ModifiedMixin):             # <<<<<<<<<<<<<<
@@ -1961,7 +1961,7 @@ static struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *__pyx_v
 static CYTHON_INLINE int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run_sync(struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *, PyObject *);
 
 
-/* "a_sync/a_sync/function.pyx":1019
+/* "a_sync/a_sync/function.pyx":1021
  * 
  * 
  * cdef class ASyncDecorator(_ModifiedMixin):             # <<<<<<<<<<<<<<
@@ -1975,7 +1975,7 @@ struct __pyx_vtabstruct_6a_sync_6a_sync_8function_ASyncDecorator {
 static struct __pyx_vtabstruct_6a_sync_6a_sync_8function_ASyncDecorator *__pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecorator;
 
 
-/* "a_sync/a_sync/function.pyx":1275
+/* "a_sync/a_sync/function.pyx":1277
  * 
  * 
  * cdef class ASyncDecoratorSyncDefault(ASyncDecorator):             # <<<<<<<<<<<<<<
@@ -1989,7 +1989,7 @@ struct __pyx_vtabstruct_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault {
 static struct __pyx_vtabstruct_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault *__pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault;
 
 
-/* "a_sync/a_sync/function.pyx":1326
+/* "a_sync/a_sync/function.pyx":1328
  * 
  * 
  * cdef class ASyncDecoratorAsyncDefault(ASyncDecorator):             # <<<<<<<<<<<<<<
@@ -3911,7 +3911,6 @@ static const char __pyx_k_ASyncDecorator___reduce_cython[] = "ASyncDecorator.__r
 static const char __pyx_k_Pyx_CFunc_6a_sync_6a_sync_8_he[] = "__Pyx_CFunc_6a_sync_6a_sync_8_helpers_object__lParenobject__rParen_to_py_9awaitable.<locals>.wrap";
 static const char __pyx_k_pyx_unpickle__ASyncFunction__s[] = "__pyx_unpickle__ASyncFunction__set_state";
 static const char __pyx_k_pyx_unpickle__ModifiedMixin__s[] = "__pyx_unpickle__ModifiedMixin__set_state";
-static const char __pyx_k_q_A_Rwa_j_6_z_Fa_gQa_5_1_a_QQR[] = "\320\000'\240q\360\010\000\005\006\330\010\022\220\"\220A\330\010\022\220'\230\034\240R\240w\250a\340\010\t\330\014\026\220j\240\001\240\021\330\017\020\330\014\023\2206\230\021\330\014\020\220\001\220\022\220<\230z\320)F\300a\330\014\020\220\001\220\021\330\014\020\220\001\220\021\330\014\r\340\014\026\220g\230Q\230a\340\004\010\210\010\220\001\330\010\013\2105\220\003\2201\330\014\022\220,\230a\330\020\022\220$\320\026Q\320QR";
 static const char __pyx_k_ASyncFunctionSyncDefault___call[] = "ASyncFunctionSyncDefault.__call__";
 static const char __pyx_k_ASyncFunction___get___locals_as[] = "_ASyncFunction.__get__.<locals>.async_wrap";
 static const char __pyx_k_ASyncFunction___get___locals_sy[] = "_ASyncFunction.__get__.<locals>.sync_wrap";
@@ -3929,6 +3928,7 @@ static const char __pyx_k_T_T1TTXXuuy_z_W_W_y_y_F_F_J_J_f[] = "\200\001\360\010\
 static const char __pyx_k_class_a_sync_a_sync_function_AS[] = ":class:`~a_sync.a_sync.function.ASyncFunction`, you can optionally pass either a `sync` or `asynchronous` kwarg with a boolean value.";
 static const char __pyx_k_default_must_be_either_sync_asy[] = "'default' must be either 'sync', 'async', or None. You passed ";
 static const char __pyx_k_must_not_have_any_arguments_wit[] = " must not have any arguments with the following names: ";
+static const char __pyx_k_q_A_Rwa_j_6_z_Fa_e1G1A_5_1_a_QQ[] = "\320\000'\240q\360\010\000\005\006\330\010\022\220\"\220A\330\010\022\220'\230\034\240R\240w\250a\340\010\t\330\014\026\220j\240\001\240\021\330\017\020\330\014\023\2206\230\021\330\014\020\220\001\220\022\220<\230z\320)F\300a\330\014\020\220\001\220\021\330\014\020\220\001\220\021\330\014\r\360\010\000\r\027\220e\2301\230G\2401\240A\340\004\010\210\010\220\001\330\010\013\2105\220\003\2201\330\014\022\220,\230a\330\020\022\220$\320\026Q\320QR";
 static const char __pyx_k_ASyncDecoratorAsyncDefault___red[] = "ASyncDecoratorAsyncDefault.__reduce_cython__";
 static const char __pyx_k_ASyncDecoratorAsyncDefault___set[] = "ASyncDecoratorAsyncDefault.__setstate_cython__";
 static const char __pyx_k_ASyncDecoratorSyncDefault___redu[] = "ASyncDecoratorSyncDefault.__reduce_cython__";
@@ -6617,20 +6617,22 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
 */
         }
 
-        /* "a_sync/a_sync/function.pyx":198
- *             return
- *         else:
- *             fn_args = argspec[0]             # <<<<<<<<<<<<<<
+        /* "a_sync/a_sync/function.pyx":200
+ *             # python argspec is already a tuple but mypyc compiled functions
+ *             # return a list which me must coerce to tuple.
+ *             fn_args = tuple(argspec[0])             # <<<<<<<<<<<<<<
  * 
  *     for flag in fn_args:
 */
-        __Pyx_TraceLine(198,37,0,__PYX_ERR(0, 198, __pyx_L13_except_error))
+        __Pyx_TraceLine(200,37,0,__PYX_ERR(0, 200, __pyx_L13_except_error))
         /*else:*/ {
-          __pyx_t_10 = __Pyx_GetItemInt(__pyx_v_argspec, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 198, __pyx_L13_except_error)
+          __pyx_t_10 = __Pyx_GetItemInt(__pyx_v_argspec, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 200, __pyx_L13_except_error)
           __Pyx_GOTREF(__pyx_t_10);
-          if (!(likely(PyTuple_CheckExact(__pyx_t_10))||((__pyx_t_10) == Py_None) || __Pyx_RaiseUnexpectedTypeError("tuple", __pyx_t_10))) __PYX_ERR(0, 198, __pyx_L13_except_error)
-          __Pyx_XDECREF_SET(__pyx_v_fn_args, ((PyObject*)__pyx_t_10));
-          __pyx_t_10 = 0;
+          __pyx_t_12 = __Pyx_PySequence_Tuple(__pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 200, __pyx_L13_except_error)
+          __Pyx_GOTREF(__pyx_t_12);
+          __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+          __Pyx_XDECREF_SET(__pyx_v_fn_args, ((PyObject*)__pyx_t_12));
+          __pyx_t_12 = 0;
         }
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -6654,9 +6656,9 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
         if (__pyx_t_14) {
           __Pyx_AddTraceback("a_sync.a_sync.function._validate_argspec", __pyx_clineno, __pyx_lineno, __pyx_filename);
           __Pyx_TraceExceptionHandled(0);
-          if (__Pyx_GetException(&__pyx_t_10, &__pyx_t_12, &__pyx_t_11) < 0) __PYX_ERR(0, 191, __pyx_L13_except_error)
-          __Pyx_XGOTREF(__pyx_t_10);
+          if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_10, &__pyx_t_11) < 0) __PYX_ERR(0, 191, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_12);
+          __Pyx_XGOTREF(__pyx_t_10);
           __Pyx_XGOTREF(__pyx_t_11);
           __Pyx_TraceExceptionDone();
 
@@ -6794,7 +6796,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
  *             warn("hopefully you know what you're doing...")
  *             return             # <<<<<<<<<<<<<<
  *         else:
- *             fn_args = argspec[0]
+ *             # python argspec is already a tuple but mypyc compiled functions
 */
           __Pyx_TraceLine(196,34,0,__PYX_ERR(0, 196, __pyx_L13_except_error))
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -6861,17 +6863,17 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
     __pyx_L8_try_end:;
   }
 
-  /* "a_sync/a_sync/function.pyx":200
- *             fn_args = argspec[0]
+  /* "a_sync/a_sync/function.pyx":202
+ *             fn_args = tuple(argspec[0])
  * 
  *     for flag in fn_args:             # <<<<<<<<<<<<<<
  *         if flag in VIABLE_FLAGS:
  *             raise RuntimeError(
 */
-  __Pyx_TraceLine(200,41,0,__PYX_ERR(0, 200, __pyx_L1_error))
+  __Pyx_TraceLine(202,43,0,__PYX_ERR(0, 202, __pyx_L1_error))
   if (unlikely(__pyx_v_fn_args == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 200, __pyx_L1_error)
+    __PYX_ERR(0, 202, __pyx_L1_error)
   }
   __pyx_t_4 = __pyx_v_fn_args; __Pyx_INCREF(__pyx_t_4);
   __pyx_t_22 = 0;
@@ -6879,7 +6881,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
     {
       Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 200, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 202, __pyx_L1_error)
       #endif
       if (__pyx_t_22 >= __pyx_temp) break;
     }
@@ -6889,59 +6891,59 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
     __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_22);
     #endif
     ++__pyx_t_22;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_XDECREF_SET(__pyx_v_flag, __pyx_t_5);
     __pyx_t_5 = 0;
-    __Pyx_TraceLine(200,39,0,__PYX_ERR(0, 200, __pyx_L1_error))
+    __Pyx_TraceLine(202,41,0,__PYX_ERR(0, 202, __pyx_L1_error))
 
-    /* "a_sync/a_sync/function.pyx":201
+    /* "a_sync/a_sync/function.pyx":203
  * 
  *     for flag in fn_args:
  *         if flag in VIABLE_FLAGS:             # <<<<<<<<<<<<<<
  *             raise RuntimeError(
  *                 f"{fn} must not have any arguments with the following names: {VIABLE_FLAGS}"
 */
-    __Pyx_TraceLine(201,45,0,__PYX_ERR(0, 201, __pyx_L1_error))
+    __Pyx_TraceLine(203,47,0,__PYX_ERR(0, 203, __pyx_L1_error))
     if (unlikely(__pyx_v_6a_sync_6a_sync_5flags_VIABLE_FLAGS == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 201, __pyx_L1_error)
+      __PYX_ERR(0, 203, __pyx_L1_error)
     }
-    __pyx_t_23 = (__Pyx_PySet_ContainsTF(__pyx_v_flag, __pyx_v_6a_sync_6a_sync_5flags_VIABLE_FLAGS, Py_EQ)); if (unlikely((__pyx_t_23 < 0))) __PYX_ERR(0, 201, __pyx_L1_error)
+    __pyx_t_23 = (__Pyx_PySet_ContainsTF(__pyx_v_flag, __pyx_v_6a_sync_6a_sync_5flags_VIABLE_FLAGS, Py_EQ)); if (unlikely((__pyx_t_23 < 0))) __PYX_ERR(0, 203, __pyx_L1_error)
     if (unlikely(__pyx_t_23)) {
 
-      /* "a_sync/a_sync/function.pyx":202
+      /* "a_sync/a_sync/function.pyx":204
  *     for flag in fn_args:
  *         if flag in VIABLE_FLAGS:
  *             raise RuntimeError(             # <<<<<<<<<<<<<<
  *                 f"{fn} must not have any arguments with the following names: {VIABLE_FLAGS}"
  *             )
 */
-      __Pyx_TraceLine(202,48,0,__PYX_ERR(0, 202, __pyx_L1_error))
+      __Pyx_TraceLine(204,50,0,__PYX_ERR(0, 204, __pyx_L1_error))
       __pyx_t_6 = NULL;
       __Pyx_INCREF(__pyx_builtin_RuntimeError);
       __pyx_t_11 = __pyx_builtin_RuntimeError; 
 
-      /* "a_sync/a_sync/function.pyx":203
+      /* "a_sync/a_sync/function.pyx":205
  *         if flag in VIABLE_FLAGS:
  *             raise RuntimeError(
  *                 f"{fn} must not have any arguments with the following names: {VIABLE_FLAGS}"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-      __Pyx_TraceLine(203,50,0,__PYX_ERR(0, 203, __pyx_L1_error))
-      __pyx_t_12 = __Pyx_PyObject_FormatSimple(__pyx_v_fn, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 203, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_12);
-      __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_v_6a_sync_6a_sync_5flags_VIABLE_FLAGS, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 203, __pyx_L1_error)
+      __Pyx_TraceLine(205,52,0,__PYX_ERR(0, 205, __pyx_L1_error))
+      __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_v_fn, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 205, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_24[0] = __pyx_t_12;
+      __pyx_t_12 = __Pyx_PyObject_FormatSimple(__pyx_v_6a_sync_6a_sync_5flags_VIABLE_FLAGS, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 205, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_12);
+      __pyx_t_24[0] = __pyx_t_10;
       __pyx_t_24[1] = __pyx_mstate_global->__pyx_kp_u_must_not_have_any_arguments_wit;
-      __pyx_t_24[2] = __pyx_t_10;
-      __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_24, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_12) + 55 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_12) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10));
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 203, __pyx_L1_error)
+      __pyx_t_24[2] = __pyx_t_12;
+      __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_24, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10) + 55 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_12), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_12));
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 205, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
-      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_t_13 = 1;
       {
         PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_15};
@@ -6949,14 +6951,14 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 204, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
       __Pyx_Raise(__pyx_t_5, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __PYX_ERR(0, 202, __pyx_L1_error)
+      __PYX_ERR(0, 204, __pyx_L1_error)
 
-      /* "a_sync/a_sync/function.pyx":201
+      /* "a_sync/a_sync/function.pyx":203
  * 
  *     for flag in fn_args:
  *         if flag in VIABLE_FLAGS:             # <<<<<<<<<<<<<<
@@ -6965,14 +6967,14 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
 */
     }
 
-    /* "a_sync/a_sync/function.pyx":200
- *             fn_args = argspec[0]
+    /* "a_sync/a_sync/function.pyx":202
+ *             fn_args = tuple(argspec[0])
  * 
  *     for flag in fn_args:             # <<<<<<<<<<<<<<
  *         if flag in VIABLE_FLAGS:
  *             raise RuntimeError(
 */
-    __Pyx_TraceLine(200,39,0,__PYX_ERR(0, 200, __pyx_L1_error))
+    __Pyx_TraceLine(202,41,0,__PYX_ERR(0, 202, __pyx_L1_error))
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
@@ -7017,7 +7019,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__validate_argspec(Py
   __Pyx_RefNannyFinishContext();
 }
 
-/* "a_sync/a_sync/function.pyx":240
+/* "a_sync/a_sync/function.pyx":242
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -7055,24 +7057,24 @@ static int __pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_1__init__(PyObjec
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_fn,&__pyx_mstate_global->__pyx_n_u_skip_validate,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 240, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 242, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 240, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 242, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 240, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 242, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 240, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 242, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":243
+      /* "a_sync/a_sync/function.pyx":245
  *         self,
  *         fn: AnyFn[P, T],
  *         _skip_validate: bint = False,             # <<<<<<<<<<<<<<
@@ -7081,17 +7083,17 @@ static int __pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_1__init__(PyObjec
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_False));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, i); __PYX_ERR(0, 240, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, i); __PYX_ERR(0, 242, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 240, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 242, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 240, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 242, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -7102,7 +7104,7 @@ static int __pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_1__init__(PyObjec
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 240, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 242, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7116,7 +7118,7 @@ static int __pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_1__init__(PyObjec
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_fn, __pyx_v__skip_validate, __pyx_v_modifiers);
 
-  /* "a_sync/a_sync/function.pyx":240
+  /* "a_sync/a_sync/function.pyx":242
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -7148,31 +7150,31 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15]))
   __Pyx_RefNannySetupContext("__init__", 0);
-  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 240, 0, 0, 0, __PYX_ERR(0, 240, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 242, 0, 0, 0, __PYX_ERR(0, 242, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":258
+  /* "a_sync/a_sync/function.pyx":260
  *             - :class:`ModifierManager`
  *         """
  *         if not _skip_validate:             # <<<<<<<<<<<<<<
  *             _validate_wrapped_fn(fn)
  * 
 */
-  __Pyx_TraceLine(258,7,0,__PYX_ERR(0, 258, __pyx_L1_error))
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v__skip_validate); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 258, __pyx_L1_error)
+  __Pyx_TraceLine(260,7,0,__PYX_ERR(0, 260, __pyx_L1_error))
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v__skip_validate); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 260, __pyx_L1_error)
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":259
+    /* "a_sync/a_sync/function.pyx":261
  *         """
  *         if not _skip_validate:
  *             _validate_wrapped_fn(fn)             # <<<<<<<<<<<<<<
  * 
  *         self.modifiers = ModifierManager(modifiers)
 */
-    __Pyx_TraceLine(259,9,0,__PYX_ERR(0, 259, __pyx_L1_error))
-    __pyx_f_6a_sync_6a_sync_8function__validate_wrapped_fn(__pyx_v_fn); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 259, __pyx_L1_error)
+    __Pyx_TraceLine(261,9,0,__PYX_ERR(0, 261, __pyx_L1_error))
+    __pyx_f_6a_sync_6a_sync_8function__validate_wrapped_fn(__pyx_v_fn); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 261, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":258
+    /* "a_sync/a_sync/function.pyx":260
  *             - :class:`ModifierManager`
  *         """
  *         if not _skip_validate:             # <<<<<<<<<<<<<<
@@ -7181,14 +7183,14 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":261
+  /* "a_sync/a_sync/function.pyx":263
  *             _validate_wrapped_fn(fn)
  * 
  *         self.modifiers = ModifierManager(modifiers)             # <<<<<<<<<<<<<<
  *         """A :class:`~ModifierManager` instance managing function modifiers."""
  * 
 */
-  __Pyx_TraceLine(261,14,0,__PYX_ERR(0, 261, __pyx_L1_error))
+  __Pyx_TraceLine(263,14,0,__PYX_ERR(0, 263, __pyx_L1_error))
   __pyx_t_4 = NULL;
   __Pyx_INCREF((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_9modifiers_7manager_ModifierManager);
   __pyx_t_5 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_9modifiers_7manager_ModifierManager); 
@@ -7198,7 +7200,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 263, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_3);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_3);
@@ -7207,55 +7209,55 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
   __pyx_v_self->__pyx_base.modifiers = ((struct __pyx_obj_6a_sync_6a_sync_9modifiers_7manager_ModifierManager *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":264
+  /* "a_sync/a_sync/function.pyx":266
  *         """A :class:`~ModifierManager` instance managing function modifiers."""
  * 
  *         self._fn = None             # <<<<<<<<<<<<<<
  *         """The wrapped callable that will be called. This will be populated the first time it is needed."""
  * 
 */
-  __Pyx_TraceLine(264,17,0,__PYX_ERR(0, 264, __pyx_L1_error))
+  __Pyx_TraceLine(266,17,0,__PYX_ERR(0, 266, __pyx_L1_error))
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
   __Pyx_GOTREF(__pyx_v_self->_fn);
   __Pyx_DECREF(__pyx_v_self->_fn);
   __pyx_v_self->_fn = Py_None;
 
-  /* "a_sync/a_sync/function.pyx":267
+  /* "a_sync/a_sync/function.pyx":269
  *         """The wrapped callable that will be called. This will be populated the first time it is needed."""
  * 
  *         self.__wrapped__ = fn             # <<<<<<<<<<<<<<
  *         """The original function that was wrapped."""
  * 
 */
-  __Pyx_TraceLine(267,21,0,__PYX_ERR(0, 267, __pyx_L1_error))
+  __Pyx_TraceLine(269,21,0,__PYX_ERR(0, 269, __pyx_L1_error))
   __Pyx_INCREF(__pyx_v_fn);
   __Pyx_GIVEREF(__pyx_v_fn);
   __Pyx_GOTREF(__pyx_v_self->__pyx_base.__pyx___wrapped__);
   __Pyx_DECREF(__pyx_v_self->__pyx_base.__pyx___wrapped__);
   __pyx_v_self->__pyx_base.__pyx___wrapped__ = __pyx_v_fn;
 
-  /* "a_sync/a_sync/function.pyx":270
+  /* "a_sync/a_sync/function.pyx":272
  *         """The original function that was wrapped."""
  * 
  *         self.__sync_default_cached = False             # <<<<<<<<<<<<<<
  *         self.__async_def_cached = False
  * 
 */
-  __Pyx_TraceLine(270,25,0,__PYX_ERR(0, 270, __pyx_L1_error))
+  __Pyx_TraceLine(272,25,0,__PYX_ERR(0, 272, __pyx_L1_error))
   __pyx_v_self->_ASyncFunction__sync_default_cached = 0;
 
-  /* "a_sync/a_sync/function.pyx":271
+  /* "a_sync/a_sync/function.pyx":273
  * 
  *         self.__sync_default_cached = False
  *         self.__async_def_cached = False             # <<<<<<<<<<<<<<
  * 
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:
 */
-  __Pyx_TraceLine(271,28,0,__PYX_ERR(0, 271, __pyx_L1_error))
+  __Pyx_TraceLine(273,28,0,__PYX_ERR(0, 273, __pyx_L1_error))
   __pyx_v_self->_ASyncFunction__async_def_cached = 0;
 
-  /* "a_sync/a_sync/function.pyx":240
+  /* "a_sync/a_sync/function.pyx":242
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -7265,7 +7267,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
 
   /* function exit code */
   __pyx_r = 0;
-  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_Owned_Py_None, 0, 0, __PYX_ERR(0, 240, __pyx_L1_error));
+  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_Owned_Py_None, 0, 0, __PYX_ERR(0, 242, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_3);
@@ -7275,7 +7277,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 240, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 242, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
@@ -7285,7 +7287,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction___init__(struct _
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":273
+/* "a_sync/a_sync/function.pyx":275
  *         self.__async_def_cached = False
  * 
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
@@ -7350,41 +7352,41 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__(s
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 273, 0, 0, 0, __PYX_ERR(0, 273, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 275, 0, 0, 0, __PYX_ERR(0, 275, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":297
+  /* "a_sync/a_sync/function.pyx":299
  *             - :meth:`_run_sync`
  *         """
  *         fn = self.get_fn()             # <<<<<<<<<<<<<<
  *         _logger_debug(
  *             "calling %s fn: %s with args: %s kwargs: %s", self, fn, args, kwargs
 */
-  __Pyx_TraceLine(297,5,0,__PYX_ERR(0, 297, __pyx_L1_error))
-  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_TraceLine(299,5,0,__PYX_ERR(0, 299, __pyx_L1_error))
+  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_fn = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":298
+  /* "a_sync/a_sync/function.pyx":300
  *         """
  *         fn = self.get_fn()
  *         _logger_debug(             # <<<<<<<<<<<<<<
  *             "calling %s fn: %s with args: %s kwargs: %s", self, fn, args, kwargs
  *         )
 */
-  __Pyx_TraceLine(298,7,0,__PYX_ERR(0, 298, __pyx_L1_error))
+  __Pyx_TraceLine(300,7,0,__PYX_ERR(0, 300, __pyx_L1_error))
   __pyx_t_2 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function__logger_debug);
   __pyx_t_3 = __pyx_v_6a_sync_6a_sync_8function__logger_debug; 
 
-  /* "a_sync/a_sync/function.pyx":299
+  /* "a_sync/a_sync/function.pyx":301
  *         fn = self.get_fn()
  *         _logger_debug(
  *             "calling %s fn: %s with args: %s kwargs: %s", self, fn, args, kwargs             # <<<<<<<<<<<<<<
  *         )
  *         return fn(*args, **kwargs)
 */
-  __Pyx_TraceLine(299,12,0,__PYX_ERR(0, 299, __pyx_L1_error))
+  __Pyx_TraceLine(301,12,0,__PYX_ERR(0, 301, __pyx_L1_error))
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
   if (unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -7402,31 +7404,31 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__(s
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (6-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 298, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":301
+  /* "a_sync/a_sync/function.pyx":303
  *             "calling %s fn: %s with args: %s kwargs: %s", self, fn, args, kwargs
  *         )
  *         return fn(*args, **kwargs)             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self) -> str:
 */
-  __Pyx_TraceLine(301,13,0,__PYX_ERR(0, 301, __pyx_L1_error))
+  __Pyx_TraceLine(303,13,0,__PYX_ERR(0, 303, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_v_fn, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_v_fn, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 13, 0, __PYX_ERR(0, 301, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 13, 0, __PYX_ERR(0, 303, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":273
+  /* "a_sync/a_sync/function.pyx":275
  *         self.__async_def_cached = False
  * 
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
@@ -7443,7 +7445,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__(s
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 273, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 275, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -7455,7 +7457,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__(s
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":303
+/* "a_sync/a_sync/function.pyx":305
  *         return fn(*args, **kwargs)
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -7499,36 +7501,36 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_4__repr__(s
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17]))
   __Pyx_RefNannySetupContext("__repr__", 0);
-  __Pyx_TraceStartFunc("__repr__", __pyx_f[0], 303, 0, 0, 0, __PYX_ERR(0, 303, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__repr__", __pyx_f[0], 305, 0, 0, 0, __PYX_ERR(0, 305, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":304
+  /* "a_sync/a_sync/function.pyx":306
  * 
  *     def __repr__(self) -> str:
  *         return "<{} {}.{} at {}>".format(             # <<<<<<<<<<<<<<
  *             self.__class__.__name__, self.__module__, self.__name__, hex(id(self))
  *         )
 */
-  __Pyx_TraceLine(304,2,0,__PYX_ERR(0, 304, __pyx_L1_error))
+  __Pyx_TraceLine(306,2,0,__PYX_ERR(0, 306, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = __pyx_mstate_global->__pyx_kp_u_at;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":305
+  /* "a_sync/a_sync/function.pyx":307
  *     def __repr__(self) -> str:
  *         return "<{} {}.{} at {}>".format(
  *             self.__class__.__name__, self.__module__, self.__name__, hex(id(self))             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __Pyx_TraceLine(305,7,0,__PYX_ERR(0, 305, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __Pyx_TraceLine(307,7,0,__PYX_ERR(0, 307, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 307, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 307, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_module); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_module); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 307, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 307, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = NULL;
   __Pyx_INCREF(__pyx_builtin_hex);
@@ -7542,7 +7544,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_4__repr__(s
     __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 305, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 307, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __pyx_t_12 = 1;
@@ -7552,7 +7554,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_4__repr__(s
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 305, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 307, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
   __pyx_t_12 = 0;
@@ -7564,15 +7566,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_4__repr__(s
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 2, 0, __PYX_ERR(0, 304, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 2, 0, __PYX_ERR(0, 306, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":303
+  /* "a_sync/a_sync/function.pyx":305
  *         return fn(*args, **kwargs)
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -7597,7 +7599,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_4__repr__(s
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 303, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 305, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.__repr__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -7608,7 +7610,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_4__repr__(s
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":308
+/* "a_sync/a_sync/function.pyx":310
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7641,25 +7643,25 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2fn___get__
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18]))
   __Pyx_RefNannySetupContext("__get__", 0);
-  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 308, 0, 0, 0, __PYX_ERR(0, 308, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 310, 0, 0, 0, __PYX_ERR(0, 310, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":322
+  /* "a_sync/a_sync/function.pyx":324
  *             - :meth:`_sync_wrap`
  *         """
  *         return self.get_fn()             # <<<<<<<<<<<<<<
  * 
  *     cdef object get_fn(self):
 */
-  __Pyx_TraceLine(322,1,0,__PYX_ERR(0, 322, __pyx_L1_error))
+  __Pyx_TraceLine(324,1,0,__PYX_ERR(0, 324, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 322, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 324, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 1, 0, __PYX_ERR(0, 322, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 1, 0, __PYX_ERR(0, 324, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":308
+  /* "a_sync/a_sync/function.pyx":310
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7674,7 +7676,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2fn___get__
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 308, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 310, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.fn.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -7685,7 +7687,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_2fn___get__
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":324
+/* "a_sync/a_sync/function.pyx":326
  *         return self.get_fn()
  * 
  *     cdef object get_fn(self):             # <<<<<<<<<<<<<<
@@ -7706,48 +7708,48 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_get_fn(struc
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19]))
   __Pyx_RefNannySetupContext("get_fn", 0);
-  __Pyx_TraceStartFunc("get_fn", __pyx_f[0], 324, 0, 0, 0, __PYX_ERR(0, 324, __pyx_L1_error));
+  __Pyx_TraceStartFunc("get_fn", __pyx_f[0], 326, 0, 0, 0, __PYX_ERR(0, 326, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":325
+  /* "a_sync/a_sync/function.pyx":327
  * 
  *     cdef object get_fn(self):
  *         fn = self._fn             # <<<<<<<<<<<<<<
  *         if fn is None:
  *             fn = self._async_wrap if self.is_async_def() else self._sync_wrap
 */
-  __Pyx_TraceLine(325,3,0,__PYX_ERR(0, 325, __pyx_L1_error))
+  __Pyx_TraceLine(327,3,0,__PYX_ERR(0, 327, __pyx_L1_error))
   __pyx_t_1 = __pyx_v_self->_fn;
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_fn = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":326
+  /* "a_sync/a_sync/function.pyx":328
  *     cdef object get_fn(self):
  *         fn = self._fn
  *         if fn is None:             # <<<<<<<<<<<<<<
  *             fn = self._async_wrap if self.is_async_def() else self._sync_wrap
  *             self._fn = fn
 */
-  __Pyx_TraceLine(326,7,0,__PYX_ERR(0, 326, __pyx_L1_error))
+  __Pyx_TraceLine(328,7,0,__PYX_ERR(0, 328, __pyx_L1_error))
   __pyx_t_2 = (__pyx_v_fn == Py_None);
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":327
+    /* "a_sync/a_sync/function.pyx":329
  *         fn = self._fn
  *         if fn is None:
  *             fn = self._async_wrap if self.is_async_def() else self._sync_wrap             # <<<<<<<<<<<<<<
  *             self._fn = fn
  *         return fn
 */
-    __Pyx_TraceLine(327,13,0,__PYX_ERR(0, 327, __pyx_L1_error))
-    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 327, __pyx_L1_error)
+    __Pyx_TraceLine(329,13,0,__PYX_ERR(0, 329, __pyx_L1_error))
+    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L1_error)
     if (__pyx_t_2) {
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_async_wrap); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 327, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_async_wrap); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 329, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_1 = __pyx_t_3;
       __pyx_t_3 = 0;
     } else {
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sync_wrap); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 327, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sync_wrap); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 329, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_1 = __pyx_t_3;
       __pyx_t_3 = 0;
@@ -7755,21 +7757,21 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_get_fn(struc
     __Pyx_DECREF_SET(__pyx_v_fn, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":328
+    /* "a_sync/a_sync/function.pyx":330
  *         if fn is None:
  *             fn = self._async_wrap if self.is_async_def() else self._sync_wrap
  *             self._fn = fn             # <<<<<<<<<<<<<<
  *         return fn
  * 
 */
-    __Pyx_TraceLine(328,16,0,__PYX_ERR(0, 328, __pyx_L1_error))
+    __Pyx_TraceLine(330,16,0,__PYX_ERR(0, 330, __pyx_L1_error))
     __Pyx_INCREF(__pyx_v_fn);
     __Pyx_GIVEREF(__pyx_v_fn);
     __Pyx_GOTREF(__pyx_v_self->_fn);
     __Pyx_DECREF(__pyx_v_self->_fn);
     __pyx_v_self->_fn = __pyx_v_fn;
 
-    /* "a_sync/a_sync/function.pyx":326
+    /* "a_sync/a_sync/function.pyx":328
  *     cdef object get_fn(self):
  *         fn = self._fn
  *         if fn is None:             # <<<<<<<<<<<<<<
@@ -7778,21 +7780,21 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_get_fn(struc
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":329
+  /* "a_sync/a_sync/function.pyx":331
  *             fn = self._async_wrap if self.is_async_def() else self._sync_wrap
  *             self._fn = fn
  *         return fn             # <<<<<<<<<<<<<<
  * 
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:
 */
-  __Pyx_TraceLine(329,19,0,__PYX_ERR(0, 329, __pyx_L1_error))
+  __Pyx_TraceLine(331,19,0,__PYX_ERR(0, 331, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_fn);
   __pyx_r = __pyx_v_fn;
-  __Pyx_TraceReturnValue(__pyx_r, 19, 0, __PYX_ERR(0, 329, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 19, 0, __PYX_ERR(0, 331, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":324
+  /* "a_sync/a_sync/function.pyx":326
  *         return self.get_fn()
  * 
  *     cdef object get_fn(self):             # <<<<<<<<<<<<<<
@@ -7808,7 +7810,7 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_get_fn(struc
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 324, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 326, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.get_fn", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
@@ -7820,7 +7822,7 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_get_fn(struc
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":333
+/* "a_sync/a_sync/function.pyx":335
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:
  *         # we can specify P.args in python>=3.11 but in lower versions it causes a crash. Everything should still type check correctly on all versions.
  *         def map(             # <<<<<<<<<<<<<<
@@ -7859,15 +7861,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_7map(PyObje
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 333, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "map", 1) < 0) __PYX_ERR(0, 333, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "map", 1) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":336
+      /* "a_sync/a_sync/function.pyx":338
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -7887,7 +7889,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_7map(PyObje
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("map", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 333, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("map", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 335, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7900,10 +7902,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_7map(PyObje
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 339, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_6map(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":333
+  /* "a_sync/a_sync/function.pyx":335
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:
  *         # we can specify P.args in python>=3.11 but in lower versions it causes a crash. Everything should still type check correctly on all versions.
  *         def map(             # <<<<<<<<<<<<<<
@@ -7944,33 +7946,33 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_6map(struct
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20]))
   __Pyx_RefNannySetupContext("map", 0);
-  __Pyx_TraceStartFunc("map", __pyx_f[0], 333, 0, 0, 0, __PYX_ERR(0, 333, __pyx_L1_error));
+  __Pyx_TraceStartFunc("map", __pyx_f[0], 335, 0, 0, 0, __PYX_ERR(0, 335, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":355
+  /* "a_sync/a_sync/function.pyx":357
  *                 - :class:`TaskMapping`
  *             """
  *             if TaskMapping is None:             # <<<<<<<<<<<<<<
  *                 _import_TaskMapping()
  * 
 */
-  __Pyx_TraceLine(355,7,0,__PYX_ERR(0, 355, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __Pyx_TraceLine(357,7,0,__PYX_ERR(0, 357, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":356
+    /* "a_sync/a_sync/function.pyx":358
  *             """
  *             if TaskMapping is None:
  *                 _import_TaskMapping()             # <<<<<<<<<<<<<<
  * 
  *             return TaskMapping(
 */
-    __Pyx_TraceLine(356,11,0,__PYX_ERR(0, 356, __pyx_L1_error))
-    __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_TraceLine(358,11,0,__PYX_ERR(0, 358, __pyx_L1_error))
+    __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 358, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":355
+    /* "a_sync/a_sync/function.pyx":357
  *                 - :class:`TaskMapping`
  *             """
  *             if TaskMapping is None:             # <<<<<<<<<<<<<<
@@ -7979,97 +7981,97 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_6map(struct
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":358
+  /* "a_sync/a_sync/function.pyx":360
  *                 _import_TaskMapping()
  * 
  *             return TaskMapping(             # <<<<<<<<<<<<<<
  *                 self,
  *                 *iterables,
 */
-  __Pyx_TraceLine(358,12,0,__PYX_ERR(0, 358, __pyx_L1_error))
+  __Pyx_TraceLine(360,12,0,__PYX_ERR(0, 360, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "a_sync/a_sync/function.pyx":359
+  /* "a_sync/a_sync/function.pyx":361
  * 
  *             return TaskMapping(
  *                 self,             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(359,15,0,__PYX_ERR(0, 359, __pyx_L1_error))
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_TraceLine(361,15,0,__PYX_ERR(0, 361, __pyx_L1_error))
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF((PyObject *)__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_v_self);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_self)) != (0)) __PYX_ERR(0, 358, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_self)) != (0)) __PYX_ERR(0, 360, __pyx_L1_error);
 
-  /* "a_sync/a_sync/function.pyx":358
+  /* "a_sync/a_sync/function.pyx":360
  *                 _import_TaskMapping()
  * 
  *             return TaskMapping(             # <<<<<<<<<<<<<<
  *                 self,
  *                 *iterables,
 */
-  __Pyx_TraceLine(358,14,0,__PYX_ERR(0, 358, __pyx_L1_error))
-  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_iterables); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_TraceLine(360,14,0,__PYX_ERR(0, 360, __pyx_L1_error))
+  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_iterables); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":361
+  /* "a_sync/a_sync/function.pyx":363
  *                 self,
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(361,17,0,__PYX_ERR(0, 361, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 361, __pyx_L1_error)
+  __Pyx_TraceLine(363,17,0,__PYX_ERR(0, 363, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_v_concurrency) < 0) __PYX_ERR(0, 361, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_v_concurrency) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":362
+  /* "a_sync/a_sync/function.pyx":364
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             )
 */
-  __Pyx_TraceLine(362,20,0,__PYX_ERR(0, 362, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name_2, __pyx_v_task_name) < 0) __PYX_ERR(0, 361, __pyx_L1_error)
+  __Pyx_TraceLine(364,20,0,__PYX_ERR(0, 364, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name_2, __pyx_v_task_name) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
   __pyx_t_3 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":363
+  /* "a_sync/a_sync/function.pyx":365
  *                 concurrency=concurrency,
  *                 name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-  __Pyx_TraceLine(363,21,0,__PYX_ERR(0, 363, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_3, __pyx_v_function_kwargs) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  __Pyx_TraceLine(365,21,0,__PYX_ERR(0, 365, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_3, __pyx_v_function_kwargs) < 0) __PYX_ERR(0, 365, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":358
+  /* "a_sync/a_sync/function.pyx":360
  *                 _import_TaskMapping()
  * 
  *             return TaskMapping(             # <<<<<<<<<<<<<<
  *                 self,
  *                 *iterables,
 */
-  __Pyx_TraceLine(358,14,0,__PYX_ERR(0, 358, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_TraceLine(360,14,0,__PYX_ERR(0, 360, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_r = __pyx_t_5;
   __pyx_t_5 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 12, 0, __PYX_ERR(0, 358, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 12, 0, __PYX_ERR(0, 360, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":333
+  /* "a_sync/a_sync/function.pyx":335
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:
  *         # we can specify P.args in python>=3.11 but in lower versions it causes a crash. Everything should still type check correctly on all versions.
  *         def map(             # <<<<<<<<<<<<<<
@@ -8087,7 +8089,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_6map(struct
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 333, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 335, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.map", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -8099,7 +8101,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_6map(struct
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_10generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":366
+/* "a_sync/a_sync/function.pyx":368
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
@@ -8138,15 +8140,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_9any(PyObje
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 366, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 368, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "any", 1) < 0) __PYX_ERR(0, 366, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "any", 1) < 0) __PYX_ERR(0, 368, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":369
+      /* "a_sync/a_sync/function.pyx":371
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -8166,7 +8168,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_9any(PyObje
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("any", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 366, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("any", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 368, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8179,10 +8181,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_9any(PyObje
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 370, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 372, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_8any(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":366
+  /* "a_sync/a_sync/function.pyx":368
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
@@ -8221,7 +8223,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_8any(struct
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct__any *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 366, __pyx_L1_error)
+    __PYX_ERR(0, 368, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8241,7 +8243,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_8any(struct
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_10generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_any, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_10generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_any, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 368, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -8278,115 +8280,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_10generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("any", __pyx_f[0], 366, 0, 0, 0, __PYX_ERR(0, 366, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 366, __pyx_L1_error));
+    __Pyx_TraceStartGen("any", __pyx_f[0], 368, 0, 0, 0, __PYX_ERR(0, 368, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 368, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("any", __pyx_f[0], 366, 0, 0, 0, __PYX_ERR(0, 366, __pyx_L1_error));
+  __Pyx_TraceStartGen("any", __pyx_f[0], 368, 0, 0, 0, __PYX_ERR(0, 368, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 366, __pyx_L1_error)
+    __PYX_ERR(0, 368, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":388
+  /* "a_sync/a_sync/function.pyx":390
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(388,0,0,__PYX_ERR(0, 388, __pyx_L1_error))
+  __Pyx_TraceLine(390,0,0,__PYX_ERR(0, 390, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":393
+  /* "a_sync/a_sync/function.pyx":395
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).any(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def all(
 */
-  __Pyx_TraceLine(393,0,0,__PYX_ERR(0, 393, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __Pyx_TraceLine(395,0,0,__PYX_ERR(0, 395, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 390, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":390
+  /* "a_sync/a_sync/function.pyx":392
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(390,0,0,__PYX_ERR(0, 390, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 390, __pyx_L1_error)
+  __Pyx_TraceLine(392,0,0,__PYX_ERR(0, 392, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 392, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":391
+  /* "a_sync/a_sync/function.pyx":393
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).any(pop=True, sync=False)
 */
-  __Pyx_TraceLine(391,0,0,__PYX_ERR(0, 391, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 390, __pyx_L1_error)
+  __Pyx_TraceLine(393,0,0,__PYX_ERR(0, 393, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 392, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":392
+  /* "a_sync/a_sync/function.pyx":394
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).any(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(392,0,0,__PYX_ERR(0, 392, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 392, __pyx_L1_error)
+  __Pyx_TraceLine(394,0,0,__PYX_ERR(0, 394, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 394, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":388
+  /* "a_sync/a_sync/function.pyx":390
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(388,0,0,__PYX_ERR(0, 388, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __Pyx_TraceLine(390,0,0,__PYX_ERR(0, 390, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 390, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":393
+  /* "a_sync/a_sync/function.pyx":395
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).any(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def all(
 */
-  __Pyx_TraceLine(393,0,0,__PYX_ERR(0, 393, __pyx_L1_error))
+  __Pyx_TraceLine(395,0,0,__PYX_ERR(0, 395, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 393, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 395, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 393, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 393, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_any, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 393, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 395, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 388, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 390, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -8394,30 +8396,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_10generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("any", __pyx_f[0], 366, 0, __PYX_ERR(0, 388, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 388, __pyx_L1_error)
+    __Pyx_TraceResumeGen("any", __pyx_f[0], 368, 0, __PYX_ERR(0, 390, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 390, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 388, __pyx_L1_error)
+    __PYX_ERR(0, 390, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 388, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 390, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":366
+  /* "a_sync/a_sync/function.pyx":368
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-  __Pyx_TraceLine(366,0,0,__PYX_ERR(0, 366, __pyx_L1_error))
+  __Pyx_TraceLine(368,0,0,__PYX_ERR(0, 368, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -8445,7 +8447,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_10generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_13generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":395
+/* "a_sync/a_sync/function.pyx":397
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
@@ -8484,15 +8486,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_12all(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 395, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 397, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "all", 1) < 0) __PYX_ERR(0, 395, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "all", 1) < 0) __PYX_ERR(0, 397, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":398
+      /* "a_sync/a_sync/function.pyx":400
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -8512,7 +8514,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_12all(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("all", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 395, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("all", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 397, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8525,10 +8527,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_12all(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 399, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 401, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11all(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":395
+  /* "a_sync/a_sync/function.pyx":397
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
@@ -8567,7 +8569,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11all(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_1_all *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 395, __pyx_L1_error)
+    __PYX_ERR(0, 397, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8587,7 +8589,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11all(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_13generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_all, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 395, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_13generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_all, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 397, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -8624,115 +8626,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_13generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("all", __pyx_f[0], 395, 0, 0, 0, __PYX_ERR(0, 395, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 395, __pyx_L1_error));
+    __Pyx_TraceStartGen("all", __pyx_f[0], 397, 0, 0, 0, __PYX_ERR(0, 397, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 397, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("all", __pyx_f[0], 395, 0, 0, 0, __PYX_ERR(0, 395, __pyx_L1_error));
+  __Pyx_TraceStartGen("all", __pyx_f[0], 397, 0, 0, 0, __PYX_ERR(0, 397, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 395, __pyx_L1_error)
+    __PYX_ERR(0, 397, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":417
+  /* "a_sync/a_sync/function.pyx":419
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(417,0,0,__PYX_ERR(0, 417, __pyx_L1_error))
+  __Pyx_TraceLine(419,0,0,__PYX_ERR(0, 419, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":422
+  /* "a_sync/a_sync/function.pyx":424
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).all(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def min(
 */
-  __Pyx_TraceLine(422,0,0,__PYX_ERR(0, 422, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __Pyx_TraceLine(424,0,0,__PYX_ERR(0, 424, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":419
+  /* "a_sync/a_sync/function.pyx":421
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(419,0,0,__PYX_ERR(0, 419, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __Pyx_TraceLine(421,0,0,__PYX_ERR(0, 421, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 421, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 419, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 421, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":420
+  /* "a_sync/a_sync/function.pyx":422
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).all(pop=True, sync=False)
 */
-  __Pyx_TraceLine(420,0,0,__PYX_ERR(0, 420, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 419, __pyx_L1_error)
+  __Pyx_TraceLine(422,0,0,__PYX_ERR(0, 422, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 421, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":421
+  /* "a_sync/a_sync/function.pyx":423
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).all(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(421,0,0,__PYX_ERR(0, 421, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 421, __pyx_L1_error)
+  __Pyx_TraceLine(423,0,0,__PYX_ERR(0, 423, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 423, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":417
+  /* "a_sync/a_sync/function.pyx":419
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(417,0,0,__PYX_ERR(0, 417, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __Pyx_TraceLine(419,0,0,__PYX_ERR(0, 419, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":422
+  /* "a_sync/a_sync/function.pyx":424
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).all(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def min(
 */
-  __Pyx_TraceLine(422,0,0,__PYX_ERR(0, 422, __pyx_L1_error))
+  __Pyx_TraceLine(424,0,0,__PYX_ERR(0, 424, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 422, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 424, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 422, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 422, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_all, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 422, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 424, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 417, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 419, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -8740,30 +8742,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_13generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("all", __pyx_f[0], 395, 0, __PYX_ERR(0, 417, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 417, __pyx_L1_error)
+    __Pyx_TraceResumeGen("all", __pyx_f[0], 397, 0, __PYX_ERR(0, 419, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 419, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 417, __pyx_L1_error)
+    __PYX_ERR(0, 419, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 417, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 419, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":395
+  /* "a_sync/a_sync/function.pyx":397
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-  __Pyx_TraceLine(395,0,0,__PYX_ERR(0, 395, __pyx_L1_error))
+  __Pyx_TraceLine(397,0,0,__PYX_ERR(0, 397, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -8791,7 +8793,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_13generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_16generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":424
+/* "a_sync/a_sync/function.pyx":426
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
@@ -8830,15 +8832,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_15min(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 424, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 426, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "min", 1) < 0) __PYX_ERR(0, 424, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "min", 1) < 0) __PYX_ERR(0, 426, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":427
+      /* "a_sync/a_sync/function.pyx":429
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -8858,7 +8860,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_15min(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("min", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 424, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("min", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 426, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8871,10 +8873,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_15min(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 428, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 430, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_14min(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":424
+  /* "a_sync/a_sync/function.pyx":426
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
@@ -8913,7 +8915,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_14min(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_2_min *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 424, __pyx_L1_error)
+    __PYX_ERR(0, 426, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8933,7 +8935,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_14min(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_16generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_min, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 424, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_16generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_min, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -8970,115 +8972,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_16generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("min", __pyx_f[0], 424, 0, 0, 0, __PYX_ERR(0, 424, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 424, __pyx_L1_error));
+    __Pyx_TraceStartGen("min", __pyx_f[0], 426, 0, 0, 0, __PYX_ERR(0, 426, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 426, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("min", __pyx_f[0], 424, 0, 0, 0, __PYX_ERR(0, 424, __pyx_L1_error));
+  __Pyx_TraceStartGen("min", __pyx_f[0], 426, 0, 0, 0, __PYX_ERR(0, 426, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 424, __pyx_L1_error)
+    __PYX_ERR(0, 426, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":446
+  /* "a_sync/a_sync/function.pyx":448
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(446,0,0,__PYX_ERR(0, 446, __pyx_L1_error))
+  __Pyx_TraceLine(448,0,0,__PYX_ERR(0, 448, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":451
+  /* "a_sync/a_sync/function.pyx":453
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).min(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def max(
 */
-  __Pyx_TraceLine(451,0,0,__PYX_ERR(0, 451, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_TraceLine(453,0,0,__PYX_ERR(0, 453, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":448
+  /* "a_sync/a_sync/function.pyx":450
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(448,0,0,__PYX_ERR(0, 448, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 448, __pyx_L1_error)
+  __Pyx_TraceLine(450,0,0,__PYX_ERR(0, 450, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 448, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":449
+  /* "a_sync/a_sync/function.pyx":451
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).min(pop=True, sync=False)
 */
-  __Pyx_TraceLine(449,0,0,__PYX_ERR(0, 449, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 448, __pyx_L1_error)
+  __Pyx_TraceLine(451,0,0,__PYX_ERR(0, 451, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":450
+  /* "a_sync/a_sync/function.pyx":452
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).min(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(450,0,0,__PYX_ERR(0, 450, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_TraceLine(452,0,0,__PYX_ERR(0, 452, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 452, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":446
+  /* "a_sync/a_sync/function.pyx":448
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(446,0,0,__PYX_ERR(0, 446, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_TraceLine(448,0,0,__PYX_ERR(0, 448, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":451
+  /* "a_sync/a_sync/function.pyx":453
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).min(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def max(
 */
-  __Pyx_TraceLine(451,0,0,__PYX_ERR(0, 451, __pyx_L1_error))
+  __Pyx_TraceLine(453,0,0,__PYX_ERR(0, 453, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 451, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 453, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 451, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 451, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_min, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 451, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 453, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 446, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 448, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -9086,30 +9088,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_16generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("min", __pyx_f[0], 424, 0, __PYX_ERR(0, 446, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 446, __pyx_L1_error)
+    __Pyx_TraceResumeGen("min", __pyx_f[0], 426, 0, __PYX_ERR(0, 448, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 448, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 446, __pyx_L1_error)
+    __PYX_ERR(0, 448, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 446, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 448, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":424
+  /* "a_sync/a_sync/function.pyx":426
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-  __Pyx_TraceLine(424,0,0,__PYX_ERR(0, 424, __pyx_L1_error))
+  __Pyx_TraceLine(426,0,0,__PYX_ERR(0, 426, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -9137,7 +9139,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_16generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_19generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":453
+/* "a_sync/a_sync/function.pyx":455
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
@@ -9176,15 +9178,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_18max(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 453, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 455, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "max", 1) < 0) __PYX_ERR(0, 453, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "max", 1) < 0) __PYX_ERR(0, 455, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":456
+      /* "a_sync/a_sync/function.pyx":458
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -9204,7 +9206,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_18max(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("max", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 453, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("max", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 455, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9217,10 +9219,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_18max(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 457, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 459, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_17max(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":453
+  /* "a_sync/a_sync/function.pyx":455
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
@@ -9259,7 +9261,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_17max(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_3_max *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 453, __pyx_L1_error)
+    __PYX_ERR(0, 455, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9279,7 +9281,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_17max(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_19generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_max, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 453, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_19generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_max, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 455, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9316,115 +9318,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_19generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("max", __pyx_f[0], 453, 0, 0, 0, __PYX_ERR(0, 453, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 453, __pyx_L1_error));
+    __Pyx_TraceStartGen("max", __pyx_f[0], 455, 0, 0, 0, __PYX_ERR(0, 455, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 455, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("max", __pyx_f[0], 453, 0, 0, 0, __PYX_ERR(0, 453, __pyx_L1_error));
+  __Pyx_TraceStartGen("max", __pyx_f[0], 455, 0, 0, 0, __PYX_ERR(0, 455, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 453, __pyx_L1_error)
+    __PYX_ERR(0, 455, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":475
+  /* "a_sync/a_sync/function.pyx":477
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(475,0,0,__PYX_ERR(0, 475, __pyx_L1_error))
+  __Pyx_TraceLine(477,0,0,__PYX_ERR(0, 477, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":480
+  /* "a_sync/a_sync/function.pyx":482
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).max(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def sum(
 */
-  __Pyx_TraceLine(480,0,0,__PYX_ERR(0, 480, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 475, __pyx_L1_error)
+  __Pyx_TraceLine(482,0,0,__PYX_ERR(0, 482, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":477
+  /* "a_sync/a_sync/function.pyx":479
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(477,0,0,__PYX_ERR(0, 477, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 477, __pyx_L1_error)
+  __Pyx_TraceLine(479,0,0,__PYX_ERR(0, 479, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 479, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 477, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 479, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":478
+  /* "a_sync/a_sync/function.pyx":480
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).max(pop=True, sync=False)
 */
-  __Pyx_TraceLine(478,0,0,__PYX_ERR(0, 478, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 477, __pyx_L1_error)
+  __Pyx_TraceLine(480,0,0,__PYX_ERR(0, 480, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 479, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":479
+  /* "a_sync/a_sync/function.pyx":481
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).max(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(479,0,0,__PYX_ERR(0, 479, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 479, __pyx_L1_error)
+  __Pyx_TraceLine(481,0,0,__PYX_ERR(0, 481, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 481, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":475
+  /* "a_sync/a_sync/function.pyx":477
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(475,0,0,__PYX_ERR(0, 475, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 475, __pyx_L1_error)
+  __Pyx_TraceLine(477,0,0,__PYX_ERR(0, 477, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":480
+  /* "a_sync/a_sync/function.pyx":482
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).max(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def sum(
 */
-  __Pyx_TraceLine(480,0,0,__PYX_ERR(0, 480, __pyx_L1_error))
+  __Pyx_TraceLine(482,0,0,__PYX_ERR(0, 482, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 480, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 482, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_max, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 480, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 475, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 477, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -9432,30 +9434,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_19generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("max", __pyx_f[0], 453, 0, __PYX_ERR(0, 475, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 475, __pyx_L1_error)
+    __Pyx_TraceResumeGen("max", __pyx_f[0], 455, 0, __PYX_ERR(0, 477, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 477, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 475, __pyx_L1_error)
+    __PYX_ERR(0, 477, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 475, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 477, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":453
+  /* "a_sync/a_sync/function.pyx":455
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-  __Pyx_TraceLine(453,0,0,__PYX_ERR(0, 453, __pyx_L1_error))
+  __Pyx_TraceLine(455,0,0,__PYX_ERR(0, 455, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -9483,7 +9485,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_19generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_22generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":482
+/* "a_sync/a_sync/function.pyx":484
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
@@ -9522,15 +9524,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_21sum(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 482, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 484, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "sum", 1) < 0) __PYX_ERR(0, 482, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "sum", 1) < 0) __PYX_ERR(0, 484, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":485
+      /* "a_sync/a_sync/function.pyx":487
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -9550,7 +9552,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_21sum(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("sum", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 482, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("sum", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 484, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9563,10 +9565,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_21sum(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 486, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 488, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_20sum(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":482
+  /* "a_sync/a_sync/function.pyx":484
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
@@ -9605,7 +9607,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_20sum(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 482, __pyx_L1_error)
+    __PYX_ERR(0, 484, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9625,7 +9627,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_20sum(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_22generator4, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_sum, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 482, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_22generator4, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_sum, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9662,115 +9664,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_22generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("sum", __pyx_f[0], 482, 0, 0, 0, __PYX_ERR(0, 482, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 482, __pyx_L1_error));
+    __Pyx_TraceStartGen("sum", __pyx_f[0], 484, 0, 0, 0, __PYX_ERR(0, 484, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 484, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("sum", __pyx_f[0], 482, 0, 0, 0, __PYX_ERR(0, 482, __pyx_L1_error));
+  __Pyx_TraceStartGen("sum", __pyx_f[0], 484, 0, 0, 0, __PYX_ERR(0, 484, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 482, __pyx_L1_error)
+    __PYX_ERR(0, 484, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":504
+  /* "a_sync/a_sync/function.pyx":506
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(504,0,0,__PYX_ERR(0, 504, __pyx_L1_error))
+  __Pyx_TraceLine(506,0,0,__PYX_ERR(0, 506, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":509
+  /* "a_sync/a_sync/function.pyx":511
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).sum(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *     else:
 */
-  __Pyx_TraceLine(509,0,0,__PYX_ERR(0, 509, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 504, __pyx_L1_error)
+  __Pyx_TraceLine(511,0,0,__PYX_ERR(0, 511, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 506, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":506
+  /* "a_sync/a_sync/function.pyx":508
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(506,0,0,__PYX_ERR(0, 506, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 506, __pyx_L1_error)
+  __Pyx_TraceLine(508,0,0,__PYX_ERR(0, 508, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 508, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 506, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 508, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":507
+  /* "a_sync/a_sync/function.pyx":509
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).sum(pop=True, sync=False)
 */
-  __Pyx_TraceLine(507,0,0,__PYX_ERR(0, 507, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 506, __pyx_L1_error)
+  __Pyx_TraceLine(509,0,0,__PYX_ERR(0, 509, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 508, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":508
+  /* "a_sync/a_sync/function.pyx":510
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).sum(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(508,0,0,__PYX_ERR(0, 508, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 508, __pyx_L1_error)
+  __Pyx_TraceLine(510,0,0,__PYX_ERR(0, 510, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 510, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":504
+  /* "a_sync/a_sync/function.pyx":506
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(504,0,0,__PYX_ERR(0, 504, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 504, __pyx_L1_error)
+  __Pyx_TraceLine(506,0,0,__PYX_ERR(0, 506, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 506, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":509
+  /* "a_sync/a_sync/function.pyx":511
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).sum(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *     else:
 */
-  __Pyx_TraceLine(509,0,0,__PYX_ERR(0, 509, __pyx_L1_error))
+  __Pyx_TraceLine(511,0,0,__PYX_ERR(0, 511, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 509, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 509, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 509, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 511, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 511, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_sum, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 509, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 504, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 506, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -9778,30 +9780,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_22generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("sum", __pyx_f[0], 482, 0, __PYX_ERR(0, 504, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 504, __pyx_L1_error)
+    __Pyx_TraceResumeGen("sum", __pyx_f[0], 484, 0, __PYX_ERR(0, 506, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 506, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 504, __pyx_L1_error)
+    __PYX_ERR(0, 506, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 504, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 506, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":482
+  /* "a_sync/a_sync/function.pyx":484
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-  __Pyx_TraceLine(482,0,0,__PYX_ERR(0, 482, __pyx_L1_error))
+  __Pyx_TraceLine(484,0,0,__PYX_ERR(0, 484, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -9828,7 +9830,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_22generator
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":513
+/* "a_sync/a_sync/function.pyx":515
  *     else:
  * 
  *         def map(             # <<<<<<<<<<<<<<
@@ -9867,15 +9869,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_24map(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 513, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 515, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "map", 1) < 0) __PYX_ERR(0, 513, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "map", 1) < 0) __PYX_ERR(0, 515, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":516
+      /* "a_sync/a_sync/function.pyx":518
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -9895,7 +9897,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_24map(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("map", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 513, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("map", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 515, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9908,10 +9910,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_24map(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 517, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 519, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_23map(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":513
+  /* "a_sync/a_sync/function.pyx":515
  *     else:
  * 
  *         def map(             # <<<<<<<<<<<<<<
@@ -9952,33 +9954,33 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_23map(struc
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26]))
   __Pyx_RefNannySetupContext("map", 0);
-  __Pyx_TraceStartFunc("map", __pyx_f[0], 513, 0, 0, 0, __PYX_ERR(0, 513, __pyx_L1_error));
+  __Pyx_TraceStartFunc("map", __pyx_f[0], 515, 0, 0, 0, __PYX_ERR(0, 515, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":535
+  /* "a_sync/a_sync/function.pyx":537
  *                 - :class:`TaskMapping`
  *             """
  *             if TaskMapping is None:             # <<<<<<<<<<<<<<
  *                 _import_TaskMapping()
  * 
 */
-  __Pyx_TraceLine(535,7,0,__PYX_ERR(0, 535, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __Pyx_TraceLine(537,7,0,__PYX_ERR(0, 537, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 537, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":536
+    /* "a_sync/a_sync/function.pyx":538
  *             """
  *             if TaskMapping is None:
  *                 _import_TaskMapping()             # <<<<<<<<<<<<<<
  * 
  *             return TaskMapping(
 */
-    __Pyx_TraceLine(536,11,0,__PYX_ERR(0, 536, __pyx_L1_error))
-    __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 536, __pyx_L1_error)
+    __Pyx_TraceLine(538,11,0,__PYX_ERR(0, 538, __pyx_L1_error))
+    __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 538, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":535
+    /* "a_sync/a_sync/function.pyx":537
  *                 - :class:`TaskMapping`
  *             """
  *             if TaskMapping is None:             # <<<<<<<<<<<<<<
@@ -9987,97 +9989,97 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_23map(struc
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":538
+  /* "a_sync/a_sync/function.pyx":540
  *                 _import_TaskMapping()
  * 
  *             return TaskMapping(             # <<<<<<<<<<<<<<
  *                 self,
  *                 *iterables,
 */
-  __Pyx_TraceLine(538,12,0,__PYX_ERR(0, 538, __pyx_L1_error))
+  __Pyx_TraceLine(540,12,0,__PYX_ERR(0, 540, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 538, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 540, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "a_sync/a_sync/function.pyx":539
+  /* "a_sync/a_sync/function.pyx":541
  * 
  *             return TaskMapping(
  *                 self,             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(539,15,0,__PYX_ERR(0, 539, __pyx_L1_error))
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 538, __pyx_L1_error)
+  __Pyx_TraceLine(541,15,0,__PYX_ERR(0, 541, __pyx_L1_error))
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 540, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF((PyObject *)__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_v_self);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_self)) != (0)) __PYX_ERR(0, 538, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_self)) != (0)) __PYX_ERR(0, 540, __pyx_L1_error);
 
-  /* "a_sync/a_sync/function.pyx":538
+  /* "a_sync/a_sync/function.pyx":540
  *                 _import_TaskMapping()
  * 
  *             return TaskMapping(             # <<<<<<<<<<<<<<
  *                 self,
  *                 *iterables,
 */
-  __Pyx_TraceLine(538,14,0,__PYX_ERR(0, 538, __pyx_L1_error))
-  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_iterables); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 538, __pyx_L1_error)
+  __Pyx_TraceLine(540,14,0,__PYX_ERR(0, 540, __pyx_L1_error))
+  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_iterables); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 540, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":541
+  /* "a_sync/a_sync/function.pyx":543
  *                 self,
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(541,17,0,__PYX_ERR(0, 541, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 541, __pyx_L1_error)
+  __Pyx_TraceLine(543,17,0,__PYX_ERR(0, 543, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 543, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_v_concurrency) < 0) __PYX_ERR(0, 541, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_v_concurrency) < 0) __PYX_ERR(0, 543, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":542
+  /* "a_sync/a_sync/function.pyx":544
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             )
 */
-  __Pyx_TraceLine(542,20,0,__PYX_ERR(0, 542, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name_2, __pyx_v_task_name) < 0) __PYX_ERR(0, 541, __pyx_L1_error)
+  __Pyx_TraceLine(544,20,0,__PYX_ERR(0, 544, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name_2, __pyx_v_task_name) < 0) __PYX_ERR(0, 543, __pyx_L1_error)
   __pyx_t_3 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":543
+  /* "a_sync/a_sync/function.pyx":545
  *                 concurrency=concurrency,
  *                 name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-  __Pyx_TraceLine(543,21,0,__PYX_ERR(0, 543, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_3, __pyx_v_function_kwargs) < 0) __PYX_ERR(0, 543, __pyx_L1_error)
+  __Pyx_TraceLine(545,21,0,__PYX_ERR(0, 545, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_3, __pyx_v_function_kwargs) < 0) __PYX_ERR(0, 545, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":538
+  /* "a_sync/a_sync/function.pyx":540
  *                 _import_TaskMapping()
  * 
  *             return TaskMapping(             # <<<<<<<<<<<<<<
  *                 self,
  *                 *iterables,
 */
-  __Pyx_TraceLine(538,14,0,__PYX_ERR(0, 538, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 538, __pyx_L1_error)
+  __Pyx_TraceLine(540,14,0,__PYX_ERR(0, 540, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 540, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_r = __pyx_t_5;
   __pyx_t_5 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 12, 0, __PYX_ERR(0, 538, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 12, 0, __PYX_ERR(0, 540, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":513
+  /* "a_sync/a_sync/function.pyx":515
  *     else:
  * 
  *         def map(             # <<<<<<<<<<<<<<
@@ -10095,7 +10097,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_23map(struc
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 513, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 515, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.map", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -10107,7 +10109,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_23map(struc
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_27generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":546
+/* "a_sync/a_sync/function.pyx":548
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
@@ -10146,15 +10148,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_26any(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 546, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 548, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "any", 1) < 0) __PYX_ERR(0, 546, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "any", 1) < 0) __PYX_ERR(0, 548, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":549
+      /* "a_sync/a_sync/function.pyx":551
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -10174,7 +10176,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_26any(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("any", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 546, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("any", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 548, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10187,10 +10189,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_26any(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 550, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 552, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_25any(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":546
+  /* "a_sync/a_sync/function.pyx":548
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
@@ -10229,7 +10231,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_25any(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_5_any *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 546, __pyx_L1_error)
+    __PYX_ERR(0, 548, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10249,7 +10251,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_25any(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_27generator5, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_any, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 546, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_27generator5, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_any, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 548, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -10286,115 +10288,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_27generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("any", __pyx_f[0], 546, 0, 0, 0, __PYX_ERR(0, 546, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 546, __pyx_L1_error));
+    __Pyx_TraceStartGen("any", __pyx_f[0], 548, 0, 0, 0, __PYX_ERR(0, 548, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 548, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("any", __pyx_f[0], 546, 0, 0, 0, __PYX_ERR(0, 546, __pyx_L1_error));
+  __Pyx_TraceStartGen("any", __pyx_f[0], 548, 0, 0, 0, __PYX_ERR(0, 548, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 546, __pyx_L1_error)
+    __PYX_ERR(0, 548, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":568
+  /* "a_sync/a_sync/function.pyx":570
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(568,0,0,__PYX_ERR(0, 568, __pyx_L1_error))
+  __Pyx_TraceLine(570,0,0,__PYX_ERR(0, 570, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":573
+  /* "a_sync/a_sync/function.pyx":575
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).any(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def all(
 */
-  __Pyx_TraceLine(573,0,0,__PYX_ERR(0, 573, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 568, __pyx_L1_error)
+  __Pyx_TraceLine(575,0,0,__PYX_ERR(0, 575, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 570, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":570
+  /* "a_sync/a_sync/function.pyx":572
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(570,0,0,__PYX_ERR(0, 570, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 570, __pyx_L1_error)
+  __Pyx_TraceLine(572,0,0,__PYX_ERR(0, 572, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 572, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 570, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 572, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":571
+  /* "a_sync/a_sync/function.pyx":573
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).any(pop=True, sync=False)
 */
-  __Pyx_TraceLine(571,0,0,__PYX_ERR(0, 571, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 570, __pyx_L1_error)
+  __Pyx_TraceLine(573,0,0,__PYX_ERR(0, 573, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 572, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":572
+  /* "a_sync/a_sync/function.pyx":574
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).any(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(572,0,0,__PYX_ERR(0, 572, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 572, __pyx_L1_error)
+  __Pyx_TraceLine(574,0,0,__PYX_ERR(0, 574, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 574, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":568
+  /* "a_sync/a_sync/function.pyx":570
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(568,0,0,__PYX_ERR(0, 568, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 568, __pyx_L1_error)
+  __Pyx_TraceLine(570,0,0,__PYX_ERR(0, 570, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 570, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":573
+  /* "a_sync/a_sync/function.pyx":575
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).any(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def all(
 */
-  __Pyx_TraceLine(573,0,0,__PYX_ERR(0, 573, __pyx_L1_error))
+  __Pyx_TraceLine(575,0,0,__PYX_ERR(0, 575, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 573, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 575, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 573, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 573, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_any, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 573, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 575, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 568, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 570, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -10402,30 +10404,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_27generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("any", __pyx_f[0], 546, 0, __PYX_ERR(0, 568, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 568, __pyx_L1_error)
+    __Pyx_TraceResumeGen("any", __pyx_f[0], 548, 0, __PYX_ERR(0, 570, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 570, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 568, __pyx_L1_error)
+    __PYX_ERR(0, 570, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 568, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 570, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":546
+  /* "a_sync/a_sync/function.pyx":548
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-  __Pyx_TraceLine(546,0,0,__PYX_ERR(0, 546, __pyx_L1_error))
+  __Pyx_TraceLine(548,0,0,__PYX_ERR(0, 548, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -10453,7 +10455,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_27generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_30generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":575
+/* "a_sync/a_sync/function.pyx":577
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
@@ -10492,15 +10494,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_29all(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 575, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 577, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "all", 1) < 0) __PYX_ERR(0, 575, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "all", 1) < 0) __PYX_ERR(0, 577, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":578
+      /* "a_sync/a_sync/function.pyx":580
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -10520,7 +10522,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_29all(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("all", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 575, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("all", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 577, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10533,10 +10535,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_29all(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 579, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 581, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_28all(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":575
+  /* "a_sync/a_sync/function.pyx":577
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
@@ -10575,7 +10577,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_28all(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_6_all *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 575, __pyx_L1_error)
+    __PYX_ERR(0, 577, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10595,7 +10597,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_28all(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_30generator6, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_all, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 575, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_30generator6, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_all, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -10632,115 +10634,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_30generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("all", __pyx_f[0], 575, 0, 0, 0, __PYX_ERR(0, 575, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 575, __pyx_L1_error));
+    __Pyx_TraceStartGen("all", __pyx_f[0], 577, 0, 0, 0, __PYX_ERR(0, 577, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 577, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("all", __pyx_f[0], 575, 0, 0, 0, __PYX_ERR(0, 575, __pyx_L1_error));
+  __Pyx_TraceStartGen("all", __pyx_f[0], 577, 0, 0, 0, __PYX_ERR(0, 577, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 575, __pyx_L1_error)
+    __PYX_ERR(0, 577, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":597
+  /* "a_sync/a_sync/function.pyx":599
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(597,0,0,__PYX_ERR(0, 597, __pyx_L1_error))
+  __Pyx_TraceLine(599,0,0,__PYX_ERR(0, 599, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":602
+  /* "a_sync/a_sync/function.pyx":604
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).all(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def min(
 */
-  __Pyx_TraceLine(602,0,0,__PYX_ERR(0, 602, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 597, __pyx_L1_error)
+  __Pyx_TraceLine(604,0,0,__PYX_ERR(0, 604, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 599, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":599
+  /* "a_sync/a_sync/function.pyx":601
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(599,0,0,__PYX_ERR(0, 599, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 599, __pyx_L1_error)
+  __Pyx_TraceLine(601,0,0,__PYX_ERR(0, 601, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 601, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 599, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 601, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":600
+  /* "a_sync/a_sync/function.pyx":602
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).all(pop=True, sync=False)
 */
-  __Pyx_TraceLine(600,0,0,__PYX_ERR(0, 600, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 599, __pyx_L1_error)
+  __Pyx_TraceLine(602,0,0,__PYX_ERR(0, 602, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 601, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":601
+  /* "a_sync/a_sync/function.pyx":603
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).all(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(601,0,0,__PYX_ERR(0, 601, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 601, __pyx_L1_error)
+  __Pyx_TraceLine(603,0,0,__PYX_ERR(0, 603, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 603, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":597
+  /* "a_sync/a_sync/function.pyx":599
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(597,0,0,__PYX_ERR(0, 597, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 597, __pyx_L1_error)
+  __Pyx_TraceLine(599,0,0,__PYX_ERR(0, 599, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 599, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":602
+  /* "a_sync/a_sync/function.pyx":604
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).all(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def min(
 */
-  __Pyx_TraceLine(602,0,0,__PYX_ERR(0, 602, __pyx_L1_error))
+  __Pyx_TraceLine(604,0,0,__PYX_ERR(0, 604, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 602, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 604, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 602, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 602, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_all, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 602, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 604, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 597, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 599, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -10748,30 +10750,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_30generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("all", __pyx_f[0], 575, 0, __PYX_ERR(0, 597, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 597, __pyx_L1_error)
+    __Pyx_TraceResumeGen("all", __pyx_f[0], 577, 0, __PYX_ERR(0, 599, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 599, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 597, __pyx_L1_error)
+    __PYX_ERR(0, 599, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 597, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 599, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":575
+  /* "a_sync/a_sync/function.pyx":577
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-  __Pyx_TraceLine(575,0,0,__PYX_ERR(0, 575, __pyx_L1_error))
+  __Pyx_TraceLine(577,0,0,__PYX_ERR(0, 577, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -10799,7 +10801,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_30generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_33generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":604
+/* "a_sync/a_sync/function.pyx":606
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
@@ -10838,15 +10840,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_32min(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 604, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 606, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "min", 1) < 0) __PYX_ERR(0, 604, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "min", 1) < 0) __PYX_ERR(0, 606, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":607
+      /* "a_sync/a_sync/function.pyx":609
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -10866,7 +10868,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_32min(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("min", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 604, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("min", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 606, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10879,10 +10881,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_32min(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 608, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 610, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_31min(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":604
+  /* "a_sync/a_sync/function.pyx":606
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
@@ -10921,7 +10923,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_31min(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_7_min *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 604, __pyx_L1_error)
+    __PYX_ERR(0, 606, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10941,7 +10943,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_31min(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_33generator7, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_min, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 604, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_33generator7, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_min, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 606, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -10978,115 +10980,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_33generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("min", __pyx_f[0], 604, 0, 0, 0, __PYX_ERR(0, 604, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 604, __pyx_L1_error));
+    __Pyx_TraceStartGen("min", __pyx_f[0], 606, 0, 0, 0, __PYX_ERR(0, 606, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 606, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("min", __pyx_f[0], 604, 0, 0, 0, __PYX_ERR(0, 604, __pyx_L1_error));
+  __Pyx_TraceStartGen("min", __pyx_f[0], 606, 0, 0, 0, __PYX_ERR(0, 606, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 604, __pyx_L1_error)
+    __PYX_ERR(0, 606, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":626
+  /* "a_sync/a_sync/function.pyx":628
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(626,0,0,__PYX_ERR(0, 626, __pyx_L1_error))
+  __Pyx_TraceLine(628,0,0,__PYX_ERR(0, 628, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":631
+  /* "a_sync/a_sync/function.pyx":633
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).min(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def max(
 */
-  __Pyx_TraceLine(631,0,0,__PYX_ERR(0, 631, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 626, __pyx_L1_error)
+  __Pyx_TraceLine(633,0,0,__PYX_ERR(0, 633, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 628, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":628
+  /* "a_sync/a_sync/function.pyx":630
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(628,0,0,__PYX_ERR(0, 628, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 628, __pyx_L1_error)
+  __Pyx_TraceLine(630,0,0,__PYX_ERR(0, 630, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 630, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 628, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 630, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":629
+  /* "a_sync/a_sync/function.pyx":631
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).min(pop=True, sync=False)
 */
-  __Pyx_TraceLine(629,0,0,__PYX_ERR(0, 629, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 628, __pyx_L1_error)
+  __Pyx_TraceLine(631,0,0,__PYX_ERR(0, 631, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 630, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":630
+  /* "a_sync/a_sync/function.pyx":632
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).min(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(630,0,0,__PYX_ERR(0, 630, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 630, __pyx_L1_error)
+  __Pyx_TraceLine(632,0,0,__PYX_ERR(0, 632, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 632, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":626
+  /* "a_sync/a_sync/function.pyx":628
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(626,0,0,__PYX_ERR(0, 626, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 626, __pyx_L1_error)
+  __Pyx_TraceLine(628,0,0,__PYX_ERR(0, 628, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 628, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":631
+  /* "a_sync/a_sync/function.pyx":633
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).min(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def max(
 */
-  __Pyx_TraceLine(631,0,0,__PYX_ERR(0, 631, __pyx_L1_error))
+  __Pyx_TraceLine(633,0,0,__PYX_ERR(0, 633, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 631, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 633, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 631, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 631, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_min, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 631, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 633, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 626, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 628, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -11094,30 +11096,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_33generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("min", __pyx_f[0], 604, 0, __PYX_ERR(0, 626, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 626, __pyx_L1_error)
+    __Pyx_TraceResumeGen("min", __pyx_f[0], 606, 0, __PYX_ERR(0, 628, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 628, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 626, __pyx_L1_error)
+    __PYX_ERR(0, 628, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 626, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 628, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":604
+  /* "a_sync/a_sync/function.pyx":606
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-  __Pyx_TraceLine(604,0,0,__PYX_ERR(0, 604, __pyx_L1_error))
+  __Pyx_TraceLine(606,0,0,__PYX_ERR(0, 606, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -11145,7 +11147,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_33generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_36generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":633
+/* "a_sync/a_sync/function.pyx":635
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
@@ -11184,15 +11186,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_35max(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 633, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 635, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "max", 1) < 0) __PYX_ERR(0, 633, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "max", 1) < 0) __PYX_ERR(0, 635, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":636
+      /* "a_sync/a_sync/function.pyx":638
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -11212,7 +11214,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_35max(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("max", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 633, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("max", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 635, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11225,10 +11227,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_35max(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 637, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 639, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_34max(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":633
+  /* "a_sync/a_sync/function.pyx":635
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
@@ -11267,7 +11269,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_34max(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_8_max *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 633, __pyx_L1_error)
+    __PYX_ERR(0, 635, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -11287,7 +11289,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_34max(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_36generator8, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_max, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 633, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_36generator8, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_max, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 635, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -11324,115 +11326,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_36generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("max", __pyx_f[0], 633, 0, 0, 0, __PYX_ERR(0, 633, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 633, __pyx_L1_error));
+    __Pyx_TraceStartGen("max", __pyx_f[0], 635, 0, 0, 0, __PYX_ERR(0, 635, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 635, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("max", __pyx_f[0], 633, 0, 0, 0, __PYX_ERR(0, 633, __pyx_L1_error));
+  __Pyx_TraceStartGen("max", __pyx_f[0], 635, 0, 0, 0, __PYX_ERR(0, 635, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 633, __pyx_L1_error)
+    __PYX_ERR(0, 635, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":655
+  /* "a_sync/a_sync/function.pyx":657
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(655,0,0,__PYX_ERR(0, 655, __pyx_L1_error))
+  __Pyx_TraceLine(657,0,0,__PYX_ERR(0, 657, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":660
+  /* "a_sync/a_sync/function.pyx":662
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).max(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def sum(
 */
-  __Pyx_TraceLine(660,0,0,__PYX_ERR(0, 660, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 655, __pyx_L1_error)
+  __Pyx_TraceLine(662,0,0,__PYX_ERR(0, 662, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 657, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":657
+  /* "a_sync/a_sync/function.pyx":659
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(657,0,0,__PYX_ERR(0, 657, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 657, __pyx_L1_error)
+  __Pyx_TraceLine(659,0,0,__PYX_ERR(0, 659, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 659, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 657, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 659, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":658
+  /* "a_sync/a_sync/function.pyx":660
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).max(pop=True, sync=False)
 */
-  __Pyx_TraceLine(658,0,0,__PYX_ERR(0, 658, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 657, __pyx_L1_error)
+  __Pyx_TraceLine(660,0,0,__PYX_ERR(0, 660, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 659, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":659
+  /* "a_sync/a_sync/function.pyx":661
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).max(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(659,0,0,__PYX_ERR(0, 659, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 659, __pyx_L1_error)
+  __Pyx_TraceLine(661,0,0,__PYX_ERR(0, 661, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 661, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":655
+  /* "a_sync/a_sync/function.pyx":657
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(655,0,0,__PYX_ERR(0, 655, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 655, __pyx_L1_error)
+  __Pyx_TraceLine(657,0,0,__PYX_ERR(0, 657, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 657, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":660
+  /* "a_sync/a_sync/function.pyx":662
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).max(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *         async def sum(
 */
-  __Pyx_TraceLine(660,0,0,__PYX_ERR(0, 660, __pyx_L1_error))
+  __Pyx_TraceLine(662,0,0,__PYX_ERR(0, 662, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 660, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 662, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 660, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 660, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_max, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 660, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 662, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 655, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 657, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -11440,30 +11442,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_36generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("max", __pyx_f[0], 633, 0, __PYX_ERR(0, 655, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 655, __pyx_L1_error)
+    __Pyx_TraceResumeGen("max", __pyx_f[0], 635, 0, __PYX_ERR(0, 657, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 657, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 655, __pyx_L1_error)
+    __PYX_ERR(0, 657, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 655, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 657, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":633
+  /* "a_sync/a_sync/function.pyx":635
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-  __Pyx_TraceLine(633,0,0,__PYX_ERR(0, 633, __pyx_L1_error))
+  __Pyx_TraceLine(635,0,0,__PYX_ERR(0, 635, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -11491,7 +11493,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_36generator
 }
 static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_39generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "a_sync/a_sync/function.pyx":662
+/* "a_sync/a_sync/function.pyx":664
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
@@ -11530,15 +11532,15 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_38sum(PyObj
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_concurrency,&__pyx_mstate_global->__pyx_n_u_task_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 662, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 664, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  0: break;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "sum", 1) < 0) __PYX_ERR(0, 662, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_function_kwargs, values, 0, __pyx_kwds_len, "sum", 1) < 0) __PYX_ERR(0, 664, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":665
+      /* "a_sync/a_sync/function.pyx":667
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
@@ -11558,7 +11560,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_38sum(PyObj
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("sum", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 662, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("sum", 0, 0, 0, __pyx_nargs); __PYX_ERR(0, 664, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11571,10 +11573,10 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_38sum(PyObj
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 666, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_task_name), (&PyUnicode_Type), 0, "task_name", 2))) __PYX_ERR(0, 668, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_37sum(((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self), __pyx_v_concurrency, __pyx_v_task_name, __pyx_v_iterables, __pyx_v_function_kwargs);
 
-  /* "a_sync/a_sync/function.pyx":662
+  /* "a_sync/a_sync/function.pyx":664
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
@@ -11613,7 +11615,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_37sum(struc
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 662, __pyx_L1_error)
+    __PYX_ERR(0, 664, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -11633,7 +11635,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_37sum(struc
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_function_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_39generator9, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_sum, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 662, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_39generator9, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_sum, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function); if (unlikely(!gen)) __PYX_ERR(0, 664, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -11670,115 +11672,115 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_39generator
     case 0: goto __pyx_L3_first_run;
     case 1: goto __pyx_L4_resume_from_await;
     default: /* CPython raises the right error here */
-    __Pyx_TraceStartGen("sum", __pyx_f[0], 662, 0, 0, 0, __PYX_ERR(0, 662, __pyx_L1_error));
-    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 662, __pyx_L1_error));
+    __Pyx_TraceStartGen("sum", __pyx_f[0], 664, 0, 0, 0, __PYX_ERR(0, 664, __pyx_L1_error));
+    __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 664, __pyx_L1_error));
     __Pyx_RefNannyFinishContext();
     return NULL;
   }
   __pyx_L3_first_run:;
-  __Pyx_TraceStartGen("sum", __pyx_f[0], 662, 0, 0, 0, __PYX_ERR(0, 662, __pyx_L1_error));
+  __Pyx_TraceStartGen("sum", __pyx_f[0], 664, 0, 0, 0, __PYX_ERR(0, 664, __pyx_L1_error));
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 662, __pyx_L1_error)
+    __PYX_ERR(0, 664, __pyx_L1_error)
   }
 
-  /* "a_sync/a_sync/function.pyx":684
+  /* "a_sync/a_sync/function.pyx":686
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(684,0,0,__PYX_ERR(0, 684, __pyx_L1_error))
+  __Pyx_TraceLine(686,0,0,__PYX_ERR(0, 686, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
 
-  /* "a_sync/a_sync/function.pyx":689
+  /* "a_sync/a_sync/function.pyx":691
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).sum(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __Pyx_TraceLine(689,0,0,__PYX_ERR(0, 689, __pyx_L1_error))
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 684, __pyx_L1_error)
+  __Pyx_TraceLine(691,0,0,__PYX_ERR(0, 691, __pyx_L1_error))
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_map); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 686, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "a_sync/a_sync/function.pyx":686
+  /* "a_sync/a_sync/function.pyx":688
  *             return await self.map(
  *                 *iterables,
  *                 concurrency=concurrency,             # <<<<<<<<<<<<<<
  *                 task_name=task_name,
  *                 **function_kwargs,
 */
-  __Pyx_TraceLine(686,0,0,__PYX_ERR(0, 686, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 686, __pyx_L1_error)
+  __Pyx_TraceLine(688,0,0,__PYX_ERR(0, 688, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 688, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 686, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_cur_scope->__pyx_v_concurrency) < 0) __PYX_ERR(0, 688, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":687
+  /* "a_sync/a_sync/function.pyx":689
  *                 *iterables,
  *                 concurrency=concurrency,
  *                 task_name=task_name,             # <<<<<<<<<<<<<<
  *                 **function_kwargs,
  *             ).sum(pop=True, sync=False)
 */
-  __Pyx_TraceLine(687,0,0,__PYX_ERR(0, 687, __pyx_L1_error))
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 686, __pyx_L1_error)
+  __Pyx_TraceLine(689,0,0,__PYX_ERR(0, 689, __pyx_L1_error))
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_cur_scope->__pyx_v_task_name) < 0) __PYX_ERR(0, 688, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":688
+  /* "a_sync/a_sync/function.pyx":690
  *                 concurrency=concurrency,
  *                 task_name=task_name,
  *                 **function_kwargs,             # <<<<<<<<<<<<<<
  *             ).sum(pop=True, sync=False)
  * 
 */
-  __Pyx_TraceLine(688,0,0,__PYX_ERR(0, 688, __pyx_L1_error))
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 688, __pyx_L1_error)
+  __Pyx_TraceLine(690,0,0,__PYX_ERR(0, 690, __pyx_L1_error))
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_cur_scope->__pyx_v_function_kwargs) < 0) __PYX_ERR(0, 690, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":684
+  /* "a_sync/a_sync/function.pyx":686
  *                 - :meth:`map`
  *             """
  *             return await self.map(             # <<<<<<<<<<<<<<
  *                 *iterables,
  *                 concurrency=concurrency,
 */
-  __Pyx_TraceLine(684,0,0,__PYX_ERR(0, 684, __pyx_L1_error))
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 684, __pyx_L1_error)
+  __Pyx_TraceLine(686,0,0,__PYX_ERR(0, 686, __pyx_L1_error))
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_cur_scope->__pyx_v_iterables, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 686, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "a_sync/a_sync/function.pyx":689
+  /* "a_sync/a_sync/function.pyx":691
  *                 task_name=task_name,
  *                 **function_kwargs,
  *             ).sum(pop=True, sync=False)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __Pyx_TraceLine(689,0,0,__PYX_ERR(0, 689, __pyx_L1_error))
+  __Pyx_TraceLine(691,0,0,__PYX_ERR(0, 691, __pyx_L1_error))
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 689, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 691, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 689, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 689, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_pop, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 691, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_sync, Py_False, __pyx_t_4, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 691, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_sum, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 689, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 691, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7 == PYGEN_NEXT)) {
     __Pyx_GOTREF(__pyx_r);
-    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 684, __pyx_L1_error));
+    __Pyx_TraceYield(__pyx_r, 0, __PYX_ERR(0, 686, __pyx_L1_error));
     __Pyx_XGIVEREF(__pyx_r);
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
@@ -11786,30 +11788,30 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_39generator
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    __Pyx_TraceResumeGen("sum", __pyx_f[0], 662, 0, __PYX_ERR(0, 684, __pyx_L1_error));
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 684, __pyx_L1_error)
+    __Pyx_TraceResumeGen("sum", __pyx_f[0], 664, 0, __PYX_ERR(0, 686, __pyx_L1_error));
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 686, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 684, __pyx_L1_error)
+    __PYX_ERR(0, 686, __pyx_L1_error)
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 684, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 686, __pyx_L1_error));
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "a_sync/a_sync/function.pyx":662
+  /* "a_sync/a_sync/function.pyx":664
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-  __Pyx_TraceLine(662,0,0,__PYX_ERR(0, 662, __pyx_L1_error))
+  __Pyx_TraceLine(664,0,0,__PYX_ERR(0, 664, __pyx_L1_error))
 
   /* function exit code */
   __pyx_L1_error:;
@@ -11836,7 +11838,7 @@ static PyObject *__pyx_gb_6a_sync_6a_sync_8function_14_ASyncFunction_39generator
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":691
+/* "a_sync/a_sync/function.pyx":693
  *             ).sum(pop=True, sync=False)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -11876,66 +11878,66 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32]))
   __Pyx_RefNannySetupContext("__get__", 0);
-  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 691, 0, 0, 0, __PYX_ERR(0, 691, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 693, 0, 0, 0, __PYX_ERR(0, 693, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":705
+  /* "a_sync/a_sync/function.pyx":707
  *             - :meth:`_asyncify`
  *         """
  *         asyncified = self.__asyncified             # <<<<<<<<<<<<<<
  *         if asyncified is None:
  *             if self.is_async_def():
 */
-  __Pyx_TraceLine(705,4,0,__PYX_ERR(0, 705, __pyx_L1_error))
+  __Pyx_TraceLine(707,4,0,__PYX_ERR(0, 707, __pyx_L1_error))
   __pyx_t_1 = __pyx_v_self->_ASyncFunction__asyncified;
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_asyncified = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":706
+  /* "a_sync/a_sync/function.pyx":708
  *         """
  *         asyncified = self.__asyncified
  *         if asyncified is None:             # <<<<<<<<<<<<<<
  *             if self.is_async_def():
  *                 raise TypeError(
 */
-  __Pyx_TraceLine(706,8,0,__PYX_ERR(0, 706, __pyx_L1_error))
+  __Pyx_TraceLine(708,8,0,__PYX_ERR(0, 708, __pyx_L1_error))
   __pyx_t_2 = (__pyx_v_asyncified == Py_None);
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":707
+    /* "a_sync/a_sync/function.pyx":709
  *         asyncified = self.__asyncified
  *         if asyncified is None:
  *             if self.is_async_def():             # <<<<<<<<<<<<<<
  *                 raise TypeError(
  *                     f"Can only be applied to sync functions, not {self.__wrapped__}"
 */
-    __Pyx_TraceLine(707,12,0,__PYX_ERR(0, 707, __pyx_L1_error))
-    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 707, __pyx_L1_error)
+    __Pyx_TraceLine(709,12,0,__PYX_ERR(0, 709, __pyx_L1_error))
+    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 709, __pyx_L1_error)
     if (unlikely(__pyx_t_2)) {
 
-      /* "a_sync/a_sync/function.pyx":708
+      /* "a_sync/a_sync/function.pyx":710
  *         if asyncified is None:
  *             if self.is_async_def():
  *                 raise TypeError(             # <<<<<<<<<<<<<<
  *                     f"Can only be applied to sync functions, not {self.__wrapped__}"
  *                 )
 */
-      __Pyx_TraceLine(708,15,0,__PYX_ERR(0, 708, __pyx_L1_error))
+      __Pyx_TraceLine(710,15,0,__PYX_ERR(0, 710, __pyx_L1_error))
       __pyx_t_3 = NULL;
       __Pyx_INCREF(__pyx_builtin_TypeError);
       __pyx_t_4 = __pyx_builtin_TypeError; 
 
-      /* "a_sync/a_sync/function.pyx":709
+      /* "a_sync/a_sync/function.pyx":711
  *             if self.is_async_def():
  *                 raise TypeError(
  *                     f"Can only be applied to sync functions, not {self.__wrapped__}"             # <<<<<<<<<<<<<<
  *                 )
  * 
 */
-      __Pyx_TraceLine(709,17,0,__PYX_ERR(0, 709, __pyx_L1_error))
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_self->__pyx_base.__pyx___wrapped__, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 709, __pyx_L1_error)
+      __Pyx_TraceLine(711,17,0,__PYX_ERR(0, 711, __pyx_L1_error))
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_self->__pyx_base.__pyx___wrapped__, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 711, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Can_only_be_applied_to_sync_func, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 709, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Can_only_be_applied_to_sync_func, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 711, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_7 = 1;
@@ -11945,14 +11947,14 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 708, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 710, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 708, __pyx_L1_error)
+      __PYX_ERR(0, 710, __pyx_L1_error)
 
-      /* "a_sync/a_sync/function.pyx":707
+      /* "a_sync/a_sync/function.pyx":709
  *         asyncified = self.__asyncified
  *         if asyncified is None:
  *             if self.is_async_def():             # <<<<<<<<<<<<<<
@@ -11961,17 +11963,17 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
 */
     }
 
-    /* "a_sync/a_sync/function.pyx":712
+    /* "a_sync/a_sync/function.pyx":714
  *                 )
  * 
  *             asyncified = self.__asyncified = self._asyncify(self._modified_fn)             # <<<<<<<<<<<<<<
  *         return asyncified
  * 
 */
-    __Pyx_TraceLine(712,27,0,__PYX_ERR(0, 712, __pyx_L1_error))
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_modified_fn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 712, __pyx_L1_error)
+    __Pyx_TraceLine(714,27,0,__PYX_ERR(0, 714, __pyx_L1_error))
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_modified_fn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 714, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._asyncify(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_v_self), __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 712, __pyx_L1_error)
+    __pyx_t_4 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._asyncify(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_v_self), __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 714, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_INCREF(__pyx_t_4);
@@ -11983,7 +11985,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
     __pyx_v_self->_ASyncFunction__asyncified = __pyx_t_4;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "a_sync/a_sync/function.pyx":706
+    /* "a_sync/a_sync/function.pyx":708
  *         """
  *         asyncified = self.__asyncified
  *         if asyncified is None:             # <<<<<<<<<<<<<<
@@ -11992,21 +11994,21 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":713
+  /* "a_sync/a_sync/function.pyx":715
  * 
  *             asyncified = self.__asyncified = self._asyncify(self._modified_fn)
  *         return asyncified             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __Pyx_TraceLine(713,28,0,__PYX_ERR(0, 713, __pyx_L1_error))
+  __Pyx_TraceLine(715,28,0,__PYX_ERR(0, 715, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_asyncified);
   __pyx_r = __pyx_v_asyncified;
-  __Pyx_TraceReturnValue(__pyx_r, 28, 0, __PYX_ERR(0, 713, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 28, 0, __PYX_ERR(0, 715, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":691
+  /* "a_sync/a_sync/function.pyx":693
  *             ).sum(pop=True, sync=False)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12025,7 +12027,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 691, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 693, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._asyncified.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -12037,7 +12039,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_asyncifi
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":715
+/* "a_sync/a_sync/function.pyx":717
  *         return asyncified
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12075,91 +12077,91 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33]))
   __Pyx_RefNannySetupContext("__get__", 0);
-  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 715, 0, 0, 0, __PYX_ERR(0, 715, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 717, 0, 0, 0, __PYX_ERR(0, 717, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":730
+  /* "a_sync/a_sync/function.pyx":732
  *             - :meth:`ModifierManager.apply_sync_modifiers`
  *         """
  *         modified_fn = self.__modified_fn             # <<<<<<<<<<<<<<
  *         if modified_fn is None:
  * 
 */
-  __Pyx_TraceLine(730,4,0,__PYX_ERR(0, 730, __pyx_L1_error))
+  __Pyx_TraceLine(732,4,0,__PYX_ERR(0, 732, __pyx_L1_error))
   __pyx_t_1 = __pyx_v_self->_ASyncFunction__modified_fn;
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_modified_fn = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":731
+  /* "a_sync/a_sync/function.pyx":733
  *         """
  *         modified_fn = self.__modified_fn
  *         if modified_fn is None:             # <<<<<<<<<<<<<<
  * 
  *             # recursively unwrap ASync objects to get to the original wrapped callable
 */
-  __Pyx_TraceLine(731,8,0,__PYX_ERR(0, 731, __pyx_L1_error))
+  __Pyx_TraceLine(733,8,0,__PYX_ERR(0, 733, __pyx_L1_error))
   __pyx_t_2 = (__pyx_v_modified_fn == Py_None);
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":734
+    /* "a_sync/a_sync/function.pyx":736
  * 
  *             # recursively unwrap ASync objects to get to the original wrapped callable
  *             wrapped = self.__wrapped__             # <<<<<<<<<<<<<<
  *             while isinstance(wrapped, _ASyncFunction):
  *                 wrapped = wrapped.__wrapped__
 */
-    __Pyx_TraceLine(734,11,0,__PYX_ERR(0, 734, __pyx_L1_error))
+    __Pyx_TraceLine(736,11,0,__PYX_ERR(0, 736, __pyx_L1_error))
     __pyx_t_1 = __pyx_v_self->__pyx_base.__pyx___wrapped__;
     __Pyx_INCREF(__pyx_t_1);
     __pyx_v_wrapped = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":735
+    /* "a_sync/a_sync/function.pyx":737
  *             # recursively unwrap ASync objects to get to the original wrapped callable
  *             wrapped = self.__wrapped__
  *             while isinstance(wrapped, _ASyncFunction):             # <<<<<<<<<<<<<<
  *                 wrapped = wrapped.__wrapped__
  * 
 */
-    __Pyx_TraceLine(735,12,0,__PYX_ERR(0, 735, __pyx_L1_error))
+    __Pyx_TraceLine(737,12,0,__PYX_ERR(0, 737, __pyx_L1_error))
     while (1) {
       __pyx_t_2 = __Pyx_TypeCheck(__pyx_v_wrapped, __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction); 
       if (!__pyx_t_2) break;
 
-      /* "a_sync/a_sync/function.pyx":736
+      /* "a_sync/a_sync/function.pyx":738
  *             wrapped = self.__wrapped__
  *             while isinstance(wrapped, _ASyncFunction):
  *                 wrapped = wrapped.__wrapped__             # <<<<<<<<<<<<<<
  * 
  *             if self.is_async_def():
 */
-      __Pyx_TraceLine(736,19,0,__PYX_ERR(0, 736, __pyx_L1_error))
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_wrapped, __pyx_mstate_global->__pyx_n_u_wrapped); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 736, __pyx_L1_error)
+      __Pyx_TraceLine(738,19,0,__PYX_ERR(0, 738, __pyx_L1_error))
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_wrapped, __pyx_mstate_global->__pyx_n_u_wrapped); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 738, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF_SET(__pyx_v_wrapped, __pyx_t_1);
       __pyx_t_1 = 0;
     }
 
-    /* "a_sync/a_sync/function.pyx":738
+    /* "a_sync/a_sync/function.pyx":740
  *                 wrapped = wrapped.__wrapped__
  * 
  *             if self.is_async_def():             # <<<<<<<<<<<<<<
  *                 modified_fn = self.__modified_fn = self.modifiers.apply_async_modifiers(wrapped)
  *             else:
 */
-    __Pyx_TraceLine(738,23,0,__PYX_ERR(0, 738, __pyx_L1_error))
-    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 738, __pyx_L1_error)
+    __Pyx_TraceLine(740,23,0,__PYX_ERR(0, 740, __pyx_L1_error))
+    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 740, __pyx_L1_error)
     if (__pyx_t_2) {
 
-      /* "a_sync/a_sync/function.pyx":739
+      /* "a_sync/a_sync/function.pyx":741
  * 
  *             if self.is_async_def():
  *                 modified_fn = self.__modified_fn = self.modifiers.apply_async_modifiers(wrapped)             # <<<<<<<<<<<<<<
  *             else:
  *                 modified_fn = self.__modified_fn = self.modifiers.apply_sync_modifiers(wrapped)
 */
-      __Pyx_TraceLine(739,30,0,__PYX_ERR(0, 739, __pyx_L1_error))
-      __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_9modifiers_7manager_ModifierManager *)__pyx_v_self->__pyx_base.modifiers->__pyx_vtab)->apply_async_modifiers(__pyx_v_self->__pyx_base.modifiers, __pyx_v_wrapped, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 739, __pyx_L1_error)
+      __Pyx_TraceLine(741,30,0,__PYX_ERR(0, 741, __pyx_L1_error))
+      __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_9modifiers_7manager_ModifierManager *)__pyx_v_self->__pyx_base.modifiers->__pyx_vtab)->apply_async_modifiers(__pyx_v_self->__pyx_base.modifiers, __pyx_v_wrapped, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 741, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_DECREF_SET(__pyx_v_modified_fn, __pyx_t_1);
@@ -12170,7 +12172,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
       __pyx_v_self->_ASyncFunction__modified_fn = __pyx_t_1;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "a_sync/a_sync/function.pyx":738
+      /* "a_sync/a_sync/function.pyx":740
  *                 wrapped = wrapped.__wrapped__
  * 
  *             if self.is_async_def():             # <<<<<<<<<<<<<<
@@ -12180,14 +12182,14 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
       goto __pyx_L6;
     }
 
-    /* "a_sync/a_sync/function.pyx":741
+    /* "a_sync/a_sync/function.pyx":743
  *                 modified_fn = self.__modified_fn = self.modifiers.apply_async_modifiers(wrapped)
  *             else:
  *                 modified_fn = self.__modified_fn = self.modifiers.apply_sync_modifiers(wrapped)             # <<<<<<<<<<<<<<
  * 
  *         return modified_fn
 */
-    __Pyx_TraceLine(741,38,0,__PYX_ERR(0, 741, __pyx_L1_error))
+    __Pyx_TraceLine(743,38,0,__PYX_ERR(0, 743, __pyx_L1_error))
     /*else*/ {
       __pyx_t_3 = ((PyObject *)__pyx_v_self->__pyx_base.modifiers);
       __Pyx_INCREF(__pyx_t_3);
@@ -12196,7 +12198,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
         PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_wrapped};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_apply_sync_modifiers, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 741, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 743, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_INCREF(__pyx_t_1);
@@ -12210,7 +12212,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
     }
     __pyx_L6:;
 
-    /* "a_sync/a_sync/function.pyx":731
+    /* "a_sync/a_sync/function.pyx":733
  *         """
  *         modified_fn = self.__modified_fn
  *         if modified_fn is None:             # <<<<<<<<<<<<<<
@@ -12219,21 +12221,21 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":743
+  /* "a_sync/a_sync/function.pyx":745
  *                 modified_fn = self.__modified_fn = self.modifiers.apply_sync_modifiers(wrapped)
  * 
  *         return modified_fn             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __Pyx_TraceLine(743,40,0,__PYX_ERR(0, 743, __pyx_L1_error))
+  __Pyx_TraceLine(745,40,0,__PYX_ERR(0, 745, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_modified_fn);
   __pyx_r = __pyx_v_modified_fn;
-  __Pyx_TraceReturnValue(__pyx_r, 40, 0, __PYX_ERR(0, 743, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 40, 0, __PYX_ERR(0, 745, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":715
+  /* "a_sync/a_sync/function.pyx":717
  *         return asyncified
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12249,7 +12251,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 715, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 717, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._modified_fn.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -12262,7 +12264,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_12_modified
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":745
+/* "a_sync/a_sync/function.pyx":747
  *         return modified_fn
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12285,7 +12287,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":765
+/* "a_sync/a_sync/function.pyx":767
  *             await_helper = self.get_await()
  * 
  *             @wraps(modified_fn)             # <<<<<<<<<<<<<<
@@ -12353,58 +12355,58 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   __Pyx_RefNannySetupContext("async_wrap", 0);
   __pyx_outer_scope = (struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__ *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
-  __Pyx_TraceStartFunc("async_wrap", __pyx_f[0], 765, 0, 0, 0, __PYX_ERR(0, 765, __pyx_L1_error));
+  __Pyx_TraceStartFunc("async_wrap", __pyx_f[0], 767, 0, 0, 0, __PYX_ERR(0, 767, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":771
+  /* "a_sync/a_sync/function.pyx":773
  * 
  *                 # Must take place before coro is created, we're popping a kwarg.
  *                 should_await = self._run_sync(kwargs)             # <<<<<<<<<<<<<<
  *                 coro = modified_fn(*args, **kwargs)
  *                 if should_await:
 */
-  __Pyx_TraceLine(771,3,0,__PYX_ERR(0, 771, __pyx_L1_error))
-  if (unlikely(!__pyx_cur_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 771, __pyx_L1_error) }
-  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run_sync(__pyx_cur_scope->__pyx_v_self, __pyx_v_kwargs); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 771, __pyx_L1_error)
+  __Pyx_TraceLine(773,3,0,__PYX_ERR(0, 773, __pyx_L1_error))
+  if (unlikely(!__pyx_cur_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 773, __pyx_L1_error) }
+  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run_sync(__pyx_cur_scope->__pyx_v_self, __pyx_v_kwargs); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 773, __pyx_L1_error)
   __pyx_v_should_await = __pyx_t_1;
 
-  /* "a_sync/a_sync/function.pyx":772
+  /* "a_sync/a_sync/function.pyx":774
  *                 # Must take place before coro is created, we're popping a kwarg.
  *                 should_await = self._run_sync(kwargs)
  *                 coro = modified_fn(*args, **kwargs)             # <<<<<<<<<<<<<<
  *                 if should_await:
  *                     return await_helper(coro)
 */
-  __Pyx_TraceLine(772,8,0,__PYX_ERR(0, 772, __pyx_L1_error))
-  if (unlikely(!__pyx_cur_scope->__pyx_v_modified_fn)) { __Pyx_RaiseClosureNameError("modified_fn"); __PYX_ERR(0, 772, __pyx_L1_error) }
-  __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 772, __pyx_L1_error)
+  __Pyx_TraceLine(774,8,0,__PYX_ERR(0, 774, __pyx_L1_error))
+  if (unlikely(!__pyx_cur_scope->__pyx_v_modified_fn)) { __Pyx_RaiseClosureNameError("modified_fn"); __PYX_ERR(0, 774, __pyx_L1_error) }
+  __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 774, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_cur_scope->__pyx_v_modified_fn, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 772, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_cur_scope->__pyx_v_modified_fn, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 774, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_coro = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":773
+  /* "a_sync/a_sync/function.pyx":775
  *                 should_await = self._run_sync(kwargs)
  *                 coro = modified_fn(*args, **kwargs)
  *                 if should_await:             # <<<<<<<<<<<<<<
  *                     return await_helper(coro)
  *                 else:
 */
-  __Pyx_TraceLine(773,13,0,__PYX_ERR(0, 773, __pyx_L1_error))
+  __Pyx_TraceLine(775,13,0,__PYX_ERR(0, 775, __pyx_L1_error))
   if (__pyx_v_should_await) {
 
-    /* "a_sync/a_sync/function.pyx":774
+    /* "a_sync/a_sync/function.pyx":776
  *                 coro = modified_fn(*args, **kwargs)
  *                 if should_await:
  *                     return await_helper(coro)             # <<<<<<<<<<<<<<
  *                 else:
  *                     return coro
 */
-    __Pyx_TraceLine(774,14,0,__PYX_ERR(0, 774, __pyx_L1_error))
+    __Pyx_TraceLine(776,14,0,__PYX_ERR(0, 776, __pyx_L1_error))
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_2 = NULL;
-    if (unlikely(!__pyx_cur_scope->__pyx_v_await_helper)) { __Pyx_RaiseClosureNameError("await_helper"); __PYX_ERR(0, 774, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_v_await_helper)) { __Pyx_RaiseClosureNameError("await_helper"); __PYX_ERR(0, 776, __pyx_L1_error) }
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_await_helper);
     __pyx_t_4 = __pyx_cur_scope->__pyx_v_await_helper; 
     __pyx_t_5 = 1;
@@ -12424,15 +12426,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 774, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 776, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 14, 0, __PYX_ERR(0, 774, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 14, 0, __PYX_ERR(0, 776, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":773
+    /* "a_sync/a_sync/function.pyx":775
  *                 should_await = self._run_sync(kwargs)
  *                 coro = modified_fn(*args, **kwargs)
  *                 if should_await:             # <<<<<<<<<<<<<<
@@ -12441,23 +12443,23 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":776
+  /* "a_sync/a_sync/function.pyx":778
  *                     return await_helper(coro)
  *                 else:
  *                     return coro             # <<<<<<<<<<<<<<
  * 
  *             self.__async_wrap = async_wrap
 */
-  __Pyx_TraceLine(776,18,0,__PYX_ERR(0, 776, __pyx_L1_error))
+  __Pyx_TraceLine(778,18,0,__PYX_ERR(0, 778, __pyx_L1_error))
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
     __Pyx_INCREF(__pyx_v_coro);
     __pyx_r = __pyx_v_coro;
-    __Pyx_TraceReturnValue(__pyx_r, 18, 0, __PYX_ERR(0, 776, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 18, 0, __PYX_ERR(0, 778, __pyx_L1_error));
     goto __pyx_L0;
   }
 
-  /* "a_sync/a_sync/function.pyx":765
+  /* "a_sync/a_sync/function.pyx":767
  *             await_helper = self.get_await()
  * 
  *             @wraps(modified_fn)             # <<<<<<<<<<<<<<
@@ -12474,7 +12476,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 765, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 767, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._async_wrap.__get__.async_wrap", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -12486,7 +12488,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":745
+/* "a_sync/a_sync/function.pyx":747
  *         return modified_fn
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12516,87 +12518,87 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 745, __pyx_L1_error)
+    __PYX_ERR(0, 747, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
-  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 745, 0, 0, 0, __PYX_ERR(0, 745, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 747, 0, 0, 0, __PYX_ERR(0, 747, __pyx_L1_error));
   __pyx_cur_scope->__pyx_v_self = __pyx_v_self;
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
 
-  /* "a_sync/a_sync/function.pyx":759
+  /* "a_sync/a_sync/function.pyx":761
  *             - :meth:`_await`
  *         """
  *         async_wrap = self.__async_wrap             # <<<<<<<<<<<<<<
  *         if async_wrap is None:
  * 
 */
-  __Pyx_TraceLine(759,3,0,__PYX_ERR(0, 759, __pyx_L1_error))
+  __Pyx_TraceLine(761,3,0,__PYX_ERR(0, 761, __pyx_L1_error))
   __pyx_t_1 = __pyx_cur_scope->__pyx_v_self->_ASyncFunction__async_wrap;
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_async_wrap = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":760
+  /* "a_sync/a_sync/function.pyx":762
  *         """
  *         async_wrap = self.__async_wrap
  *         if async_wrap is None:             # <<<<<<<<<<<<<<
  * 
  *             modified_fn = self._modified_fn
 */
-  __Pyx_TraceLine(760,7,0,__PYX_ERR(0, 760, __pyx_L1_error))
+  __Pyx_TraceLine(762,7,0,__PYX_ERR(0, 762, __pyx_L1_error))
   __pyx_t_2 = (__pyx_v_async_wrap == Py_None);
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":762
+    /* "a_sync/a_sync/function.pyx":764
  *         if async_wrap is None:
  * 
  *             modified_fn = self._modified_fn             # <<<<<<<<<<<<<<
  *             await_helper = self.get_await()
  * 
 */
-    __Pyx_TraceLine(762,10,0,__PYX_ERR(0, 762, __pyx_L1_error))
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_modified_fn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 762, __pyx_L1_error)
+    __Pyx_TraceLine(764,10,0,__PYX_ERR(0, 764, __pyx_L1_error))
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_modified_fn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 764, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_cur_scope->__pyx_v_modified_fn = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":763
+    /* "a_sync/a_sync/function.pyx":765
  * 
  *             modified_fn = self._modified_fn
  *             await_helper = self.get_await()             # <<<<<<<<<<<<<<
  * 
  *             @wraps(modified_fn)
 */
-    __Pyx_TraceLine(763,14,0,__PYX_ERR(0, 763, __pyx_L1_error))
-    __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_await(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_cur_scope->__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 763, __pyx_L1_error)
+    __Pyx_TraceLine(765,14,0,__PYX_ERR(0, 765, __pyx_L1_error))
+    __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_await(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_cur_scope->__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_cur_scope->__pyx_v_await_helper = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":765
+    /* "a_sync/a_sync/function.pyx":767
  *             await_helper = self.get_await()
  * 
  *             @wraps(modified_fn)             # <<<<<<<<<<<<<<
  *             def async_wrap(*args: P.args, **kwargs: P.kwargs) -> MaybeAwaitable[T]:  # type: ignore [name-defined]
  *                 # sourcery skip: assign-if-exp
 */
-    __Pyx_TraceLine(765,15,0,__PYX_ERR(0, 765, __pyx_L1_error))
+    __Pyx_TraceLine(767,15,0,__PYX_ERR(0, 767, __pyx_L1_error))
     __pyx_t_3 = NULL;
     __pyx_t_4 = __pyx_cur_scope->__pyx_v_modified_fn;
     __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_5 = __pyx_f_6a_sync_9functools_wraps(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 765, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_6a_sync_9functools_wraps(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 767, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 765, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 767, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 765, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 765, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeAwaitable_T) < 0) __PYX_ERR(0, 765, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wrap_7__get___1async_wrap, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___get___locals_as, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 765, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 767, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 767, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeAwaitable_T) < 0) __PYX_ERR(0, 767, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wrap_7__get___1async_wrap, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___get___locals_as, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 767, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -12618,27 +12620,27 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 765, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 767, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_async_wrap, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":778
+    /* "a_sync/a_sync/function.pyx":780
  *                     return coro
  * 
  *             self.__async_wrap = async_wrap             # <<<<<<<<<<<<<<
  * 
  *         return async_wrap
 */
-    __Pyx_TraceLine(778,24,0,__PYX_ERR(0, 778, __pyx_L1_error))
+    __Pyx_TraceLine(780,24,0,__PYX_ERR(0, 780, __pyx_L1_error))
     __Pyx_INCREF(__pyx_v_async_wrap);
     __Pyx_GIVEREF(__pyx_v_async_wrap);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->_ASyncFunction__async_wrap);
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->_ASyncFunction__async_wrap);
     __pyx_cur_scope->__pyx_v_self->_ASyncFunction__async_wrap = __pyx_v_async_wrap;
 
-    /* "a_sync/a_sync/function.pyx":760
+    /* "a_sync/a_sync/function.pyx":762
  *         """
  *         async_wrap = self.__async_wrap
  *         if async_wrap is None:             # <<<<<<<<<<<<<<
@@ -12647,21 +12649,21 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":780
+  /* "a_sync/a_sync/function.pyx":782
  *             self.__async_wrap = async_wrap
  * 
  *         return async_wrap             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __Pyx_TraceLine(780,27,0,__PYX_ERR(0, 780, __pyx_L1_error))
+  __Pyx_TraceLine(782,27,0,__PYX_ERR(0, 782, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_async_wrap);
   __pyx_r = __pyx_v_async_wrap;
-  __Pyx_TraceReturnValue(__pyx_r, 27, 0, __PYX_ERR(0, 780, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 27, 0, __PYX_ERR(0, 782, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":745
+  /* "a_sync/a_sync/function.pyx":747
  *         return modified_fn
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12680,7 +12682,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 745, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 747, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._async_wrap.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -12693,7 +12695,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_11_async_wr
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":782
+/* "a_sync/a_sync/function.pyx":784
  *         return async_wrap
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12716,7 +12718,7 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":802
+/* "a_sync/a_sync/function.pyx":804
  *             asyncified = self._asyncified
  * 
  *             @wraps(modified_fn)             # <<<<<<<<<<<<<<
@@ -12780,41 +12782,41 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   __Pyx_RefNannySetupContext("sync_wrap", 0);
   __pyx_outer_scope = (struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__ *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
-  __Pyx_TraceStartFunc("sync_wrap", __pyx_f[0], 802, 0, 0, 0, __PYX_ERR(0, 802, __pyx_L1_error));
+  __Pyx_TraceStartFunc("sync_wrap", __pyx_f[0], 804, 0, 0, 0, __PYX_ERR(0, 804, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":804
+  /* "a_sync/a_sync/function.pyx":806
  *             @wraps(modified_fn)
  *             def sync_wrap(*args: P.args, **kwargs: P.kwargs) -> MaybeAwaitable[T]:  # type: ignore [name-defined]
  *                 if self._run_sync(kwargs):             # <<<<<<<<<<<<<<
  *                     return modified_fn(*args, **kwargs)
  *                 return asyncified(*args, **kwargs)
 */
-  __Pyx_TraceLine(804,3,0,__PYX_ERR(0, 804, __pyx_L1_error))
-  if (unlikely(!__pyx_cur_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 804, __pyx_L1_error) }
-  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run_sync(__pyx_cur_scope->__pyx_v_self, __pyx_v_kwargs); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 804, __pyx_L1_error)
+  __Pyx_TraceLine(806,3,0,__PYX_ERR(0, 806, __pyx_L1_error))
+  if (unlikely(!__pyx_cur_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 806, __pyx_L1_error) }
+  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run_sync(__pyx_cur_scope->__pyx_v_self, __pyx_v_kwargs); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 806, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "a_sync/a_sync/function.pyx":805
+    /* "a_sync/a_sync/function.pyx":807
  *             def sync_wrap(*args: P.args, **kwargs: P.kwargs) -> MaybeAwaitable[T]:  # type: ignore [name-defined]
  *                 if self._run_sync(kwargs):
  *                     return modified_fn(*args, **kwargs)             # <<<<<<<<<<<<<<
  *                 return asyncified(*args, **kwargs)
  * 
 */
-    __Pyx_TraceLine(805,7,0,__PYX_ERR(0, 805, __pyx_L1_error))
+    __Pyx_TraceLine(807,7,0,__PYX_ERR(0, 807, __pyx_L1_error))
     __Pyx_XDECREF(__pyx_r);
-    if (unlikely(!__pyx_cur_scope->__pyx_v_modified_fn)) { __Pyx_RaiseClosureNameError("modified_fn"); __PYX_ERR(0, 805, __pyx_L1_error) }
-    __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 805, __pyx_L1_error)
+    if (unlikely(!__pyx_cur_scope->__pyx_v_modified_fn)) { __Pyx_RaiseClosureNameError("modified_fn"); __PYX_ERR(0, 807, __pyx_L1_error) }
+    __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 807, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_cur_scope->__pyx_v_modified_fn, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 805, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_cur_scope->__pyx_v_modified_fn, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 807, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 7, 0, __PYX_ERR(0, 805, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 7, 0, __PYX_ERR(0, 807, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":804
+    /* "a_sync/a_sync/function.pyx":806
  *             @wraps(modified_fn)
  *             def sync_wrap(*args: P.args, **kwargs: P.kwargs) -> MaybeAwaitable[T]:  # type: ignore [name-defined]
  *                 if self._run_sync(kwargs):             # <<<<<<<<<<<<<<
@@ -12823,27 +12825,27 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":806
+  /* "a_sync/a_sync/function.pyx":808
  *                 if self._run_sync(kwargs):
  *                     return modified_fn(*args, **kwargs)
  *                 return asyncified(*args, **kwargs)             # <<<<<<<<<<<<<<
  * 
  *             self.__sync_wrap = sync_wrap
 */
-  __Pyx_TraceLine(806,12,0,__PYX_ERR(0, 806, __pyx_L1_error))
+  __Pyx_TraceLine(808,12,0,__PYX_ERR(0, 808, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_v_asyncified)) { __Pyx_RaiseClosureNameError("asyncified"); __PYX_ERR(0, 806, __pyx_L1_error) }
-  __pyx_t_3 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 806, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_v_asyncified)) { __Pyx_RaiseClosureNameError("asyncified"); __PYX_ERR(0, 808, __pyx_L1_error) }
+  __pyx_t_3 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 808, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_cur_scope->__pyx_v_asyncified, __pyx_v_args, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_cur_scope->__pyx_v_asyncified, __pyx_v_args, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 808, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 12, 0, __PYX_ERR(0, 806, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 12, 0, __PYX_ERR(0, 808, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":802
+  /* "a_sync/a_sync/function.pyx":804
  *             asyncified = self._asyncified
  * 
  *             @wraps(modified_fn)             # <<<<<<<<<<<<<<
@@ -12859,7 +12861,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 802, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 804, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._sync_wrap.__get__.sync_wrap", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -12870,7 +12872,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":782
+/* "a_sync/a_sync/function.pyx":784
  *         return async_wrap
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -12900,87 +12902,87 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 782, __pyx_L1_error)
+    __PYX_ERR(0, 784, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
-  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 782, 0, 0, 0, __PYX_ERR(0, 782, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__get__", __pyx_f[0], 784, 0, 0, 0, __PYX_ERR(0, 784, __pyx_L1_error));
   __pyx_cur_scope->__pyx_v_self = __pyx_v_self;
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
 
-  /* "a_sync/a_sync/function.pyx":796
+  /* "a_sync/a_sync/function.pyx":798
  *             - :meth:`_asyncified`
  *         """
  *         sync_wrap = self.__sync_wrap             # <<<<<<<<<<<<<<
  *         if sync_wrap is None:
  * 
 */
-  __Pyx_TraceLine(796,3,0,__PYX_ERR(0, 796, __pyx_L1_error))
+  __Pyx_TraceLine(798,3,0,__PYX_ERR(0, 798, __pyx_L1_error))
   __pyx_t_1 = __pyx_cur_scope->__pyx_v_self->_ASyncFunction__sync_wrap;
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_sync_wrap = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":797
+  /* "a_sync/a_sync/function.pyx":799
  *         """
  *         sync_wrap = self.__sync_wrap
  *         if sync_wrap is None:             # <<<<<<<<<<<<<<
  * 
  *             modified_fn = self._modified_fn
 */
-  __Pyx_TraceLine(797,7,0,__PYX_ERR(0, 797, __pyx_L1_error))
+  __Pyx_TraceLine(799,7,0,__PYX_ERR(0, 799, __pyx_L1_error))
   __pyx_t_2 = (__pyx_v_sync_wrap == Py_None);
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":799
+    /* "a_sync/a_sync/function.pyx":801
  *         if sync_wrap is None:
  * 
  *             modified_fn = self._modified_fn             # <<<<<<<<<<<<<<
  *             asyncified = self._asyncified
  * 
 */
-    __Pyx_TraceLine(799,10,0,__PYX_ERR(0, 799, __pyx_L1_error))
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_modified_fn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 799, __pyx_L1_error)
+    __Pyx_TraceLine(801,10,0,__PYX_ERR(0, 801, __pyx_L1_error))
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_modified_fn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 801, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_cur_scope->__pyx_v_modified_fn = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":800
+    /* "a_sync/a_sync/function.pyx":802
  * 
  *             modified_fn = self._modified_fn
  *             asyncified = self._asyncified             # <<<<<<<<<<<<<<
  * 
  *             @wraps(modified_fn)
 */
-    __Pyx_TraceLine(800,13,0,__PYX_ERR(0, 800, __pyx_L1_error))
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_asyncified); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 800, __pyx_L1_error)
+    __Pyx_TraceLine(802,13,0,__PYX_ERR(0, 802, __pyx_L1_error))
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_mstate_global->__pyx_n_u_asyncified); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 802, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_cur_scope->__pyx_v_asyncified = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":802
+    /* "a_sync/a_sync/function.pyx":804
  *             asyncified = self._asyncified
  * 
  *             @wraps(modified_fn)             # <<<<<<<<<<<<<<
  *             def sync_wrap(*args: P.args, **kwargs: P.kwargs) -> MaybeAwaitable[T]:  # type: ignore [name-defined]
  *                 if self._run_sync(kwargs):
 */
-    __Pyx_TraceLine(802,14,0,__PYX_ERR(0, 802, __pyx_L1_error))
+    __Pyx_TraceLine(804,14,0,__PYX_ERR(0, 804, __pyx_L1_error))
     __pyx_t_3 = NULL;
     __pyx_t_4 = __pyx_cur_scope->__pyx_v_modified_fn;
     __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_5 = __pyx_f_6a_sync_9functools_wraps(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 802, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_6a_sync_9functools_wraps(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 804, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 802, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 804, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 802, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 802, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeAwaitable_T) < 0) __PYX_ERR(0, 802, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wrap_7__get___1sync_wrap, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___get___locals_sy, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 802, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 804, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 804, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeAwaitable_T) < 0) __PYX_ERR(0, 804, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wrap_7__get___1sync_wrap, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___get___locals_sy, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 804, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -13002,27 +13004,27 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 802, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 804, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_sync_wrap, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":808
+    /* "a_sync/a_sync/function.pyx":810
  *                 return asyncified(*args, **kwargs)
  * 
  *             self.__sync_wrap = sync_wrap             # <<<<<<<<<<<<<<
  * 
  *         return sync_wrap
 */
-    __Pyx_TraceLine(808,23,0,__PYX_ERR(0, 808, __pyx_L1_error))
+    __Pyx_TraceLine(810,23,0,__PYX_ERR(0, 810, __pyx_L1_error))
     __Pyx_INCREF(__pyx_v_sync_wrap);
     __Pyx_GIVEREF(__pyx_v_sync_wrap);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->_ASyncFunction__sync_wrap);
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->_ASyncFunction__sync_wrap);
     __pyx_cur_scope->__pyx_v_self->_ASyncFunction__sync_wrap = __pyx_v_sync_wrap;
 
-    /* "a_sync/a_sync/function.pyx":797
+    /* "a_sync/a_sync/function.pyx":799
  *         """
  *         sync_wrap = self.__sync_wrap
  *         if sync_wrap is None:             # <<<<<<<<<<<<<<
@@ -13031,21 +13033,21 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":810
+  /* "a_sync/a_sync/function.pyx":812
  *             self.__sync_wrap = sync_wrap
  * 
  *         return sync_wrap             # <<<<<<<<<<<<<<
  * 
  *     cpdef bint is_async_def(self):
 */
-  __Pyx_TraceLine(810,26,0,__PYX_ERR(0, 810, __pyx_L1_error))
+  __Pyx_TraceLine(812,26,0,__PYX_ERR(0, 812, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_sync_wrap);
   __pyx_r = __pyx_v_sync_wrap;
-  __Pyx_TraceReturnValue(__pyx_r, 26, 0, __PYX_ERR(0, 810, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 26, 0, __PYX_ERR(0, 812, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":782
+  /* "a_sync/a_sync/function.pyx":784
  *         return async_wrap
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -13064,7 +13066,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 782, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 784, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._sync_wrap.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -13077,7 +13079,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_10_sync_wra
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":812
+/* "a_sync/a_sync/function.pyx":814
  *         return sync_wrap
  * 
  *     cpdef bint is_async_def(self):             # <<<<<<<<<<<<<<
@@ -13109,7 +13111,7 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38]))
   __Pyx_RefNannySetupContext("is_async_def", 0);
-  __Pyx_TraceStartFunc("is_async_def", __pyx_f[0], 812, 0, 0, __pyx_skip_dispatch, __PYX_ERR(0, 812, __pyx_L1_error));
+  __Pyx_TraceStartFunc("is_async_def", __pyx_f[0], 814, 0, 0, __pyx_skip_dispatch, __PYX_ERR(0, 814, __pyx_L1_error));
   /* Check if called by wrapper */
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
@@ -13126,7 +13128,7 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_async_def); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 812, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_async_def); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 814, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_41is_async_def)) {
         __pyx_t_3 = NULL;
@@ -13149,13 +13151,13 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 812, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 814, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 812, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 814, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
-        __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 0, 0, __PYX_ERR(0, 812, __pyx_L1_error));
+        __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 0, 0, __PYX_ERR(0, 814, __pyx_L1_error));
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         goto __pyx_L0;
       }
@@ -13172,29 +13174,29 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
     #endif
   }
 
-  /* "a_sync/a_sync/function.pyx":822
+  /* "a_sync/a_sync/function.pyx":824
  *             - :func:`asyncio.iscoroutinefunction`
  *         """
  *         if self.__async_def_cached:             # <<<<<<<<<<<<<<
  *             return self.__async_def
  *         cdef bint async_def
 */
-  __Pyx_TraceLine(822,2,0,__PYX_ERR(0, 822, __pyx_L1_error))
+  __Pyx_TraceLine(824,2,0,__PYX_ERR(0, 824, __pyx_L1_error))
   if (__pyx_v_self->_ASyncFunction__async_def_cached) {
 
-    /* "a_sync/a_sync/function.pyx":823
+    /* "a_sync/a_sync/function.pyx":825
  *         """
  *         if self.__async_def_cached:
  *             return self.__async_def             # <<<<<<<<<<<<<<
  *         cdef bint async_def
  * 
 */
-    __Pyx_TraceLine(823,6,0,__PYX_ERR(0, 823, __pyx_L1_error))
+    __Pyx_TraceLine(825,6,0,__PYX_ERR(0, 825, __pyx_L1_error))
     __pyx_r = __pyx_v_self->_ASyncFunction__async_def;
-    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 4, 0, __PYX_ERR(0, 823, __pyx_L1_error));
+    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 4, 0, __PYX_ERR(0, 825, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":822
+    /* "a_sync/a_sync/function.pyx":824
  *             - :func:`asyncio.iscoroutinefunction`
  *         """
  *         if self.__async_def_cached:             # <<<<<<<<<<<<<<
@@ -13203,53 +13205,53 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":827
+  /* "a_sync/a_sync/function.pyx":829
  * 
  *         # recursively unwrap ASync callables to get the original wrapped fn
  *         wrapped = self.__wrapped__             # <<<<<<<<<<<<<<
  *         while isinstance(wrapped, _ASyncFunction):
  *             wrapped = wrapped.__wrapped__
 */
-  __Pyx_TraceLine(827,9,0,__PYX_ERR(0, 827, __pyx_L1_error))
+  __Pyx_TraceLine(829,9,0,__PYX_ERR(0, 829, __pyx_L1_error))
   __pyx_t_1 = __pyx_v_self->__pyx_base.__pyx___wrapped__;
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_wrapped = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":828
+  /* "a_sync/a_sync/function.pyx":830
  *         # recursively unwrap ASync callables to get the original wrapped fn
  *         wrapped = self.__wrapped__
  *         while isinstance(wrapped, _ASyncFunction):             # <<<<<<<<<<<<<<
  *             wrapped = wrapped.__wrapped__
  * 
 */
-  __Pyx_TraceLine(828,10,0,__PYX_ERR(0, 828, __pyx_L1_error))
+  __Pyx_TraceLine(830,10,0,__PYX_ERR(0, 830, __pyx_L1_error))
   while (1) {
     __pyx_t_6 = __Pyx_TypeCheck(__pyx_v_wrapped, __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction); 
     if (!__pyx_t_6) break;
 
-    /* "a_sync/a_sync/function.pyx":829
+    /* "a_sync/a_sync/function.pyx":831
  *         wrapped = self.__wrapped__
  *         while isinstance(wrapped, _ASyncFunction):
  *             wrapped = wrapped.__wrapped__             # <<<<<<<<<<<<<<
  * 
  *         async_def = self.__async_def = iscoroutinefunction(wrapped)
 */
-    __Pyx_TraceLine(829,17,0,__PYX_ERR(0, 829, __pyx_L1_error))
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_wrapped, __pyx_mstate_global->__pyx_n_u_wrapped); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 829, __pyx_L1_error)
+    __Pyx_TraceLine(831,17,0,__PYX_ERR(0, 831, __pyx_L1_error))
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_wrapped, __pyx_mstate_global->__pyx_n_u_wrapped); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 831, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_wrapped, __pyx_t_1);
     __pyx_t_1 = 0;
   }
 
-  /* "a_sync/a_sync/function.pyx":831
+  /* "a_sync/a_sync/function.pyx":833
  *             wrapped = wrapped.__wrapped__
  * 
  *         async_def = self.__async_def = iscoroutinefunction(wrapped)             # <<<<<<<<<<<<<<
  *         self.__async_def_cached = True
  *         return async_def
 */
-  __Pyx_TraceLine(831,22,0,__PYX_ERR(0, 831, __pyx_L1_error))
+  __Pyx_TraceLine(833,22,0,__PYX_ERR(0, 833, __pyx_L1_error))
   __pyx_t_2 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_iscoroutinefunction);
   __pyx_t_4 = __pyx_v_6a_sync_6a_sync_8function_iscoroutinefunction; 
@@ -13270,37 +13272,37 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 831, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 833, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 831, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 833, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_async_def = __pyx_t_6;
   __pyx_v_self->_ASyncFunction__async_def = __pyx_t_6;
 
-  /* "a_sync/a_sync/function.pyx":832
+  /* "a_sync/a_sync/function.pyx":834
  * 
  *         async_def = self.__async_def = iscoroutinefunction(wrapped)
  *         self.__async_def_cached = True             # <<<<<<<<<<<<<<
  *         return async_def
  * 
 */
-  __Pyx_TraceLine(832,24,0,__PYX_ERR(0, 832, __pyx_L1_error))
+  __Pyx_TraceLine(834,24,0,__PYX_ERR(0, 834, __pyx_L1_error))
   __pyx_v_self->_ASyncFunction__async_def_cached = 1;
 
-  /* "a_sync/a_sync/function.pyx":833
+  /* "a_sync/a_sync/function.pyx":835
  *         async_def = self.__async_def = iscoroutinefunction(wrapped)
  *         self.__async_def_cached = True
  *         return async_def             # <<<<<<<<<<<<<<
  * 
  *     cpdef bint is_sync_default(self):
 */
-  __Pyx_TraceLine(833,28,0,__PYX_ERR(0, 833, __pyx_L1_error))
+  __Pyx_TraceLine(835,28,0,__PYX_ERR(0, 835, __pyx_L1_error))
   __pyx_r = __pyx_v_async_def;
-  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 27, 0, __PYX_ERR(0, 833, __pyx_L1_error));
+  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 27, 0, __PYX_ERR(0, 835, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":812
+  /* "a_sync/a_sync/function.pyx":814
  *         return sync_wrap
  * 
  *     cpdef bint is_async_def(self):             # <<<<<<<<<<<<<<
@@ -13318,7 +13320,7 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(struc
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 812, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 814, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.is_async_def", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
@@ -13383,10 +13385,10 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_40is_async_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38]))
   __Pyx_RefNannySetupContext("is_async_def", 0);
-  __Pyx_TraceStartFunc("is_async_def (wrapper)", __pyx_f[0], 812, 0, 0, 0, __PYX_ERR(0, 812, __pyx_L1_error));
+  __Pyx_TraceStartFunc("is_async_def (wrapper)", __pyx_f[0], 814, 0, 0, 0, __PYX_ERR(0, 814, __pyx_L1_error));
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 812, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 812, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_async_def(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 814, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 814, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -13399,7 +13401,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_40is_async_
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 812, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 814, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.is_async_def", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -13410,7 +13412,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_40is_async_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":835
+/* "a_sync/a_sync/function.pyx":837
  *         return async_def
  * 
  *     cpdef bint is_sync_default(self):             # <<<<<<<<<<<<<<
@@ -13446,7 +13448,7 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(st
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[39]))
   __Pyx_RefNannySetupContext("is_sync_default", 0);
-  __Pyx_TraceStartFunc("is_sync_default", __pyx_f[0], 835, 0, 0, __pyx_skip_dispatch, __PYX_ERR(0, 835, __pyx_L1_error));
+  __Pyx_TraceStartFunc("is_sync_default", __pyx_f[0], 837, 0, 0, __pyx_skip_dispatch, __PYX_ERR(0, 837, __pyx_L1_error));
   /* Check if called by wrapper */
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
@@ -13463,7 +13465,7 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(st
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_sync_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 835, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_sync_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 837, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_6a_sync_6a_sync_8function_14_ASyncFunction_43is_sync_default)) {
         __pyx_t_3 = NULL;
@@ -13486,13 +13488,13 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(st
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 835, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 837, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 835, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 837, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
-        __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 0, 0, __PYX_ERR(0, 835, __pyx_L1_error));
+        __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 0, 0, __PYX_ERR(0, 837, __pyx_L1_error));
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         goto __pyx_L0;
       }
@@ -13509,29 +13511,29 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(st
     #endif
   }
 
-  /* "a_sync/a_sync/function.pyx":848
+  /* "a_sync/a_sync/function.pyx":850
  *             - :attr:`default`
  *         """
  *         if self.__sync_default_cached:             # <<<<<<<<<<<<<<
  *             return self.__sync_default
  * 
 */
-  __Pyx_TraceLine(848,2,0,__PYX_ERR(0, 848, __pyx_L1_error))
+  __Pyx_TraceLine(850,2,0,__PYX_ERR(0, 850, __pyx_L1_error))
   if (__pyx_v_self->_ASyncFunction__sync_default_cached) {
 
-    /* "a_sync/a_sync/function.pyx":849
+    /* "a_sync/a_sync/function.pyx":851
  *         """
  *         if self.__sync_default_cached:
  *             return self.__sync_default             # <<<<<<<<<<<<<<
  * 
  *         cdef str default = self.get_default()
 */
-    __Pyx_TraceLine(849,6,0,__PYX_ERR(0, 849, __pyx_L1_error))
+    __Pyx_TraceLine(851,6,0,__PYX_ERR(0, 851, __pyx_L1_error))
     __pyx_r = __pyx_v_self->_ASyncFunction__sync_default;
-    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 4, 0, __PYX_ERR(0, 849, __pyx_L1_error));
+    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 4, 0, __PYX_ERR(0, 851, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":848
+    /* "a_sync/a_sync/function.pyx":850
  *             - :attr:`default`
  *         """
  *         if self.__sync_default_cached:             # <<<<<<<<<<<<<<
@@ -13540,93 +13542,93 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(st
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":851
+  /* "a_sync/a_sync/function.pyx":853
  *             return self.__sync_default
  * 
  *         cdef str default = self.get_default()             # <<<<<<<<<<<<<<
  *         cdef bint sync_default = (
  *             True
 */
-  __Pyx_TraceLine(851,10,0,__PYX_ERR(0, 851, __pyx_L1_error))
-  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_default(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 851, __pyx_L1_error)
+  __Pyx_TraceLine(853,10,0,__PYX_ERR(0, 853, __pyx_L1_error))
+  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_default(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 853, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_default = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":854
+  /* "a_sync/a_sync/function.pyx":856
  *         cdef bint sync_default = (
  *             True
  *             if default == "sync"             # <<<<<<<<<<<<<<
  *             else False if default == "async" else not self.is_async_def()
  *         )
 */
-  __Pyx_TraceLine(854,13,0,__PYX_ERR(0, 854, __pyx_L1_error))
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_sync, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 854, __pyx_L1_error)
+  __Pyx_TraceLine(856,13,0,__PYX_ERR(0, 856, __pyx_L1_error))
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_sync, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 856, __pyx_L1_error)
   if (__pyx_t_7) {
 
-    /* "a_sync/a_sync/function.pyx":853
+    /* "a_sync/a_sync/function.pyx":855
  *         cdef str default = self.get_default()
  *         cdef bint sync_default = (
  *             True             # <<<<<<<<<<<<<<
  *             if default == "sync"
  *             else False if default == "async" else not self.is_async_def()
 */
-    __Pyx_TraceLine(853,12,0,__PYX_ERR(0, 853, __pyx_L1_error))
+    __Pyx_TraceLine(855,12,0,__PYX_ERR(0, 855, __pyx_L1_error))
     __pyx_t_6 = 1;
   } else {
 
-    /* "a_sync/a_sync/function.pyx":855
+    /* "a_sync/a_sync/function.pyx":857
  *             True
  *             if default == "sync"
  *             else False if default == "async" else not self.is_async_def()             # <<<<<<<<<<<<<<
  *         )
  *         self.__sync_default = sync_default
 */
-    __Pyx_TraceLine(855,17,0,__PYX_ERR(0, 855, __pyx_L1_error))
-    __pyx_t_9 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_async, Py_EQ)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 855, __pyx_L1_error)
+    __Pyx_TraceLine(857,17,0,__PYX_ERR(0, 857, __pyx_L1_error))
+    __pyx_t_9 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_async, Py_EQ)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 857, __pyx_L1_error)
     if (__pyx_t_9) {
       __pyx_t_8 = 0;
     } else {
-      __pyx_t_10 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 855, __pyx_L1_error)
+      __pyx_t_10 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_async_def(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 857, __pyx_L1_error)
       __pyx_t_8 = (!__pyx_t_10);
     }
     __pyx_t_6 = __pyx_t_8;
   }
   __pyx_v_sync_default = __pyx_t_6;
 
-  /* "a_sync/a_sync/function.pyx":857
+  /* "a_sync/a_sync/function.pyx":859
  *             else False if default == "async" else not self.is_async_def()
  *         )
  *         self.__sync_default = sync_default             # <<<<<<<<<<<<<<
  *         self.__sync_default_cached = True
  *         return sync_default
 */
-  __Pyx_TraceLine(857,24,0,__PYX_ERR(0, 857, __pyx_L1_error))
+  __Pyx_TraceLine(859,24,0,__PYX_ERR(0, 859, __pyx_L1_error))
   __pyx_v_self->_ASyncFunction__sync_default = __pyx_v_sync_default;
 
-  /* "a_sync/a_sync/function.pyx":858
+  /* "a_sync/a_sync/function.pyx":860
  *         )
  *         self.__sync_default = sync_default
  *         self.__sync_default_cached = True             # <<<<<<<<<<<<<<
  *         return sync_default
  * 
 */
-  __Pyx_TraceLine(858,27,0,__PYX_ERR(0, 858, __pyx_L1_error))
+  __Pyx_TraceLine(860,27,0,__PYX_ERR(0, 860, __pyx_L1_error))
   __pyx_v_self->_ASyncFunction__sync_default_cached = 1;
 
-  /* "a_sync/a_sync/function.pyx":859
+  /* "a_sync/a_sync/function.pyx":861
  *         self.__sync_default = sync_default
  *         self.__sync_default_cached = True
  *         return sync_default             # <<<<<<<<<<<<<<
  * 
  *     cdef inline bint _run_sync(self, dict kwargs):
 */
-  __Pyx_TraceLine(859,31,0,__PYX_ERR(0, 859, __pyx_L1_error))
+  __Pyx_TraceLine(861,31,0,__PYX_ERR(0, 861, __pyx_L1_error))
   __pyx_r = __pyx_v_sync_default;
-  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 30, 0, __PYX_ERR(0, 859, __pyx_L1_error));
+  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 30, 0, __PYX_ERR(0, 861, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":835
+  /* "a_sync/a_sync/function.pyx":837
  *         return async_def
  * 
  *     cpdef bint is_sync_default(self):             # <<<<<<<<<<<<<<
@@ -13644,7 +13646,7 @@ static int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(st
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 835, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 837, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.is_sync_default", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
@@ -13709,10 +13711,10 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_42is_sync_d
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[39]))
   __Pyx_RefNannySetupContext("is_sync_default", 0);
-  __Pyx_TraceStartFunc("is_sync_default (wrapper)", __pyx_f[0], 835, 0, 0, 0, __PYX_ERR(0, 835, __pyx_L1_error));
+  __Pyx_TraceStartFunc("is_sync_default (wrapper)", __pyx_f[0], 837, 0, 0, 0, __PYX_ERR(0, 837, __pyx_L1_error));
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 835, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 835, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 837, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 837, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -13725,7 +13727,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_42is_sync_d
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 835, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 837, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction.is_sync_default", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -13736,7 +13738,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_42is_sync_d
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":861
+/* "a_sync/a_sync/function.pyx":863
  *         return sync_default
  * 
  *     cdef inline bint _run_sync(self, dict kwargs):             # <<<<<<<<<<<<<<
@@ -13756,47 +13758,47 @@ static CYTHON_INLINE int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[40]))
   __Pyx_RefNannySetupContext("_run_sync", 0);
-  __Pyx_TraceStartFunc("_run_sync", __pyx_f[0], 861, 0, 0, 0, __PYX_ERR(0, 861, __pyx_L1_error));
+  __Pyx_TraceStartFunc("_run_sync", __pyx_f[0], 863, 0, 0, 0, __PYX_ERR(0, 863, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":877
+  /* "a_sync/a_sync/function.pyx":879
  *             - :func:`_kwargs.get_flag_name`
  *         """
  *         cdef str flag = get_flag_name(kwargs)             # <<<<<<<<<<<<<<
  *         if flag:
  *             # If a flag was specified in the kwargs, we will defer to it.
 */
-  __Pyx_TraceLine(877,3,0,__PYX_ERR(0, 877, __pyx_L1_error))
-  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_7_kwargs_get_flag_name(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 877, __pyx_L1_error)
+  __Pyx_TraceLine(879,3,0,__PYX_ERR(0, 879, __pyx_L1_error))
+  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_7_kwargs_get_flag_name(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 879, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_flag = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":878
+  /* "a_sync/a_sync/function.pyx":880
  *         """
  *         cdef str flag = get_flag_name(kwargs)
  *         if flag:             # <<<<<<<<<<<<<<
  *             # If a flag was specified in the kwargs, we will defer to it.
  *             return is_sync(flag, kwargs, pop_flag=True)
 */
-  __Pyx_TraceLine(878,6,0,__PYX_ERR(0, 878, __pyx_L1_error))
+  __Pyx_TraceLine(880,6,0,__PYX_ERR(0, 880, __pyx_L1_error))
   __pyx_t_2 = (__pyx_v_flag != Py_None)&&(__Pyx_PyUnicode_IS_TRUE(__pyx_v_flag) != 0);
-  if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_2 < 0))) __PYX_ERR(0, 878, __pyx_L1_error)
+  if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_2 < 0))) __PYX_ERR(0, 880, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":880
+    /* "a_sync/a_sync/function.pyx":882
  *         if flag:
  *             # If a flag was specified in the kwargs, we will defer to it.
  *             return is_sync(flag, kwargs, pop_flag=True)             # <<<<<<<<<<<<<<
  *         else:
  *             # No flag specified in the kwargs, we will defer to 'default'.
 */
-    __Pyx_TraceLine(880,9,0,__PYX_ERR(0, 880, __pyx_L1_error))
-    __pyx_t_2 = __pyx_f_6a_sync_6a_sync_7_kwargs_is_sync(__pyx_v_flag, __pyx_v_kwargs, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 880, __pyx_L1_error)
+    __Pyx_TraceLine(882,9,0,__PYX_ERR(0, 882, __pyx_L1_error))
+    __pyx_t_2 = __pyx_f_6a_sync_6a_sync_7_kwargs_is_sync(__pyx_v_flag, __pyx_v_kwargs, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 882, __pyx_L1_error)
     __pyx_r = __pyx_t_2;
-    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 7, 0, __PYX_ERR(0, 880, __pyx_L1_error));
+    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 7, 0, __PYX_ERR(0, 882, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":878
+    /* "a_sync/a_sync/function.pyx":880
  *         """
  *         cdef str flag = get_flag_name(kwargs)
  *         if flag:             # <<<<<<<<<<<<<<
@@ -13805,22 +13807,22 @@ static CYTHON_INLINE int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":883
+  /* "a_sync/a_sync/function.pyx":885
  *         else:
  *             # No flag specified in the kwargs, we will defer to 'default'.
  *             return self.is_sync_default()             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(883,13,0,__PYX_ERR(0, 883, __pyx_L1_error))
+  __Pyx_TraceLine(885,13,0,__PYX_ERR(0, 885, __pyx_L1_error))
   /*else*/ {
-    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_sync_default(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_2 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->is_sync_default(__pyx_v_self, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 885, __pyx_L1_error)
     __pyx_r = __pyx_t_2;
-    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 13, 0, __PYX_ERR(0, 883, __pyx_L1_error));
+    __Pyx_TraceReturnCValue(__pyx_r, __Pyx_PyBool_FromLong, 13, 0, __PYX_ERR(0, 885, __pyx_L1_error));
     goto __pyx_L0;
   }
 
-  /* "a_sync/a_sync/function.pyx":861
+  /* "a_sync/a_sync/function.pyx":863
  *         return sync_default
  * 
  *     cdef inline bint _run_sync(self, dict kwargs):             # <<<<<<<<<<<<<<
@@ -13835,7 +13837,7 @@ static CYTHON_INLINE int __pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 861, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 863, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._ASyncFunction._run_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
@@ -14427,7 +14429,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14_ASyncFunction_46__setstat
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":888
+/* "a_sync/a_sync/function.pyx":890
  * class ASyncFunction(_ASyncFunction, Generic[P, T]):
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -14477,39 +14479,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_fn,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 888, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 890, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 888, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 890, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 888, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 890, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 888, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 890, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 888, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 890, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 888, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 890, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 888, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 890, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_fn = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 888, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 890, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14541,18 +14543,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction___init__(CYT
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44]))
   __Pyx_RefNannySetupContext("__init__", 0);
-  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 888, 0, 0, 0, __PYX_ERR(0, 888, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 890, 0, 0, 0, __PYX_ERR(0, 890, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 888, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 890, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 888, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 890, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -14563,7 +14565,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction___init__(CYT
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":904
+/* "a_sync/a_sync/function.pyx":906
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -14613,39 +14615,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_fn,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 904, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 906, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 904, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 906, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 904, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 906, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 904, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 906, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 904, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 906, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 904, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 906, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 904, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 906, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_fn = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 904, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 906, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14677,18 +14679,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_2__init__(CY
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[45]))
   __Pyx_RefNannySetupContext("__init__", 0);
-  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 904, 0, 0, 0, __PYX_ERR(0, 904, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 906, 0, 0, 0, __PYX_ERR(0, 906, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 904, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 906, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 904, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 906, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -14699,7 +14701,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_2__init__(CY
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":920
+/* "a_sync/a_sync/function.pyx":922
  *         """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -14752,28 +14754,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_fn,&__pyx_mstate_global->__pyx_n_u_skip_validate,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 920, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 922, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 922, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 922, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 922, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 920, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_modifiers, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 922, __pyx_L3_error)
 
-      /* "a_sync/a_sync/function.pyx":923
+      /* "a_sync/a_sync/function.pyx":925
  *         self,
  *         fn: AnyFn[P, T],
  *         _skip_validate: bint = False,             # <<<<<<<<<<<<<<
@@ -14782,19 +14784,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)((PyObject*)Py_False)));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, i); __PYX_ERR(0, 920, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, i); __PYX_ERR(0, 922, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 922, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 922, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 922, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -14806,7 +14808,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 920, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 922, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14820,7 +14822,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(__pyx_self, __pyx_v_self, __pyx_v_fn, __pyx_v__skip_validate, __pyx_v_modifiers);
 
-  /* "a_sync/a_sync/function.pyx":920
+  /* "a_sync/a_sync/function.pyx":922
  *         """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -14854,25 +14856,25 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[46]))
   __Pyx_RefNannySetupContext("__init__", 0);
-  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 920, 0, 0, 0, __PYX_ERR(0, 920, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__init__", __pyx_f[0], 922, 0, 0, 0, __PYX_ERR(0, 922, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":926
+  /* "a_sync/a_sync/function.pyx":928
  *         **modifiers: Unpack[ModifierKwargs],
  *     ) -> None:
  *         _ASyncFunction.__init__(self, fn, _skip_validate=_skip_validate, **modifiers)             # <<<<<<<<<<<<<<
  *         update_wrapper(self, fn)
  *         if self.__doc__ is None:
 */
-  __Pyx_TraceLine(926,7,0,__PYX_ERR(0, 926, __pyx_L1_error))
+  __Pyx_TraceLine(928,7,0,__PYX_ERR(0, 928, __pyx_L1_error))
   __pyx_t_2 = NULL;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction), __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 926, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction), __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 928, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 926, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 928, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_skip_validate, __pyx_v__skip_validate) < 0) __PYX_ERR(0, 926, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_skip_validate, __pyx_v__skip_validate) < 0) __PYX_ERR(0, 928, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_t_5 = 0;
-  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_v_modifiers) < 0) __PYX_ERR(0, 926, __pyx_L1_error)
+  if (__Pyx_MergeKeywords(__pyx_t_4, __pyx_v_modifiers) < 0) __PYX_ERR(0, 928, __pyx_L1_error)
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
   if (likely(PyMethod_Check(__pyx_t_3))) {
@@ -14891,53 +14893,53 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 926, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 928, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":927
+  /* "a_sync/a_sync/function.pyx":929
  *     ) -> None:
  *         _ASyncFunction.__init__(self, fn, _skip_validate=_skip_validate, **modifiers)
  *         update_wrapper(self, fn)             # <<<<<<<<<<<<<<
  *         if self.__doc__ is None:
  *             self.__doc__ = f"Since `{self.__name__}` is an {self.__docstring_append__}"
 */
-  __Pyx_TraceLine(927,14,0,__PYX_ERR(0, 927, __pyx_L1_error))
-  __pyx_t_1 = __pyx_f_6a_sync_9functools_update_wrapper(__pyx_v_self, __pyx_v_fn, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 927, __pyx_L1_error)
+  __Pyx_TraceLine(929,14,0,__PYX_ERR(0, 929, __pyx_L1_error))
+  __pyx_t_1 = __pyx_f_6a_sync_9functools_update_wrapper(__pyx_v_self, __pyx_v_fn, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 929, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":928
+  /* "a_sync/a_sync/function.pyx":930
  *         _ASyncFunction.__init__(self, fn, _skip_validate=_skip_validate, **modifiers)
  *         update_wrapper(self, fn)
  *         if self.__doc__ is None:             # <<<<<<<<<<<<<<
  *             self.__doc__ = f"Since `{self.__name__}` is an {self.__docstring_append__}"
  *         else:
 */
-  __Pyx_TraceLine(928,19,0,__PYX_ERR(0, 928, __pyx_L1_error))
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 928, __pyx_L1_error)
+  __Pyx_TraceLine(930,19,0,__PYX_ERR(0, 930, __pyx_L1_error))
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 930, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_7 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_7) {
 
-    /* "a_sync/a_sync/function.pyx":929
+    /* "a_sync/a_sync/function.pyx":931
  *         update_wrapper(self, fn)
  *         if self.__doc__ is None:
  *             self.__doc__ = f"Since `{self.__name__}` is an {self.__docstring_append__}"             # <<<<<<<<<<<<<<
  *         else:
  *             self.__doc__ += (
 */
-    __Pyx_TraceLine(929,27,0,__PYX_ERR(0, 929, __pyx_L1_error))
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 929, __pyx_L1_error)
+    __Pyx_TraceLine(931,27,0,__PYX_ERR(0, 931, __pyx_L1_error))
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 931, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 929, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 931, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_docstring_append); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 929, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_docstring_append); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 931, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 929, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 931, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_Since;
@@ -14945,14 +14947,14 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_is_an;
     __pyx_t_8[3] = __pyx_t_4;
     __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 7 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 929, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 931, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc, __pyx_t_1) < 0) __PYX_ERR(0, 929, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc, __pyx_t_1) < 0) __PYX_ERR(0, 931, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":928
+    /* "a_sync/a_sync/function.pyx":930
  *         _ASyncFunction.__init__(self, fn, _skip_validate=_skip_validate, **modifiers)
  *         update_wrapper(self, fn)
  *         if self.__doc__ is None:             # <<<<<<<<<<<<<<
@@ -14962,34 +14964,34 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
     goto __pyx_L3;
   }
 
-  /* "a_sync/a_sync/function.pyx":931
+  /* "a_sync/a_sync/function.pyx":933
  *             self.__doc__ = f"Since `{self.__name__}` is an {self.__docstring_append__}"
  *         else:
  *             self.__doc__ += (             # <<<<<<<<<<<<<<
  *                 f"\n\nSince `{self.__name__}` is an {self.__docstring_append__}"
  *             )
 */
-  __Pyx_TraceLine(931,31,0,__PYX_ERR(0, 931, __pyx_L1_error))
+  __Pyx_TraceLine(933,31,0,__PYX_ERR(0, 933, __pyx_L1_error))
   /*else*/ {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 931, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 933, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "a_sync/a_sync/function.pyx":932
+    /* "a_sync/a_sync/function.pyx":934
  *         else:
  *             self.__doc__ += (
  *                 f"\n\nSince `{self.__name__}` is an {self.__docstring_append__}"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-    __Pyx_TraceLine(932,35,0,__PYX_ERR(0, 932, __pyx_L1_error))
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 932, __pyx_L1_error)
+    __Pyx_TraceLine(934,35,0,__PYX_ERR(0, 934, __pyx_L1_error))
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 934, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 932, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 934, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_docstring_append); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 932, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_docstring_append); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 934, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 932, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 934, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_Since_2;
@@ -14997,29 +14999,29 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_is_an;
     __pyx_t_8[3] = __pyx_t_2;
     __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 9 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2));
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 932, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 934, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "a_sync/a_sync/function.pyx":931
+    /* "a_sync/a_sync/function.pyx":933
  *             self.__doc__ = f"Since `{self.__name__}` is an {self.__docstring_append__}"
  *         else:
  *             self.__doc__ += (             # <<<<<<<<<<<<<<
  *                 f"\n\nSince `{self.__name__}` is an {self.__docstring_append__}"
  *             )
 */
-    __Pyx_TraceLine(931,31,0,__PYX_ERR(0, 931, __pyx_L1_error))
-    __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 931, __pyx_L1_error)
+    __Pyx_TraceLine(933,31,0,__PYX_ERR(0, 933, __pyx_L1_error))
+    __pyx_t_2 = PyNumber_InPlaceAdd(__pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 933, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc, __pyx_t_2) < 0) __PYX_ERR(0, 931, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_doc, __pyx_t_2) < 0) __PYX_ERR(0, 933, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __pyx_L3:;
 
-  /* "a_sync/a_sync/function.pyx":920
+  /* "a_sync/a_sync/function.pyx":922
  *         """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -15029,7 +15031,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 920, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 922, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
@@ -15041,7 +15043,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 920, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 922, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -15052,7 +15054,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_4__init__(CY
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":937
+/* "a_sync/a_sync/function.pyx":939
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunction`, you can optionally pass either a `sync` or `asynchronous` kwarg with a boolean value."
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -15110,36 +15112,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_sync,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 937, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 939, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 937, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 939, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 937, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 939, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 937, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 939, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 937, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 939, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 937, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 939, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_sync = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 937, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 939, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15173,18 +15175,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_6__call__(CY
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[47]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 937, 0, 0, 0, __PYX_ERR(0, 937, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 939, 0, 0, 0, __PYX_ERR(0, 939, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 937, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 939, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 937, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 939, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -15195,7 +15197,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_6__call__(CY
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":951
+/* "a_sync/a_sync/function.pyx":953
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -15253,36 +15255,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_sync,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 951, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 953, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 951, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 953, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 951, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 953, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 951, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 953, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 951, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 953, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 951, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 953, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_sync = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 951, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 953, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15316,18 +15318,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_8__call__(CY
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[48]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 951, 0, 0, 0, __PYX_ERR(0, 951, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 953, 0, 0, 0, __PYX_ERR(0, 953, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 951, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 953, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 951, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 953, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -15338,7 +15340,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_8__call__(CY
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":967
+/* "a_sync/a_sync/function.pyx":969
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -15396,36 +15398,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_asynchronous,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 967, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 969, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 967, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 969, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 967, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 969, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 967, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 969, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 967, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 969, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 967, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 969, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_asynchronous = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 967, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 969, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15459,18 +15461,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_10__call__(C
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[49]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 967, 0, 0, 0, __PYX_ERR(0, 967, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 969, 0, 0, 0, __PYX_ERR(0, 969, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 967, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 969, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 967, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 969, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -15481,7 +15483,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_10__call__(C
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":983
+/* "a_sync/a_sync/function.pyx":985
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -15539,36 +15541,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_asynchronous,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 983, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 985, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 983, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 985, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 983, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 985, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 983, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 985, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 983, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 985, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 983, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 985, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_asynchronous = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 983, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 985, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15602,18 +15604,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_12__call__(C
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[50]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 983, 0, 0, 0, __PYX_ERR(0, 983, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 985, 0, 0, 0, __PYX_ERR(0, 985, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 983, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 985, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 983, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 985, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -15624,7 +15626,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_12__call__(C
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":999
+/* "a_sync/a_sync/function.pyx":1001
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -15681,33 +15683,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 999, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1001, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 999, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1001, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 999, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1001, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 999, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1001, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 999, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1001, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 999, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1001, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15741,18 +15743,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_14__call__(C
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[51]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 999, 0, 0, 0, __PYX_ERR(0, 999, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1001, 0, 0, 0, __PYX_ERR(0, 1001, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 999, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1001, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 999, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1001, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunction.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -15763,7 +15765,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_13ASyncFunction_14__call__(C
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1020
+/* "a_sync/a_sync/function.pyx":1022
  * 
  * cdef class ASyncDecorator(_ModifiedMixin):
  *     def __cinit__(self, **modifiers: Unpack[ModifierKwargs]) -> None:             # <<<<<<<<<<<<<<
@@ -15825,32 +15827,32 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[52]))
   __Pyx_RefNannySetupContext("__cinit__", 0);
-  __Pyx_TraceStartFunc("__cinit__", __pyx_f[0], 1020, 0, 0, 0, __PYX_ERR(0, 1020, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__cinit__", __pyx_f[0], 1022, 0, 0, 0, __PYX_ERR(0, 1022, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1033
+  /* "a_sync/a_sync/function.pyx":1035
  *             - :class:`ModifierManager`
  *         """
  *         if modifiers.get("default", object) not in ("sync", "async", None):             # <<<<<<<<<<<<<<
  *             if "default" not in modifiers:
  *                 raise ValueError("you must pass a value for `default`")
 */
-  __Pyx_TraceLine(1033,5,0,__PYX_ERR(0, 1033, __pyx_L1_error))
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_modifiers, __pyx_mstate_global->__pyx_n_u_default, __pyx_builtin_object); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1033, __pyx_L1_error)
+  __Pyx_TraceLine(1035,5,0,__PYX_ERR(0, 1035, __pyx_L1_error))
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_modifiers, __pyx_mstate_global->__pyx_n_u_default, __pyx_builtin_object); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1035, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sync, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1033, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sync, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1035, __pyx_L1_error)
   if (__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_async, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1033, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_async, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1035, __pyx_L1_error)
   if (__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = PyObject_RichCompare(__pyx_t_1, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1033, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1033, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_t_1, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1035, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1035, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
@@ -15858,25 +15860,25 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "a_sync/a_sync/function.pyx":1034
+    /* "a_sync/a_sync/function.pyx":1036
  *         """
  *         if modifiers.get("default", object) not in ("sync", "async", None):
  *             if "default" not in modifiers:             # <<<<<<<<<<<<<<
  *                 raise ValueError("you must pass a value for `default`")
  *             raise ValueError(
 */
-    __Pyx_TraceLine(1034,15,0,__PYX_ERR(0, 1034, __pyx_L1_error))
-    __pyx_t_3 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_default, __pyx_v_modifiers, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1034, __pyx_L1_error)
+    __Pyx_TraceLine(1036,15,0,__PYX_ERR(0, 1036, __pyx_L1_error))
+    __pyx_t_3 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_default, __pyx_v_modifiers, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1036, __pyx_L1_error)
     if (unlikely(__pyx_t_3)) {
 
-      /* "a_sync/a_sync/function.pyx":1035
+      /* "a_sync/a_sync/function.pyx":1037
  *         if modifiers.get("default", object) not in ("sync", "async", None):
  *             if "default" not in modifiers:
  *                 raise ValueError("you must pass a value for `default`")             # <<<<<<<<<<<<<<
  *             raise ValueError(
  *                 f"'default' must be either 'sync', 'async', or None. You passed {modifiers['default']}."
 */
-      __Pyx_TraceLine(1035,18,0,__PYX_ERR(0, 1035, __pyx_L1_error))
+      __Pyx_TraceLine(1037,18,0,__PYX_ERR(0, 1037, __pyx_L1_error))
       __pyx_t_4 = NULL;
       __Pyx_INCREF(__pyx_builtin_ValueError);
       __pyx_t_5 = __pyx_builtin_ValueError; 
@@ -15886,14 +15888,14 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1035, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1037, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 1035, __pyx_L1_error)
+      __PYX_ERR(0, 1037, __pyx_L1_error)
 
-      /* "a_sync/a_sync/function.pyx":1034
+      /* "a_sync/a_sync/function.pyx":1036
  *         """
  *         if modifiers.get("default", object) not in ("sync", "async", None):
  *             if "default" not in modifiers:             # <<<<<<<<<<<<<<
@@ -15902,36 +15904,36 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
 */
     }
 
-    /* "a_sync/a_sync/function.pyx":1036
+    /* "a_sync/a_sync/function.pyx":1038
  *             if "default" not in modifiers:
  *                 raise ValueError("you must pass a value for `default`")
  *             raise ValueError(             # <<<<<<<<<<<<<<
  *                 f"'default' must be either 'sync', 'async', or None. You passed {modifiers['default']}."
  *             )
 */
-    __Pyx_TraceLine(1036,22,0,__PYX_ERR(0, 1036, __pyx_L1_error))
+    __Pyx_TraceLine(1038,22,0,__PYX_ERR(0, 1038, __pyx_L1_error))
     __pyx_t_5 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_4 = __pyx_builtin_ValueError; 
 
-    /* "a_sync/a_sync/function.pyx":1037
+    /* "a_sync/a_sync/function.pyx":1039
  *                 raise ValueError("you must pass a value for `default`")
  *             raise ValueError(
  *                 f"'default' must be either 'sync', 'async', or None. You passed {modifiers['default']}."             # <<<<<<<<<<<<<<
  *             )
  *         self.modifiers = ModifierManager(modifiers)
 */
-    __Pyx_TraceLine(1037,26,0,__PYX_ERR(0, 1037, __pyx_L1_error))
-    __pyx_t_7 = __Pyx_PyDict_GetItem(__pyx_v_modifiers, __pyx_mstate_global->__pyx_n_u_default); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1037, __pyx_L1_error)
+    __Pyx_TraceLine(1039,26,0,__PYX_ERR(0, 1039, __pyx_L1_error))
+    __pyx_t_7 = __Pyx_PyDict_GetItem(__pyx_v_modifiers, __pyx_mstate_global->__pyx_n_u_default); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1039, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1037, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1039, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_default_must_be_either_sync_asy;
     __pyx_t_9[1] = __pyx_t_8;
     __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u__2;
     __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_9, 3, 62 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1037, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1039, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_6 = 1;
@@ -15941,14 +15943,14 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1036, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1038, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 1036, __pyx_L1_error)
+    __PYX_ERR(0, 1038, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":1033
+    /* "a_sync/a_sync/function.pyx":1035
  *             - :class:`ModifierManager`
  *         """
  *         if modifiers.get("default", object) not in ("sync", "async", None):             # <<<<<<<<<<<<<<
@@ -15957,14 +15959,14 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":1039
+  /* "a_sync/a_sync/function.pyx":1041
  *                 f"'default' must be either 'sync', 'async', or None. You passed {modifiers['default']}."
  *             )
  *         self.modifiers = ModifierManager(modifiers)             # <<<<<<<<<<<<<<
  * 
  *     @overload
 */
-  __Pyx_TraceLine(1039,31,0,__PYX_ERR(0, 1039, __pyx_L1_error))
+  __Pyx_TraceLine(1041,31,0,__PYX_ERR(0, 1041, __pyx_L1_error))
   __pyx_t_4 = NULL;
   __Pyx_INCREF((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_9modifiers_7manager_ModifierManager);
   __pyx_t_7 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_9modifiers_7manager_ModifierManager); 
@@ -15974,7 +15976,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1039, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1041, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -15983,7 +15985,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
   __pyx_v_self->__pyx_base.modifiers = ((struct __pyx_obj_6a_sync_6a_sync_9modifiers_7manager_ModifierManager *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1020
+  /* "a_sync/a_sync/function.pyx":1022
  * 
  * cdef class ASyncDecorator(_ModifiedMixin):
  *     def __cinit__(self, **modifiers: Unpack[ModifierKwargs]) -> None:             # <<<<<<<<<<<<<<
@@ -15993,7 +15995,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
 
   /* function exit code */
   __pyx_r = 0;
-  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_Owned_Py_None, 0, 0, __PYX_ERR(0, 1020, __pyx_L1_error));
+  __Pyx_TraceReturnCValue(__pyx_r, __Pyx_Owned_Py_None, 0, 0, __PYX_ERR(0, 1022, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
@@ -16005,7 +16007,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1020, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1022, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecorator.__cinit__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
@@ -16015,7 +16017,7 @@ static int __pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator___cinit__(struct 
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1041
+/* "a_sync/a_sync/function.pyx":1043
  *         self.modifiers = ModifierManager(modifiers)
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -16049,32 +16051,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14ASyncDecorator_3__call__(P
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1041, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1043, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1041, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1043, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1041, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1043, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1041, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1043, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1041, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1043, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1041, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1043, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16104,18 +16106,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_2__call__(C
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[53]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1041, 0, 0, 0, __PYX_ERR(0, 1041, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1043, 0, 0, 0, __PYX_ERR(0, 1043, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1041, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1043, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1041, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1043, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecorator.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -16126,7 +16128,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_2__call__(C
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1056
+/* "a_sync/a_sync/function.pyx":1058
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -16160,32 +16162,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14ASyncDecorator_5__call__(P
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1056, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1058, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1056, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1058, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1056, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1058, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1056, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1058, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1056, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1058, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1056, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1058, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16215,18 +16217,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_4__call__(C
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[54]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1056, 0, 0, 0, __PYX_ERR(0, 1056, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1058, 0, 0, 0, __PYX_ERR(0, 1058, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1056, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1058, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1056, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1058, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecorator.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -16237,7 +16239,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_4__call__(C
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1071
+/* "a_sync/a_sync/function.pyx":1073
  *         """
  * 
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunction[P, T]:  # type: ignore [override]             # <<<<<<<<<<<<<<
@@ -16271,32 +16273,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_14ASyncDecorator_7__call__(P
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1071, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1073, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1071, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1073, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1071, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1073, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1071, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1073, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1071, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1073, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1071, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1073, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16333,49 +16335,49 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[55]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1071, 0, 0, 0, __PYX_ERR(0, 1071, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1073, 0, 0, 0, __PYX_ERR(0, 1073, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1084
+  /* "a_sync/a_sync/function.pyx":1086
  *             - :class:`ASyncFunction`
  *         """
  *         cdef str default = self.get_default()             # <<<<<<<<<<<<<<
  *         if default == "async":
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
 */
-  __Pyx_TraceLine(1084,6,0,__PYX_ERR(0, 1084, __pyx_L1_error))
-  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ModifiedMixin_get_default(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1084, __pyx_L1_error)
+  __Pyx_TraceLine(1086,6,0,__PYX_ERR(0, 1086, __pyx_L1_error))
+  __pyx_t_1 = __pyx_f_6a_sync_6a_sync_8function_14_ModifiedMixin_get_default(((struct __pyx_obj_6a_sync_6a_sync_8function__ModifiedMixin *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1086, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_default = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1085
+  /* "a_sync/a_sync/function.pyx":1087
  *         """
  *         cdef str default = self.get_default()
  *         if default == "async":             # <<<<<<<<<<<<<<
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
  *         elif default == "sync":
 */
-  __Pyx_TraceLine(1085,8,0,__PYX_ERR(0, 1085, __pyx_L1_error))
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_async, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1085, __pyx_L1_error)
+  __Pyx_TraceLine(1087,8,0,__PYX_ERR(0, 1087, __pyx_L1_error))
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_async, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1087, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":1086
+    /* "a_sync/a_sync/function.pyx":1088
  *         cdef str default = self.get_default()
  *         if default == "async":
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)             # <<<<<<<<<<<<<<
  *         elif default == "sync":
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)
 */
-    __Pyx_TraceLine(1086,11,0,__PYX_ERR(0, 1086, __pyx_L1_error))
+    __Pyx_TraceLine(1088,11,0,__PYX_ERR(0, 1088, __pyx_L1_error))
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1086, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1088, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     if (unlikely(__pyx_v_self->__pyx_base.modifiers->_modifiers == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 1086, __pyx_L1_error)
+      __PYX_ERR(0, 1088, __pyx_L1_error)
     }
-    __pyx_t_5 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1086, __pyx_L1_error)
+    __pyx_t_5 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1088, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -16395,15 +16397,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1086, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1088, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 11, 0, __PYX_ERR(0, 1086, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 11, 0, __PYX_ERR(0, 1088, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":1085
+    /* "a_sync/a_sync/function.pyx":1087
  *         """
  *         cdef str default = self.get_default()
  *         if default == "async":             # <<<<<<<<<<<<<<
@@ -16412,34 +16414,34 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":1087
+  /* "a_sync/a_sync/function.pyx":1089
  *         if default == "async":
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
  *         elif default == "sync":             # <<<<<<<<<<<<<<
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)
  *         elif iscoroutinefunction(func):
 */
-  __Pyx_TraceLine(1087,18,0,__PYX_ERR(0, 1087, __pyx_L1_error))
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_sync, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1087, __pyx_L1_error)
+  __Pyx_TraceLine(1089,18,0,__PYX_ERR(0, 1089, __pyx_L1_error))
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_default, __pyx_mstate_global->__pyx_n_u_sync, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1089, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":1088
+    /* "a_sync/a_sync/function.pyx":1090
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
  *         elif default == "sync":
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)             # <<<<<<<<<<<<<<
  *         elif iscoroutinefunction(func):
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
 */
-    __Pyx_TraceLine(1088,21,0,__PYX_ERR(0, 1088, __pyx_L1_error))
+    __Pyx_TraceLine(1090,21,0,__PYX_ERR(0, 1090, __pyx_L1_error))
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1088, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1090, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (unlikely(__pyx_v_self->__pyx_base.modifiers->_modifiers == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 1088, __pyx_L1_error)
+      __PYX_ERR(0, 1090, __pyx_L1_error)
     }
-    __pyx_t_3 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1088, __pyx_L1_error)
+    __pyx_t_3 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1090, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -16459,15 +16461,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1088, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1090, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 21, 0, __PYX_ERR(0, 1088, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 21, 0, __PYX_ERR(0, 1090, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":1087
+    /* "a_sync/a_sync/function.pyx":1089
  *         if default == "async":
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
  *         elif default == "sync":             # <<<<<<<<<<<<<<
@@ -16476,14 +16478,14 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":1089
+  /* "a_sync/a_sync/function.pyx":1091
  *         elif default == "sync":
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)
  *         elif iscoroutinefunction(func):             # <<<<<<<<<<<<<<
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
  *         else:
 */
-  __Pyx_TraceLine(1089,29,0,__PYX_ERR(0, 1089, __pyx_L1_error))
+  __Pyx_TraceLine(1091,29,0,__PYX_ERR(0, 1091, __pyx_L1_error))
   __pyx_t_5 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_iscoroutinefunction);
   __pyx_t_3 = __pyx_v_6a_sync_6a_sync_8function_iscoroutinefunction; 
@@ -16504,30 +16506,30 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1089, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1091, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1089, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1091, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "a_sync/a_sync/function.pyx":1090
+    /* "a_sync/a_sync/function.pyx":1092
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)
  *         elif iscoroutinefunction(func):
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)             # <<<<<<<<<<<<<<
  *         else:
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)
 */
-    __Pyx_TraceLine(1090,31,0,__PYX_ERR(0, 1090, __pyx_L1_error))
+    __Pyx_TraceLine(1092,31,0,__PYX_ERR(0, 1092, __pyx_L1_error))
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1090, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1092, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (unlikely(__pyx_v_self->__pyx_base.modifiers->_modifiers == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 1090, __pyx_L1_error)
+      __PYX_ERR(0, 1092, __pyx_L1_error)
     }
-    __pyx_t_4 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1090, __pyx_L1_error)
+    __pyx_t_4 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1092, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -16547,15 +16549,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1090, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1092, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 31, 0, __PYX_ERR(0, 1090, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 31, 0, __PYX_ERR(0, 1092, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/function.pyx":1089
+    /* "a_sync/a_sync/function.pyx":1091
  *         elif default == "sync":
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)
  *         elif iscoroutinefunction(func):             # <<<<<<<<<<<<<<
@@ -16564,24 +16566,24 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":1092
+  /* "a_sync/a_sync/function.pyx":1094
  *             return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)
  *         else:
  *             return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(1092,38,0,__PYX_ERR(0, 1092, __pyx_L1_error))
+  __Pyx_TraceLine(1094,38,0,__PYX_ERR(0, 1094, __pyx_L1_error))
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1092, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1094, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     if (unlikely(__pyx_v_self->__pyx_base.modifiers->_modifiers == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 1092, __pyx_L1_error)
+      __PYX_ERR(0, 1094, __pyx_L1_error)
     }
-    __pyx_t_3 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1092, __pyx_L1_error)
+    __pyx_t_3 = PyDict_Copy(__pyx_v_self->__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1094, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -16601,16 +16603,16 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1092, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1094, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 38, 0, __PYX_ERR(0, 1092, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 38, 0, __PYX_ERR(0, 1094, __pyx_L1_error));
     goto __pyx_L0;
   }
 
-  /* "a_sync/a_sync/function.pyx":1071
+  /* "a_sync/a_sync/function.pyx":1073
  *         """
  * 
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunction[P, T]:  # type: ignore [override]             # <<<<<<<<<<<<<<
@@ -16628,7 +16630,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__(s
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1071, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1073, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecorator.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -16868,7 +16870,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_14ASyncDecorator_10__setstat
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1097
+/* "a_sync/a_sync/function.pyx":1099
  * cdef set[uintptr_t] _is_genfunc_cache = set()
  * 
  * cdef void _check_not_genfunc_cached(func: Callable):             # <<<<<<<<<<<<<<
@@ -16892,16 +16894,16 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc_cached(PyObject
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[58]))
   __Pyx_RefNannySetupContext("_check_not_genfunc_cached", 0);
-  __Pyx_TraceStartFunc("_check_not_genfunc_cached", __pyx_f[0], 1097, 0, 0, 0, __PYX_ERR(0, 1097, __pyx_L1_error));
+  __Pyx_TraceStartFunc("_check_not_genfunc_cached", __pyx_f[0], 1099, 0, 0, 0, __PYX_ERR(0, 1099, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1098
+  /* "a_sync/a_sync/function.pyx":1100
  * 
  * cdef void _check_not_genfunc_cached(func: Callable):
  *     cdef uintptr_t fid = id(func)             # <<<<<<<<<<<<<<
  *     if fid not in _is_genfunc_cache:
  *         _check_not_genfunc(func)
 */
-  __Pyx_TraceLine(1098,4,0,__PYX_ERR(0, 1098, __pyx_L1_error))
+  __Pyx_TraceLine(1100,4,0,__PYX_ERR(0, 1100, __pyx_L1_error))
   __pyx_t_2 = NULL;
   __Pyx_INCREF(__pyx_builtin_id);
   __pyx_t_3 = __pyx_builtin_id; 
@@ -16911,59 +16913,59 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc_cached(PyObject
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1098, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_5 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_5 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1098, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_5 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1100, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_fid = __pyx_t_5;
 
-  /* "a_sync/a_sync/function.pyx":1099
+  /* "a_sync/a_sync/function.pyx":1101
  * cdef void _check_not_genfunc_cached(func: Callable):
  *     cdef uintptr_t fid = id(func)
  *     if fid not in _is_genfunc_cache:             # <<<<<<<<<<<<<<
  *         _check_not_genfunc(func)
  *         _is_genfunc_cache.add(fid)
 */
-  __Pyx_TraceLine(1099,7,0,__PYX_ERR(0, 1099, __pyx_L1_error))
-  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_fid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1099, __pyx_L1_error)
+  __Pyx_TraceLine(1101,7,0,__PYX_ERR(0, 1101, __pyx_L1_error))
+  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_fid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (unlikely(__pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 1099, __pyx_L1_error)
+    __PYX_ERR(0, 1101, __pyx_L1_error)
   }
-  __pyx_t_6 = (__Pyx_PySet_ContainsTF(__pyx_t_1, __pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache, Py_NE)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1099, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PySet_ContainsTF(__pyx_t_1, __pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache, Py_NE)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1101, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_6) {
 
-    /* "a_sync/a_sync/function.pyx":1100
+    /* "a_sync/a_sync/function.pyx":1102
  *     cdef uintptr_t fid = id(func)
  *     if fid not in _is_genfunc_cache:
  *         _check_not_genfunc(func)             # <<<<<<<<<<<<<<
  *         _is_genfunc_cache.add(fid)
  * 
 */
-    __Pyx_TraceLine(1100,11,0,__PYX_ERR(0, 1100, __pyx_L1_error))
-    __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(__pyx_v_func); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1100, __pyx_L1_error)
+    __Pyx_TraceLine(1102,11,0,__PYX_ERR(0, 1102, __pyx_L1_error))
+    __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(__pyx_v_func); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1102, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":1101
+    /* "a_sync/a_sync/function.pyx":1103
  *     if fid not in _is_genfunc_cache:
  *         _check_not_genfunc(func)
  *         _is_genfunc_cache.add(fid)             # <<<<<<<<<<<<<<
  * 
  * cdef void _check_not_genfunc(func: Callable):
 */
-    __Pyx_TraceLine(1101,13,0,__PYX_ERR(0, 1101, __pyx_L1_error))
+    __Pyx_TraceLine(1103,13,0,__PYX_ERR(0, 1103, __pyx_L1_error))
     if (unlikely(__pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "add");
-      __PYX_ERR(0, 1101, __pyx_L1_error)
+      __PYX_ERR(0, 1103, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_fid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1101, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_fid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1103, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_7 = PySet_Add(__pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache, __pyx_t_1); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 1101, __pyx_L1_error)
+    __pyx_t_7 = PySet_Add(__pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache, __pyx_t_1); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 1103, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "a_sync/a_sync/function.pyx":1099
+    /* "a_sync/a_sync/function.pyx":1101
  * cdef void _check_not_genfunc_cached(func: Callable):
  *     cdef uintptr_t fid = id(func)
  *     if fid not in _is_genfunc_cache:             # <<<<<<<<<<<<<<
@@ -16972,7 +16974,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc_cached(PyObject
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":1097
+  /* "a_sync/a_sync/function.pyx":1099
  * cdef set[uintptr_t] _is_genfunc_cache = set()
  * 
  * cdef void _check_not_genfunc_cached(func: Callable):             # <<<<<<<<<<<<<<
@@ -16981,7 +16983,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc_cached(PyObject
 */
 
   /* function exit code */
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1097, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1099, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
@@ -16991,7 +16993,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc_cached(PyObject
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1097, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1099, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._check_not_genfunc_cached", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
@@ -16999,7 +17001,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc_cached(PyObject
   __Pyx_RefNannyFinishContext();
 }
 
-/* "a_sync/a_sync/function.pyx":1103
+/* "a_sync/a_sync/function.pyx":1105
  *         _is_genfunc_cache.add(fid)
  * 
  * cdef void _check_not_genfunc(func: Callable):             # <<<<<<<<<<<<<<
@@ -17021,16 +17023,16 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[59]))
   __Pyx_RefNannySetupContext("_check_not_genfunc", 0);
-  __Pyx_TraceStartFunc("_check_not_genfunc", __pyx_f[0], 1103, 0, 0, 0, __PYX_ERR(0, 1103, __pyx_L1_error));
+  __Pyx_TraceStartFunc("_check_not_genfunc", __pyx_f[0], 1105, 0, 0, 0, __PYX_ERR(0, 1105, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1116
+  /* "a_sync/a_sync/function.pyx":1118
  *         - :func:`inspect.isgeneratorfunction`
  *     """
  *     if isasyncgenfunction(func) or isgeneratorfunction(func):             # <<<<<<<<<<<<<<
  *         raise ValueError("unable to decorate generator functions with this decorator")
  * 
 */
-  __Pyx_TraceLine(1116,4,0,__PYX_ERR(0, 1116, __pyx_L1_error))
+  __Pyx_TraceLine(1118,4,0,__PYX_ERR(0, 1118, __pyx_L1_error))
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_isasyncgenfunction);
   __pyx_t_4 = __pyx_v_6a_sync_6a_sync_8function_isasyncgenfunction; 
@@ -17051,10 +17053,10 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1116, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1116, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1118, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (!__pyx_t_6) {
   } else {
@@ -17081,23 +17083,23 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1116, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1116, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1118, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_1 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "a_sync/a_sync/function.pyx":1117
+    /* "a_sync/a_sync/function.pyx":1119
  *     """
  *     if isasyncgenfunction(func) or isgeneratorfunction(func):
  *         raise ValueError("unable to decorate generator functions with this decorator")             # <<<<<<<<<<<<<<
  * 
  * 
 */
-    __Pyx_TraceLine(1117,12,0,__PYX_ERR(0, 1117, __pyx_L1_error))
+    __Pyx_TraceLine(1119,12,0,__PYX_ERR(0, 1119, __pyx_L1_error))
     __pyx_t_3 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_4 = __pyx_builtin_ValueError; 
@@ -17107,14 +17109,14 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1117, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1117, __pyx_L1_error)
+    __PYX_ERR(0, 1119, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":1116
+    /* "a_sync/a_sync/function.pyx":1118
  *         - :func:`inspect.isgeneratorfunction`
  *     """
  *     if isasyncgenfunction(func) or isgeneratorfunction(func):             # <<<<<<<<<<<<<<
@@ -17123,7 +17125,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
 */
   }
 
-  /* "a_sync/a_sync/function.pyx":1103
+  /* "a_sync/a_sync/function.pyx":1105
  *         _is_genfunc_cache.add(fid)
  * 
  * cdef void _check_not_genfunc(func: Callable):             # <<<<<<<<<<<<<<
@@ -17132,7 +17134,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
 */
 
   /* function exit code */
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1103, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1105, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
@@ -17142,7 +17144,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1103, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1105, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._check_not_genfunc", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
@@ -17150,7 +17152,7 @@ static void __pyx_f_6a_sync_6a_sync_8function__check_not_genfunc(PyObject *__pyx
   __Pyx_RefNannyFinishContext();
 }
 
-/* "a_sync/a_sync/function.pyx":1145
+/* "a_sync/a_sync/function.pyx":1147
  *     """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -17208,36 +17210,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_sync,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1145, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1147, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1145, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1147, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1145, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1147, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1145, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1147, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1145, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1147, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1145, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1147, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_sync = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1145, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1147, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17271,18 +17273,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault__
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[60]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1145, 0, 0, 0, __PYX_ERR(0, 1145, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1147, 0, 0, 0, __PYX_ERR(0, 1147, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1145, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1147, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1145, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1147, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -17293,7 +17295,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault__
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1150
+/* "a_sync/a_sync/function.pyx":1152
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -17351,36 +17353,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_sync,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1150, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1152, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1150, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1152, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1150, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1152, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1150, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1152, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1150, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1152, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1150, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1152, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_sync = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1150, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1152, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17414,18 +17416,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_2
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[61]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1150, 0, 0, 0, __PYX_ERR(0, 1150, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1152, 0, 0, 0, __PYX_ERR(0, 1152, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1150, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1152, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1150, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1152, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -17436,7 +17438,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_2
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1157
+/* "a_sync/a_sync/function.pyx":1159
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -17494,36 +17496,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_asynchronous,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1157, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1159, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1157, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1159, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1157, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1159, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1157, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1159, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1157, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1159, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1157, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1159, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_asynchronous = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1157, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1159, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17557,18 +17559,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_4
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[62]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1157, 0, 0, 0, __PYX_ERR(0, 1157, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1159, 0, 0, 0, __PYX_ERR(0, 1159, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1157, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1159, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1157, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1159, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -17579,7 +17581,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_4
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1164
+/* "a_sync/a_sync/function.pyx":1166
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -17637,36 +17639,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_asynchronous,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1164, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1166, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1164, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1166, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1164, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1166, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1164, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1166, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1164, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1166, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1164, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1166, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_asynchronous = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1164, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1166, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17700,18 +17702,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_6
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[63]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1164, 0, 0, 0, __PYX_ERR(0, 1164, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1166, 0, 0, 0, __PYX_ERR(0, 1166, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1164, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1166, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1164, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1166, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -17722,7 +17724,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_6
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1171
+/* "a_sync/a_sync/function.pyx":1173
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -17779,33 +17781,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1171, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1173, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1171, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1173, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1171, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1173, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1171, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1173, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1171, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1173, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1171, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1173, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17839,18 +17841,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_8
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[64]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1171, 0, 0, 0, __PYX_ERR(0, 1171, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1173, 0, 0, 0, __PYX_ERR(0, 1173, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1171, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1173, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1171, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1173, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -17861,7 +17863,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_8
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1176
+/* "a_sync/a_sync/function.pyx":1178
  *         ...
  * 
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
@@ -17920,33 +17922,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1176, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1178, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1176, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1178, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1176, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1178, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1176, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1178, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1176, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1178, __pyx_L3_error)
     }
     __pyx_v_self = ((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1176, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1178, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17959,7 +17961,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, 1, "self", 0))) __PYX_ERR(0, 1176, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, 1, "self", 0))) __PYX_ERR(0, 1178, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_10__call__(__pyx_self, __pyx_v_self, __pyx_v_args, __pyx_v_kwargs);
 
   /* function exit code */
@@ -17993,31 +17995,31 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_1
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[65]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1176, 0, 0, 0, __PYX_ERR(0, 1176, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1178, 0, 0, 0, __PYX_ERR(0, 1178, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1195
+  /* "a_sync/a_sync/function.pyx":1197
  *             - :meth:`ASyncFunction.__call__`
  *         """
  *         return self.get_fn()(*args, **kwargs)             # <<<<<<<<<<<<<<
  * 
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunctionSyncDefault`, you can optionally pass `sync=False` or `asynchronous=True` to force it to return a coroutine. Without either kwarg, it will run synchronously."
 */
-  __Pyx_TraceLine(1195,2,0,__PYX_ERR(0, 1195, __pyx_L1_error))
+  __Pyx_TraceLine(1197,2,0,__PYX_ERR(0, 1197, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1195, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1195, __pyx_L1_error)
+  __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1195, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 2, 0, __PYX_ERR(0, 1195, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 2, 0, __PYX_ERR(0, 1197, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":1176
+  /* "a_sync/a_sync/function.pyx":1178
  *         ...
  * 
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
@@ -18034,7 +18036,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_1
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1176, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1178, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18045,7 +18047,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_1
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1223
+/* "a_sync/a_sync/function.pyx":1225
  *     """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -18103,36 +18105,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_sync,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1223, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1225, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1223, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1225, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1223, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1225, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1223, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1225, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1223, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1225, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1223, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1225, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_sync = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1223, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1225, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18166,18 +18168,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[66]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1223, 0, 0, 0, __PYX_ERR(0, 1223, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1225, 0, 0, 0, __PYX_ERR(0, 1225, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1223, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1225, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1223, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1225, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18188,7 +18190,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1228
+/* "a_sync/a_sync/function.pyx":1230
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -18246,36 +18248,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_sync,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1228, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1230, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1228, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1230, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1228, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1230, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1228, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1230, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1228, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1230, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1228, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_sync); __PYX_ERR(0, 1230, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_sync = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1228, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1230, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18309,18 +18311,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[67]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1228, 0, 0, 0, __PYX_ERR(0, 1228, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1230, 0, 0, 0, __PYX_ERR(0, 1230, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1228, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1230, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1228, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1230, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18331,7 +18333,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1235
+/* "a_sync/a_sync/function.pyx":1237
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -18389,36 +18391,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_asynchronous,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1235, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1237, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1235, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1237, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1235, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1237, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1235, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1237, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1235, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1237, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1235, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1237, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_asynchronous = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1235, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1237, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18452,18 +18454,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[68]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1235, 0, 0, 0, __PYX_ERR(0, 1235, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1237, 0, 0, 0, __PYX_ERR(0, 1237, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1235, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1237, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1235, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1237, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18474,7 +18476,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1242
+/* "a_sync/a_sync/function.pyx":1244
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -18532,36 +18534,36 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_asynchronous,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1242, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1244, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1242, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1244, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1242, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1244, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1242, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1244, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1242, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__call__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 1244, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1242, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__call__", __pyx_mstate_global->__pyx_n_u_asynchronous); __PYX_ERR(0, 1244, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_asynchronous = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1242, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1244, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18595,18 +18597,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[69]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1242, 0, 0, 0, __PYX_ERR(0, 1242, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1244, 0, 0, 0, __PYX_ERR(0, 1244, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1242, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1244, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1242, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1244, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18617,7 +18619,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1249
+/* "a_sync/a_sync/function.pyx":1251
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -18674,33 +18676,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1249, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1251, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1249, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1251, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1249, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1251, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1249, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1251, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1249, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1251, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1249, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1251, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18734,18 +18736,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[70]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1249, 0, 0, 0, __PYX_ERR(0, 1249, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1251, 0, 0, 0, __PYX_ERR(0, 1251, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1249, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1251, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1249, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1251, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18756,7 +18758,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1251
+/* "a_sync/a_sync/function.pyx":1253
  *     @overload
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, T]: ...
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
@@ -18815,33 +18817,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1251, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1253, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         default:
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1251, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1253, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       const Py_ssize_t used_pos_args = (kwd_pos_args < 1) ? kwd_pos_args : 1;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1251, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, used_pos_args, __pyx_kwds_len, "__call__", 1) < 0) __PYX_ERR(0, 1253, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1251, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, i); __PYX_ERR(0, 1253, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs < 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1251, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1253, __pyx_L3_error)
     }
     __pyx_v_self = ((struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1251, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 0, 1, 1, __pyx_nargs); __PYX_ERR(0, 1253, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18854,7 +18856,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, 1, "self", 0))) __PYX_ERR(0, 1251, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, 1, "self", 0))) __PYX_ERR(0, 1253, __pyx_L1_error)
   __pyx_r = __pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_10__call__(__pyx_self, __pyx_v_self, __pyx_v_args, __pyx_v_kwargs);
 
   /* function exit code */
@@ -18888,31 +18890,31 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[71]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1251, 0, 0, 0, __PYX_ERR(0, 1251, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1253, 0, 0, 0, __PYX_ERR(0, 1253, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1270
+  /* "a_sync/a_sync/function.pyx":1272
  *             - :meth:`ASyncFunction.__call__`
  *         """
  *         return self.get_fn()(*args, **kwargs)             # <<<<<<<<<<<<<<
  * 
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunctionAsyncDefault`, you can optionally pass `sync=True` or `asynchronous=False` to force it to run synchronously and return a value. Without either kwarg, it will return a coroutine for you to await."
 */
-  __Pyx_TraceLine(1270,2,0,__PYX_ERR(0, 1270, __pyx_L1_error))
+  __Pyx_TraceLine(1272,2,0,__PYX_ERR(0, 1272, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1270, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_6a_sync_6a_sync_8function__ASyncFunction *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_fn(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1270, __pyx_L1_error)
+  __pyx_t_2 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1270, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_v_args, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 2, 0, __PYX_ERR(0, 1270, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 2, 0, __PYX_ERR(0, 1272, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":1251
+  /* "a_sync/a_sync/function.pyx":1253
  *     @overload
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, T]: ...
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
@@ -18929,7 +18931,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1251, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1253, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncFunctionAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -18940,7 +18942,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1276
+/* "a_sync/a_sync/function.pyx":1278
  * 
  * cdef class ASyncDecoratorSyncDefault(ASyncDecorator):
  *     @overload             # <<<<<<<<<<<<<<
@@ -18974,32 +18976,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1276, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1278, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1276, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1278, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1276, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1278, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1276, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1278, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1276, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1278, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1276, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1278, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19029,18 +19031,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[72]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1276, 0, 0, 0, __PYX_ERR(0, 1276, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1278, 0, 0, 0, __PYX_ERR(0, 1278, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1276, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1278, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1276, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1278, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19051,7 +19053,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1291
+/* "a_sync/a_sync/function.pyx":1293
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -19085,32 +19087,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1291, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1293, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1291, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1293, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1291, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1293, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1291, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1293, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1291, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1293, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1291, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1293, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19140,18 +19142,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[73]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1291, 0, 0, 0, __PYX_ERR(0, 1291, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1293, 0, 0, 0, __PYX_ERR(0, 1293, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1291, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1293, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1291, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1293, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19162,7 +19164,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1306
+/* "a_sync/a_sync/function.pyx":1308
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -19196,32 +19198,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1306, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1308, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1306, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1308, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1306, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1308, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1306, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1308, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1306, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1308, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1306, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1308, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19251,18 +19253,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[74]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1306, 0, 0, 0, __PYX_ERR(0, 1306, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1308, 0, 0, 0, __PYX_ERR(0, 1308, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1306, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1308, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1306, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1308, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19273,7 +19275,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1321
+/* "a_sync/a_sync/function.pyx":1323
  *         """
  * 
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionSyncDefault[P, T]:             # <<<<<<<<<<<<<<
@@ -19303,32 +19305,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1321, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1323, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1321, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1323, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1321, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1323, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1321, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1323, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1321, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1323, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1321, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1323, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19363,25 +19365,25 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[75]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1321, 0, 0, 0, __PYX_ERR(0, 1321, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1323, 0, 0, 0, __PYX_ERR(0, 1323, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1323
+  /* "a_sync/a_sync/function.pyx":1325
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionSyncDefault[P, T]:
  *         # TODO write specific docs for this implementation
  *         return ASyncFunctionSyncDefault(func, **self.modifiers._modifiers)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(1323,3,0,__PYX_ERR(0, 1323, __pyx_L1_error))
+  __Pyx_TraceLine(1325,3,0,__PYX_ERR(0, 1325, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1323, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (unlikely(__pyx_v_self->__pyx_base.__pyx_base.modifiers->_modifiers == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 1323, __pyx_L1_error)
+    __PYX_ERR(0, 1325, __pyx_L1_error)
   }
-  __pyx_t_4 = PyDict_Copy(__pyx_v_self->__pyx_base.__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1323, __pyx_L1_error)
+  __pyx_t_4 = PyDict_Copy(__pyx_v_self->__pyx_base.__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -19401,15 +19403,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1323, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1325, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 3, 0, __PYX_ERR(0, 1323, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 3, 0, __PYX_ERR(0, 1325, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":1321
+  /* "a_sync/a_sync/function.pyx":1323
  *         """
  * 
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionSyncDefault[P, T]:             # <<<<<<<<<<<<<<
@@ -19427,7 +19429,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1321, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1323, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorSyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19666,7 +19668,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1327
+/* "a_sync/a_sync/function.pyx":1329
  * 
  * cdef class ASyncDecoratorAsyncDefault(ASyncDecorator):
  *     @overload             # <<<<<<<<<<<<<<
@@ -19700,32 +19702,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1327, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1329, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1327, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1329, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1327, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1329, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1327, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1329, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1327, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1329, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1327, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1329, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19755,18 +19757,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[78]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1327, 0, 0, 0, __PYX_ERR(0, 1327, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1329, 0, 0, 0, __PYX_ERR(0, 1329, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1327, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1329, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1327, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1329, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19777,7 +19779,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1342
+/* "a_sync/a_sync/function.pyx":1344
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -19811,32 +19813,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1342, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1344, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1342, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1344, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1342, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1344, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1342, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1344, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1342, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1344, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1342, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1344, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19866,18 +19868,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[79]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1342, 0, 0, 0, __PYX_ERR(0, 1342, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1344, 0, 0, 0, __PYX_ERR(0, 1344, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1342, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1344, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1342, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1344, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19888,7 +19890,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1357
+/* "a_sync/a_sync/function.pyx":1359
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
@@ -19922,32 +19924,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1357, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1359, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1357, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1359, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1357, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1359, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1357, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1359, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1357, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1359, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1357, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1359, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19977,18 +19979,18 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[80]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1357, 0, 0, 0, __PYX_ERR(0, 1357, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1359, 0, 0, 0, __PYX_ERR(0, 1359, __pyx_L1_error));
 
   /* function exit code */
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1357, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 0, 0, __PYX_ERR(0, 1359, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1357, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1359, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -19999,7 +20001,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1372
+/* "a_sync/a_sync/function.pyx":1374
  *         """
  * 
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionAsyncDefault[P, T]:             # <<<<<<<<<<<<<<
@@ -20029,32 +20031,32 @@ static PyObject *__pyx_pw_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_func_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1372, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1374, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1372, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1374, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1372, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 1374, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1372, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 1374, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1372, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1374, __pyx_L3_error)
     }
     __pyx_v_func = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1372, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1374, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20089,25 +20091,25 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[81]))
   __Pyx_RefNannySetupContext("__call__", 0);
-  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1372, 0, 0, 0, __PYX_ERR(0, 1372, __pyx_L1_error));
+  __Pyx_TraceStartFunc("__call__", __pyx_f[0], 1374, 0, 0, 0, __PYX_ERR(0, 1374, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1374
+  /* "a_sync/a_sync/function.pyx":1376
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionAsyncDefault[P, T]:
  *         # TODO write specific docs for this implementation
  *         return ASyncFunctionAsyncDefault(func, **self.modifiers._modifiers)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(1374,3,0,__PYX_ERR(0, 1374, __pyx_L1_error))
+  __Pyx_TraceLine(1376,3,0,__PYX_ERR(0, 1376, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1374, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1376, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (unlikely(__pyx_v_self->__pyx_base.__pyx_base.modifiers->_modifiers == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 1374, __pyx_L1_error)
+    __PYX_ERR(0, 1376, __pyx_L1_error)
   }
-  __pyx_t_4 = PyDict_Copy(__pyx_v_self->__pyx_base.__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1374, __pyx_L1_error)
+  __pyx_t_4 = PyDict_Copy(__pyx_v_self->__pyx_base.__pyx_base.modifiers->_modifiers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1376, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -20127,15 +20129,15 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1374, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 3, 0, __PYX_ERR(0, 1374, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 3, 0, __PYX_ERR(0, 1376, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/function.pyx":1372
+  /* "a_sync/a_sync/function.pyx":1374
  *         """
  * 
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionAsyncDefault[P, T]:             # <<<<<<<<<<<<<<
@@ -20153,7 +20155,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1372, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1374, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function.ASyncDecoratorAsyncDefault.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
@@ -20392,7 +20394,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/function.pyx":1377
+/* "a_sync/a_sync/function.pyx":1379
  * 
  * 
  * cdef inline void _import_TaskMapping():             # <<<<<<<<<<<<<<
@@ -20410,29 +20412,29 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[84]))
   __Pyx_RefNannySetupContext("_import_TaskMapping", 0);
-  __Pyx_TraceStartFunc("_import_TaskMapping", __pyx_f[0], 1377, 0, 0, 0, __PYX_ERR(0, 1377, __pyx_L1_error));
+  __Pyx_TraceStartFunc("_import_TaskMapping", __pyx_f[0], 1379, 0, 0, 0, __PYX_ERR(0, 1379, __pyx_L1_error));
 
-  /* "a_sync/a_sync/function.pyx":1379
+  /* "a_sync/a_sync/function.pyx":1381
  * cdef inline void _import_TaskMapping():
  *     global TaskMapping
  *     from a_sync import TaskMapping             # <<<<<<<<<<<<<<
 */
-  __Pyx_TraceLine(1379,4,0,__PYX_ERR(0, 1379, __pyx_L1_error))
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1379, __pyx_L1_error)
+  __Pyx_TraceLine(1381,4,0,__PYX_ERR(0, 1381, __pyx_L1_error))
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_TaskMapping);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_TaskMapping);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_TaskMapping) != (0)) __PYX_ERR(0, 1379, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_a_sync, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1379, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_TaskMapping) != (0)) __PYX_ERR(0, 1381, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_a_sync, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1379, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TaskMapping, __pyx_t_1) < 0) __PYX_ERR(0, 1379, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TaskMapping, __pyx_t_1) < 0) __PYX_ERR(0, 1381, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1377
+  /* "a_sync/a_sync/function.pyx":1379
  * 
  * 
  * cdef inline void _import_TaskMapping():             # <<<<<<<<<<<<<<
@@ -20441,7 +20443,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(
 */
 
   /* function exit code */
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1377, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1379, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
@@ -20450,7 +20452,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8function__import_TaskMapping(
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1377, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 1379, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.function._import_TaskMapping", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
@@ -24542,12 +24544,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_6a_sync_6a_sync_8function__ASyncFunction.is_sync_default = (int (*)(struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *, int __pyx_skip_dispatch))__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction_is_sync_default;
   __pyx_vtable_6a_sync_6a_sync_8function__ASyncFunction._run_sync = (int (*)(struct __pyx_obj_6a_sync_6a_sync_8function__ASyncFunction *, PyObject *))__pyx_f_6a_sync_6a_sync_8function_14_ASyncFunction__run_sync;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function__ASyncFunction_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction)) __PYX_ERR(0, 207, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function__ASyncFunction_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction)) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function__ASyncFunction_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction = &__pyx_type_6a_sync_6a_sync_8function__ASyncFunction;
   #endif
@@ -24555,7 +24557,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction->tp_base = __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24564,7 +24566,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 207, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 209, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14_ASyncFunction___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14_ASyncFunction___init__.doc = __pyx_doc_6a_sync_6a_sync_8function_14_ASyncFunction___init__;
@@ -24574,7 +24576,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 207, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 209, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_14_ASyncFunction_2__call__;
@@ -24582,19 +24584,19 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_vtabptr_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncFunction, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 207, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_vtabptr_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncFunction, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
   __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecorator = &__pyx_vtable_6a_sync_6a_sync_8function_ASyncDecorator;
   __pyx_vtable_6a_sync_6a_sync_8function_ASyncDecorator.__pyx_base = *__pyx_vtabptr_6a_sync_6a_sync_8function__ModifiedMixin;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1019, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1021, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function_ASyncDecorator_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator)) __PYX_ERR(0, 1019, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function_ASyncDecorator_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1019, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator)) __PYX_ERR(0, 1021, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function_ASyncDecorator_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator = &__pyx_type_6a_sync_6a_sync_8function_ASyncDecorator;
   #endif
@@ -24602,7 +24604,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator->tp_base = __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1019, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24611,7 +24613,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1019, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1021, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14ASyncDecorator_2__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14ASyncDecorator_2__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_14ASyncDecorator_2__call__;
@@ -24621,7 +24623,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1019, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1021, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14ASyncDecorator_4__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14ASyncDecorator_4__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_14ASyncDecorator_4__call__;
@@ -24631,7 +24633,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1019, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1021, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_14ASyncDecorator_6__call__;
@@ -24639,19 +24641,19 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1019, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1019, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncDecorator, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1019, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1019, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncDecorator, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
   __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault = &__pyx_vtable_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault;
   __pyx_vtable_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault.__pyx_base = *__pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecorator;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1275, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault)) __PYX_ERR(0, 1275, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1275, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault)) __PYX_ERR(0, 1277, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault = &__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault;
   #endif
@@ -24659,7 +24661,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault->tp_base = __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1275, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24668,7 +24670,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1275, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1277, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault___call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault___call__.doc = __pyx_doc_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault___call__;
@@ -24678,7 +24680,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1275, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1277, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_2__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_2__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_2__call__;
@@ -24688,7 +24690,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1275, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1277, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_4__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_4__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_4__call__;
@@ -24696,19 +24698,19 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1275, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1275, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorSyncDefault, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1275, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1275, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorSyncDefault, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
   __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault = &__pyx_vtable_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault;
   __pyx_vtable_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault.__pyx_base = *__pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecorator;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1326, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault)) __PYX_ERR(0, 1326, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1326, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault)) __PYX_ERR(0, 1328, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1328, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault = &__pyx_type_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault;
   #endif
@@ -24716,7 +24718,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault->tp_base = __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1326, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1328, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24725,7 +24727,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1326, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1328, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault___call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault___call__.doc = __pyx_doc_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault___call__;
@@ -24735,7 +24737,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1326, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1328, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_2__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_2__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_2__call__;
@@ -24745,7 +24747,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #endif
   #if CYTHON_UPDATE_DESCRIPTOR_DOC
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1326, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, "__call__"); if (unlikely(!wrapper)) __PYX_ERR(0, 1328, __pyx_L1_error)
     if (__Pyx_IS_TYPE(wrapper, &PyWrapperDescr_Type)) {
       __pyx_wrapperbase_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_4__call__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_4__call__.doc = __pyx_doc_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_4__call__;
@@ -24753,20 +24755,20 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     }
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1326, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1326, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorAsyncDefault, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1326, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1326, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_vtabptr_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1328, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1328, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorAsyncDefault, (PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1328, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault) < 0) __PYX_ERR(0, 1328, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct__any_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any)) __PYX_ERR(0, 366, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct__any_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct__any_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any)) __PYX_ERR(0, 368, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct__any_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct__any;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct__any->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24774,15 +24776,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_1_all_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all)) __PYX_ERR(0, 395, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_1_all_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_1_all_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all)) __PYX_ERR(0, 397, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_1_all_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_1_all;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_1_all->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24790,15 +24792,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_2_min_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min)) __PYX_ERR(0, 424, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_2_min_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_2_min_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min)) __PYX_ERR(0, 426, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_2_min_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_2_min;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_2_min->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24806,15 +24808,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_3_max_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max)) __PYX_ERR(0, 453, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_3_max_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_3_max_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max)) __PYX_ERR(0, 455, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_3_max_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_3_max;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_3_max->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24822,15 +24824,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum)) __PYX_ERR(0, 482, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum)) __PYX_ERR(0, 484, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_4_sum->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24838,15 +24840,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_5_any_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any)) __PYX_ERR(0, 546, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_5_any_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_5_any_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any)) __PYX_ERR(0, 548, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_5_any_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_5_any;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_5_any->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24854,15 +24856,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_6_all_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all)) __PYX_ERR(0, 575, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_6_all_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_6_all_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all)) __PYX_ERR(0, 577, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_6_all_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_6_all;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_6_all->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24870,15 +24872,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_7_min_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min)) __PYX_ERR(0, 604, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_7_min_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_7_min_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min)) __PYX_ERR(0, 606, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_7_min_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_7_min;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_7_min->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24886,15 +24888,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_8_max_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max)) __PYX_ERR(0, 633, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_8_max_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_8_max_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max)) __PYX_ERR(0, 635, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_8_max_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_8_max;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_8_max->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24902,15 +24904,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum)) __PYX_ERR(0, 662, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum)) __PYX_ERR(0, 664, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum_spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_9_sum->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24918,15 +24920,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_10___get___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__)) __PYX_ERR(0, 745, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_10___get___spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__) < 0) __PYX_ERR(0, 745, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_10___get___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__)) __PYX_ERR(0, 747, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_10___get___spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__) < 0) __PYX_ERR(0, 747, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__ = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__) < 0) __PYX_ERR(0, 745, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__) < 0) __PYX_ERR(0, 747, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_10___get__->tp_getattro == PyObject_GenericGetAttr)) {
@@ -24934,15 +24936,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_11___get___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__)) __PYX_ERR(0, 782, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_11___get___spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__) < 0) __PYX_ERR(0, 782, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_11___get___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__)) __PYX_ERR(0, 784, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_11___get___spec, __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__) < 0) __PYX_ERR(0, 784, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__ = &__pyx_type_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__) < 0) __PYX_ERR(0, 782, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__) < 0) __PYX_ERR(0, 784, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__->tp_dictoffset && __pyx_mstate->__pyx_ptype_6a_sync_6a_sync_8function___pyx_scope_struct_11___get__->tp_getattro == PyObject_GenericGetAttr)) {
@@ -25362,7 +25364,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
   if (unlikely((__Pyx_modinit_variable_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
-  __Pyx_TraceStartFunc("PyInit_function", __pyx_f[0], 1, 6, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceStartFunc("PyInit_function", __pyx_f[0], 1, 7, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
 
   /* "cfunc.to_py":65
  * 
@@ -26057,7 +26059,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     cdef tuple state
  *     cdef object _dict
 */
-  __Pyx_TraceLine(1,5,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ModifiedMixin_1__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ModifiedMixin___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26069,7 +26071,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle__ModifiedMixin__set_state(self, __pyx_state)
 */
-  __Pyx_TraceLine(16,45,0,__PYX_ERR(1, 16, __pyx_L1_error))
+  __Pyx_TraceLine(16,44,0,__PYX_ERR(1, 16, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ModifiedMixin_3__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ModifiedMixin___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ModifiedMixin, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_5) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
@@ -26136,320 +26138,320 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
   __Pyx_TraceLine(181,141,0,__PYX_ERR(0, 181, __pyx_L1_error))
 
 
-  /* "a_sync/a_sync/function.pyx":324
+  /* "a_sync/a_sync/function.pyx":326
  *         return self.get_fn()
  * 
  *     cdef object get_fn(self):             # <<<<<<<<<<<<<<
  *         fn = self._fn
  *         if fn is None:
 */
-  __Pyx_TraceLine(324,147,0,__PYX_ERR(0, 324, __pyx_L1_error))
+  __Pyx_TraceLine(326,147,0,__PYX_ERR(0, 326, __pyx_L1_error))
 
 
-  /* "a_sync/a_sync/function.pyx":331
+  /* "a_sync/a_sync/function.pyx":333
  *         return fn
  * 
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:             # <<<<<<<<<<<<<<
  *         # we can specify P.args in python>=3.11 but in lower versions it causes a crash. Everything should still type check correctly on all versions.
  *         def map(
 */
-  __Pyx_TraceLine(331,149,0,__PYX_ERR(0, 331, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __Pyx_TraceLine(333,149,0,__PYX_ERR(0, 333, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_version_info); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_version_info); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[2], Py_GE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[2], Py_GE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (!__pyx_t_8) {
   } else {
     __pyx_t_4 = __pyx_t_8;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_6a_sync_6a_sync_8function_TYPE_CHECKING); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_6a_sync_6a_sync_8function_TYPE_CHECKING); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 333, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_8;
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_4) {
 
-    /* "a_sync/a_sync/function.pyx":333
+    /* "a_sync/a_sync/function.pyx":335
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:
  *         # we can specify P.args in python>=3.11 but in lower versions it causes a crash. Everything should still type check correctly on all versions.
  *         def map(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(333,156,0,__PYX_ERR(0, 333, __pyx_L1_error))
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 333, __pyx_L1_error)
+    __Pyx_TraceLine(335,156,0,__PYX_ERR(0, 335, __pyx_L1_error))
+    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 335, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "a_sync/a_sync/function.pyx":336
+    /* "a_sync/a_sync/function.pyx":338
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(336,161,0,__PYX_ERR(0, 336, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
+    __Pyx_TraceLine(338,161,0,__PYX_ERR(0, 338, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":333
+    /* "a_sync/a_sync/function.pyx":335
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:
  *         # we can specify P.args in python>=3.11 but in lower versions it causes a crash. Everything should still type check correctly on all versions.
  *         def map(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(333,156,0,__PYX_ERR(0, 333, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 333, __pyx_L1_error)
+    __Pyx_TraceLine(335,156,0,__PYX_ERR(0, 335, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 335, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_TaskMapping_P_T) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_7map, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_map, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 333, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_TaskMapping_P_T) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_7map, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_map, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 335, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_map, __pyx_t_6) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_map, __pyx_t_6) < 0) __PYX_ERR(0, 335, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "a_sync/a_sync/function.pyx":366
+    /* "a_sync/a_sync/function.pyx":368
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(366,168,0,__PYX_ERR(0, 366, __pyx_L1_error))
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __Pyx_TraceLine(368,168,0,__PYX_ERR(0, 368, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 368, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "a_sync/a_sync/function.pyx":369
+    /* "a_sync/a_sync/function.pyx":371
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(369,173,0,__PYX_ERR(0, 369, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+    __Pyx_TraceLine(371,173,0,__PYX_ERR(0, 371, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":366
+    /* "a_sync/a_sync/function.pyx":368
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(366,168,0,__PYX_ERR(0, 366, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __Pyx_TraceLine(368,168,0,__PYX_ERR(0, 368, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 368, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_9any, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 366, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_9any, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 368, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_any, __pyx_t_5) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_any, __pyx_t_5) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "a_sync/a_sync/function.pyx":395
+    /* "a_sync/a_sync/function.pyx":397
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(395,180,0,__PYX_ERR(0, 395, __pyx_L1_error))
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 395, __pyx_L1_error)
+    __Pyx_TraceLine(397,180,0,__PYX_ERR(0, 397, __pyx_L1_error))
+    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 397, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "a_sync/a_sync/function.pyx":398
+    /* "a_sync/a_sync/function.pyx":400
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(398,185,0,__PYX_ERR(0, 398, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
+    __Pyx_TraceLine(400,185,0,__PYX_ERR(0, 400, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":395
+    /* "a_sync/a_sync/function.pyx":397
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(395,180,0,__PYX_ERR(0, 395, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 395, __pyx_L1_error)
+    __Pyx_TraceLine(397,180,0,__PYX_ERR(0, 397, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 397, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_12all, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 395, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_12all, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 397, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_all, __pyx_t_6) < 0) __PYX_ERR(0, 395, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_all, __pyx_t_6) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "a_sync/a_sync/function.pyx":424
+    /* "a_sync/a_sync/function.pyx":426
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(424,192,0,__PYX_ERR(0, 424, __pyx_L1_error))
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 424, __pyx_L1_error)
+    __Pyx_TraceLine(426,192,0,__PYX_ERR(0, 426, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "a_sync/a_sync/function.pyx":427
+    /* "a_sync/a_sync/function.pyx":429
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(427,197,0,__PYX_ERR(0, 427, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+    __Pyx_TraceLine(429,197,0,__PYX_ERR(0, 429, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":424
+    /* "a_sync/a_sync/function.pyx":426
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(424,192,0,__PYX_ERR(0, 424, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 424, __pyx_L1_error)
+    __Pyx_TraceLine(426,192,0,__PYX_ERR(0, 426, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_15min, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_15min, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_5) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_5) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "a_sync/a_sync/function.pyx":453
+    /* "a_sync/a_sync/function.pyx":455
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(453,204,0,__PYX_ERR(0, 453, __pyx_L1_error))
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 453, __pyx_L1_error)
+    __Pyx_TraceLine(455,204,0,__PYX_ERR(0, 455, __pyx_L1_error))
+    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 455, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "a_sync/a_sync/function.pyx":456
+    /* "a_sync/a_sync/function.pyx":458
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(456,209,0,__PYX_ERR(0, 456, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
+    __Pyx_TraceLine(458,209,0,__PYX_ERR(0, 458, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":453
+    /* "a_sync/a_sync/function.pyx":455
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(453,204,0,__PYX_ERR(0, 453, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 453, __pyx_L1_error)
+    __Pyx_TraceLine(455,204,0,__PYX_ERR(0, 455, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 455, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_18max, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 453, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_18max, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 455, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_6) < 0) __PYX_ERR(0, 453, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_6) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "a_sync/a_sync/function.pyx":482
+    /* "a_sync/a_sync/function.pyx":484
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(482,216,0,__PYX_ERR(0, 482, __pyx_L1_error))
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 482, __pyx_L1_error)
+    __Pyx_TraceLine(484,216,0,__PYX_ERR(0, 484, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "a_sync/a_sync/function.pyx":485
+    /* "a_sync/a_sync/function.pyx":487
  *             self,
  *             *iterables: AnyIterable[P.args],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(485,221,0,__PYX_ERR(0, 485, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
+    __Pyx_TraceLine(487,221,0,__PYX_ERR(0, 487, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":482
+    /* "a_sync/a_sync/function.pyx":484
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[P.args],
 */
-    __Pyx_TraceLine(482,216,0,__PYX_ERR(0, 482, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 482, __pyx_L1_error)
+    __Pyx_TraceLine(484,216,0,__PYX_ERR(0, 484, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_21sum, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 482, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_P_args) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_21sum, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_sum, __pyx_t_5) < 0) __PYX_ERR(0, 482, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_sum, __pyx_t_5) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "a_sync/a_sync/function.pyx":331
+    /* "a_sync/a_sync/function.pyx":333
  *         return fn
  * 
  *     if sys.version_info >= (3, 11) or TYPE_CHECKING:             # <<<<<<<<<<<<<<
@@ -26459,321 +26461,321 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     goto __pyx_L4;
   }
 
-  /* "a_sync/a_sync/function.pyx":513
+  /* "a_sync/a_sync/function.pyx":515
  *     else:
  * 
  *         def map(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-  __Pyx_TraceLine(513,228,0,__PYX_ERR(0, 513, __pyx_L1_error))
+  __Pyx_TraceLine(515,228,0,__PYX_ERR(0, 515, __pyx_L1_error))
   /*else*/ {
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 513, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 515, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "a_sync/a_sync/function.pyx":516
+    /* "a_sync/a_sync/function.pyx":518
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(516,233,0,__PYX_ERR(0, 516, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
+    __Pyx_TraceLine(518,233,0,__PYX_ERR(0, 518, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":513
+    /* "a_sync/a_sync/function.pyx":515
  *     else:
  * 
  *         def map(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(513,228,0,__PYX_ERR(0, 513, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 513, __pyx_L1_error)
+    __Pyx_TraceLine(515,228,0,__PYX_ERR(0, 515, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 515, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_TaskMapping_P_T) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_24map, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_map, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 513, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_TaskMapping_P_T) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_24map, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_map, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 515, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_map, __pyx_t_6) < 0) __PYX_ERR(0, 513, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_map, __pyx_t_6) < 0) __PYX_ERR(0, 515, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "a_sync/a_sync/function.pyx":546
+    /* "a_sync/a_sync/function.pyx":548
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(546,240,0,__PYX_ERR(0, 546, __pyx_L1_error))
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 546, __pyx_L1_error)
+    __Pyx_TraceLine(548,240,0,__PYX_ERR(0, 548, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 548, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "a_sync/a_sync/function.pyx":549
+    /* "a_sync/a_sync/function.pyx":551
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(549,245,0,__PYX_ERR(0, 549, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
+    __Pyx_TraceLine(551,245,0,__PYX_ERR(0, 551, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":546
+    /* "a_sync/a_sync/function.pyx":548
  *             )
  * 
  *         async def any(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(546,240,0,__PYX_ERR(0, 546, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 546, __pyx_L1_error)
+    __Pyx_TraceLine(548,240,0,__PYX_ERR(0, 548, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 548, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_26any, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 546, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_26any, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_any, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 548, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_any, __pyx_t_5) < 0) __PYX_ERR(0, 546, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_any, __pyx_t_5) < 0) __PYX_ERR(0, 548, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "a_sync/a_sync/function.pyx":575
+    /* "a_sync/a_sync/function.pyx":577
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(575,252,0,__PYX_ERR(0, 575, __pyx_L1_error))
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 575, __pyx_L1_error)
+    __Pyx_TraceLine(577,252,0,__PYX_ERR(0, 577, __pyx_L1_error))
+    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "a_sync/a_sync/function.pyx":578
+    /* "a_sync/a_sync/function.pyx":580
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(578,257,0,__PYX_ERR(0, 578, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
+    __Pyx_TraceLine(580,257,0,__PYX_ERR(0, 580, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":575
+    /* "a_sync/a_sync/function.pyx":577
  *             ).any(pop=True, sync=False)
  * 
  *         async def all(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(575,252,0,__PYX_ERR(0, 575, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 575, __pyx_L1_error)
+    __Pyx_TraceLine(577,252,0,__PYX_ERR(0, 577, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_29all, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 575, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_29all, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_all, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_all, __pyx_t_6) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_all, __pyx_t_6) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "a_sync/a_sync/function.pyx":604
+    /* "a_sync/a_sync/function.pyx":606
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(604,264,0,__PYX_ERR(0, 604, __pyx_L1_error))
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 604, __pyx_L1_error)
+    __Pyx_TraceLine(606,264,0,__PYX_ERR(0, 606, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "a_sync/a_sync/function.pyx":607
+    /* "a_sync/a_sync/function.pyx":609
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(607,269,0,__PYX_ERR(0, 607, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
+    __Pyx_TraceLine(609,269,0,__PYX_ERR(0, 609, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":604
+    /* "a_sync/a_sync/function.pyx":606
  *             ).all(pop=True, sync=False)
  * 
  *         async def min(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(604,264,0,__PYX_ERR(0, 604, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 604, __pyx_L1_error)
+    __Pyx_TraceLine(606,264,0,__PYX_ERR(0, 606, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_32min, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 604, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_32min, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_min, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 606, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_5) < 0) __PYX_ERR(0, 604, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_5) < 0) __PYX_ERR(0, 606, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "a_sync/a_sync/function.pyx":633
+    /* "a_sync/a_sync/function.pyx":635
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(633,276,0,__PYX_ERR(0, 633, __pyx_L1_error))
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 633, __pyx_L1_error)
+    __Pyx_TraceLine(635,276,0,__PYX_ERR(0, 635, __pyx_L1_error))
+    __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 635, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "a_sync/a_sync/function.pyx":636
+    /* "a_sync/a_sync/function.pyx":638
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(636,281,0,__PYX_ERR(0, 636, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
+    __Pyx_TraceLine(638,281,0,__PYX_ERR(0, 638, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":633
+    /* "a_sync/a_sync/function.pyx":635
  *             ).min(pop=True, sync=False)
  * 
  *         async def max(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(633,276,0,__PYX_ERR(0, 633, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 633, __pyx_L1_error)
+    __Pyx_TraceLine(635,276,0,__PYX_ERR(0, 635, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 635, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_35max, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 633, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_35max, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_max, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 635, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_6) < 0) __PYX_ERR(0, 633, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_6) < 0) __PYX_ERR(0, 635, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "a_sync/a_sync/function.pyx":662
+    /* "a_sync/a_sync/function.pyx":664
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(662,288,0,__PYX_ERR(0, 662, __pyx_L1_error))
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 662, __pyx_L1_error)
+    __Pyx_TraceLine(664,288,0,__PYX_ERR(0, 664, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 664, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "a_sync/a_sync/function.pyx":665
+    /* "a_sync/a_sync/function.pyx":667
  *             self,
  *             *iterables: AnyIterable[Any],
  *             concurrency: Optional[int] = None,             # <<<<<<<<<<<<<<
  *             task_name: str = "",
  *             **function_kwargs: P.kwargs,
 */
-    __Pyx_TraceLine(665,293,0,__PYX_ERR(0, 665, __pyx_L1_error))
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
+    __Pyx_TraceLine(667,293,0,__PYX_ERR(0, 667, __pyx_L1_error))
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_concurrency, Py_None) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_kp_u_) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
 
-    /* "a_sync/a_sync/function.pyx":662
+    /* "a_sync/a_sync/function.pyx":664
  *             ).max(pop=True, sync=False)
  * 
  *         async def sum(             # <<<<<<<<<<<<<<
  *             self,
  *             *iterables: AnyIterable[Any],
 */
-    __Pyx_TraceLine(662,288,0,__PYX_ERR(0, 662, __pyx_L1_error))
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 662, __pyx_L1_error)
+    __Pyx_TraceLine(664,288,0,__PYX_ERR(0, 664, __pyx_L1_error))
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 664, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_38sum, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 662, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_concurrency, __pyx_mstate_global->__pyx_kp_u_Optional_int) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_name, __pyx_mstate_global->__pyx_n_u_str) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iterables, __pyx_mstate_global->__pyx_kp_u_AnyIterable_Any) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_function_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_38sum, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_ASyncFunction_sum, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 664, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_6);
     __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_sum, __pyx_t_5) < 0) __PYX_ERR(0, 662, __pyx_L1_error)
+    if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_sum, __pyx_t_5) < 0) __PYX_ERR(0, 664, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __pyx_L4:;
 
-  /* "a_sync/a_sync/function.pyx":812
+  /* "a_sync/a_sync/function.pyx":814
  *         return sync_wrap
  * 
  *     cpdef bint is_async_def(self):             # <<<<<<<<<<<<<<
  *         """
  *         Checks if the wrapped function is an asynchronous function.
 */
-  __Pyx_TraceLine(812,304,0,__PYX_ERR(0, 812, __pyx_L1_error))
+  __Pyx_TraceLine(814,304,0,__PYX_ERR(0, 814, __pyx_L1_error))
 
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_41is_async_def, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_is_async_def, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 812, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_41is_async_def, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_is_async_def, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 814, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_is_async_def, __pyx_t_5) < 0) __PYX_ERR(0, 812, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_is_async_def, __pyx_t_5) < 0) __PYX_ERR(0, 814, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":835
+  /* "a_sync/a_sync/function.pyx":837
  *         return async_def
  * 
  *     cpdef bint is_sync_default(self):             # <<<<<<<<<<<<<<
  *         """
  *         Determines the default execution mode (sync or async) for the function.
 */
-  __Pyx_TraceLine(835,305,0,__PYX_ERR(0, 835, __pyx_L1_error))
+  __Pyx_TraceLine(837,305,0,__PYX_ERR(0, 837, __pyx_L1_error))
 
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_43is_sync_default, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_is_sync_default, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[39])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 835, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_43is_sync_default, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction_is_sync_default, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[39])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 837, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_is_sync_default, __pyx_t_5) < 0) __PYX_ERR(0, 835, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_is_sync_default, __pyx_t_5) < 0) __PYX_ERR(0, 837, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":861
+  /* "a_sync/a_sync/function.pyx":863
  *         return sync_default
  * 
  *     cdef inline bint _run_sync(self, dict kwargs):             # <<<<<<<<<<<<<<
  *         """
  *         Determines whether to run the function synchronously or asynchronously.
 */
-  __Pyx_TraceLine(861,306,0,__PYX_ERR(0, 861, __pyx_L1_error))
+  __Pyx_TraceLine(863,306,0,__PYX_ERR(0, 863, __pyx_L1_error))
 
 
   /* "(tree fragment)":1
@@ -26781,7 +26783,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     cdef tuple state
  *     cdef object _dict
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_45__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[42])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26793,62 +26795,62 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle__ASyncFunction__set_state(self, __pyx_state)
 */
-  __Pyx_TraceLine(16,44,0,__PYX_ERR(1, 16, __pyx_L1_error))
+  __Pyx_TraceLine(16,45,0,__PYX_ERR(1, 16, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14_ASyncFunction_47__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFunction___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[43])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_5) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":886
+  /* "a_sync/a_sync/function.pyx":888
  * 
  * 
  * class ASyncFunction(_ASyncFunction, Generic[P, T]):             # <<<<<<<<<<<<<<
  * 
  *     @overload
 */
-  __Pyx_TraceLine(886,311,0,__PYX_ERR(0, 886, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __Pyx_TraceLine(888,311,0,__PYX_ERR(0, 888, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = PyTuple_Pack(2, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_Pack(2, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetItem(__pyx_v_6a_sync_6a_sync_8function_Generic, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetItem(__pyx_v_6a_sync_6a_sync_8function_Generic, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = PyTuple_Pack(2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction), __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_Pack(2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function__ASyncFunction), __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__pyx_t_3 != __pyx_t_6) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_2, "__orig_bases__", __pyx_t_6) < 0))) __PYX_ERR(0, 886, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_2, "__orig_bases__", __pyx_t_6) < 0))) __PYX_ERR(0, 888, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "a_sync/a_sync/function.pyx":888
+  /* "a_sync/a_sync/function.pyx":890
  * class ASyncFunction(_ASyncFunction, Generic[P, T]):
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __init__(self, fn: CoroFn[P, T], **modifiers: Unpack[ModifierKwargs]) -> None:
  *         """
 */
-  __Pyx_TraceLine(888,313,0,__PYX_ERR(0, 888, __pyx_L1_error))
+  __Pyx_TraceLine(890,313,0,__PYX_ERR(0, 890, __pyx_L1_error))
   __pyx_t_9 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_11 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 888, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 890, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_fn, __pyx_mstate_global->__pyx_kp_u_CoroFn_P_T) < 0) __PYX_ERR(0, 888, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_modifiers, __pyx_mstate_global->__pyx_kp_u_Unpack_ModifierKwargs) < 0) __PYX_ERR(0, 888, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 888, __pyx_L1_error)
-  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_1__init__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___init, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 888, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_fn, __pyx_mstate_global->__pyx_kp_u_CoroFn_P_T) < 0) __PYX_ERR(0, 890, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_modifiers, __pyx_mstate_global->__pyx_kp_u_Unpack_ModifierKwargs) < 0) __PYX_ERR(0, 890, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 890, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_1__init__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___init, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 890, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_12, __pyx_t_11);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
@@ -26859,29 +26861,29 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 888, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 890, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_6) < 0) __PYX_ERR(0, 888, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_6) < 0) __PYX_ERR(0, 890, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "a_sync/a_sync/function.pyx":904
+  /* "a_sync/a_sync/function.pyx":906
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __init__(self, fn: SyncFn[P, T], **modifiers: Unpack[ModifierKwargs]) -> None:
  *         """
 */
-  __Pyx_TraceLine(904,320,0,__PYX_ERR(0, 904, __pyx_L1_error))
+  __Pyx_TraceLine(906,320,0,__PYX_ERR(0, 906, __pyx_L1_error))
   __pyx_t_10 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_12 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 904, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 906, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_fn, __pyx_mstate_global->__pyx_kp_u_SyncFn_P_T) < 0) __PYX_ERR(0, 904, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_modifiers, __pyx_mstate_global->__pyx_kp_u_Unpack_ModifierKwargs) < 0) __PYX_ERR(0, 904, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 904, __pyx_L1_error)
-  __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_3__init__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___init, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[45])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 904, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_fn, __pyx_mstate_global->__pyx_kp_u_SyncFn_P_T) < 0) __PYX_ERR(0, 906, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_modifiers, __pyx_mstate_global->__pyx_kp_u_Unpack_ModifierKwargs) < 0) __PYX_ERR(0, 906, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 906, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_3__init__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___init, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[45])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 906, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_11, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -26892,62 +26894,62 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 904, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 906, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_6) < 0) __PYX_ERR(0, 904, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_6) < 0) __PYX_ERR(0, 906, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "a_sync/a_sync/function.pyx":920
+  /* "a_sync/a_sync/function.pyx":922
  *         """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         fn: AnyFn[P, T],
 */
-  __Pyx_TraceLine(920,327,0,__PYX_ERR(0, 920, __pyx_L1_error))
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 920, __pyx_L1_error)
+  __Pyx_TraceLine(922,327,0,__PYX_ERR(0, 922, __pyx_L1_error))
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 922, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_fn, __pyx_mstate_global->__pyx_kp_u_AnyFn_P_T) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skip_validate, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_modifiers, __pyx_mstate_global->__pyx_kp_u_Unpack_ModifierKwargs) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
-  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_5__init__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___init, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[46])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 920, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_fn, __pyx_mstate_global->__pyx_kp_u_AnyFn_P_T) < 0) __PYX_ERR(0, 922, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skip_validate, __pyx_mstate_global->__pyx_n_u_bint) < 0) __PYX_ERR(0, 922, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_modifiers, __pyx_mstate_global->__pyx_kp_u_Unpack_ModifierKwargs) < 0) __PYX_ERR(0, 922, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 922, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_5__init__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___init, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[46])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 922, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_12, __pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_12, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_12) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_12) < 0) __PYX_ERR(0, 922, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-  /* "a_sync/a_sync/function.pyx":935
+  /* "a_sync/a_sync/function.pyx":937
  *             )
  * 
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunction`, you can optionally pass either a `sync` or `asynchronous` kwarg with a boolean value."             # <<<<<<<<<<<<<<
  * 
  *     @overload
 */
-  __Pyx_TraceLine(935,336,0,__PYX_ERR(0, 935, __pyx_L1_error))
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_docstring_append, __pyx_mstate_global->__pyx_kp_u_class_a_sync_a_sync_function_AS) < 0) __PYX_ERR(0, 935, __pyx_L1_error)
+  __Pyx_TraceLine(937,336,0,__PYX_ERR(0, 937, __pyx_L1_error))
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_docstring_append, __pyx_mstate_global->__pyx_kp_u_class_a_sync_a_sync_function_AS) < 0) __PYX_ERR(0, 937, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":937
+  /* "a_sync/a_sync/function.pyx":939
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunction`, you can optionally pass either a `sync` or `asynchronous` kwarg with a boolean value."
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, *args: P.args, sync: Literal[True], **kwargs: P.kwargs) -> T:
  *         """
 */
-  __Pyx_TraceLine(937,337,0,__PYX_ERR(0, 937, __pyx_L1_error))
+  __Pyx_TraceLine(939,337,0,__PYX_ERR(0, 939, __pyx_L1_error))
   __pyx_t_6 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_11 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 937, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 939, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 937, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 937, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 937, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 937, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_7__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[47])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 937, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 939, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 939, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 939, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 939, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_7__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[47])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 939, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -26958,30 +26960,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 937, __pyx_L1_error)
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 939, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 937, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 939, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-  /* "a_sync/a_sync/function.pyx":951
+  /* "a_sync/a_sync/function.pyx":953
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, sync: Literal[False], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(951,346,0,__PYX_ERR(0, 951, __pyx_L1_error))
+  __Pyx_TraceLine(953,346,0,__PYX_ERR(0, 953, __pyx_L1_error))
   __pyx_t_11 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_9 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 951, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 953, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 951, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 951, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 951, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 951, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_9__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[48])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 951, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 953, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 953, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 953, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 953, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_9__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[48])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 953, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -26992,30 +26994,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 951, __pyx_L1_error)
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 953, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 951, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 953, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-  /* "a_sync/a_sync/function.pyx":967
+  /* "a_sync/a_sync/function.pyx":969
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, asynchronous: Literal[False], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(967,355,0,__PYX_ERR(0, 967, __pyx_L1_error))
+  __Pyx_TraceLine(969,355,0,__PYX_ERR(0, 969, __pyx_L1_error))
   __pyx_t_9 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_11 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 967, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 969, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 967, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 967, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 967, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 967, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_11__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[49])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 967, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 969, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 969, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 969, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 969, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_11__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[49])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 969, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_11);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
@@ -27026,30 +27028,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 967, __pyx_L1_error)
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 969, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 967, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 969, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-  /* "a_sync/a_sync/function.pyx":983
+  /* "a_sync/a_sync/function.pyx":985
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, asynchronous: Literal[True], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(983,364,0,__PYX_ERR(0, 983, __pyx_L1_error))
+  __Pyx_TraceLine(985,364,0,__PYX_ERR(0, 985, __pyx_L1_error))
   __pyx_t_10 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_6 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 983, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 985, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 983, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 983, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 983, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 983, __pyx_L1_error)
-  __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_13__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[50])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 983, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 985, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 985, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 985, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 985, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_13__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[50])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 985, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_11, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -27060,29 +27062,29 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 983, __pyx_L1_error)
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 985, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 983, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 985, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-  /* "a_sync/a_sync/function.pyx":999
+  /* "a_sync/a_sync/function.pyx":1001
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:
  *         """
 */
-  __Pyx_TraceLine(999,373,0,__PYX_ERR(0, 999, __pyx_L1_error))
+  __Pyx_TraceLine(1001,373,0,__PYX_ERR(0, 1001, __pyx_L1_error))
   __pyx_t_6 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_11 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 999, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1001, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 999, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 999, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeCoro_T) < 0) __PYX_ERR(0, 999, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_15__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[51])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 999, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1001, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1001, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeCoro_T) < 0) __PYX_ERR(0, 1001, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_13ASyncFunction_15__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunction___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[51])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1001, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -27093,97 +27095,97 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 999, __pyx_L1_error)
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1001, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 999, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_12) < 0) __PYX_ERR(0, 1001, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-  /* "a_sync/a_sync/function.pyx":886
+  /* "a_sync/a_sync/function.pyx":888
  * 
  * 
  * class ASyncFunction(_ASyncFunction, Generic[P, T]):             # <<<<<<<<<<<<<<
  * 
  *     @overload
 */
-  __Pyx_TraceLine(886,307,0,__PYX_ERR(0, 886, __pyx_L1_error))
-  __pyx_t_12 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, __pyx_t_3, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 886, __pyx_L1_error)
+  __Pyx_TraceLine(888,307,0,__PYX_ERR(0, 888, __pyx_L1_error))
+  __pyx_t_12 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, __pyx_t_3, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, __pyx_t_12) < 0) __PYX_ERR(0, 886, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2, __pyx_t_12) < 0) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1013
+  /* "a_sync/a_sync/function.pyx":1015
  * 
  * 
  * if sys.version_info < (3, 10):             # <<<<<<<<<<<<<<
  *     _inherit = ASyncFunction[AnyFn[P, T], ASyncFunction[P, T]]
  * else:
 */
-  __Pyx_TraceLine(1013,381,0,__PYX_ERR(0, 1013, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1013, __pyx_L1_error)
+  __Pyx_TraceLine(1015,381,0,__PYX_ERR(0, 1015, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1015, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1013, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version_info); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1015, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[4], Py_LT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1013, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[4], Py_LT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1015, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1013, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1015, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_4) {
 
-    /* "a_sync/a_sync/function.pyx":1014
+    /* "a_sync/a_sync/function.pyx":1016
  * 
  * if sys.version_info < (3, 10):
  *     _inherit = ASyncFunction[AnyFn[P, T], ASyncFunction[P, T]]             # <<<<<<<<<<<<<<
  * else:
  *     _inherit = ASyncFunction[[AnyFn[P, T]], ASyncFunction[P, T]]
 */
-    __Pyx_TraceLine(1014,387,0,__PYX_ERR(0, 1014, __pyx_L1_error))
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_TraceLine(1016,387,0,__PYX_ERR(0, 1016, __pyx_L1_error))
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_AnyFn); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_AnyFn); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    __pyx_t_11 = PyTuple_Pack(2, __pyx_t_2, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __pyx_t_11 = PyTuple_Pack(2, __pyx_t_2, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    __pyx_t_12 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_9 = PyTuple_Pack(2, __pyx_t_5, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __pyx_t_9 = PyTuple_Pack(2, __pyx_t_5, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_11, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_11, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_9 = PyTuple_Pack(2, __pyx_t_12, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __pyx_t_9 = PyTuple_Pack(2, __pyx_t_12, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1014, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_inherit, __pyx_t_2) < 0) __PYX_ERR(0, 1014, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_inherit, __pyx_t_2) < 0) __PYX_ERR(0, 1016, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "a_sync/a_sync/function.pyx":1013
+    /* "a_sync/a_sync/function.pyx":1015
  * 
  * 
  * if sys.version_info < (3, 10):             # <<<<<<<<<<<<<<
@@ -27193,73 +27195,73 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     goto __pyx_L7;
   }
 
-  /* "a_sync/a_sync/function.pyx":1016
+  /* "a_sync/a_sync/function.pyx":1018
  *     _inherit = ASyncFunction[AnyFn[P, T], ASyncFunction[P, T]]
  * else:
  *     _inherit = ASyncFunction[[AnyFn[P, T]], ASyncFunction[P, T]]             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(1016,399,0,__PYX_ERR(0, 1016, __pyx_L1_error))
+  __Pyx_TraceLine(1018,399,0,__PYX_ERR(0, 1018, __pyx_L1_error))
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_AnyFn); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_AnyFn); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    __pyx_t_11 = PyTuple_Pack(2, __pyx_t_3, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_11 = PyTuple_Pack(2, __pyx_t_3, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    __pyx_t_12 = __Pyx_PyObject_GetItem(__pyx_t_9, __pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetItem(__pyx_t_9, __pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    __pyx_t_11 = __Pyx_PyList_Pack(1, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyList_Pack(1, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = PyTuple_Pack(2, __pyx_t_9, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_Pack(2, __pyx_t_9, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_GetItem(__pyx_t_12, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetItem(__pyx_t_12, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = PyTuple_Pack(2, __pyx_t_11, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_Pack(2, __pyx_t_11, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_inherit, __pyx_t_3) < 0) __PYX_ERR(0, 1016, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_inherit, __pyx_t_3) < 0) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_L7:;
 
-  /* "a_sync/a_sync/function.pyx":1041
+  /* "a_sync/a_sync/function.pyx":1043
  *         self.modifiers = ModifierManager(modifiers)
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyFn[Concatenate[B, P], T]) -> "ASyncBoundMethod[B, P, T]":  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1041,411,0,__PYX_ERR(0, 1041, __pyx_L1_error))
+  __Pyx_TraceLine(1043,411,0,__PYX_ERR(0, 1043, __pyx_L1_error))
   __pyx_t_5 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_2 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_11, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1041, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_11, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1043, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_7 = 1;
   {
@@ -27268,24 +27270,24 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1041, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1043, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_3) < 0) __PYX_ERR(0, 1041, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_3) < 0) __PYX_ERR(0, 1043, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1056
+  /* "a_sync/a_sync/function.pyx":1058
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunction[P, T]:  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1056,413,0,__PYX_ERR(0, 1056, __pyx_L1_error))
+  __Pyx_TraceLine(1058,413,0,__PYX_ERR(0, 1058, __pyx_L1_error))
   __pyx_t_2 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_11 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1056, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1058, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   {
@@ -27294,10 +27296,10 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1056, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1058, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_3) < 0) __PYX_ERR(0, 1056, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecorator, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_3) < 0) __PYX_ERR(0, 1058, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":1
@@ -27305,7 +27307,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,5,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_14ASyncDecorator_9__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncDecorator___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[56])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -27323,95 +27325,95 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1095
+  /* "a_sync/a_sync/function.pyx":1097
  * 
  * 
  * cdef set[uintptr_t] _is_genfunc_cache = set()             # <<<<<<<<<<<<<<
  * 
  * cdef void _check_not_genfunc_cached(func: Callable):
 */
-  __Pyx_TraceLine(1095,416,0,__PYX_ERR(0, 1095, __pyx_L1_error))
-  __pyx_t_3 = PySet_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1095, __pyx_L1_error)
+  __Pyx_TraceLine(1097,416,0,__PYX_ERR(0, 1097, __pyx_L1_error))
+  __pyx_t_3 = PySet_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1097, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_XGOTREF(__pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache);
   __Pyx_DECREF_SET(__pyx_v_6a_sync_6a_sync_8function__is_genfunc_cache, ((PyObject*)__pyx_t_3));
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1097
+  /* "a_sync/a_sync/function.pyx":1099
  * cdef set[uintptr_t] _is_genfunc_cache = set()
  * 
  * cdef void _check_not_genfunc_cached(func: Callable):             # <<<<<<<<<<<<<<
  *     cdef uintptr_t fid = id(func)
  *     if fid not in _is_genfunc_cache:
 */
-  __Pyx_TraceLine(1097,418,0,__PYX_ERR(0, 1097, __pyx_L1_error))
+  __Pyx_TraceLine(1099,418,0,__PYX_ERR(0, 1099, __pyx_L1_error))
 
 
-  /* "a_sync/a_sync/function.pyx":1103
+  /* "a_sync/a_sync/function.pyx":1105
  *         _is_genfunc_cache.add(fid)
  * 
  * cdef void _check_not_genfunc(func: Callable):             # <<<<<<<<<<<<<<
  *     """Raises an error if the function is a generator or async generator.
  * 
 */
-  __Pyx_TraceLine(1103,419,0,__PYX_ERR(0, 1103, __pyx_L1_error))
+  __Pyx_TraceLine(1105,419,0,__PYX_ERR(0, 1105, __pyx_L1_error))
 
 
-  /* "a_sync/a_sync/function.pyx":1123
+  /* "a_sync/a_sync/function.pyx":1125
  * 
  * 
  * class ASyncFunctionSyncDefault(ASyncFunction[P, T]):             # <<<<<<<<<<<<<<
  *     """A specialized :class:`~ASyncFunction` that defaults to synchronous execution.
  * 
 */
-  __Pyx_TraceLine(1123,421,0,__PYX_ERR(0, 1123, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __Pyx_TraceLine(1125,421,0,__PYX_ERR(0, 1125, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = PyTuple_Pack(2, __pyx_t_11, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_Pack(2, __pyx_t_11, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyTuple_Pack(1, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_Pack(1, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PEP560_update_bases(__pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PEP560_update_bases(__pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_11 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_kp_u_A_specialized_class_ASyncFunctio); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_kp_u_A_specialized_class_ASyncFunctio); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (__pyx_t_5 != __pyx_t_2) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_11, "__orig_bases__", __pyx_t_2) < 0))) __PYX_ERR(0, 1123, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_11, "__orig_bases__", __pyx_t_2) < 0))) __PYX_ERR(0, 1125, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1145
+  /* "a_sync/a_sync/function.pyx":1147
  *     """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, *args: P.args, sync: Literal[True], **kwargs: P.kwargs) -> T:
  *         # TODO write specific docs for this overload
 */
-  __Pyx_TraceLine(1145,425,0,__PYX_ERR(0, 1145, __pyx_L1_error))
+  __Pyx_TraceLine(1147,425,0,__PYX_ERR(0, 1147, __pyx_L1_error))
   __pyx_t_12 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_9 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1145, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1145, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1145, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1145, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1145, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_1__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[60])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1145, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_1__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[60])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -27422,30 +27424,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1145, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1147, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1145, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1150
+  /* "a_sync/a_sync/function.pyx":1152
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, sync: Literal[False], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(1150,434,0,__PYX_ERR(0, 1150, __pyx_L1_error))
+  __Pyx_TraceLine(1152,434,0,__PYX_ERR(0, 1152, __pyx_L1_error))
   __pyx_t_9 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_12 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1150, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1150, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1150, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1150, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1150, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_3__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[61])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1150, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1152, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_3__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[61])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_12);
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
@@ -27456,30 +27458,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1150, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1150, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1157
+  /* "a_sync/a_sync/function.pyx":1159
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, asynchronous: Literal[False], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(1157,443,0,__PYX_ERR(0, 1157, __pyx_L1_error))
+  __Pyx_TraceLine(1159,443,0,__PYX_ERR(0, 1159, __pyx_L1_error))
   __pyx_t_10 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_6 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1157, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1157, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1157, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1157, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1157, __pyx_L1_error)
-  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_5__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[62])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1157, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1159, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1159, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1159, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1159, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_5__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[62])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_12, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -27490,30 +27492,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1157, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1159, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1157, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1159, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1164
+  /* "a_sync/a_sync/function.pyx":1166
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, asynchronous: Literal[True], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(1164,452,0,__PYX_ERR(0, 1164, __pyx_L1_error))
+  __Pyx_TraceLine(1166,452,0,__PYX_ERR(0, 1166, __pyx_L1_error))
   __pyx_t_6 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_12 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1164, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1164, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1164, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1164, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1164, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_7__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[63])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1164, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1166, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1166, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1166, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1166, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_7__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[63])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -27524,29 +27526,29 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1164, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1164, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1166, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1171
+  /* "a_sync/a_sync/function.pyx":1173
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
  *         # TODO write specific docs for this overload
 */
-  __Pyx_TraceLine(1171,461,0,__PYX_ERR(0, 1171, __pyx_L1_error))
+  __Pyx_TraceLine(1173,461,0,__PYX_ERR(0, 1173, __pyx_L1_error))
   __pyx_t_12 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_9 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1171, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1171, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1171, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1171, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_9__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[64])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1171, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1173, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1173, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1173, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_9__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[64])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -27557,112 +27559,112 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1171, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1171, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_2) < 0) __PYX_ERR(0, 1173, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1176
+  /* "a_sync/a_sync/function.pyx":1178
  *         ...
  * 
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
  *         """Calls the wrapped function, defaulting to synchronous execution.
  * 
 */
-  __Pyx_TraceLine(1176,468,0,__PYX_ERR(0, 1176, __pyx_L1_error))
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1176, __pyx_L1_error)
+  __Pyx_TraceLine(1178,468,0,__PYX_ERR(0, 1178, __pyx_L1_error))
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1176, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1176, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeCoro_T) < 0) __PYX_ERR(0, 1176, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_11__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[65])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1176, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1178, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1178, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeCoro_T) < 0) __PYX_ERR(0, 1178, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_24ASyncFunctionSyncDefault_11__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[65])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1176, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1178, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1197
+  /* "a_sync/a_sync/function.pyx":1199
  *         return self.get_fn()(*args, **kwargs)
  * 
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunctionSyncDefault`, you can optionally pass `sync=False` or `asynchronous=True` to force it to return a coroutine. Without either kwarg, it will run synchronously."             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(1197,475,0,__PYX_ERR(0, 1197, __pyx_L1_error))
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_docstring_append, __pyx_mstate_global->__pyx_kp_u_class_a_sync_a_sync_function_AS_2) < 0) __PYX_ERR(0, 1197, __pyx_L1_error)
+  __Pyx_TraceLine(1199,475,0,__PYX_ERR(0, 1199, __pyx_L1_error))
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_docstring_append, __pyx_mstate_global->__pyx_kp_u_class_a_sync_a_sync_function_AS_2) < 0) __PYX_ERR(0, 1199, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":1123
+  /* "a_sync/a_sync/function.pyx":1125
  * 
  * 
  * class ASyncFunctionSyncDefault(ASyncFunction[P, T]):             # <<<<<<<<<<<<<<
  *     """A specialized :class:`~ASyncFunction` that defaults to synchronous execution.
  * 
 */
-  __Pyx_TraceLine(1123,420,0,__PYX_ERR(0, 1123, __pyx_L1_error))
-  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_t_5, __pyx_t_11, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __Pyx_TraceLine(1125,420,0,__PYX_ERR(0, 1125, __pyx_L1_error))
+  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_t_5, __pyx_t_11, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_t_9) < 0) __PYX_ERR(0, 1123, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_t_9) < 0) __PYX_ERR(0, 1125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1200
+  /* "a_sync/a_sync/function.pyx":1202
  * 
  * 
  * class ASyncFunctionAsyncDefault(ASyncFunction[P, T]):             # <<<<<<<<<<<<<<
  *     """
  *     A specialized :class:`~ASyncFunction` that defaults to asynchronous execution.
 */
-  __Pyx_TraceLine(1200,477,0,__PYX_ERR(0, 1200, __pyx_L1_error))
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __Pyx_TraceLine(1202,477,0,__PYX_ERR(0, 1202, __pyx_L1_error))
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunction_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_P); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_9 = PyTuple_Pack(2, __pyx_t_3, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_Pack(2, __pyx_t_3, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __pyx_t_11 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_9 = PyTuple_Pack(1, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_Pack(1, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __pyx_t_11 = __Pyx_PEP560_update_bases(__pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PEP560_update_bases(__pyx_t_9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_11); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_11); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_11, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_kp_u_A_specialized_class_ASyncFuncti); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_11, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_kp_u_A_specialized_class_ASyncFuncti); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_11 != __pyx_t_9) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_t_9) < 0))) __PYX_ERR(0, 1200, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_t_9) < 0))) __PYX_ERR(0, 1202, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1223
+  /* "a_sync/a_sync/function.pyx":1225
  *     """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, *args: P.args, sync: Literal[True], **kwargs: P.kwargs) -> T:
  *         # TODO write specific docs for this overload
 */
-  __Pyx_TraceLine(1223,481,0,__PYX_ERR(0, 1223, __pyx_L1_error))
+  __Pyx_TraceLine(1225,481,0,__PYX_ERR(0, 1225, __pyx_L1_error))
   __pyx_t_2 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_12 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1223, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1223, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1223, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1223, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1223, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_1__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[66])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1223, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_1__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[66])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_12);
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
@@ -27673,30 +27675,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1223, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1225, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1223, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1228
+  /* "a_sync/a_sync/function.pyx":1230
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, sync: Literal[False], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(1228,490,0,__PYX_ERR(0, 1228, __pyx_L1_error))
+  __Pyx_TraceLine(1230,490,0,__PYX_ERR(0, 1230, __pyx_L1_error))
   __pyx_t_10 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_6 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1228, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
-  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_3__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[67])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1228, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_sync, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_3__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[67])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_12, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -27707,30 +27709,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1228, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1230, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1235
+  /* "a_sync/a_sync/function.pyx":1237
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, asynchronous: Literal[False], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(1235,499,0,__PYX_ERR(0, 1235, __pyx_L1_error))
+  __Pyx_TraceLine(1237,499,0,__PYX_ERR(0, 1237, __pyx_L1_error))
   __pyx_t_6 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_12 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1235, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_5__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[68])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1235, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_False) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_T) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_5__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[68])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -27741,30 +27743,30 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1235, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1237, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1242
+  /* "a_sync/a_sync/function.pyx":1244
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(
  *         self, *args: P.args, asynchronous: Literal[True], **kwargs: P.kwargs
 */
-  __Pyx_TraceLine(1242,508,0,__PYX_ERR(0, 1242, __pyx_L1_error))
+  __Pyx_TraceLine(1244,508,0,__PYX_ERR(0, 1244, __pyx_L1_error))
   __pyx_t_12 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_2 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1242, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_7__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[69])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1242, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_asynchronous, __pyx_mstate_global->__pyx_kp_u_Literal_True) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_7__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[69])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -27775,29 +27777,29 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1242, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1244, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1249
+  /* "a_sync/a_sync/function.pyx":1251
  *         ...
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, T]: ...
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:
 */
-  __Pyx_TraceLine(1249,517,0,__PYX_ERR(0, 1249, __pyx_L1_error))
+  __Pyx_TraceLine(1251,517,0,__PYX_ERR(0, 1251, __pyx_L1_error))
   __pyx_t_2 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __pyx_t_12 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1249, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1251, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1249, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1249, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1249, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_9__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[70])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1249, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_Coroutine_Any_Any_T) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_9__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[70])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1251, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_12);
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
@@ -27808,70 +27810,70 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1249, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1251, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1249, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_9) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1251
+  /* "a_sync/a_sync/function.pyx":1253
  *     @overload
  *     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, T]: ...
  *     def __call__(_ASyncFunction self, *args: P.args, **kwargs: P.kwargs) -> MaybeCoro[T]:             # <<<<<<<<<<<<<<
  *         """Calls the wrapped function, defaulting to asynchronous execution.
  * 
 */
-  __Pyx_TraceLine(1251,524,0,__PYX_ERR(0, 1251, __pyx_L1_error))
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1251, __pyx_L1_error)
+  __Pyx_TraceLine(1253,524,0,__PYX_ERR(0, 1253, __pyx_L1_error))
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeCoro_T) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_11__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[71])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1251, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_args, __pyx_mstate_global->__pyx_kp_u_P_args) < 0) __PYX_ERR(0, 1253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_kp_u_P_kwargs) < 0) __PYX_ERR(0, 1253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_MaybeCoro_T) < 0) __PYX_ERR(0, 1253, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncFunctionAsyncDefault_11__call__, 0, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault___call, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[71])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_10) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_10) < 0) __PYX_ERR(0, 1253, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1272
+  /* "a_sync/a_sync/function.pyx":1274
  *         return self.get_fn()(*args, **kwargs)
  * 
  *     __docstring_append__ = ":class:`~a_sync.a_sync.function.ASyncFunctionAsyncDefault`, you can optionally pass `sync=True` or `asynchronous=False` to force it to run synchronously and return a value. Without either kwarg, it will return a coroutine for you to await."             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(1272,531,0,__PYX_ERR(0, 1272, __pyx_L1_error))
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_docstring_append, __pyx_mstate_global->__pyx_kp_u_class_a_sync_a_sync_function_AS_3) < 0) __PYX_ERR(0, 1272, __pyx_L1_error)
+  __Pyx_TraceLine(1274,531,0,__PYX_ERR(0, 1274, __pyx_L1_error))
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_docstring_append, __pyx_mstate_global->__pyx_kp_u_class_a_sync_a_sync_function_AS_3) < 0) __PYX_ERR(0, 1274, __pyx_L1_error)
 
-  /* "a_sync/a_sync/function.pyx":1200
+  /* "a_sync/a_sync/function.pyx":1202
  * 
  * 
  * class ASyncFunctionAsyncDefault(ASyncFunction[P, T]):             # <<<<<<<<<<<<<<
  *     """
  *     A specialized :class:`~ASyncFunction` that defaults to asynchronous execution.
 */
-  __Pyx_TraceLine(1200,476,0,__PYX_ERR(0, 1200, __pyx_L1_error))
-  __pyx_t_10 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_t_11, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1200, __pyx_L1_error)
+  __Pyx_TraceLine(1202,476,0,__PYX_ERR(0, 1202, __pyx_L1_error))
+  __pyx_t_10 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_t_11, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_t_10) < 0) __PYX_ERR(0, 1200, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_t_10) < 0) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1276
+  /* "a_sync/a_sync/function.pyx":1278
  * 
  * cdef class ASyncDecoratorSyncDefault(ASyncDecorator):
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyFn[Concatenate[B, P], T]) -> "ASyncBoundMethodSyncDefault[P, T]":  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1276,533,0,__PYX_ERR(0, 1276, __pyx_L1_error))
+  __Pyx_TraceLine(1278,533,0,__PYX_ERR(0, 1278, __pyx_L1_error))
   __pyx_t_5 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_3 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1276, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_7 = 1;
   {
@@ -27880,24 +27882,24 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1276, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1278, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1276, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1278, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1291
+  /* "a_sync/a_sync/function.pyx":1293
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyBoundMethod[P, T]) -> ASyncFunctionSyncDefault[P, T]:  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1291,535,0,__PYX_ERR(0, 1291, __pyx_L1_error))
+  __Pyx_TraceLine(1293,535,0,__PYX_ERR(0, 1293, __pyx_L1_error))
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1291, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   {
@@ -27906,24 +27908,24 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1291, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1293, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1291, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1293, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1306
+  /* "a_sync/a_sync/function.pyx":1308
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionSyncDefault[P, T]:  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1306,537,0,__PYX_ERR(0, 1306, __pyx_L1_error))
+  __Pyx_TraceLine(1308,537,0,__PYX_ERR(0, 1308, __pyx_L1_error))
   __pyx_t_10 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_5 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1306, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_7 = 1;
   {
@@ -27932,10 +27934,10 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1306, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1306, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorSyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1308, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
   /* "(tree fragment)":1
@@ -27955,24 +27957,24 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,12,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,11,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_25ASyncDecoratorSyncDefault_11__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorSyncDefault___sets, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[77])); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_11) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1327
+  /* "a_sync/a_sync/function.pyx":1329
  * 
  * cdef class ASyncDecoratorAsyncDefault(ASyncDecorator):
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyFn[Concatenate[B, P], T]) -> "ASyncBoundMethodAsyncDefault[P, T]":  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1327,541,0,__PYX_ERR(0, 1327, __pyx_L1_error))
+  __Pyx_TraceLine(1329,541,0,__PYX_ERR(0, 1329, __pyx_L1_error))
   __pyx_t_5 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_3 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1327, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1329, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_7 = 1;
   {
@@ -27981,24 +27983,24 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1327, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1329, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1327, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1329, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1342
+  /* "a_sync/a_sync/function.pyx":1344
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyBoundMethod[P, T]) -> ASyncFunctionAsyncDefault[P, T]:  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1342,543,0,__PYX_ERR(0, 1342, __pyx_L1_error))
+  __Pyx_TraceLine(1344,543,0,__PYX_ERR(0, 1344, __pyx_L1_error))
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_10 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1342, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1344, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   {
@@ -28007,24 +28009,24 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1342, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1344, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1342, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1344, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1357
+  /* "a_sync/a_sync/function.pyx":1359
  *         """
  * 
  *     @overload             # <<<<<<<<<<<<<<
  *     def __call__(self, func: AnyFn[P, T]) -> ASyncFunctionAsyncDefault[P, T]:  # type: ignore [override]
  *         """
 */
-  __Pyx_TraceLine(1357,545,0,__PYX_ERR(0, 1357, __pyx_L1_error))
+  __Pyx_TraceLine(1359,545,0,__PYX_ERR(0, 1359, __pyx_L1_error))
   __pyx_t_10 = NULL;
   __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8function_overload);
   __pyx_t_5 = __pyx_v_6a_sync_6a_sync_8function_overload; 
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1357, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_7 = 1;
   {
@@ -28033,10 +28035,10 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1357, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1359, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1357, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_8function_ASyncDecoratorAsyncDefault, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_11) < 0) __PYX_ERR(0, 1359, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
   /* "(tree fragment)":1
@@ -28044,7 +28046,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_9__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorAsyncDefault___red, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[82])); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_11) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -28056,20 +28058,20 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,11,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,12,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_26ASyncDecoratorAsyncDefault_11__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncDecoratorAsyncDefault___set, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[83])); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_11) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "a_sync/a_sync/function.pyx":1377
+  /* "a_sync/a_sync/function.pyx":1379
  * 
  * 
  * cdef inline void _import_TaskMapping():             # <<<<<<<<<<<<<<
  *     global TaskMapping
  *     from a_sync import TaskMapping
 */
-  __Pyx_TraceLine(1377,548,0,__PYX_ERR(0, 1377, __pyx_L1_error))
+  __Pyx_TraceLine(1379,548,0,__PYX_ERR(0, 1379, __pyx_L1_error))
 
 
   /* "(tree fragment)":1
@@ -28077,7 +28079,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
 */
-  __Pyx_TraceLine(1,7,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_1__pyx_unpickle__ModifiedMixin, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ModifiedMixin, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[85])); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ModifiedMixin, __pyx_t_11) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -28090,7 +28092,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     __pyx_result._ModifiedMixin__await = __pyx_state[0]; __pyx_result._ModifiedMixin__default = __pyx_state[1]; __pyx_result.__wrapped__ = __pyx_state[2]; __pyx_result.modifiers = __pyx_state[3]
  *     if len(__pyx_state) > 4 and hasattr(__pyx_result, '__dict__'):
 */
-  __Pyx_TraceLine(11,26,0,__PYX_ERR(1, 11, __pyx_L1_error))
+  __Pyx_TraceLine(11,27,0,__PYX_ERR(1, 11, __pyx_L1_error))
 
 
   /* "(tree fragment)":1
@@ -28098,7 +28100,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
 */
-  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,6,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_11 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_8function_3__pyx_unpickle__ASyncFunction, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ASyncFunction, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_function, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[87])); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ASyncFunction, __pyx_t_11) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -28111,7 +28113,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  *     __pyx_result._ASyncFunction__async_def = __pyx_state[0]; __pyx_result._ASyncFunction__async_def_cached = __pyx_state[1]; __pyx_result._ASyncFunction__async_wrap = __pyx_state[2]; __pyx_result._ASyncFunction__asyncified = __pyx_state[3]; __pyx_result._ASyncFunction__modified_fn = __pyx_state[4]; __pyx_result._ASyncFunction__sync_default = __pyx_state[5]; __pyx_result._ASyncFunction__sync_default_cached = __pyx_state[6]; __pyx_result._ASyncFunction__sync_wrap = __pyx_state[7]; __pyx_result._ModifiedMixin__await = __pyx_state[8]; __pyx_result._ModifiedMixin__default = __pyx_state[9]; __pyx_result.__wrapped__ = __pyx_state[10]; __pyx_result._fn = __pyx_state[11]; __pyx_result.modifiers = __pyx_state[12]
  *     if len(__pyx_state) > 13 and hasattr(__pyx_result, '__dict__'):
 */
-  __Pyx_TraceLine(11,27,0,__PYX_ERR(1, 11, __pyx_L1_error))
+  __Pyx_TraceLine(11,26,0,__PYX_ERR(1, 11, __pyx_L1_error))
 
 
   /* "a_sync/a_sync/function.pyx":1
@@ -28119,12 +28121,12 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
  * import inspect
  * import sys
 */
-  __Pyx_TraceLine(1,6,0,__PYX_ERR(0, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,7,0,__PYX_ERR(0, 1, __pyx_L1_error))
   __pyx_t_11 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_11) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_TraceReturnValue(Py_None, 6, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 7, 0, __PYX_ERR(0, 1, __pyx_L1_error));
   __Pyx_PyMonitoring_ExitScope(0);
 
   /*--- Wrapped vars code ---*/
@@ -28140,7 +28142,7 @@ __Pyx_RefNannySetupContext("PyInit_function", 0);
   __Pyx_XDECREF(__pyx_t_11);
   __Pyx_XDECREF(__pyx_t_12);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
-  __Pyx_TraceExceptionUnwind(6, 0);
+  __Pyx_TraceExceptionUnwind(7, 0);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init a_sync.a_sync.function", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -28481,10 +28483,10 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 167, __pyx_L1_error)
   __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 176, __pyx_L1_error)
-  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(0, 202, __pyx_L1_error)
-  __pyx_builtin_hex = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_hex); if (!__pyx_builtin_hex) __PYX_ERR(0, 305, __pyx_L1_error)
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 1033, __pyx_L1_error)
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 1035, __pyx_L1_error)
+  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_builtin_hex = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_hex); if (!__pyx_builtin_hex) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 1035, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 1037, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -28521,25 +28523,25 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "a_sync/a_sync/function.pyx":920
+  /* "a_sync/a_sync/function.pyx":922
  *         """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         fn: AnyFn[P, T],
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, ((PyObject*)Py_False)); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 920, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, ((PyObject*)Py_False)); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 922, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
 
-  /* "a_sync/a_sync/function.pyx":1013
+  /* "a_sync/a_sync/function.pyx":1015
  * 
  * 
  * if sys.version_info < (3, 10):             # <<<<<<<<<<<<<<
  *     _inherit = ASyncFunction[AnyFn[P, T], ASyncFunction[P, T]]
  * else:
 */
-  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_3, __pyx_mstate_global->__pyx_int_10); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 1013, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_3, __pyx_mstate_global->__pyx_int_10); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 1015, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[4]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[4]);
   __Pyx_RefNannyFinishContext();
@@ -28666,137 +28668,137 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_validate_argspec_cached, __pyx_k_a_1A_t7_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 181, 128};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 181, 134};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_iscoroutinefunction, __pyx_mstate->__pyx_n_u_getargspec, __pyx_mstate->__pyx_n_u_isasyncgenfunction, __pyx_mstate->__pyx_n_u_isgeneratorfunction, __pyx_mstate->__pyx_n_u_logger, __pyx_mstate->__pyx_n_u_logger_debug, __pyx_mstate->__pyx_n_u_TYPE_CHECKING, __pyx_mstate->__pyx_n_u_Any, __pyx_mstate->__pyx_n_u_Callable, __pyx_mstate->__pyx_n_u_Coroutine, __pyx_mstate->__pyx_n_u_Generic, __pyx_mstate->__pyx_n_u_Literal, __pyx_mstate->__pyx_n_u_Optional, __pyx_mstate->__pyx_n_u_overload, __pyx_mstate->__pyx_n_u_LRUCacheWrapper, __pyx_mstate->__pyx_n_u_AsyncPropertyDescriptor, __pyx_mstate->__pyx_n_u_AsyncCachedPropertyDescriptor, __pyx_mstate->__pyx_n_u_function_type, __pyx_mstate->__pyx_n_u_argspec_validated, __pyx_mstate->__pyx_n_u_is_genfunc_cache};
-    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_validate_argspec, __pyx_k_q_A_Rwa_j_6_z_Fa_gQa_5_1_a_QQR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_validate_argspec, __pyx_k_q_A_Rwa_j_6_z_Fa_e1G1A_5_1_a_QQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 240, 79};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 242, 79};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_skip_validate, __pyx_mstate->__pyx_n_u_modifiers};
     __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_q_4q_M_G1_O1_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 273, 43};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 275, 43};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs, __pyx_mstate->__pyx_n_u_fn};
     __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_Q0_T_Q_F_r_81, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 303, 40};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 305, 40};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_repr, __pyx_k_T_d_S_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 308, 13};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 310, 13};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_A_t7, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 324, 48};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 326, 48};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fn_2, __pyx_mstate->__pyx_n_u_ASyncFunction__sync_default, __pyx_mstate->__pyx_n_u_ASyncFunction__sync_default_cac, __pyx_mstate->__pyx_n_u_ASyncFunction__async_def, __pyx_mstate->__pyx_n_u_ASyncFunction__async_def_cached, __pyx_mstate->__pyx_n_u_ASyncFunction__asyncified, __pyx_mstate->__pyx_n_u_ASyncFunction__modified_fn, __pyx_mstate->__pyx_n_u_ASyncFunction__async_wrap, __pyx_mstate->__pyx_n_u_ASyncFunction__sync_wrap};
     __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_get_fn, __pyx_k_A_T_3c_T_hd_q_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 333, 59};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 335, 59};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_map, __pyx_k_Q_3a_1_a_A_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 366, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 368, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_any, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 395, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 397, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_all, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 424, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 426, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_min, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 453, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 455, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[24] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_max, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[24])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 482, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 484, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_sum, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 513, 59};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 515, 59};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[26] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_map, __pyx_k_Q_3a_1_a_A_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[26])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 546, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 548, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_any, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 575, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 577, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[28] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_all, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[28])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 604, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 606, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[29] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_min, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[29])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 633, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 635, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[30] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_max, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[30])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 662, 17};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 2, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS|CO_COROUTINE), 664, 17};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_concurrency, __pyx_mstate->__pyx_n_u_task_name, __pyx_mstate->__pyx_n_u_iterables, __pyx_mstate->__pyx_n_u_function_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[31] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_sum, __pyx_k_a_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[31])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 691, 74};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 693, 74};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asyncified_2};
     __pyx_mstate_global->__pyx_codeobj_tab[32] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_A_T_c_t_iq_ET_T_1D_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[32])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 715, 106};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 717, 106};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_modified_fn_2, __pyx_mstate->__pyx_n_u_wrapped_2};
     __pyx_mstate_global->__pyx_codeobj_tab[33] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_A_d_s_d_AYa_t_d_34zAWWXXY_d_34zA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[33])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 765, 48};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 767, 48};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs, __pyx_mstate->__pyx_n_u_should_await, __pyx_mstate->__pyx_n_u_coro};
     __pyx_mstate_global->__pyx_codeobj_tab[34] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_async_wrap_2, __pyx_k_AAB_t_Qa_HA_1_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[34])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 745, 71};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 747, 71};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_async_wrap_2, __pyx_mstate->__pyx_n_u_modified_fn_2, __pyx_mstate->__pyx_n_u_await_helper, __pyx_mstate->__pyx_n_u_async_wrap_2};
     __pyx_mstate_global->__pyx_codeobj_tab[35] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_A_T_c_a_4z_U_1_HM_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[35])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 802, 38};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 804, 38};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[36] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_sync_wrap_2, __pyx_k_A_A_4z_b_z_81, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[36])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 782, 68};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 784, 68};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync_wrap_2, __pyx_mstate->__pyx_n_u_modified_fn_2, __pyx_mstate->__pyx_n_u_asyncified_2, __pyx_mstate->__pyx_n_u_sync_wrap_2};
     __pyx_mstate_global->__pyx_codeobj_tab[37] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_A_D_S_a_Q_U_1_8_q_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[37])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 812, 72};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 814, 72};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[38] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_is_async_def, __pyx_k_A_4q_4q_a_j_gQ_D_1_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[38])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 835, 78};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 837, 78};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[39] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_is_sync_default, __pyx_k_A_4q_4q_4_1_s_d_q_a_Q_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[39])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 861, 44};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 863, 44};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_kwargs, __pyx_mstate->__pyx_n_u_fn_2, __pyx_mstate->__pyx_n_u_ASyncFunction__sync_default, __pyx_mstate->__pyx_n_u_ASyncFunction__sync_default_cac, __pyx_mstate->__pyx_n_u_ASyncFunction__async_def, __pyx_mstate->__pyx_n_u_ASyncFunction__async_def_cached, __pyx_mstate->__pyx_n_u_ASyncFunction__asyncified, __pyx_mstate->__pyx_n_u_ASyncFunction__modified_fn, __pyx_mstate->__pyx_n_u_ASyncFunction__async_wrap, __pyx_mstate->__pyx_n_u_ASyncFunction__sync_wrap};
     __pyx_mstate_global->__pyx_codeobj_tab[40] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_run_sync, __pyx_k_A_Qa_1_7_6_2_4_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[40])) goto bad;
   }
@@ -28816,62 +28818,62 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[43] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_AV1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[43])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 888, 8};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 890, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_modifiers};
     __pyx_mstate_global->__pyx_codeobj_tab[44] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_QQR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[44])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 904, 8};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 906, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_modifiers};
     __pyx_mstate_global->__pyx_codeobj_tab[45] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_QQR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[45])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 920, 88};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 922, 88};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_skip_validate, __pyx_mstate->__pyx_n_u_modifiers};
     __pyx_mstate_global->__pyx_codeobj_tab[46] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_iq_d_9K1_avQ_4y_1_2_t1_8_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[46])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 937, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 939, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[47] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_RRS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[47])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 951, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 953, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[48] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[48])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 967, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 969, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asynchronous, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[49] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[49])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 983, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 985, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asynchronous, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[50] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[50])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 999, 5};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1001, 5};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[51] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[51])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 1020, 79};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 1022, 79};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_modifiers};
     __pyx_mstate_global->__pyx_codeobj_tab[52] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_cinit, __pyx_k_9D_HHHIQ_z_j_A_TT___M, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[52])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1041, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1043, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[53] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[53])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1056, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1058, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[54] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_Q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[54])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1071, 106};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1073, 106};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2, __pyx_mstate->__pyx_n_u_default};
     __pyx_mstate_global->__pyx_codeobj_tab[55] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_Q_4_1_83a_AXT_1_S_1HD_AXT_1_1HD, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[55])) goto bad;
   }
@@ -28886,92 +28888,92 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[57] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[57])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1097, 39};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1099, 39};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_func_2, __pyx_mstate->__pyx_n_u_iscoroutinefunction, __pyx_mstate->__pyx_n_u_getargspec, __pyx_mstate->__pyx_n_u_isasyncgenfunction, __pyx_mstate->__pyx_n_u_isgeneratorfunction, __pyx_mstate->__pyx_n_u_logger, __pyx_mstate->__pyx_n_u_logger_debug, __pyx_mstate->__pyx_n_u_TYPE_CHECKING, __pyx_mstate->__pyx_n_u_Any, __pyx_mstate->__pyx_n_u_Callable, __pyx_mstate->__pyx_n_u_Coroutine, __pyx_mstate->__pyx_n_u_Generic, __pyx_mstate->__pyx_n_u_Literal, __pyx_mstate->__pyx_n_u_Optional, __pyx_mstate->__pyx_n_u_overload, __pyx_mstate->__pyx_n_u_LRUCacheWrapper, __pyx_mstate->__pyx_n_u_AsyncPropertyDescriptor, __pyx_mstate->__pyx_n_u_AsyncCachedPropertyDescriptor, __pyx_mstate->__pyx_n_u_function_type, __pyx_mstate->__pyx_n_u_argspec_validated, __pyx_mstate->__pyx_n_u_is_genfunc_cache};
     __pyx_mstate_global->__pyx_codeobj_tab[58] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_check_not_genfunc_cached, __pyx_k_1A_t7_1_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[58])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1103, 35};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1105, 35};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_func_2, __pyx_mstate->__pyx_n_u_iscoroutinefunction, __pyx_mstate->__pyx_n_u_getargspec, __pyx_mstate->__pyx_n_u_isasyncgenfunction, __pyx_mstate->__pyx_n_u_isgeneratorfunction, __pyx_mstate->__pyx_n_u_logger, __pyx_mstate->__pyx_n_u_logger_debug, __pyx_mstate->__pyx_n_u_TYPE_CHECKING, __pyx_mstate->__pyx_n_u_Any, __pyx_mstate->__pyx_n_u_Callable, __pyx_mstate->__pyx_n_u_Coroutine, __pyx_mstate->__pyx_n_u_Generic, __pyx_mstate->__pyx_n_u_Literal, __pyx_mstate->__pyx_n_u_Optional, __pyx_mstate->__pyx_n_u_overload, __pyx_mstate->__pyx_n_u_LRUCacheWrapper, __pyx_mstate->__pyx_n_u_AsyncPropertyDescriptor, __pyx_mstate->__pyx_n_u_AsyncCachedPropertyDescriptor, __pyx_mstate->__pyx_n_u_function_type, __pyx_mstate->__pyx_n_u_argspec_validated, __pyx_mstate->__pyx_n_u_is_genfunc_cache};
     __pyx_mstate_global->__pyx_codeobj_tab[59] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_check_not_genfunc, __pyx_k_1_6aq_j, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[59])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1145, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1147, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[60] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_RRS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[60])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1150, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1152, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[61] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[61])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1157, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1159, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asynchronous, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[62] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[62])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1164, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1166, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asynchronous, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[63] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[63])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1171, 5};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1173, 5};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[64] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[64])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1176, 22};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1178, 22};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[65] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_LA_t7_Bha, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[65])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1223, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1225, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[66] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_RRS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[66])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1228, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1230, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sync, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[67] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[67])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1235, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1237, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asynchronous, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[68] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[68])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1242, 8};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1244, 8};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_asynchronous, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[69] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[69])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1249, 5};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1251, 5};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[70] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[70])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1251, 22};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS|CO_VARKEYWORDS), 1253, 22};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[71] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_LA_t7_Bha, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[71])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1276, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1278, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[72] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[72])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1291, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1293, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[73] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_6a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[73])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1306, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1308, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[74] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_Q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[74])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1321, 24};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1323, 24};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[75] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_Q_q_Ja, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[75])) goto bad;
   }
@@ -28986,22 +28988,22 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[77] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[77])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1327, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1329, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[78] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[78])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1342, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1344, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[79] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_6a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[79])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1357, 7};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1359, 7};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[80] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_Q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[80])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1372, 24};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1374, 24};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_func_2};
     __pyx_mstate_global->__pyx_codeobj_tab[81] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_call, __pyx_k_Q_Zq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[81])) goto bad;
   }
@@ -29016,7 +29018,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[83] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[83])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 20, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1377, 12};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 20, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1379, 12};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_iscoroutinefunction, __pyx_mstate->__pyx_n_u_getargspec, __pyx_mstate->__pyx_n_u_isasyncgenfunction, __pyx_mstate->__pyx_n_u_isgeneratorfunction, __pyx_mstate->__pyx_n_u_logger, __pyx_mstate->__pyx_n_u_logger_debug, __pyx_mstate->__pyx_n_u_TYPE_CHECKING, __pyx_mstate->__pyx_n_u_Any, __pyx_mstate->__pyx_n_u_Callable, __pyx_mstate->__pyx_n_u_Coroutine, __pyx_mstate->__pyx_n_u_Generic, __pyx_mstate->__pyx_n_u_Literal, __pyx_mstate->__pyx_n_u_Optional, __pyx_mstate->__pyx_n_u_overload, __pyx_mstate->__pyx_n_u_LRUCacheWrapper, __pyx_mstate->__pyx_n_u_AsyncPropertyDescriptor, __pyx_mstate->__pyx_n_u_AsyncCachedPropertyDescriptor, __pyx_mstate->__pyx_n_u_function_type, __pyx_mstate->__pyx_n_u_argspec_validated, __pyx_mstate->__pyx_n_u_is_genfunc_cache};
     __pyx_mstate_global->__pyx_codeobj_tab[84] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_function_pyx, __pyx_mstate->__pyx_n_u_import_TaskMapping, __pyx_k_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[84])) goto bad;
   }

@@ -207,6 +207,9 @@ class FilesClient:
         """
         Create a presigned url for uploading a file.
 
+        The presigned url is valid for a limited time period, after which it will expire.
+        Be careful on accidental exposure of the presigned url, as it may allow unauthorized access to the file before the expiration.
+
         Parameters:
             - expires_at_seconds: typing.Optional[int].
 
@@ -658,6 +661,116 @@ class FilesClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def generate_file_page_screenshot_presigned_url(
+        self,
+        id: str,
+        page_index: int,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> PresignedUrl:
+        """
+        Returns a presigned url to read a page screenshot.
+
+        The presigned url is valid for a limited time period, after which it will expire.
+        Be careful on accidental exposure of the presigned url, as it may allow unauthorized access to the file before the expiration.
+
+        Parameters:
+            - id: str.
+
+            - page_index: int.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.files.generate_file_page_screenshot_presigned_url(
+            id="string",
+            page_index=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/v1/files/{id}/page_screenshots/{page_index}/presigned_url",
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PresignedUrl, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def generate_file_page_figure_presigned_url(
+        self,
+        id: str,
+        page_index: int,
+        figure_name: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> PresignedUrl:
+        """
+        Returns a presigned url to read a page figure.
+
+        The presigned url is valid for a limited time period, after which it will expire.
+        Be careful on accidental exposure of the presigned url, as it may allow unauthorized access to the file before the expiration.
+
+        Parameters:
+            - id: str.
+
+            - page_index: int.
+
+            - figure_name: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.files.generate_file_page_figure_presigned_url(
+            id="string",
+            page_index=1,
+            figure_name="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/v1/files/{id}/page-figures/{page_index}/{figure_name}/presigned_url",
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PresignedUrl, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
 
 class AsyncFilesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -833,6 +946,9 @@ class AsyncFilesClient:
     ) -> FileIdPresignedUrl:
         """
         Create a presigned url for uploading a file.
+
+        The presigned url is valid for a limited time period, after which it will expire.
+        Be careful on accidental exposure of the presigned url, as it may allow unauthorized access to the file before the expiration.
 
         Parameters:
             - expires_at_seconds: typing.Optional[int].
@@ -1277,6 +1393,116 @@ class AsyncFilesClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(typing.Any, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def generate_file_page_screenshot_presigned_url(
+        self,
+        id: str,
+        page_index: int,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> PresignedUrl:
+        """
+        Returns a presigned url to read a page screenshot.
+
+        The presigned url is valid for a limited time period, after which it will expire.
+        Be careful on accidental exposure of the presigned url, as it may allow unauthorized access to the file before the expiration.
+
+        Parameters:
+            - id: str.
+
+            - page_index: int.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.files.generate_file_page_screenshot_presigned_url(
+            id="string",
+            page_index=1,
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/v1/files/{id}/page_screenshots/{page_index}/presigned_url",
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PresignedUrl, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def generate_file_page_figure_presigned_url(
+        self,
+        id: str,
+        page_index: int,
+        figure_name: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> PresignedUrl:
+        """
+        Returns a presigned url to read a page figure.
+
+        The presigned url is valid for a limited time period, after which it will expire.
+        Be careful on accidental exposure of the presigned url, as it may allow unauthorized access to the file before the expiration.
+
+        Parameters:
+            - id: str.
+
+            - page_index: int.
+
+            - figure_name: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.files.generate_file_page_figure_presigned_url(
+            id="string",
+            page_index=1,
+            figure_name="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/v1/files/{id}/page-figures/{page_index}/{figure_name}/presigned_url",
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PresignedUrl, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

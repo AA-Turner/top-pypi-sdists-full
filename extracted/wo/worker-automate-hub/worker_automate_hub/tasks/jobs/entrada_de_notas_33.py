@@ -7,18 +7,19 @@ import time
 import uuid
 import asyncio
 import pyautogui
-from datetime import datetime
 import pytesseract
 import win32clipboard
+from datetime import datetime
 from PIL import Image, ImageEnhance
-from pyscreeze import ImageNotFoundException
 from pywinauto.application import Application
 from pywinauto.keyboard import send_keys
 from pywinauto.timings import wait_until
 from pywinauto_recorder.player import set_combobox
 from rich.console import Console
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+# import sys
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
+
 from worker_automate_hub.api.ahead_service import save_xml_to_downloads
 from worker_automate_hub.api.client import (
     get_config_by_name,
@@ -143,7 +144,7 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await worker_sleep(5)
 
         await get_xml(nota.get("nfe"))
-        await worker_sleep(5)
+        await worker_sleep(3)
 
         # VERIFICANDO A EXISTENCIA DE WARNINGS
         warning_pop_up = await is_window_open("Warning")
@@ -200,20 +201,31 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await worker_sleep(3)
 
         if str(cfop).startswith("6"):
-            set_combobox("||List", "2556-COMPRA DE MERCADORIAS SEM ESTOQUE- 2.556")
+            texto_alvo = "2556-COMPRA DE MERCADORIAS SEM ESTOQUE- 2.556"
         elif str(cfop).startswith("5"):
-            set_combobox("||List", "1556-COMPRA DE MERCADORIAS SEM ESTOQUE- 1.556")
+            texto_alvo = "1556-COMPRA DE MERCADORIAS SEM ESTOQUE- 1.556"
         else:
-            console.print(
-                "Erro mapeado, CFOP diferente de inicio com 540 ou 510, necessario ação manual ou ajuste no robo...\n"
-            )
+            console.print("CFOP não suportada...\n")
             return RpaRetornoProcessoDTO(
                 sucesso=False,
-                retorno=f"Erro mapeado, CFOP diferente de inicio com 540 ou 510, necessario ação manual ou ajuste no robo.",
+                retorno="CFOP não suportada.",
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
             )
-        
+
+        # Percorre com seta para baixo até encontrar o texto alvo
+        for _ in range(500):  # tenta até 15 opções
+            texto_atual = combo_box_natureza_operacao.window_text().strip()
+
+            if texto_alvo.lower() in texto_atual.lower():
+                combo_box_natureza_operacao.type_keys("{ENTER}")
+                break
+            else:
+                combo_box_natureza_operacao.type_keys("{DOWN}")
+                await worker_sleep(0.5)
+
+        # Sai do campo (opcional)
+        combo_box_natureza_operacao.type_keys("{TAB}")
         await worker_sleep(3)
 
         # INTERAGINDO COM O CAMPO ALMOXARIFADO
@@ -307,7 +319,7 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 "A opção 'Manter Natureza de Operação selecionada' selecionado com sucesso... \n"
             )
 
-        await worker_sleep(3)
+        await worker_sleep(2)
         console.print("Clicando em OK... \n")
 
         max_attempts = 3
@@ -324,89 +336,8 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             except:
                 console.print("Não foi possivel clicar no Botão OK... \n")
 
-            await worker_sleep(5)
-            
-            # Aguarda a tela de aguarde
-            # imagem_alvo = "assets\\entrada_notas\\aguarde.png"
-            imagem_alvo =r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\aguarde.png"
-            timeout = 300  # 5 minutos
-            start_time = time.time()
-           
-            try:
-                console.print("Aguardando a imagem desaparecer da tela (até 5 minutos)...")
+            await worker_sleep(3)
 
-                while True:
-                    localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
-
-                    if not localizacao:
-                        console.print("Imagem não está mais na tela.")
-                        break
-
-                    if time.time() - start_time > timeout:
-                        console.print("Tempo limite atingido. A imagem ainda está na tela.")
-                        break
-
-                    time.sleep(5)  # Espera 5 segundos antes de verificar novamente
-
-            except:
-                pass
-            
-            await worker_sleep(7)
-            
-                
-            try:
-                app = Application().connect(class_name="TMessageForm", timeout=10)
-                main_window = app["TMessageForm"]
-                main_window.set_focus()
-                click_yes = main_window.child_window(class_name='TButton', found_index=1).click()
-            except:
-                pass
-            
-            try:
-                # Verifica erro ncm nao encontrado
-                imagem_alvo = "assets\\entrada_notas\\nao_encontrado_ncm.png"
-                imagem_alvo = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\nao_encontrado_ncm.png"
-                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
-
-                if localizacao:
-                    console.print("Não encontrado o NCM cadastrado no sistema")
-                    return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno="Não encontrado o NCM cadastrado no sistema",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                )
-
-            except ImageNotFoundException:
-                console.print(
-                    "Imagem não encontrada continuando"
-                )
-            
-            # Aguarda a tela de aguarde
-            # imagem_alvo = "assets\\entrada_notas\\aguarde.png"
-            imagem_alvo =r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\aguarde.png"
-            timeout = 300  # 5 minutos
-            start_time = time.time()
-
-            try:
-                console.print("Aguardando a imagem desaparecer da tela (até 5 minutos)...")
-
-                while True:
-                    localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
-
-                    if not localizacao:
-                        console.print("Imagem não está mais na tela.")
-                        break
-
-                    if time.time() - start_time > timeout:
-                        console.print("Tempo limite atingido. A imagem ainda está na tela.")
-                        break
-
-                    time.sleep(2)  # Espera 2 segundos antes de verificar novamente
-
-            except Exception as e:
-                console.print(f"Ocorreu um erro: {e}")
-            
             console.print(
                 "Verificando a existencia da tela Informações para importação da Nota Fiscal Eletrônica...\n"
             )
@@ -689,22 +620,59 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             class_name="TDBIComboBox", found_index=0
         )
         tipo_cobranca.click()
-        try:
-            set_combobox("||List", "BANCO DO BRASIL BOLETO")
-        except:
-            set_combobox("||List", "BOLETO")
+
+        # Selecionando tipo de boleto
+        texto_alvo = "BANCO DO BRASIL BOLETO"
+        alternativo = "BOLETO"
+        # Tenta encontrar o texto preferencial
+        encontrado = False
+        for _ in range(50):  # ajustável
+            texto_atual = tipo_cobranca.window_text().strip()
+            if texto_alvo.lower() in texto_atual.lower():
+                tipo_cobranca.type_keys("{ENTER}")
+                encontrado = True
+                break
+            else:
+                tipo_cobranca.type_keys("{DOWN}")
+                await worker_sleep(0.5)
+
+        # Se não encontrou o valor desejado, tenta o alternativo
+        if not encontrado:
+            console.print(f"[yellow]'{texto_alvo}' não encontrado. Tentando '{alternativo}'...[/yellow]")
+
+            # Reposiciona no início digitando parte do alternativo
+            tipo_cobranca.type_keys(alternativo[:4], with_spaces=True)
+            await worker_sleep(1)
+
+            for _ in range(50):
+                texto_atual = tipo_cobranca.window_text().strip()
+                if alternativo.lower() in texto_atual.lower():
+                    tipo_cobranca.type_keys("{ENTER}")
+                    encontrado = True
+                    break
+                else:
+                    tipo_cobranca.type_keys("{DOWN}")
+                    await worker_sleep(0.5)
+
+        # Verifica se selecionou algo corretamente
+        texto_final = tipo_cobranca.window_text().strip()
+
+        if not encontrado or all(x.lower() not in texto_final.lower() for x in [texto_alvo, alternativo]):
+            console.print(f"[red]Erro: valor da conta de recebimento não foi selecionado corretamente. Último texto: '{texto_final}'[/red]")
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno="Conta de recebimento incorreta ou não encontrada.",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+            )
 
         await worker_sleep(3)
         console.print(f"Incluindo registro...\n")
         try:
-            # ASSETS_PATH = "assets"
-            ASSETS_PATH = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\IncluirRegistro.png"
+            ASSETS_PATH = "assets"
             inserir_registro = pyautogui.locateOnScreen(
-                ASSETS_PATH, confidence=0.8
+                ASSETS_PATH + "\\entrada_notas\\IncluirRegistro.png", confidence=0.8
             )
-            # inserir_registro = pyautogui.locateOnScreen(
-            #     ASSETS_PATH + "\\entrada_notas\\IncluirRegistro.png", confidence=0.8
-            # )
             pyautogui.click(inserir_registro)
         except Exception as e:
             console.print(
@@ -894,25 +862,3 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
     finally:
         # Deleta o xml
         await delete_xml(nota.get("nfe"))
-
-if __name__ == "__main__":
-    
-    task = RpaProcessoEntradaDTO(
-        datEntradaFila= datetime.now(),
-        configEntrada= {"nfe":"43250703746938001387550040005122881902295895","cfop":"5102","itens":[{"qtd":"2.00","ocst":"000","ncmsh":"39232990","valorIpi":"0.00","valorIcms":"3.63","valorTotal":"21.34","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"21.34","codigoProduto":"030338","unidadeMedida":"UN","valorUnitario":"10.67","descricaoProduto":"Saco Plastico para Moedas Transparente 0,10m PCT 100UN"},{"qtd":"1.00","ocst":"000","ncmsh":"48211000","valorIpi":"0.00","valorIcms":"5.39","valorTotal":"31.72","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"31.72","codigoProduto":"044867","unidadeMedida":"ROL","valorUnitario":"31.72","descricaoProduto":"Etiqueta Adesiva 100X50mm Amarelo 101C RL 200UN"},{"qtd":"1.00","ocst":"000","ncmsh":"49111090","valorIpi":"0.00","valorIcms":"14.43","valorTotal":"84.90","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"84.90","codigoProduto":"041749","unidadeMedida":"PAC","valorUnitario":"84.90","descricaoProduto":"Bloco de Abastecimento 1 via 8 x 6,5cm PCT 50BL de 100fls"},{"qtd":"12.00","ocst":"000","ncmsh":"96081000","valorIpi":"0.00","valorIcms":"1.24","valorTotal":"7.32","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"7.32","codigoProduto":"029618","unidadeMedida":"UN","valorUnitario":"0.61","descricaoProduto":"Caneta Esferografica Compactor Economic 1.0mm Azul"},{"qtd":"20.00","ocst":"000","ncmsh":"96081000","valorIpi":"0.00","valorIcms":"2.07","valorTotal":"12.20","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"12.20","codigoProduto":"029618","unidadeMedida":"UN","valorUnitario":"0.61","descricaoProduto":"Caneta Esferografica Compactor Economic 1.0mm Azul"},{"qtd":"1.00","ocst":"100","ncmsh":"39191010","valorIpi":"0.83","valorIcms":"1.08","valorTotal":"5.50","aliquotaIpi":"15.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"6.33","codigoProduto":"050894","unidadeMedida":"UN","valorUnitario":"5.50","descricaoProduto":"Fita Adesiva Hot Melt Sooper PRO 45mmX45m Transparente"},{"qtd":"2.00","ocst":"000","ncmsh":"48119019","valorIpi":"6.78","valorIcms":"36.63","valorTotal":"208.66","aliquotaIpi":"3.25","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"215.44","codigoProduto":"041690","unidadeMedida":"UN","valorUnitario":"104.33","descricaoProduto":"Bobina Termica Rede Sim 80mmx80m 44g CX 16UN"},{"qtd":"1.00","ocst":"020","ncmsh":"17019900","valorIpi":"0.00","valorIcms":"1.57","valorTotal":"22.41","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"9.23","codigoProduto":"050962","unidadeMedida":"UN","valorUnitario":"22.41","descricaoProduto":"Acucar Refinado Alto Alegre Sache CX 400x5g"},{"qtd":"2.00","ocst":"000","ncmsh":"48232099","valorIpi":"0.00","valorIcms":"1.42","valorTotal":"8.38","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"8.38","codigoProduto":"009014","unidadeMedida":"UN","valorUnitario":"4.19","descricaoProduto":"Filtro de Papel Melitta No103 30UN"},{"qtd":"1.00","ocst":"200","ncmsh":"40151900","valorIpi":"0.00","valorIcms":"7.72","valorTotal":"45.41","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"45.41","codigoProduto":"020964","unidadeMedida":"CX","valorUnitario":"45.41","descricaoProduto":"Luva Latex Volk Cleanline Descartavel com Po G CX 100UN"},{"qtd":"2.00","ocst":"000","ncmsh":"68053090","valorIpi":"0.00","valorIcms":"0.33","valorTotal":"1.96","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"1.96","codigoProduto":"050637","unidadeMedida":"UN","valorUnitario":"0.98","descricaoProduto":"Esponja Esfrelux Lava Loucas Anti Bacteria"},{"qtd":"2.00","ocst":"200","ncmsh":"62160000","valorIpi":"0.00","valorIcms":"1.53","valorTotal":"9.00","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"9.00","codigoProduto":"025306","unidadeMedida":"PAR","valorUnitario":"4.50","descricaoProduto":"Luva Poliamida Volk Tatil PU Palma e Dedos Preta M"},{"qtd":"1.00","ocst":"000","ncmsh":"21039011","valorIpi":"0.00","valorIcms":"4.55","valorTotal":"26.78","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"26.78","codigoProduto":"100011581","unidadeMedida":"CX","valorUnitario":"26.78","descricaoProduto":"Maionese Sache Junior 7g CX 160UN"},{"qtd":"1.00","ocst":"100","ncmsh":"39235000","valorIpi":"3.45","valorIcms":"12.33","valorTotal":"69.05","aliquotaIpi":"5.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"72.50","codigoProduto":"053593","unidadeMedida":"CX","valorUnitario":"69.05","descricaoProduto":"Tampa Versaline PP Preta Copo de Papel PD 210ml CX 500UN"},{"qtd":"1.00","ocst":"000","ncmsh":"48211000","valorIpi":"0.00","valorIcms":"2.63","valorTotal":"15.46","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"15.46","codigoProduto":"053356","unidadeMedida":"ROL","valorUnitario":"15.46","descricaoProduto":"Etiqueta Validade Rede Sim 40x24mm RL 1000UN"},{"qtd":"12.00","ocst":"000","ncmsh":"39241000","valorIpi":"0.00","valorIcms":"9.28","valorTotal":"54.60","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"54.60","codigoProduto":"011523","unidadeMedida":"UN","valorUnitario":"4.55","descricaoProduto":"Copo Descartavel PS Branco 180ml PCT 100UN"},{"qtd":"1.00","ocst":"000","ncmsh":"21032010","valorIpi":"0.00","valorIcms":"4.53","valorTotal":"26.62","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"26.62","codigoProduto":"053435","unidadeMedida":"UN","valorUnitario":"26.62","descricaoProduto":"Ketchup Sache Junior 7g CX 168UN"},{"qtd":"1.00","ocst":"000","ncmsh":"39173229","valorIpi":"0.00","valorIcms":"0.83","valorTotal":"4.91","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"4.91","codigoProduto":"041209","unidadeMedida":"UN","valorUnitario":"4.91","descricaoProduto":"Canudo Oxi Biodegrad Strawplast Embalado Indiv 100UN"},{"qtd":"3.00","ocst":"000","ncmsh":"38089919","valorIpi":"0.00","valorIcms":"3.48","valorTotal":"20.49","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"20.49","codigoProduto":"054500","unidadeMedida":"UN","valorUnitario":"6.83","descricaoProduto":"Alcool Liquido 70o Super Vale 1L"},{"qtd":"2.00","ocst":"000","ncmsh":"48182000","valorIpi":"0.00","valorIcms":"13.49","valorTotal":"79.38","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"79.38","codigoProduto":"100010494","unidadeMedida":"CX","valorUnitario":"39.69","descricaoProduto":"Papel Higienico Rolo 300m Softpaper Eco FS 17g CX 8UN"},{"qtd":"2.00","ocst":"000","ncmsh":"39232190","valorIpi":"0.00","valorIcms":"2.15","valorTotal":"12.64","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"12.64","codigoProduto":"038796","unidadeMedida":"UN","valorUnitario":"6.32","descricaoProduto":"Saco para Lixo Basic Up Bag Azul 30L 50UN"},{"qtd":"2.00","ocst":"500","ncmsh":"48182000","valorIpi":"0.00","valorIcms":"29.07","valorTotal":"171.00","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"171.00","codigoProduto":"020684","unidadeMedida":"CX","valorUnitario":"85.50","descricaoProduto":"Papel Toalha Bobina 200m Softpaper Basic FS 24g CX 6UN"},{"qtd":"2.00","ocst":"020","ncmsh":"09012100","valorIpi":"0.00","valorIcms":"5.03","valorTotal":"71.78","aliquotaIpi":"0.00","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"29.56","codigoProduto":"047037","unidadeMedida":"UN","valorUnitario":"35.89","descricaoProduto":"Cafe em Po 1707 Tradicional Vacuo 500g"},{"qtd":"2.00","ocst":"100","ncmsh":"48236900","valorIpi":"37.59","valorIcms":"71.93","valorTotal":"385.54","aliquotaIpi":"9.75","cfopProduto":"5102","aliquotaIcms":"17.00","bCalculoIcms":"423.13","codigoProduto":"053592","unidadeMedida":"CX","valorUnitario":"192.77","descricaoProduto":"Copo Papel SIM PD 210ml FSCMisto70% CU-COC-855709 CX500UN"}],"natureza":"33","alocacoes":[],"valorNota":"1445.70","nomeFilial":"PF Praça Itália\t","numeroNota":"512288","dataEmissao":"14/07/2025","observacoes":"Vcto: 06/10/2025","existeDespesa":"Não","cnpjFornecedor":"03746938001387","dataVencimento":"06/10/2025","nomeFornecedor":"BRS SUPRIMENTOS CORPORATIVOS S/A","recebimentoFisico":"17/07/2025 14:52","filialEmpresaOrigem":"109"},
-        uuidProcesso='def194c2-ffa0-4b9e-b95c-920fb4ad4150',
-        nomProcesso='extracao_fechamento_emsys',
-        uuidFila="",
-        sistemas=[
-            {
-                "sistema": "EMSys",
-                "timeout": "1.0"
-            },
-            {
-                "sistema": "AutoSystem",
-                "timeout": "1.0"
-            }
-        ],
-        historico_id='2c4429c8-26ae-4ec6-b775-21583992e82f'
-    )
-    asyncio.run(entrada_de_notas_33(task))

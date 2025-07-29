@@ -270,6 +270,7 @@ class StreamingGateway:
                         video_duration=input_config.video_duration,
                         max_frames=input_config.max_frames,
                         video_format=input_config.video_format,
+                        simulate_video_file_stream=input_config.simulate_video_file_stream,
                     )
                     logging.info(
                         f"Started video streaming for input {input_config.source} "
@@ -287,6 +288,7 @@ class StreamingGateway:
                         quality=input_config.quality,
                         width=input_config.width,
                         height=input_config.height,
+                        simulate_video_file_stream=input_config.simulate_video_file_stream,
                     )
                     logging.info(
                         f"Started frame streaming for input {input_config.source}"

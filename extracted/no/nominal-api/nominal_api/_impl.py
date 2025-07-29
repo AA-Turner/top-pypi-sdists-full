@@ -11637,18 +11637,20 @@ class ingest_api_NewDatasetIngestDestination(ConjureBeanType):
             'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
             'labels': ConjureFieldDefinition('labels', List[api_Label]),
             'channel_config': ConjureFieldDefinition('channelConfig', OptionalTypeWrapper[ingest_api_ChannelConfig]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
         }
 
-    __slots__: List[str] = ['_dataset_name', '_dataset_description', '_properties', '_labels', '_channel_config', '_workspace']
+    __slots__: List[str] = ['_dataset_name', '_dataset_description', '_properties', '_labels', '_channel_config', '_workspace', '_marking_rids']
 
-    def __init__(self, labels: List[str], properties: Dict[str, str], channel_config: Optional["ingest_api_ChannelConfig"] = None, dataset_description: Optional[str] = None, dataset_name: Optional[str] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, labels: List[str], marking_rids: List[str], properties: Dict[str, str], channel_config: Optional["ingest_api_ChannelConfig"] = None, dataset_description: Optional[str] = None, dataset_name: Optional[str] = None, workspace: Optional[str] = None) -> None:
         self._dataset_name = dataset_name
         self._dataset_description = dataset_description
         self._properties = properties
         self._labels = labels
         self._channel_config = channel_config
         self._workspace = workspace
+        self._marking_rids = marking_rids
 
     @builtins.property
     def dataset_name(self) -> Optional[str]:
@@ -11676,6 +11678,13 @@ class ingest_api_NewDatasetIngestDestination(ConjureBeanType):
 the user's organization, if the default workspace for the organization is configured.
         """
         return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created dataset.
+If not provided, the dataset will be visible to all users in the same workspace.
+        """
+        return self._marking_rids
 
 
 ingest_api_NewDatasetIngestDestination.__name__ = "NewDatasetIngestDestination"
@@ -23501,12 +23510,13 @@ class scout_catalog_CreateDataset(ConjureBeanType):
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'granularity': ConjureFieldDefinition('granularity', OptionalTypeWrapper[api_Granularity]),
             'is_v2_dataset': ConjureFieldDefinition('isV2Dataset', OptionalTypeWrapper[bool]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
         }
 
-    __slots__: List[str] = ['_name', '_handle', '_metadata', '_origin_metadata', '_labels', '_properties', '_description', '_granularity', '_is_v2_dataset', '_workspace']
+    __slots__: List[str] = ['_name', '_handle', '_metadata', '_origin_metadata', '_labels', '_properties', '_description', '_granularity', '_is_v2_dataset', '_workspace', '_marking_rids']
 
-    def __init__(self, labels: List[str], metadata: Dict[str, str], name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, handle: Optional["scout_catalog_Handle"] = None, is_v2_dataset: Optional[bool] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, labels: List[str], marking_rids: List[str], metadata: Dict[str, str], name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, handle: Optional["scout_catalog_Handle"] = None, is_v2_dataset: Optional[bool] = None, workspace: Optional[str] = None) -> None:
         self._name = name
         self._handle = handle
         self._metadata = metadata
@@ -23517,6 +23527,7 @@ class scout_catalog_CreateDataset(ConjureBeanType):
         self._granularity = granularity
         self._is_v2_dataset = is_v2_dataset
         self._workspace = workspace
+        self._marking_rids = marking_rids
 
     @builtins.property
     def name(self) -> str:
@@ -23564,6 +23575,13 @@ class scout_catalog_CreateDataset(ConjureBeanType):
 the user's organization, if the default workspace for the organization is configured.
         """
         return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created dataset.
+If not provided, the dataset will be visible to all users in the same workspace.
+        """
+        return self._marking_rids
 
 
 scout_catalog_CreateDataset.__name__ = "CreateDataset"
@@ -28481,6 +28499,91 @@ scout_chartdefinition_api_Position.__qualname__ = "Position"
 scout_chartdefinition_api_Position.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_ProcedureVizDefinition(ConjureUnionType):
+    _v1: Optional["scout_chartdefinition_api_ProcedureVizDefinitionV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_chartdefinition_api_ProcedureVizDefinitionV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_chartdefinition_api_ProcedureVizDefinitionV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_chartdefinition_api_ProcedureVizDefinitionV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_ProcedureVizDefinitionVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_ProcedureVizDefinitionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_chartdefinition_api_ProcedureVizDefinition.__name__ = "ProcedureVizDefinition"
+scout_chartdefinition_api_ProcedureVizDefinition.__qualname__ = "ProcedureVizDefinition"
+scout_chartdefinition_api_ProcedureVizDefinition.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ProcedureVizDefinitionVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_chartdefinition_api_ProcedureVizDefinitionV1") -> Any:
+        pass
+
+
+scout_chartdefinition_api_ProcedureVizDefinitionVisitor.__name__ = "ProcedureVizDefinitionVisitor"
+scout_chartdefinition_api_ProcedureVizDefinitionVisitor.__qualname__ = "ProcedureVizDefinitionVisitor"
+scout_chartdefinition_api_ProcedureVizDefinitionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ProcedureVizDefinitionV1(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'execution_rid': ConjureFieldDefinition('executionRid', OptionalTypeWrapper[scout_rids_api_ProcedureExecutionRid])
+        }
+
+    __slots__: List[str] = ['_title', '_execution_rid']
+
+    def __init__(self, execution_rid: Optional[str] = None, title: Optional[str] = None) -> None:
+        self._title = title
+        self._execution_rid = execution_rid
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+    @builtins.property
+    def execution_rid(self) -> Optional[str]:
+        return self._execution_rid
+
+
+scout_chartdefinition_api_ProcedureVizDefinitionV1.__name__ = "ProcedureVizDefinitionV1"
+scout_chartdefinition_api_ProcedureVizDefinitionV1.__qualname__ = "ProcedureVizDefinitionV1"
+scout_chartdefinition_api_ProcedureVizDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_RangeCellConfig(ConjureBeanType):
 
     @builtins.classmethod
@@ -30414,6 +30517,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
     _time_series: Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"] = None
     _value_table: Optional["scout_chartdefinition_api_ValueTableDefinition"] = None
     _video: Optional["scout_chartdefinition_api_VideoVizDefinition"] = None
+    _procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -30427,7 +30531,8 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             'plotly': ConjureFieldDefinition('plotly', scout_chartdefinition_api_PlotlyPanelDefinition),
             'time_series': ConjureFieldDefinition('timeSeries', scout_chartdefinition_api_TimeSeriesChartDefinition),
             'value_table': ConjureFieldDefinition('valueTable', scout_chartdefinition_api_ValueTableDefinition),
-            'video': ConjureFieldDefinition('video', scout_chartdefinition_api_VideoVizDefinition)
+            'video': ConjureFieldDefinition('video', scout_chartdefinition_api_VideoVizDefinition),
+            'procedure': ConjureFieldDefinition('procedure', scout_chartdefinition_api_ProcedureVizDefinition)
         }
 
     def __init__(
@@ -30442,10 +30547,11 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             time_series: Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"] = None,
             value_table: Optional["scout_chartdefinition_api_ValueTableDefinition"] = None,
             video: Optional["scout_chartdefinition_api_VideoVizDefinition"] = None,
+            procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (histogram is not None) + (log is not None) + (plotly is not None) + (time_series is not None) + (value_table is not None) + (video is not None) != 1:
+            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (histogram is not None) + (log is not None) + (plotly is not None) + (time_series is not None) + (value_table is not None) + (video is not None) + (procedure is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if cartesian is not None:
@@ -30478,6 +30584,9 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             if video is not None:
                 self._video = video
                 self._type = 'video'
+            if procedure is not None:
+                self._procedure = procedure
+                self._type = 'procedure'
 
         elif type_of_union == 'cartesian':
             if cartesian is None:
@@ -30529,6 +30638,11 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._video = video
             self._type = 'video'
+        elif type_of_union == 'procedure':
+            if procedure is None:
+                raise ValueError('a union value must not be None')
+            self._procedure = procedure
+            self._type = 'procedure'
 
     @builtins.property
     def cartesian(self) -> Optional["scout_chartdefinition_api_CartesianChartDefinition"]:
@@ -30570,6 +30684,10 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
     def video(self) -> Optional["scout_chartdefinition_api_VideoVizDefinition"]:
         return self._video
 
+    @builtins.property
+    def procedure(self) -> Optional["scout_chartdefinition_api_ProcedureVizDefinition"]:
+        return self._procedure
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_chartdefinition_api_VizDefinitionVisitor):
             raise ValueError('{} is not an instance of scout_chartdefinition_api_VizDefinitionVisitor'.format(visitor.__class__.__name__))
@@ -30593,6 +30711,8 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             return visitor._value_table(self.value_table)
         if self._type == 'video' and self.video is not None:
             return visitor._video(self.video)
+        if self._type == 'procedure' and self.procedure is not None:
+            return visitor._procedure(self.procedure)
 
 
 scout_chartdefinition_api_VizDefinition.__name__ = "VizDefinition"
@@ -30640,6 +30760,10 @@ class scout_chartdefinition_api_VizDefinitionVisitor:
 
     @abstractmethod
     def _video(self, video: "scout_chartdefinition_api_VideoVizDefinition") -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure(self, procedure: "scout_chartdefinition_api_ProcedureVizDefinition") -> Any:
         pass
 
 
@@ -87776,6 +87900,8 @@ datasource_pagination_api_PageToken = str
 scout_datasource_connection_api_ProjectName = str
 
 scout_rids_api_DataReviewRid = str
+
+scout_rids_api_ProcedureExecutionRid = str
 
 api_rids_SegmentRid = str
 

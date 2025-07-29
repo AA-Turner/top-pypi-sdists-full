@@ -1,7 +1,7 @@
 r'''
 # `aws_auditmanager_assessment`
 
-Refer to the Terraform Registry for docs: [`aws_auditmanager_assessment`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment).
+Refer to the Terraform Registry for docs: [`aws_auditmanager_assessment`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AuditmanagerAssessment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.auditmanagerAssessment.AuditmanagerAssessment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment aws_auditmanager_assessment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment aws_auditmanager_assessment}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class AuditmanagerAssessment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment aws_auditmanager_assessment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment aws_auditmanager_assessment} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param framework_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#framework_id AuditmanagerAssessment#framework_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#name AuditmanagerAssessment#name}.
-        :param assessment_reports_destination: assessment_reports_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#assessment_reports_destination AuditmanagerAssessment#assessment_reports_destination}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#description AuditmanagerAssessment#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#region AuditmanagerAssessment#region}
-        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#roles AuditmanagerAssessment#roles}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#scope AuditmanagerAssessment#scope}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#tags AuditmanagerAssessment#tags}.
+        :param framework_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#framework_id AuditmanagerAssessment#framework_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#name AuditmanagerAssessment#name}.
+        :param assessment_reports_destination: assessment_reports_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#assessment_reports_destination AuditmanagerAssessment#assessment_reports_destination}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#description AuditmanagerAssessment#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#region AuditmanagerAssessment#region}
+        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#roles AuditmanagerAssessment#roles}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#scope AuditmanagerAssessment#scope}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#tags AuditmanagerAssessment#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class AuditmanagerAssessment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AuditmanagerAssessment to import.
-        :param import_from_id: The id of the existing AuditmanagerAssessment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AuditmanagerAssessment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AuditmanagerAssessment to import is found.
         '''
         if __debug__:
@@ -373,8 +373,8 @@ class AuditmanagerAssessmentAssessmentReportsDestination:
         destination_type: builtins.str,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#destination AuditmanagerAssessment#destination}.
-        :param destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#destination_type AuditmanagerAssessment#destination_type}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#destination AuditmanagerAssessment#destination}.
+        :param destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#destination_type AuditmanagerAssessment#destination_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__010ba1196ea2a24f0b714c23c1d6e82365ce9b2fbe82380832c07f1fc02b4c5b)
@@ -387,14 +387,14 @@ class AuditmanagerAssessmentAssessmentReportsDestination:
 
     @builtins.property
     def destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#destination AuditmanagerAssessment#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#destination AuditmanagerAssessment#destination}.'''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def destination_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#destination_type AuditmanagerAssessment#destination_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#destination_type AuditmanagerAssessment#destination_type}.'''
         result = self._values.get("destination_type")
         assert result is not None, "Required property 'destination_type' is missing"
         return typing.cast(builtins.str, result)
@@ -631,14 +631,14 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param framework_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#framework_id AuditmanagerAssessment#framework_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#name AuditmanagerAssessment#name}.
-        :param assessment_reports_destination: assessment_reports_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#assessment_reports_destination AuditmanagerAssessment#assessment_reports_destination}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#description AuditmanagerAssessment#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#region AuditmanagerAssessment#region}
-        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#roles AuditmanagerAssessment#roles}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#scope AuditmanagerAssessment#scope}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#tags AuditmanagerAssessment#tags}.
+        :param framework_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#framework_id AuditmanagerAssessment#framework_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#name AuditmanagerAssessment#name}.
+        :param assessment_reports_destination: assessment_reports_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#assessment_reports_destination AuditmanagerAssessment#assessment_reports_destination}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#description AuditmanagerAssessment#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#region AuditmanagerAssessment#region}
+        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#roles AuditmanagerAssessment#roles}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#scope AuditmanagerAssessment#scope}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#tags AuditmanagerAssessment#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -756,14 +756,14 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def framework_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#framework_id AuditmanagerAssessment#framework_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#framework_id AuditmanagerAssessment#framework_id}.'''
         result = self._values.get("framework_id")
         assert result is not None, "Required property 'framework_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#name AuditmanagerAssessment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#name AuditmanagerAssessment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -774,14 +774,14 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AuditmanagerAssessmentAssessmentReportsDestination]]]:
         '''assessment_reports_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#assessment_reports_destination AuditmanagerAssessment#assessment_reports_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#assessment_reports_destination AuditmanagerAssessment#assessment_reports_destination}
         '''
         result = self._values.get("assessment_reports_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AuditmanagerAssessmentAssessmentReportsDestination]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#description AuditmanagerAssessment#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#description AuditmanagerAssessment#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -789,7 +789,7 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#region AuditmanagerAssessment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#region AuditmanagerAssessment#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -800,7 +800,7 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentRoles"]]]:
         '''roles block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#roles AuditmanagerAssessment#roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#roles AuditmanagerAssessment#roles}
         '''
         result = self._values.get("roles")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentRoles"]]], result)
@@ -811,14 +811,14 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentScope"]]]:
         '''scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#scope AuditmanagerAssessment#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#scope AuditmanagerAssessment#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentScope"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#tags AuditmanagerAssessment#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#tags AuditmanagerAssessment#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -842,8 +842,8 @@ class AuditmanagerAssessmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class AuditmanagerAssessmentRoles:
     def __init__(self, *, role_arn: builtins.str, role_type: builtins.str) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#role_arn AuditmanagerAssessment#role_arn}.
-        :param role_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#role_type AuditmanagerAssessment#role_type}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#role_arn AuditmanagerAssessment#role_arn}.
+        :param role_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#role_type AuditmanagerAssessment#role_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84b18e9012fc9afe42b9bf4be1f88660b0fd6f28861962f5f3ba92aca974765e)
@@ -856,14 +856,14 @@ class AuditmanagerAssessmentRoles:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#role_arn AuditmanagerAssessment#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#role_arn AuditmanagerAssessment#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#role_type AuditmanagerAssessment#role_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#role_type AuditmanagerAssessment#role_type}.'''
         result = self._values.get("role_type")
         assert result is not None, "Required property 'role_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1210,8 +1210,8 @@ class AuditmanagerAssessmentScope:
         aws_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AuditmanagerAssessmentScopeAwsServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aws_accounts: aws_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#aws_accounts AuditmanagerAssessment#aws_accounts}
-        :param aws_services: aws_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#aws_services AuditmanagerAssessment#aws_services}
+        :param aws_accounts: aws_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#aws_accounts AuditmanagerAssessment#aws_accounts}
+        :param aws_services: aws_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#aws_services AuditmanagerAssessment#aws_services}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e93a29569dd6fed6f6169d0a531fc59caf345b1a207bb68a6fdffc295b3a53b1)
@@ -1229,7 +1229,7 @@ class AuditmanagerAssessmentScope:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentScopeAwsAccounts"]]]:
         '''aws_accounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#aws_accounts AuditmanagerAssessment#aws_accounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#aws_accounts AuditmanagerAssessment#aws_accounts}
         '''
         result = self._values.get("aws_accounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentScopeAwsAccounts"]]], result)
@@ -1240,7 +1240,7 @@ class AuditmanagerAssessmentScope:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentScopeAwsServices"]]]:
         '''aws_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#aws_services AuditmanagerAssessment#aws_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#aws_services AuditmanagerAssessment#aws_services}
         '''
         result = self._values.get("aws_services")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerAssessmentScopeAwsServices"]]], result)
@@ -1265,7 +1265,7 @@ class AuditmanagerAssessmentScope:
 class AuditmanagerAssessmentScopeAwsAccounts:
     def __init__(self, *, id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#id AuditmanagerAssessment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#id AuditmanagerAssessment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d15a800c36b30fbdb88adf3807b247149b8cf0e439eb9e1f9a267b3da1d54be)
@@ -1276,7 +1276,7 @@ class AuditmanagerAssessmentScopeAwsAccounts:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#id AuditmanagerAssessment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#id AuditmanagerAssessment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1459,7 +1459,7 @@ class AuditmanagerAssessmentScopeAwsAccountsOutputReference(
 class AuditmanagerAssessmentScopeAwsServices:
     def __init__(self, *, service_name: builtins.str) -> None:
         '''
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#service_name AuditmanagerAssessment#service_name}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#service_name AuditmanagerAssessment#service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e75b86577cfc90cc85d1601366e4d37c6b074c6730b19c269df87f0699ba15af)
@@ -1470,7 +1470,7 @@ class AuditmanagerAssessmentScopeAwsServices:
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/auditmanager_assessment#service_name AuditmanagerAssessment#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/auditmanager_assessment#service_name AuditmanagerAssessment#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)

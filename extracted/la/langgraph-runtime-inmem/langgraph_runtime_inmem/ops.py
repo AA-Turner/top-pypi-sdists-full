@@ -20,7 +20,8 @@ import orjson
 import structlog
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
 from langgraph.pregel.debug import CheckpointPayload
-from langgraph.types import StateSnapshot
+from langgraph.types import Interrupt, StateSnapshot
+from langgraph.version import __version__
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
@@ -35,7 +36,9 @@ if typing.TYPE_CHECKING:
         Assistant,
         Checkpoint,
         Config,
+        Context,
         Cron,
+        DeprecatedInterrupt,
         IfNotExists,
         MetadataInput,
         MetadataValue,
@@ -49,10 +52,15 @@ if typing.TYPE_CHECKING:
         ThreadStatus,
         ThreadUpdateResponse,
     )
+    from langgraph_api.schema import Interrupt as InterruptSchema
     from langgraph_api.serde import Fragment
 
 
 logger = structlog.stdlib.get_logger(__name__)
+
+# Only gate features on the major.minor version; Lets you ignore the rc/alpha/etc. releases anyway
+LANGGRAPH_PY_MINOR = tuple(map(int, __version__.split(".")[:2]))
+USE_NEW_INTERRUPTS = LANGGRAPH_PY_MINOR >= (0, 6)
 
 
 def _ensure_uuid(id_: str | uuid.UUID | None) -> uuid.UUID:
@@ -215,6 +223,7 @@ class Assistants(Authenticated):
         *,
         graph_id: str,
         config: Config,
+        context: Context,
         metadata: MetadataInput,
         if_exists: OnConflictBehavior,
         name: str,
@@ -231,6 +240,7 @@ class Assistants(Authenticated):
                 assistant_id=assistant_id,
                 graph_id=graph_id,
                 config=config,
+                context=context,
                 metadata=metadata,
                 name=name,
             ),
@@ -262,6 +272,7 @@ class Assistants(Authenticated):
             "assistant_id": assistant_id,
             "graph_id": graph_id,
             "config": config or {},
+            "context": context or {},
             "metadata": metadata or {},
             "name": name,
             "created_at": now,
@@ -274,6 +285,7 @@ class Assistants(Authenticated):
             "version": 1,
             "graph_id": graph_id,
             "config": config or {},
+            "context": context or {},
             "metadata": metadata or {},
             "created_at": now,
             "name": name,
@@ -292,7 +304,8 @@ class Assistants(Authenticated):
         conn: InMemConnectionProto,
         assistant_id: UUID,
         *,
-        config: dict | None = None,
+        config: Config | None = None,
+        context: Context | None = None,
         graph_id: str | None = None,
         metadata: MetadataInput | None = None,
         name: str | None = None,
@@ -306,6 +319,7 @@ class Assistants(Authenticated):
             assistant_id: The assistant ID.
             graph_id: The graph ID.
             config: The assistant config.
+            context: The assistant's static context.
             metadata: The assistant metadata.
             name: The assistant name.
             description: The assistant description.
@@ -323,6 +337,7 @@ class Assistants(Authenticated):
                 assistant_id=assistant_id,
                 graph_id=graph_id,
                 config=config,
+                context=context,
                 metadata=metadata,
                 name=name,
             ),
@@ -363,6 +378,7 @@ class Assistants(Authenticated):
             "version": new_version,
             "graph_id": graph_id if graph_id is not None else assistant["graph_id"],
             "config": config if config is not None else assistant["config"],
+            "context": context if context is not None else assistant["context"],
             "metadata": metadata if metadata is not None else assistant["metadata"],
             "created_at": now,
             "name": name if name is not None else assistant["name"],
@@ -377,6 +393,7 @@ class Assistants(Authenticated):
             {
                 "graph_id": new_version_entry["graph_id"],
                 "config": new_version_entry["config"],
+                "context": new_version_entry["context"],
                 "metadata": new_version_entry["metadata"],
                 "name": name if name is not None else assistant["name"],
                 "description": (
@@ -605,6 +622,41 @@ def _replace_thread_id(data, new_thread_id, thread_id):
     # Decoding back from JSON
     d = json.loads(json_str, object_hook=bytes_decoder)
     return d
+
+
+def _patch_interrupt(
+    interrupt: Interrupt | dict,
+) -> InterruptSchema | DeprecatedInterrupt:
+    """Convert a langgraph interrupt (v0 or v1) to standard interrupt schema.
+
+    In v0.4 and v0.5, interrupt_id is a property on the langgraph.types.Interrupt object,
+    so we reconstruct the type in order to access the id, with compatibility for the new
+    v0.6 interrupt format as well.
+    """
+    if USE_NEW_INTERRUPTS:
+        interrupt = Interrupt(**interrupt) if isinstance(interrupt, dict) else interrupt
+
+        return {
+            "id": interrupt.id,
+            "value": interrupt.value,
+        }
+    else:
+        if isinstance(interrupt, dict):
+            # interrupt_id is a deprecated property on Interrupt and should not be used for initialization
+            # id is the new field we use for identification, also not supported on init for old versions
+            interrupt.pop("interrupt_id", None)
+            interrupt.pop("id", None)
+            interrupt = Interrupt(**interrupt)
+
+        return {
+            "id": interrupt.interrupt_id
+            if hasattr(interrupt, "interrupt_id")
+            else None,
+            "value": interrupt.value,
+            "resumable": interrupt.resumable,
+            "ns": interrupt.ns,
+            "when": interrupt.when,
+        }
 
 
 class Threads(Authenticated):
@@ -909,7 +961,7 @@ class Threads(Authenticated):
                 "status": status,
                 "interrupts": (
                     {
-                        t["id"]: t["interrupts"]
+                        t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
                         for t in checkpoint["tasks"]
                         if t.get("interrupts")
                     }
@@ -982,7 +1034,7 @@ class Threads(Authenticated):
 
         interrupts = (
             {
-                t["id"]: t["interrupts"]
+                t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
                 for t in checkpoint["tasks"]
                 if t.get("interrupts")
             }
@@ -1794,7 +1846,10 @@ class Runs(Authenticated):
                         {
                             "metadata": merged_metadata,
                         },
-                    )
+                    ),
+                    "context": Runs._merge_jsonb(
+                        assistant.get("context", {}), kwargs.get("context", {})
+                    ),
                 },
             ),
             multitask_strategy=multitask_strategy,
@@ -1903,9 +1958,15 @@ class Runs(Authenticated):
         # wait for the run to complete
         # Rely on this join's auth
         async for mode, chunk, _ in Runs.Stream.join(
-            run_id, thread_id=thread_id, ctx=ctx, ignore_404=True
+            run_id,
+            thread_id=thread_id,
+            ctx=ctx,
+            ignore_404=True,
+            stream_mode=["values", "updates", "error"],
         ):
             if mode == b"values":
+                last_chunk = chunk
+            elif mode == b"updates" and b"__interrupt__" in chunk:
                 last_chunk = chunk
             elif mode == b"error":
                 last_chunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
@@ -2024,7 +2085,7 @@ class Runs(Authenticated):
         stream_manager = get_stream_manager()
         coros = []
         cancelable_runs = []
-        
+
         for run in candidate_runs:
             run_id = run["run_id"]
             control_message = Message(
@@ -2162,16 +2223,20 @@ class Runs(Authenticated):
             thread_id: UUID,
             ignore_404: bool = False,
             cancel_on_disconnect: bool = False,
-            stream_mode: StreamMode | asyncio.Queue | None = None,
+            stream_channel: asyncio.Queue | None = None,
+            stream_mode: list[StreamMode] | StreamMode,
             last_event_id: str | None = None,
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the run output."""
             from langgraph_api.asyncio import create_task
 
+            if stream_mode and not isinstance(stream_mode, list):
+                stream_mode = [stream_mode]
+
             queue = (
-                stream_mode
-                if isinstance(stream_mode, asyncio.Queue)
+                stream_channel
+                if stream_channel
                 else await Runs.Stream.subscribe(run_id, stream_mode=stream_mode)
             )
 
@@ -2192,6 +2257,7 @@ class Runs(Authenticated):
                                     status_code=404, detail="Thread not found"
                                 )
                             )
+                    run = await Runs.get(conn, run_id, thread_id=thread_id, ctx=ctx)
                     channel_prefix = f"run:{run_id}:stream:"
                     len_prefix = len(channel_prefix.encode())
 
@@ -2203,14 +2269,18 @@ class Runs(Authenticated):
                             if data == b"done":
                                 return
                         else:
-                            yield topic[len_prefix:], data, id
-                            logger.debug(
-                                "Replayed run event",
-                                run_id=str(run_id),
-                                message_id=id,
-                                stream_mode=topic[len_prefix:],
-                                data=data,
-                            )
+                            mode = topic[len_prefix:]
+                            if mode == b"updates" and "updates" not in stream_mode:
+                                continue
+                            else:
+                                yield mode, data, id
+                                logger.debug(
+                                    "Replayed run event",
+                                    run_id=str(run_id),
+                                    message_id=id,
+                                    stream_mode=mode,
+                                    data=data,
+                                )
 
                     while True:
                         try:
@@ -2223,14 +2293,18 @@ class Runs(Authenticated):
                                     break
                             else:
                                 # Extract mode from topic
-                                yield topic[len_prefix:], data, id
-                                logger.debug(
-                                    "Streamed run event",
-                                    run_id=str(run_id),
-                                    stream_mode=topic[len_prefix:],
-                                    message_id=id,
-                                    data=data,
-                                )
+                                mode = topic[len_prefix:]
+                                if mode == b"updates" and "updates" not in stream_mode:
+                                    continue
+                                else:
+                                    yield mode, data, id
+                                    logger.debug(
+                                        "Streamed run event",
+                                        run_id=str(run_id),
+                                        stream_mode=mode,
+                                        message_id=id,
+                                        data=data,
+                                    )
                         except TimeoutError:
                             # Check if the run is still pending
                             run_iter = await Runs.get(

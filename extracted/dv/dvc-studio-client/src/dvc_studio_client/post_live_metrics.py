@@ -48,7 +48,7 @@ def _single_post(url, body, token):
 
     message = response.content.decode()
     logger.debug(
-        f"post_to_studio: {response.status_code=}" f", {message=}" if message else "",
+        f"post_to_studio: {response.status_code=}, {message=}" if message else "",
     )
 
     if response.status_code != 200:
@@ -100,7 +100,7 @@ def _post_in_chunks(url, body, token):
             break
         body["plots"][plot_name] = plot_data
 
-    if body["plots"] and not _single_post(url, body, token):
+    if body["plots"] and not _single_post(url, body, token):  # noqa: SIM103
         return False
 
     return True

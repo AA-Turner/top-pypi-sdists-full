@@ -94,7 +94,7 @@ class WireMockContainer(DockerContainer):
     def copy_file_to_container(self, host_path: Path, container_path: Path) -> None:
         with open(host_path, "rb") as fp:
             self.get_wrapped_container().put_archive(
-                path=container_path, data=fp.read()
+                path=container_path.as_posix(), data=fp.read()
             )
 
     def copy_files_to_container(
@@ -143,7 +143,7 @@ class WireMockContainer(DockerContainer):
             configs=self.mapping_files, container_dir_path=Path(f"{self.FILES_DIR}")
         )
 
-    def server_running(self, retry_count: int = 3, retry_delay: int = 1) -> bool:
+    def server_running(self, retry_count: int = 10, retry_delay: int = 1) -> bool:
         """Pings the __admin/mappings endpoint of the wiremock server running inside the
         container as a proxy for checking if the server is up and running.
 

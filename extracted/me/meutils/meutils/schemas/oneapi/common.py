@@ -659,7 +659,7 @@ MODEL_RATIO = {
     "qwen3-4b": 0.2,
     "qwen3-8b": 0.25,
     "qwen3-14b": 0.5,
-    "qwen3-32b": 1,
+    "qwen3-32b": 2,
     "qwen3-30b-a3b": 0.75,
     "qwen3-235b-a22b": 1,
     "qwen-math-plus": 2,
@@ -1078,8 +1078,8 @@ MODEL_RATIO = {
     "o3-pro-2025-06-10": 10,
 
     # 硅基
-    "llama-3.1-8b-instruct": 0.01,
-    "meta-llama/Meta-Llama-3.1-8B-Instruct": 0.01,
+    "llama-3.1-8b-instruct": 0.03,
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": 0.03,
     "llama-3.1-70b-instruct": 2,
     "meta-llama/Meta-Llama-3.1-70B-Instruct": 2,
     "llama-3.1-405b-instruct": 5,
@@ -1246,6 +1246,9 @@ COMPLETION_RATIO = {
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": 4,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 4,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo": 4,
+
+    "llama-3.1-8b-instruct": 3,
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": 3,
 
     "llama-3.3-70b-instruct": 4,
 

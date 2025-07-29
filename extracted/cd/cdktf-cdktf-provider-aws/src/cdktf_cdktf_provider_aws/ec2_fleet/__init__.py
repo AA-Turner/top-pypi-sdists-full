@@ -1,7 +1,7 @@
 r'''
 # `aws_ec2_fleet`
 
-Refer to the Terraform Registry for docs: [`aws_ec2_fleet`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet).
+Refer to the Terraform Registry for docs: [`aws_ec2_fleet`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Ec2Fleet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ec2Fleet.Ec2Fleet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet aws_ec2_fleet}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet aws_ec2_fleet}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class Ec2Fleet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet aws_ec2_fleet} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet aws_ec2_fleet} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_config Ec2Fleet#launch_template_config}
-        :param target_capacity_specification: target_capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#target_capacity_specification Ec2Fleet#target_capacity_specification}
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#context Ec2Fleet#context}.
-        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#excess_capacity_termination_policy Ec2Fleet#excess_capacity_termination_policy}.
-        :param fleet_instance_set: fleet_instance_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fleet_instance_set Ec2Fleet#fleet_instance_set}
-        :param fleet_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fleet_state Ec2Fleet#fleet_state}.
-        :param fulfilled_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fulfilled_capacity Ec2Fleet#fulfilled_capacity}.
-        :param fulfilled_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fulfilled_on_demand_capacity Ec2Fleet#fulfilled_on_demand_capacity}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#id Ec2Fleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param on_demand_options: on_demand_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_options Ec2Fleet#on_demand_options}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#region Ec2Fleet#region}
-        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#replace_unhealthy_instances Ec2Fleet#replace_unhealthy_instances}.
-        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_options Ec2Fleet#spot_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#tags Ec2Fleet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#tags_all Ec2Fleet#tags_all}.
-        :param terminate_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#terminate_instances Ec2Fleet#terminate_instances}.
-        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#terminate_instances_with_expiration Ec2Fleet#terminate_instances_with_expiration}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#timeouts Ec2Fleet#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#type Ec2Fleet#type}.
-        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#valid_from Ec2Fleet#valid_from}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#valid_until Ec2Fleet#valid_until}.
+        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_config Ec2Fleet#launch_template_config}
+        :param target_capacity_specification: target_capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#target_capacity_specification Ec2Fleet#target_capacity_specification}
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#context Ec2Fleet#context}.
+        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#excess_capacity_termination_policy Ec2Fleet#excess_capacity_termination_policy}.
+        :param fleet_instance_set: fleet_instance_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fleet_instance_set Ec2Fleet#fleet_instance_set}
+        :param fleet_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fleet_state Ec2Fleet#fleet_state}.
+        :param fulfilled_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fulfilled_capacity Ec2Fleet#fulfilled_capacity}.
+        :param fulfilled_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fulfilled_on_demand_capacity Ec2Fleet#fulfilled_on_demand_capacity}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#id Ec2Fleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param on_demand_options: on_demand_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_options Ec2Fleet#on_demand_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#region Ec2Fleet#region}
+        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#replace_unhealthy_instances Ec2Fleet#replace_unhealthy_instances}.
+        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_options Ec2Fleet#spot_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#tags Ec2Fleet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#tags_all Ec2Fleet#tags_all}.
+        :param terminate_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#terminate_instances Ec2Fleet#terminate_instances}.
+        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#terminate_instances_with_expiration Ec2Fleet#terminate_instances_with_expiration}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#timeouts Ec2Fleet#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#type Ec2Fleet#type}.
+        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#valid_from Ec2Fleet#valid_from}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#valid_until Ec2Fleet#valid_until}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class Ec2Fleet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Ec2Fleet to import.
-        :param import_from_id: The id of the existing Ec2Fleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Ec2Fleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Ec2Fleet to import is found.
         '''
         if __debug__:
@@ -212,12 +212,12 @@ class Ec2Fleet(
         single_instance_type: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
-        :param capacity_reservation_options: capacity_reservation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#capacity_reservation_options Ec2Fleet#capacity_reservation_options}
-        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
-        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
-        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
-        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
+        :param capacity_reservation_options: capacity_reservation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#capacity_reservation_options Ec2Fleet#capacity_reservation_options}
+        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
+        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
+        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
+        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
         '''
         value = Ec2FleetOnDemandOptions(
             allocation_strategy=allocation_strategy,
@@ -244,14 +244,14 @@ class Ec2Fleet(
         single_instance_type: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
-        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_interruption_behavior Ec2Fleet#instance_interruption_behavior}.
-        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_pools_to_use_count Ec2Fleet#instance_pools_to_use_count}.
-        :param maintenance_strategies: maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#maintenance_strategies Ec2Fleet#maintenance_strategies}
-        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
-        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
-        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
-        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
+        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_interruption_behavior Ec2Fleet#instance_interruption_behavior}.
+        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_pools_to_use_count Ec2Fleet#instance_pools_to_use_count}.
+        :param maintenance_strategies: maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#maintenance_strategies Ec2Fleet#maintenance_strategies}
+        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
+        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
+        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
+        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
         '''
         value = Ec2FleetSpotOptions(
             allocation_strategy=allocation_strategy,
@@ -277,11 +277,11 @@ class Ec2Fleet(
         target_capacity_unit_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_target_capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#default_target_capacity_type Ec2Fleet#default_target_capacity_type}.
-        :param total_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#total_target_capacity Ec2Fleet#total_target_capacity}.
-        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_target_capacity Ec2Fleet#on_demand_target_capacity}.
-        :param spot_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_target_capacity Ec2Fleet#spot_target_capacity}.
-        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#target_capacity_unit_type Ec2Fleet#target_capacity_unit_type}.
+        :param default_target_capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#default_target_capacity_type Ec2Fleet#default_target_capacity_type}.
+        :param total_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#total_target_capacity Ec2Fleet#total_target_capacity}.
+        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_target_capacity Ec2Fleet#on_demand_target_capacity}.
+        :param spot_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_target_capacity Ec2Fleet#spot_target_capacity}.
+        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#target_capacity_unit_type Ec2Fleet#target_capacity_unit_type}.
         '''
         value = Ec2FleetTargetCapacitySpecification(
             default_target_capacity_type=default_target_capacity_type,
@@ -302,9 +302,9 @@ class Ec2Fleet(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#create Ec2Fleet#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#delete Ec2Fleet#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#update Ec2Fleet#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#create Ec2Fleet#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#delete Ec2Fleet#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#update Ec2Fleet#update}.
         '''
         value = Ec2FleetTimeouts(create=create, delete=delete, update=update)
 
@@ -828,27 +828,27 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_config Ec2Fleet#launch_template_config}
-        :param target_capacity_specification: target_capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#target_capacity_specification Ec2Fleet#target_capacity_specification}
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#context Ec2Fleet#context}.
-        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#excess_capacity_termination_policy Ec2Fleet#excess_capacity_termination_policy}.
-        :param fleet_instance_set: fleet_instance_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fleet_instance_set Ec2Fleet#fleet_instance_set}
-        :param fleet_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fleet_state Ec2Fleet#fleet_state}.
-        :param fulfilled_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fulfilled_capacity Ec2Fleet#fulfilled_capacity}.
-        :param fulfilled_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fulfilled_on_demand_capacity Ec2Fleet#fulfilled_on_demand_capacity}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#id Ec2Fleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param on_demand_options: on_demand_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_options Ec2Fleet#on_demand_options}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#region Ec2Fleet#region}
-        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#replace_unhealthy_instances Ec2Fleet#replace_unhealthy_instances}.
-        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_options Ec2Fleet#spot_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#tags Ec2Fleet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#tags_all Ec2Fleet#tags_all}.
-        :param terminate_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#terminate_instances Ec2Fleet#terminate_instances}.
-        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#terminate_instances_with_expiration Ec2Fleet#terminate_instances_with_expiration}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#timeouts Ec2Fleet#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#type Ec2Fleet#type}.
-        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#valid_from Ec2Fleet#valid_from}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#valid_until Ec2Fleet#valid_until}.
+        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_config Ec2Fleet#launch_template_config}
+        :param target_capacity_specification: target_capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#target_capacity_specification Ec2Fleet#target_capacity_specification}
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#context Ec2Fleet#context}.
+        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#excess_capacity_termination_policy Ec2Fleet#excess_capacity_termination_policy}.
+        :param fleet_instance_set: fleet_instance_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fleet_instance_set Ec2Fleet#fleet_instance_set}
+        :param fleet_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fleet_state Ec2Fleet#fleet_state}.
+        :param fulfilled_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fulfilled_capacity Ec2Fleet#fulfilled_capacity}.
+        :param fulfilled_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fulfilled_on_demand_capacity Ec2Fleet#fulfilled_on_demand_capacity}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#id Ec2Fleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param on_demand_options: on_demand_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_options Ec2Fleet#on_demand_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#region Ec2Fleet#region}
+        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#replace_unhealthy_instances Ec2Fleet#replace_unhealthy_instances}.
+        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_options Ec2Fleet#spot_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#tags Ec2Fleet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#tags_all Ec2Fleet#tags_all}.
+        :param terminate_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#terminate_instances Ec2Fleet#terminate_instances}.
+        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#terminate_instances_with_expiration Ec2Fleet#terminate_instances_with_expiration}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#timeouts Ec2Fleet#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#type Ec2Fleet#type}.
+        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#valid_from Ec2Fleet#valid_from}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#valid_until Ec2Fleet#valid_until}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1017,7 +1017,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Ec2FleetLaunchTemplateConfig"]]:
         '''launch_template_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_config Ec2Fleet#launch_template_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_config Ec2Fleet#launch_template_config}
         '''
         result = self._values.get("launch_template_config")
         assert result is not None, "Required property 'launch_template_config' is missing"
@@ -1027,7 +1027,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_capacity_specification(self) -> "Ec2FleetTargetCapacitySpecification":
         '''target_capacity_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#target_capacity_specification Ec2Fleet#target_capacity_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#target_capacity_specification Ec2Fleet#target_capacity_specification}
         '''
         result = self._values.get("target_capacity_specification")
         assert result is not None, "Required property 'target_capacity_specification' is missing"
@@ -1035,13 +1035,13 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def context(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#context Ec2Fleet#context}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#context Ec2Fleet#context}.'''
         result = self._values.get("context")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def excess_capacity_termination_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#excess_capacity_termination_policy Ec2Fleet#excess_capacity_termination_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#excess_capacity_termination_policy Ec2Fleet#excess_capacity_termination_policy}.'''
         result = self._values.get("excess_capacity_termination_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1051,32 +1051,32 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Ec2FleetFleetInstanceSet"]]]:
         '''fleet_instance_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fleet_instance_set Ec2Fleet#fleet_instance_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fleet_instance_set Ec2Fleet#fleet_instance_set}
         '''
         result = self._values.get("fleet_instance_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Ec2FleetFleetInstanceSet"]]], result)
 
     @builtins.property
     def fleet_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fleet_state Ec2Fleet#fleet_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fleet_state Ec2Fleet#fleet_state}.'''
         result = self._values.get("fleet_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fulfilled_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fulfilled_capacity Ec2Fleet#fulfilled_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fulfilled_capacity Ec2Fleet#fulfilled_capacity}.'''
         result = self._values.get("fulfilled_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def fulfilled_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#fulfilled_on_demand_capacity Ec2Fleet#fulfilled_on_demand_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#fulfilled_on_demand_capacity Ec2Fleet#fulfilled_on_demand_capacity}.'''
         result = self._values.get("fulfilled_on_demand_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#id Ec2Fleet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#id Ec2Fleet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1088,7 +1088,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def on_demand_options(self) -> typing.Optional["Ec2FleetOnDemandOptions"]:
         '''on_demand_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_options Ec2Fleet#on_demand_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_options Ec2Fleet#on_demand_options}
         '''
         result = self._values.get("on_demand_options")
         return typing.cast(typing.Optional["Ec2FleetOnDemandOptions"], result)
@@ -1097,7 +1097,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#region Ec2Fleet#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#region Ec2Fleet#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1106,7 +1106,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replace_unhealthy_instances(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#replace_unhealthy_instances Ec2Fleet#replace_unhealthy_instances}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#replace_unhealthy_instances Ec2Fleet#replace_unhealthy_instances}.'''
         result = self._values.get("replace_unhealthy_instances")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1114,20 +1114,20 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spot_options(self) -> typing.Optional["Ec2FleetSpotOptions"]:
         '''spot_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_options Ec2Fleet#spot_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_options Ec2Fleet#spot_options}
         '''
         result = self._values.get("spot_options")
         return typing.cast(typing.Optional["Ec2FleetSpotOptions"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#tags Ec2Fleet#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#tags Ec2Fleet#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#tags_all Ec2Fleet#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#tags_all Ec2Fleet#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1135,7 +1135,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def terminate_instances(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#terminate_instances Ec2Fleet#terminate_instances}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#terminate_instances Ec2Fleet#terminate_instances}.'''
         result = self._values.get("terminate_instances")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1143,7 +1143,7 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def terminate_instances_with_expiration(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#terminate_instances_with_expiration Ec2Fleet#terminate_instances_with_expiration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#terminate_instances_with_expiration Ec2Fleet#terminate_instances_with_expiration}.'''
         result = self._values.get("terminate_instances_with_expiration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1151,26 +1151,26 @@ class Ec2FleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Ec2FleetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#timeouts Ec2Fleet#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#timeouts Ec2Fleet#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Ec2FleetTimeouts"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#type Ec2Fleet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#type Ec2Fleet#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def valid_from(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#valid_from Ec2Fleet#valid_from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#valid_from Ec2Fleet#valid_from}.'''
         result = self._values.get("valid_from")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def valid_until(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#valid_until Ec2Fleet#valid_until}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#valid_until Ec2Fleet#valid_until}.'''
         result = self._values.get("valid_until")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1206,10 +1206,10 @@ class Ec2FleetFleetInstanceSet:
         platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_ids Ec2Fleet#instance_ids}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.
-        :param lifecycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#lifecycle Ec2Fleet#lifecycle}.
-        :param platform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#platform Ec2Fleet#platform}.
+        :param instance_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_ids Ec2Fleet#instance_ids}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.
+        :param lifecycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#lifecycle Ec2Fleet#lifecycle}.
+        :param platform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#platform Ec2Fleet#platform}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b388f60d0e83e49a50c4425dd433b3fffe71cc55e7c602ee031979edf942d7d)
@@ -1229,25 +1229,25 @@ class Ec2FleetFleetInstanceSet:
 
     @builtins.property
     def instance_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_ids Ec2Fleet#instance_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_ids Ec2Fleet#instance_ids}.'''
         result = self._values.get("instance_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lifecycle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#lifecycle Ec2Fleet#lifecycle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#lifecycle Ec2Fleet#lifecycle}.'''
         result = self._values.get("lifecycle")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def platform(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#platform Ec2Fleet#platform}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#platform Ec2Fleet#platform}.'''
         result = self._values.get("platform")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1497,8 +1497,8 @@ class Ec2FleetLaunchTemplateConfig:
         override: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Ec2FleetLaunchTemplateConfigOverride", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param launch_template_specification: launch_template_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_specification Ec2Fleet#launch_template_specification}
-        :param override: override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#override Ec2Fleet#override}
+        :param launch_template_specification: launch_template_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_specification Ec2Fleet#launch_template_specification}
+        :param override: override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#override Ec2Fleet#override}
         '''
         if isinstance(launch_template_specification, dict):
             launch_template_specification = Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification(**launch_template_specification)
@@ -1518,7 +1518,7 @@ class Ec2FleetLaunchTemplateConfig:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification"]:
         '''launch_template_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_specification Ec2Fleet#launch_template_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_specification Ec2Fleet#launch_template_specification}
         '''
         result = self._values.get("launch_template_specification")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification"], result)
@@ -1529,7 +1529,7 @@ class Ec2FleetLaunchTemplateConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Ec2FleetLaunchTemplateConfigOverride"]]]:
         '''override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#override Ec2Fleet#override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#override Ec2Fleet#override}
         '''
         result = self._values.get("override")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Ec2FleetLaunchTemplateConfigOverride"]]], result)
@@ -1564,9 +1564,9 @@ class Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification:
         launch_template_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#version Ec2Fleet#version}.
-        :param launch_template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_id Ec2Fleet#launch_template_id}.
-        :param launch_template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_name Ec2Fleet#launch_template_name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#version Ec2Fleet#version}.
+        :param launch_template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_id Ec2Fleet#launch_template_id}.
+        :param launch_template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_name Ec2Fleet#launch_template_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a5b0a8810e1bc6ea8b03106d8f34cece0aaa5239358d7bcd6f01fc12450f539)
@@ -1583,20 +1583,20 @@ class Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification:
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#version Ec2Fleet#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#version Ec2Fleet#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def launch_template_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_id Ec2Fleet#launch_template_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_id Ec2Fleet#launch_template_id}.'''
         result = self._values.get("launch_template_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def launch_template_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_name Ec2Fleet#launch_template_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_name Ec2Fleet#launch_template_name}.'''
         result = self._values.get("launch_template_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1834,9 +1834,9 @@ class Ec2FleetLaunchTemplateConfigOutputReference(
         launch_template_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#version Ec2Fleet#version}.
-        :param launch_template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_id Ec2Fleet#launch_template_id}.
-        :param launch_template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#launch_template_name Ec2Fleet#launch_template_name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#version Ec2Fleet#version}.
+        :param launch_template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_id Ec2Fleet#launch_template_id}.
+        :param launch_template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#launch_template_name Ec2Fleet#launch_template_name}.
         '''
         value = Ec2FleetLaunchTemplateConfigLaunchTemplateSpecification(
             version=version,
@@ -1937,13 +1937,13 @@ class Ec2FleetLaunchTemplateConfigOverride:
         weighted_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#availability_zone Ec2Fleet#availability_zone}.
-        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_requirements Ec2Fleet#instance_requirements}
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.
-        :param max_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_price Ec2Fleet#max_price}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#priority Ec2Fleet#priority}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#subnet_id Ec2Fleet#subnet_id}.
-        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#weighted_capacity Ec2Fleet#weighted_capacity}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#availability_zone Ec2Fleet#availability_zone}.
+        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_requirements Ec2Fleet#instance_requirements}
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.
+        :param max_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_price Ec2Fleet#max_price}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#priority Ec2Fleet#priority}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#subnet_id Ec2Fleet#subnet_id}.
+        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#weighted_capacity Ec2Fleet#weighted_capacity}.
         '''
         if isinstance(instance_requirements, dict):
             instance_requirements = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements(**instance_requirements)
@@ -1974,7 +1974,7 @@ class Ec2FleetLaunchTemplateConfigOverride:
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#availability_zone Ec2Fleet#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#availability_zone Ec2Fleet#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1984,38 +1984,38 @@ class Ec2FleetLaunchTemplateConfigOverride:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements"]:
         '''instance_requirements block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_requirements Ec2Fleet#instance_requirements}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_requirements Ec2Fleet#instance_requirements}
         '''
         result = self._values.get("instance_requirements")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements"], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_type Ec2Fleet#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_price Ec2Fleet#max_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_price Ec2Fleet#max_price}.'''
         result = self._values.get("max_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#priority Ec2Fleet#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#priority Ec2Fleet#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#subnet_id Ec2Fleet#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#subnet_id Ec2Fleet#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weighted_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#weighted_capacity Ec2Fleet#weighted_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#weighted_capacity Ec2Fleet#weighted_capacity}.'''
         result = self._values.get("weighted_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2091,30 +2091,30 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
         total_local_storage_gb: typing.Optional[typing.Union["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageGb", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#memory_mib Ec2Fleet#memory_mib}
-        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#vcpu_count Ec2Fleet#vcpu_count}
-        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_count Ec2Fleet#accelerator_count}
-        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_manufacturers Ec2Fleet#accelerator_manufacturers}.
-        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_names Ec2Fleet#accelerator_names}.
-        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_total_memory_mib Ec2Fleet#accelerator_total_memory_mib}
-        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_types Ec2Fleet#accelerator_types}.
-        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allowed_instance_types Ec2Fleet#allowed_instance_types}.
-        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#bare_metal Ec2Fleet#bare_metal}.
-        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#baseline_ebs_bandwidth_mbps Ec2Fleet#baseline_ebs_bandwidth_mbps}
-        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#burstable_performance Ec2Fleet#burstable_performance}.
-        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#cpu_manufacturers Ec2Fleet#cpu_manufacturers}.
-        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#excluded_instance_types Ec2Fleet#excluded_instance_types}.
-        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_generations Ec2Fleet#instance_generations}.
-        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#local_storage Ec2Fleet#local_storage}.
-        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#local_storage_types Ec2Fleet#local_storage_types}.
-        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_spot_price_as_percentage_of_optimal_on_demand_price Ec2Fleet#max_spot_price_as_percentage_of_optimal_on_demand_price}.
-        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#memory_gib_per_vcpu Ec2Fleet#memory_gib_per_vcpu}
-        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#network_bandwidth_gbps Ec2Fleet#network_bandwidth_gbps}
-        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#network_interface_count Ec2Fleet#network_interface_count}
-        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_max_price_percentage_over_lowest_price Ec2Fleet#on_demand_max_price_percentage_over_lowest_price}.
-        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#require_hibernate_support Ec2Fleet#require_hibernate_support}.
-        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_max_price_percentage_over_lowest_price Ec2Fleet#spot_max_price_percentage_over_lowest_price}.
-        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#total_local_storage_gb Ec2Fleet#total_local_storage_gb}
+        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#memory_mib Ec2Fleet#memory_mib}
+        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#vcpu_count Ec2Fleet#vcpu_count}
+        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_count Ec2Fleet#accelerator_count}
+        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_manufacturers Ec2Fleet#accelerator_manufacturers}.
+        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_names Ec2Fleet#accelerator_names}.
+        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_total_memory_mib Ec2Fleet#accelerator_total_memory_mib}
+        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_types Ec2Fleet#accelerator_types}.
+        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allowed_instance_types Ec2Fleet#allowed_instance_types}.
+        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#bare_metal Ec2Fleet#bare_metal}.
+        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#baseline_ebs_bandwidth_mbps Ec2Fleet#baseline_ebs_bandwidth_mbps}
+        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#burstable_performance Ec2Fleet#burstable_performance}.
+        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#cpu_manufacturers Ec2Fleet#cpu_manufacturers}.
+        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#excluded_instance_types Ec2Fleet#excluded_instance_types}.
+        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_generations Ec2Fleet#instance_generations}.
+        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#local_storage Ec2Fleet#local_storage}.
+        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#local_storage_types Ec2Fleet#local_storage_types}.
+        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_spot_price_as_percentage_of_optimal_on_demand_price Ec2Fleet#max_spot_price_as_percentage_of_optimal_on_demand_price}.
+        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#memory_gib_per_vcpu Ec2Fleet#memory_gib_per_vcpu}
+        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#network_bandwidth_gbps Ec2Fleet#network_bandwidth_gbps}
+        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#network_interface_count Ec2Fleet#network_interface_count}
+        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_max_price_percentage_over_lowest_price Ec2Fleet#on_demand_max_price_percentage_over_lowest_price}.
+        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#require_hibernate_support Ec2Fleet#require_hibernate_support}.
+        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_max_price_percentage_over_lowest_price Ec2Fleet#spot_max_price_percentage_over_lowest_price}.
+        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#total_local_storage_gb Ec2Fleet#total_local_storage_gb}
         '''
         if isinstance(memory_mib, dict):
             memory_mib = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib(**memory_mib)
@@ -2215,7 +2215,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> "Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib":
         '''memory_mib block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#memory_mib Ec2Fleet#memory_mib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#memory_mib Ec2Fleet#memory_mib}
         '''
         result = self._values.get("memory_mib")
         assert result is not None, "Required property 'memory_mib' is missing"
@@ -2227,7 +2227,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> "Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsVcpuCount":
         '''vcpu_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#vcpu_count Ec2Fleet#vcpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#vcpu_count Ec2Fleet#vcpu_count}
         '''
         result = self._values.get("vcpu_count")
         assert result is not None, "Required property 'vcpu_count' is missing"
@@ -2239,20 +2239,20 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorCount"]:
         '''accelerator_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_count Ec2Fleet#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_count Ec2Fleet#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorCount"], result)
 
     @builtins.property
     def accelerator_manufacturers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_manufacturers Ec2Fleet#accelerator_manufacturers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_manufacturers Ec2Fleet#accelerator_manufacturers}.'''
         result = self._values.get("accelerator_manufacturers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def accelerator_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_names Ec2Fleet#accelerator_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_names Ec2Fleet#accelerator_names}.'''
         result = self._values.get("accelerator_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2262,26 +2262,26 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorTotalMemoryMib"]:
         '''accelerator_total_memory_mib block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_total_memory_mib Ec2Fleet#accelerator_total_memory_mib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_total_memory_mib Ec2Fleet#accelerator_total_memory_mib}
         '''
         result = self._values.get("accelerator_total_memory_mib")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorTotalMemoryMib"], result)
 
     @builtins.property
     def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_types Ec2Fleet#accelerator_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_types Ec2Fleet#accelerator_types}.'''
         result = self._values.get("accelerator_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allowed_instance_types Ec2Fleet#allowed_instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allowed_instance_types Ec2Fleet#allowed_instance_types}.'''
         result = self._values.get("allowed_instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def bare_metal(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#bare_metal Ec2Fleet#bare_metal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#bare_metal Ec2Fleet#bare_metal}.'''
         result = self._values.get("bare_metal")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2291,44 +2291,44 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsBaselineEbsBandwidthMbps"]:
         '''baseline_ebs_bandwidth_mbps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#baseline_ebs_bandwidth_mbps Ec2Fleet#baseline_ebs_bandwidth_mbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#baseline_ebs_bandwidth_mbps Ec2Fleet#baseline_ebs_bandwidth_mbps}
         '''
         result = self._values.get("baseline_ebs_bandwidth_mbps")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsBaselineEbsBandwidthMbps"], result)
 
     @builtins.property
     def burstable_performance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#burstable_performance Ec2Fleet#burstable_performance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#burstable_performance Ec2Fleet#burstable_performance}.'''
         result = self._values.get("burstable_performance")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cpu_manufacturers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#cpu_manufacturers Ec2Fleet#cpu_manufacturers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#cpu_manufacturers Ec2Fleet#cpu_manufacturers}.'''
         result = self._values.get("cpu_manufacturers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def excluded_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#excluded_instance_types Ec2Fleet#excluded_instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#excluded_instance_types Ec2Fleet#excluded_instance_types}.'''
         result = self._values.get("excluded_instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def instance_generations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_generations Ec2Fleet#instance_generations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_generations Ec2Fleet#instance_generations}.'''
         result = self._values.get("instance_generations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def local_storage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#local_storage Ec2Fleet#local_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#local_storage Ec2Fleet#local_storage}.'''
         result = self._values.get("local_storage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def local_storage_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#local_storage_types Ec2Fleet#local_storage_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#local_storage_types Ec2Fleet#local_storage_types}.'''
         result = self._values.get("local_storage_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2336,7 +2336,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     def max_spot_price_as_percentage_of_optimal_on_demand_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_spot_price_as_percentage_of_optimal_on_demand_price Ec2Fleet#max_spot_price_as_percentage_of_optimal_on_demand_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_spot_price_as_percentage_of_optimal_on_demand_price Ec2Fleet#max_spot_price_as_percentage_of_optimal_on_demand_price}.'''
         result = self._values.get("max_spot_price_as_percentage_of_optimal_on_demand_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2346,7 +2346,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryGibPerVcpu"]:
         '''memory_gib_per_vcpu block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#memory_gib_per_vcpu Ec2Fleet#memory_gib_per_vcpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#memory_gib_per_vcpu Ec2Fleet#memory_gib_per_vcpu}
         '''
         result = self._values.get("memory_gib_per_vcpu")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryGibPerVcpu"], result)
@@ -2357,7 +2357,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkBandwidthGbps"]:
         '''network_bandwidth_gbps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#network_bandwidth_gbps Ec2Fleet#network_bandwidth_gbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#network_bandwidth_gbps Ec2Fleet#network_bandwidth_gbps}
         '''
         result = self._values.get("network_bandwidth_gbps")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkBandwidthGbps"], result)
@@ -2368,7 +2368,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkInterfaceCount"]:
         '''network_interface_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#network_interface_count Ec2Fleet#network_interface_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#network_interface_count Ec2Fleet#network_interface_count}
         '''
         result = self._values.get("network_interface_count")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkInterfaceCount"], result)
@@ -2377,7 +2377,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     def on_demand_max_price_percentage_over_lowest_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_max_price_percentage_over_lowest_price Ec2Fleet#on_demand_max_price_percentage_over_lowest_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_max_price_percentage_over_lowest_price Ec2Fleet#on_demand_max_price_percentage_over_lowest_price}.'''
         result = self._values.get("on_demand_max_price_percentage_over_lowest_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2385,7 +2385,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     def require_hibernate_support(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#require_hibernate_support Ec2Fleet#require_hibernate_support}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#require_hibernate_support Ec2Fleet#require_hibernate_support}.'''
         result = self._values.get("require_hibernate_support")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2393,7 +2393,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     def spot_max_price_percentage_over_lowest_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_max_price_percentage_over_lowest_price Ec2Fleet#spot_max_price_percentage_over_lowest_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_max_price_percentage_over_lowest_price Ec2Fleet#spot_max_price_percentage_over_lowest_price}.'''
         result = self._values.get("spot_max_price_percentage_over_lowest_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2403,7 +2403,7 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements:
     ) -> typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageGb"]:
         '''total_local_storage_gb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#total_local_storage_gb Ec2Fleet#total_local_storage_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#total_local_storage_gb Ec2Fleet#total_local_storage_gb}
         '''
         result = self._values.get("total_local_storage_gb")
         return typing.cast(typing.Optional["Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageGb"], result)
@@ -2433,8 +2433,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorCount:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15a808b3d10a142cccc34a66828f0d3976b7b5389873df2ab51b3fb164fbd4a3)
@@ -2448,13 +2448,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorCount:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2563,8 +2563,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorTotalMe
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f029844ac89a120c45059955a8e034a4e62503888e2bca7462687cc533585349)
@@ -2578,13 +2578,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorTotalMe
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2693,8 +2693,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsBaselineEbsBandwid
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a534da51914d0cbdf83264e6845ac355df5f78ed508f5d7658f1481fc4b5405)
@@ -2708,13 +2708,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsBaselineEbsBandwid
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2823,8 +2823,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryGibPerVcpu:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73d1ebc48ac67550dd0e048f9f5e309a3899fb93b7aef93101a6b64d457d45dc)
@@ -2838,13 +2838,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryGibPerVcpu:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2953,8 +2953,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib:
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e25321a8091bf2a3e2f74578a404f9e0025b115c04fe5b8de476ef564eb01d29)
@@ -2968,14 +2968,14 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib:
 
     @builtins.property
     def min(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         assert result is not None, "Required property 'min' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3080,8 +3080,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkBandwidthGb
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8674b600f65b7a6b44d69ba1f9cb3043d01a4c4dc37722b6fcb189b213da0d6)
@@ -3095,13 +3095,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkBandwidthGb
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3210,8 +3210,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkInterfaceCo
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7346407feec5c1f6939844f6c32b96c988a6351aee60ff91b17fe8c2d341629)
@@ -3225,13 +3225,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkInterfaceCo
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3355,8 +3355,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorCount(
             max=max, min=min
@@ -3372,8 +3372,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsAcceleratorTotalMemoryMib(
             max=max, min=min
@@ -3389,8 +3389,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsBaselineEbsBandwidthMbps(
             max=max, min=min
@@ -3406,8 +3406,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryGibPerVcpu(
             max=max, min=min
@@ -3423,8 +3423,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsMemoryMib(
             min=min, max=max
@@ -3440,8 +3440,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkBandwidthGbps(
             max=max, min=min
@@ -3457,8 +3457,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsNetworkInterfaceCount(
             max=max, min=min
@@ -3474,8 +3474,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageGb(
             max=max, min=min
@@ -3491,8 +3491,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsOutputReference(
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsVcpuCount(
             min=min, max=max
@@ -4025,8 +4025,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageG
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c113fbfe861b57a2baeaf0613a8d6a052f64b714962a1386d167b3a19e26a6b9)
@@ -4040,13 +4040,13 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageG
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4155,8 +4155,8 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsVcpuCount:
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f79fafe20558eb2b2e45eca522ff3871cbfdc7b1092e3fd1d65505d3ac7671f1)
@@ -4170,14 +4170,14 @@ class Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsVcpuCount:
 
     @builtins.property
     def min(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min Ec2Fleet#min}.'''
         result = self._values.get("min")
         assert result is not None, "Required property 'min' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max Ec2Fleet#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4418,30 +4418,30 @@ class Ec2FleetLaunchTemplateConfigOverrideOutputReference(
         total_local_storage_gb: typing.Optional[typing.Union[Ec2FleetLaunchTemplateConfigOverrideInstanceRequirementsTotalLocalStorageGb, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#memory_mib Ec2Fleet#memory_mib}
-        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#vcpu_count Ec2Fleet#vcpu_count}
-        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_count Ec2Fleet#accelerator_count}
-        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_manufacturers Ec2Fleet#accelerator_manufacturers}.
-        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_names Ec2Fleet#accelerator_names}.
-        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_total_memory_mib Ec2Fleet#accelerator_total_memory_mib}
-        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#accelerator_types Ec2Fleet#accelerator_types}.
-        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allowed_instance_types Ec2Fleet#allowed_instance_types}.
-        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#bare_metal Ec2Fleet#bare_metal}.
-        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#baseline_ebs_bandwidth_mbps Ec2Fleet#baseline_ebs_bandwidth_mbps}
-        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#burstable_performance Ec2Fleet#burstable_performance}.
-        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#cpu_manufacturers Ec2Fleet#cpu_manufacturers}.
-        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#excluded_instance_types Ec2Fleet#excluded_instance_types}.
-        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_generations Ec2Fleet#instance_generations}.
-        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#local_storage Ec2Fleet#local_storage}.
-        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#local_storage_types Ec2Fleet#local_storage_types}.
-        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_spot_price_as_percentage_of_optimal_on_demand_price Ec2Fleet#max_spot_price_as_percentage_of_optimal_on_demand_price}.
-        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#memory_gib_per_vcpu Ec2Fleet#memory_gib_per_vcpu}
-        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#network_bandwidth_gbps Ec2Fleet#network_bandwidth_gbps}
-        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#network_interface_count Ec2Fleet#network_interface_count}
-        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_max_price_percentage_over_lowest_price Ec2Fleet#on_demand_max_price_percentage_over_lowest_price}.
-        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#require_hibernate_support Ec2Fleet#require_hibernate_support}.
-        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_max_price_percentage_over_lowest_price Ec2Fleet#spot_max_price_percentage_over_lowest_price}.
-        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#total_local_storage_gb Ec2Fleet#total_local_storage_gb}
+        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#memory_mib Ec2Fleet#memory_mib}
+        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#vcpu_count Ec2Fleet#vcpu_count}
+        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_count Ec2Fleet#accelerator_count}
+        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_manufacturers Ec2Fleet#accelerator_manufacturers}.
+        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_names Ec2Fleet#accelerator_names}.
+        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_total_memory_mib Ec2Fleet#accelerator_total_memory_mib}
+        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#accelerator_types Ec2Fleet#accelerator_types}.
+        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allowed_instance_types Ec2Fleet#allowed_instance_types}.
+        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#bare_metal Ec2Fleet#bare_metal}.
+        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#baseline_ebs_bandwidth_mbps Ec2Fleet#baseline_ebs_bandwidth_mbps}
+        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#burstable_performance Ec2Fleet#burstable_performance}.
+        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#cpu_manufacturers Ec2Fleet#cpu_manufacturers}.
+        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#excluded_instance_types Ec2Fleet#excluded_instance_types}.
+        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_generations Ec2Fleet#instance_generations}.
+        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#local_storage Ec2Fleet#local_storage}.
+        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#local_storage_types Ec2Fleet#local_storage_types}.
+        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_spot_price_as_percentage_of_optimal_on_demand_price Ec2Fleet#max_spot_price_as_percentage_of_optimal_on_demand_price}.
+        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#memory_gib_per_vcpu Ec2Fleet#memory_gib_per_vcpu}
+        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#network_bandwidth_gbps Ec2Fleet#network_bandwidth_gbps}
+        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#network_interface_count Ec2Fleet#network_interface_count}
+        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_max_price_percentage_over_lowest_price Ec2Fleet#on_demand_max_price_percentage_over_lowest_price}.
+        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#require_hibernate_support Ec2Fleet#require_hibernate_support}.
+        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_max_price_percentage_over_lowest_price Ec2Fleet#spot_max_price_percentage_over_lowest_price}.
+        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#total_local_storage_gb Ec2Fleet#total_local_storage_gb}
         '''
         value = Ec2FleetLaunchTemplateConfigOverrideInstanceRequirements(
             memory_mib=memory_mib,
@@ -4658,12 +4658,12 @@ class Ec2FleetOnDemandOptions:
         single_instance_type: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
-        :param capacity_reservation_options: capacity_reservation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#capacity_reservation_options Ec2Fleet#capacity_reservation_options}
-        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
-        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
-        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
-        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
+        :param capacity_reservation_options: capacity_reservation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#capacity_reservation_options Ec2Fleet#capacity_reservation_options}
+        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
+        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
+        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
+        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
         '''
         if isinstance(capacity_reservation_options, dict):
             capacity_reservation_options = Ec2FleetOnDemandOptionsCapacityReservationOptions(**capacity_reservation_options)
@@ -4691,7 +4691,7 @@ class Ec2FleetOnDemandOptions:
 
     @builtins.property
     def allocation_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4701,20 +4701,20 @@ class Ec2FleetOnDemandOptions:
     ) -> typing.Optional["Ec2FleetOnDemandOptionsCapacityReservationOptions"]:
         '''capacity_reservation_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#capacity_reservation_options Ec2Fleet#capacity_reservation_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#capacity_reservation_options Ec2Fleet#capacity_reservation_options}
         '''
         result = self._values.get("capacity_reservation_options")
         return typing.cast(typing.Optional["Ec2FleetOnDemandOptionsCapacityReservationOptions"], result)
 
     @builtins.property
     def max_total_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.'''
         result = self._values.get("max_total_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_target_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.'''
         result = self._values.get("min_target_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4722,7 +4722,7 @@ class Ec2FleetOnDemandOptions:
     def single_availability_zone(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.'''
         result = self._values.get("single_availability_zone")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4730,7 +4730,7 @@ class Ec2FleetOnDemandOptions:
     def single_instance_type(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.'''
         result = self._values.get("single_instance_type")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4754,7 +4754,7 @@ class Ec2FleetOnDemandOptions:
 class Ec2FleetOnDemandOptionsCapacityReservationOptions:
     def __init__(self, *, usage_strategy: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param usage_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#usage_strategy Ec2Fleet#usage_strategy}.
+        :param usage_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#usage_strategy Ec2Fleet#usage_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98675e8dcde6abfe73ca2a82044d5bf85738e480c1ab7c6c504caec3fe61402a)
@@ -4765,7 +4765,7 @@ class Ec2FleetOnDemandOptionsCapacityReservationOptions:
 
     @builtins.property
     def usage_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#usage_strategy Ec2Fleet#usage_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#usage_strategy Ec2Fleet#usage_strategy}.'''
         result = self._values.get("usage_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4867,7 +4867,7 @@ class Ec2FleetOnDemandOptionsOutputReference(
         usage_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param usage_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#usage_strategy Ec2Fleet#usage_strategy}.
+        :param usage_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#usage_strategy Ec2Fleet#usage_strategy}.
         '''
         value = Ec2FleetOnDemandOptionsCapacityReservationOptions(
             usage_strategy=usage_strategy
@@ -5053,14 +5053,14 @@ class Ec2FleetSpotOptions:
         single_instance_type: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
-        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_interruption_behavior Ec2Fleet#instance_interruption_behavior}.
-        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_pools_to_use_count Ec2Fleet#instance_pools_to_use_count}.
-        :param maintenance_strategies: maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#maintenance_strategies Ec2Fleet#maintenance_strategies}
-        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
-        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
-        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
-        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.
+        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_interruption_behavior Ec2Fleet#instance_interruption_behavior}.
+        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_pools_to_use_count Ec2Fleet#instance_pools_to_use_count}.
+        :param maintenance_strategies: maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#maintenance_strategies Ec2Fleet#maintenance_strategies}
+        :param max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.
+        :param min_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.
+        :param single_availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.
+        :param single_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.
         '''
         if isinstance(maintenance_strategies, dict):
             maintenance_strategies = Ec2FleetSpotOptionsMaintenanceStrategies(**maintenance_strategies)
@@ -5094,19 +5094,19 @@ class Ec2FleetSpotOptions:
 
     @builtins.property
     def allocation_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#allocation_strategy Ec2Fleet#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_interruption_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_interruption_behavior Ec2Fleet#instance_interruption_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_interruption_behavior Ec2Fleet#instance_interruption_behavior}.'''
         result = self._values.get("instance_interruption_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_pools_to_use_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#instance_pools_to_use_count Ec2Fleet#instance_pools_to_use_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#instance_pools_to_use_count Ec2Fleet#instance_pools_to_use_count}.'''
         result = self._values.get("instance_pools_to_use_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5116,20 +5116,20 @@ class Ec2FleetSpotOptions:
     ) -> typing.Optional["Ec2FleetSpotOptionsMaintenanceStrategies"]:
         '''maintenance_strategies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#maintenance_strategies Ec2Fleet#maintenance_strategies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#maintenance_strategies Ec2Fleet#maintenance_strategies}
         '''
         result = self._values.get("maintenance_strategies")
         return typing.cast(typing.Optional["Ec2FleetSpotOptionsMaintenanceStrategies"], result)
 
     @builtins.property
     def max_total_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#max_total_price Ec2Fleet#max_total_price}.'''
         result = self._values.get("max_total_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_target_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#min_target_capacity Ec2Fleet#min_target_capacity}.'''
         result = self._values.get("min_target_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5137,7 +5137,7 @@ class Ec2FleetSpotOptions:
     def single_availability_zone(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_availability_zone Ec2Fleet#single_availability_zone}.'''
         result = self._values.get("single_availability_zone")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5145,7 +5145,7 @@ class Ec2FleetSpotOptions:
     def single_instance_type(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#single_instance_type Ec2Fleet#single_instance_type}.'''
         result = self._values.get("single_instance_type")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5173,7 +5173,7 @@ class Ec2FleetSpotOptionsMaintenanceStrategies:
         capacity_rebalance: typing.Optional[typing.Union["Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#capacity_rebalance Ec2Fleet#capacity_rebalance}
+        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#capacity_rebalance Ec2Fleet#capacity_rebalance}
         '''
         if isinstance(capacity_rebalance, dict):
             capacity_rebalance = Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance(**capacity_rebalance)
@@ -5190,7 +5190,7 @@ class Ec2FleetSpotOptionsMaintenanceStrategies:
     ) -> typing.Optional["Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance"]:
         '''capacity_rebalance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#capacity_rebalance Ec2Fleet#capacity_rebalance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#capacity_rebalance Ec2Fleet#capacity_rebalance}
         '''
         result = self._values.get("capacity_rebalance")
         return typing.cast(typing.Optional["Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance"], result)
@@ -5223,8 +5223,8 @@ class Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance:
         termination_delay: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#replacement_strategy Ec2Fleet#replacement_strategy}.
-        :param termination_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#termination_delay Ec2Fleet#termination_delay}.
+        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#replacement_strategy Ec2Fleet#replacement_strategy}.
+        :param termination_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#termination_delay Ec2Fleet#termination_delay}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe7518fc00af9f49bb06757f44486c78ff0ccc33d2af2d8a405f0cd951a431c7)
@@ -5238,13 +5238,13 @@ class Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance:
 
     @builtins.property
     def replacement_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#replacement_strategy Ec2Fleet#replacement_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#replacement_strategy Ec2Fleet#replacement_strategy}.'''
         result = self._values.get("replacement_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def termination_delay(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#termination_delay Ec2Fleet#termination_delay}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#termination_delay Ec2Fleet#termination_delay}.'''
         result = self._values.get("termination_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5368,8 +5368,8 @@ class Ec2FleetSpotOptionsMaintenanceStrategiesOutputReference(
         termination_delay: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#replacement_strategy Ec2Fleet#replacement_strategy}.
-        :param termination_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#termination_delay Ec2Fleet#termination_delay}.
+        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#replacement_strategy Ec2Fleet#replacement_strategy}.
+        :param termination_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#termination_delay Ec2Fleet#termination_delay}.
         '''
         value = Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance(
             replacement_strategy=replacement_strategy,
@@ -5441,7 +5441,7 @@ class Ec2FleetSpotOptionsOutputReference(
         capacity_rebalance: typing.Optional[typing.Union[Ec2FleetSpotOptionsMaintenanceStrategiesCapacityRebalance, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#capacity_rebalance Ec2Fleet#capacity_rebalance}
+        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#capacity_rebalance Ec2Fleet#capacity_rebalance}
         '''
         value = Ec2FleetSpotOptionsMaintenanceStrategies(
             capacity_rebalance=capacity_rebalance
@@ -5663,11 +5663,11 @@ class Ec2FleetTargetCapacitySpecification:
         target_capacity_unit_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_target_capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#default_target_capacity_type Ec2Fleet#default_target_capacity_type}.
-        :param total_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#total_target_capacity Ec2Fleet#total_target_capacity}.
-        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_target_capacity Ec2Fleet#on_demand_target_capacity}.
-        :param spot_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_target_capacity Ec2Fleet#spot_target_capacity}.
-        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#target_capacity_unit_type Ec2Fleet#target_capacity_unit_type}.
+        :param default_target_capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#default_target_capacity_type Ec2Fleet#default_target_capacity_type}.
+        :param total_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#total_target_capacity Ec2Fleet#total_target_capacity}.
+        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_target_capacity Ec2Fleet#on_demand_target_capacity}.
+        :param spot_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_target_capacity Ec2Fleet#spot_target_capacity}.
+        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#target_capacity_unit_type Ec2Fleet#target_capacity_unit_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2af2691f7d72e80da3fa083b78381eac6afd9e7e2eb42b580b2a494a795edbb1)
@@ -5689,33 +5689,33 @@ class Ec2FleetTargetCapacitySpecification:
 
     @builtins.property
     def default_target_capacity_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#default_target_capacity_type Ec2Fleet#default_target_capacity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#default_target_capacity_type Ec2Fleet#default_target_capacity_type}.'''
         result = self._values.get("default_target_capacity_type")
         assert result is not None, "Required property 'default_target_capacity_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def total_target_capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#total_target_capacity Ec2Fleet#total_target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#total_target_capacity Ec2Fleet#total_target_capacity}.'''
         result = self._values.get("total_target_capacity")
         assert result is not None, "Required property 'total_target_capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def on_demand_target_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#on_demand_target_capacity Ec2Fleet#on_demand_target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#on_demand_target_capacity Ec2Fleet#on_demand_target_capacity}.'''
         result = self._values.get("on_demand_target_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def spot_target_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#spot_target_capacity Ec2Fleet#spot_target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#spot_target_capacity Ec2Fleet#spot_target_capacity}.'''
         result = self._values.get("spot_target_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def target_capacity_unit_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#target_capacity_unit_type Ec2Fleet#target_capacity_unit_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#target_capacity_unit_type Ec2Fleet#target_capacity_unit_type}.'''
         result = self._values.get("target_capacity_unit_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5878,9 +5878,9 @@ class Ec2FleetTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#create Ec2Fleet#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#delete Ec2Fleet#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#update Ec2Fleet#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#create Ec2Fleet#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#delete Ec2Fleet#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#update Ec2Fleet#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40b6dcf75589b452526bdb6fa1b050f5d9694faaa9d5a6e60dfdd0f54ef18d9c)
@@ -5897,19 +5897,19 @@ class Ec2FleetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#create Ec2Fleet#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#create Ec2Fleet#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#delete Ec2Fleet#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#delete Ec2Fleet#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/ec2_fleet#update Ec2Fleet#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ec2_fleet#update Ec2Fleet#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_codepipeline`
 
-Refer to the Terraform Registry for docs: [`aws_codepipeline`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline).
+Refer to the Terraform Registry for docs: [`aws_codepipeline`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Codepipeline(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codepipeline.Codepipeline",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline aws_codepipeline}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline aws_codepipeline}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class Codepipeline(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline aws_codepipeline} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline aws_codepipeline} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param artifact_store: artifact_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#artifact_store Codepipeline#artifact_store}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
-        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#stage Codepipeline#stage}
-        :param execution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#execution_mode Codepipeline#execution_mode}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pipeline_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#pipeline_type Codepipeline#pipeline_type}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags Codepipeline#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags_all Codepipeline#tags_all}.
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#trigger Codepipeline#trigger}
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#variable Codepipeline#variable}
+        :param artifact_store: artifact_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#artifact_store Codepipeline#artifact_store}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
+        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#stage Codepipeline#stage}
+        :param execution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#execution_mode Codepipeline#execution_mode}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pipeline_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#pipeline_type Codepipeline#pipeline_type}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags Codepipeline#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags_all Codepipeline#tags_all}.
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#trigger Codepipeline#trigger}
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#variable Codepipeline#variable}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class Codepipeline(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Codepipeline to import.
-        :param import_from_id: The id of the existing Codepipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Codepipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Codepipeline to import is found.
         '''
         if __debug__:
@@ -461,10 +461,10 @@ class CodepipelineArtifactStore:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#location Codepipeline#location}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#type Codepipeline#type}.
-        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#encryption_key Codepipeline#encryption_key}
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#location Codepipeline#location}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#type Codepipeline#type}.
+        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#encryption_key Codepipeline#encryption_key}
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.
         '''
         if isinstance(encryption_key, dict):
             encryption_key = CodepipelineArtifactStoreEncryptionKey(**encryption_key)
@@ -485,14 +485,14 @@ class CodepipelineArtifactStore:
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#location Codepipeline#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#location Codepipeline#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#type Codepipeline#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#type Codepipeline#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -503,14 +503,14 @@ class CodepipelineArtifactStore:
     ) -> typing.Optional["CodepipelineArtifactStoreEncryptionKey"]:
         '''encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#encryption_key Codepipeline#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#encryption_key Codepipeline#encryption_key}
         '''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional["CodepipelineArtifactStoreEncryptionKey"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -534,8 +534,8 @@ class CodepipelineArtifactStore:
 class CodepipelineArtifactStoreEncryptionKey:
     def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#type Codepipeline#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#type Codepipeline#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d46126b88ec0637b8870b9918772f62c576de320afd50301c51ff6f2cb4a730)
@@ -548,7 +548,7 @@ class CodepipelineArtifactStoreEncryptionKey:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#id Codepipeline#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#id Codepipeline#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -559,7 +559,7 @@ class CodepipelineArtifactStoreEncryptionKey:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#type Codepipeline#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#type Codepipeline#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -765,8 +765,8 @@ class CodepipelineArtifactStoreOutputReference(
     @jsii.member(jsii_name="putEncryptionKey")
     def put_encryption_key(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#type Codepipeline#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#type Codepipeline#type}.
         '''
         value = CodepipelineArtifactStoreEncryptionKey(id=id, type=type)
 
@@ -918,18 +918,18 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param artifact_store: artifact_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#artifact_store Codepipeline#artifact_store}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
-        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#stage Codepipeline#stage}
-        :param execution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#execution_mode Codepipeline#execution_mode}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pipeline_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#pipeline_type Codepipeline#pipeline_type}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags Codepipeline#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags_all Codepipeline#tags_all}.
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#trigger Codepipeline#trigger}
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#variable Codepipeline#variable}
+        :param artifact_store: artifact_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#artifact_store Codepipeline#artifact_store}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
+        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#stage Codepipeline#stage}
+        :param execution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#execution_mode Codepipeline#execution_mode}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#id Codepipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pipeline_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#pipeline_type Codepipeline#pipeline_type}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags Codepipeline#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags_all Codepipeline#tags_all}.
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#trigger Codepipeline#trigger}
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#variable Codepipeline#variable}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1061,7 +1061,7 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CodepipelineArtifactStore]]:
         '''artifact_store block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#artifact_store Codepipeline#artifact_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#artifact_store Codepipeline#artifact_store}
         '''
         result = self._values.get("artifact_store")
         assert result is not None, "Required property 'artifact_store' is missing"
@@ -1069,14 +1069,14 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1087,7 +1087,7 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineStage"]]:
         '''stage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#stage Codepipeline#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#stage Codepipeline#stage}
         '''
         result = self._values.get("stage")
         assert result is not None, "Required property 'stage' is missing"
@@ -1095,13 +1095,13 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def execution_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#execution_mode Codepipeline#execution_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#execution_mode Codepipeline#execution_mode}.'''
         result = self._values.get("execution_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#id Codepipeline#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#id Codepipeline#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1111,7 +1111,7 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def pipeline_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#pipeline_type Codepipeline#pipeline_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#pipeline_type Codepipeline#pipeline_type}.'''
         result = self._values.get("pipeline_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1119,20 +1119,20 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags Codepipeline#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags Codepipeline#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags_all Codepipeline#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags_all Codepipeline#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1142,7 +1142,7 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineTrigger"]]]:
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#trigger Codepipeline#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#trigger Codepipeline#trigger}
         '''
         result = self._values.get("trigger")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineTrigger"]]], result)
@@ -1153,7 +1153,7 @@ class CodepipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineVariable"]]]:
         '''variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#variable Codepipeline#variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#variable Codepipeline#variable}
         '''
         result = self._values.get("variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineVariable"]]], result)
@@ -1192,11 +1192,11 @@ class CodepipelineStage:
         on_success: typing.Optional[typing.Union["CodepipelineStageOnSuccess", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#action Codepipeline#action}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param before_entry: before_entry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#before_entry Codepipeline#before_entry}
-        :param on_failure: on_failure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#on_failure Codepipeline#on_failure}
-        :param on_success: on_success block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#on_success Codepipeline#on_success}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#action Codepipeline#action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param before_entry: before_entry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#before_entry Codepipeline#before_entry}
+        :param on_failure: on_failure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#on_failure Codepipeline#on_failure}
+        :param on_success: on_success block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#on_success Codepipeline#on_success}
         '''
         if isinstance(before_entry, dict):
             before_entry = CodepipelineStageBeforeEntry(**before_entry)
@@ -1228,7 +1228,7 @@ class CodepipelineStage:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineStageAction"]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#action Codepipeline#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#action Codepipeline#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -1236,7 +1236,7 @@ class CodepipelineStage:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1245,7 +1245,7 @@ class CodepipelineStage:
     def before_entry(self) -> typing.Optional["CodepipelineStageBeforeEntry"]:
         '''before_entry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#before_entry Codepipeline#before_entry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#before_entry Codepipeline#before_entry}
         '''
         result = self._values.get("before_entry")
         return typing.cast(typing.Optional["CodepipelineStageBeforeEntry"], result)
@@ -1254,7 +1254,7 @@ class CodepipelineStage:
     def on_failure(self) -> typing.Optional["CodepipelineStageOnFailure"]:
         '''on_failure block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#on_failure Codepipeline#on_failure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#on_failure Codepipeline#on_failure}
         '''
         result = self._values.get("on_failure")
         return typing.cast(typing.Optional["CodepipelineStageOnFailure"], result)
@@ -1263,7 +1263,7 @@ class CodepipelineStage:
     def on_success(self) -> typing.Optional["CodepipelineStageOnSuccess"]:
         '''on_success block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#on_success Codepipeline#on_success}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#on_success Codepipeline#on_success}
         '''
         result = self._values.get("on_success")
         return typing.cast(typing.Optional["CodepipelineStageOnSuccess"], result)
@@ -1318,19 +1318,19 @@ class CodepipelineStageAction:
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
-        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#namespace Codepipeline#namespace}.
-        :param output_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#output_artifacts Codepipeline#output_artifacts}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
-        :param run_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#run_order Codepipeline#run_order}.
-        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
+        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#namespace Codepipeline#namespace}.
+        :param output_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#output_artifacts Codepipeline#output_artifacts}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
+        :param run_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#run_order Codepipeline#run_order}.
+        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13f69913c0b6ea6e3efee6c519ce7ef6134ab72baa5cf682a9f77dffa02c3355)
@@ -1373,35 +1373,35 @@ class CodepipelineStageAction:
 
     @builtins.property
     def category(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.'''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owner(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
         result = self._values.get("owner")
         assert result is not None, "Required property 'owner' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -1410,49 +1410,49 @@ class CodepipelineStageAction:
     def configuration(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def input_artifacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
         result = self._values.get("input_artifacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#namespace Codepipeline#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#namespace Codepipeline#namespace}.'''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def output_artifacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#output_artifacts Codepipeline#output_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#output_artifacts Codepipeline#output_artifacts}.'''
         result = self._values.get("output_artifacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def run_order(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#run_order Codepipeline#run_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#run_order Codepipeline#run_order}.'''
         result = self._values.get("run_order")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
         result = self._values.get("timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1869,7 +1869,7 @@ class CodepipelineStageBeforeEntry:
         condition: typing.Union["CodepipelineStageBeforeEntryCondition", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         if isinstance(condition, dict):
             condition = CodepipelineStageBeforeEntryCondition(**condition)
@@ -1884,7 +1884,7 @@ class CodepipelineStageBeforeEntry:
     def condition(self) -> "CodepipelineStageBeforeEntryCondition":
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -1915,8 +1915,8 @@ class CodepipelineStageBeforeEntryCondition:
         result: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c21cb8b168c53544dafccb0894d593dbefe313bdded880b647fac1b11ff5e14)
@@ -1934,7 +1934,7 @@ class CodepipelineStageBeforeEntryCondition:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineStageBeforeEntryConditionRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -1942,7 +1942,7 @@ class CodepipelineStageBeforeEntryCondition:
 
     @builtins.property
     def result(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.'''
         result = self._values.get("result")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2068,14 +2068,14 @@ class CodepipelineStageBeforeEntryConditionRule:
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param rule_type_id: rule_type_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
-        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#commands Codepipeline#commands}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
-        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
-        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param rule_type_id: rule_type_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
+        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#commands Codepipeline#commands}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
+        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
+        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
         '''
         if isinstance(rule_type_id, dict):
             rule_type_id = CodepipelineStageBeforeEntryConditionRuleRuleTypeId(**rule_type_id)
@@ -2108,7 +2108,7 @@ class CodepipelineStageBeforeEntryConditionRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2117,7 +2117,7 @@ class CodepipelineStageBeforeEntryConditionRule:
     def rule_type_id(self) -> "CodepipelineStageBeforeEntryConditionRuleRuleTypeId":
         '''rule_type_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
         '''
         result = self._values.get("rule_type_id")
         assert result is not None, "Required property 'rule_type_id' is missing"
@@ -2125,7 +2125,7 @@ class CodepipelineStageBeforeEntryConditionRule:
 
     @builtins.property
     def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#commands Codepipeline#commands}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#commands Codepipeline#commands}.'''
         result = self._values.get("commands")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2133,31 +2133,31 @@ class CodepipelineStageBeforeEntryConditionRule:
     def configuration(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def input_artifacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
         result = self._values.get("input_artifacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
         result = self._values.get("timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2302,10 +2302,10 @@ class CodepipelineStageBeforeEntryConditionRuleOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
         '''
         value = CodepipelineStageBeforeEntryConditionRuleRuleTypeId(
             category=category, provider=provider, owner=owner, version=version
@@ -2510,10 +2510,10 @@ class CodepipelineStageBeforeEntryConditionRuleRuleTypeId:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62f98c0f66e3d0d32d2fbf46de4b6048efb836fe5af35dd5f11019d9c3f6cd53)
@@ -2532,27 +2532,27 @@ class CodepipelineStageBeforeEntryConditionRuleRuleTypeId:
 
     @builtins.property
     def category(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.'''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2710,8 +2710,8 @@ class CodepipelineStageBeforeEntryOutputReference(
         result: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
         '''
         value = CodepipelineStageBeforeEntryCondition(rule=rule, result=result)
 
@@ -2851,9 +2851,9 @@ class CodepipelineStageOnFailure:
         retry_configuration: typing.Optional[typing.Union["CodepipelineStageOnFailureRetryConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
-        :param retry_configuration: retry_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#retry_configuration Codepipeline#retry_configuration}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param retry_configuration: retry_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#retry_configuration Codepipeline#retry_configuration}
         '''
         if isinstance(condition, dict):
             condition = CodepipelineStageOnFailureCondition(**condition)
@@ -2876,14 +2876,14 @@ class CodepipelineStageOnFailure:
     def condition(self) -> typing.Optional["CodepipelineStageOnFailureCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["CodepipelineStageOnFailureCondition"], result)
 
     @builtins.property
     def result(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.'''
         result = self._values.get("result")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2893,7 +2893,7 @@ class CodepipelineStageOnFailure:
     ) -> typing.Optional["CodepipelineStageOnFailureRetryConfiguration"]:
         '''retry_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#retry_configuration Codepipeline#retry_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#retry_configuration Codepipeline#retry_configuration}
         '''
         result = self._values.get("retry_configuration")
         return typing.cast(typing.Optional["CodepipelineStageOnFailureRetryConfiguration"], result)
@@ -2923,8 +2923,8 @@ class CodepipelineStageOnFailureCondition:
         result: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__072442a3fd22295d4ac0879c4e16bcae7b5f0d1e36ad9cdea602cceb07b220d8)
@@ -2942,7 +2942,7 @@ class CodepipelineStageOnFailureCondition:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineStageOnFailureConditionRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -2950,7 +2950,7 @@ class CodepipelineStageOnFailureCondition:
 
     @builtins.property
     def result(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.'''
         result = self._values.get("result")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3076,14 +3076,14 @@ class CodepipelineStageOnFailureConditionRule:
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param rule_type_id: rule_type_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
-        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#commands Codepipeline#commands}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
-        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
-        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param rule_type_id: rule_type_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
+        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#commands Codepipeline#commands}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
+        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
+        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
         '''
         if isinstance(rule_type_id, dict):
             rule_type_id = CodepipelineStageOnFailureConditionRuleRuleTypeId(**rule_type_id)
@@ -3116,7 +3116,7 @@ class CodepipelineStageOnFailureConditionRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3125,7 +3125,7 @@ class CodepipelineStageOnFailureConditionRule:
     def rule_type_id(self) -> "CodepipelineStageOnFailureConditionRuleRuleTypeId":
         '''rule_type_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
         '''
         result = self._values.get("rule_type_id")
         assert result is not None, "Required property 'rule_type_id' is missing"
@@ -3133,7 +3133,7 @@ class CodepipelineStageOnFailureConditionRule:
 
     @builtins.property
     def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#commands Codepipeline#commands}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#commands Codepipeline#commands}.'''
         result = self._values.get("commands")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3141,31 +3141,31 @@ class CodepipelineStageOnFailureConditionRule:
     def configuration(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def input_artifacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
         result = self._values.get("input_artifacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
         result = self._values.get("timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3310,10 +3310,10 @@ class CodepipelineStageOnFailureConditionRuleOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
         '''
         value = CodepipelineStageOnFailureConditionRuleRuleTypeId(
             category=category, provider=provider, owner=owner, version=version
@@ -3518,10 +3518,10 @@ class CodepipelineStageOnFailureConditionRuleRuleTypeId:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3d6e12b2a0352dd1baf46a2f84d68a7f517e190f0ea52c7e3d527840ab08f38)
@@ -3540,27 +3540,27 @@ class CodepipelineStageOnFailureConditionRuleRuleTypeId:
 
     @builtins.property
     def category(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.'''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3718,8 +3718,8 @@ class CodepipelineStageOnFailureOutputReference(
         result: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
         '''
         value = CodepipelineStageOnFailureCondition(rule=rule, result=result)
 
@@ -3732,7 +3732,7 @@ class CodepipelineStageOnFailureOutputReference(
         retry_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param retry_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#retry_mode Codepipeline#retry_mode}.
+        :param retry_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#retry_mode Codepipeline#retry_mode}.
         '''
         value = CodepipelineStageOnFailureRetryConfiguration(retry_mode=retry_mode)
 
@@ -3815,7 +3815,7 @@ class CodepipelineStageOnFailureOutputReference(
 class CodepipelineStageOnFailureRetryConfiguration:
     def __init__(self, *, retry_mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param retry_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#retry_mode Codepipeline#retry_mode}.
+        :param retry_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#retry_mode Codepipeline#retry_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f02afa30d9e2b4fe9d1efcad2782f3d583bcdff954bf4c2ba618aa55bd5d3bc0)
@@ -3826,7 +3826,7 @@ class CodepipelineStageOnFailureRetryConfiguration:
 
     @builtins.property
     def retry_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#retry_mode Codepipeline#retry_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#retry_mode Codepipeline#retry_mode}.'''
         result = self._values.get("retry_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3913,7 +3913,7 @@ class CodepipelineStageOnSuccess:
         condition: typing.Union["CodepipelineStageOnSuccessCondition", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         if isinstance(condition, dict):
             condition = CodepipelineStageOnSuccessCondition(**condition)
@@ -3928,7 +3928,7 @@ class CodepipelineStageOnSuccess:
     def condition(self) -> "CodepipelineStageOnSuccessCondition":
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -3959,8 +3959,8 @@ class CodepipelineStageOnSuccessCondition:
         result: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdd088c478d8ac205a0f83b6a6fb02036f7dd8e67e0d550053e8c4c792bb9031)
@@ -3978,7 +3978,7 @@ class CodepipelineStageOnSuccessCondition:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineStageOnSuccessConditionRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -3986,7 +3986,7 @@ class CodepipelineStageOnSuccessCondition:
 
     @builtins.property
     def result(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.'''
         result = self._values.get("result")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4112,14 +4112,14 @@ class CodepipelineStageOnSuccessConditionRule:
         timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param rule_type_id: rule_type_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
-        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#commands Codepipeline#commands}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
-        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
-        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param rule_type_id: rule_type_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
+        :param commands: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#commands Codepipeline#commands}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.
+        :param input_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.
+        :param timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.
         '''
         if isinstance(rule_type_id, dict):
             rule_type_id = CodepipelineStageOnSuccessConditionRuleRuleTypeId(**rule_type_id)
@@ -4152,7 +4152,7 @@ class CodepipelineStageOnSuccessConditionRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4161,7 +4161,7 @@ class CodepipelineStageOnSuccessConditionRule:
     def rule_type_id(self) -> "CodepipelineStageOnSuccessConditionRuleRuleTypeId":
         '''rule_type_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule_type_id Codepipeline#rule_type_id}
         '''
         result = self._values.get("rule_type_id")
         assert result is not None, "Required property 'rule_type_id' is missing"
@@ -4169,7 +4169,7 @@ class CodepipelineStageOnSuccessConditionRule:
 
     @builtins.property
     def commands(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#commands Codepipeline#commands}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#commands Codepipeline#commands}.'''
         result = self._values.get("commands")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4177,31 +4177,31 @@ class CodepipelineStageOnSuccessConditionRule:
     def configuration(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#configuration Codepipeline#configuration}.'''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def input_artifacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#input_artifacts Codepipeline#input_artifacts}.'''
         result = self._values.get("input_artifacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#region Codepipeline#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#region Codepipeline#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#role_arn Codepipeline#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#timeout_in_minutes Codepipeline#timeout_in_minutes}.'''
         result = self._values.get("timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4346,10 +4346,10 @@ class CodepipelineStageOnSuccessConditionRuleOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
         '''
         value = CodepipelineStageOnSuccessConditionRuleRuleTypeId(
             category=category, provider=provider, owner=owner, version=version
@@ -4554,10 +4554,10 @@ class CodepipelineStageOnSuccessConditionRuleRuleTypeId:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0e25f35689a7eca83eff99570b7831a731ed0932acdce8cb23b7d05a3e8470f)
@@ -4576,27 +4576,27 @@ class CodepipelineStageOnSuccessConditionRuleRuleTypeId:
 
     @builtins.property
     def category(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#category Codepipeline#category}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#category Codepipeline#category}.'''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider Codepipeline#provider}.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#owner Codepipeline#owner}.'''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#version Codepipeline#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#version Codepipeline#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4754,8 +4754,8 @@ class CodepipelineStageOnSuccessOutputReference(
         result: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#rule Codepipeline#rule}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#rule Codepipeline#rule}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
         '''
         value = CodepipelineStageOnSuccessCondition(rule=rule, result=result)
 
@@ -4833,7 +4833,7 @@ class CodepipelineStageOutputReference(
         condition: typing.Union[CodepipelineStageBeforeEntryCondition, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         value = CodepipelineStageBeforeEntry(condition=condition)
 
@@ -4848,9 +4848,9 @@ class CodepipelineStageOutputReference(
         retry_configuration: typing.Optional[typing.Union[CodepipelineStageOnFailureRetryConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
-        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#result Codepipeline#result}.
-        :param retry_configuration: retry_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#retry_configuration Codepipeline#retry_configuration}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        :param result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#result Codepipeline#result}.
+        :param retry_configuration: retry_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#retry_configuration Codepipeline#retry_configuration}
         '''
         value = CodepipelineStageOnFailure(
             condition=condition, result=result, retry_configuration=retry_configuration
@@ -4865,7 +4865,7 @@ class CodepipelineStageOutputReference(
         condition: typing.Union[CodepipelineStageOnSuccessCondition, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#condition Codepipeline#condition}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#condition Codepipeline#condition}
         '''
         value = CodepipelineStageOnSuccess(condition=condition)
 
@@ -4976,8 +4976,8 @@ class CodepipelineTrigger:
         provider_type: builtins.str,
     ) -> None:
         '''
-        :param git_configuration: git_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#git_configuration Codepipeline#git_configuration}
-        :param provider_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider_type Codepipeline#provider_type}.
+        :param git_configuration: git_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#git_configuration Codepipeline#git_configuration}
+        :param provider_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider_type Codepipeline#provider_type}.
         '''
         if isinstance(git_configuration, dict):
             git_configuration = CodepipelineTriggerGitConfiguration(**git_configuration)
@@ -4994,7 +4994,7 @@ class CodepipelineTrigger:
     def git_configuration(self) -> "CodepipelineTriggerGitConfiguration":
         '''git_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#git_configuration Codepipeline#git_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#git_configuration Codepipeline#git_configuration}
         '''
         result = self._values.get("git_configuration")
         assert result is not None, "Required property 'git_configuration' is missing"
@@ -5002,7 +5002,7 @@ class CodepipelineTrigger:
 
     @builtins.property
     def provider_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#provider_type Codepipeline#provider_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#provider_type Codepipeline#provider_type}.'''
         result = self._values.get("provider_type")
         assert result is not None, "Required property 'provider_type' is missing"
         return typing.cast(builtins.str, result)
@@ -6403,9 +6403,9 @@ class CodepipelineTriggerGitConfiguration:
         push: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodepipelineTriggerGitConfigurationPush", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param source_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#source_action_name Codepipeline#source_action_name}.
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#pull_request Codepipeline#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#push Codepipeline#push}
+        :param source_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#source_action_name Codepipeline#source_action_name}.
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#pull_request Codepipeline#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#push Codepipeline#push}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd766cab73a1fd7e1b37f7697e50af2425c34bc0f38b9473ebb47bbee92a348a)
@@ -6422,7 +6422,7 @@ class CodepipelineTriggerGitConfiguration:
 
     @builtins.property
     def source_action_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#source_action_name Codepipeline#source_action_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#source_action_name Codepipeline#source_action_name}.'''
         result = self._values.get("source_action_name")
         assert result is not None, "Required property 'source_action_name' is missing"
         return typing.cast(builtins.str, result)
@@ -6433,7 +6433,7 @@ class CodepipelineTriggerGitConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineTriggerGitConfigurationPullRequest"]]]:
         '''pull_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#pull_request Codepipeline#pull_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#pull_request Codepipeline#pull_request}
         '''
         result = self._values.get("pull_request")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineTriggerGitConfigurationPullRequest"]]], result)
@@ -6444,7 +6444,7 @@ class CodepipelineTriggerGitConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineTriggerGitConfigurationPush"]]]:
         '''push block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#push Codepipeline#push}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#push Codepipeline#push}
         '''
         result = self._values.get("push")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineTriggerGitConfigurationPush"]]], result)
@@ -6590,9 +6590,9 @@ class CodepipelineTriggerGitConfigurationPullRequest:
         file_paths: typing.Optional[typing.Union["CodepipelineTriggerGitConfigurationPullRequestFilePaths", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param branches: branches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#branches Codepipeline#branches}
-        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#events Codepipeline#events}.
-        :param file_paths: file_paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
+        :param branches: branches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#branches Codepipeline#branches}
+        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#events Codepipeline#events}.
+        :param file_paths: file_paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
         '''
         if isinstance(branches, dict):
             branches = CodepipelineTriggerGitConfigurationPullRequestBranches(**branches)
@@ -6617,14 +6617,14 @@ class CodepipelineTriggerGitConfigurationPullRequest:
     ) -> typing.Optional["CodepipelineTriggerGitConfigurationPullRequestBranches"]:
         '''branches block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#branches Codepipeline#branches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#branches Codepipeline#branches}
         '''
         result = self._values.get("branches")
         return typing.cast(typing.Optional["CodepipelineTriggerGitConfigurationPullRequestBranches"], result)
 
     @builtins.property
     def events(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#events Codepipeline#events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#events Codepipeline#events}.'''
         result = self._values.get("events")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6634,7 +6634,7 @@ class CodepipelineTriggerGitConfigurationPullRequest:
     ) -> typing.Optional["CodepipelineTriggerGitConfigurationPullRequestFilePaths"]:
         '''file_paths block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
         '''
         result = self._values.get("file_paths")
         return typing.cast(typing.Optional["CodepipelineTriggerGitConfigurationPullRequestFilePaths"], result)
@@ -6664,8 +6664,8 @@ class CodepipelineTriggerGitConfigurationPullRequestBranches:
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8277f4d733d5d16807d44bec690d442af43afab4d68dc1f69fe3e1c4e4a5bc67)
@@ -6679,13 +6679,13 @@ class CodepipelineTriggerGitConfigurationPullRequestBranches:
 
     @builtins.property
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
         result = self._values.get("includes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6794,8 +6794,8 @@ class CodepipelineTriggerGitConfigurationPullRequestFilePaths:
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29d0139cf1c84fe55552f261d17bc325bdbd5d9d580ab2b43612438683e5de36)
@@ -6809,13 +6809,13 @@ class CodepipelineTriggerGitConfigurationPullRequestFilePaths:
 
     @builtins.property
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
         result = self._values.get("includes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7038,8 +7038,8 @@ class CodepipelineTriggerGitConfigurationPullRequestOutputReference(
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         value = CodepipelineTriggerGitConfigurationPullRequestBranches(
             excludes=excludes, includes=includes
@@ -7055,8 +7055,8 @@ class CodepipelineTriggerGitConfigurationPullRequestOutputReference(
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         value = CodepipelineTriggerGitConfigurationPullRequestFilePaths(
             excludes=excludes, includes=includes
@@ -7153,9 +7153,9 @@ class CodepipelineTriggerGitConfigurationPush:
         tags: typing.Optional[typing.Union["CodepipelineTriggerGitConfigurationPushTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param branches: branches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#branches Codepipeline#branches}
-        :param file_paths: file_paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags Codepipeline#tags}
+        :param branches: branches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#branches Codepipeline#branches}
+        :param file_paths: file_paths block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags Codepipeline#tags}
         '''
         if isinstance(branches, dict):
             branches = CodepipelineTriggerGitConfigurationPushBranches(**branches)
@@ -7182,7 +7182,7 @@ class CodepipelineTriggerGitConfigurationPush:
     ) -> typing.Optional["CodepipelineTriggerGitConfigurationPushBranches"]:
         '''branches block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#branches Codepipeline#branches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#branches Codepipeline#branches}
         '''
         result = self._values.get("branches")
         return typing.cast(typing.Optional["CodepipelineTriggerGitConfigurationPushBranches"], result)
@@ -7193,7 +7193,7 @@ class CodepipelineTriggerGitConfigurationPush:
     ) -> typing.Optional["CodepipelineTriggerGitConfigurationPushFilePaths"]:
         '''file_paths block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#file_paths Codepipeline#file_paths}
         '''
         result = self._values.get("file_paths")
         return typing.cast(typing.Optional["CodepipelineTriggerGitConfigurationPushFilePaths"], result)
@@ -7202,7 +7202,7 @@ class CodepipelineTriggerGitConfigurationPush:
     def tags(self) -> typing.Optional["CodepipelineTriggerGitConfigurationPushTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#tags Codepipeline#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#tags Codepipeline#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CodepipelineTriggerGitConfigurationPushTags"], result)
@@ -7232,8 +7232,8 @@ class CodepipelineTriggerGitConfigurationPushBranches:
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42cd2414b4f209f64689304840cc9984bcc5fdd8e7954b8f9162da3942bdb0b3)
@@ -7247,13 +7247,13 @@ class CodepipelineTriggerGitConfigurationPushBranches:
 
     @builtins.property
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
         result = self._values.get("includes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7362,8 +7362,8 @@ class CodepipelineTriggerGitConfigurationPushFilePaths:
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21c7b5b6747402d8b4fdc3c66120c6eca9fcb06bcee1ca428d0de1eef9be53ea)
@@ -7377,13 +7377,13 @@ class CodepipelineTriggerGitConfigurationPushFilePaths:
 
     @builtins.property
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
         result = self._values.get("includes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7606,8 +7606,8 @@ class CodepipelineTriggerGitConfigurationPushOutputReference(
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         value = CodepipelineTriggerGitConfigurationPushBranches(
             excludes=excludes, includes=includes
@@ -7623,8 +7623,8 @@ class CodepipelineTriggerGitConfigurationPushOutputReference(
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         value = CodepipelineTriggerGitConfigurationPushFilePaths(
             excludes=excludes, includes=includes
@@ -7640,8 +7640,8 @@ class CodepipelineTriggerGitConfigurationPushOutputReference(
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         value = CodepipelineTriggerGitConfigurationPushTags(
             excludes=excludes, includes=includes
@@ -7732,8 +7732,8 @@ class CodepipelineTriggerGitConfigurationPushTags:
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
-        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.
+        :param excludes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.
+        :param includes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d4dff5122dbfc60ce4024fa10ce78e5de8f92b5d77e14a150a98f4d60b04b93)
@@ -7747,13 +7747,13 @@ class CodepipelineTriggerGitConfigurationPushTags:
 
     @builtins.property
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#excludes Codepipeline#excludes}.'''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#includes Codepipeline#includes}.'''
         result = self._values.get("includes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7974,9 +7974,9 @@ class CodepipelineTriggerOutputReference(
         push: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CodepipelineTriggerGitConfigurationPush, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param source_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#source_action_name Codepipeline#source_action_name}.
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#pull_request Codepipeline#pull_request}
-        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#push Codepipeline#push}
+        :param source_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#source_action_name Codepipeline#source_action_name}.
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#pull_request Codepipeline#pull_request}
+        :param push: push block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#push Codepipeline#push}
         '''
         value = CodepipelineTriggerGitConfiguration(
             source_action_name=source_action_name, pull_request=pull_request, push=push
@@ -8049,9 +8049,9 @@ class CodepipelineVariable:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.
-        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#default_value Codepipeline#default_value}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#description Codepipeline#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.
+        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#default_value Codepipeline#default_value}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#description Codepipeline#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4dd56bd1a5f88858d81d7c74c28dd95740706bae1617eb10c91e3f2d18c1e5fb)
@@ -8068,20 +8068,20 @@ class CodepipelineVariable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#name Codepipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#name Codepipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def default_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#default_value Codepipeline#default_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#default_value Codepipeline#default_value}.'''
         result = self._values.get("default_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/codepipeline#description Codepipeline#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codepipeline#description Codepipeline#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 

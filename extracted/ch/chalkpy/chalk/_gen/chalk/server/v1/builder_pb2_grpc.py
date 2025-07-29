@@ -115,6 +115,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ScaleBranchRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ScaleBranchResponse.FromString,
         )
+        self.GetBranchProfile = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetBranchProfile",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileResponse.FromString,
+        )
         self.GetNodepools = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetNodepools",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
@@ -301,6 +306,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetBranchProfile(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetNodepools(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -469,6 +480,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.ScaleBranch,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ScaleBranchRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ScaleBranchResponse.SerializeToString,
+        ),
+        "GetBranchProfile": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBranchProfile,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileResponse.SerializeToString,
         ),
         "GetNodepools": grpc.unary_unary_rpc_method_handler(
             servicer.GetNodepools,
@@ -1104,6 +1120,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/ScaleBranch",
             chalk_dot_server_dot_v1_dot_builder__pb2.ScaleBranchRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.ScaleBranchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBranchProfile(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetBranchProfile",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileResponse.FromString,
             options,
             channel_credentials,
             insecure,

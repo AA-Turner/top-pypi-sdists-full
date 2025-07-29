@@ -206,11 +206,11 @@ class PotholeSegmentationUseCase(BaseProcessor):
         total_counts = self.get_total_counts()
         counting_summary['total_counts'] = total_counts
 
-        alerts = self._check_alerts(counting_summary, config)
+        alerts = self._check_alerts(counting_summary, frame_number, config)
         predictions = self._extract_predictions(processed_data)
         
         # Step: Generate structured events and tracking stats with frame-based keys
-        incidents_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
+        incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
         tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number,stream_info)
         business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=False)
         summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
@@ -402,15 +402,15 @@ class PotholeSegmentationUseCase(BaseProcessor):
     def _generate_tracking_stats(
             self,
             counting_summary: Dict,
-            alerts:Any,
+            alerts: Any,
             config: PotholeConfig,
             frame_number: Optional[int] = None,
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
+        #frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        tracking_stats = [] #[{frame_key: []}]
+        #frame_tracking_stats = tracking_stats[0][frame_key]
 
         total_detections = counting_summary.get("total_count", 0)
         total_counts = counting_summary.get("total_counts", {})
@@ -467,20 +467,22 @@ class PotholeSegmentationUseCase(BaseProcessor):
         # Include detections with masks from counting_summary
         # Prepare detections without confidence scores (as per eg.json)
         detections = []
-
         for detection in counting_summary.get("detections", []):
-            detection_data = {
-                "category": detection.get("category"),
-                "bounding_box": detection.get("bounding_box", {})
-            }
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "person")
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
-                detection_data["masks"] = detection.get("masks", [])
-            if detection.get("segmentation"):
-                detection_data["segmentation"] = detection.get("segmentation")
-            if detection.get("mask"):
-                detection_data["mask"] = detection.get("mask")
-            detections.append(detection_data)
+                segmentation= detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation= detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation= detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
 
         # Build alert_settings array in expected format
         alert_settings = []
@@ -491,8 +493,8 @@ class PotholeSegmentationUseCase(BaseProcessor):
                 "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
                 "ascending": True,
                 "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
-                            }
+                            getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                        }
             })
 
         if alerts:
@@ -502,7 +504,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
             human_text_lines.append("Alerts: None")
 
         human_text = "\n".join(human_text_lines)
-        reset_settings=[
+        reset_settings = [
                 {
                     "interval_type": "daily",
                     "reset_time": {

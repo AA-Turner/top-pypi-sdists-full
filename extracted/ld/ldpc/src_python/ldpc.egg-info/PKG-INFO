@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ldpc
-Version: 2.3.7
+Version: 2.3.8
 Summary: LDPC: Python Tools for Low Density Parity Check Codes
 Author-email: Joschka Roffe <joschka@roffe.eu>
 License: MIT License

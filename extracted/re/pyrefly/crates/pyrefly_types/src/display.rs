@@ -81,6 +81,8 @@ impl QNameInfo {
 #[derive(Debug, Default)]
 pub struct TypeDisplayContext<'a> {
     qnames: SmallMap<&'a Name, QNameInfo>,
+    /// Should we display for IDE Hover? This makes type names more readable but less precise.
+    hover: bool,
 }
 
 impl<'a> TypeDisplayContext<'a> {
@@ -116,6 +118,11 @@ impl<'a> TypeDisplayContext<'a> {
         for c in self.qnames.values_mut() {
             c.info.insert(fake_module, None);
         }
+    }
+
+    /// Set the context to display for hover. This makes type names more readable but less precise.
+    pub fn set_display_mode_to_hover(&mut self) {
+        self.hover = true;
     }
 
     pub fn display(&'a self, t: &'a Type) -> impl Display + 'a {
@@ -257,12 +264,16 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(f, "]")
             }
             Type::BoundMethod(box BoundMethod { obj, func }) => {
-                write!(
-                    f,
-                    "BoundMethod[{}, {}]",
-                    self.display(obj),
-                    self.display(&func.as_type())
-                )
+                if self.hover {
+                    write!(f, "{}", self.display(&func.clone().as_type()))
+                } else {
+                    write!(
+                        f,
+                        "BoundMethod[{}, {}]",
+                        self.display(obj),
+                        self.display(&func.clone().as_type())
+                    )
+                }
             }
             Type::Never(NeverStyle::NoReturn) => write!(f, "NoReturn"),
             Type::Never(NeverStyle::Never) => write!(f, "Never"),
@@ -397,6 +408,7 @@ pub mod tests {
 
     use super::*;
     use crate::callable::Callable;
+    use crate::callable::FuncMetadata;
     use crate::callable::Param;
     use crate::callable::ParamList;
     use crate::callable::Required;
@@ -412,6 +424,7 @@ pub mod tests {
     use crate::type_var::Restriction;
     use crate::type_var::TypeVar;
     use crate::typed_dict::TypedDict;
+    use crate::types::BoundMethodType;
     use crate::types::TParam;
     use crate::types::TParams;
 
@@ -463,6 +476,30 @@ pub mod tests {
             None,
             PreInferenceVariance::PInvariant,
         )
+    }
+
+    fn fake_bound_method(method_name: &str, class_name: &str, module_name_str: &str) -> Type {
+        let module_name = ModuleName::from_str(module_name_str);
+        let class = fake_class(class_name, module_name_str, 10);
+        let method = Callable::list(
+            ParamList::new(vec![Param::Pos(
+                Name::new_static("self"),
+                Type::any_explicit(),
+                Required::Required,
+            )]),
+            Type::None,
+        );
+        Type::BoundMethod(Box::new(BoundMethod {
+            obj: Type::ClassDef(class),
+            func: BoundMethodType::Function(Function {
+                signature: method,
+                metadata: FuncMetadata::def(
+                    module_name,
+                    Name::new(class_name),
+                    Name::new(method_name),
+                ),
+            }),
+        }))
     }
 
     #[test]
@@ -725,5 +762,21 @@ pub mod tests {
         let targs = TArgs::new(tparams.dupe(), vec![t]);
         let td = TypedDict::new(cls, targs);
         assert_eq!(Type::TypedDict(td).to_string(), "TypedDict[C[None]]");
+    }
+
+    #[test]
+    fn test_display_bound_method_for_hover() {
+        let bound_method = fake_bound_method("foo", "MyClass", "my.module");
+        let mut ctx = TypeDisplayContext::new(&[&bound_method]);
+
+        assert_eq!(
+            ctx.display(&bound_method).to_string(),
+            "BoundMethod[type[MyClass], (self: Any) -> None]"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&bound_method).to_string(),
+            "(self: Any) -> None"
+        );
     }
 }

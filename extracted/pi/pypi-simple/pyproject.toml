@@ -9,7 +9,7 @@ description = "PyPI Simple Repository API client library"
 readme = "README.rst"
 requires-python = ">=3.8"
 license = "MIT"
-license-files = { paths = ["LICENSE"] }
+license-files = ["LICENSE"]
 authors = [
     { name = "John Thorvald Wodder II", email = "pypi-simple@varonathe.org" }
 ]
@@ -31,9 +31,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Software Distribution",
     "Topic :: Text Processing :: Markup :: HTML",

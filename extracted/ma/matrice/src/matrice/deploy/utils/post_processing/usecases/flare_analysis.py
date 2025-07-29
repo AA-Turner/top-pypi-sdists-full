@@ -7,8 +7,7 @@ import cv2
 import numpy as np
 from collections import defaultdict
 import time
-from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
-from ..core.config import BaseConfig, AlertConfig
+from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
 from ..utils import (
     filter_by_confidence, 
     filter_by_categories, 
@@ -19,6 +18,9 @@ from ..utils import (
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
+
+from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+from dataclasses import dataclass, field
 
 @dataclass
 class FlareAnalysisConfig(BaseConfig):
@@ -60,16 +62,30 @@ class FlareAnalysisConfig(BaseConfig):
 class FlareAnalysisUseCase(BaseProcessor):
     """Flare analysis processor for detecting and analyzing flare colors in video streams."""
     
+    CATEGORY_DISPLAY = {
+        "BadFlare": "BadFlare",
+        "GoodFlare": "GoodFlare"
+    }
+
     def __init__(self):
         super().__init__("flare_analysis")
         self.category = "flare_detection"
+        self.CASE_TYPE: Optional[str] = 'flare_detection'
+        self.CASE_VERSION: Optional[str] = '1.2'
+        self.target_categories = ['BadFlare', 'GoodFlare']
         self.tracker = None
         self.smoothing_tracker = None
         self._total_frame_counter = 0
         self._global_frame_offset = 0
-        self._flare_total_track_ids = {}
-        self._flare_current_frame_track_ids = {}
+        self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
         self._tracking_start_time = None
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        self._track_merge_iou_threshold: float = 0.05
+        self._track_merge_time_window: float = 7.0
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
 
     def reset_tracker(self) -> None:
         if self.tracker is not None:
@@ -77,11 +93,15 @@ class FlareAnalysisUseCase(BaseProcessor):
             self.logger.info("AdvancedTracker reset for new flare analysis session")
 
     def reset_flare_tracking(self) -> None:
-        self._flare_total_track_ids = {}
-        self._flare_current_frame_track_ids = {}
+        self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
         self._total_frame_counter = 0
         self._global_frame_offset = 0
         self._tracking_start_time = None
+        self._track_aliases = {}
+        self._canonical_tracks = {}
+        self._ascending_alert_list = []
+        self.current_incident_end_timestamp = "N/A"
         self.logger.info("Flare tracking state reset")
 
     def reset_all_tracking(self) -> None:
@@ -90,150 +110,130 @@ class FlareAnalysisUseCase(BaseProcessor):
         self.logger.info("All flare tracking state reset")
 
     @staticmethod
-    def _iou(bbox1, bbox2):
+    def _compute_iou(bbox1, bbox2) -> float:
+        if not bbox1 or not bbox2:
+            return 0.0
         if "xmin" in bbox1:
-            x1 = max(bbox1["xmin"], bbox2["xmin"])
-            y1 = max(bbox1["ymin"], bbox2["ymin"])
-            x2 = min(bbox1["xmax"], bbox2["xmax"])
-            y2 = min(bbox1["ymax"], bbox2["ymax"])
-            area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
-            area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
+            x1_min, y1_min, x1_max, y1_max = bbox1["xmin"], bbox1["ymin"], bbox1["xmax"], bbox1["ymax"]
+            x2_min, y2_min, x2_max, y2_max = bbox2["xmin"], bbox2["ymin"], bbox2["xmax"], bbox2["ymax"]
         else:
-            x1 = max(bbox1["x"], bbox2["x"])
-            y1 = max(bbox1["y"], bbox2["y"])
-            x2 = min(bbox1["x"] + bbox1["width"], bbox2["x"] + bbox2["width"])
-            y2 = min(bbox1["y"] + bbox1["height"], bbox2["y"] + bbox2["height"])
-            area1 = bbox1["width"] * bbox1["height"]
-            area2 = bbox2["width"] * bbox2["height"]
-        inter_w = max(0, x2 - x1)
-        inter_h = max(0, y2 - y1)
+            x1_min, y1_min = bbox1["x"], bbox1["y"]
+            x1_max, y1_max = x1_min + bbox1["width"], y1_min + bbox1["height"]
+            x2_min, y2_min = bbox2["x"], bbox2["y"]
+            x2_max, y2_max = x2_min + bbox2["width"], y2_min + bbox2["height"]
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+        inter_w = max(0.0, inter_x_max - inter_x_min)
+        inter_h = max(0.0, inter_y_max - inter_y_min)
         inter_area = inter_w * inter_h
-        union = area1 + area2 - inter_area
-        return inter_area / union if union > 0 else 0.0
+        area1 = (x1_max - x1_min) * (y1_max - y1_min)
+        area2 = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = area1 + area2 - inter_area
+        return inter_area / union_area if union_area > 0 else 0.0
 
-    @staticmethod
-    def _deduplicate_detections(detections, iou_thresh=0.7):
-        filtered = []
-        used = [False] * len(detections)
-        for i, det in enumerate(detections):
-            if used[i]:
+
+    def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        if raw_id is None or bbox is None:
+            return raw_id
+        now = time.time()
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+        for canonical_id, info in self._canonical_tracks.items():
+            if now - info["last_update"] > self._track_merge_time_window:
                 continue
-            group = [i]
-            for j in range(i + 1, len(detections)):
-                if used[j]:
-                    continue
-                if det.get("category") == detections[j].get("category"):
-                    bbox1 = det.get("bounding_box", det.get("bbox"))
-                    bbox2 = detections[j].get("bounding_box", detections[j].get("bbox"))
-                    if bbox1 and bbox2 and FlareAnalysisUseCase._iou(bbox1, bbox2) > iou_thresh:
-                        used[j] = True
-                        group.append(j)
-            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
-            filtered.append(detections[best_idx])
-            used[best_idx] = True
-        return filtered
+            iou = self._compute_iou(bbox, info["last_bbox"])
+            if iou >= self._track_merge_iou_threshold:
+                self._track_aliases[raw_id] = canonical_id
+                info["last_bbox"] = bbox
+                info["last_update"] = now
+                info["raw_ids"].add(raw_id)
+                return canonical_id
+        canonical_id = raw_id
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+        }
+        return canonical_id
 
-    def _update_flare_tracking_state(self, detections: List[Dict]):
-        self._flare_total_track_ids = getattr(self, '_flare_total_track_ids', defaultdict(set))
-        self._flare_current_frame_track_ids = defaultdict(set)
+    def _update_tracking_state(self, detections: List[Dict]):
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
         for det in detections:
-            cat = det.get('category')
-            color = det.get('main_color')
-            track_id = det.get('track_id')
-            if cat and color and track_id is not None:
-                key = f"{cat}:{color}"
-                self._flare_total_track_ids[key].add(track_id)
-                self._flare_current_frame_track_ids[key].add(track_id)
+            cat = det.get("category")
+            raw_track_id = det.get("track_id")
+            if cat not in self.target_categories or raw_track_id is None:
+                continue
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            det["track_id"] = canonical_id
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
 
-    def get_total_flare_counts(self):
-        return {key: len(ids) for key, ids in getattr(self, '_flare_total_track_ids', {}).items()}
-    
+    def get_total_counts(self):
+        return {cat: len(ids) for cat, ids in self._per_category_total_track_ids.items()}
+
     def _format_timestamp_for_video(self, timestamp: float) -> str:
-        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
         hours = int(timestamp // 3600)
         minutes = int((timestamp % 3600) // 60)
         seconds = timestamp % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
 
-    def _format_timestamp_for_stream(self, timestamp: float) -> str:
-        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+    def _format_timestamp_for_stream(self, timestamp: float, precision: bool = False) -> str:
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-        return dt.strftime('%Y:%m:%d %H:%M:%S')
+        return dt.strftime("%Y-%m-%d-%H:%M:%S.%f UTC" if precision else "%Y:%m:%d %H:%M:%S")
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted current timestamp based on stream type."""
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision: bool = False) -> str:
         if not stream_info:
-            return "00:00:00.00"
-        
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
-        # if is_video_chunk:
-        #     # For video chunks, use video_timestamp from stream_info
-        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
-        #     return self._format_timestamp_for_video(video_timestamp)
+            return "00:00:00.00" if not precision else "00:00:00.000000 UTC"
         if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
             stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
+            return stream_time_str[:8] if not precision else stream_time_str
         else:
-            # For streams, use stream_time from stream_info
             stream_time_str = stream_info.get("stream_time", "")
             if stream_time_str:
-                # Parse the high precision timestamp string to get timestamp
                 try:
-                    # Remove " UTC" suffix and parse
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-                    return self._format_timestamp_for_stream(timestamp)
+                    return self._format_timestamp_for_stream(timestamp, precision)
                 except:
-                    # Fallback to current time if parsing fails
-                    return self._format_timestamp_for_stream(time.time())
-            else:
-                return self._format_timestamp_for_stream(time.time())
+                    return self._format_timestamp_for_stream(time.time(), precision)
+            return self._format_timestamp_for_stream(time.time(), precision)
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision: bool = False) -> str:
         if not stream_info:
-            return "00:00:00"
-        
-        
+            return "00:00:00" if not precision else "00:00:00.000000 UTC"
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
-        if is_video_chunk:
-            # For video chunks, start from 00:00:00
-            return "00:00:00"
-        
-        elif stream_info.get("video_format") is not None and isinstance(stream_info.get("video_format"),str):
-            # If video format, start from 00:00:00
-            return "00:00:00"
-        else:
-            # For streams, use tracking start time or current time with minutes/seconds reset
-            if self._tracking_start_time is None:
-                # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("stream_time", "")
-                if stream_time_str:
-                    try:
-                        # Remove " UTC" suffix and parse
-                        timestamp_str = stream_time_str.replace(" UTC", "")
-                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except:
-                        # Fallback to current time if parsing fails
-                        self._tracking_start_time = time.time()
-                else:
+        if is_video_chunk or stream_info.get("video_format") is not None:
+            return "00:00:00" if not precision else "00:00:00.000000 UTC"
+        if self._tracking_start_time is None:
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                try:
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                except:
                     self._tracking_start_time = time.time()
-            
-            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
-            dt = dt.replace(minute=0, second=0, microsecond=0)
-            return dt.strftime('%Y:%m:%d %H:%M:%S')
-
+            else:
+                self._tracking_start_time = time.time()
+        dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+        dt = dt.replace(minute=0, second=0, microsecond=0)
+        return dt.strftime("%Y:%m:%d %H:%M:%S" if not precision else "%Y-%m-%d-%H:%M:%S.%f UTC")
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         frame_track_ids = set(det.get('track_id') for det in detections if det.get('track_id') is not None)
         total_track_ids = set()
-        for s in getattr(self, '_flare_total_track_ids', {}).values():
+        for s in self._per_category_total_track_ids.values():
             total_track_ids.update(s)
         return {
             "total_count": len(total_track_ids),
@@ -241,7 +241,7 @@ class FlareAnalysisUseCase(BaseProcessor):
             "total_unique_track_ids": len(total_track_ids),
             "current_frame_track_ids": list(frame_track_ids),
             "last_update_time": time.time(),
-            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
+            "total_frames_processed": self._total_frame_counter
         }
 
     def get_config_schema(self) -> Dict[str, Any]:
@@ -335,6 +335,19 @@ class FlareAnalysisUseCase(BaseProcessor):
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
             flare_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
 
+            if config.enable_smoothing:
+                if self.smoothing_tracker is None:
+                    smoothing_config = BBoxSmoothingConfig(
+                        smoothing_algorithm=config.smoothing_algorithm,
+                        window_size=config.smoothing_window_size,
+                        cooldown_frames=config.smoothing_cooldown_frames,
+                        confidence_threshold=config.confidence_threshold,
+                        confidence_range_factor=config.smoothing_confidence_range_factor,
+                        enable_smoothing=True
+                    )
+                    self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+                flare_processed_data = bbox_smoothing(flare_processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+
             try:
                 from ..advanced_tracker import AdvancedTracker
                 from ..advanced_tracker.config import TrackerConfig
@@ -346,7 +359,7 @@ class FlareAnalysisUseCase(BaseProcessor):
             except Exception as e:
                 self.logger.warning(f"AdvancedTracker failed: {e}")
 
-            self._update_flare_tracking_state(flare_processed_data)
+            self._update_tracking_state(flare_processed_data)
             self._total_frame_counter += 1
 
             frame_number = None
@@ -358,44 +371,34 @@ class FlareAnalysisUseCase(BaseProcessor):
                     frame_number = start_frame
 
             flare_analysis = self._analyze_flares_in_media(flare_processed_data, input_bytes, config)
-            flare_summary = self._calculate_flare_summary(flare_analysis, config)
-            general_summary = self._calculate_general_summary(processed_data, config)
-            flare_summary['total_flare_counts'] = self.get_total_flare_counts()
-            insights = self._generate_insights(flare_summary, config)
-            alerts = self._check_alerts(flare_summary, config)
-            metrics = self._calculate_metrics(flare_analysis, flare_summary, config, context)
-            predictions = self._extract_predictions(flare_analysis, config)
-            summary = self._generate_summary(flare_summary, general_summary, alerts)
+            counting_summary = self._count_categories(flare_analysis, config)
+            counting_summary['total_counts'] = self.get_total_counts()
+            alerts = self._check_alerts(counting_summary, frame_number, config)
+            incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
+            tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
+            business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, stream_info)
+            summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
 
-            events_list = self._generate_events(flare_summary, alerts, config, frame_number,stream_info)
-            tracking_stats_list = self._generate_tracking_stats(flare_summary, insights, summary, config, frame_number, stream_info)
-            events = events_list[0] if events_list else {}
+            incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+            business_analytics = business_analytics_list[0] if business_analytics_list else {}
+            agg_summary = {str(frame_number) if frame_number is not None else "current_frame": {
+                "incidents": incidents,
+                "tracking_stats": tracking_stats,
+                "business_analytics": business_analytics,
+                "alerts": alerts,
+                "human_text": summary_list[0] if summary_list else {}
+            }}
 
             context.mark_completed()
             result = self.create_result(
-                data={
-                    "flare_analysis": flare_analysis,
-                    "flare_summary": flare_summary,
-                    "general_summary": general_summary,
-                    "alerts": alerts,
-                    "total_detections": len(flare_analysis),
-                    "unique_colors": len(flare_summary.get("color_distribution", {})),
-                    "events": events,
-                    "tracking_stats": tracking_stats
-                },
+                data={"agg_summary": agg_summary},
                 usecase=self.name,
                 category=self.category,
                 context=context
             )
-            result.summary = summary
-            result.insights = insights
-            result.predictions = predictions
-            result.metrics = metrics
-            if config.confidence_threshold < 0.3:
-                result.add_warning(f"Low confidence threshold ({config.confidence_threshold}) may result in false positives")
-            processing_time = context.processing_time or time.time() - start_time
-            self.logger.info(f"Flare analysis completed in {processing_time:.2f}s")
+            result.processing_time = context.processing_time or time.time() - start_time
+            self.logger.info(f"Flare analysis completed in {result.processing_time:.2f}s")
             return result
         except Exception as e:
             self.logger.error(f"Flare analysis failed: {str(e)}", exc_info=True)
@@ -465,7 +468,7 @@ class FlareAnalysisUseCase(BaseProcessor):
                         "confidence": round(detection.get("confidence", 0.0), 3),
                         "main_color": main_color,
                         "major_colors": major_colors,
-                        "bbox": bbox,
+                        "bounding_box": bbox,
                         "detection_id": detection.get("id", f"det_{len(flare_analysis)}"),
                         "track_id": detection.get("track_id")
                     }
@@ -503,7 +506,7 @@ class FlareAnalysisUseCase(BaseProcessor):
                 "confidence": round(detection.get("confidence", 0.0), 3),
                 "main_color": main_color,
                 "major_colors": major_colors,
-                "bbox": bbox,
+                "bounding_box": bbox,
                 "detection_id": detection.get("id", f"det_{len(flare_analysis)}"),
                 "track_id": detection.get("track_id")
             }
@@ -521,7 +524,6 @@ class FlareAnalysisUseCase(BaseProcessor):
         h, w = image.shape[:2]
         if bbox_format == "auto":
             bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
-        
         if bbox_format == "xmin_ymin_xmax_ymax":
             xmin = max(0, int(bbox["xmin"]))
             ymin = max(0, int(bbox["ymin"]))
@@ -552,438 +554,300 @@ class FlareAnalysisUseCase(BaseProcessor):
             new_ymax = min(h, int(y_center + y_offset))
         else:
             return np.zeros((0, 0, 3), dtype=np.uint8)
-        
         return image[new_ymin:new_ymax, new_xmin:new_xmax]
 
-    def _calculate_flare_summary(self, flare_analysis: List[Dict], config: FlareAnalysisConfig) -> Dict[str, Any]:
+    def _count_categories(self, detections: List[Dict], config: FlareAnalysisConfig) -> Dict[str, Any]:
+        counts = {}
+        detections_list = []
         category_colors = defaultdict(lambda: defaultdict(int))
-        total_detections = len(flare_analysis)
-        detections = []
-        for record in flare_analysis:
-            category = record["category"]
-            main_color = record["main_color"]
-            category_colors[category][main_color] += 1
-            detections.append({
-                "bounding_box": record["bbox"],
-                "category": record["category"],
-                "confidence": record["confidence"],
-                "track_id": record["track_id"],
-                "frame_id": record["frame_id"],
-                "main_color": record["main_color"]
+        for det in detections:
+            cat = det.get("category", "unknown")
+            counts[cat] = counts.get(cat, 0) + 1
+            main_color = det.get("main_color", "unknown")
+            category_colors[cat][main_color] += 1
+            detections_list.append({
+                "bounding_box": det.get("bounding_box"),
+                "category": cat,
+                "confidence": det.get("confidence"),
+                "track_id": det.get("track_id"),
+                "frame_id": det.get("frame_id"),
+                "main_color": main_color
             })
-        summary = {
-            "total_detections": total_detections,
-            "categories": dict(category_colors),
-            "color_distribution": {},
-            "dominant_colors": {},
-            "detections": detections
-        }
-        all_colors = defaultdict(int)
-        for category_data in category_colors.values():
-            for color, count in category_data.items():
-                all_colors[color] += count
-        summary["color_distribution"] = dict(all_colors)
-        for category, colors in category_colors.items():
-            if colors:
-                dominant_color = max(colors.items(), key=lambda x: x[1])
-                summary["dominant_colors"][category] = {
-                    "color": dominant_color[0],
-                    "count": dominant_color[1],
-                    "percentage": round((dominant_color[1] / sum(colors.values())) * 100, 1)
-                }
-        return summary
-
-    def _calculate_general_summary(self, processed_data: Any, config: FlareAnalysisConfig) -> Dict[str, Any]:
-        category_counts = defaultdict(int)
-        total_objects = 0
-        if isinstance(processed_data, dict):
-            for frame_data in processed_data.values():
-                if isinstance(frame_data, list):
-                    for detection in frame_data:
-                        if detection.get("confidence", 1.0) >= config.confidence_threshold:
-                            category = detection.get("category", "unknown")
-                            category_counts[category] += 1
-                            total_objects += 1
-        elif isinstance(processed_data, list):
-            for detection in processed_data:
-                if detection.get("confidence", 1.0) >= config.confidence_threshold:
-                    category = detection.get("category", "unknown")
-                    category_counts[category] += 1
-                    total_objects += 1
         return {
-            "total_objects": total_objects,
-            "category_counts": dict(category_counts),
-            "categories_detected": list(category_counts.keys())
+            "total_count": sum(counts.values()),
+            "per_category_count": counts,
+            "detections": detections_list,
+            "color_distribution": {cat: dict(colors) for cat, colors in category_colors.items()}
         }
 
-    def _generate_insights(self, flare_summary: Dict, config: FlareAnalysisConfig) -> List[str]:
-        insights = []
-        total_detections = flare_summary.get("total_detections", 0)
-        if total_detections == 0:
-            insights.append("No flares detected for color analysis.")
-            return insights
-        categories = flare_summary.get("categories", {})
-        dominant_colors = flare_summary.get("dominant_colors", {})
-        color_distribution = flare_summary.get("color_distribution", {})
-        for category, colors in categories.items():
-            total = sum(colors.values())
-            color_details = ", ".join([f"{color}: {count}" for color, count in colors.items()])
-            insights.append(f"{category.capitalize()} color[s]: {color_details} (Total: {total})")
-        for category, info in dominant_colors.items():
-            insights.append(
-                f"{category.capitalize()} is mostly {info['color']} "
-                f"({info['count']} detections, {info['percentage']}%)"
-            )
-        unique_colors = len(color_distribution)
-        if unique_colors > 1:
-            insights.append(f"Detected {unique_colors} unique colors across all flare categories.")
-        if color_distribution:
-            most_common_color = max(color_distribution.items(), key=lambda x: x[1])
-            insights.append(
-                f"Most common color overall: {most_common_color[0]} ({most_common_color[1]} detections)"
-            )
-        return insights
+    def _check_alerts(self, summary: Dict, frame_number: Optional[int], config: FlareAnalysisConfig) -> List[Dict]:
+        def get_trend(data, lookback=900, threshold=0.8):
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            return increasing / total >= threshold
 
-    def _check_alerts(self, flare_summary: Dict, config: FlareAnalysisConfig) -> List[Dict]:
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
         alerts = []
+        total_detections = summary.get("total_count", 0)
+        total_counts_dict = summary.get("total_counts", {})
+        per_category_count = summary.get("per_category_count", {})
+
         if not config.alert_config:
             return alerts
-        total_detections = flare_summary.get("total_detections", 0)
-        if config.alert_config.count_thresholds:
+
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
             for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total_detections >= threshold:
+                if category == "all" and total_detections > threshold:
                     alerts.append({
-                        "type": "count_threshold",
-                        "severity": "warning",
-                        "message": f"Total detections ({total_detections}) exceeds threshold ({threshold})",
-                        "category": category,
-                        "current_count": total_detections,
-                        "threshold": threshold,
-                        "timestamp": datetime.now().isoformat()
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                        "alert_id": f"alert_{category}_{frame_key}",
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                        getattr(config.alert_config, 'alert_value', ['JSON']))}
                     })
-                elif category in flare_summary.get("categories", {}):
-                    category_total = sum(flare_summary["categories"][category].values())
-                    if category_total >= threshold:
+                elif category in per_category_count:
+                    count = per_category_count[category]
+                    if count > threshold:
                         alerts.append({
-                            "type": "count_threshold",
-                            "severity": "warning",
-                            "message": f"{category} detections ({category_total}) exceeds threshold ({threshold})",
-                            "category": category,
-                            "current_count": category_total,
-                            "threshold": threshold,
-                            "timestamp": datetime.now().isoformat()
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                            "alert_id": f"alert_{category}_{frame_key}",
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                            getattr(config.alert_config, 'alert_value', ['JSON']))}
                         })
         return alerts
 
-    def _calculate_metrics(self, flare_analysis: List[Dict], flare_summary: Dict, config: FlareAnalysisConfig, context: ProcessingContext) -> Dict[str, Any]:
-        total_detections = len(flare_analysis)
-        unique_colors = len(flare_summary.get("color_distribution", {}))
-        metrics = {
-            "total_detections": total_detections,
-            "unique_colors": unique_colors,
-            "categories_analyzed": len(flare_summary.get("categories", {})),
-            "processing_time": context.processing_time or 0.0,
-            "input_format": context.input_format.value,
-            "confidence_threshold": config.confidence_threshold,
-            "color_diversity": 0.0,
-            "detection_rate": 0.0,
-            "average_colors_per_detection": config.top_k_colors
-        }
-        if total_detections > 0:
-            metrics["color_diversity"] = (unique_colors / total_detections) * 100
-        if config.time_window_minutes and config.time_window_minutes > 0:
-            metrics["detection_rate"] = (total_detections / config.time_window_minutes) * 60
-        category_metrics = {}
-        for category, colors in flare_summary.get("categories", {}).items():
-            category_total = sum(colors.values())
-            category_metrics[category] = {
-                "count": category_total,
-                "unique_colors": len(colors),
-                "color_diversity": (len(colors) / category_total) * 100 if category_total > 0 else 0
-            }
-        metrics["category_metrics"] = category_metrics
-        metrics["processing_settings"] = {
-            "confidence_threshold": config.confidence_threshold,
-            "top_k_colors": config.top_k_colors,
-            "frame_skip": config.frame_skip,
-            "target_categories": config.target_categories,
-            "enable_unique_counting": config.enable_unique_counting
-        }
-        return metrics
-
-    def _extract_predictions(self, flare_analysis: List[Dict], config: FlareAnalysisConfig) -> List[Dict]:
-        predictions = []
-        for record in flare_analysis:
-            prediction = {
-                "category": record["category"],
-                "confidence": record["confidence"],
-                "bbox": record["bbox"],
-                "frame_id": record["frame_id"],
-                "timestamp": record["timestamp"],
-                "main_color": record["main_color"],
-                "major_colors": record["major_colors"]
-            }
-            if "detection_id" in record:
-                prediction["id"] = record["detection_id"]
-            predictions.append(prediction)
-        return predictions
-
-    def _generate_summary(self, flare_summary: Dict, general_summary: Dict, alerts: List) -> str:
-        total_detections = flare_summary.get("total_detections", 0)
-        unique_colors = len(flare_summary.get("color_distribution", {}))
-        if total_detections == 0:
-            return "No flares detected for color analysis"
-        summary_parts = [f"{total_detections} flares analyzed for colors"]
-        if unique_colors > 0:
-            summary_parts.append(f"{unique_colors} unique colors detected")
-        categories = flare_summary.get("categories", {})
-        if len(categories) > 1:
-            summary_parts.append(f"across {len(categories)} categories")
-        if alerts:
-            alert_count = len(alerts)
-            summary_parts.append(f"with {alert_count} alert{'s' if alert_count != 1 else ''}")
-        return ", ".join(summary_parts)
-
-    def _generate_events(self, flare_summary: Dict, alerts: List, config: FlareAnalysisConfig, frame_number: Optional[int] = None,stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = [{frame_key: []}]
-        frame_events = events[0][frame_key]
-        
-        # bad_flare_detected = flare_summary.get("categories", {}).get("BadFlare", {})
-        # total_bad_flare_detections = sum(bad_flare_detected.values()) if bad_flare_detected else 0
-
-        categories = flare_summary.get("categories", {})
-        total_detections = sum(sum(colors.values()) for colors in categories.values())
+    def _generate_incidents(self, counting_summary: Dict, alerts: List, config: FlareAnalysisConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        incidents = []
+        total_detections = counting_summary.get("total_count", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
 
         if total_detections > 0:
+            level = "low"
+            intensity = 5.0
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            if start_timestamp and self.current_incident_end_timestamp == 'N/A':
+                self.current_incident_end_timestamp = 'Incident still active'
+            elif start_timestamp and self.current_incident_end_timestamp == 'Incident still active':
+                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                    self.current_incident_end_timestamp = current_timestamp
+            elif self.current_incident_end_timestamp != 'Incident still active' and self.current_incident_end_timestamp != 'N/A':
+                self.current_incident_end_timestamp = 'N/A'
 
-            # Generate human text in new format
-            human_text_lines = ["EVENTS DETECTED:"]
-            human_text_lines.append(f"    - {total_detections} Flares(s) detected [INFO]")
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                intensity = min(10.0, (total_detections / threshold) * 10)
+                if intensity >= 9:
+                    level = "critical"
+                    self._ascending_alert_list.append(3)
+                elif intensity >= 7:
+                    level = "significant"
+                    self._ascending_alert_list.append(2)
+                elif intensity >= 5:
+                    level = "medium"
+                    self._ascending_alert_list.append(1)
+                else:
+                    self._ascending_alert_list.append(0)
+            else:
+                if total_detections > 30:
+                    level = "critical"
+                    intensity = 10.0
+                    self._ascending_alert_list.append(3)
+                elif total_detections > 25:
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
+                elif total_detections > 15:
+                    level = "medium"
+                    intensity = 7.0
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    intensity = min(10.0, total_detections / 3.0)
+                    self._ascending_alert_list.append(0)
+
+            human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
+            for cat, count in counting_summary.get("per_category_count", {}).items():
+                if count > 0:
+                    human_text_lines.append(f"\t{cat}: {count}")
             human_text = "\n".join(human_text_lines)
 
-            level = "info"
-            event = {
-                "type": "flare_detection",
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": level,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Flare Detection System",
-                "application_version": "1.2",
-                "location_info": None,
-                "human_text": human_text
-            }
-            frame_events.append(event)
+            alert_settings = []
+            if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+                alert_settings.append({
+                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": config.alert_config.count_thresholds,
+                    "ascending": True,
+                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                    getattr(config.alert_config, 'alert_value', ['JSON']))}
+                })
 
-        for alert in alerts:
-            alert_event = {
-                "type": alert.get("type", "flare_alert"),
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": alert.get("severity", "warning"),
-                "intensity": 8.0,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Flare Detection Alert System",
-                "application_version": "1.2",
-                "location_info": alert.get("category"),
-                "human_text": f"Event: {alert.get('type', 'Flare Alert').title()}\nMessage: {alert.get('message', 'Flare detection alert triggered')}"
-            }
-            frame_events.append(alert_event)
-        
-        return events
+            event = self.create_incident(
+                incident_id=f"{self.CASE_TYPE}_{frame_number if frame_number is not None else 'current_frame'}",
+                incident_type=self.CASE_TYPE,
+                severity_level=level,
+                human_text=human_text,
+                camera_info=camera_info,
+                alerts=alerts,
+                alert_settings=alert_settings,
+                start_time=start_timestamp,
+                end_time=self.current_incident_end_timestamp,
+                level_settings={"low": 1, "medium": 3, "significant": 4, "critical": 7}
+            )
+            incidents.append(event)
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+        return incidents
 
-    def _generate_tracking_stats(self, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, alerts: List, config: FlareAnalysisConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
-        total_detections = flare_summary.get("total_detections", 0)
-        categories = flare_summary.get("categories", {})
-        total_count = sum(sum(colors.values()) for colors in categories.values())
-        track_ids_info = self._get_track_ids_info(flare_summary.get("detections", []))
-        
-        # Get formatted timestamps
+        tracking_stats = []
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts_dict = counting_summary.get("total_counts", {})
+        per_category_count = counting_summary.get("per_category_count", {})
+        color_distribution = counting_summary.get("color_distribution", {})
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
+        high_precision_start_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+        camera_info = self.get_camera_info_from_stream(stream_info)
 
-        # Build human-readable summary string in new format
-        human_text_lines = []
-        
-        # CURRENT FRAME section
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if total_detections > 0:
-            # Calculate category-wise detections with dominant color and average relative height
-            category_stats = {}
-            frame_height = stream_info.get("input_settings", {}).get("height") if stream_info else None
-            for detection in flare_summary.get("detections", []):
-                if detection.get("frame_id") != frame_key:
-                    continue
-                category = detection.get("category", "unknown")
-                main_color = detection.get("main_color", "unknown")
-                if category not in category_stats:
-                    category_stats[category] = {"colors": defaultdict(int), "heights": [], "count": 0}
-                category_stats[category]["colors"][main_color] += 1
-                category_stats[category]["count"] += 1
-                if frame_height:
-                    bbox = detection.get("bounding_box", detection.get("bbox"))
-                    if bbox:
-                        if config.bbox_format == "auto":
-                            bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
-                        else:
-                            bbox_format = config.bbox_format
-                        if bbox_format == "xmin_ymin_xmax_ymax":
-                            bbox_height = bbox["ymax"] - bbox["ymin"]
-                        elif bbox_format == "x_y_width_height":
-                            bbox_height = bbox["height"]
-                        else:
-                            bbox_height = 0
-                        if bbox_height > 0:
-                            relative_height = (bbox_height / frame_height) * 100
-                            category_stats[category]["heights"].append(relative_height)
-            
-            # Format category-wise detections
-            category_lines = []
-            categories = flare_summary.get("categories", {})
-            for category, colors in categories.items():
-                total = sum(colors.values())
-                color_details = ", ".join([f"{color}" for color, count in colors.items()])
-                category_lines.append(f"  {total}  {color_details} colored  {category.capitalize()}  ")
-            human_text_lines.append(f"    - Flare[s] Detected: {', '.join(category_lines)}")
-            
-            # Add average relative height for current frame (across all categories)
-            if frame_height and total_detections > 0:
-                total_relative_height = 0.0
-                frame_detection_count = 0
-                for detection in flare_summary.get("detections", []):
-                    if detection.get("frame_id") == frame_key:
-                        bbox = detection.get("bounding_box", detection.get("bbox"))
-                        if not bbox:
-                            continue
-                        if config.bbox_format == "auto":
-                            bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
-                        else:
-                            bbox_format = config.bbox_format
-                        if bbox_format == "xmin_ymin_xmax_ymax":
-                            bbox_height = bbox["ymax"] - bbox["ymin"]
-                        elif bbox_format == "x_y_width_height":
-                            bbox_height = bbox["height"]
-                        else:
-                            continue
-                        relative_height = (bbox_height / frame_height) * 100
-                        total_relative_height += relative_height
-                        frame_detection_count += 1
-                if frame_detection_count > 0:
-                    avg_relative_height = total_relative_height / frame_detection_count
-                    # human_text_lines.append(f"    - Average Relative Height: {avg_relative_height:.1f}%")
+        total_counts = [{"category": cat, "count": count} for cat, count in total_counts_dict.items() if count > 0]
+        current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items() if count > 0 or total_detections > 0]
+
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "unknown")
+            detection_obj = self.create_detection_object(category, bbox, main_color=detection.get("main_color"))
+            detections.append(detection_obj)
+
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds,
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                getattr(config.alert_config, 'alert_value', ['JSON']))}
+            })
+
+        human_text_lines = [f"Tracking Statistics:"]
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
+        for cat, count in per_category_count.items():
+            if count > 0:
+                colors = color_distribution.get(cat, {})
+                dominant_color = max(colors.items(), key=lambda x: x[1])[0] if colors else "unknown"
+                human_text_lines.append(f"\t{cat}: {count}, Dominant Color: {dominant_color}")
+        if total_detections == 0:
+            human_text_lines.append("\tNo Flares detected")
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
+        for cat, count in total_counts_dict.items():
+            if count > 0:
+                colors = color_distribution.get(cat, {})
+                dominant_color = max(colors.items(), key=lambda x: x[1])[0] if colors else "unknown"
+                human_text_lines.append(f"\t{cat}: {count}, Dominant Color: {dominant_color}")
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
         else:
-            human_text_lines.append("    - No Flares detected")
-        
-        human_text_lines.append("")  # Empty line for spacing
-        
-        # TOTAL SINCE section
-        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"    - Total Flares Detected: {total_count}")
-        # Calculate average relative height for all detections
-        if frame_height and total_count > 0:
-            total_relative_height = 0.0
-            for detection in flare_summary.get("detections", []):
-                bbox = detection.get("bounding_box", detection.get("bbox"))
-                if not bbox:
-                    continue
-                if config.bbox_format == "auto":
-                    bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
-                else:
-                    bbox_format = config.bbox_format
-                if bbox_format == "xmin_ymin_xmax_ymax":
-                    bbox_height = bbox["ymax"] - bbox["ymin"]
-                elif bbox_format == "x_y_width_height":
-                    bbox_height = bbox["height"]
-                else:
-                    continue
-                relative_height = (bbox_height / frame_height) * 100
-                total_relative_height += relative_height
-            avg_relative_height = total_relative_height / total_count
-            human_text_lines.append(f"    - Average Relative Height: {avg_relative_height:.1f}%")
-
+            human_text_lines.append("Alerts: None")
         human_text = "\n".join(human_text_lines)
-        
-        tracking_stat = {
-            "type": "flare_tracking",
-            "category": "flare_detection",
-            "count": total_detections,
-            "insights": insights,
-            "summary": summary,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": human_text,
-            "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key,
-            "detections": flare_summary.get("detections", [])
-        }
-        frame_tracking_stats.append(tracking_stat)
+
+        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+
+        tracking_stat = self.create_tracking_stats(
+            total_counts=total_counts,
+            current_counts=current_counts,
+            detections=detections,
+            human_text=human_text,
+            camera_info=camera_info,
+            alerts=alerts,
+            alert_settings=alert_settings,
+            reset_settings=reset_settings,
+            start_time=high_precision_start_timestamp,
+            reset_time=high_precision_reset_timestamp
+        )
+        tracking_stats.append(tracking_stat)
         return tracking_stats
 
-    def _generate_human_text_for_tracking(self, total_detections: int, flare_summary: Dict, insights: List[str], summary: str, config: FlareAnalysisConfig, stream_info: Optional[Dict[str, Any]] = None) -> str:
-        text_parts = []
-        if config.time_window_minutes:
-            detection_rate_per_hour = (total_detections / config.time_window_minutes) * 60
-        unique_colors = len(flare_summary.get("color_distribution", {}))
+    def _generate_business_analytics(self, counting_summary: Dict, alerts: List, config: FlareAnalysisConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty: bool = False) -> List[Dict]:
+        if is_empty:
+            return []
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        total_detections = counting_summary.get("total_count", 0)
+        color_distribution = counting_summary.get("color_distribution", {})
+        human_text_lines = ["Business Analytics:"]
         if total_detections > 0:
-            color_diversity = (unique_colors / total_detections) * 100
-        categories = flare_summary.get("categories", {})
-        if categories:
-            for category, colors in categories.items():
-                category_total = sum(colors.values())
-                if category_total > 0:
-                    dominant_color = max(colors.items(), key=lambda x: x[1])[0] if colors else "unknown"
-                    text_parts.append(f"  {category_total} {category.title()} detected, Color: {dominant_color}")
-        color_distribution = flare_summary.get("color_distribution", {})
-        if color_distribution:
-            top_colors = sorted(color_distribution.items(), key=lambda x: x[1], reverse=True)[:3]
-            for color, count in top_colors:
-                percentage = (count / total_detections) * 100
+            unique_colors = sum(len(colors) for colors in color_distribution.values())
+            human_text_lines.append(f"Total Flares: {total_detections}")
+            human_text_lines.append(f"Unique Colors: {unique_colors}")
+            for cat, colors in color_distribution.items():
+                if colors:
+                    dominant_color = max(colors.items(), key=lambda x: x[1])[0]
+                    human_text_lines.append(f"{cat}: {sum(colors.values())}, Dominant Color: {dominant_color}")
+        else:
+            human_text_lines.append("No Flares detected")
+        human_text = "\n".join(human_text_lines)
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds,
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                getattr(config.alert_config, 'alert_value', ['JSON']))}
+            })
+        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        return [self.create_business_analytics(
+            analysis_name="flare_color_analysis",
+            statistics={"total_detections": total_detections, "unique_colors": sum(len(colors) for colors in color_distribution.values())},
+            human_text=human_text,
+            camera_info=camera_info,
+            alerts=alerts,
+            alert_settings=alert_settings,
+            reset_settings=reset_settings
+        )]
 
-        # Calculate average relative height
-        frame_height = stream_info.get("input_settings", {}).get("height") if stream_info else None
-        if frame_height and total_detections > 0:
-            total_relative_height = 0.0
-            for detection in flare_summary.get("detections", []):
-                bbox = detection.get("bounding_box", detection.get("bbox"))
-                if not bbox:
-                    continue
-                if config.bbox_format == "auto":
-                    bbox_format = "xmin_ymin_xmax_ymax" if "xmin" in bbox else "x_y_width_height"
-                else:
-                    bbox_format = config.bbox_format
-                if bbox_format == "xmin_ymin_xmax_ymax":
-                    bbox_height = bbox["ymax"] - bbox["ymin"]
-                elif bbox_format == "x_y_width_height":
-                    bbox_height = bbox["height"]
-                else:
-                    continue
-                relative_height = (bbox_height / frame_height) * 100
-                total_relative_height += relative_height
-            avg_relative_height = total_relative_height / total_detections
-            text_parts.append(f"Average Relative Height: {avg_relative_height:.1f}%")
+    def _generate_summary(self, counting_summary: Dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[Dict]:
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if incidents and incidents[0]:
+            lines["Incidents"] = f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if tracking_stats and tracking_stats[0]:
+            lines["Tracking Statistics"] = f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if business_analytics and business_analytics[0]:
+            lines["Business Analytics"] = f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+        if not lines.get("Incidents") and not lines.get("Tracking Statistics") and not lines.get("Business Analytics"):
+            lines["Summary"] = "No Summary Data"
+        return [lines]
 
-        return "\n".join(text_parts)
-    
     def _format_timestamp(self, timestamp: float) -> str:
-        """Format a timestamp for human-readable output."""
         return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
     def _get_tracking_start_time(self) -> str:
-        """Get the tracking start time, formatted as a string."""
         if self._tracking_start_time is None:
             return "N/A"
         return self._format_timestamp(self._tracking_start_time)
 
     def _set_tracking_start_time(self) -> None:
-        """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()

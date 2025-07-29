@@ -12,6 +12,14 @@ asgi = structlog.stdlib.get_logger("asgi")
 PATHS_IGNORE = {"/ok", "/metrics"}
 
 
+def _get_level(status: int | None) -> int:
+    if status is None or status < 400:
+        return logging.INFO
+    if status < 500:
+        return logging.WARNING
+    return logging.ERROR
+
+
 class AccessLoggerMiddleware:
     def __init__(
         self,
@@ -46,6 +54,7 @@ class AccessLoggerMiddleware:
                     info["response"] = message
                 await send(message)
                 asgi.debug(f"ASGI send {message['type']}", **message)
+
         else:
             inner_receive = receive
 
@@ -74,8 +83,8 @@ class AccessLoggerMiddleware:
 
             if method and route and status:
                 HTTP_METRICS_COLLECTOR.record_request(method, route, status, latency)
-
-            self.logger.info(
+            self.logger.log(
+                _get_level(status),
                 f"{method} {path} {status} {latency}ms",
                 method=method,
                 path=path,

@@ -22,7 +22,8 @@ class AutoStreamingUtils:
         default_fps: int = 30,
         default_quality: int = 80,
         default_video_chunk_duration: int = 10,
-        default_video_format: str = "mp4"
+        default_video_format: str = "mp4",
+        simulate_video_file_stream: bool = False,
     ):
         """
         Initialize AutoStreamingUtils with default configuration values.
@@ -32,11 +33,13 @@ class AutoStreamingUtils:
             default_quality: Default quality for camera streams
             default_video_chunk_duration: Default video chunk duration for video input type
             default_video_format: Default video format for video input type
+            simulate_video_file_stream: Whether to simulate video file stream
         """
         self.default_fps = default_fps
         self.default_quality = default_quality
         self.default_video_chunk_duration = default_video_chunk_duration
         self.default_video_format = default_video_format
+        self.simulate_video_file_stream = simulate_video_file_stream
 
     def convert_camera_configs_to_inputs(
         self,
@@ -90,6 +93,7 @@ class AutoStreamingUtils:
                     model_input_type=model_input_type,
                     video_duration=self.default_video_chunk_duration,
                     video_format=self.default_video_format,
+                    simulate_video_file_stream=self.simulate_video_file_stream,
                 )
 
                 input_configs.append(input_config)

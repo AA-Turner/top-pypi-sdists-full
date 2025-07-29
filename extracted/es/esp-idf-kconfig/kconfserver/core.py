@@ -12,8 +12,8 @@ import sys
 import tempfile
 from json import JSONDecodeError
 
+import esp_kconfiglib.core as kconfiglib
 import kconfgen.core as kconfgen
-import kconfiglib.core as kconfiglib
 from esp_idf_kconfig import __version__
 
 # Min/Max supported protocol versions
@@ -29,7 +29,7 @@ def main():
 
     parser.add_argument("--config", help="Project configuration settings", required=True)
 
-    parser.add_argument("--kconfig", help="KConfig file with config item definitions", required=True)
+    parser.add_argument("--kconfig", help="Kconfig file with config item definitions", required=True)
 
     parser.add_argument(
         "--sdkconfig-rename",

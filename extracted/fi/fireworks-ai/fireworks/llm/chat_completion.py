@@ -185,7 +185,8 @@ class ChatCompletion(BaseCompletion):
             raise ValueError(
                 "Pass model as a parameter to the constructor of LLM instead of passing it as a parameter to the create method"
             )
-        model_id = self._create_setup()
+        skip_setup = kwargs.pop("skip_setup", False)
+        model_id = self._create_setup(skip_setup=skip_setup)
         params = self._build_request_params(
             model_id,
             messages,
@@ -298,9 +299,8 @@ class ChatCompletion(BaseCompletion):
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAIChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        # used internally when trying to scale up the deployment with an inference request
-        if not "skip_setup" in kwargs or not kwargs["skip_setup"]:
-            model_id = self._create_setup()
+        skip_setup = kwargs.pop("skip_setup", False)
+        model_id = self._create_setup(skip_setup=skip_setup)
         params = self._build_request_params(
             model_id,
             messages,

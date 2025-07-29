@@ -90,7 +90,9 @@ class SingletonProvider(Provider):
     kwargs: dict[str, typing.Any] = None
     lock_key: str
 
-    def __init__(self, cls: type, kwargs: dict[str, typing.Any] = None) -> None: ...
+    def __init__(
+        self, cls: type, kwargs: dict[str, typing.Any] | None = None
+    ) -> None: ...
     def get(
         self,
         scope: typing.Any | None = None,
@@ -102,7 +104,9 @@ class FactoryProvider(Provider):
     cls: type
     kwargs: dict[str, typing.Any] = None
 
-    def __init__(self, cls: type, kwargs: dict[str, typing.Any] = None) -> None: ...
+    def __init__(
+        self, cls: type, kwargs: dict[str, typing.Any] | None = None
+    ) -> None: ...
     def get(
         self,
         scope: typing.Any | None = None,
@@ -114,7 +118,9 @@ class AsyncFactoryProvider(Provider):
     cls: type
     kwargs: dict[str, typing.Any] = None
 
-    def __init__(self, cls: type, kwargs: dict[str, typing.Any] = None) -> None: ...
+    def __init__(
+        self, cls: type, kwargs: dict[str, typing.Any] | None = None
+    ) -> None: ...
     async def get(
         self,
         scope: typing.Any | None = None,
@@ -288,7 +294,7 @@ class BackgroundTasks:
         ...
     async def run_all(self, continue_on_error: bool = True) -> None:
         """Run all tasks in the collection."""
-        # This method would run all tasks concurrently, handling errors based on continue_on_error flag.
+        # This method would run all tasks concurrently, handling errors based on continue_on_error flag.  # noqa: E501
         ...
 
     async def clear(self) -> None:
@@ -363,7 +369,7 @@ class _RoutePatternMatcher:
         ...
     def match_path(self, route_path: str) -> tuple[int, dict[str, typing.Any]]:
         """Match a route path against the patterns."""
-        # This method would match the route path against the compiled patterns and return the match result.
+        # This method would match the route path against the compiled patterns and return the match result.  # noqa: E501
         ...
 
     def pattern_count(self) -> int:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: torch-optimi
-Version: 0.3.1
+Version: 0.3.2
 Summary: Fast, Modern, & Low Precision PyTorch Optimizers
 Keywords: Optimizers,PyTorch,Deep Learning,AI
 Author: Benjamin Warner

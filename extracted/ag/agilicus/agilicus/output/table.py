@@ -125,6 +125,7 @@ def subobject_column(
     max_size=None,
     json_dump=None,
     formatter=None,
+    subobject_keys=None,
     **kwargs,
 ):
     if not out_name:
@@ -136,7 +137,9 @@ def subobject_column(
         return val
 
     def getter(record, base_getter):
-        names = in_name
+        names = subobject_keys
+        if not names:
+            names = in_name
         if not isinstance(names, list):
             names = [names]
 
@@ -405,3 +408,71 @@ def output_entry(ctx, entry, headers=None):
 
 def make_columns(*args, **kwargs):
     return column_builder.make_columns(*args, **kwargs)
+
+
+def _get_with_default(column, record):
+    getter = column.getter
+    if not getter:
+        getter = short_circuit_attrgetter
+    return getter(column.in_name)(record)
+
+
+def object_subtable(
+    ctx,
+    in_name,
+    columns,
+    out_name=None,
+    subobject_name=None,
+    table_getter=operator.itemgetter,
+    optional=False,
+):
+    """
+    converts an object with columns defined by "columns" into a subtable.
+    """
+    if not out_name:
+        out_name = in_name
+
+    def scalar_name(column, idx):
+        return column.out_name
+
+    def list_name(column, idx):
+        return f"{column.out_name}.{idx}"
+
+    subtable_columns = [column("name"), column("value")]
+
+    def format_fn(records):
+        subtable_records = []
+        namer = scalar_name
+        if isinstance(records, list):
+            namer = list_name
+        else:
+            records = [records]
+
+        for idx, record in enumerate(records):
+            subtable_records.extend(
+                [
+                    {
+                        "name": namer(column, idx),
+                        "value": _get_with_default(column, record),
+                    }
+                    for column in columns
+                ]
+            )
+
+        return format_table(ctx, subtable_records, subtable_columns, getter=table_getter)
+
+    def getter(record, base_getter):
+        subobject = base_getter(subobject_name)(record)
+        return base_getter(in_name)(subobject)
+
+    col_getter = None
+    if subobject_name:
+        col_getter = getter
+
+    return OutputColumn(
+        in_name=in_name,
+        out_name=out_name,
+        format_fn=format_fn,
+        getter=col_getter,
+        optional=optional,
+    )

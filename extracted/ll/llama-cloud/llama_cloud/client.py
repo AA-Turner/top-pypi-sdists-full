@@ -24,6 +24,7 @@ from .resources.pipelines.client import AsyncPipelinesClient, PipelinesClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.reports.client import AsyncReportsClient, ReportsClient
 from .resources.retrievers.client import AsyncRetrieversClient, RetrieversClient
+from .resources.users.client import AsyncUsersClient, UsersClient
 
 
 class LlamaCloud:
@@ -56,6 +57,7 @@ class LlamaCloud:
         self.agent_deployments = AgentDeploymentsClient(client_wrapper=self._client_wrapper)
         self.classifier = ClassifierClient(client_wrapper=self._client_wrapper)
         self.admin = AdminClient(client_wrapper=self._client_wrapper)
+        self.users = UsersClient(client_wrapper=self._client_wrapper)
         self.llama_extract = LlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = ReportsClient(client_wrapper=self._client_wrapper)
         self.beta = BetaClient(client_wrapper=self._client_wrapper)
@@ -91,6 +93,7 @@ class AsyncLlamaCloud:
         self.agent_deployments = AsyncAgentDeploymentsClient(client_wrapper=self._client_wrapper)
         self.classifier = AsyncClassifierClient(client_wrapper=self._client_wrapper)
         self.admin = AsyncAdminClient(client_wrapper=self._client_wrapper)
+        self.users = AsyncUsersClient(client_wrapper=self._client_wrapper)
         self.llama_extract = AsyncLlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = AsyncReportsClient(client_wrapper=self._client_wrapper)
         self.beta = AsyncBetaClient(client_wrapper=self._client_wrapper)

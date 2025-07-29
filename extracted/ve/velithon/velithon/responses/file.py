@@ -33,6 +33,7 @@ class FileResponse(Response):
         method: str | None = None,
         background: BackgroundTask | None = None,
     ) -> None:
+        """Initialize a FileResponse instance."""
         self.path = Path(path)
         self.status_code = status_code
         self.filename = filename
@@ -83,7 +84,7 @@ class FileResponse(Response):
         # Add cache headers for static files
         raw_headers.append(('cache-control', 'public, max-age=3600'))
 
-        self.raw_headers = raw_headers + [('server', 'velithon')]
+        self.raw_headers = [*raw_headers, ('server', 'velithon')]
 
     @property
     def headers(self) -> Headers:
@@ -94,7 +95,7 @@ class FileResponse(Response):
 
     async def __call__(self, scope: Scope, protocol: Protocol) -> None:
         """Handle the file response."""
-        method = scope.get('method', 'GET')
+        method = scope.method
 
         # Check if file exists
         if not self.path.exists():

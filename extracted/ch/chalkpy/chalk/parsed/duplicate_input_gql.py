@@ -334,7 +334,7 @@ class EnvironmentSettingsGQL:
     runtime: Optional[str]
     requirements: Optional[str]
     dockerfile: Optional[str]
-    requiresPackages: Optional[List[str]] = None
+    requiresPackages: Optional[List[str]] = None  # deprecated
     platformVersion: Optional[str] = None
 
 
@@ -368,6 +368,17 @@ class MetricKindGQL(str, Enum):
     FEATURE_VALUE = "FEATURE_VALUE"
     FEATURE_WRITE = "FEATURE_WRITE"
     FEATURE_NULL_RATIO = "FEATURE_NULL_RATIO"
+    # Statistics about features computed by resolvers
+    FEATURE_COMPUTED_COUNT = "FEATURE_COMPUTED_COUNT"
+    FEATURE_COMPUTED_NULL_RATIO = "FEATURE_COMPUTED_NULL_RATIO"
+    # statistics about features looked up from the online store during a query
+    FEATURE_LOOKED_UP_COUNT = "FEATURE_LOOKED_UP_COUNT"
+    FEATURE_LOOKED_UP_NULL_RATIO = "FEATURE_LOOKED_UP_NULL_RATIO"
+    # statistics about features whose values were produced during a query
+    # either computed OR looked up. Differs from request_count as they do
+    # not necessarily need to be requested as an output.
+    FEATURE_INTERMEDIATE_COUNT = "FEATURE_INTERMEDIATE_COUNT"
+    FEATURE_INTERMEDIATE_NULL_RATIO = "FEATURE_INTERMEDIATE_NULL_RATIO"
 
     RESOLVER_REQUEST_COUNT = "RESOLVER_REQUEST_COUNT"
     RESOLVER_LATENCY = "RESOLVER_LATENCY"

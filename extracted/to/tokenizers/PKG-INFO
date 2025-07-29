@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokenizers
-Version: 0.21.2
+Version: 0.21.4
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -30,7 +30,6 @@ Provides-Extra: testing
 Provides-Extra: docs
 Provides-Extra: dev
 Keywords: NLP,tokenizer,BPE,transformer,deep learning
-Author: Anthony MOI <m.anthony.moi@gmail.com>
 Author-email: Nicolas Patry <patry.nicolas@protonmail.com>, Anthony Moi <anthony@huggingface.co>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

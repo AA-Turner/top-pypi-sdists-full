@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autogen-ext
-Version: 0.6.4
+Version: 0.7.1
 Summary: AutoGen extensions library
 License:     MIT License
         
@@ -28,7 +28,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Requires-Dist: autogen-core==0.6.4
+Requires-Dist: autogen-core==0.7.1
 Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.48; extra == 'anthropic'
 Provides-Extra: azure
@@ -53,13 +53,13 @@ Requires-Dist: docker~=7.0; extra == 'docker-jupyter-executor'
 Requires-Dist: requests>=2.32.3; extra == 'docker-jupyter-executor'
 Requires-Dist: websockets>=15.0.1; extra == 'docker-jupyter-executor'
 Provides-Extra: file-surfer
-Requires-Dist: autogen-agentchat==0.6.4; extra == 'file-surfer'
+Requires-Dist: autogen-agentchat==0.7.1; extra == 'file-surfer'
 Requires-Dist: magika>=0.6.1rc2; extra == 'file-surfer'
 Requires-Dist: markitdown[all]~=0.1.0a3; extra == 'file-surfer'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.0.0; extra == 'gemini'
 Provides-Extra: graphrag
-Requires-Dist: graphrag>=1.0.1; extra == 'graphrag'
+Requires-Dist: graphrag>=2.3.0; extra == 'graphrag'
 Provides-Extra: grpc
 Requires-Dist: grpcio~=1.70.0; extra == 'grpc'
 Provides-Extra: http-tool
@@ -73,13 +73,13 @@ Requires-Dist: langchain-core~=0.3.3; extra == 'langchain'
 Provides-Extra: llama-cpp
 Requires-Dist: llama-cpp-python>=0.3.8; extra == 'llama-cpp'
 Provides-Extra: magentic-one
-Requires-Dist: autogen-agentchat==0.6.4; extra == 'magentic-one'
+Requires-Dist: autogen-agentchat==0.7.1; extra == 'magentic-one'
 Requires-Dist: magika>=0.6.1rc2; extra == 'magentic-one'
 Requires-Dist: markitdown[all]~=0.1.0a3; extra == 'magentic-one'
 Requires-Dist: pillow>=11.0.0; extra == 'magentic-one'
 Requires-Dist: playwright>=1.48.0; extra == 'magentic-one'
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.8.1; extra == 'mcp'
+Requires-Dist: mcp>=1.11.0; extra == 'mcp'
 Provides-Extra: mem0
 Requires-Dist: mem0ai>=0.1.98; extra == 'mem0'
 Provides-Extra: mem0-local
@@ -91,10 +91,12 @@ Requires-Dist: ollama>=0.4.7; extra == 'ollama'
 Requires-Dist: tiktoken>=0.8.0; extra == 'ollama'
 Provides-Extra: openai
 Requires-Dist: aiofiles; extra == 'openai'
-Requires-Dist: openai>=1.66.5; extra == 'openai'
+Requires-Dist: openai>=1.93; extra == 'openai'
 Requires-Dist: tiktoken>=0.8.0; extra == 'openai'
 Provides-Extra: redis
 Requires-Dist: redis>=5.2.1; extra == 'redis'
+Provides-Extra: redisvl
+Requires-Dist: redisvl>=0.6.0; extra == 'redisvl'
 Provides-Extra: rich
 Requires-Dist: rich>=13.9.4; extra == 'rich'
 Provides-Extra: semantic-kernel-all
@@ -122,12 +124,12 @@ Requires-Dist: semantic-kernel[pandas]>=1.17.1; extra == 'semantic-kernel-pandas
 Provides-Extra: task-centric-memory
 Requires-Dist: chromadb>=1.0.0; extra == 'task-centric-memory'
 Provides-Extra: video-surfer
-Requires-Dist: autogen-agentchat==0.6.4; extra == 'video-surfer'
+Requires-Dist: autogen-agentchat==0.7.1; extra == 'video-surfer'
 Requires-Dist: ffmpeg-python; extra == 'video-surfer'
 Requires-Dist: openai-whisper; extra == 'video-surfer'
 Requires-Dist: opencv-python>=4.5; extra == 'video-surfer'
 Provides-Extra: web-surfer
-Requires-Dist: autogen-agentchat==0.6.4; extra == 'web-surfer'
+Requires-Dist: autogen-agentchat==0.7.1; extra == 'web-surfer'
 Requires-Dist: magika>=0.6.1rc2; extra == 'web-surfer'
 Requires-Dist: markitdown[all]~=0.1.0a3; extra == 'web-surfer'
 Requires-Dist: pillow>=11.0.0; extra == 'web-surfer'

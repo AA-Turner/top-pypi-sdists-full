@@ -12,7 +12,8 @@ class Constants:
 
     se_user_defined_custom_dataframe = "spark.expectations.user.defined.custom.dataframe"
     se_notifications_enable_custom_dataframe = "spark.expectations.notifications.enable.custom.dataframe"
-    se_dq_obs_default_email_template = "spark.expectations.dq.obs.default.email.template"
+    se_dq_obs_default_email_template = "spark.expectations.dq.obs.default.detailed.email.template"
+    se_notifications_default_basic_email_template = "spark.expectations.notifications.default.basic.email.template"
     se_dq_obs_mode_of_communication = "spark.expectations.dq.obs.mode.of.communication"
     se_notifications_service_account_email = "spark.expectations.notifications.service.account.email"
     se_dq_obs_alert_flag = "spark.expectations.notifications.alert.flag.disable"
@@ -27,6 +28,9 @@ class Constants:
     se_notifications_email_to_other_mail_id = "spark.expectations.notifications.email.to.other.mail.com"
     se_notifications_email_subject = "spark.expectations.notifications.email.subject"
     se_notifications_email_custom_body = "spark.expectations.notifications.email.custom.body"
+    se_notifications_enable_templated_basic_email_body = (
+        "spark.expectations.notifications.enable.templated.basic.email.body"
+    )
 
     # declare const user config variables for slack notification
     se_notifications_enable_slack = "spark.expectations.notifications.slack.enabled"
@@ -85,6 +89,12 @@ class Constants:
 
     se_agg_dq_expectation_regex_pattern = r"(\(.+?\)|\w+\(.+?\))(\s*[<>!=]+\s*.+|\s*between\s*.+)$"
     # declare const variable for range in agg query dq detailed stats
+    # ex). count(*), count(), count(col1), sum(col1), col1
+    allowed_functions = r"(\w+\(\*\)|\w+\(\w+\)|\w+)"
+    and_clause = r"(\s+and\s+)"
+    # ex). col1 > 1, col 1 < 10
+    operator_with_value = r"(\s*[><]\s*\d+)"
+
     se_agg_dq_expectation_range_regex_pattern = (
-        r"(\w+\(\w+\)|\w+)(\s*[><]\s*\d+)\s+(and)\s+(\w+\(\w+\)|\w+)(\s*[><]\s*\d+)"
+        allowed_functions + operator_with_value + and_clause + allowed_functions + operator_with_value
     )

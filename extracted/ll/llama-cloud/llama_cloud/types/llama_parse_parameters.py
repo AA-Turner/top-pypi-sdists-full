@@ -8,6 +8,7 @@ from .fail_page_mode import FailPageMode
 from .llama_parse_parameters_priority import LlamaParseParametersPriority
 from .parser_languages import ParserLanguages
 from .parsing_mode import ParsingMode
+from .webhook_configuration import WebhookConfiguration
 
 try:
     import pydantic
@@ -23,6 +24,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     Settings that can be configured for how to use LlamaParse to parse files within a LlamaCloud pipeline.
     """
 
+    webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]]
     priority: typing.Optional[LlamaParseParametersPriority]
     languages: typing.Optional[typing.List[ParserLanguages]]
     parsing_instruction: typing.Optional[str]
@@ -40,6 +42,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     fast_mode: typing.Optional[bool]
     skip_diagonal_text: typing.Optional[bool]
     preserve_layout_alignment_across_pages: typing.Optional[bool]
+    preserve_very_small_text: typing.Optional[bool]
     gpt_4_o_mode: typing.Optional[bool] = pydantic.Field(alias="gpt4o_mode")
     gpt_4_o_api_key: typing.Optional[str] = pydantic.Field(alias="gpt4o_api_key")
     do_not_unroll_columns: typing.Optional[bool]

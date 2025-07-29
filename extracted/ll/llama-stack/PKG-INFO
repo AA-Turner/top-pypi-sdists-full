@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.2.15
+Version: 0.2.16
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -20,10 +20,11 @@ Requires-Dist: aiohttp
 Requires-Dist: fastapi<1.0,>=0.115.0
 Requires-Dist: fire
 Requires-Dist: httpx
-Requires-Dist: huggingface-hub<1.0,>=0.30.0
+Requires-Dist: huggingface-hub<1.0,>=0.34.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: jsonschema
-Requires-Dist: llama-stack-client>=0.2.15
+Requires-Dist: llama-stack-client>=0.2.16
+Requires-Dist: llama-api-client>=0.1.2
 Requires-Dist: openai>=1.66
 Requires-Dist: prompt-toolkit
 Requires-Dist: python-dotenv
@@ -44,7 +45,7 @@ Requires-Dist: asyncpg
 Provides-Extra: ui
 Requires-Dist: streamlit; extra == "ui"
 Requires-Dist: pandas; extra == "ui"
-Requires-Dist: llama-stack-client>=0.2.15; extra == "ui"
+Requires-Dist: llama-stack-client>=0.2.16; extra == "ui"
 Requires-Dist: streamlit-option-menu; extra == "ui"
 Dynamic: license-file
 
@@ -56,6 +57,7 @@ Dynamic: license-file
 [![Discord](https://img.shields.io/discord/1257833999603335178?color=6A7EC2&logo=discord&logoColor=ffffff)](https://discord.gg/llama-stack)
 [![Unit Tests](https://github.com/meta-llama/llama-stack/actions/workflows/unit-tests.yml/badge.svg?branch=main)](https://github.com/meta-llama/llama-stack/actions/workflows/unit-tests.yml?query=branch%3Amain)
 [![Integration Tests](https://github.com/meta-llama/llama-stack/actions/workflows/integration-tests.yml/badge.svg?branch=main)](https://github.com/meta-llama/llama-stack/actions/workflows/integration-tests.yml?query=branch%3Amain)
+![coverage badge](./coverage.svg)
 
 [**Quick Start**](https://llama-stack.readthedocs.io/en/latest/getting_started/index.html) | [**Documentation**](https://llama-stack.readthedocs.io/en/latest/index.html) | [**Colab Notebook**](./docs/getting_started.ipynb) | [**Discord**](https://discord.gg/llama-stack)
 

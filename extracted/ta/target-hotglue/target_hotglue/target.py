@@ -127,7 +127,7 @@ class TargetHotglue(Target):
     
     def get_record_id(self, sink_name, record, relation_fields=None):
         external_id = record.get(self.EXTERNAL_ID_KEY)
-        if external_id:
+        if external_id and not record.get(self.GLOBAL_PRIMARY_KEY):
             sink_snapshot = None
             snapshot_path_csv = f"{SNAPSHOT_DIR}/{sink_name}_{flow_id}.snapshot.csv"
             snapshot_path_parquet = f"{SNAPSHOT_DIR}/{sink_name}_{flow_id}.snapshot.parquet"

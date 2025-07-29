@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddtrace
-Version: 3.10.3
+Version: 3.11.0
 Summary: Datadog APM client library
 Author-email: "Datadog, Inc." <dev@datadoghq.com>
 License: LICENSE.BSD3
@@ -39,6 +39,8 @@ Requires-Dist: xmltodict>=0.12
 Requires-Dist: wrapt>=1
 Provides-Extra: opentracing
 Requires-Dist: opentracing>=2.0.0; extra == "opentracing"
+Provides-Extra: opentelemetry
+Requires-Dist: opentelemetry-exporter-otlp>=1.0.0; extra == "opentelemetry"
 Provides-Extra: openai
 Requires-Dist: tiktoken; extra == "openai"
 Dynamic: license-file
@@ -54,7 +56,7 @@ Dynamic: license-file
 This library powers [Distributed Tracing](https://docs.datadoghq.com/tracing/),
  [Continuous Profiling](https://docs.datadoghq.com/tracing/profiler/),
  [Error Tracking](https://docs.datadoghq.com/tracing/error_tracking/),
- [Continuous Integration Visibility](https://docs.datadoghq.com/continuous_integration/),
+ [Test Optimization](https://docs.datadoghq.com/tests/),
  [Deployment Tracking](https://docs.datadoghq.com/tracing/deployment_tracking/),
  [Code Hotspots](https://docs.datadoghq.com/tracing/profiler/connect_traces_and_profiles/),
  [Dynamic Instrumentation](https://docs.datadoghq.com/dynamic_instrumentation/),

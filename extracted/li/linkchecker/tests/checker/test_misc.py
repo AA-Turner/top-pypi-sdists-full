@@ -44,18 +44,19 @@ class TestMisc(LinkCheckTest):
     @need_network
     def test_itms_services(self):
         if sys.version_info < (3, 12):
-            url = "itms-services:?action=download-manifest&url=http://www.example.com/"
+            url = "itms-services:" \
+                  "?action=download-manifest&url=https://linkchecker.github.io/"
         else:
-            url = \
-                "itms-services://?action=download-manifest&url=http://www.example.com/"
+            url = "itms-services://" \
+                  "?action=download-manifest&url=https://linkchecker.github.io/"
         resultlines = [
             "url %s" % url,
             "cache key %s" % url,
             "real url %s" % url,
             "valid",
-            "url http://www.example.com/",
-            "cache key http://www.example.com/",
-            "real url http://www.example.com/",
+            "url https://linkchecker.github.io/",
+            "cache key https://linkchecker.github.io/",
+            "real url https://linkchecker.github.io/",
             "valid",
         ]
         self.direct(url, resultlines, recursionlevel=1)

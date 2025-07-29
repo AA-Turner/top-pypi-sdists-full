@@ -59,7 +59,7 @@ async def lifespan(
                 await logger.ainfo("Using custom store. Skipping store TTL sweeper.")
             tg.create_task(thread_ttl.thread_ttl_sweep_loop())
 
-            if feature_flags.USE_RUNTIME_API:
+            if feature_flags.USE_RUNTIME_CONTEXT_API:
                 from langgraph._internal._constants import CONFIG_KEY_RUNTIME
                 from langgraph.runtime import Runtime
 

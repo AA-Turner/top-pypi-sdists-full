@@ -43,6 +43,9 @@ class LegacyParseJobConfig(pydantic.BaseModel):
     preserve_layout_alignment_across_pages: typing.Optional[bool] = pydantic.Field(
         alias="preserveLayoutAlignmentAcrossPages", description="Whether to preserve layout alignment across pages."
     )
+    preserve_very_small_text: typing.Optional[bool] = pydantic.Field(
+        alias="preserveVerySmallText", description="Whether to preserve very small text lines."
+    )
     invalidate_cache: bool = pydantic.Field(alias="invalidateCache", description="Whether to invalidate the cache.")
     output_pdf_of_document: typing.Optional[bool] = pydantic.Field(alias="outputPDFOfDocument")
     outlined_table_extraction: typing.Optional[bool] = pydantic.Field(alias="outlinedTableExtraction")

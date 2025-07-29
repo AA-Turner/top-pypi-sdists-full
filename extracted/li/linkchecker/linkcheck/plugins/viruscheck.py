@@ -34,9 +34,13 @@ class VirusCheck(_ContentPlugin):
         self.clamav_conf = get_clamav_conf(canonical_clamav_conf())
         if not self.clamav_conf:
             log.warn(LOG_PLUGIN, "clamav daemon not found for VirusCheck plugin")
+        log.warn(
+            LOG_PLUGIN, _("VirusCheck plugin does not support ClamAV >= 1.0.")
+        )
 
     def applies_to(self, url_data):
         """Check for clamav and extern."""
+        return False  # XXX Plugin disabled
         return self.clamav_conf and not url_data.extern[0]
 
     def check(self, url_data):

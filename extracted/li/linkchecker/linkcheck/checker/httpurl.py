@@ -253,13 +253,13 @@ class HttpUrl(internpaturl.InternPatternUrl):
         )
 
     def get_request_kwargs(self):
-        """Construct keyword parameters for Session.request() and
+        """Construct keyword parameters for Session.send() and
         Session.resolve_redirects()."""
-        kwargs = dict(stream=True, timeout=self.aggregate.config["timeout"])
-        if self.scheme == "https" and self.aggregate.config["sslverify"]:
-            kwargs['verify'] = self.aggregate.config["sslverify"]
-        else:
-            kwargs['verify'] = False
+        kwargs = dict(
+            stream=True,
+            timeout=self.aggregate.config["timeout"],
+            verify=self.aggregate.config["sslverify"],
+        )
         return kwargs
 
     def get_redirects(self, request):

@@ -93,7 +93,7 @@ async def make_request(
 
     if headers:
         headers = {k: v for k, v in headers.items() if '_' not in k}
-        if not any(i in base_url for i in {"queue.fal.run", "elevenlabs"}):  # todo  xi-api-key
+        if not any(i in base_url for i in {"fal.run", "elevenlabs"}):  # todo  xi-api-key
             headers = {}
 
     client = AsyncClient(base_url=base_url, api_key=api_key, default_headers=headers, timeout=timeout)

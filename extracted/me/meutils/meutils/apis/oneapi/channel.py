@@ -100,7 +100,7 @@ async def exist_channel(
         response = await client.get(path, params=params)
         response.raise_for_status()
 
-        # logger.debug(bjson(response.json()))
+        logger.debug(bjson(response.json()))
 
         if items := response.json()['data']['items']:
             _ = [item for item in items if item['id'] == request.id]
@@ -108,6 +108,7 @@ async def exist_channel(
 
             return _
         else:
+            logger.debug(f"渠道不存在：{request.id}")
             return False
 
 
@@ -152,8 +153,16 @@ async def create_or_update_channel(
         'rix-api-user': '1',
     }
     payload = request.model_dump(exclude_none=True)
+    if "api.chatfire.cn" not in base_url and method == "post":
+        payload = {
+            "mode": "single",
+            "channel": payload
+        }
+
     async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=100) as client:
         response = await client.request(method, "/api/channel/", json=payload)
+        logger.debug(response.text)
+
         response.raise_for_status()
         logger.debug(response.json())
         return response.json()
@@ -241,7 +250,7 @@ if __name__ == '__main__':
     #
     base_url = "https://api.ffire.cc"
     # base_url = "https://usa.chatfire.cn"
-    base_url = "https://api.chatfire.cn"
+    # base_url = "https://api.chatfire.cn"
 
     # tokens = arun(get_series(FEISHU_URL))  # [:5]
     # arun(create_or_update_channel(tokens, base_url))
@@ -249,8 +258,41 @@ if __name__ == '__main__':
     # # arun(delete_channel(range(10000, 20000)))
     key = "KEY"
     request = ChannelInfo(name='', key=key)
-    request = ChannelInfo(id=10029, key=key, used_quota=0.001)
+    request = ChannelInfo(id=10099, key=key, used_quota=0.001)
 
-    # arun(create_or_update_channel(request))
+    # arun(create_or_update_channel(request, base_url=base_url))
 
     arun(exist_channel(request, base_url=base_url))
+
+"""
+UPSTREAM_BASE_URL=https://api.ffire.cc
+UPSTREAM_API_KEY=
+
+API_KEY=https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=3aA5dH[:100]
+BASE_URL=https://api.siliconflow.cn
+
+
+curl -X 'POST' http://0.0.0.0:8000/oneapi/channel \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "UPSTREAM-BASE-URL: $UPSTREAM_BASE_URL" \
+    -H "UPSTREAM-API-KEY: $UPSTREAM_API_KEY" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+      -d '{
+        "id": "1000:1500",
+        "name": "sf",
+        "tag": "sf",
+        "key": "$KEY",
+        "type": 1,
+
+        "base_url": "'$BASE_URL'",
+        "group": "default,china",
+
+        "models": "kimi-k2-0711-preview,moonshotai/kimi-k2-instruct",
+        "model_mapping": {
+            "kimi-k2-0711-preview": "moonshotai/Kimi-K2-Instruct"
+        },
+        "param_override": "{\n  \"max_tokens\": null\n}"
+    }'
+
+"""

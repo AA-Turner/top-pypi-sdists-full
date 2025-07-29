@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dazl
-Version: 8.4.1
+Version: 8.4.2
 Summary: high-level Ledger API client for Daml ledgers
 License: Apache-2.0
 Keywords: daml,blockchain,dlt,distributed ledger,digital asset

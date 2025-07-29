@@ -66,9 +66,10 @@ if LANGSMITH_AUTH_ENDPOINT:
         LANGCHAIN_METADATA_ENDPOINT = (
             LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/metadata/submit"
         )
-    LANGCHAIN_METADATA_ENDPOINT = (
-        LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
-    )
+    else:
+        LANGCHAIN_METADATA_ENDPOINT = (
+            LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
+        )
 
 
 def incr_runs(*, incr: int = 1) -> None:

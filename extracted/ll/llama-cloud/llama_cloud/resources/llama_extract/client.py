@@ -17,13 +17,16 @@ from ...types.extract_resultset import ExtractResultset
 from ...types.extract_run import ExtractRun
 from ...types.extract_schema_generate_response import ExtractSchemaGenerateResponse
 from ...types.extract_schema_validate_response import ExtractSchemaValidateResponse
+from ...types.file_data import FileData
 from ...types.http_validation_error import HttpValidationError
 from ...types.llama_extract_settings import LlamaExtractSettings
 from ...types.paginated_extract_runs_response import PaginatedExtractRunsResponse
+from ...types.webhook_configuration import WebhookConfiguration
 from .types.extract_agent_create_data_schema import ExtractAgentCreateDataSchema
 from .types.extract_agent_update_data_schema import ExtractAgentUpdateDataSchema
 from .types.extract_job_create_batch_data_schema_override import ExtractJobCreateBatchDataSchemaOverride
 from .types.extract_schema_validate_request_data_schema import ExtractSchemaValidateRequestDataSchema
+from .types.extract_stateless_request_data_schema import ExtractStatelessRequestDataSchema
 
 try:
     import pydantic
@@ -517,6 +520,7 @@ class LlamaExtractClient:
             LlamaExtractSettings,
             LlamaParseParameters,
             LlamaParseParametersPriority,
+            MultimodalParseResolution,
             ParsingMode,
         )
         from llama_cloud.client import LlamaCloud
@@ -542,6 +546,7 @@ class LlamaExtractClient:
                     parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
                     replace_failed_page_mode=FailPageMode.RAW_TEXT,
                 ),
+                multimodal_parse_resolution=MultimodalParseResolution.MEDIUM,
             ),
         )
         """
@@ -887,6 +892,92 @@ class LlamaExtractClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(typing.Any, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def extract_stateless(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]] = OMIT,
+        data_schema: ExtractStatelessRequestDataSchema,
+        config: ExtractConfig,
+        file_id: typing.Optional[str] = OMIT,
+        text: typing.Optional[str] = OMIT,
+        file: typing.Optional[FileData] = OMIT,
+    ) -> ExtractJob:
+        """
+        Stateless extraction endpoint that uses a default extraction agent in the user's default project.
+        Requires data_schema, config, and either file_id, text, or base64 encoded file data.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]].
+
+            - data_schema: ExtractStatelessRequestDataSchema. The schema of the data to extract
+
+            - config: ExtractConfig. The configuration parameters for the extraction
+
+            - file_id: typing.Optional[str].
+
+            - text: typing.Optional[str].
+
+            - file: typing.Optional[FileData].
+        ---
+        from llama_cloud import (
+            DocumentChunkMode,
+            ExtractConfig,
+            ExtractConfigPriority,
+            ExtractMode,
+            ExtractTarget,
+            FileData,
+        )
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.llama_extract.extract_stateless(
+            config=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
+                extraction_target=ExtractTarget.PER_DOC,
+                extraction_mode=ExtractMode.FAST,
+                chunk_mode=DocumentChunkMode.PAGE,
+            ),
+            file=FileData(
+                data="string",
+                mime_type="string",
+            ),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {"data_schema": data_schema, "config": config}
+        if webhook_configurations is not OMIT:
+            _request["webhook_configurations"] = webhook_configurations
+        if file_id is not OMIT:
+            _request["file_id"] = file_id
+        if text is not OMIT:
+            _request["text"] = text
+        if file is not OMIT:
+            _request["file"] = file
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/run"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ExtractJob, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -1376,6 +1467,7 @@ class AsyncLlamaExtractClient:
             LlamaExtractSettings,
             LlamaParseParameters,
             LlamaParseParametersPriority,
+            MultimodalParseResolution,
             ParsingMode,
         )
         from llama_cloud.client import AsyncLlamaCloud
@@ -1401,6 +1493,7 @@ class AsyncLlamaExtractClient:
                     parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
                     replace_failed_page_mode=FailPageMode.RAW_TEXT,
                 ),
+                multimodal_parse_resolution=MultimodalParseResolution.MEDIUM,
             ),
         )
         """
@@ -1746,6 +1839,92 @@ class AsyncLlamaExtractClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(typing.Any, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def extract_stateless(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]] = OMIT,
+        data_schema: ExtractStatelessRequestDataSchema,
+        config: ExtractConfig,
+        file_id: typing.Optional[str] = OMIT,
+        text: typing.Optional[str] = OMIT,
+        file: typing.Optional[FileData] = OMIT,
+    ) -> ExtractJob:
+        """
+        Stateless extraction endpoint that uses a default extraction agent in the user's default project.
+        Requires data_schema, config, and either file_id, text, or base64 encoded file data.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]].
+
+            - data_schema: ExtractStatelessRequestDataSchema. The schema of the data to extract
+
+            - config: ExtractConfig. The configuration parameters for the extraction
+
+            - file_id: typing.Optional[str].
+
+            - text: typing.Optional[str].
+
+            - file: typing.Optional[FileData].
+        ---
+        from llama_cloud import (
+            DocumentChunkMode,
+            ExtractConfig,
+            ExtractConfigPriority,
+            ExtractMode,
+            ExtractTarget,
+            FileData,
+        )
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.llama_extract.extract_stateless(
+            config=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
+                extraction_target=ExtractTarget.PER_DOC,
+                extraction_mode=ExtractMode.FAST,
+                chunk_mode=DocumentChunkMode.PAGE,
+            ),
+            file=FileData(
+                data="string",
+                mime_type="string",
+            ),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {"data_schema": data_schema, "config": config}
+        if webhook_configurations is not OMIT:
+            _request["webhook_configurations"] = webhook_configurations
+        if file_id is not OMIT:
+            _request["file_id"] = file_id
+        if text is not OMIT:
+            _request["text"] = text
+        if file is not OMIT:
+            _request["file"] = file
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/run"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ExtractJob, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

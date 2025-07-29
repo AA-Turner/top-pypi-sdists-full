@@ -42,6 +42,8 @@ __all__ = (
     "BatchPutAssetPropertyValueErrorCodeType",
     "CapabilitySyncStatusType",
     "ColumnNameType",
+    "ComputationModelStateType",
+    "ComputationModelTypeType",
     "ComputeLocationType",
     "ConfigurationStateType",
     "CoreDeviceOperatingSystemType",
@@ -53,6 +55,7 @@ __all__ = (
     "EncryptionTypeType",
     "ErrorCodeType",
     "ExecuteQueryPaginatorName",
+    "ExecutionStateType",
     "ForwardingConfigStateType",
     "GetAssetPropertyAggregatesPaginatorName",
     "GetAssetPropertyValueHistoryPaginatorName",
@@ -76,8 +79,12 @@ __all__ = (
     "ListBulkImportJobsFilterType",
     "ListBulkImportJobsPaginatorName",
     "ListCompositionRelationshipsPaginatorName",
+    "ListComputationModelDataBindingUsagesPaginatorName",
+    "ListComputationModelResolveToResourcesPaginatorName",
+    "ListComputationModelsPaginatorName",
     "ListDashboardsPaginatorName",
     "ListDatasetsPaginatorName",
+    "ListExecutionsPaginatorName",
     "ListGatewaysPaginatorName",
     "ListPortalsPaginatorName",
     "ListProjectAssetsPaginatorName",
@@ -97,6 +104,7 @@ __all__ = (
     "QualityType",
     "RawValueTypeType",
     "RegionName",
+    "ResolveToResourceTypeType",
     "ResourceServiceName",
     "ResourceTypeType",
     "ScalarTypeType",
@@ -157,6 +165,8 @@ ColumnNameType = Literal[
     "TIMESTAMP_SECONDS",
     "VALUE",
 ]
+ComputationModelStateType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
+ComputationModelTypeType = Literal["ANOMALY_DETECTION"]
 ComputeLocationType = Literal["CLOUD", "EDGE"]
 ConfigurationStateType = Literal["ACTIVE", "UPDATE_FAILED", "UPDATE_IN_PROGRESS"]
 CoreDeviceOperatingSystemType = Literal["LINUX_AARCH64", "LINUX_AMD64", "WINDOWS_AMD64"]
@@ -170,6 +180,7 @@ DisassociatedDataStorageStateType = Literal["DISABLED", "ENABLED"]
 EncryptionTypeType = Literal["KMS_BASED_ENCRYPTION", "SITEWISE_DEFAULT_ENCRYPTION"]
 ErrorCodeType = Literal["INTERNAL_FAILURE", "VALIDATION_ERROR"]
 ExecuteQueryPaginatorName = Literal["execute_query"]
+ExecutionStateType = Literal["COMPLETED", "FAILED", "RUNNING"]
 ForwardingConfigStateType = Literal["DISABLED", "ENABLED"]
 GetAssetPropertyAggregatesPaginatorName = Literal["get_asset_property_aggregates"]
 GetAssetPropertyValueHistoryPaginatorName = Literal["get_asset_property_value_history"]
@@ -196,8 +207,16 @@ ListBulkImportJobsFilterType = Literal[
 ]
 ListBulkImportJobsPaginatorName = Literal["list_bulk_import_jobs"]
 ListCompositionRelationshipsPaginatorName = Literal["list_composition_relationships"]
+ListComputationModelDataBindingUsagesPaginatorName = Literal[
+    "list_computation_model_data_binding_usages"
+]
+ListComputationModelResolveToResourcesPaginatorName = Literal[
+    "list_computation_model_resolve_to_resources"
+]
+ListComputationModelsPaginatorName = Literal["list_computation_models"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListDatasetsPaginatorName = Literal["list_datasets"]
+ListExecutionsPaginatorName = Literal["list_executions"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
 ListPortalsPaginatorName = Literal["list_portals"]
 ListProjectAssetsPaginatorName = Literal["list_project_assets"]
@@ -215,10 +234,11 @@ PropertyDataTypeType = Literal["BOOLEAN", "DOUBLE", "INTEGER", "STRING", "STRUCT
 PropertyNotificationStateType = Literal["DISABLED", "ENABLED"]
 QualityType = Literal["BAD", "GOOD", "UNCERTAIN"]
 RawValueTypeType = Literal["B", "D", "I", "S", "U"]
+ResolveToResourceTypeType = Literal["ASSET"]
 ResourceTypeType = Literal["PORTAL", "PROJECT"]
 ScalarTypeType = Literal["BOOLEAN", "DOUBLE", "INT", "STRING", "TIMESTAMP"]
 StorageTypeType = Literal["MULTI_LAYER_STORAGE", "SITEWISE_DEFAULT_STORAGE"]
-TargetResourceTypeType = Literal["ASSET"]
+TargetResourceTypeType = Literal["ASSET", "COMPUTATION_MODEL"]
 TimeOrderingType = Literal["ASCENDING", "DESCENDING"]
 TraversalDirectionType = Literal["CHILD", "PARENT"]
 TraversalTypeType = Literal["PATH_TO_ROOT"]
@@ -267,6 +287,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -499,6 +521,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -559,6 +582,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -662,8 +686,12 @@ PaginatorName = Literal[
     "list_associated_assets",
     "list_bulk_import_jobs",
     "list_composition_relationships",
+    "list_computation_model_data_binding_usages",
+    "list_computation_model_resolve_to_resources",
+    "list_computation_models",
     "list_dashboards",
     "list_datasets",
+    "list_executions",
     "list_gateways",
     "list_portals",
     "list_project_assets",

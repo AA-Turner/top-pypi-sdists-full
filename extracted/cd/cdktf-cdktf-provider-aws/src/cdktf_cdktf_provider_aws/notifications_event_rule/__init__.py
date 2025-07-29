@@ -1,7 +1,7 @@
 r'''
 # `aws_notifications_event_rule`
 
-Refer to the Terraform Registry for docs: [`aws_notifications_event_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule).
+Refer to the Terraform Registry for docs: [`aws_notifications_event_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NotificationsEventRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.notificationsEventRule.NotificationsEventRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule aws_notifications_event_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule aws_notifications_event_rule}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class NotificationsEventRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule aws_notifications_event_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule aws_notifications_event_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#event_type NotificationsEventRule#event_type}.
-        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#notification_configuration_arn NotificationsEventRule#notification_configuration_arn}.
-        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#regions NotificationsEventRule#regions}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#source NotificationsEventRule#source}.
-        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#event_pattern NotificationsEventRule#event_pattern}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#event_type NotificationsEventRule#event_type}.
+        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#notification_configuration_arn NotificationsEventRule#notification_configuration_arn}.
+        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#regions NotificationsEventRule#regions}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#source NotificationsEventRule#source}.
+        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#event_pattern NotificationsEventRule#event_pattern}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class NotificationsEventRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NotificationsEventRule to import.
-        :param import_from_id: The id of the existing NotificationsEventRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NotificationsEventRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NotificationsEventRule to import is found.
         '''
         if __debug__:
@@ -277,11 +277,11 @@ class NotificationsEventRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#event_type NotificationsEventRule#event_type}.
-        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#notification_configuration_arn NotificationsEventRule#notification_configuration_arn}.
-        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#regions NotificationsEventRule#regions}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#source NotificationsEventRule#source}.
-        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#event_pattern NotificationsEventRule#event_pattern}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#event_type NotificationsEventRule#event_type}.
+        :param notification_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#notification_configuration_arn NotificationsEventRule#notification_configuration_arn}.
+        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#regions NotificationsEventRule#regions}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#source NotificationsEventRule#source}.
+        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#event_pattern NotificationsEventRule#event_pattern}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -388,35 +388,35 @@ class NotificationsEventRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#event_type NotificationsEventRule#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#event_type NotificationsEventRule#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notification_configuration_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#notification_configuration_arn NotificationsEventRule#notification_configuration_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#notification_configuration_arn NotificationsEventRule#notification_configuration_arn}.'''
         result = self._values.get("notification_configuration_arn")
         assert result is not None, "Required property 'notification_configuration_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def regions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#regions NotificationsEventRule#regions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#regions NotificationsEventRule#regions}.'''
         result = self._values.get("regions")
         assert result is not None, "Required property 'regions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#source NotificationsEventRule#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#source NotificationsEventRule#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def event_pattern(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/notifications_event_rule#event_pattern NotificationsEventRule#event_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/notifications_event_rule#event_pattern NotificationsEventRule#event_pattern}.'''
         result = self._values.get("event_pattern")
         return typing.cast(typing.Optional[builtins.str], result)
 

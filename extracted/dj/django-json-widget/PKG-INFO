@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-json-widget
-Version: 2.0.1
+Version: 2.0.3
 Summary: Django json widget is an alternative widget that makes it easy to edit the jsonfield field of django.
 Home-page: https://github.com/jmrivas86/django-json-widget
 Author: José Manuel Rivas
@@ -25,6 +25,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 License-File: AUTHORS.rst
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 =============================
 django-json-widget
@@ -133,12 +142,63 @@ Tools used in rendering this package:
 .. _`cookiecutter-djangopackage`: https://github.com/pydanny/cookiecutter-djangopackage
 
 
+=========
+Changelog
+=========
+
+2.0.3 (2025-07-29)
+------------------
+
+2.0.2 (2025-07-28)
+------------------
+
+* Fix Version 2.0.1 causes rendering HTML scripts issue #80
+
+2.0.1 (2024-03-02)
+------------------=
+
+* Fixed Version 2.0.0 causes issues with Django 4.x due to missing sourcemaps issue #83
+
+2.0.0 (2024-03-24)
+------------------
+
+* Fix default paths for static files #53
+* Stop declaring support for Django versions before 3.2 #65
+* Avoid HTML injection via unsafe JSON injection #64
+* Remove source map reference from JS bundle #70
+* Add dark mode CSS support #82
+* Updated documentation
+
+1.1.1 (2021-02-17)
+------------------
+
+* Fix for issue #51, updates the bundled libs to 9.1.9 and additional notes for Django 3.1 changes
+
+1.1.0 (2021-02-05)
+------------------
+
+* Added functionality to override version of JSONEditor to use
+* update readme for django 3.1
+
+1.0.1 (2020-04-17)
+------------------
+
+* Stop resolving paths to the static files
+
+1.0.0 (2020-01-16)
+------------------
+
+* Update Makefile
+* Make Stable the project
 
 
-History
--------
+0.3.0 (2020-01-16)
+------------------
 
-0.1.0 (2017-05-10)
-++++++++++++++++++
+* Update requirements.txt
+* Fixed static to work with CDN tools like django-storages
+* Make widget more configurable
+* Fixed an incompatibility with Python 2.7
+* update jsoneditor to latest version
 
-* First release on PyPI.
+

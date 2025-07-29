@@ -433,20 +433,22 @@ class MaskDetectionUseCase(BaseProcessor):
 
         # Prepare detections without confidence scores (as per eg.json)
         detections = []
-
         for detection in counting_summary.get("detections", []):
-            detection_data = {
-                "category": detection.get("category"),
-                "bounding_box": detection.get("bounding_box", {})
-            }
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "person")
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
-                detection_data["masks"] = detection.get("masks", [])
-            if detection.get("segmentation"):
-                detection_data["segmentation"] = detection.get("segmentation")
-            if detection.get("mask"):
-                detection_data["mask"] = detection.get("mask")
-            detections.append(detection_data)
+                segmentation= detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation= detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation= detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
 
         # Build alert_settings array in expected format
         alert_settings = []

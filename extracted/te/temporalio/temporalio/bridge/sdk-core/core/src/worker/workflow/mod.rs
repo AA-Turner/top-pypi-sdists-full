@@ -22,15 +22,13 @@ use crate::{
     },
     internal_flags::InternalFlags,
     pollers::TrackedPermittedTqResp,
-    protosext::{
-        ValidPollWFTQResponse, legacy_query_failure, protocol_messages::IncomingProtocolMessage,
-    },
+    protosext::{ValidPollWFTQResponse, protocol_messages::IncomingProtocolMessage},
     telemetry::{TelemetryInstance, VecDisplayer, set_trace_subscriber_for_current_thread},
     worker::{
         LocalActRequest, LocalActivityExecutionResult, LocalActivityResolution,
         PostActivateHookData,
         activities::{ActivitiesFromWFTsHandle, LocalActivityManager},
-        client::{WorkerClient, WorkflowTaskCompletion},
+        client::{LegacyQueryResult, WorkerClient, WorkflowTaskCompletion},
         workflow::{
             history_update::HistoryPaginator,
             managed_run::RunUpdateAct,
@@ -50,7 +48,6 @@ use std::{
     collections::VecDeque,
     fmt::Debug,
     future::Future,
-    mem,
     ops::DerefMut,
     rc::Rc,
     result,
@@ -408,10 +405,9 @@ impl Workflows {
                                 ),
                                 force_cause: 0,
                             };
-                            // TODO: tim - Update workflow cause when API is ready
                             let new_outcome = FailedActivationWFTReport::Report(
                                 task_token,
-                                WorkflowTaskFailedCause::WorkflowWorkerUnhandledFailure,
+                                WorkflowTaskFailedCause::GrpcMessageTooLarge,
                                 failure,
                             );
                             self.handle_activation_failed(run_id, completion_time, new_outcome)
@@ -434,7 +430,8 @@ impl Workflows {
                 task_token,
                 action: ActivationAction::RespondLegacyQuery { result },
             } => {
-                self.respond_legacy_query(task_token, *result).await;
+                self.respond_legacy_query(task_token, LegacyQueryResult::Succeeded(*result))
+                    .await;
                 WFTReportStatus::Reported {
                     reset_last_started_to: None,
                     completion_time,
@@ -465,7 +462,7 @@ impl Workflows {
             }
             FailedActivationWFTReport::ReportLegacyQueryFailure(task_token, failure) => {
                 warn!(run_id=%run_id, failure=?failure, "Failing legacy query request");
-                self.respond_legacy_query(task_token, legacy_query_failure(failure))
+                self.respond_legacy_query(task_token, LegacyQueryResult::Failed(failure))
                     .await;
                 WFTReportStatus::Reported {
                     reset_last_started_to: None,
@@ -808,7 +805,7 @@ impl Workflows {
     }
 
     /// Wraps responding to legacy queries. Handles ignore-able failures.
-    async fn respond_legacy_query(&self, tt: TaskToken, res: QueryResult) {
+    async fn respond_legacy_query(&self, tt: TaskToken, res: LegacyQueryResult) {
         match self.client.respond_legacy_query(tt, res).await {
             Ok(_) => {}
             Err(e) if e.code() == tonic::Code::NotFound => {
@@ -1100,8 +1097,7 @@ struct BufferedTasks {
     /// current one has been processed).
     query_only_tasks: VecDeque<PermittedWFT>,
     /// These are query-only tasks for the *buffered* wft, if any. They will all be discarded if
-    /// a buffered wft is replaced before being handled. They move to `query_only_tasks` once the
-    /// buffered task is taken.
+    /// a buffered wft is replaced before being handled.
     query_only_tasks_for_buffered: VecDeque<PermittedWFT>,
 }
 
@@ -1136,9 +1132,13 @@ impl BufferedTasks {
         if let Some(q) = self.query_only_tasks.pop_front() {
             return Some(q);
         }
-        if let Some(t) = self.wft.take() {
-            self.query_only_tasks = mem::take(&mut self.query_only_tasks_for_buffered);
-            return Some(t);
+        if self.wft.is_some() {
+            if let Some(q) = self.query_only_tasks_for_buffered.pop_front() {
+                return Some(q);
+            }
+            if let Some(t) = self.wft.take() {
+                return Some(t);
+            }
         }
         None
     }

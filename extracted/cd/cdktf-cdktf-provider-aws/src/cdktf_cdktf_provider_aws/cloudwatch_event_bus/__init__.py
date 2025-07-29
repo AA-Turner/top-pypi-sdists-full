@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudwatch_event_bus`
 
-Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_bus`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus).
+Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_bus`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudwatchEventBus(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudwatchEventBus.CloudwatchEventBus",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus aws_cloudwatch_event_bus}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus aws_cloudwatch_event_bus}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class CloudwatchEventBus(
         event_source_name: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
+        log_config: typing.Optional[typing.Union["CloudwatchEventBusLogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -68,19 +69,20 @@ class CloudwatchEventBus(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus aws_cloudwatch_event_bus} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus aws_cloudwatch_event_bus} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#name CloudwatchEventBus#name}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#dead_letter_config CloudwatchEventBus#dead_letter_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#description CloudwatchEventBus#description}.
-        :param event_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#event_source_name CloudwatchEventBus#event_source_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#id CloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#kms_key_identifier CloudwatchEventBus#kms_key_identifier}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#region CloudwatchEventBus#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#tags CloudwatchEventBus#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#tags_all CloudwatchEventBus#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#name CloudwatchEventBus#name}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#dead_letter_config CloudwatchEventBus#dead_letter_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#description CloudwatchEventBus#description}.
+        :param event_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#event_source_name CloudwatchEventBus#event_source_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#id CloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#kms_key_identifier CloudwatchEventBus#kms_key_identifier}.
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#log_config CloudwatchEventBus#log_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#region CloudwatchEventBus#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#tags CloudwatchEventBus#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#tags_all CloudwatchEventBus#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -100,6 +102,7 @@ class CloudwatchEventBus(
             event_source_name=event_source_name,
             id=id,
             kms_key_identifier=kms_key_identifier,
+            log_config=log_config,
             region=region,
             tags=tags,
             tags_all=tags_all,
@@ -127,7 +130,7 @@ class CloudwatchEventBus(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudwatchEventBus to import.
-        :param import_from_id: The id of the existing CloudwatchEventBus that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudwatchEventBus that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudwatchEventBus to import is found.
         '''
         if __debug__:
@@ -145,11 +148,26 @@ class CloudwatchEventBus(
         arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#arn CloudwatchEventBus#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#arn CloudwatchEventBus#arn}.
         '''
         value = CloudwatchEventBusDeadLetterConfig(arn=arn)
 
         return typing.cast(None, jsii.invoke(self, "putDeadLetterConfig", [value]))
+
+    @jsii.member(jsii_name="putLogConfig")
+    def put_log_config(
+        self,
+        *,
+        include_detail: typing.Optional[builtins.str] = None,
+        level: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param include_detail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#include_detail CloudwatchEventBus#include_detail}.
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#level CloudwatchEventBus#level}.
+        '''
+        value = CloudwatchEventBusLogConfig(include_detail=include_detail, level=level)
+
+        return typing.cast(None, jsii.invoke(self, "putLogConfig", [value]))
 
     @jsii.member(jsii_name="resetDeadLetterConfig")
     def reset_dead_letter_config(self) -> None:
@@ -170,6 +188,10 @@ class CloudwatchEventBus(
     @jsii.member(jsii_name="resetKmsKeyIdentifier")
     def reset_kms_key_identifier(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKmsKeyIdentifier", []))
+
+    @jsii.member(jsii_name="resetLogConfig")
+    def reset_log_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetLogConfig", []))
 
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
@@ -207,6 +229,11 @@ class CloudwatchEventBus(
         return typing.cast("CloudwatchEventBusDeadLetterConfigOutputReference", jsii.get(self, "deadLetterConfig"))
 
     @builtins.property
+    @jsii.member(jsii_name="logConfig")
+    def log_config(self) -> "CloudwatchEventBusLogConfigOutputReference":
+        return typing.cast("CloudwatchEventBusLogConfigOutputReference", jsii.get(self, "logConfig"))
+
+    @builtins.property
     @jsii.member(jsii_name="deadLetterConfigInput")
     def dead_letter_config_input(
         self,
@@ -232,6 +259,11 @@ class CloudwatchEventBus(
     @jsii.member(jsii_name="kmsKeyIdentifierInput")
     def kms_key_identifier_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifierInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logConfigInput")
+    def log_config_input(self) -> typing.Optional["CloudwatchEventBusLogConfig"]:
+        return typing.cast(typing.Optional["CloudwatchEventBusLogConfig"], jsii.get(self, "logConfigInput"))
 
     @builtins.property
     @jsii.member(jsii_name="nameInput")
@@ -369,6 +401,7 @@ class CloudwatchEventBus(
         "event_source_name": "eventSourceName",
         "id": "id",
         "kms_key_identifier": "kmsKeyIdentifier",
+        "log_config": "logConfig",
         "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -391,6 +424,7 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         event_source_name: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
+        log_config: typing.Optional[typing.Union["CloudwatchEventBusLogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -403,20 +437,23 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#name CloudwatchEventBus#name}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#dead_letter_config CloudwatchEventBus#dead_letter_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#description CloudwatchEventBus#description}.
-        :param event_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#event_source_name CloudwatchEventBus#event_source_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#id CloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#kms_key_identifier CloudwatchEventBus#kms_key_identifier}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#region CloudwatchEventBus#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#tags CloudwatchEventBus#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#tags_all CloudwatchEventBus#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#name CloudwatchEventBus#name}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#dead_letter_config CloudwatchEventBus#dead_letter_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#description CloudwatchEventBus#description}.
+        :param event_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#event_source_name CloudwatchEventBus#event_source_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#id CloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#kms_key_identifier CloudwatchEventBus#kms_key_identifier}.
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#log_config CloudwatchEventBus#log_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#region CloudwatchEventBus#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#tags CloudwatchEventBus#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#tags_all CloudwatchEventBus#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
         if isinstance(dead_letter_config, dict):
             dead_letter_config = CloudwatchEventBusDeadLetterConfig(**dead_letter_config)
+        if isinstance(log_config, dict):
+            log_config = CloudwatchEventBusLogConfig(**log_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfafba108ef471a3ead1cc1cb5a2061a96efd8191c6ac90b1443c56fc9b41bf1)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -432,6 +469,7 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
+            check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -462,6 +500,8 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if kms_key_identifier is not None:
             self._values["kms_key_identifier"] = kms_key_identifier
+        if log_config is not None:
+            self._values["log_config"] = log_config
         if region is not None:
             self._values["region"] = region
         if tags is not None:
@@ -535,7 +575,7 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#name CloudwatchEventBus#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#name CloudwatchEventBus#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -546,26 +586,26 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudwatchEventBusDeadLetterConfig"]:
         '''dead_letter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#dead_letter_config CloudwatchEventBus#dead_letter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#dead_letter_config CloudwatchEventBus#dead_letter_config}
         '''
         result = self._values.get("dead_letter_config")
         return typing.cast(typing.Optional["CloudwatchEventBusDeadLetterConfig"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#description CloudwatchEventBus#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#description CloudwatchEventBus#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_source_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#event_source_name CloudwatchEventBus#event_source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#event_source_name CloudwatchEventBus#event_source_name}.'''
         result = self._values.get("event_source_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#id CloudwatchEventBus#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#id CloudwatchEventBus#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -575,28 +615,37 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#kms_key_identifier CloudwatchEventBus#kms_key_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#kms_key_identifier CloudwatchEventBus#kms_key_identifier}.'''
         result = self._values.get("kms_key_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_config(self) -> typing.Optional["CloudwatchEventBusLogConfig"]:
+        '''log_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#log_config CloudwatchEventBus#log_config}
+        '''
+        result = self._values.get("log_config")
+        return typing.cast(typing.Optional["CloudwatchEventBusLogConfig"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#region CloudwatchEventBus#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#region CloudwatchEventBus#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#tags CloudwatchEventBus#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#tags CloudwatchEventBus#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#tags_all CloudwatchEventBus#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#tags_all CloudwatchEventBus#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -620,7 +669,7 @@ class CloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CloudwatchEventBusDeadLetterConfig:
     def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#arn CloudwatchEventBus#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#arn CloudwatchEventBus#arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f9f8b573d7a03271a69af4ec3bfae48d0db86002e84dd9c44238dbb3273c37c)
@@ -631,7 +680,7 @@ class CloudwatchEventBusDeadLetterConfig:
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/cloudwatch_event_bus#arn CloudwatchEventBus#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#arn CloudwatchEventBus#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -704,11 +753,141 @@ class CloudwatchEventBusDeadLetterConfigOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.cloudwatchEventBus.CloudwatchEventBusLogConfig",
+    jsii_struct_bases=[],
+    name_mapping={"include_detail": "includeDetail", "level": "level"},
+)
+class CloudwatchEventBusLogConfig:
+    def __init__(
+        self,
+        *,
+        include_detail: typing.Optional[builtins.str] = None,
+        level: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param include_detail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#include_detail CloudwatchEventBus#include_detail}.
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#level CloudwatchEventBus#level}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__abcf7028af675c3209548866d2ea5a346afcdd09e37da06d270a8048649ca359)
+            check_type(argname="argument include_detail", value=include_detail, expected_type=type_hints["include_detail"])
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if include_detail is not None:
+            self._values["include_detail"] = include_detail
+        if level is not None:
+            self._values["level"] = level
+
+    @builtins.property
+    def include_detail(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#include_detail CloudwatchEventBus#include_detail}.'''
+        result = self._values.get("include_detail")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def level(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cloudwatch_event_bus#level CloudwatchEventBus#level}.'''
+        result = self._values.get("level")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudwatchEventBusLogConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class CloudwatchEventBusLogConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.cloudwatchEventBus.CloudwatchEventBusLogConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__638fa81af56b5b8b9c73831e5ce1b9bb090b81e0807155bdcb823cc621c67330)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetIncludeDetail")
+    def reset_include_detail(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetIncludeDetail", []))
+
+    @jsii.member(jsii_name="resetLevel")
+    def reset_level(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetLevel", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="includeDetailInput")
+    def include_detail_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "includeDetailInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="levelInput")
+    def level_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "levelInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="includeDetail")
+    def include_detail(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "includeDetail"))
+
+    @include_detail.setter
+    def include_detail(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fdea21b7e4b1ef42bc82d6fe201f06e93a21d15571e442cf7cec1d7bdd98ab7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "includeDetail", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="level")
+    def level(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "level"))
+
+    @level.setter
+    def level(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4cad681852a1c0dc2daae1d22abc911995e3f5e48610de333384340bd1c61bac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "level", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[CloudwatchEventBusLogConfig]:
+        return typing.cast(typing.Optional[CloudwatchEventBusLogConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[CloudwatchEventBusLogConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8474e3033e4eb05237f70dbd28f2ba95931da0e55bde4eb889b953c59256e56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "CloudwatchEventBus",
     "CloudwatchEventBusConfig",
     "CloudwatchEventBusDeadLetterConfig",
     "CloudwatchEventBusDeadLetterConfigOutputReference",
+    "CloudwatchEventBusLogConfig",
+    "CloudwatchEventBusLogConfigOutputReference",
 ]
 
 publication.publish()
@@ -723,6 +902,7 @@ def _typecheckingstub__10521cb28a108f1a43c4c2cf533d06b16920551646c06026da0f150e6
     event_source_name: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
+    log_config: typing.Optional[typing.Union[CloudwatchEventBusLogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -809,6 +989,7 @@ def _typecheckingstub__bfafba108ef471a3ead1cc1cb5a2061a96efd8191c6ac90b1443c56fc
     event_source_name: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
+    log_config: typing.Optional[typing.Union[CloudwatchEventBusLogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -838,6 +1019,39 @@ def _typecheckingstub__1dd736724672d4816ec2e336e74e99032a5ab05859ffc1a0f2fae417f
 
 def _typecheckingstub__40e0080a299d57a79b40cefe980a3226c1cad0da2da34a0f53d41c2cd9584785(
     value: typing.Optional[CloudwatchEventBusDeadLetterConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abcf7028af675c3209548866d2ea5a346afcdd09e37da06d270a8048649ca359(
+    *,
+    include_detail: typing.Optional[builtins.str] = None,
+    level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__638fa81af56b5b8b9c73831e5ce1b9bb090b81e0807155bdcb823cc621c67330(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fdea21b7e4b1ef42bc82d6fe201f06e93a21d15571e442cf7cec1d7bdd98ab7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cad681852a1c0dc2daae1d22abc911995e3f5e48610de333384340bd1c61bac(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8474e3033e4eb05237f70dbd28f2ba95931da0e55bde4eb889b953c59256e56(
+    value: typing.Optional[CloudwatchEventBusLogConfig],
 ) -> None:
     """Type checking stubs"""
     pass

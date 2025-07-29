@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrefly
-Version: 0.25.1
+Version: 0.26.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -12,8 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Summary: A fast Python type checker written in Rust
 Keywords: typechecker,typechecking
-Author: Meta
-License: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: homepage, https://pyrefly.org

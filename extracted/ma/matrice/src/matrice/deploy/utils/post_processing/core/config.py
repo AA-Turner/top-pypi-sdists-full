@@ -224,7 +224,7 @@ class AlertConfig:
 
     alert_type: List[str] = field(default_factory=lambda: ['Default']) #webhook, email, sms, slack, telegram, whatsapp, etc.
     alert_value: List[str] = field(default_factory=lambda: ['JSON']) #webhook_url, email_recipients, etc.
-    alert_incident_category: [List[str]] = field(default_factory=lambda: ['Incident Alert'])
+    alert_incident_category: List[str] = field(default_factory=lambda: ['Incident Alert'])
     #alert_settings: Optional[Dict[str, Any]] = {alert_type: None}
     
     def validate(self) -> List[str]:

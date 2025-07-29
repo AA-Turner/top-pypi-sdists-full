@@ -1,3 +1,9 @@
+"""Parameter parsing and validation for Velithon framework.
+
+This module provides functionality for parsing and validating HTTP request
+parameters including query parameters, path parameters, and request bodies.
+"""
+
 from __future__ import annotations
 
 import inspect
@@ -35,6 +41,7 @@ def _is_auth_dependency(annotation: Any) -> bool:
 
     Returns:
         True if this is an authentication dependency, False otherwise
+
     """
     if get_origin(annotation) is Annotated:
         _, *metadata = get_args(annotation)
@@ -79,7 +86,10 @@ _TYPE_CONVERTERS = {
 
 
 class ParameterResolver:
+    """Parameter resolver for Velithon request handlers."""
+
     def __init__(self, request: Request):
+        """Initialize the ParameterResolver with the request."""
         self.request = request
         self.data_cache = {}
         self.type_handlers = {
@@ -134,8 +144,8 @@ class ParameterResolver:
     def _get_param_value_with_alias(
         self, data: Any, param_name: str, param_metadata: Any = None
     ) -> Any:
-        """
-        Get parameter value from data, trying the actual parameter name,
+        """Get parameter value from data, trying the actual parameter name.
+
         explicit alias, and auto-generated alias (underscore to hyphen).
         """
         # First try explicit alias if provided
@@ -159,10 +169,10 @@ class ParameterResolver:
         return None
 
     async def _get_form_data(self):
-        """Helper to handle async context manager for form data."""
-        async with self.request.form() as form:
-            # Convert form data to a dictionary for Pydantic parsing
-            return dict(form)
+        """Return form data from cached form."""
+        form = await self.request._get_form()
+        # Convert form data to a dictionary for Pydantic parsing
+        return dict(form)
 
     def _get_type_key(self, annotation: Any) -> Any:
         """Determine the key for type dispatching, handling inheritance."""
@@ -270,6 +280,15 @@ class ParameterResolver:
                         for item in invalid_fields
                     ]
                 ) from e
+        elif item_type is UploadFile:
+            # Handle list of UploadFile items
+            if not all(isinstance(v, UploadFile) for v in values):
+                raise BadRequestException(
+                    details={
+                        'message': f'Invalid file type for parameter: {param_name}'
+                    }
+                )
+            return values
         raise BadRequestException(
             details={'message': f'Unsupported list item type: {item_type}'}
         )
@@ -301,7 +320,7 @@ class ParameterResolver:
                     {'field': get(item, 'loc')[0], 'msg': get(item, 'msg')}
                     for item in invalid_fields
                 ]
-            )
+            ) from e
 
     async def _parse_special(
         self,
@@ -320,7 +339,7 @@ class ParameterResolver:
             QueryParams: lambda: self.request.query_params,
             dict: lambda: self.request.scope,
             UploadFile: lambda: self._get_file(
-                param_name, data, default, is_required, param_metadata
+                param_name, data, default, is_required, param_metadata, annotation
             ),
         }
         handler = type_map.get(annotation)
@@ -338,8 +357,10 @@ class ParameterResolver:
         default: Any,
         is_required: bool,
         param_metadata: Any = None,
+        annotation: Any = None,
     ) -> Any:
         """Handle file uploads."""
+        # data is a dict[str, list[UploadFile]] from request.files()
         files = self._get_param_value_with_alias(data, param_name, param_metadata)
         if not files and default is not None and default is not ...:
             return default
@@ -347,21 +368,35 @@ class ParameterResolver:
             raise BadRequestException(
                 details={'message': f'Missing required parameter: {param_name}'}
             )
-        if isinstance(files, Sequence) and get_origin(UploadFile) is list:
+
+        # files is a list of UploadFile objects
+        if isinstance(files, list):
             if not all(isinstance(f, UploadFile) for f in files):
                 raise BadRequestException(
                     details={
                         'message': f'Invalid file type for parameter: {param_name}'
                     }
                 )
+
+            # Check if the annotation expects a list
+            if annotation and get_origin(annotation) is list:
+                # Return the entire list for list[UploadFile] annotations
+                return files
+            else:
+                # Return the first file for single UploadFile annotations
+                return files[0] if files else None
+
+        # If files is a single UploadFile, return it
+        if isinstance(files, UploadFile):
             return files
-        return files[0] if files else None
+
+        return None
 
     @parser_cache()
     def _resolve_param_metadata(
         self, param: inspect.Parameter
     ) -> tuple[Any, str, Any, bool, Any]:
-        """Cache parameter metadata (annotation, param_type, default, is_required, param_metadata)."""
+        """Cache parameter metadata (annotation, param_type, default, is_required, param_metadata)."""  # noqa: E501
         annotation = param.annotation
         default = (
             param.default if param.default is not inspect.Parameter.empty else None
@@ -407,9 +442,12 @@ class ParameterResolver:
                 )
 
             if hasattr(param_metadata, 'media_type'):
-                if param_metadata.media_type != self.request.headers.get(
-                    'Content-Type', ''
-                ):
+                content_type = self.request.headers.get('Content-Type', '')
+                # Extract main media type (ignore parameters like boundary)
+                main_media_type = content_type.split(';')[0].strip()
+                expected_media_type = param_metadata.media_type.split(';')[0].strip()
+
+                if main_media_type != expected_media_type:
                     raise InvalidMediaTypeException(
                         details={
                             'message': f'Invalid media type for parameter: {param.name}'
@@ -427,8 +465,11 @@ class ParameterResolver:
             )
             default = metadata_default if metadata_default is not None else default
             annotation = base_type
+            # If File() is used, ensure param_type remains file_data
+            if isinstance(param_metadata, File):
+                return annotation, 'file_data', default, is_required, param_metadata
             # If Form() is used, ensure param_type remains form_data even for BaseModel
-            if isinstance(param_metadata, Form):
+            elif isinstance(param_metadata, Form):
                 return annotation, 'form_data', default, is_required, param_metadata
 
         if annotation is inspect._empty:
@@ -437,6 +478,14 @@ class ParameterResolver:
                 if param.name in self.request.path_params
                 else 'query_params'
             )
+        elif annotation is UploadFile:
+            param_type = 'file_data'
+        elif (
+            get_origin(annotation) is list
+            and len(get_args(annotation)) > 0
+            and get_args(annotation)[0] is UploadFile
+        ):
+            param_type = 'file_data'
         elif isinstance(annotation, type) and issubclass(annotation, BaseModel):
             param_type = (
                 'json_body' if self.request.method.upper() != 'GET' else 'query_params'
@@ -522,8 +571,12 @@ class ParameterResolver:
 
 
 class InputHandler:
+    """Input handler for resolving parameters from a request."""
+
     def __init__(self, request: Request):
+        """Initialize the InputHandler with the request."""
         self.resolver = ParameterResolver(request)
 
     async def get_input(self, signature: inspect.Signature) -> dict[str, Any]:
+        """Resolve parameters from the request based on the function signature."""
         return await self.resolver.resolve(signature)

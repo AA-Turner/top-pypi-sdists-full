@@ -17,9 +17,8 @@ def create_fal_models(model: str, request: dict):
         resolution = request.get("resolution")
 
         billing_model = f"{duration}s_{resolution}"
-    else:
-        duration = request.get("duration", "5")
-        resolution = request.get("resolution", "720p")
+        return billing_model
 
-        billing_model = f"_{duration}s_{resolution}"
-    return billing_model
+    elif model == "ideogram":
+        billing_model = request.get("rendering_speed", "BALANCED").lower()
+        return billing_model

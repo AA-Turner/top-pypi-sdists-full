@@ -1,6 +1,6 @@
 [project]
 name = "velithon"
-version = "0.5.0"
+version = "0.6.0"
 description = "Velithon is a lightweight, high-performance, asynchronous web framework for Python, built on top of the RSGI protocol"
 authors = [
     {name = "Dang Van Nghiem",email = "vannghiem848@gmail.com"}
@@ -31,7 +31,6 @@ classifiers = [
 ]
 dependencies = [
     "granian[asyncio,reload,rloop,uvloop] (>=2.2.6,<3.0.0)",
-    "python-multipart (>=0.0.20,<0.0.21)",
     "orjson (>=3.10.16,<4.0.0)",
     "pydantic[email] (>=2.11.7,<3.0.0)",
     "pydash (>=8.0.5,<9.0.0)",

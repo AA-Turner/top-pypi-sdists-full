@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: shandy-sqlfmt
-Version: 0.26.0
+Version: 0.27.0
 Summary: sqlfmt formats your dbt SQL files so you don't have to.
 Home-page: https://sqlfmt.com
 License: Apache-2.0

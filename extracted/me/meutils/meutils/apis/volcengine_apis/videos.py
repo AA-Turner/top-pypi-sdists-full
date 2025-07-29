@@ -56,7 +56,7 @@ async def create_task(request: Union[CompletionRequest, VideoRequest], api_key: 
     api_key = api_key or await get_next_token_for_polling(
         feishu_url=feishu_url,
         from_redis=True,
-        ttl=15 * 60,
+        ttl=24 * 3600,
         check_token=check
     )
 

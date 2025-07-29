@@ -18,9 +18,7 @@ from meutils.io.files_utils import to_url
 from meutils.config_utils.lark_utils import get_next_token_for_polling
 from meutils.schemas.openai_types import STTRequest, TTSRequest
 
-FEISHU_URL = "https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=gg5DNy"
-
-BASE_URL = "https://ai.gitee.com/v1"
+from meutils.schemas.gitee_types import FEISHU_URL, BASE_URL
 
 
 async def text_to_speech(request: TTSRequest, api_key: Optional[str] = None):

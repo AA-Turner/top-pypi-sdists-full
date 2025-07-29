@@ -12,6 +12,7 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute
 
 from langgraph_api import store as api_store
+from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
 from langgraph_api.graph import get_assistant_id, get_graph
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
@@ -55,6 +56,9 @@ def _get_configurable_jsonschema(graph: Pregel) -> dict:
 
     Returns:
        The JSON schema for the configurable part of the graph.
+
+    Whenever we no longer support langgraph < 0.6, we can remove this method
+    in favor of graph.get_context_jsonschema().
     """
     # Otherwise, use the config_schema method.
     config_schema = graph.config_schema()
@@ -73,7 +77,7 @@ def _get_configurable_jsonschema(graph: Pregel) -> dict:
         if hasattr(graph, "config_type") and graph.config_type is not None:
             if hasattr(graph.config_type, "__name__"):
                 json_schema["title"] = graph.config_type.__name__
-            return json_schema
+        return json_schema
     # If the schema does not have a configurable field, return an empty schema.
     return {}
 
@@ -112,6 +116,7 @@ def _graph_schemas(graph: Pregel) -> dict:
             f"Failed to get state schema for graph {graph.name} with error: `{str(e)}`"
         )
         state_schema = None
+
     try:
         config_schema = _get_configurable_jsonschema(graph)
     except Exception as e:
@@ -119,18 +124,31 @@ def _graph_schemas(graph: Pregel) -> dict:
             f"Failed to get config schema for graph {graph.name} with error: `{str(e)}`"
         )
         config_schema = None
+
+    if USE_RUNTIME_CONTEXT_API:
+        try:
+            context_schema = graph.get_context_jsonschema()
+        except Exception as e:
+            logger.warning(
+                f"Failed to get context schema for graph {graph.name} with error: `{str(e)}`"
+            )
+            context_schema = graph.config_schema()
+    else:
+        context_schema = None
+
     return {
         "input_schema": input_schema,
         "output_schema": output_schema,
         "state_schema": state_schema,
         "config_schema": config_schema,
+        "context_schema": context_schema,
     }
 
 
 @retry_db
 async def create_assistant(request: ApiRequest) -> ApiResponse:
-    payload = await request.json(AssistantCreate)
     """Create an assistant."""
+    payload = await request.json(AssistantCreate)
     if assistant_id := payload.get("assistant_id"):
         validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     async with connect() as conn:
@@ -138,6 +156,7 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
             conn,
             assistant_id or str(uuid4()),
             config=payload.get("config") or {},
+            context=payload.get("context") or {},
             graph_id=payload["graph_id"],
             metadata=payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
@@ -309,39 +328,16 @@ async def get_assistant_schemas(
                         "output_schema": schemas.get("output"),
                         "state_schema": schemas.get("state"),
                         "config_schema": schemas.get("config"),
+                        "context_schema": schemas.get("context"),
                     }
                 )
 
-            try:
-                input_schema = graph.get_input_jsonschema()
-            except Exception as e:
-                logger.warning(
-                    f"Failed to get input schema for graph {graph.name} with error: `{str(e)}`"
-                )
-                input_schema = None
-            try:
-                output_schema = graph.get_output_jsonschema()
-            except Exception as e:
-                logger.warning(
-                    f"Failed to get output schema for graph {graph.name} with error: `{str(e)}`"
-                )
-                output_schema = None
+            schemas = _graph_schemas(graph)
 
-            state_schema = _state_jsonschema(graph)
-            try:
-                config_schema = _get_configurable_jsonschema(graph)
-            except Exception as e:
-                config_schema = None
-                logger.warning(
-                    f"Failed to get config schema for graph {graph.name} with error: `{str(e)}`"
-                )
             return ApiResponse(
                 {
                     "graph_id": assistant["graph_id"],
-                    "input_schema": input_schema,
-                    "output_schema": output_schema,
-                    "state_schema": state_schema,
-                    "config_schema": config_schema,
+                    **schemas,
                 }
             )
 
@@ -359,6 +355,7 @@ async def patch_assistant(
             conn,
             assistant_id,
             config=payload.get("config"),
+            context=payload.get("context"),
             graph_id=payload.get("graph_id"),
             metadata=payload.get("metadata"),
             name=payload.get("name"),

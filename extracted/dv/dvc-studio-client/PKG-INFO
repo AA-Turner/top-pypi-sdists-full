@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dvc-studio-client
-Version: 0.21.0
+Version: 0.22.0
 Summary: Small library to post data from DVC/DVCLive to Iterative Studio 
 Author-email: Iterative <support@dvc.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Issues, https://github.com/iterative/dvc-studio-client/issues
 Project-URL: Source, https://github.com/iterative/dvc-studio-client
 Classifier: Programming Language :: Python :: 3
@@ -11,6 +11,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 1 - Planning
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
@@ -32,7 +34,8 @@ Requires-Dist: pytest-mock; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: dvc-studio-client[docs,tests]; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: mypy==1.10.1; extra == "dev"
+Requires-Dist: mypy==1.17.0; extra == "dev"
+Dynamic: license-file
 
 dvc-studio-client
 =================

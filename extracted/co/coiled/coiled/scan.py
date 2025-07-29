@@ -556,7 +556,7 @@ async def scan_prefix(
                         url = url.rstrip("/")
                         remote_urls.add(url)
 
-                except (subprocess.CalledProcessError, FileNotFoundError):
+                except Exception:
                     remote_urls = {}
                 if pkg_urls.intersection(remote_urls):
                     continue

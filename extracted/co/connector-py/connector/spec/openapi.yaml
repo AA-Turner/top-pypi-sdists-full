@@ -1548,6 +1548,78 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/list_updated_accounts:
+    post:
+      operationId: list_updated_accounts
+      description: |-
+        Retrieve a list of accounts that have been updated since a given date.
+
+        Common use cases include:
+        - Auditing updated accounts
+        - Account discovery and synchronization
+
+        The request body allows for optional specification of custom attributes
+        to include in the response.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListUpdatedAccountsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListUpdatedAccounts'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/refresh_access_token:
     post:
       operationId: refresh_access_token
@@ -3877,6 +3949,49 @@ components:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing the list of available resources and their details
+    ListUpdatedAccounts:
+      type: object
+      required:
+        - since_date
+      properties:
+        since_date:
+          type: string
+          format: date-time
+          description: |-
+            Only include accounts that have been updated since this date.
+
+            Must be a valid ISO 8601 datetime string with timezone information.
+            Examples: "2024-01-15T10:30:00Z", "2024-01-15T10:30:00+05:00"
+
+            This is a "best effort" on a per-connector basis, each connector could limit how far in the past
+            they can go.
+        custom_attributes:
+          type: array
+          items:
+            type: string
+          description: |-
+            Optional array of custom attribute names to include in the account data.
+            Each string in this array represents a specific custom attribute to retrieve.
+      description: |-
+        Request parameters for listing accounts that have been updated
+        since a given date
+      x-capability-level: read
+    ListUpdatedAccountsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/FoundAccountData'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing information about the updated accounts
     NormalizedExpenseApprovalStatus:
       type: string
       enum:
@@ -4272,6 +4387,7 @@ components:
         - handle_authorization_callback
         - handle_client_credentials_request
         - list_accounts
+        - list_updated_accounts
         - get_account
         - list_activity_records
         - list_custom_attributes_schema

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 0.5.14
+Version: 0.5.16
 Summary: The official Python library for the turbopuffer API
 Project-URL: Homepage, https://github.com/turbopuffer/turbopuffer-python
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -200,10 +200,6 @@ async def main() -> None:
                 {
                     "id": "2108ed60-6851-49a0-9016-8325434f3845",
                     "vector": [0.1, 0.2],
-                    "attributes": {
-                        "name": "Red boots",
-                        "price": 34.99,
-                    },
                 }
             ],
         )

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TypeAlias
 from uuid import UUID
 
 from typing_extensions import TypedDict
@@ -25,6 +25,8 @@ OnCompletion = Literal["delete", "keep"]
 IfNotExists = Literal["create", "reject"]
 
 All = Literal["*"]
+
+Context: TypeAlias = dict[str, Any]
 
 
 class Config(TypedDict, total=False):
@@ -55,17 +57,6 @@ class Checkpoint(TypedDict):
     checkpoint_map: dict[str, Any] | None
 
 
-class GraphSchema(TypedDict):
-    """Graph model."""
-
-    graph_id: str
-    """The ID of the graph."""
-    state_schema: dict
-    """The schema for the graph state."""
-    config_schema: dict
-    """The schema for the graph config."""
-
-
 class Assistant(TypedDict):
     """Assistant model."""
 
@@ -79,6 +70,8 @@ class Assistant(TypedDict):
     """The description of the assistant."""
     config: Config
     """The assistant config."""
+    context: Fragment
+    """The static context of the assistant."""
     created_at: datetime
     """The time the assistant was created."""
     updated_at: datetime
@@ -87,6 +80,31 @@ class Assistant(TypedDict):
     """The assistant metadata."""
     version: int
     """The assistant version."""
+
+
+class Interrupt(TypedDict):
+    id: str | None
+    """The ID of the interrupt."""
+    value: Any
+    """The value of the interrupt."""
+
+
+class DeprecatedInterrupt(TypedDict, total=False):
+    """We document this old interrupt format internally, but not in API spec.
+
+    Should be dropped with lg-api v1.0.0.
+    """
+
+    id: str | None
+    """The ID of the interrupt."""
+    value: Any
+    """The value of the interrupt."""
+    resumable: bool
+    """Whether the interrupt is resumable."""
+    ns: Sequence[str] | None
+    """The optional namespace of the interrupt."""
+    when: Literal["during"]
+    """When the interrupt occurred, always "during"."""
 
 
 class Thread(TypedDict):
@@ -104,7 +122,7 @@ class Thread(TypedDict):
     """The status of the thread. One of 'idle', 'busy', 'interrupted', "error"."""
     values: Fragment
     """The current state of the thread."""
-    interrupts: Fragment
+    interrupts: dict[str, list[Interrupt]]
     """The current interrupts of the thread, a map of task_id to list of interrupts."""
 
 
@@ -112,7 +130,7 @@ class ThreadTask(TypedDict):
     id: str
     name: str
     error: str | None
-    interrupts: list[dict]
+    interrupts: list[Interrupt]
     checkpoint: Checkpoint | None
     state: Optional["ThreadState"]
 
@@ -133,6 +151,8 @@ class ThreadState(TypedDict):
     """The parent checkpoint. If missing, this is the root checkpoint."""
     tasks: Sequence[ThreadTask]
     """Tasks to execute in this step. If already attempted, may contain an error."""
+    interrupts: list[Interrupt]
+    """The interrupts for this state."""
 
 
 class Run(TypedDict):

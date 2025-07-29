@@ -8,12 +8,12 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "anthropic<1,>=0.57.0",
-    "langchain-core<1.0.0,>=0.3.68",
+    "anthropic<1,>=0.60.0",
+    "langchain-core<1.0.0,>=0.3.72",
     "pydantic<3.0.0,>=2.7.4",
 ]
 name = "langchain-anthropic"
-version = "0.3.17"
+version = "0.3.18"
 description = "An integration package connecting AnthropicMessages and LangChain"
 readme = "README.md"
 
@@ -45,7 +45,7 @@ codespell = [
     "codespell<3.0.0,>=2.2.0",
 ]
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
 ]
 dev = [
     "langchain-core",
@@ -79,21 +79,67 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = [
+    "A",
+    "B",
+    "ASYNC",
+    "C4",
+    "COM",
+    "D",
     "E",
+    "EM",
     "F",
+    "FA",
+    "FBT",
+    "FLY",
     "I",
-    "T201",
-    "UP",
+    "ICN",
+    "INT",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PERF",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
     "S",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "T20",
+    "TID",
+    "UP",
+    "W",
+    "YTT",
 ]
 ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D407",
+    "D214",
+    "COM812",
+    "ISC001",
+    "PERF203",
     "UP007",
+    "UP045",
+    "SIM105",
+]
+unfixable = [
+    "B028",
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [
     "S101",
     "S311",
+    "SLF001",
 ]
 
 [tool.coverage.run]

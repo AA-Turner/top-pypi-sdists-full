@@ -84,6 +84,8 @@ class MatriceDeployServer:
             self.action_details = self.action_tracker.action_details
             self.job_params = self.action_tracker.get_job_params()
             self.server_type = self.action_tracker.server_type
+            self.app_name = self.job_params.get("application_name", "")
+            self.app_version = self.job_params.get("application_version", "")
 
             logging.info("Action details: %s", self.action_details)
 
@@ -312,6 +314,7 @@ class MatriceDeployServer:
             dynamic_batching=dynamic_batching,
             post_processing_config=self.job_params.get("postProcessingConfig", None),
             custom_post_processing_fn=self.custom_post_processing_fn,
+            app_name=self.app_name,
         )
 
         logging.info("Inference interface initialized successfully")
@@ -345,6 +348,8 @@ class MatriceDeployServer:
             deployment_instance_id=self.deployment_instance_id,
             inference_interface=self.inference_interface,
             num_workers=num_workers,
+            app_name=self.app_name,
+            app_version=self.app_version,
         )
 
         # Start stream worker manager in background thread since it's async

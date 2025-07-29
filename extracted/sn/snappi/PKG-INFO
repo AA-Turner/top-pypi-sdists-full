@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snappi
-Version: 1.33.1
+Version: 1.33.2
 Summary: The Snappi Open Traffic Generator Python Package
 Home-page: https://github.com/open-traffic-generator/snappi
 Author: ajbalogh
@@ -16,14 +16,14 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=2.7, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests
-Requires-Dist: grpcio~=1.44.0; python_version <= "3.6"
-Requires-Dist: grpcio~=1.59.5; python_version > "3.6"
-Requires-Dist: grpcio-tools~=1.44.0; python_version <= "3.6"
-Requires-Dist: grpcio-tools~=1.59.5; python_version > "3.6"
-Requires-Dist: PyYAML
-Requires-Dist: protobuf~=4.24.4; python_version > "3.6"
 Requires-Dist: protobuf~=3.15.0; python_version <= "3.6"
+Requires-Dist: protobuf~=4.24.4; python_version > "3.6"
+Requires-Dist: PyYAML
+Requires-Dist: grpcio~=1.59.5; python_version > "3.6"
+Requires-Dist: grpcio-tools~=1.59.5; python_version > "3.6"
+Requires-Dist: grpcio-tools~=1.44.0; python_version <= "3.6"
+Requires-Dist: grpcio~=1.44.0; python_version <= "3.6"
+Requires-Dist: requests
 Requires-Dist: semantic_version
 Requires-Dist: urllib3
 Provides-Extra: ixnetwork
@@ -33,6 +33,13 @@ Requires-Dist: snappi_trex; extra == "trex"
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: flask; extra == "testing"
+Provides-Extra: telemetry
+Requires-Dist: opentelemetry-api==1.17.0; python_version >= "3.7" and extra == "telemetry"
+Requires-Dist: opentelemetry-sdk; python_version >= "3.7" and extra == "telemetry"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; python_version >= "3.7" and extra == "telemetry"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc; python_version >= "3.7" and extra == "telemetry"
+Requires-Dist: opentelemetry-instrumentation-grpc; python_version >= "3.7" and extra == "telemetry"
+Requires-Dist: opentelemetry-instrumentation-requests; python_version >= "3.7" and extra == "telemetry"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -69,7 +76,7 @@ Test scripts written in `snappi`, an auto-generated python SDK, can be executed 
 python -m pip install --upgrade snappi 
 ```
 
-## Start Testing 
+## Start Testing
 
 ```python
 import datetime

@@ -1,7 +1,7 @@
 r'''
 # `aws_athena_database`
 
-Refer to the Terraform Registry for docs: [`aws_athena_database`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database).
+Refer to the Terraform Registry for docs: [`aws_athena_database`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AthenaDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.athenaDatabase.AthenaDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database aws_athena_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database aws_athena_database}.'''
 
     def __init__(
         self,
@@ -61,6 +61,7 @@ class AthenaDatabase(
         id: typing.Optional[builtins.str] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         region: typing.Optional[builtins.str] = None,
+        workgroup: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -69,20 +70,21 @@ class AthenaDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database aws_athena_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database aws_athena_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#name AthenaDatabase#name}.
-        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#acl_configuration AthenaDatabase#acl_configuration}
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#bucket AthenaDatabase#bucket}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#comment AthenaDatabase#comment}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#encryption_configuration AthenaDatabase#encryption_configuration}
-        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#expected_bucket_owner AthenaDatabase#expected_bucket_owner}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#force_destroy AthenaDatabase#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#id AthenaDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#properties AthenaDatabase#properties}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#region AthenaDatabase#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#name AthenaDatabase#name}.
+        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#acl_configuration AthenaDatabase#acl_configuration}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#bucket AthenaDatabase#bucket}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#comment AthenaDatabase#comment}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#encryption_configuration AthenaDatabase#encryption_configuration}
+        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#expected_bucket_owner AthenaDatabase#expected_bucket_owner}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#force_destroy AthenaDatabase#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#id AthenaDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#properties AthenaDatabase#properties}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#region AthenaDatabase#region}
+        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#workgroup AthenaDatabase#workgroup}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,6 +108,7 @@ class AthenaDatabase(
             id=id,
             properties=properties,
             region=region,
+            workgroup=workgroup,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -130,7 +133,7 @@ class AthenaDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AthenaDatabase to import.
-        :param import_from_id: The id of the existing AthenaDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AthenaDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AthenaDatabase to import is found.
         '''
         if __debug__:
@@ -144,7 +147,7 @@ class AthenaDatabase(
     @jsii.member(jsii_name="putAclConfiguration")
     def put_acl_configuration(self, *, s3_acl_option: builtins.str) -> None:
         '''
-        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#s3_acl_option AthenaDatabase#s3_acl_option}.
+        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#s3_acl_option AthenaDatabase#s3_acl_option}.
         '''
         value = AthenaDatabaseAclConfiguration(s3_acl_option=s3_acl_option)
 
@@ -158,8 +161,8 @@ class AthenaDatabase(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#encryption_option AthenaDatabase#encryption_option}.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#kms_key AthenaDatabase#kms_key}.
+        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#encryption_option AthenaDatabase#encryption_option}.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#kms_key AthenaDatabase#kms_key}.
         '''
         value = AthenaDatabaseEncryptionConfiguration(
             encryption_option=encryption_option, kms_key=kms_key
@@ -202,6 +205,10 @@ class AthenaDatabase(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetWorkgroup")
+    def reset_workgroup(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetWorkgroup", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -285,6 +292,11 @@ class AthenaDatabase(
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workgroupInput")
+    def workgroup_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workgroupInput"))
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
@@ -385,6 +397,18 @@ class AthenaDatabase(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="workgroup")
+    def workgroup(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "workgroup"))
+
+    @workgroup.setter
+    def workgroup(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__774ea4ebbb3aa91ef917a7bb8a503e6036d81f9d72bbc56ce069df652ba1342e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workgroup", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.athenaDatabase.AthenaDatabaseAclConfiguration",
@@ -394,7 +418,7 @@ class AthenaDatabase(
 class AthenaDatabaseAclConfiguration:
     def __init__(self, *, s3_acl_option: builtins.str) -> None:
         '''
-        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#s3_acl_option AthenaDatabase#s3_acl_option}.
+        :param s3_acl_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#s3_acl_option AthenaDatabase#s3_acl_option}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb824adf8ea34426d237a3c55e47ad97d6497f1dea8e4bfbdbe44121ab0e32e5)
@@ -405,7 +429,7 @@ class AthenaDatabaseAclConfiguration:
 
     @builtins.property
     def s3_acl_option(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#s3_acl_option AthenaDatabase#s3_acl_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#s3_acl_option AthenaDatabase#s3_acl_option}.'''
         result = self._values.get("s3_acl_option")
         assert result is not None, "Required property 's3_acl_option' is missing"
         return typing.cast(builtins.str, result)
@@ -496,6 +520,7 @@ class AthenaDatabaseAclConfigurationOutputReference(
         "id": "id",
         "properties": "properties",
         "region": "region",
+        "workgroup": "workgroup",
     },
 )
 class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -519,6 +544,7 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         region: typing.Optional[builtins.str] = None,
+        workgroup: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -528,16 +554,17 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#name AthenaDatabase#name}.
-        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#acl_configuration AthenaDatabase#acl_configuration}
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#bucket AthenaDatabase#bucket}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#comment AthenaDatabase#comment}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#encryption_configuration AthenaDatabase#encryption_configuration}
-        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#expected_bucket_owner AthenaDatabase#expected_bucket_owner}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#force_destroy AthenaDatabase#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#id AthenaDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#properties AthenaDatabase#properties}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#region AthenaDatabase#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#name AthenaDatabase#name}.
+        :param acl_configuration: acl_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#acl_configuration AthenaDatabase#acl_configuration}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#bucket AthenaDatabase#bucket}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#comment AthenaDatabase#comment}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#encryption_configuration AthenaDatabase#encryption_configuration}
+        :param expected_bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#expected_bucket_owner AthenaDatabase#expected_bucket_owner}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#force_destroy AthenaDatabase#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#id AthenaDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#properties AthenaDatabase#properties}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#region AthenaDatabase#region}
+        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#workgroup AthenaDatabase#workgroup}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -564,6 +591,7 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument workgroup", value=workgroup, expected_type=type_hints["workgroup"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -599,6 +627,8 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["properties"] = properties
         if region is not None:
             self._values["region"] = region
+        if workgroup is not None:
+            self._values["workgroup"] = workgroup
 
     @builtins.property
     def connection(
@@ -666,7 +696,7 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#name AthenaDatabase#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#name AthenaDatabase#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -675,20 +705,20 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def acl_configuration(self) -> typing.Optional[AthenaDatabaseAclConfiguration]:
         '''acl_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#acl_configuration AthenaDatabase#acl_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#acl_configuration AthenaDatabase#acl_configuration}
         '''
         result = self._values.get("acl_configuration")
         return typing.cast(typing.Optional[AthenaDatabaseAclConfiguration], result)
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#bucket AthenaDatabase#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#bucket AthenaDatabase#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#comment AthenaDatabase#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#comment AthenaDatabase#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -698,14 +728,14 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AthenaDatabaseEncryptionConfiguration"]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#encryption_configuration AthenaDatabase#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#encryption_configuration AthenaDatabase#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional["AthenaDatabaseEncryptionConfiguration"], result)
 
     @builtins.property
     def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#expected_bucket_owner AthenaDatabase#expected_bucket_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#expected_bucket_owner AthenaDatabase#expected_bucket_owner}.'''
         result = self._values.get("expected_bucket_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -713,13 +743,13 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#force_destroy AthenaDatabase#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#force_destroy AthenaDatabase#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#id AthenaDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#id AthenaDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -729,7 +759,7 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#properties AthenaDatabase#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#properties AthenaDatabase#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -737,9 +767,15 @@ class AthenaDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#region AthenaDatabase#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#region AthenaDatabase#region}
         '''
         result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workgroup(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#workgroup AthenaDatabase#workgroup}.'''
+        result = self._values.get("workgroup")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -767,8 +803,8 @@ class AthenaDatabaseEncryptionConfiguration:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#encryption_option AthenaDatabase#encryption_option}.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#kms_key AthenaDatabase#kms_key}.
+        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#encryption_option AthenaDatabase#encryption_option}.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#kms_key AthenaDatabase#kms_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22146a8ced77a1b2b4c2d303f185163772379c6d766b44d024ebdb906afadd30)
@@ -782,14 +818,14 @@ class AthenaDatabaseEncryptionConfiguration:
 
     @builtins.property
     def encryption_option(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#encryption_option AthenaDatabase#encryption_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#encryption_option AthenaDatabase#encryption_option}.'''
         result = self._values.get("encryption_option")
         assert result is not None, "Required property 'encryption_option' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/athena_database#kms_key AthenaDatabase#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/athena_database#kms_key AthenaDatabase#kms_key}.'''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -904,6 +940,7 @@ def _typecheckingstub__6558b3efbcc579f7749239face6892b8083534f8b7619ef95017f5787
     id: typing.Optional[builtins.str] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     region: typing.Optional[builtins.str] = None,
+    workgroup: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -972,6 +1009,12 @@ def _typecheckingstub__8c6e8a86e53a5ad032ca8f74795ee8a96f98cac0fd87fdb3de03cd79a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__774ea4ebbb3aa91ef917a7bb8a503e6036d81f9d72bbc56ce069df652ba1342e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__eb824adf8ea34426d237a3c55e47ad97d6497f1dea8e4bfbdbe44121ab0e32e5(
     *,
     s3_acl_option: builtins.str,
@@ -1017,6 +1060,7 @@ def _typecheckingstub__95eeb42fa67e00752f8998b972414a1cd3e74d0da742622b6beceb8a8
     id: typing.Optional[builtins.str] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     region: typing.Optional[builtins.str] = None,
+    workgroup: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

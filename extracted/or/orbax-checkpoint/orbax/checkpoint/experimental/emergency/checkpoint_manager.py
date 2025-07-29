@@ -33,7 +33,7 @@ import functools
 import itertools
 import operator
 import time
-from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Set
+from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Set, Union
 
 from absl import logging
 from etils import epath
@@ -45,6 +45,7 @@ from orbax.checkpoint import abstract_checkpoint_manager
 from orbax.checkpoint import args as args_lib
 from orbax.checkpoint import checkpoint_manager
 from orbax.checkpoint import checkpoint_utils
+from orbax.checkpoint._src.handlers import handler_registration
 from orbax.checkpoint._src.handlers import pytree_checkpoint_handler
 from orbax.checkpoint._src.logging import abstract_logger
 from orbax.checkpoint._src.logging import standard_logger
@@ -61,6 +62,7 @@ from typing_extensions import Self  # for Python version < 3.11
 
 PyTree = checkpoint_manager.PyTree
 CheckpointHandler = checkpoint_manager.CheckpointHandler
+CheckpointHandlersDict = Dict[str, CheckpointHandler]
 P = jax.sharding.PartitionSpec
 PyTreeCheckpointHandler = pytree_checkpoint_handler.PyTreeCheckpointHandler
 ProcessMetadataCheckpointHandler = (
@@ -77,6 +79,7 @@ _PRIMARY_REPLICA_ID = 0
 _SECONDARY_REPLICA_ID = 1
 _STATE_ITEM_NAME = 'state'
 _PROCESS_METADATA_NAME = 'process_metadata'
+_DATASET_ITEM_NAME = 'dataset'
 
 
 local_all_steps_broadcast_counter = itertools.count()
@@ -281,23 +284,23 @@ def _common_values_per_slice(
     processes in that slice. A value appearing in one process but not another
     in the same slice will not appear in the output.
   """
-  total_num_slices = multislice.slice_count(
+  total_num_replicas = multislice.replica_count(
       global_mesh, replica_axis_index=replica_axis_index
   )
-  num_processes_per_slice = (
-      global_mesh.devices.size // total_num_slices // jax.local_device_count()
+  num_processes_per_replica = (
+      global_mesh.devices.size // total_num_replicas // jax.local_device_count()
   )
-  per_slice_values = collections.defaultdict(list)
+  per_replica_values = collections.defaultdict(list)
   for pid, values in per_process_values.items():
-    slice_id = multislice.process_slice_id(
+    replica_id = multislice.process_replica_id(
         pid, global_mesh, replica_axis_index=replica_axis_index
     )
-    per_slice_values[slice_id].extend(values)
+    per_replica_values[replica_id].extend(values)
 
-  for slice_id, values in per_slice_values.items():
+  for replica_id, values in per_replica_values.items():
     counter = collections.Counter(values)
     common_values = [
-        k for k in counter if counter[k] == num_processes_per_slice
+        k for k in counter if counter[k] == num_processes_per_replica
     ]
     # Here `len(common_values)`` will be less than or equal to `len(values)`
     # because a value can only appear in `common_values` if it occurs
@@ -307,9 +310,9 @@ def _common_values_per_slice(
           f' len(common_values) ({common_values}) exceeded length of input'
           f' values ({values}).'
       )
-    per_slice_values[slice_id] = common_values
+    per_replica_values[replica_id] = common_values
 
-  return {k: set(v) for k, v in per_slice_values.items()}
+  return {k: set(v) for k, v in per_replica_values.items()}
 
 
 def _pad_steps(steps, target):
@@ -557,7 +560,7 @@ class _LocalCheckpointManager(checkpoint_manager.CheckpointManager):
           timeout=self._coordination_timeout_secs,
           barrier_id=_BarrierIdentifier.LOCAL_ALL_STEPS,
       )
-      slice_id = multislice.process_slice_id(
+      slice_id = multislice.process_replica_id(
           multihost.process_index(),
           self._global_mesh,
           replica_axis_index=self._replica_axis_index,
@@ -702,7 +705,7 @@ class _MultisliceCheckpointManager(
     )
 
     self._abstract_state = abstract_state
-    self._slice_id = multislice.process_slice_id(
+    self._slice_id = multislice.process_replica_id(
         multihost.process_index(),
         self._global_mesh,
         replica_axis_index=self._replica_axis_index,
@@ -715,7 +718,7 @@ class _MultisliceCheckpointManager(
     self._coordination_timeout_secs = (
         options.multiprocessing_options or MultiprocessingOptions()
     ).coordination_timeout_secs
-    self._slice_count = multislice.slice_count(
+    self._slice_count = multislice.replica_count(
         self._global_mesh, replica_axis_index=self._replica_axis_index
     )
 
@@ -733,17 +736,17 @@ class _MultisliceCheckpointManager(
     primary_replica_id = _PRIMARY_REPLICA_ID
     secondary_replica_id = _SECONDARY_REPLICA_ID
 
-    self._persistent_primary_host = multislice.primary_process_in_slice(
+    self._persistent_primary_host = multislice.primary_process_in_replica(
         self._global_mesh,
         replica_axis_index=self._replica_axis_index,
         replica_id=primary_replica_id,
     )
-    self._local_primary_host = multislice.primary_process_in_slice(
+    self._local_primary_host = multislice.primary_process_in_replica(
         self._global_mesh,
         replica_axis_index=self._replica_axis_index,
         replica_id=secondary_replica_id,
     )
-    self._in_primary_slice = multislice.in_slice(
+    self._in_primary_slice = multislice.in_replica(
         multihost.process_index(),
         global_mesh,
         replica_axis_index=self._replica_axis_index,
@@ -755,7 +758,7 @@ class _MultisliceCheckpointManager(
           checkpoint_manager.MultiprocessingOptions(
               primary_host=self._persistent_primary_host,
               active_processes=multihost.unique_processes_from_devices(
-                  multislice.slice_devices(
+                  multislice.replica_devices(
                       self._global_mesh,
                       replica_axis_index=self._replica_axis_index,
                       replica_id=primary_replica_id,
@@ -1046,7 +1049,7 @@ class _MultisliceCheckpointManager(
       pspec: jax.sharding.PartitionSpec,
   ):
     """Get sharding for a single slice."""
-    slice_devices = multislice.slice_devices(
+    slice_devices = multislice.replica_devices(
         mesh,
         replica_id=self._slice_id,
         replica_axis_index=self._replica_axis_index,
@@ -1135,7 +1138,7 @@ class _MultisliceCheckpointManager(
           previous_device_ids=previous_device_ids,
       )
       restoring_processes = multihost.unique_processes_from_devices(
-          multislice.slice_devices(
+          multislice.replica_devices(
               restore_mesh,
               replica_id=self._slice_id,
               replica_axis_index=self._replica_axis_index,
@@ -1433,11 +1436,18 @@ class CheckpointManager(
       options: Optional[CheckpointManagerOptions] = None,
       metadata: Optional[dict[str, Any]] = None,
       logger: Optional[abstract_logger.AbstractLogger] = None,
+      item_handlers: Optional[
+          Union[CheckpointHandler, CheckpointHandlersDict]
+      ] = None,
+      handler_registry: Optional[
+          handler_registration.CheckpointHandlerRegistry
+      ] = None,
+      persistent_non_replicated_directory: Optional[epath.PathLike] = None,
   ):
     options = options or CheckpointManagerOptions()
     self._global_mesh = global_mesh
     self._abstract_state = abstract_state
-    self._slice_count = multislice.slice_count(
+    self._slice_count = multislice.replica_count(
         global_mesh, replica_axis_index=options.replica_axis_index
     )
     checkpoint_manager._create_root_directory(
@@ -1468,6 +1478,21 @@ class CheckpointManager(
           options=options,
           metadata=metadata,
           logger=logger,
+      )
+    multiprocessing_options = checkpoint_manager.MultiprocessingOptions(
+        primary_host=0,
+        barrier_sync_key_prefix='non_replicated',
+    )
+    self._non_replicated_checkpoint_manager = None
+    if persistent_non_replicated_directory is not None:
+      self._non_replicated_checkpoint_manager = (
+          checkpoint_manager.CheckpointManager(
+              directory=persistent_non_replicated_directory,
+              options=_get_persistent_options(options, multiprocessing_options),
+              metadata=metadata,
+              handler_registry=handler_registry,
+              item_handlers=item_handlers,
+          )
       )
 
   @property
@@ -1519,6 +1544,19 @@ class CheckpointManager(
       *,
       force: bool = False,
   ) -> bool:
+    if _DATASET_ITEM_NAME in args.keys():
+      if self._non_replicated_checkpoint_manager is None:
+        raise ValueError(
+            'Non-replicated checkpoint manager is None, but dataset was'
+            f' provided at step {step}.'
+        )
+      else:
+        self._non_replicated_checkpoint_manager.save(
+            step, args=args.dataset, force=force
+        )
+        args_dict = dict(args.items())
+        args_dict.pop(_DATASET_ITEM_NAME)
+        args = args_lib.Composite(**args_dict)
     return self._checkpoint_manager.save(step, args=args, force=force)
 
   def restore(
@@ -1526,14 +1564,38 @@ class CheckpointManager(
       step: int | None,
       args: args_lib.Composite | None = None,
   ) -> Any:
+    restored_dataset = None
+    if args and _DATASET_ITEM_NAME in args.keys():
+      if self._non_replicated_checkpoint_manager is None:
+        raise ValueError(
+            'Non-replicated checkpoint manager is None, but dataset was'
+            f' requested to be restored at step {step}.'
+        )
+      else:
+        restored_dataset = self._non_replicated_checkpoint_manager.restore(
+            step=step, args=args.dataset
+        )
     del args
-    args = args_lib.PyTreeRestore(
-        item=self._abstract_state,
-        restore_args=checkpoint_utils.construct_restore_args(
-            self._abstract_state
-        ),
+    args = args_lib.Composite(
+        state=args_lib.PyTreeRestore(
+            item=self._abstract_state,
+            restore_args=checkpoint_utils.construct_restore_args(
+                self._abstract_state
+            ),
+        )
     )
-    return self._checkpoint_manager.restore(step, args=args)
+    if isinstance(self._checkpoint_manager, _MultisliceCheckpointManager):
+      restore = self._checkpoint_manager.restore(
+          step, args=args
+      )
+    else:
+      restore = self._checkpoint_manager.restore(step, args=args)
+    if restored_dataset:
+      return args_lib.Composite(
+          state=restore,
+          dataset=restored_dataset,
+      )
+    return restore
 
   def item_metadata(self, step: int) -> Any:
     raise NotImplementedError(
@@ -1553,12 +1615,18 @@ class CheckpointManager(
     )
 
   def wait_until_finished(self):
+    if self._non_replicated_checkpoint_manager is not None:
+      self._non_replicated_checkpoint_manager.wait_until_finished()
     return self._checkpoint_manager.wait_until_finished()
 
   def check_for_errors(self):
+    if self._non_replicated_checkpoint_manager is not None:
+      self._non_replicated_checkpoint_manager.check_for_errors()
     return self._checkpoint_manager.check_for_errors()
 
   def close(self):
+    if self._non_replicated_checkpoint_manager is not None:
+      self._non_replicated_checkpoint_manager.close()
     return self._checkpoint_manager.close()
 
   def __contextmanager__(

@@ -18,6 +18,7 @@ from langgraph_api.graph import GRAPHS, get_assistant_id
 from langgraph_api.schema import (
     All,
     Config,
+    Context,
     IfNotExists,
     MetadataInput,
     MultitaskStrategy,
@@ -52,6 +53,8 @@ class RunCreateDict(TypedDict):
     """Metadata for the run."""
     config: Config | None
     """Additional configuration for the run."""
+    context: Context | None
+    """Static context for the run."""
     webhook: str | None
     """Webhook to call when the run is complete."""
 
@@ -83,6 +86,9 @@ class RunCreateDict(TypedDict):
     - "updates": Stream the state updates returned by each node.
     - "events": Stream all events produced by sub-runs (eg. nodes, LLMs, etc.).
     - "custom": Stream custom events produced by your nodes.
+    
+    Note: __interrupt__ events are always included in the updates stream, even when "updates" 
+    is not explicitly requested, to ensure interrupt events are always visible.
     """
     stream_subgraphs: bool | None
     """Stream output from subgraphs. By default, streams only the top graph."""
@@ -283,11 +289,13 @@ async def create_valid_run(
             detail="You must provide a thread_id when resuming.",
         )
     temporary = thread_id is None and payload.get("on_completion", "delete") == "delete"
+    stream_resumable = payload.get("stream_resumable", False)
     stream_mode, multitask_strategy, prevent_insert_if_inflight = assign_defaults(
         payload
     )
     # assign custom headers and checkpoint to config
     config = payload.get("config") or {}
+    context = payload.get("context") or {}
     configurable = config.setdefault("configurable", {})
     if checkpoint_id:
         configurable["checkpoint_id"] = str(checkpoint_id)
@@ -321,6 +329,7 @@ async def create_valid_run(
             "input": payload.get("input"),
             "command": payload.get("command"),
             "config": config,
+            "context": context,
             "stream_mode": stream_mode,
             "interrupt_before": payload.get("interrupt_before"),
             "interrupt_after": payload.get("interrupt_after"),
@@ -328,7 +337,7 @@ async def create_valid_run(
             "feedback_keys": payload.get("feedback_keys"),
             "temporary": temporary,
             "subgraphs": payload.get("stream_subgraphs", False),
-            "resumable": payload.get("stream_resumable", False),
+            "resumable": stream_resumable,
             "checkpoint_during": payload.get("checkpoint_during", True),
         },
         metadata=payload.get("metadata"),
@@ -367,6 +376,7 @@ async def create_valid_run(
             temporary=temporary,
             after_seconds=after_seconds,
             if_not_exists=if_not_exists,
+            stream_resumable=stream_resumable,
             run_create_ms=(
                 int(time.time() * 1_000) - request_start_time
                 if request_start_time

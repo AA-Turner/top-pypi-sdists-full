@@ -98,10 +98,11 @@ class _TelemetryClient:
                 resp = conn.getresponse()
             if resp.status < 300:
                 log.debug(
-                    "Instrumentation Telemetry sent %d in %.5fs to %s. response: %s",
+                    "Instrumentation Telemetry sent %d bytes in %.5fs to %s. Event: %s. Response: %s",
                     len(rb_json),
                     sw.elapsed(),
                     self.url,
+                    request["request_type"],
                     resp.status,
                 )
             else:
@@ -417,6 +418,23 @@ class TelemetryWriter(PeriodicService):
             payload = {"dependencies": packages}
             self.add_event(payload, "app-dependencies-loaded")
 
+    def _add_endpoints_event(self):
+        """Adds a Telemetry event which sends the list of HTTP endpoints found at startup to the agent"""
+        import ddtrace.settings.asm as asm_config_module
+
+        if not asm_config_module.config._api_security_endpoint_collection or not self._enabled:
+            return
+
+        if not asm_config_module.endpoint_collection.endpoints:
+            return
+
+        with self._service_lock:
+            payload = asm_config_module.endpoint_collection.flush(
+                asm_config_module.config._api_security_endpoint_collection_limit
+            )
+
+        self.add_event(payload, "app-endpoints")
+
     def _app_product_change(self):
         # type: () -> None
         """Adds a Telemetry event which reports the enablement of an APM product"""
@@ -622,10 +640,17 @@ class TelemetryWriter(PeriodicService):
         log.debug("%s request payload", TELEMETRY_TYPE_LOGS)
         self.add_event({"logs": list(logs)}, TELEMETRY_TYPE_LOGS)
 
+    def _dispatch(self):
+        # moved core here to avoid circular import
+        from ddtrace.internal import core
+
+        core.dispatch("telemetry.periodic")
+
     def periodic(self, force_flush=False, shutting_down=False):
         # ensure app_started is called at least once in case traces weren't flushed
         self._app_started()
         self._app_product_change()
+        self._dispatch()
 
         namespace_metrics = self._namespace.flush(float(self.interval))
         if namespace_metrics:
@@ -652,6 +677,7 @@ class TelemetryWriter(PeriodicService):
             self._app_client_configuration_changed_event(configurations)
 
         self._app_dependencies_loaded_event()
+        self._add_endpoints_event()
 
         if shutting_down:
             self._app_closing_event()

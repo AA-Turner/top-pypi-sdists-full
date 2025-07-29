@@ -127,7 +127,7 @@ class PeopleCountingUseCase(BaseProcessor):
             
             is_multi_frame = self.detect_frame_structure(data)
             
-            self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
+            #self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
             
             # Apply smoothing if enabled
             if config.enable_smoothing and input_format == ResultFormat.OBJECT_TRACKING:
@@ -135,10 +135,9 @@ class PeopleCountingUseCase(BaseProcessor):
             
             # Process based on frame structure
             if is_multi_frame:
-                print("---------------------------------Processing multi-frame data---------------------------------")
+                
                 return self._process_multi_frame(data, config, context, stream_info)
             else:
-                print("---------------------------------Processing single-frame data---------------------------------")
                 return self._process_single_frame(data, config, context, stream_info)
                 
         except Exception as e:
@@ -162,6 +161,7 @@ class PeopleCountingUseCase(BaseProcessor):
         frame_tracking_stats = {}
         frame_business_analytics = {}
         frame_human_text = {}
+        frame_alerts = {}
         
         # Increment total frame counter
         frames_in_this_call = len(data)
@@ -174,9 +174,13 @@ class PeopleCountingUseCase(BaseProcessor):
             global_frame_id = self.get_global_frame_id(frame_id)
             
             # Process this single frame's detections
-            incidents, tracking_stats, business_analytics, summary = self._process_frame_detections(
+            alerts, incidents_list, tracking_stats_list, business_analytics_list, summary_list  = self._process_frame_detections(
                 frame_detections, config, global_frame_id, stream_info
             )
+            incidents = incidents_list[0] if incidents_list else {}
+            tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+            business_analytics = business_analytics_list[0] if business_analytics_list else {}
+            summary = summary_list[0] if summary_list else {}
             
             # Store frame-wise results
             if incidents:
@@ -187,13 +191,15 @@ class PeopleCountingUseCase(BaseProcessor):
                 frame_business_analytics[global_frame_id] = business_analytics
             if summary:
                 frame_human_text[global_frame_id] = summary
+            if alerts:
+                frame_alerts[global_frame_id] = alerts
         
         # Update global frame offset after processing this chunk
         self.update_global_frame_offset(frames_in_this_call)
         
         # Create frame-wise agg_summary
         agg_summary = self.create_frame_wise_agg_summary(
-            frame_incidents, frame_tracking_stats, frame_business_analytics,
+            frame_incidents, frame_tracking_stats, frame_business_analytics, frame_alerts,
             frame_human_text=frame_human_text
         )
         
@@ -213,13 +219,17 @@ class PeopleCountingUseCase(BaseProcessor):
         
         current_frame = stream_info.get("input_settings", {}).get("start_frame", "current_frame")
         # Process frame data
-        incidents, tracking_stats, business_analytics, summary = self._process_frame_detections(
+        alerts, incidents_list, tracking_stats_list, business_analytics_list, summary_list  = self._process_frame_detections(
             data, config, current_frame, stream_info
         )
+        incidents = incidents_list[0] if incidents_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        business_analytics = business_analytics_list[0] if business_analytics_list else {}
+        summary = summary_list[0] if summary_list else {}
         
         # Create single-frame agg_summary
         agg_summary = self.create_agg_summary(
-            current_frame, incidents, tracking_stats, business_analytics, human_text=summary
+            current_frame, incidents, tracking_stats, business_analytics, alerts, human_text=summary
         )
         
         # Mark processing as completed
@@ -286,16 +296,16 @@ class PeopleCountingUseCase(BaseProcessor):
         self._update_tracking_state(counting_summary)
         
         # Step 5: Generate insights and alerts for this frame
-        alerts = self._check_alerts(counting_summary, zone_analysis, config)
+        alerts = self._check_alerts(counting_summary, zone_analysis, config, frame_id)
         
         # Step 6: Generate summary and standardized agg_summary components for this frame
         incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_id, stream_info)
         tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id=frame_id, alerts=alerts, stream_info=stream_info)
-        business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, stream_info)
+        business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, stream_info, is_empty=True)
         summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)
         
         # Return standardized components as tuple
-        return incidents, tracking_stats, business_analytics, summary
+        return alerts, incidents, tracking_stats, business_analytics, summary
     
     def _generate_incidents(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, config: PeopleCountingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate standardized incidents for the agg_summary structure."""
@@ -489,11 +499,15 @@ class PeopleCountingUseCase(BaseProcessor):
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
                 segmentation= detection.get("masks", [])
-            if detection.get("segmentation"):
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
                 segmentation= detection.get("segmentation")
-            if detection.get("mask"):
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
                 segmentation= detection.get("mask")
-            detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
         
         # Build alerts and alert_settings arrays
@@ -573,11 +587,15 @@ class PeopleCountingUseCase(BaseProcessor):
             return alerts
         
         total_people = counting_summary.get("total_objects", 0)
+        print(f"----ALERT: total_people: {total_people}")
+        print(f"----ALERT: CONFIGG: {config.alert_config}")
         
         # Count threshold alerts
-        if config.alert_config.count_thresholds:
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+            print(f"----ALERT: CONFIGG--IF INN---------------")
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_people >= threshold:
+                    print(f"----ALERT: category: {category}")
                     alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                         "alert_id": "alert_"+category+'_'+frame_id,
@@ -590,6 +608,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     })
                 elif category in counting_summary.get("by_category", {}):
                     count = counting_summary["by_category"][category]
+                    print(f"----ALERT: count: {count},{threshold}")
                     if count >= threshold:
                         alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
@@ -601,6 +620,9 @@ class PeopleCountingUseCase(BaseProcessor):
                                      getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                                     }                    
                     })
+        else: 
+            print(config.alert_config.count_thresholds)
+            print(f"----ALERT: CONFIGG--IF INN---------------")
         
         # Zone occupancy threshold alerts
         if config.alert_config.occupancy_thresholds:

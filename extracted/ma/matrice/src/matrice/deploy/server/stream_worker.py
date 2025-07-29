@@ -22,6 +22,8 @@ class StreamWorker:
         deployment_instance_id: str,
         inference_interface: InferenceInterface,
         consumer_group_suffix: str = "",
+        app_name: str = "",
+        app_version: str = "",
     ):
         """Initialize stream worker.
 
@@ -32,12 +34,15 @@ class StreamWorker:
             deployment_instance_id: ID of the deployment instance
             inference_interface: Inference interface to use for inference
             consumer_group_suffix: Optional suffix for consumer group ID
+            app_name: Application name for result formatting
         """
         self.worker_id = worker_id
         self.session = session
         self.deployment_id = deployment_id
         self.deployment_instance_id = deployment_instance_id
         self.inference_interface = inference_interface
+        self.app_name = app_name
+        self.app_version = app_version
 
         # Kafka setup with unique consumer group for this worker
         consumer_group_id = f"{deployment_id}-worker-{worker_id}"
@@ -245,9 +250,9 @@ class StreamWorker:
             }
             
             app_result = {
-                "application_name": "TODO",
-                "application_key_name": "TODO", 
-                "application_version": "TODO",
+                "application_name": self.app_name,
+                "application_key_name": self.app_name.replace(" ", "_").replace("-", "_"), 
+                "application_version": self.app_version,
                 "ip_key_name": "TODO",
                 "camera_info": camera_info,
                 "input_streams": [input_data],
@@ -319,6 +324,8 @@ class StreamWorkerManager:
         deployment_instance_id: str,
         inference_interface: InferenceInterface,
         num_workers: int = 1,
+        app_name: str = "",
+        app_version: str = "",
     ):
         """Initialize stream worker manager.
 
@@ -328,13 +335,16 @@ class StreamWorkerManager:
             deployment_instance_id: ID of the deployment instance
             inference_interface: Inference interface to use for inference
             num_workers: Number of workers to create
+            app_name: Application name for result formatting
+            app_version: Application version for result formatting
         """
         self.session = session
         self.deployment_id = deployment_id
         self.deployment_instance_id = deployment_instance_id
         self.inference_interface = inference_interface
         self.num_workers = num_workers
-
+        self.app_name = app_name
+        self.app_version = app_version
         # Worker management
         self.workers: Dict[str, StreamWorker] = {}
         self.is_running = False
@@ -360,6 +370,8 @@ class StreamWorkerManager:
                 deployment_id=self.deployment_id,
                 deployment_instance_id=self.deployment_instance_id,
                 inference_interface=self.inference_interface,
+                app_name=self.app_name,
+                app_version=self.app_version,
             )
 
             self.workers[worker_id] = worker
@@ -441,6 +453,8 @@ class StreamWorkerManager:
             deployment_id=self.deployment_id,
             deployment_instance_id=self.deployment_instance_id,
             inference_interface=self.inference_interface,
+            app_name=self.app_name,
+            app_version=self.app_version,
         )
 
         self.workers[worker_id] = worker

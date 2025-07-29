@@ -11,6 +11,7 @@ from .bedrock_embedding_config import BedrockEmbeddingConfig
 from .cohere_embedding_config import CohereEmbeddingConfig
 from .gemini_embedding_config import GeminiEmbeddingConfig
 from .hugging_face_inference_api_embedding_config import HuggingFaceInferenceApiEmbeddingConfig
+from .managed_open_ai_embedding_config import ManagedOpenAiEmbeddingConfig
 from .open_ai_embedding_config import OpenAiEmbeddingConfig
 from .vertex_ai_embedding_config import VertexAiEmbeddingConfig
 
@@ -60,6 +61,15 @@ class PipelineEmbeddingConfig_HuggingfaceApiEmbedding(HuggingFaceInferenceApiEmb
         allow_population_by_field_name = True
 
 
+class PipelineEmbeddingConfig_ManagedOpenaiEmbedding(ManagedOpenAiEmbeddingConfig):
+    type: typing_extensions.Literal["MANAGED_OPENAI_EMBEDDING"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
 class PipelineEmbeddingConfig_OpenaiEmbedding(OpenAiEmbeddingConfig):
     type: typing_extensions.Literal["OPENAI_EMBEDDING"]
 
@@ -84,6 +94,7 @@ PipelineEmbeddingConfig = typing.Union[
     PipelineEmbeddingConfig_CohereEmbedding,
     PipelineEmbeddingConfig_GeminiEmbedding,
     PipelineEmbeddingConfig_HuggingfaceApiEmbedding,
+    PipelineEmbeddingConfig_ManagedOpenaiEmbedding,
     PipelineEmbeddingConfig_OpenaiEmbedding,
     PipelineEmbeddingConfig_VertexaiEmbedding,
 ]

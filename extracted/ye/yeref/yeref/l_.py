@@ -4937,6 +4937,338 @@ l_bot_detach = {
     'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
 }
 # endregion
+
+
+# region menu
+l_bot_ya_legenda = {
+    "ru": "Я легенда",
+    "en": "I Am Legend",
+    "es": "Yo soy leyenda",
+    "fr": "Je suis une légende",
+    "zh": "我是传奇",
+    "ar": "أنا أسطورة"
+}
+l_bot_odin_den = {
+    "ru": "Один день",
+    "en": "One Day",
+    "es": "Un día",
+    "fr": "Un jour",
+    "zh": "Один день",
+    "ar": "يوم واحد"
+}
+l_bot_ancharted = {
+    "ru": "Анчартед",
+    "en": "Uncharted",
+    "es": "Uncharted",
+    "fr": "Uncharted",
+    "zh": "Uncharted",
+    "ar": "Uncharted"
+}
+l_bot_odisseya = {
+    "ru": "Одиссея",
+    "en": "Odyssey",
+    "es": "Odisea",
+    "fr": "Odyssée",
+    "zh": "奥德赛",
+    "ar": "أوديسي"
+}
+l_bot_shag_v_pered = {
+    "ru": "Шаг в перед",
+    "en": "Step forward",
+    "es": "Paso adelante",
+    "fr": "Pas en avant",
+    "zh": "向前一步",
+    "ar": "خطوة للأمام"
+}
+l_bot_gran_budushego = {
+    "ru": "Грань будушего",
+    "en": "Edge of Tomorrow",
+    "es": "Al filo del mañana",
+    "fr": "Edge of Tomorrow",
+    "zh": "明日边缘",
+    "ar": "حافة الغد"
+}
+l_bot_nazad_v_budushee = {
+    "ru": "Назад в будущее",
+    "en": "Back to the Future",
+    "es": "Regreso al futuro",
+    "fr": "Retour vers le futur",
+    "zh": "回到未来",
+    "ar": "العودة إلى المستقبل"
+}
+l_bot_interstellar = {
+    "ru": "Интерстеллар",
+    "en": "Interstellar",
+    "es": "Interstellar",
+    "fr": "Interstellar",
+    "zh": "星际穿越",
+    "ar": "بين النجوم"
+}
+l_bot_gravitaciya = {
+    "ru": "Гравитация",
+    "en": "Gravity",
+    "es": "Gravedad",
+    "fr": "Gravité",
+    "zh": "重力",
+    "ar": "الجاذبية"
+}
+l_bot_vspomnit_vse = {
+    "ru": "Вспомнить все",
+    "en": "Remember Everything",
+    "es": "Recordar todo",
+    "fr": "Se souvenir de tout",
+    "zh": "记住一切",
+    "ar": "تذكر كل شيء"
+}
+l_bot_la_la_lend = {
+    "ru": "Ла-ла Ленд",
+    "en": "La La Land",
+    "es": "La La Land",
+    "fr": "La La Land",
+    "zh": "爱乐之城",
+    "ar": "لا لا لاند"
+}
+l_bot_tihoe_mesto = {
+    "ru": "Тихое место",
+    "en": "Quiet Place",
+    "es": "Lugar tranquilo",
+    "fr": "Endroit tranquille",
+    "zh": "安静的地方",
+    "ar": "مكان هادئ"
+}
+l_bot_oblachnyy_atlas = {
+    "ru": "Облачный атлас",
+    "en": "Cloud Atlas",
+    "es": "Atlas de las nubes",
+    "fr": "Atlas des nuages",
+    "zh": "云图",
+    "ar": "أطلس السحاب"
+}
+l_bot_zvezdnyy_put = {
+    "ru": "Звездный путь",
+    "en": "Star Trek",
+    "es": "Star Trek",
+    "fr": "Star Trek",
+    "zh": "星际迷航",
+    "ar": "ستار تريك"
+}
+l_bot_moana = {
+    "ru": "Моана",
+    "en": "Moana",
+    "es": "Moana",
+    "fr": "Moana",
+    "zh": "海洋奇缘",
+    "ar": "موانا"
+}
+l_bot_vverh = {
+    "ru": "Вверх",
+    "en": "Up",
+    "es": "Up",
+    "fr": "Up",
+    "zh": "飞屋环游记",
+    "ar": "Up"
+}
+l_bot_menyu = {
+    "ru": "Меню",
+    "en": "Menu",
+    "es": "Menú",
+    "fr": "Menu",
+    "zh": "菜单",
+    "ar": "قائمة"
+}
+l_bot_intro = {
+    "ru": "Интро",
+    "en": "Intro",
+    "es": "Intro",
+    "fr": "Intro",
+    "zh": "介绍",
+    "ar": "مقدمة"
+}
+l_bot_sumerki = {
+    "ru": "Сумерки",
+    "en": "Twilight",
+    "es": "Crepúsculo",
+    "fr": "Twilight",
+    "zh": "暮光之城",
+    "ar": "الشفق"
+}
+l_bot_maynkraft = {
+    "ru": "Майнкрафт",
+    "en": "Minecraft",
+    "es": "Minecraft",
+    "fr": "Minecraft",
+    "zh": "我的世界",
+    "ar": "ماينكرافت"
+}
+l_bot_slushai_serdce = {
+    "ru": "Слушай сердце",
+    "en": "Listen to the Heart",
+    "es": "Escucha al corazón",
+    "fr": "Écoute le cœur",
+    "zh": "倾听内心",
+    "ar": "استمع إلى قلبك"
+}
+l_bot_khrabroe_serdce = {
+    "ru": "Храброе сердце",
+    "en": "Braveheart",
+    "es": "Corazón valiente",
+    "fr": "Braveheart",
+    "zh": "勇敢的心",
+    "ar": "قلب شجاع"
+}
+l_bot_iz_moego_okna = {
+    "ru": "Из моего окна",
+    "en": "From My Window",
+    "es": "Desde mi ventana",
+    "fr": "De ma fenêtre",
+    "zh": "从我的窗户",
+    "ar": "من نافذتي"
+}
+l_bot_voobrazharium = {
+    "ru": "Воображариум",
+    "en": "Imaginarium",
+    "es": "Imaginarium",
+    "fr": "Imaginarium",
+    "zh": "想象馆",
+    "ar": "عالم الخيال"
+}
+l_bot_voobrazi_drakonov = {
+    "ru": "Вообрази драконов",
+    "en": "Imagine Dragons",
+    "es": "Imagine Dragons",
+    "fr": "Imagine Dragons",
+    "zh": "Imagine Dragons",
+    "ar": "Imagine Dragons"
+}
+l_bot_skayfol = {
+    "ru": "Скайфол",
+    "en": "Skyfall",
+    "es": "Skyfall",
+    "fr": "Skyfall",
+    "zh": "Skyfall",
+    "ar": "Skyfall"
+}
+l_bot_vozvraschenie_domoy = {
+    "ru": "Возвращение домой",
+    "en": "Return Home",
+    "es": "Regreso a casa",
+    "fr": "Retour à la maison",
+    "zh": "回家",
+    "ar": "عودة إلى الوطن"
+}
+l_bot_nebo_polnoe_zvezd = {
+    "ru": "Небо, полное звезд",
+    "en": "Sky, full of stars",
+    "es": "Cielo, lleno de estrellas",
+    "fr": "Ciel, plein d'étoiles",
+    "zh": "天空，满是繁星",
+    "ar": "سماء، مليئة بالنجوم"
+}
+l_bot_7_lepestok = {
+    "ru": "7 лепесток",
+    "en": "7 petal",
+    "es": "7 pétalo",
+    "fr": "7 pétale",
+    "zh": "7花瓣",
+    "ar": "7 بتلة"
+}
+l_bot_7_simfoniya = {
+    "ru": "7 симфония",
+    "en": "7 symphony",
+    "es": "7 sinfonía",
+    "fr": "7 symphonie",
+    "zh": "7交响曲",
+    "ar": "7 سيمفونية"
+}
+l_bot_7_zhizney = {
+    "ru": "7 жизней",
+    "en": "7 lives",
+    "es": "7 vidas",
+    "fr": "7 vies",
+    "zh": "7条生命",
+    "ar": "7 حيوات"
+}
+l_bot_f1 = {
+    "ru": "F1",
+    "en": "F1",
+    "es": "F1",
+    "fr": "F1",
+    "zh": "F1",
+    "ar": "F1"
+}
+l_bot_proekt_h = {
+    "ru": "Проект Х",
+    "en": "Project X",
+    "es": "Proyecto X",
+    "fr": "Projet X",
+    "zh": "项目 X",
+    "ar": "المشروع X"
+}
+l_bot_snova_17 = {
+    "ru": "Снова 17",
+    "en": "Again 17",
+    "es": "De nuevo 17",
+    "fr": "Encore 17",
+    "zh": "再次17",
+    "ar": "مرة أخرى 17"
+}
+l_bot_legenda_17 = {
+    "ru": "Легенда 17",
+    "en": "Legend 17",
+    "es": "Leyenda 17",
+    "fr": "Légende 17",
+    "zh": "传奇17",
+    "ar": "أسطورة 17"
+}
+l_bot_za_kadrom = {
+    "ru": "За кадром",
+    "en": "Behind the Scenes",
+    "es": "Detrás de las cámaras",
+    "fr": "Derrière les coulisses",
+    "zh": "幕后",
+    "ar": "خلف الكواليس"
+}
+l_bot_eta_istoriya = {
+    "ru": "Эта история",
+    "en": "This Story",
+    "es": "Esta historia",
+    "fr": "Cette histoire",
+    "zh": "这个故事",
+    "ar": "هذه القصة"
+}
+l_bot_moy_mir = {
+    "ru": "Мой мир",
+    "en": "My World",
+    "es": "Mi mundo",
+    "fr": "Mon monde",
+    "zh": "我的世界",
+    "ar": "عالمي"
+}
+l_bot_moy_dom = {
+    "ru": "Мой дом",
+    "en": "My Home",
+    "es": "Mi hogar",
+    "fr": "Ma maison",
+    "zh": "我的家",
+    "ar": "بيتي"
+}
+l_bot_navigatsiya = {
+    "ru": "Навигация",
+    "en": "Navigation",
+    "es": "Navegación",
+    "fr": "Navigation",
+    "zh": "导航",
+    "ar": "التنقل"
+}
+l_bot_mne_nravitsya = {
+    "ru": "Мне нравится",
+    "en": "I Like It",
+    "es": "Me gusta",
+    "fr": "J'aime",
+    "zh": "我喜欢",
+    "ar": "أعجبني"
+}
+# endregion
 # endregion
 
 

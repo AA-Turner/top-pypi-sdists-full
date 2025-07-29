@@ -1,3 +1,9 @@
+"""HTTP proxy middleware for Velithon framework.
+
+This module provides HTTP proxy functionality including request forwarding,
+load balancing, and upstream server management.
+"""
+
 import asyncio
 import logging
 from collections.abc import Callable
@@ -5,6 +11,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from velithon._velithon import ProxyClient, ProxyLoadBalancer
+from velithon.ctx import get_or_create_request, has_request_context
 from velithon.datastructures import Protocol, Scope
 from velithon.middleware.base import BaseHTTPMiddleware
 from velithon.requests import Request
@@ -50,7 +57,7 @@ class ProxyMiddleware(BaseHTTPMiddleware):
         """Initialize proxy middleware.
 
         Args:
-            app: The ASGI application to wrap
+            app: The RSGI application to wrap
             targets: Single target URL or list of target URLs for load balancing
             load_balancing_strategy: "round_robin", "random", or "weighted"
             weights: Weights for weighted load balancing (required if strategy is "weighted")
@@ -70,7 +77,7 @@ class ProxyMiddleware(BaseHTTPMiddleware):
             upstream_path_prefix: Path prefix to add to upstream requests
             enable_health_checks: Whether to enable background health checking
 
-        """
+        """  # noqa: E501
         super().__init__(app)
 
         # Normalize targets
@@ -113,12 +120,10 @@ class ProxyMiddleware(BaseHTTPMiddleware):
         self.enable_health_checks = enable_health_checks
 
         # Header processing
-        self.strip_request_headers = set(
-            h.lower() for h in (strip_request_headers or [])
-        )
-        self.strip_response_headers = set(
+        self.strip_request_headers = {h.lower() for h in (strip_request_headers or [])}
+        self.strip_response_headers = {
             h.lower() for h in (strip_response_headers or [])
-        )
+        }
         self.add_request_headers = add_request_headers or {}
         self.add_response_headers = add_response_headers or {}
 
@@ -192,7 +197,12 @@ class ProxyMiddleware(BaseHTTPMiddleware):
                 upstream_path = self.upstream_path_prefix + upstream_path
 
             # Create request object for transformation
-            request = Request(scope, protocol)
+            # Use singleton request pattern - try to get from context first
+            if has_request_context():
+                request = get_or_create_request(scope, protocol)
+            else:
+                # Create new request if no context exists
+                request = Request(scope, protocol)
 
             # Transform request if needed
             if self.transform_request:
@@ -326,7 +336,7 @@ class ProxyMiddleware(BaseHTTPMiddleware):
                 if not loop.is_closed():
                     self._health_check_task.cancel()
             except RuntimeError:
-                # Event loop is already closed or not running, task will be cleaned up automatically
+                # Event loop is already closed or not running, task will be cleaned up automatically  # noqa: E501
                 pass
             except Exception:
                 # Any other exception, just ignore

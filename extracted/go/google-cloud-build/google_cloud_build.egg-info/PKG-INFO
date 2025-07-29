@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-build
-Version: 3.31.2
+Version: 3.31.3
 Summary: Google Cloud Build API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-build
 Author: Google LLC

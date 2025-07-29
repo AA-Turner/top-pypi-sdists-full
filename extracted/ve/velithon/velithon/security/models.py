@@ -1,7 +1,6 @@
 """Security models for Velithon authentication system."""
 
 from datetime import datetime
-from typing import Any
 
 try:
     from pydantic import BaseModel, Field
@@ -10,7 +9,13 @@ try:
 except ImportError:
     PYDANTIC_AVAILABLE = False
     BaseModel = object
-    Field = lambda **kwargs: None
+
+    def Field(**kwargs):
+        """Fallback Field function when Pydantic is not available.
+
+        Accepts arbitrary keyword arguments and returns None.
+        """
+        return None
 
 
 class Token(BaseModel):
@@ -96,6 +101,7 @@ if not PYDANTIC_AVAILABLE:
             refresh_token: str | None = None,
             scope: str | None = None,
         ):
+            """Initialize a Token instance."""
             self.access_token = access_token
             self.token_type = token_type
             self.expires_in = expires_in
@@ -112,6 +118,7 @@ if not PYDANTIC_AVAILABLE:
             scopes: list[str] | None = None,
             expires_at: datetime | None = None,
         ):
+            """Initialize a TokenData instance."""
             self.username = username
             self.user_id = user_id
             self.scopes = scopes or []
@@ -143,5 +150,6 @@ if not PYDANTIC_AVAILABLE:
         """User model with hashed password for database storage."""
 
         def __init__(self, hashed_password: str, **kwargs):
+            """Initialize UserInDB instance."""
             super().__init__(**kwargs)
             self.hashed_password = hashed_password

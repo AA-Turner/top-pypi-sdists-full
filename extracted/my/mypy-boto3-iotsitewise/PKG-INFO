@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-iotsitewise
-Version: 1.39.0
-Summary: Type annotations for boto3 IoTSiteWise 1.39.0 service generated with mypy-boto3-builder 8.11.0
+Version: 1.39.15
+Summary: Type annotations for boto3 IoTSiteWise 1.39.15 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 IoTSiteWise 1.39.0](https://pypi.org/project/boto3/) compatible with
+[boto3 IoTSiteWise 1.39.15](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -120,7 +120,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.39.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.39.15' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `IoTSiteWise` service.
 4. Use provided commands to install generated packages.
@@ -369,8 +369,12 @@ from mypy_boto3_iotsitewise.paginator import (
     ListAssociatedAssetsPaginator,
     ListBulkImportJobsPaginator,
     ListCompositionRelationshipsPaginator,
+    ListComputationModelDataBindingUsagesPaginator,
+    ListComputationModelResolveToResourcesPaginator,
+    ListComputationModelsPaginator,
     ListDashboardsPaginator,
     ListDatasetsPaginator,
+    ListExecutionsPaginator,
     ListGatewaysPaginator,
     ListPortalsPaginator,
     ListProjectAssetsPaginator,
@@ -419,8 +423,18 @@ list_bulk_import_jobs_paginator: ListBulkImportJobsPaginator = client.get_pagina
 list_composition_relationships_paginator: ListCompositionRelationshipsPaginator = (
     client.get_paginator("list_composition_relationships")
 )
+list_computation_model_data_binding_usages_paginator: ListComputationModelDataBindingUsagesPaginator = client.get_paginator(
+    "list_computation_model_data_binding_usages"
+)
+list_computation_model_resolve_to_resources_paginator: ListComputationModelResolveToResourcesPaginator = client.get_paginator(
+    "list_computation_model_resolve_to_resources"
+)
+list_computation_models_paginator: ListComputationModelsPaginator = client.get_paginator(
+    "list_computation_models"
+)
 list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
 list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
+list_executions_paginator: ListExecutionsPaginator = client.get_paginator("list_executions")
 list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
 list_portals_paginator: ListPortalsPaginator = client.get_paginator("list_portals")
 list_project_assets_paginator: ListProjectAssetsPaginator = client.get_paginator(

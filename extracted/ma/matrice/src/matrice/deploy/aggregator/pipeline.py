@@ -34,24 +34,13 @@ class ResultsAggregationPipeline:
         if aggregator.setup_components():
             print(f"Setup complete for {len(aggregator.deployment_ids)} deployments")
             
-            # Start streaming and aggregation
-            if aggregator.start_streaming():
-                print("Aggregation pipeline started successfully")
-                
-                # Monitor health and stats
-                while True:
-                    stats = aggregator.get_stats()
-                    health = aggregator.get_health_status()
-                    
-                    print(f"Results consumed: {stats['components']['results_ingestor']['results_consumed']}")
-                    print(f"Results synchronized: {stats['components']['results_synchronizer']['results_synchronized']}")
-                    print(f"Results aggregated: {stats['components']['results_aggregator']['aggregations_created']}")
-                    print(f"Overall health: {health['overall_status']}")
-                    
-                    time.sleep(10)  # Check every 10 seconds
-                    
-        # Cleanup when done
-        aggregator.cleanup()
+            # Start streaming and run until keyboard interrupt
+            try:
+                aggregator.start_streaming()
+            except KeyboardInterrupt:
+                print("Pipeline stopped by user")
+            finally:
+                aggregator.cleanup()
         ```
     """
     
@@ -205,7 +194,7 @@ class ResultsAggregationPipeline:
             self._record_error(f"Failed to setup components: {str(exc)}")
             return False
 
-    def start_streaming(self) -> bool:
+    def start_streaming(self, block: bool = True) -> bool:
         """
         Start the complete streaming pipeline: ingestion, synchronization, aggregation, and publishing.
         
@@ -257,12 +246,132 @@ class ResultsAggregationPipeline:
             self.stats["component_status"]["publisher"] = "running"
             
             logging.info("Aggregation pipeline started successfully")
+            if block:
+                self.start_logging()
             return True
             
         except Exception as exc:
             self._record_error(f"Failed to start streaming: {str(exc)}")
             self.stop_streaming()
             return False
+
+    def start_logging(self, status_interval: int = 30) -> None:
+        """
+        Start the pipeline logging and run until interrupted.
+        Args:
+            status_interval: Interval in seconds between status log messages
+        """
+        try:
+            logging.info("=" * 60)
+            logging.info("🚀 Aggregation pipeline is running!")
+            logging.info(f"📊 Processing results from {len(self.deployment_ids)} deployments")
+            logging.info(f"🔗 Inference Pipeline ID: {self.inference_pipeline_id}")
+            if self.deployment_ids:
+                logging.info(f"🎯 Deployment IDs: {', '.join(self.deployment_ids)}")
+            logging.info("💡 Press Ctrl+C to stop the pipeline")
+            logging.info("=" * 60)
+            
+            last_status_time = time.time()
+            
+            # Main loop - run until interrupted
+            while True:
+                try:
+                    current_time = time.time()
+                    
+                    # Periodic status logging
+                    if current_time - last_status_time >= status_interval:
+                        self._log_pipeline_status()
+                        last_status_time = current_time
+                    
+                    # Check pipeline health
+                    health = self.get_health_status()
+                    if health.get("overall_status") == "unhealthy":
+                        logging.error("Pipeline is unhealthy! Issues: %s", health.get("issues", []))
+                        # Continue running but log the issue
+                    
+                    # Sleep for a short time to prevent busy waiting
+                    time.sleep(1.0)
+                    
+                except KeyboardInterrupt:
+                    # Re-raise to be caught by outer handler
+                    raise
+                except Exception as exc:
+                    logging.error(f"Error in main pipeline loop: {exc}")
+                    # Continue running unless it's a critical error
+                    time.sleep(5.0)
+            
+        except KeyboardInterrupt:
+            logging.info("")
+            logging.info("🛑 Keyboard interrupt received - stopping pipeline...")
+            
+        except Exception as exc:
+            logging.error(f"Critical error in pipeline: {exc}")
+            self._record_error(f"Critical pipeline error: {str(exc)}")
+            
+        finally:
+            # Always cleanup
+            try:
+                logging.info("🧹 Cleaning up pipeline resources...")
+                self.cleanup()
+                logging.info("✅ Pipeline stopped successfully")
+            except KeyboardInterrupt:
+                # Handle second Ctrl+C during cleanup
+                logging.warning("⚠️ Second interrupt received during cleanup - forcing exit...")
+                try:
+                    # Try quick cleanup
+                    self.stop_streaming()
+                except:
+                    pass
+                logging.info("✅ Pipeline force-stopped")
+            except Exception as exc:
+                logging.error(f"Error during cleanup: {exc}")
+
+    def _log_pipeline_status(self):
+        """Log current pipeline status and statistics."""
+        try:
+            stats = self.get_stats()
+            health = self.get_health_status()
+            
+            logging.info("📈 Pipeline Status Report:")
+            logging.info(f"   ⏱️  Runtime: {stats.get('runtime_seconds', 0):.1f} seconds")
+            logging.info(f"   🔄 Overall Health: {health.get('overall_status', 'unknown')}")
+            
+            # Component stats
+            components = stats.get("components", {})
+            
+            if "results_ingestor" in components:
+                ingestor_stats = components["results_ingestor"]
+                logging.info(f"   📥 Results Consumed: {ingestor_stats.get('results_consumed', 0)}")
+            
+            if "results_synchronizer" in components:
+                sync_stats = components["results_synchronizer"]
+                logging.info(f"   🔗 Results Synchronized: {sync_stats.get('results_synchronized', 0)}")
+                logging.info(f"   ✅ Complete Syncs: {sync_stats.get('complete_syncs', 0)}")
+                logging.info(f"   ⚠️  Partial Syncs: {sync_stats.get('partial_syncs', 0)}")
+            
+            if "results_aggregator" in components:
+                agg_stats = components["results_aggregator"]
+                logging.info(f"   🎯 Results Aggregated: {agg_stats.get('aggregations_created', 0)}")
+            
+            if "results_publisher" in components:
+                pub_stats = components["results_publisher"]
+                logging.info(f"   📤 Messages Published: {pub_stats.get('messages_produced', 0)}")
+            
+            # Pipeline metrics
+            pipeline_metrics = stats.get("pipeline_metrics", {})
+            if pipeline_metrics:
+                logging.info(f"   🚀 Throughput: {pipeline_metrics.get('throughput', 0):.2f} msg/sec")
+                logging.info(f"   📊 Completion Rate: {pipeline_metrics.get('completion_rate', 0):.1%}")
+            
+            # Health issues
+            issues = health.get("issues", [])
+            if issues:
+                logging.warning(f"   ⚠️  Issues: {', '.join(issues)}")
+            
+            logging.info("─" * 50)
+            
+        except Exception as exc:
+            logging.error(f"Error logging pipeline status: {exc}")
 
     def stop_streaming(self):
         """Stop all streaming operations in reverse order."""

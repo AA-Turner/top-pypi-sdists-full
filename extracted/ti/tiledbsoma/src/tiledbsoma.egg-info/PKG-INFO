@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tiledbsoma
-Version: 1.17.0
+Version: 1.17.1
 Summary: Python API for efficient storage and retrieval of single-cell data using TileDB
 Home-page: https://github.com/single-cell-data/TileDB-SOMA/tree/main/apis/python
 Author: TileDB, Inc.

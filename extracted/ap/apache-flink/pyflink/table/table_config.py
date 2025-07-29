@@ -22,12 +22,14 @@ from py4j.compat import long
 from pyflink.common.configuration import Configuration
 from pyflink.java_gateway import get_gateway
 from pyflink.table.sql_dialect import SqlDialect
+from pyflink.util.api_stability_decorators import PublicEvolving, Internal
 
 __all__ = ['TableConfig']
 
 from pyflink.util.java_utils import add_jars_to_context_class_loader
 
 
+@PublicEvolving()
 class TableConfig(object):
     """
     Configuration for the current :class:`TableEnvironment` session to adjust Table & SQL API
@@ -106,7 +108,7 @@ class TableConfig(object):
         jars_key = jvm.org.apache.flink.configuration.PipelineOptions.JARS.key()
         classpaths_key = jvm.org.apache.flink.configuration.PipelineOptions.CLASSPATHS.key()
         if key in [jars_key, classpaths_key]:
-            jar_urls = Configuration.parse_jars_value(value, jvm)
+            jar_urls = Configuration.parse_list_value(value)
             add_jars_to_context_class_loader(jar_urls)
         return self
 
@@ -207,6 +209,7 @@ class TableConfig(object):
         """
         self._j_table_config.addConfiguration(configuration._j_configuration)
 
+    @Internal()
     def to_map(self) -> dict:
         """
         Calls the toMap method of the underlying Java TableConfig to get the configuration map.

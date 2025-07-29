@@ -28,6 +28,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     DeleteNodepoolResponse,
     DeployKubeComponentsRequest,
     DeployKubeComponentsResponse,
+    GetBranchProfileRequest,
+    GetBranchProfileResponse,
     GetClusterBackgroundPersistenceRequest,
     GetClusterBackgroundPersistenceResponse,
     GetClusterGatewayRequest,
@@ -174,6 +176,10 @@ class BuilderServiceStub:
     ScaleBranch: UnaryUnaryMultiCallable[
         ScaleBranchRequest,
         ScaleBranchResponse,
+    ]
+    GetBranchProfile: UnaryUnaryMultiCallable[
+        GetBranchProfileRequest,
+        GetBranchProfileResponse,
     ]
     GetNodepools: UnaryUnaryMultiCallable[
         GetNodepoolsRequest,
@@ -356,6 +362,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: ScaleBranchRequest,
         context: ServicerContext,
     ) -> ScaleBranchResponse: ...
+    @abstractmethod
+    def GetBranchProfile(
+        self,
+        request: GetBranchProfileRequest,
+        context: ServicerContext,
+    ) -> GetBranchProfileResponse: ...
     @abstractmethod
     def GetNodepools(
         self,

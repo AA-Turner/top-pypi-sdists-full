@@ -1,6 +1,5 @@
 import collections
 import os
-import re
 from datetime import timedelta
 from pathlib import Path
 from typing import Collection, List, Optional, Sequence, Tuple
@@ -40,19 +39,6 @@ from chalk.utils.duration import timedelta_to_duration
 
 
 def project_settings_to_proto(config: ProjectSettings) -> export_pb.ProjectSettings:
-    def read_packages(filename: str) -> Optional[List[str]]:
-        reqs: List[str] = []
-        try:
-            with open(filename) as f:
-                for r in f.readlines():
-                    cleaned = re.sub("#.*", "", r).rstrip("\n").strip()
-                    if cleaned != "":
-                        reqs.append(cleaned)
-            return reqs
-
-        except OSError:
-            return None
-
     environments: List[export_pb.EnvironmentSettings] = []
     envs = config.environments
     if envs is not None:
@@ -62,16 +48,7 @@ def project_settings_to_proto(config: ProjectSettings) -> export_pb.ProjectSetti
                 runtime=e.runtime,
                 requirements=e.requirements,
                 dockerfile=e.dockerfile,
-                requires_packages=(
-                    None
-                    if e.requirements is None
-                    else read_packages(
-                        os.path.join(
-                            os.path.dirname(config.local_path),
-                            e.requirements,
-                        )
-                    )
-                ),
+                requires_packages=None,
                 platform_version=e.platform_version,
             )
             for env_id, e in envs.items()

@@ -57,137 +57,11 @@ class ShutdownManager:
             self.reserved_instance
         )
 
-    def _force_emergency_shutdown(self):
-        """Force emergency shutdown using most aggressive methods."""
-        logging.critical("Executing emergency shutdown procedures")
-        
-        try:
-            # Step 1: Kill all running Docker containers first
-            self._kill_all_docker_containers()
-            
-            # Step 2: Try to kill all non-essential processes
-            self._kill_non_essential_processes()
-            
-            # Step 3: Clear any remaining resources
-            self._cleanup_system_resources()
-            
-        except Exception as e:
-            logging.error("Error during emergency shutdown cleanup: %s", str(e))
-        
-        # Step 4: Force immediate exit with extreme prejudice
-        try:
-            logging.critical("Forcing immediate system exit")
-            os._exit(1)  # Immediate exit without cleanup
-        except Exception:
-            # Last resort - signal ourselves
-            try:
-                os.kill(os.getpid(), signal.SIGKILL)
-            except Exception:
-                pass
-
-    def _kill_all_docker_containers(self):
-        """Kill all running Docker containers to free up resources."""
-        try:
-            logging.info("Killing all Docker containers during emergency shutdown")
-            
-            # Try to stop all containers gracefully first
-            try:
-                subprocess.run(["docker", "stop", "$(docker ps -q)"], 
-                              shell=True, check=False, timeout=30)
-            except Exception as e:
-                logging.warning("Error stopping Docker containers gracefully: %s", str(e))
-            
-            # Force kill any remaining containers
-            try:
-                subprocess.run(["docker", "kill", "$(docker ps -q)"], 
-                              shell=True, check=False, timeout=15)
-            except Exception as e:
-                logging.warning("Error force-killing Docker containers: %s", str(e))
-                
-            # Clean up Docker system
-            try:
-                subprocess.run(["docker", "system", "prune", "-af"], 
-                              shell=True, check=False, timeout=30)
-            except Exception as e:
-                logging.warning("Error pruning Docker system: %s", str(e))
-                
-        except Exception as e:
-            logging.error("Error during Docker container cleanup: %s", str(e))
-
-    def _kill_non_essential_processes(self):
-        """Kill non-essential processes that might be preventing shutdown."""
-        try:
-            system = platform.system().lower()
-            
-            if system == "linux":
-                # Kill Python processes (except our own)
-                current_pid = os.getpid()
-                try:
-                    # Get all python processes
-                    result = subprocess.run(["pgrep", "-f", "python"], 
-                                          capture_output=True, text=True, check=False)
-                    if result.returncode == 0:
-                        pids = result.stdout.strip().split('\n')
-                        for pid in pids:
-                            try:
-                                pid_int = int(pid.strip())
-                                if pid_int != current_pid:  # Don't kill ourselves
-                                    os.kill(pid_int, signal.SIGTERM)
-                                    time.sleep(0.1)  # Brief pause
-                                    try:
-                                        os.kill(pid_int, signal.SIGKILL)  # Force kill
-                                    except ProcessLookupError:
-                                        pass  # Already dead
-                            except (ValueError, ProcessLookupError, PermissionError):
-                                continue
-                except Exception as e:
-                    logging.warning("Error killing Python processes: %s", str(e))
-                
-                # Kill Docker daemon if possible
-                try:
-                    subprocess.run(["killall", "-9", "dockerd"], check=False, timeout=10)
-                    subprocess.run(["killall", "-9", "docker"], check=False, timeout=10)
-                except Exception as e:
-                    logging.warning("Error killing Docker daemon: %s", str(e))
-                    
-                # Kill any stuck SSH connections
-                try:
-                    subprocess.run(["killall", "-9", "sshd"], check=False, timeout=5)
-                except Exception as e:
-                    logging.warning("Error killing SSH connections: %s", str(e))
-                    
-        except Exception as e:
-            logging.error("Error killing non-essential processes: %s", str(e))
-
-    def _cleanup_system_resources(self):
-        """Clean up system resources before shutdown."""
-        try:
-            # Sync filesystem
-            try:
-                subprocess.run(["sync"], check=False, timeout=10)
-                logging.info("Filesystem sync completed")
-            except Exception as e:
-                logging.warning("Error syncing filesystem: %s", str(e))
-            
-            # Clear memory caches
-            try:
-                if platform.system().lower() == "linux":
-                    subprocess.run(["echo", "3", ">", "/proc/sys/vm/drop_caches"], 
-                                  shell=True, check=False, timeout=5)
-            except Exception as e:
-                logging.warning("Error clearing memory caches: %s", str(e))
-                
-            # Unmount any problematic filesystems (if possible)
-            try:
-                if platform.system().lower() == "linux":
-                    # Try to unmount any Docker volumes or temporary mounts
-                    subprocess.run(["umount", "-fl", "/var/lib/docker"], 
-                                  check=False, timeout=10)
-            except Exception as e:
-                logging.warning("Error unmounting filesystems: %s", str(e))
-                
-        except Exception as e:
-            logging.error("Error during system resource cleanup: %s", str(e))
+    def _check_root(self):
+        if hasattr(os, "geteuid") and os.geteuid() != 0:
+            logging.error("Shutdown requires root privileges.")
+            return False
+        return True
 
     def _execute_shutdown_command(self):
         """Execute system shutdown command with multiple fallbacks.
@@ -197,6 +71,8 @@ class ShutdownManager:
         Returns:
             bool: True if any shutdown command succeeded, False otherwise
         """
+        self._check_root()
+        
         system = platform.system().lower()
         
         # Define shutdown commands in order of preference (most graceful first)
@@ -273,23 +149,34 @@ class ShutdownManager:
             system = platform.system().lower()
             
             if system == "linux":
+                # First, try enabling sysrq if not already enabled
+                try:
+                    subprocess.run("echo 1 > /proc/sys/kernel/sysrq", 
+                                  shell=True, check=False, timeout=5)
+                except Exception:
+                    pass  # Continue even if this fails
+                
                 # Try writing directly to kernel interfaces
                 aggressive_commands = [
-                    # Magic SysRq key sequences
-                    ["echo", "o", ">", "/proc/sysrq-trigger"],  # Immediate poweroff
-                    ["echo", "b", ">", "/proc/sysrq-trigger"],  # Immediate reboot
-                    # ACPI shutdown
-                    ["echo", "4", ">", "/proc/acpi/sleep"],
-                    # Direct kernel poweroff
-                    ["echo", "1", ">", "/proc/sys/kernel/sysrq"],
+                    # Try a sync first to flush data
+                    "sync",
+                    # Try ACPI shutdown methods
+                    "echo 4 > /proc/acpi/sleep",
+                    # Magic SysRq key sequences (more graceful first)
+                    "echo s > /proc/sysrq-trigger",  # Sync disks
+                    "echo u > /proc/sysrq-trigger",  # Unmount filesystems
+                    "echo o > /proc/sysrq-trigger",  # Immediate poweroff
+                    "echo b > /proc/sysrq-trigger",  # Immediate reboot as last resort
                 ]
                 
                 for cmd in aggressive_commands:
                     try:
-                        logging.info("Trying aggressive shutdown: %s", " ".join(cmd))
+                        logging.info("Trying aggressive shutdown: %s", cmd)
                         result = subprocess.run(cmd, shell=True, check=False, timeout=10)
                         if result.returncode == 0:
                             logging.info("Aggressive shutdown command succeeded")
+                            # Give some time for the action to take effect
+                            time.sleep(2)
                             return True
                     except Exception as e:
                         logging.debug("Aggressive command failed: %s", str(e))
@@ -319,7 +206,19 @@ class ShutdownManager:
                 
                 # Step 1: Notify scaling service of shutdown
                 logging.info("Notifying scaling service of instance shutdown")
-                result, error, message = self.scaling.stop_instance()
+                try:
+                    response = self.scaling.stop_instance()
+                    
+                    # Handle case where stop_instance returns None or unexpected format
+                    if response is None:
+                        result, error, message = None, "API returned None", "No response from stop_instance API"
+                    elif isinstance(response, tuple) and len(response) == 3:
+                        result, error, message = response
+                    else:
+                        result, error, message = None, "Invalid response format", f"Unexpected response format: {response}"
+                        
+                except Exception as api_error:
+                    result, error, message = None, str(api_error), "Exception during API call"
                 
                 if error:
                     logging.error("Failed to notify scaling service (attempt %d): %s", attempt, error)
@@ -350,34 +249,11 @@ class ShutdownManager:
                 if aggressive_success:
                     logging.info("Aggressive shutdown initiated")
                     time.sleep(5)
-                    # If still running, proceed to emergency shutdown
                 
-                # Step 4: Emergency shutdown as absolute last resort
-                logging.critical("All standard shutdown methods failed, executing emergency shutdown")
-                self._force_emergency_shutdown()
-                
-                # Should not reach this point due to emergency shutdown
                 return True
                 
             except Exception as e:
-                logging.error("Critical error during shutdown attempt %d: %s", attempt, str(e))
-                
-                if attempt >= max_retries:
-                    logging.critical("All shutdown attempts exhausted, forcing immediate emergency exit")
-                    try:
-                        self._force_emergency_shutdown()
-                    except Exception as emergency_error:
-                        logging.critical("Emergency shutdown also failed: %s", str(emergency_error))
-                        # Last resort - immediate exit
-                        os._exit(1)
-                    return False
-                else:
-                    logging.info("Waiting before retry attempt...")
-                    time.sleep(5)
-        
-        # Fallback - should never reach here
-        logging.critical("Shutdown loop completed unexpectedly, forcing emergency exit")
-        self._force_emergency_shutdown()
+                logging.error("Critical error during shutdown attempt %d: %s", attempt, str(e)) 
         return False
 
     @log_errors(raise_exception=False, log_error=True)

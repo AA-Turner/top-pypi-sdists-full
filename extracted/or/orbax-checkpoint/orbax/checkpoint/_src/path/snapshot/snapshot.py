@@ -15,7 +15,8 @@
 """Snapshot represents operations on how to create, delete snapshots of a checkpoint."""
 
 import abc
-import dataclasses
+import asyncio
+import time
 
 from absl import logging
 from etils import epath
@@ -25,58 +26,91 @@ from orbax.checkpoint._src.path import utils as ocp_path_utils
 SNAPSHOTTING_TIME = "snapshotting_time"
 
 
-@dataclasses.dataclass
 class Snapshot(abc.ABC):
   """Represents a snapshot of a checkpoint."""
 
-  @classmethod
-  def create_snapshot(cls, src: str, dst: str):
+  _source: epath.Path
+  _snapshot: epath.Path
+
+  @abc.abstractmethod
+  async def create_snapshot(self) -> None:
     """Creates a snapshot of the checkpoint."""
     pass
 
-  @classmethod
-  def release_snapshot(cls, path: str):
+  @abc.abstractmethod
+  async def release_snapshot(self) -> None:
     """Deletes a snapshot of the checkpoint."""
     pass
 
+  @abc.abstractmethod
+  async def replace_source(self) -> None:
+    """Replaces the source checkpoint with the snapshot."""
+    pass
 
 
-
-@dataclasses.dataclass
-class DefaultSnapshot(Snapshot):
+class _DefaultSnapshot(Snapshot):
   """Creates a copy of the checkpoint in the snapshot folder."""
 
-  @classmethod
-  def create_snapshot(cls, src: str, dst: str):
+  def __init__(
+      self,
+      src: epath.PathLike,
+      dst: epath.PathLike,
+  ):
+    self._source = epath.Path(src)
+    self._snapshot = epath.Path(dst)
+
+  async def create_snapshot(self) -> None:
     """Creates a deep copy of the checkpoint."""
-    if not epath.Path(dst).is_absolute():
+    if not await asyncio.to_thread(self._snapshot.is_absolute):
       raise ValueError(
-          f"Snapshot destination must be absolute, but was '{dst}'."
+          f"Snapshot destination must be absolute, but was '{self._snapshot}'."
       )
-    if not epath.Path(src).exists():
-      raise ValueError(f"Snapshot source does not exist: {src}'.")
+    if not await asyncio.to_thread(self._source.exists):
+      raise ValueError(f"Snapshot source does not exist: {self._source}'.")
+
     t = ocp_path_utils.Timer()
-    ocp_path_utils.recursively_copy_files(src, dst)
+    await asyncio.to_thread(
+        ocp_path_utils.recursively_copy_files,
+        self._source,
+        self._snapshot,
+    )
     logging.debug(
         "Snapshot copy: %fs",
         t.get_duration(),
     )
-    return dst
 
-  @classmethod
-  def release_snapshot(cls, path: str) -> bool:
+  async def release_snapshot(self) -> None:
     """Deletes a snapshot of the checkpoint."""
-    if not epath.Path(path).exists():
-      logging.error("Snapshot does not exist: %s", path)
-      return False
-    try:
-      epath.Path(path).rmtree()
-    except OSError as e:
-      logging.error(e)
-      return False
-    else:
-      return True
+    if not await asyncio.to_thread(self._snapshot.exists):
+      raise FileNotFoundError(f"Snapshot does not exist: {self._snapshot}")
+
+    await asyncio.to_thread(self._snapshot.rmtree)
+
+  # TODO(b/434025182): Handle recovery path upon restart.
+  async def replace_source(self) -> None:
+    """Replaces the source checkpoint with the snapshot."""
+    if not self._snapshot.is_absolute():
+      raise ValueError(
+          f"Snapshot destination must be absolute, but was '{self._snapshot}'."
+      )
+    if not self._source.is_absolute():
+      raise ValueError(
+          f"Snapshot source must be absolute, but was '{self._source}'."
+      )
+
+    recovery_path = (
+        self._source.parent / f"{self._source.name}._recovery_{time.time()}"
+    )
+
+    def _swap_source_and_snapshot():
+      self._source.rename(recovery_path)
+      self._snapshot.rename(self._source)
+      recovery_path.rmtree()
+
+    await asyncio.to_thread(_swap_source_and_snapshot)
 
 
-def create_instance(dst: str, *args, **kwargs):
-  return DefaultSnapshot(*args, **kwargs)
+
+
+def create_instance(source: epath.Path, snapshot: epath.Path):
+  return _DefaultSnapshot(source, snapshot)

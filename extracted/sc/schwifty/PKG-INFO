@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schwifty
-Version: 2025.6.0
+Version: 2025.7.0
 Summary: IBAN parsing and validation
 Project-URL: Changelog, https://github.com/mdomke/schwifty/blob/main/CHANGELOG.rst
 Project-URL: Documentation, https://schwifty.readthedocs.io/en/latest/

@@ -1,6 +1,6 @@
 import re
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, date
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
@@ -89,6 +89,7 @@ class SparkExpectationsActions:
                     "action_if_failed",
                     "tag",
                     "description",
+                    "column_name",
                 ]
             ]
         )
@@ -168,9 +169,37 @@ class SparkExpectationsActions:
                         _agg_dq_expectation_expr = _agg_dq_expectation_match.group(2)
                         _agg_dq_expectation_cond_expr = expr(_agg_dq_expectation_aggstring)
 
-                        _agg_dq_actual_count_value = int(df.agg(_agg_dq_expectation_cond_expr).collect()[0][0])
+                        _agg_dq_actual_count_value_raw = df.agg(_agg_dq_expectation_cond_expr).collect()[0][0]
 
-                        _agg_dq_expression_str = str(_agg_dq_actual_count_value) + _agg_dq_expectation_expr
+                        # Handle NoneType (nulls)
+                        if _agg_dq_actual_count_value_raw is None:
+                            raise ValueError("Aggregation result is None (possibly due to empty data).")
+
+                        _agg_dq_actual_count_value = None
+
+                        if isinstance(_agg_dq_actual_count_value_raw, (int, float)):
+                            # Optionally: warn if float is not integral
+                            if (
+                                isinstance(_agg_dq_actual_count_value_raw, float)
+                                and not _agg_dq_actual_count_value_raw.is_integer()
+                            ):
+                                print(
+                                    f"Warning: aggregation result { _agg_dq_actual_count_value_raw } is a float and will be rounded."
+                                )
+                            _agg_dq_actual_count_value = round(_agg_dq_actual_count_value_raw)
+                            _agg_dq_expression_str = str(_agg_dq_actual_count_value) + _agg_dq_expectation_expr
+                        elif isinstance(_agg_dq_actual_count_value_raw, str):
+                            # Escape single quotes
+                            escaped = _agg_dq_actual_count_value_raw.replace("'", "''")
+                            _agg_dq_expression_str = f"'{escaped}' {_agg_dq_expectation_expr}"
+                        elif isinstance(_agg_dq_actual_count_value_raw, (date, datetime)):
+                            date_str = _agg_dq_actual_count_value_raw.strftime("%Y-%m-%d")
+                            _agg_dq_expression_str = f"to_date('{date_str}')  {_agg_dq_expectation_expr}"
+                        else:
+                            raise TypeError(
+                                f"Unexpected type for aggregation result: {type(_agg_dq_actual_count_value_raw)}, "
+                                f"value: {_agg_dq_actual_count_value_raw}"
+                            )
 
                         _agg_dq_expr_condition = []
 
@@ -307,11 +336,22 @@ class SparkExpectationsActions:
                         )
 
                 if SparkExpectationsActions.match_parentheses(_dq_rule["expectation"]):
-                    pattern = r"(\(.*\))\s*([<>!=]=?)\s*((\d+)|(\(.*\)))|(\(.*\))"
+
+                     # Improved: break down the regex pattern into logical sections for clarity
+                    left_expr = r"\(.*\)"  # matches a parenthetical SQL expression
+                    operator = r"[<>!=]=?"   # matches comparison operators
+                    right_value = r"(\d+(?:\.\d+)?|\'[^\']*\')"  # matches int, float, or single-quoted string
+                    right_expr = r"\(.*\)"  # matches a parenthetical SQL expression
+                    # Combine into the full pattern
+                    pattern = rf"({left_expr})\s*({operator})\s*({right_value}|({right_expr}))|({left_expr})"
+                    #pattern = r"(\(.*\))\s*([<>!=]=?)\s*((\d+(?:\.\d+)?|\'[^\']*\')|(\(.*\)))|(\(.*\))"
+
                     match = re.search(pattern, _dq_rule["expectation"])
                     if match:
                         # function to execute SQL and get the result
-                        def execute_sql_and_get_result(_se_context: SparkExpectationsContext, query: str) -> int:
+                        def execute_sql_and_get_result(
+                            _se_context: SparkExpectationsContext, query: str
+                        ) -> Union[int, float, str]:
                             return _se_context.spark.sql(f"SELECT ({query}) AS OUTPUT").collect()[0][0] if query else 0
 
                         # function to get the query outputs

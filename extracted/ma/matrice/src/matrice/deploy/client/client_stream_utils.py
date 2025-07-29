@@ -152,6 +152,7 @@ class ClientStreamUtils:
         max_retries: int,
         width: Optional[int],
         height: Optional[int],
+        simulate_video_file_stream: bool = False,
     ) -> Tuple[cv2.VideoCapture, int]:
         """Handle frame read failures with retry logic."""
         if retry_count >= max_retries:
@@ -170,9 +171,19 @@ class ClientStreamUtils:
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                 return cap, 0  # Reset retry count
             else:
-                # For video files, we've reached the end
-                logging.info(f"End of stream reached for input: {input}")
-                raise StopIteration("End of stream reached")
+                # For video files, check if we should restart or stop
+                if simulate_video_file_stream:
+                    logging.info(f"End of video file reached, restarting from beginning: {input}")
+                    cap.release()
+                    time.sleep(0.1)  # Brief pause before reopening
+                    cap = cv2.VideoCapture(input)
+                    if not cap.isOpened():
+                        raise RuntimeError(f"Failed to reopen video file: {input}")
+                    return cap, 0  # Reset retry count
+                else:
+                    # Normal behavior - end of stream
+                    logging.info(f"End of stream reached for input: {input}")
+                    raise StopIteration("End of stream reached")
 
         time.sleep(0.1)  # Short delay before retry
         return cap, retry_count
@@ -287,6 +298,7 @@ class ClientStreamUtils:
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        simulate_video_file_stream: bool = False,
     ) -> bool:
         """Start a stream input to the Kafka stream."""
         if not self._check_stream_support():
@@ -296,7 +308,7 @@ class ClientStreamUtils:
             return False
 
         try:
-            self._stream_inputs(input, fps, stream_key, quality, width, height)
+            self._stream_inputs(input, fps, stream_key, quality, width, height, simulate_video_file_stream)
             return True
         except Exception as exc:
             logging.error("Failed to start streaming thread: %s", str(exc))
@@ -315,6 +327,7 @@ class ClientStreamUtils:
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        simulate_video_file_stream: bool = False,
     ) -> bool:
         """Add a stream input to the Kafka stream."""
         if not self._check_stream_support():
@@ -326,7 +339,7 @@ class ClientStreamUtils:
         try:
             thread = threading.Thread(
                 target=self._stream_inputs,
-                args=(input, fps, stream_key, stream_group_key, quality, width, height),
+                args=(input, fps, stream_key, stream_group_key, quality, width, height, simulate_video_file_stream),
                 daemon=True,
             )
             self.streaming_threads.append(thread)
@@ -345,6 +358,7 @@ class ClientStreamUtils:
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        simulate_video_file_stream: bool = False,
     ) -> None:
         """Stream inputs from a video source to Kafka."""
         quality = max(1, min(100, quality))
@@ -387,7 +401,7 @@ class ClientStreamUtils:
 
                     try:
                         cap, retry_count = self._handle_frame_read_failure(
-                            input, cap, retry_count, max_retries, width, height
+                            input, cap, retry_count, max_retries, width, height, simulate_video_file_stream
                         )
                     except (RuntimeError, StopIteration):
                         break
@@ -584,6 +598,7 @@ class ClientStreamUtils:
         video_duration: Optional[float] = None,
         max_frames: Optional[int] = None,
         video_format: str = "mp4",
+        simulate_video_file_stream: bool = False,
     ) -> bool:
         """Start a video stream sending video chunks instead of individual frames."""
         if not self._check_stream_support():
@@ -615,6 +630,7 @@ class ClientStreamUtils:
                 video_duration,
                 max_frames,
                 video_format,
+                simulate_video_file_stream,
             )
             return True
         except Exception as exc:
@@ -637,6 +653,7 @@ class ClientStreamUtils:
         video_duration: Optional[float] = None,
         max_frames: Optional[int] = None,
         video_format: str = "mp4",
+        simulate_video_file_stream: bool = False,
     ) -> bool:
         """Start a background video stream sending video chunks instead of individual frames."""
         if not self._check_stream_support():
@@ -670,6 +687,7 @@ class ClientStreamUtils:
                     video_duration,
                     max_frames,
                     video_format,
+                    simulate_video_file_stream,
                 ),
                 daemon=True,
             )
@@ -692,6 +710,7 @@ class ClientStreamUtils:
         video_duration: Optional[float] = None,
         max_frames: Optional[int] = None,
         video_format: str = "mp4",
+        simulate_video_file_stream: bool = False,
     ) -> None:
         """Stream video chunks from a video source to Kafka."""
         quality = max(1, min(100, quality))
@@ -782,7 +801,7 @@ class ClientStreamUtils:
 
                             try:
                                 cap, retry_count = self._handle_frame_read_failure(
-                                    input, cap, retry_count, max_retries, width, height
+                                    input, cap, retry_count, max_retries, width, height, simulate_video_file_stream
                                 )
                             except (RuntimeError, StopIteration):
                                 break

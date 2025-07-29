@@ -126,6 +126,8 @@ class CompletionRequest(BaseModel):
 
     # Oneapi https://github.com/QuantumNous/new-api/blob/main/dto/openai_request.go
     extra_body: Optional[Any] = None
+    enable_thinking: Optional[bool] = None  # ali
+    thinking: Optional[dict] = None  # doubao "type": "disabled" "enabled" "auto"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -445,7 +447,8 @@ class TTSRequest(BaseModel):
 
     speed: Optional[float] = None
 
-    response_format:Union[str, Literal["mp3", "opus", "aac", "flac", "wav", "pcm", "b64_json", "url", "hex"]] = "b64_json"
+    response_format: Union[
+        str, Literal["mp3", "opus", "aac", "flac", "wav", "pcm", "b64_json", "url", "hex"]] = "b64_json"
 
     class Config:
         extra = "allow"

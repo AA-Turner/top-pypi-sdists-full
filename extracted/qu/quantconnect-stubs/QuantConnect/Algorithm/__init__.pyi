@@ -3721,6 +3721,21 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
+    def consolidate(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], size: float, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Creates and registers a consolidator for the following bar types: RenkoBar, VolumeRenkoBar, or RangeBar
+        for the specified symbol and threshold. The specified handler will be invoked with each new consolidated bar.
+        
+        :param type: The Python type of the bar (RenkoBar, VolumeRenkoBar, or RangeBar)
+        :param symbol: The symbol whose data is to be consolidated
+        :param size: The size value for the consolidator (e.g., brick size, range size or maxCount)
+        :param tick_type: The tick type to consolidate. If null, the first matching subscription is used.
+        :param handler: The callback to invoke with each new consolidated bar
+        :returns: The created and registered IDataConsolidator instance.
+        """
+        ...
+
+    @overload
     def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Registers the  to receive consolidated data for the specified symbol

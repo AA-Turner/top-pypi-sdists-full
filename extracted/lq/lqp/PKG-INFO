@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lqp
-Version: 0.1.8
+Version: 0.1.9
 Summary: A parser for Logical Query Protocol (LQP) S-expressions into Protobuf
 Author-email: Niko Göbel <nikolas.goebel@relational.ai>
 Description-Content-Type: text/markdown
@@ -10,7 +10,7 @@ Requires-Dist: colorama
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-snapshot; extra == "test"
-Requires-Dist: pyrefly; extra == "test"
+Requires-Dist: pyrefly==0.25.1; extra == "test"
 
 # python-tools
 

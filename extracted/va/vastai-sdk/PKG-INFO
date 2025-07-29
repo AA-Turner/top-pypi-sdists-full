@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: vastai-sdk
-Version: 0.1.19
+Version: 0.1.20
 Summary: SDK for Vast.ai GPU Cloud Service
-Home-page: https://github.com/kristopolous/vast-sdk
-Author: Chris McKenzie
-Author-email: chris@vast.ai
+Home-page: https://github.com/vast-ai/vast-sdk
+Author: Anthoyn Benjamin
+Author-email: anthony@vast.ai
 License: MIT AND (Apache-2.0 OR BSD-2-Clause)
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent

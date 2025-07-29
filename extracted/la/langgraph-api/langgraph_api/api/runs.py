@@ -116,7 +116,8 @@ async def stream_run(
             run["run_id"],
             thread_id=thread_id,
             cancel_on_disconnect=on_disconnect == "cancel",
-            stream_mode=await sub,
+            stream_channel=await sub,
+            stream_mode=payload.get("stream_mode", []),
             last_event_id=None,
         ),
         headers={
@@ -157,7 +158,8 @@ async def stream_run_stateless(
             thread_id=run["thread_id"],
             ignore_404=True,
             cancel_on_disconnect=on_disconnect == "cancel",
-            stream_mode=await sub,
+            stream_channel=await sub,
+            stream_mode=payload.get("stream_mode", []),
             last_event_id=None,
         ),
         headers={
@@ -172,17 +174,6 @@ async def wait_run(request: ApiRequest):
     """Create a run, wait for the output."""
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStateful)
-
-    # Ensure stream_mode always includes "values" and "updates" while respecting other modes
-    user_stream_mode = payload.get("stream_mode", ["values"])
-    if isinstance(user_stream_mode, str):
-        user_stream_mode = [user_stream_mode]
-
-    # Always include "values" and "updates" if not already present
-    required_modes = {"values", "updates"}
-    final_stream_mode = list(set(user_stream_mode) | required_modes)
-    payload["stream_mode"] = final_stream_mode
-
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
@@ -211,7 +202,8 @@ async def wait_run(request: ApiRequest):
             Runs.Stream.join(
                 run["run_id"],
                 thread_id=run["thread_id"],
-                stream_mode=await sub,
+                stream_channel=await sub,
+                stream_mode=["updates", "values", "error"],
                 cancel_on_disconnect=on_disconnect == "cancel",
             )
         ) as stream:
@@ -266,17 +258,6 @@ async def wait_run(request: ApiRequest):
 async def wait_run_stateless(request: ApiRequest):
     """Create a stateless run, wait for the output."""
     payload = await request.json(RunCreateStateless)
-
-    # Ensure stream_mode always includes "values" and "updates" while respecting other modes
-    user_stream_mode = payload.get("stream_mode", ["values"])
-    if isinstance(user_stream_mode, str):
-        user_stream_mode = [user_stream_mode]
-
-    # Always include "values" and "updates" if not already present
-    required_modes = {"values", "updates"}
-    final_stream_mode = list(set(user_stream_mode) | required_modes)
-    payload["stream_mode"] = final_stream_mode
-
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
@@ -305,7 +286,8 @@ async def wait_run_stateless(request: ApiRequest):
             Runs.Stream.join(
                 run["run_id"],
                 thread_id=run["thread_id"],
-                stream_mode=await sub,
+                stream_channel=await sub,
+                stream_mode=["updates", "values", "error"],
                 ignore_404=True,
                 cancel_on_disconnect=on_disconnect == "cancel",
             )
@@ -424,7 +406,7 @@ async def join_run_stream(request: ApiRequest):
     cancel_on_disconnect = cancel_on_disconnect_str.lower() in {"true", "yes", "1"}
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
-    stream_mode = request.query_params.get("stream_mode") or None
+    stream_mode = request.query_params.get("stream_mode") or []
     last_event_id = request.headers.get("last-event-id") or None
     return EventSourceResponse(
         Runs.Stream.join(

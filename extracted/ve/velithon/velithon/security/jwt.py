@@ -6,7 +6,7 @@ from typing import Any
 
 try:
     import jwt
-    from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
+    from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
     JWT_AVAILABLE = True
 except ImportError:
@@ -17,6 +17,8 @@ except ImportError:
 
 from .exceptions import (
     InvalidTokenError as VelithonInvalidTokenError,
+)
+from .exceptions import (
     TokenExpiredError,
 )
 from .models import TokenData
@@ -40,6 +42,7 @@ class JWTHandler:
             secret_key: JWT secret key (alternative to config)
             algorithm: JWT algorithm (alternative to config)
             access_token_expire: Token expiration time (alternative to config)
+
         """
         if config is None and secret_key is not None:
             # Create config from parameters for convenience
@@ -111,10 +114,10 @@ class JWTHandler:
                 token, self.config.secret_key, algorithms=[self.config.algorithm]
             )
             return payload
-        except ExpiredSignatureError:
-            raise TokenExpiredError('Token has expired')
-        except InvalidTokenError:
-            raise VelithonInvalidTokenError('Invalid token')
+        except ExpiredSignatureError as e:
+            raise TokenExpiredError('Token has expired') from e
+        except InvalidTokenError as e:
+            raise VelithonInvalidTokenError('Invalid token') from e
 
     def extract_token_data(self, token: str) -> TokenData:
         """Extract token data from JWT token."""
@@ -212,8 +215,8 @@ if not JWT_AVAILABLE:
                 user_id=data.get('user_id'),
                 scopes=data.get('scopes', []),
             )
-        except (json.JSONDecodeError, KeyError, ValueError):
-            raise VelithonInvalidTokenError('Invalid token')
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            raise VelithonInvalidTokenError('Invalid token') from e
 
     def verify_token(token: str) -> bool:
         """Fallback token verification without JWT."""

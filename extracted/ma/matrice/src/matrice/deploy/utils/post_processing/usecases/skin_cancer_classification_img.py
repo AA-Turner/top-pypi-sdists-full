@@ -429,20 +429,10 @@ class SkinCancerClassificationUseCase(BaseProcessor):
 
         # Prepare detections without confidence scores (as per eg.json)
         detections = []
-
         for detection in counting_summary.get("detections", []):
-            detection_data = {
-                "category": detection.get("category"),
-                
-            }
-            # Include segmentation if available (like in eg.json)
-            if detection.get("masks"):
-                detection_data["masks"] = detection.get("masks", [])
-            if detection.get("segmentation"):
-                detection_data["segmentation"] = detection.get("segmentation")
-            if detection.get("mask"):
-                detection_data["mask"] = detection.get("mask")
-            detections.append(detection_data)
+            category = detection.get("category", "unknown")
+            detection_obj = {"category": category}
+            detections.append(detection_obj)
 
         # Build alert_settings array in expected format
         alert_settings = []

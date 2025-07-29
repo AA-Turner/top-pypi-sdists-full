@@ -4,6 +4,7 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
+from .data_source_reader_version_metadata_reader_version import DataSourceReaderVersionMetadataReaderVersion
 
 try:
     import pydantic
@@ -15,7 +16,7 @@ except ImportError:
 
 
 class DataSourceReaderVersionMetadata(pydantic.BaseModel):
-    reader_version: typing.Optional[str]
+    reader_version: typing.Optional[DataSourceReaderVersionMetadataReaderVersion]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

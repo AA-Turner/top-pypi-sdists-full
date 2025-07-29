@@ -65,135 +65,196 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
 class AdvancedCustomerServiceUseCase(BaseProcessor):
     def _generate_per_frame_agg_summary(self, processed_data, analytics_results, config, context, stream_info=None):
         """
-        Generate agg_summary dict with per-frame events and tracking_stats.
+        Generate agg_summary dict with per-frame incidents, tracking_stats, business_analytics, alerts, human_text.
         processed_data: dict of frame_id -> detections (list)
-        analytics_results: output of _compile_analytics_results 
+        analytics_results: output of _compile_analytics_results
         """
-        import datetime
-        frame_events = {}
-        frame_tracking_stats = {}
-        # For total_frames_processed, use a counter or fallback to len(processed_data)
+        agg_summary = {}
         total_frames_processed = getattr(self, '_total_frames_processed', 0)
         global_frame_offset = getattr(self, 'global_frame_offset', 0)
-        # For each frame, build event and tracking_stats dicts
+
         for frame_id, detections in processed_data.items():
             staff_count = sum(1 for d in detections if d.get('category') == 'staff')
             customer_count = sum(1 for d in detections if d.get('category') == 'customer')
             total_people = staff_count + customer_count
 
-            # --- Gather analytics for human_text ---
             queue_analytics = analytics_results.get("customer_queue_analytics", {})
             staff_analytics = analytics_results.get("staff_management_analytics", {})
             service_analytics = analytics_results.get("service_area_analytics", {})
             journey_analytics = analytics_results.get("customer_journey_analytics", {})
             business_metrics = analytics_results.get("business_metrics", {})
 
-            # --- Timestamps ---
             current_timestamp = self._get_current_timestamp_str(stream_info)
             start_timestamp = self._get_start_timestamp_str(stream_info)
 
-            # --- Per-frame stats ---
-            active_customers = queue_analytics.get("active_customers", 0)
-            customers_queuing = queue_analytics.get("customers_queuing", 0)
-            customers_being_served = queue_analytics.get("customers_being_served", 0)
-            active_staff = staff_analytics.get("active_staff", 0)
-            active_service_areas = service_analytics.get("total_active_services", 0)
-            service_areas_status = service_analytics.get("service_areas_status", {})
+            # --- Alert settings and alerts for each metric ---
+            alert_settings = []
+            alerts = []
+            # queue length alert
+            queue_threshold = getattr(config, "queue_length_threshold", 10)
+            if queue_analytics.get("customers_queuing", 0) > queue_threshold:
+                alert_settings.append({
+                    "alert_type": "email",
+                    "incident_category": "customer_queue",
+                    "threshold_level": queue_threshold,
+                    "ascending": True,
+                    "settings": {
+                        "email_address": getattr(config, "email_address", "john.doe@gmail.com")
+                    }
+                })
+                alerts.append({
+                    "alert_type": "email",
+                    "alert_id": "email_1",
+                    "incident_category": "customer_queue",
+                    "threshold_value": queue_analytics.get("customers_queuing", 0),
+                    "ascending": True,
+                    "settings": {
+                        "email_address": getattr(config, "email_address", "john.doe@gmail.com")
+                    }
+                })
+            # service efficiency alert
+            efficiency_threshold = getattr(config, "service_efficiency_threshold", 0.5)
+            if business_metrics.get("service_efficiency", 0) < efficiency_threshold:
+                alert_settings.append({
+                    "alert_type": "email",
+                    "incident_category": "service_efficiency",
+                    "threshold_level": efficiency_threshold,
+                    "ascending": False,
+                    "settings": {
+                        "email_address": getattr(config, "email_address", "john.doe@gmail.com")
+                    }
+                })
+                alerts.append({
+                    "alert_type": "email",
+                    "alert_id": "email_2",
+                    "incident_category": "service_efficiency",
+                    "threshold_value": business_metrics.get("service_efficiency", 0),
+                    "ascending": False,
+                    "settings": {
+                        "email_address": getattr(config, "email_address", "john.doe@gmail.com")
+                    }
+                })
 
-            # --- Cumulative stats ---
-            total_journeys = journey_analytics.get("total_journeys", 0)
-            total_staff = staff_analytics.get("total_staff", 0)
-            customers_completed = queue_analytics.get("customers_completed", 0)
-            customers_left = journey_analytics.get("journey_states", {}).get("left", 0)
-            avg_wait_time = queue_analytics.get("average_wait_time", 0)
+            human_text_lines = []
+            human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+            human_text_lines.append(f"\t- Active Customers: {queue_analytics.get('active_customers', 0)}")
+            human_text_lines.append(f"\t\t- Queuing: {queue_analytics.get('customers_queuing', 0)}")
+            human_text_lines.append(f"\t\t- Being Served: {queue_analytics.get('customers_being_served', 0)}")
+            human_text_lines.append(f"\t- Active Staff: {staff_analytics.get('active_staff', 0)}")
+            human_text_lines.append(f"\t- Customer/Staff Ratio: {business_metrics.get('customer_to_staff_ratio', 0):.2f}")
+            human_text_lines.append(f"\t- Queue Performance: {business_metrics.get('queue_performance', 0)*100:.1f}%")
+            human_text_lines.append(f"\t- Service Areas: {len(service_analytics.get('service_areas_status', {}))}")
+            for area_name, area_info in service_analytics.get('service_areas_status', {}).items():
+                customers = area_info.get("customers", 0)
+                staff = area_info.get("staff", 0)
+                status = area_info.get("status", "inactive")
+                human_text_lines.append(f"\t\t- {area_name}: {status} with {customers} customers and {staff} staff")
+            human_text_lines.append("")
+            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+            human_text_lines.append(f"\t- Total Customers: {journey_analytics.get('total_journeys', 0)}")
+            completed_count = journey_analytics.get("journey_states", {}).get("completed", 0)
+            human_text_lines.append(f"\t\t- Completed: {completed_count}")
+            human_text_lines.append(f"\t- Total Staff: {staff_analytics.get('total_staff', 0)}")
+            human_text_lines.append(f"\t- Average Staff Count: {staff_analytics.get('avg_staff_count', 0.0):.2f}")
+            human_text_lines.append(f"\t- Average Wait Time: {queue_analytics.get('average_wait_time', 0):.1f}s")
             avg_service_time = 0.0
             if analytics_results.get("service_times"):
                 times = [t.get("service_time", 0.0) for t in analytics_results["service_times"]]
                 if times:
                     avg_service_time = sum(times) / len(times)
-            avg_journey_time = journey_analytics.get("average_journey_time", 0)
-
-            customer_staff_ratio = business_metrics.get("customer_to_staff_ratio", 0)
-            service_efficiency = business_metrics.get("service_efficiency", 0)
-            queue_performance = business_metrics.get("queue_performance", 0)
-            staff_productivity = business_metrics.get("staff_productivity", 0)
-            overall_performance = business_metrics.get("overall_performance", 0)
-
-            # --- Build human_text ---
-
-            human_text_lines = []
-            human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-            human_text_lines.append(f"\t- Active Customers: {active_customers}")
-            human_text_lines.append(f"\t\t- Queuing: {customers_queuing}")
-            human_text_lines.append(f"\t\t- Being Served: {customers_being_served}")
-            human_text_lines.append(f"\t- Active Staff: {active_staff}")
-            # ...removed duplicate active service area block...
-            # Add Customer/Staff Ratio and Queue Performance in current frame
-            human_text_lines.append(f"\t- Customer/Staff Ratio: {customer_staff_ratio:.2f}")
-            human_text_lines.append(f"\t- Queue Performance: {queue_performance*100:.1f}%")
-
-            # Show active service areas and per-area customer/staff counts
-            human_text_lines.append(f"\t- Service Areas: {len(service_areas_status)}")
-            for area_name, area_info in service_areas_status.items():
-                customers = area_info.get("customers", 0)
-                staff = area_info.get("staff", 0)
-                status = area_info.get("status", "inactive")
-                human_text_lines.append(f"\t\t- {area_name}: {status} with {customers} customers and {staff} staff")
-
-            human_text_lines.append("")
-            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-            human_text_lines.append(f"\t- Total Customers: {total_journeys}")
-            # Only show completed and left in total since
-            completed_count = journey_analytics.get("journey_states", {}).get("completed", 0)
-            human_text_lines.append(f"\t\t- Completed: {completed_count}")
-            human_text_lines.append(f"\t- Total Staff: {total_staff}")
-            avg_staff_count = staff_analytics.get("avg_staff_count", 0.0)
-            human_text_lines.append(f"\t- Average Staff Count: {avg_staff_count:.2f}")
-            human_text_lines.append(f"\t- Average Wait Time: {avg_wait_time:.1f}s")
             human_text_lines.append(f"\t- Average Service Time: {avg_service_time:.1f}s")
-            # Only show business metrics: Service Efficiency and Staff Productivity in total since
             human_text_lines.append(f"\t- Business Metrics:")
-            human_text_lines.append(f"\t\t- Service Efficiency: {service_efficiency*100:.1f}%")
-            human_text_lines.append(f"\t\t- Staff Productivity: {staff_productivity:.2f} services/staff")
-
+            human_text_lines.append(f"\t\t- Service Efficiency: {business_metrics.get('service_efficiency', 0)*100:.1f}%")
+            human_text_lines.append(f"\t\t- Staff Productivity: {business_metrics.get('staff_productivity', 0):.2f} services/staff")
             human_text = "\n".join(human_text_lines)
 
+            # Build event in incident format
             event = {
-                "type": "advanced_customer_service",
-                "stream_time": current_timestamp,
-                "application_name": "Advanced Customer Service System",
-                "application_version": "1.0",
-                "location_info": None,
+                "incident_id": f"AdvancedCustomerService_{frame_id}",
+                "incident_type": "AdvancedCustomerService",
+                "severity_level": business_metrics.get("severity_level", "info"),
                 "human_text": human_text,
-                "frame_id": str(frame_id)
+                "start_time": start_timestamp,
+                "end_time": "Incident still active",  # or use logic as needed
+                "camera_info": stream_info.get("camera_info", {}) if stream_info else {},
+                "level_settings": {
+                    "low": 1,
+                    "medium": 3,
+                    "significant": 4,
+                    "critical": 7
+                },
+                "alerts": alerts,
+                "alert_settings": alert_settings
             }
-            frame_events[str(frame_id)] = [event]
+            # Harmonize tracking_stats fields with people_counting output
+            camera_info = stream_info.get("camera_info", {}) if stream_info else {}
+            input_timestamp = current_timestamp
+            reset_timestamp = start_timestamp
+            reset_settings = config.create_default_config() if hasattr(config, "create_default_config") else {}
+
+            # Calculate total_counts (global sum of staff and customer)
+            total_counts = [
+                {"category": "staff", "count": staff_analytics.get("total_staff", 0)},
+                {"category": "customer", "count": journey_analytics.get("total_journeys", 0)}
+            ]
+            # Optionally add more categories if needed
+            # Calculate current_counts (frame-wise counts)
+            current_counts = [
+                {"category": "staff", "count": staff_analytics.get("active_staff", 0)},
+                {"category": "customer", "count": queue_analytics.get("active_customers", 0)}
+            ]
+            # Detections: include all detections for this frame
+            detection_objs = []
+            for d in detections:
+                bbox = d.get("bounding_box", d.get("bbox", {}))
+                detection_objs.append({
+                    "category": d.get("category", "person"),
+                    "bounding_box": bbox
+                })
+
+            # Harmonize reset_settings format 
+            reset_settings = [
+                {
+                    "interval_type": getattr(config, "reset_interval_type", "daily"),
+                    "reset_time": {
+                        "value": getattr(config, "reset_time_value", 9),
+                        "time_unit": getattr(config, "reset_time_unit", "hour")
+                    }
+                }
+            ]
 
             tracking_stat = {
-                "tracking_start_time": start_timestamp,
-                "all_results_for_tracking": {
-                    "total_people": total_people,
-                    "staff_count": staff_count,
-                    "customer_count": customer_count,
-                    "detections": detections,
-                    "business_metrics": analytics_results.get("business_metrics", {}),
-                    "customer_queue_analytics": queue_analytics,
-                    "staff_management_analytics": staff_analytics,
-                    "service_area_analytics": service_analytics,
-                    "customer_journey_analytics": journey_analytics,
-                    "service_times": analytics_results.get("service_times", []),
-                    "global_frame_offset": global_frame_offset,
-                    "local_frame_id": str(frame_id)
-                },
-                "human_text": human_text,
-                "local_frame_id": str(frame_id),
-                "frames_in_this_call": 1,
-                "total_frames_processed": total_frames_processed + int(frame_id),
-                "current_frame_number": str(frame_id),
-                "global_frame_offset": global_frame_offset
+                "input_timestamp": input_timestamp,
+                "reset_timestamp": reset_timestamp,
+                "camera_info": camera_info,
+                "total_counts": total_counts,
+                "current_counts": current_counts,
+                "detections": detection_objs,
+                "alerts": alerts,
+                "alert_settings": alert_settings,
+                "reset_settings": reset_settings,
+                "human_text": human_text
             }
-            frame_tracking_stats[str(frame_id)] = [tracking_stat]
-        return {"events": frame_events, "tracking_stats": frame_tracking_stats}
+            business_analytics = [{
+                "business_metrics": business_metrics,
+                "customer_queue_analytics": queue_analytics,
+                "staff_management_analytics": staff_analytics,
+                "service_area_analytics": service_analytics,
+                "customer_journey_analytics": journey_analytics,
+                "service_times": analytics_results.get("service_times", []),
+                "real_time_occupancy": analytics_results.get("real_time_occupancy", {}),
+                "alerts": alerts,
+                "alert_settings": alert_settings
+            }]
+
+            agg_summary[str(frame_id)] = {
+                "incidents": [event],
+                "tracking_stats": [tracking_stat],
+                "business_analytics": business_analytics,
+                "alerts": alerts,
+                "human_text": human_text
+            }
+        return agg_summary
     # --- Chunk tracking for per-chunk analytics ---
     def _init_chunk_tracking(self):
         self._chunk_frame_count = 0
@@ -405,7 +466,41 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     "type": "number",
                     "minimum": 0.0,
                     "default": 0.5
-                }
+                },
+                "reset_interval_type": {
+                    "type": "string",
+                    "default": "daily",
+                    "description": "Interval type for resetting analytics (e.g., daily, weekly)"
+                },
+                "reset_time_value": {
+                    "type": "integer",
+                    "default": 9,
+                    "description": "Time value for reset (e.g., hour of day)"
+                },
+                "reset_time_unit": {
+                    "type": "string",
+                    "default": "hour",
+                    "description": "Time unit for reset (e.g., hour, minute)"
+                },
+                "alert_config": {
+                    "type": "object",
+                    "description": "Custom alert configuration settings"
+                },
+                "queue_length_threshold": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Threshold for queue length alerts"
+                },
+                "service_efficiency_threshold": {
+                    "type": "number",
+                    "default": 0.0,
+                    "description": "Threshold for service efficiency alerts"
+                },
+                "email_address": {
+                    "type": "string",
+                    "default": "john.doe@gmail.com",
+                    "description": "Email address for alert notifications"
+                },
             },
             "required": ["confidence_threshold"],
             "additionalProperties": False
@@ -514,10 +609,6 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             else:
                 agg_summary = {"events": {}, "tracking_stats": {}}
 
-            # # --- FIX: Ensure raw_output is always a list ---
-            # if not isinstance(analytics_results.get("raw_output", []), list):
-            #     analytics_results["raw_output"] = [analytics_results.get("raw_output", {})]
-
             insights = self._generate_insights(analytics_results, config)
             alerts = self._check_alerts(analytics_results, config)
             summary = self._generate_summary(analytics_results, alerts)
@@ -525,53 +616,9 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
 
             context.mark_completed()
 
-
-
-            # # --- REPLACE outer agg_summary with inner if present ---
-            # # If analytics_results contains processed_data.agg_summary, use that as the output agg_summary
-            # inner_agg_summary = None
-            # if "processed_data" in analytics_results and isinstance(analytics_results["processed_data"], dict):
-            #     pd = analytics_results["processed_data"]
-            #     if "agg_summary" in pd and isinstance(pd["agg_summary"], dict):
-            #         inner_agg_summary = pd["agg_summary"]
-            # if inner_agg_summary:
-            #     agg_summary = inner_agg_summary
-
-            # # Ensure tracking_stats and events are dicts keyed by frame_id
-            # if "tracking_stats" in agg_summary and isinstance(agg_summary["tracking_stats"], list):
-            #     # If tracking_stats is a list with a dict containing tracking_stats, flatten
-            #     for item in agg_summary["tracking_stats"]:
-            #         if isinstance(item, dict) and "tracking_stats" in item:
-            #             agg_summary["tracking_stats"] = item["tracking_stats"]
-            #             break
-
-            # if "events" in agg_summary and isinstance(agg_summary["events"], list):
-            #     for item in agg_summary["events"]:
-            #         if isinstance(item, dict) and "events" in item:
-            #             agg_summary["events"] = item["events"]
-            #             break
-
-            # Compose result data with flattened agg_summary
-            if not isinstance(analytics_results, dict):
-                result_data = dict(analytics_results)
-            else:
-                result_data = analytics_results
-            
-            result_data["events"]= agg_summary["events"]
-            result_data["tracking_stats"]= agg_summary["tracking_stats"]
-            #result_data["agg_summary"] = agg_summary
-
-
-            # # Ensure raw_output is always a list, including inside model_output
-            # if "model_output" in result_data:
-            #     mo = result_data["model_output"]
-            #     if isinstance(mo, dict) and "raw_output" in mo and not isinstance(mo["raw_output"], list):
-            #         mo["raw_output"] = [mo["raw_output"]]
-            # if not isinstance(result_data.get("raw_output", []), list):
-            #     result_data["raw_output"] = [result_data.get("raw_output", {})]
-
+            # Compose result data with harmonized agg_summary structure
             result = self.create_result(
-                data=result_data,
+                data={"agg_summary": agg_summary},
                 usecase=self.name,
                 category=self.category,
                 context=context

@@ -59,8 +59,9 @@ class Field:
     size_to_fit: bool = True
 
     def __post_init__(self):
-        if not self.key and len(self.children) == 0:
-            self.key = slugify(str(self.label))  # we cast to str explicitly in case label is in a translation wrapper
+        self.identifier = (
+            self.key if self.key else slugify(str(self.label))
+        )  # we cast to str explicitly in case label is in a translation wrapper
 
     def iterate_leaf_fields(self, aggregated_parent_label: str = ""):
         label = self.label
@@ -73,7 +74,7 @@ class Field:
             yield self.key, label
 
     def serialize(self, parent_identifier: str | None = None):
-        identifier = parent_identifier + "_" + self.key if parent_identifier else self.key
+        identifier = parent_identifier + "_" + self.identifier if parent_identifier else self.identifier
         repr = {
             "identifier": identifier,
             "key": self.key,

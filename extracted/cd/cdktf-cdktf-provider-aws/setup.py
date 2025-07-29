@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.4.0",
+    "version": "21.5.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -356,6 +356,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.connect_instance_storage_config",
         "cdktf_cdktf_provider_aws.connect_lambda_function_association",
         "cdktf_cdktf_provider_aws.connect_phone_number",
+        "cdktf_cdktf_provider_aws.connect_phone_number_contact_flow_association",
         "cdktf_cdktf_provider_aws.connect_queue",
         "cdktf_cdktf_provider_aws.connect_quick_connect",
         "cdktf_cdktf_provider_aws.connect_routing_profile",
@@ -1545,6 +1546,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.mskconnect_worker_configuration",
         "cdktf_cdktf_provider_aws.mwaa_environment",
         "cdktf_cdktf_provider_aws.nat_gateway",
+        "cdktf_cdktf_provider_aws.nat_gateway_eip_association",
         "cdktf_cdktf_provider_aws.neptune_cluster",
         "cdktf_cdktf_provider_aws.neptune_cluster_endpoint",
         "cdktf_cdktf_provider_aws.neptune_cluster_instance",
@@ -2148,7 +2150,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.4.0.jsii.tgz"
+            "provider-aws@21.5.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

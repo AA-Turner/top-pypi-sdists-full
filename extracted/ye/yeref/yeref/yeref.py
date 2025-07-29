@@ -10645,8 +10645,7 @@ async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
 
 
 # region pst
-async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_USERNAME, PROJECT_TYPE,
-                    is_paid=False):
+async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_USERNAME, PROJECT_TYPE, is_paid=False):
     result = {'result': True, 'bot': True, 'post': data_web['post']}
     try:
         chat_id = int(data_user['user']['id'])
@@ -10682,6 +10681,9 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_TARGET = post['POST_TARGET'] if 'POST_TARGET' in post else ''
         POST_ISPRIVATE = post['POST_ISPRIVATE'] if 'POST_ISPRIVATE' in post else 0
 
+        if POST_TARGETTYPE == 'ids' and PROJECT_USERNAME == 'FereyBotBot':
+            targets = list({t.strip() for t in POST_TARGET.split() if t.strip().isdigit() and len(t.strip()) >= 7})
+            POST_TARGET = ' '.join(targets)
         POST_LZ = data_web['lz']
         POST_TZ = await get_tz(data_web['dateTime'])
 
@@ -10689,6 +10691,8 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_DT = await get_utc_from_local(POST_DT, POST_TZ)
         POST_DT = datetime.strptime(POST_DT, "%Y-%m-%dT%H:%M") if POST_DT else None
 
+        if not POST_DT and PROJECT_USERNAME == 'FereyBotBot' and len(targets) > 5:
+            POST_DT = datetime.now().replace(second=0, microsecond=0)
         POST_TR = post['POST_TR'] if 'POST_TR' in post else ''
         POST_TR = await get_utc_from_local(POST_TR, POST_TZ)
         POST_TR = datetime.strptime(POST_TR, "%Y-%m-%dT%H:%M") if POST_TR else None
@@ -16425,7 +16429,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
     return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
 
 
-async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE, IS_LINK):
+async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE, IS_LINK=False):
     if MSG_TYPE == 'photo':
         result = photo_jpg
     elif MSG_TYPE in ['gif', 'animation']:

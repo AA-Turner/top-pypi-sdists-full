@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.17.0
+Version: 3.17.1
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Homepage, https://flexget.com
 Project-URL: Issue Tracker, https://github.com/Flexget/Flexget/issues
@@ -99,7 +99,7 @@ Requires-Dist: cheroot==10.0.1; extra == 'locked'
 Requires-Dist: cherrypy==18.10.0; extra == 'locked'
 Requires-Dist: click==8.2.1; extra == 'locked'
 Requires-Dist: colorama==0.4.6; (sys_platform == 'win32') and extra == 'locked'
-Requires-Dist: coverage==7.9.2; extra == 'locked'
+Requires-Dist: coverage==7.10.1; extra == 'locked'
 Requires-Dist: distlib==0.4.0; extra == 'locked'
 Requires-Dist: exceptiongroup==1.3.0; (python_full_version < '3.11') and extra == 'locked'
 Requires-Dist: execnet==2.1.1; extra == 'locked'
@@ -157,7 +157,7 @@ Requires-Dist: pyzstd==0.17.0; (python_full_version < '3.14') and extra == 'lock
 Requires-Dist: rebulk==3.2.0; extra == 'locked'
 Requires-Dist: referencing==0.36.2; extra == 'locked'
 Requires-Dist: requests==2.32.4; extra == 'locked'
-Requires-Dist: rich==14.0.0; extra == 'locked'
+Requires-Dist: rich==14.1.0; extra == 'locked'
 Requires-Dist: rpds-py==0.26.0; extra == 'locked'
 Requires-Dist: rpyc==6.0.2; extra == 'locked'
 Requires-Dist: setuptools==80.9.0; extra == 'locked'
@@ -225,6 +225,9 @@ Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/Flexget.svg
    :target: https://pypi.org/project/flexget/
+
+.. image:: https://img.shields.io/docker/v/flexget/flexget?logo=docker&logoColor=aqua&label=docker%20image&color=aqua
+   :target: https://hub.docker.com/r/flexget/flexget
 
 .. image:: https://img.shields.io/pypi/pyversions/Flexget.svg
    :target: https://pypi.org/project/flexget/

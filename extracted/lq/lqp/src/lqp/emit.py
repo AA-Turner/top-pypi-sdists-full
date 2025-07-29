@@ -2,11 +2,34 @@ import lqp.ir as ir
 from lqp.proto.v1 import logic_pb2, fragments_pb2, transactions_pb2
 from typing import Union, Dict, Any
 
-def convert_primitive_type(rvt: ir.PrimitiveType) -> logic_pb2.PrimitiveType:
-    try:
-        return getattr(logic_pb2.PrimitiveType, f"PRIMITIVE_TYPE_{rvt.name}")
-    except AttributeError:
-        return logic_pb2.PRIMITIVE_TYPE_UNSPECIFIED
+# Maps ir.TypeNames to the associated Proto message for *non-paremetric types*. Used to generically construct non-parametric types.
+# Parametric types should be handled in convert_type
+non_parametric_types = {
+    ir.TypeName.UNSPECIFIED: "UnspecifiedType",
+    ir.TypeName.STRING: "StringType",
+    ir.TypeName.INT: "IntType",
+    ir.TypeName.FLOAT: "FloatType",
+    ir.TypeName.UINT128: "UInt128Type",
+    ir.TypeName.INT128: "Int128Type",
+    ir.TypeName.DATE: "DateType",
+    ir.TypeName.DATETIME: "DateTimeType",
+    ir.TypeName.MISSING: "MissingType"
+}
+
+def convert_type(rt: ir.Type) -> logic_pb2.Type:
+    if rt.type_name == ir.TypeName.DECIMAL :
+        assert isinstance(rt.parameters[0].value, int) and isinstance(rt.parameters[1].value, int), "DECIMAL parameters are not integers"
+        assert len(rt.parameters) == 2, f"DECIMAL parameters should have only precision and scale, got {len(rt.parameters)} arguments"
+        assert rt.parameters[0].value <= 38, f"DECIMAL precision must be less than 38, got {rt.parameters[0]}"
+        assert rt.parameters[1].value <= rt.parameters[0].value, f"DECIMAL precision ({rt.parameters[0]}) must be at least scale ({rt.parameters[1]})"
+        return logic_pb2.Type(
+            decimal_type=logic_pb2.DecimalType(
+                precision=rt.parameters[0].value, scale=rt.parameters[1].value
+            )
+        )
+    else:
+        cls = getattr(logic_pb2, non_parametric_types[rt.type_name])
+        return logic_pb2.Type(**{str(rt.type_name).lower()+"_type": cls()})
 
 def convert_uint128(val: ir.UInt128) -> logic_pb2.UInt128:
     low = val.value & 0xFFFFFFFFFFFFFFFF
@@ -18,20 +41,32 @@ def convert_int128(val: ir.Int128) -> logic_pb2.Int128:
     high = (val.value >> 64) & 0xFFFFFFFFFFFFFFFF
     return logic_pb2.Int128(low=low, high=high)
 
-def convert_value(pv: ir.PrimitiveValue) -> logic_pb2.Value:
-    if isinstance(pv, str):
-        return logic_pb2.Value(string_value=pv)
-    elif isinstance(pv, int):
-        assert pv.bit_length() <= 64, "Integer value exceeds 64 bits"
-        return logic_pb2.Value(int_value=pv)
-    elif isinstance(pv, float):
-        return logic_pb2.Value(float_value=pv)
-    elif isinstance(pv, ir.UInt128):
-        return logic_pb2.Value(uint128_value=convert_uint128(pv))
-    elif isinstance(pv, ir.Int128):
-        return logic_pb2.Value(int128_value=convert_int128(pv))
+def convert_value(pv: ir.Value) -> logic_pb2.Value:
+    if isinstance(pv.value, str):
+        assert pv.cast_type is None, "Illegal cast of String value"
+        return logic_pb2.Value(string_value=pv.value)
+    elif isinstance(pv.value, ir.Missing):
+        assert pv.cast_type is None, "Illegal cast of Missing value"
+        return logic_pb2.Value(missing_value=logic_pb2.MissingValue())
+
+    # For numeric types, handle cast_type if present
+    value_dict: dict[Any, Any] = {}
+    if isinstance(pv.value, int):
+        assert pv.value.bit_length() <= 64, "Integer value exceeds 64 bits"
+        value_dict['int_value'] = pv.value
+    elif isinstance(pv.value, float):
+        value_dict['float_value'] = pv.value
+    elif isinstance(pv.value, ir.UInt128):
+        value_dict['uint128_value'] = convert_uint128(pv.value)
+    elif isinstance(pv.value, ir.Int128):
+        value_dict['int128_value'] = convert_int128(pv.value)
     else:
-        raise TypeError(f"Unsupported PrimitiveValue type: {type(pv)}")
+        raise TypeError(f"Unsupported Value type: {type(pv.value)}")
+
+    if pv.cast_type is not None:
+        value_dict['cast_type'] = convert_type(pv.cast_type)
+
+    return logic_pb2.Value(**value_dict)
 
 def convert_var(v: ir.Var) -> logic_pb2.Var:
     return logic_pb2.Var(name=v.name)
@@ -63,7 +98,7 @@ def convert_attribute(attr: ir.Attribute) -> logic_pb2.Attribute:
 )
 
 def convert_abstraction(abst: ir.Abstraction) -> logic_pb2.Abstraction:
-    bindings = [logic_pb2.Binding(var=convert_var(var_tuple[0]), type=convert_primitive_type(var_tuple[1]))
+    bindings = [logic_pb2.Binding(var=convert_var(var_tuple[0]), type=convert_type(var_tuple[1]))
                 for var_tuple in abst.vars]
     return logic_pb2.Abstraction(
         vars=bindings,
@@ -212,13 +247,13 @@ def convert_monoid(monoid: ir.Monoid) -> logic_pb2.Monoid:
     if isinstance(monoid, ir.OrMonoid):
         return logic_pb2.Monoid(**{'or_monoid': logic_pb2.OrMonoid()})  # type: ignore
     elif isinstance(monoid, ir.SumMonoid):
-        type = convert_primitive_type(monoid.type)
+        type = convert_type(monoid.type)
         return logic_pb2.Monoid(**{'sum_monoid': logic_pb2.SumMonoid(type=type)})  # type: ignore
     elif isinstance(monoid, ir.MinMonoid):
-        type = convert_primitive_type(monoid.type)
+        type = convert_type(monoid.type)
         return logic_pb2.Monoid(**{'min_monoid': logic_pb2.MinMonoid(type=type)})  # type: ignore
     elif isinstance(monoid, ir.MaxMonoid):
-        type = convert_primitive_type(monoid.type)
+        type = convert_type(monoid.type)
         return logic_pb2.Monoid(**{'max_monoid': logic_pb2.MaxMonoid(type=type)})  # type: ignore
     else:
         raise TypeError(f"Unsupported Monoid: {monoid}")
@@ -331,8 +366,7 @@ def convert_read(r: ir.Read) -> transactions_pb2.Read:
 
 def convert_epoch(e: ir.Epoch) -> transactions_pb2.Epoch:
     return transactions_pb2.Epoch(
-        persistent_writes=[convert_write(w) for w in e.persistent_writes],
-        local_writes=[convert_write(w) for w in e.local_writes],
+        writes=[convert_write(w) for w in e.writes],
         reads=[convert_read(r) for r in e.reads]
     )
 

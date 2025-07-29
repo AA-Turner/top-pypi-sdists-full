@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codeflash
-Version: 0.15.6
+Version: 0.16.0
 Summary: Client for codeflash.ai - automatic code performance optimization, powered by AI
 Project-URL: Homepage, https://codeflash.ai
 Author-email: "CodeFlash Inc." <contact@codeflash.ai>
@@ -8,6 +8,7 @@ License: BSL-1.1
 Keywords: LLM,ai,code,codeflash,machine learning,optimization,performance
 Requires-Python: >=3.9
 Requires-Dist: click>=8.1.0
+Requires-Dist: codeflash-benchmark
 Requires-Dist: coverage>=7.6.4
 Requires-Dist: crosshair-tool>=0.0.78
 Requires-Dist: dill>=0.3.8

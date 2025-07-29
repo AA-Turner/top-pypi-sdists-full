@@ -61,7 +61,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Development Status :: 3 - Alpha",
 ]
-version = "0.19.11"
+version = "0.19.12"
 
 [project.license]
 text = "MIT"
@@ -94,4 +94,5 @@ dev = [
     "ipykernel>=6.29.5",
     "setuptools>=80.7.1",
     "grpcio-tools==1.71.0",
+    "black>=25.1.0",
 ]

@@ -21,6 +21,7 @@ ACTIONS = {
 
     "fal": "https://api.chatfire.cn/fal-ai/{model}/requests/{request_id}",
 
+    "volc": "https://api.chatfire.cn/volc/v1/contents/generations/tasks/{task_id}",
     "doubao": "https://api.chatfire.cn/volc/v1/contents/generations/tasks/{task_id}",
     "jimeng": "https://api.chatfire.cn/volc/v1/contents/generations/tasks/{task_id}",
 
@@ -78,6 +79,9 @@ async def polling_tasks(platform: str = "flux", action: str = "", status: str = 
             action = item['action'].split('-', maxsplit=1)[0]  # 模糊匹配
             if 'fal-' in item['action']:
                 model = item['action'].split('-')[1]
+
+            if task_id.startswith("cgt-"):
+                action = "volc"
 
             if action not in ACTIONS:
                 logger.warning(f"未知任务类型：{action}")
@@ -139,62 +143,3 @@ if __name__ == '__main__':
     arun(polling_tasks())
     # arun(get_tasks(action="async-task", status="FAILURE"))
     # arun(refund_tasks())
-
-"""
-UPSTREAM_BASE_URL=https://api.ffire.cc
-UPSTREAM_API_KEY=
-
-API_KEY=https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=1DCblQ[:200]
-BASE_URL=https://ark.cn-beijing.volces.com/api/v3/chat/completions
-
-
-
-curl -X 'POST' 'http://0.0.0.0:8000/oneapi/channel' \
-    -H "Authorization: Bearer $API_KEY" \
-    -H "UPSTREAM-BASE-URL: $UPSTREAM_BASE_URL" \
-    -H "UPSTREAM-API-KEY: $UPSTREAM_API_KEY" \
-    -H 'accept: application/json' \
-    -H 'Content-Type: application/json' \
-      -d '{
-        "id": "10000:10100",
-        "name": "火山企业",
-        "tag": "火山企业",
-        "key": "$KEY",
-        "type": 8,
-        "priority": 999,
-
-        "base_url": "'$BASE_URL'",
-
-        "models": "deepseek-r1-250120,deepseek-r1-250528,doubao-1-5-thinking-vision-pro-250428,doubao-1-5-thinking-pro,doubao-1-5-thinking-pro-250415,doubao-seed-1-6-thinking-250715,doubao-seed-1-6-flash-250715,doubao-seed-1-6-250615,doubao-1-5-pro-32k-250115,doubao-1.5-pro-32k,deepseek-r1-250528,deepseek-r1,deepseek-reasoner,deepseek-v3-250324,deepseek-v3,deepseek-chat,doubao-1-5-ui-tars-250428,doubao-1.5-vision-pro-250328,doubao-1-5-pro-256k-250115,moonshot-v1-8k,moonshot-v1-32k,moonshot-v1-128k",
-        "group": "default,volc,volcengine",
-        
-        "status_code_mapping": "{\n  \"429\": \"500\"\n}",
-        "model_mapping": {
-        
-        "kimi-k2-0711-preview":"kimi-k2-250711",
-        "moonshotai/kimi-k2-instruct":"kimi-k2-250711",
-        
-        "deepseek-r1": "deepseek-r1-250120",
-        "deepseek-reasoner": "deepseek-r1-250120",
-        "deepseek-v3-0324": "deepseek-v3-250324",
-        "deepseek-v3": "deepseek-v3-250324",
-        "deepseek-chat": "deepseek-v3-250324",
-        "doubao-1-5-vision-pro-32k": "doubao-1-5-vision-pro-32k-250115",
-        "doubao-1.5-vision-pro-32k": "doubao-1-5-vision-pro-32k-250115",
-        "doubao-pro-32k": "doubao-1-5-pro-32k-250115",
-        "doubao-pro-256k": "doubao-1-5-pro-256k-250115",
-        "doubao-1.5-lite-32k": "doubao-1-5-lite-32k-250115",
-        "doubao-lite-4k": "doubao-1-5-lite-32k-250115",
-        "doubao-lite-32k": "doubao-1-5-lite-32k-250115",
-        "doubao-lite-128k": "doubao-lite-128k-240828",
-        "doubao-1.5-lite": "doubao-1-5-lite-32k-250115",
-        "doubao-vision-lite-32k": "doubao-vision-lite-32k-241015",
-        "doubao-vision-pro-32k": "doubao-1-5-vision-pro-32k-250115",
-        "doubao-1.5-pro-32k": "doubao-1-5-pro-32k-250115",
-        "doubao-1.5-pro-256k": "doubao-1-5-pro-256k-250115",
-        "doubao-1-5-thinking-pro": "doubao-1-5-thinking-pro-250415",
-        "doubao-1-5-thinking-pro-vision": "doubao-1-5-thinking-vision-pro-250428"
-        }
-    }'
-
-"""

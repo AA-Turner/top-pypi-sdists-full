@@ -188,6 +188,7 @@ class LLM:
         self._gateway = Gateway(api_key=api_key)
         self._deployment_display_name = deployment_display_name
         self._direct_route_api_key = direct_route_api_key
+        self._ran_setup = False
         self._model = model
         if base_id is not None and not self.is_peft_addon():
             raise ValueError("base_id is only for PEFT addons. Use id instead for specifying an existing deployment.")

@@ -1,7 +1,7 @@
 r'''
 # `data_aws_cloudwatch_event_bus`
 
-Refer to the Terraform Registry for docs: [`data_aws_cloudwatch_event_bus`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus).
+Refer to the Terraform Registry for docs: [`data_aws_cloudwatch_event_bus`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsCloudwatchEventBus(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsCloudwatchEventBus.DataAwsCloudwatchEventBus",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus aws_cloudwatch_event_bus}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus aws_cloudwatch_event_bus}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAwsCloudwatchEventBus(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus aws_cloudwatch_event_bus} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus aws_cloudwatch_event_bus} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#name DataAwsCloudwatchEventBus#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#id DataAwsCloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#region DataAwsCloudwatchEventBus#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#name DataAwsCloudwatchEventBus#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#id DataAwsCloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#region DataAwsCloudwatchEventBus#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAwsCloudwatchEventBus(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsCloudwatchEventBus to import.
-        :param import_from_id: The id of the existing DataAwsCloudwatchEventBus that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsCloudwatchEventBus that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsCloudwatchEventBus to import is found.
         '''
         if __debug__:
@@ -160,6 +160,11 @@ class DataAwsCloudwatchEventBus(
     @jsii.member(jsii_name="kmsKeyIdentifier")
     def kms_key_identifier(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "kmsKeyIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logConfig")
+    def log_config(self) -> "DataAwsCloudwatchEventBusLogConfigList":
+        return typing.cast("DataAwsCloudwatchEventBusLogConfigList", jsii.get(self, "logConfig"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -252,9 +257,9 @@ class DataAwsCloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#name DataAwsCloudwatchEventBus#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#id DataAwsCloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#region DataAwsCloudwatchEventBus#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#name DataAwsCloudwatchEventBus#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#id DataAwsCloudwatchEventBus#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#region DataAwsCloudwatchEventBus#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,14 +363,14 @@ class DataAwsCloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#name DataAwsCloudwatchEventBus#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#name DataAwsCloudwatchEventBus#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#id DataAwsCloudwatchEventBus#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#id DataAwsCloudwatchEventBus#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -377,7 +382,7 @@ class DataAwsCloudwatchEventBusConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/data-sources/cloudwatch_event_bus#region DataAwsCloudwatchEventBus#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/data-sources/cloudwatch_event_bus#region DataAwsCloudwatchEventBus#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -540,12 +545,164 @@ class DataAwsCloudwatchEventBusDeadLetterConfigOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsCloudwatchEventBus.DataAwsCloudwatchEventBusLogConfig",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsCloudwatchEventBusLogConfig:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsCloudwatchEventBusLogConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsCloudwatchEventBusLogConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsCloudwatchEventBus.DataAwsCloudwatchEventBusLogConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__246cb43c3f7fe58a8451b3bc3d88fa08658071751c420b0c8ef4f07a5be38961)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsCloudwatchEventBusLogConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a851deeaa27772bb501343d3abce15231c08beb61856cbe8bc8855c17dd618e)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsCloudwatchEventBusLogConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e631e87d1071b51b4c246c80d2d59b0b7cad50dd97b2b532adcca2cb327c7191)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd544f470d8b00206f941ba2f22d1cca41e821439cddd40dca4a5cdbb32db8c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__190cb0b8cf3a1d1dec97ca434aa28cc21854c329eecc82186c0ce6349529f2ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsCloudwatchEventBusLogConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsCloudwatchEventBus.DataAwsCloudwatchEventBusLogConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18b3abc5b322c3d9e21332178ac8f3d520f500d74bb10455b3e0c766f2bbad0e)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="includeDetail")
+    def include_detail(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "includeDetail"))
+
+    @builtins.property
+    @jsii.member(jsii_name="level")
+    def level(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "level"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[DataAwsCloudwatchEventBusLogConfig]:
+        return typing.cast(typing.Optional[DataAwsCloudwatchEventBusLogConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataAwsCloudwatchEventBusLogConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e44a58bde88f0badaea6e644f746be6a4a4419df58d9f9c0d637d8af862fe92)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "DataAwsCloudwatchEventBus",
     "DataAwsCloudwatchEventBusConfig",
     "DataAwsCloudwatchEventBusDeadLetterConfig",
     "DataAwsCloudwatchEventBusDeadLetterConfigList",
     "DataAwsCloudwatchEventBusDeadLetterConfigOutputReference",
+    "DataAwsCloudwatchEventBusLogConfig",
+    "DataAwsCloudwatchEventBusLogConfigList",
+    "DataAwsCloudwatchEventBusLogConfigOutputReference",
 ]
 
 publication.publish()
@@ -654,6 +811,53 @@ def _typecheckingstub__b9a9a365dbc60648f6c5b88b0e9aae92869253e83fc76adb053a6ca97
 
 def _typecheckingstub__03dd92b64bff9f76953956a1aa60dde0479a972bbcb892ab7f1b7f112b3176df(
     value: typing.Optional[DataAwsCloudwatchEventBusDeadLetterConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__246cb43c3f7fe58a8451b3bc3d88fa08658071751c420b0c8ef4f07a5be38961(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a851deeaa27772bb501343d3abce15231c08beb61856cbe8bc8855c17dd618e(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e631e87d1071b51b4c246c80d2d59b0b7cad50dd97b2b532adcca2cb327c7191(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd544f470d8b00206f941ba2f22d1cca41e821439cddd40dca4a5cdbb32db8c0(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__190cb0b8cf3a1d1dec97ca434aa28cc21854c329eecc82186c0ce6349529f2ef(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18b3abc5b322c3d9e21332178ac8f3d520f500d74bb10455b3e0c766f2bbad0e(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e44a58bde88f0badaea6e644f746be6a4a4419df58d9f9c0d637d8af862fe92(
+    value: typing.Optional[DataAwsCloudwatchEventBusLogConfig],
 ) -> None:
     """Type checking stubs"""
     pass

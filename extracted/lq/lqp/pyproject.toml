@@ -1,6 +1,6 @@
 [project]
 name = "lqp"
-version = "0.1.8"
+version = "0.1.9"
 description = "A parser for Logical Query Protocol (LQP) S-expressions into Protobuf"
 readme = "README.md"
 authors = [
@@ -19,7 +19,7 @@ lqp = "lqp.parser:main"
 test = [
     "pytest>=7.0.0",
     "pytest-snapshot",
-    "pyrefly",
+    "pyrefly==0.25.1",
 ]
 
 [build-system]

@@ -1,7 +1,17 @@
+import doctest
 import io
 import unittest
 
 import pyrtl
+
+
+class TestDocTests(unittest.TestCase):
+    """Test documentation examples."""
+
+    def test_doctests(self):
+        failures, tests = doctest.testmod(m=pyrtl.core)
+        self.assertGreater(tests, 0)
+        self.assertEqual(failures, 0)
 
 
 class TestBlock(unittest.TestCase):
@@ -12,10 +22,10 @@ class TestBlock(unittest.TestCase):
         pyrtl.reset_working_block()
 
     def test_add_wirevector_simple(self):
-        w = pyrtl.WireVector(name='testwire', bitwidth=3)
+        w = pyrtl.WireVector(name="testwire", bitwidth=3)
         pyrtl.working_block().add_wirevector(w)
         self.assertTrue(w in pyrtl.working_block().wirevector_set)
-        self.assertTrue('testwire' in pyrtl.working_block().wirevector_by_name)
+        self.assertTrue("testwire" in pyrtl.working_block().wirevector_by_name)
 
     def invalid_wire(self, *args):
         with self.assertRaises(pyrtl.PyrtlError):
@@ -27,13 +37,13 @@ class TestBlock(unittest.TestCase):
         self.invalid_wire(42)
 
     def test_undriven_net(self):
-        w = pyrtl.WireVector(name='testwire', bitwidth=3)
+        _ = pyrtl.WireVector(name="testwire", bitwidth=3)
         self.assertRaises(pyrtl.PyrtlError, pyrtl.working_block().sanity_check)
         pyrtl.reset_working_block()
-        r = pyrtl.Register(3)
+        _ = pyrtl.Register(3)
         self.assertRaises(pyrtl.PyrtlError, pyrtl.working_block().sanity_check)
         pyrtl.reset_working_block()
-        o = pyrtl.Output(3)
+        _ = pyrtl.Output(3)
         self.assertRaises(pyrtl.PyrtlError, pyrtl.working_block().sanity_check)
 
     def test_no_logic_net_comparisons(self):
@@ -41,21 +51,25 @@ class TestBlock(unittest.TestCase):
         b = pyrtl.WireVector(bitwidth=3)
         select = pyrtl.WireVector(bitwidth=3)
         outwire = pyrtl.WireVector(bitwidth=3)
-        net1 = pyrtl.LogicNet(op='x', op_param=None, args=(select, a, b), dests=(outwire,))
-        net2 = pyrtl.LogicNet(op='x', op_param=None, args=(select, b, a), dests=(outwire,))
+        net1 = pyrtl.LogicNet(
+            op="x", op_param=None, args=(select, a, b), dests=(outwire,)
+        )
+        net2 = pyrtl.LogicNet(
+            op="x", op_param=None, args=(select, b, a), dests=(outwire,)
+        )
         with self.assertRaises(pyrtl.PyrtlError):
-            foo = net1 < net2
+            _ = net1 < net2
         with self.assertRaises(pyrtl.PyrtlError):
-            foo = net1 <= net2
+            _ = net1 <= net2
         with self.assertRaises(pyrtl.PyrtlError):
-            foo = net1 > net2
+            _ = net1 > net2
         with self.assertRaises(pyrtl.PyrtlError):
-            foo = net1 >= net2
+            _ = net1 >= net2
 
     def test_logicsubset_no_op(self):
-        w = pyrtl.WireVector(name='testwire1', bitwidth=1)
-        v = pyrtl.WireVector(name='testwire2', bitwidth=1)
-        sum = w & v
+        w = pyrtl.WireVector(name="testwire1", bitwidth=1)
+        v = pyrtl.WireVector(name="testwire2", bitwidth=1)
+        _ = w & v
         block = pyrtl.working_block()
         self.assertEqual(block.logic_subset(None), block.logic)
 
@@ -78,10 +92,8 @@ class TestBlock(unittest.TestCase):
         block = pyrtl.working_block()
 
         output = io.StringIO()
-        i = 0
-        for net in block:
+        for i, net in enumerate(block):
             self.assertFalse(i > 100, "Too many iterations happened")
-            i += 1
             print(str(net), file=output)
 
         for net in block.logic:
@@ -94,23 +106,23 @@ class TestBlock(unittest.TestCase):
     def test_bad_memblock_name_strict(self):
         block = pyrtl.working_block()
         with self.assertRaises(pyrtl.PyrtlError):
-            _ = block.get_memblock_by_name('bad_mem', strict=True)
+            _ = block.get_memblock_by_name("bad_mem", strict=True)
 
     def test_bad_memblock_name_none(self):
         block = pyrtl.working_block()
-        mem = block.get_memblock_by_name('bad_mem')
+        mem = block.get_memblock_by_name("bad_mem")
         self.assertIsNone(mem)
 
     def test_same_memblock_referenced_across_multiple_operators(self):
-        mem_name = 'mem'
+        mem_name = "mem"
         mem = pyrtl.MemBlock(32, 5, mem_name)
-        x = mem[0]
+        _ = mem[0]
         mem[1] <<= 42
         mem = pyrtl.working_block().get_memblock_by_name(mem_name)
         for net in pyrtl.working_block().logic:
-            if net.op == 'm':
+            if net.op == "m":
                 self.assertIs(net.op_param[1], mem)
-            if net.op == '@':
+            if net.op == "@":
                 self.assertIs(net.op_param[1], mem)
 
 
@@ -126,12 +138,16 @@ class TestSanityCheckNet(unittest.TestCase):
             pyrtl.working_block().add_net(*args)
 
     @staticmethod
-    def new_net(op='&', op_param=None, args=None, dests=None):
+    def new_net(op="&", op_param=None, args=None, dests=None):
         if args is None or isinstance(args, int):
-            args = tuple(pyrtl.Input(2) for i in range(args if isinstance(args, int) else 2))
+            args = tuple(
+                pyrtl.Input(2) for i in range(args if isinstance(args, int) else 2)
+            )
         if dests is None or isinstance(dests, int):
+
             def dest():
-                return pyrtl.Register(2) if op == 'r' else pyrtl.Output(2)
+                return pyrtl.Register(2) if op == "r" else pyrtl.Output(2)
+
             dests = tuple(dest() for i in range(dests if isinstance(dests, int) else 1))
         return pyrtl.LogicNet(op=op, op_param=op_param, args=args, dests=dests)
 
@@ -148,14 +164,14 @@ class TestSanityCheckNet(unittest.TestCase):
         self.invalid_net("LogicNet dests must be tuple", net)
 
     def test_net_odd_wires(self):
-        wire = pyrtl.WireVector(2, 'wire')
+        wire = pyrtl.WireVector(2, "wire")
         net = self.new_net(args=(wire, wire))
         other_block = pyrtl.Block()
         wire._block = other_block
         self.invalid_net("net references different block", net)
 
         pyrtl.reset_working_block()
-        wire = pyrtl.WireVector(2, 'wire')
+        wire = pyrtl.WireVector(2, "wire")
         net = self.new_net(args=(wire,))
         pyrtl.working_block().remove_wirevector(wire)
         self.invalid_net("net with unknown source", net)
@@ -171,129 +187,159 @@ class TestSanityCheckNet(unittest.TestCase):
         net = self.new_net(args=(outp, outp))
         self.invalid_net("Outputs cannot be arguments", net)
 
-        wrong_ops = ('%', '!', 'a', 'f', '<<', '>>', '&&', '||', '==')
+        wrong_ops = ("%", "!", "a", "f", "<<", ">>", "&&", "||", "==")
         for op in wrong_ops:
             net = self.new_net(op=op)
             self.invalid_net("not from acceptable set", net)
 
     def test_net_wrong_num_args(self):
-        for op in 'w~rsm':
+        for op in "w~rsm":
             net = self.new_net(op=op)
             self.invalid_net("op only allowed 1 argument", net)
-        for op in '&|^n+-*<>=':
+        for op in "&|^n+-*<>=":
             net = self.new_net(op=op, args=3)
             self.invalid_net("op only allowed 2 arguments", net)
-        for op in 'x@':
+        for op in "x@":
             net = self.new_net(op=op, args=4)
             self.invalid_net("op only allowed 3 arguments", net)
 
     def test_net_wrong_bitwidth(self):
-        net = self.new_net(op='x', args=tuple(pyrtl.Input(i) for i in range(1, 4)))
+        net = self.new_net(op="x", args=tuple(pyrtl.Input(i) for i in range(1, 4)))
         self.invalid_net("args have mismatched bitwidths", net)
-        net = self.new_net(op='x', args=tuple(pyrtl.Input(2) for i in range(3)))
+        net = self.new_net(op="x", args=tuple(pyrtl.Input(2) for i in range(3)))
         self.invalid_net("mux select must be a single bit", net)
 
-        for op in '&|^n+-*<>=':
+        for op in "&|^n+-*<>=":
             net = self.new_net(op=op, args=(tuple(pyrtl.Input(i) for i in range(2, 4))))
             self.invalid_net("args have mismatched bitwidths", net)
 
-        net = self.new_net(op='m', op_param=(1234, pyrtl.MemBlock(2, 3)), args=1)
+        net = self.new_net(op="m", op_param=(1234, pyrtl.MemBlock(2, 3)), args=1)
         self.invalid_net("mem addrwidth mismatch", net)
 
-        net = self.new_net(op='@', op_param=(1234, pyrtl.MemBlock(2, 2)),
-                           args=tuple(pyrtl.Input(i) for i in (4, 2, 1)))
+        net = self.new_net(
+            op="@",
+            op_param=(1234, pyrtl.MemBlock(2, 2)),
+            args=tuple(pyrtl.Input(i) for i in (4, 2, 1)),
+        )
         self.invalid_net("mem addrwidth mismatch", net)
-        net = self.new_net(op='@', op_param=(1234, pyrtl.MemBlock(2, 2)),
-                           args=tuple(pyrtl.Input(i) for i in (2, 4, 1)))
+        net = self.new_net(
+            op="@",
+            op_param=(1234, pyrtl.MemBlock(2, 2)),
+            args=tuple(pyrtl.Input(i) for i in (2, 4, 1)),
+        )
         self.invalid_net("mem bitwidth mismatch", net)
-        net = self.new_net(op='@', op_param=(1234, pyrtl.MemBlock(2, 2)), args=3)
+        net = self.new_net(op="@", op_param=(1234, pyrtl.MemBlock(2, 2)), args=3)
         self.invalid_net("mem write enable must be 1 bit", net)
 
     def test_net_wrong_num_op_params(self):
-        for op in 'w~r':
-            net = self.new_net(op=op, op_param=('hi', 'how', 'r', 'u'), args=1)
+        for op in "w~r":
+            net = self.new_net(op=op, op_param=("hi", "how", "r", "u"), args=1)
             self.invalid_net("op_param should be None", net)
-        for op in '&|^n+-*<>=c':
-            net = self.new_net(op=op, op_param=('hi', 'how', 'r', 'u'), args=2)
+        for op in "&|^n+-*<>=c":
+            net = self.new_net(op=op, op_param=("hi", "how", "r", "u"), args=2)
             self.invalid_net("op_param should be None", net)
-        net = self.new_net(op='x', op_param=('hi', 'how', 'r', 'u'),
-                           args=tuple(pyrtl.Input(i) for i in (1, 2, 2)))
+        net = self.new_net(
+            op="x",
+            op_param=("hi", "how", "r", "u"),
+            args=tuple(pyrtl.Input(i) for i in (1, 2, 2)),
+        )
         self.invalid_net("op_param should be None", net)
 
     def test_net_wrong_op_param_select(self):
-        net = self.new_net(op='s', op_param='hi', args=1)
+        net = self.new_net(op="s", op_param="hi", args=1)
         self.invalid_net("select op requires tuple op_param", net)
-        net = self.new_net(op='s', op_param=(-2,), args=1)
+        net = self.new_net(op="s", op_param=(-2,), args=1)
         self.invalid_net("op_param out of bounds", net)
-        net = self.new_net(op='s', op_param=(10,), args=1)
+        net = self.new_net(op="s", op_param=(10,), args=1)
         self.invalid_net("op_param out of bounds", net)
-        net = self.new_net(op='s', op_param=(0, 1, 3), args=1)
+        net = self.new_net(op="s", op_param=(0, 1, 3), args=1)
         self.invalid_net("op_param out of bounds", net)
-        net = self.new_net(op='s', op_param=(0, True, False, dict(), 'hi'), args=1)
+        net = self.new_net(op="s", op_param=(0, True, False, {}, "hi"), args=1)
         self.invalid_net("select op_param requires ints", net)
 
     def test_net_wrong_op_param_mem(self):
-        for op in 'm@':
-            net = self.new_net(op=op, op_param=[1234, pyrtl.MemBlock(1, 1)],
-                               args=tuple(pyrtl.Input(1) for i in range(1 if op == 'm' else 3)))
+        for op in "m@":
+            net = self.new_net(
+                op=op,
+                op_param=[1234, pyrtl.MemBlock(1, 1)],
+                args=tuple(pyrtl.Input(1) for i in range(1 if op == "m" else 3)),
+            )
             self.invalid_net("mem op requires tuple op_param", net)
-        for op in 'm@':
-            net = self.new_net(op=op, op_param=(1234, pyrtl.MemBlock(1, 1), 'hi'),
-                               args=tuple(pyrtl.Input(1) for i in range(1 if op == 'm' else 3)))
+        for op in "m@":
+            net = self.new_net(
+                op=op,
+                op_param=(1234, pyrtl.MemBlock(1, 1), "hi"),
+                args=tuple(pyrtl.Input(1) for i in range(1 if op == "m" else 3)),
+            )
             self.invalid_net("mem op requires 2 op_params in tuple", net)
-        for op in 'm@':
-            net = self.new_net(op=op, op_param=('hi', pyrtl.MemBlock(1, 1)),
-                               args=tuple(pyrtl.Input(1) for i in range(1 if op == 'm' else 3)))
+        for op in "m@":
+            net = self.new_net(
+                op=op,
+                op_param=("hi", pyrtl.MemBlock(1, 1)),
+                args=tuple(pyrtl.Input(1) for i in range(1 if op == "m" else 3)),
+            )
             self.invalid_net("mem op requires first operand as int", net)
 
         class NotMem:  # so that some earlier mem tests can work properly
             def __init__(self, bw=1, aw=1):
                 self.bitwidth, self.addrwidth = bw, aw
 
-        for op in 'm@':
-            net = self.new_net(op=op, op_param=(1234, NotMem()),
-                               args=tuple(pyrtl.Input(1) for i in range(1 if op == 'm' else 3)))
+        for op in "m@":
+            net = self.new_net(
+                op=op,
+                op_param=(1234, NotMem()),
+                args=tuple(pyrtl.Input(1) for i in range(1 if op == "m" else 3)),
+            )
             self.invalid_net("mem op requires second operand of a memory type", net)
 
     def test_net_dest_wrong_arity_or_type(self):
-        for op in 'w~&|^n+-*<>=cr':
-            net = self.new_net(op=op, args=1 if op in 'w~r' else 2, dests=2)
+        for op in "w~&|^n+-*<>=cr":
+            net = self.new_net(op=op, args=1 if op in "w~r" else 2, dests=2)
             self.invalid_net("error, op only allowed 1 destination", net)
-        net = self.new_net(op='s', op_param=(1,), args=1, dests=2)
+        net = self.new_net(op="s", op_param=(1,), args=1, dests=2)
         self.invalid_net("error, op only allowed 1 destination", net)
-        net = self.new_net(op='x', args=(pyrtl.Input(1), pyrtl.Input(2), pyrtl.Input(2)), dests=2)
+        net = self.new_net(
+            op="x", args=(pyrtl.Input(1), pyrtl.Input(2), pyrtl.Input(2)), dests=2
+        )
         self.invalid_net("error, op only allowed 1 destination", net)
-        net = self.new_net(op='m', op_param=(1234, pyrtl.MemBlock(1, 2)), args=1, dests=2)
+        net = self.new_net(
+            op="m", op_param=(1234, pyrtl.MemBlock(1, 2)), args=1, dests=2
+        )
         self.invalid_net("error, op only allowed 1 destination", net)
 
-        net = self.new_net(op='@', op_param=(1234, pyrtl.MemBlock(2, 2)),
-                           args=tuple(pyrtl.Input(i) for i in (2, 2, 1)))
+        net = self.new_net(
+            op="@",
+            op_param=(1234, pyrtl.MemBlock(2, 2)),
+            args=tuple(pyrtl.Input(i) for i in (2, 2, 1)),
+        )
         self.invalid_net("mem write dest should be empty tuple", net)
 
-        net = self.new_net(op='r', args=1, dests=(pyrtl.WireVector(2),))
+        net = self.new_net(op="r", args=1, dests=(pyrtl.WireVector(2),))
         self.invalid_net("error, dest of next op should be a Register", net)
 
     def test_net_dest_wrong_bitwidth(self):
-        for op in 'w~&|^n':
-            net = self.new_net(op=op, args=1 if op in 'w~' else 2, dests=(pyrtl.Output(3),))
+        for op in "w~&|^n":
+            net = self.new_net(
+                op=op, args=1 if op in "w~" else 2, dests=(pyrtl.Output(3),)
+            )
             self.invalid_net("upper bits of destination unassigned", net)
-        net = self.new_net(op='r', args=1, dests=(pyrtl.Register(3),))
+        net = self.new_net(op="r", args=1, dests=(pyrtl.Register(3),))
         self.invalid_net("upper bits of destination unassigned", net)
-        for op in '<>=':
+        for op in "<>=":
             net = self.new_net(op=op, dests=(pyrtl.Output(2),))
             self.invalid_net("destination should be of bitwidth=1", net)
-        for op in '+-':
+        for op in "+-":
             net = self.new_net(op=op, dests=(pyrtl.Output(4),))
             self.invalid_net("upper bits of destination unassigned", net)
-        net = self.new_net(op='*', dests=(pyrtl.Output(5),))
+        net = self.new_net(op="*", dests=(pyrtl.Output(5),))
         self.invalid_net("upper bits of destination unassigned", net)
-        net = self.new_net(op='x', args=tuple(pyrtl.Input(1) for i in range(3)))
+        net = self.new_net(op="x", args=tuple(pyrtl.Input(1) for i in range(3)))
         self.invalid_net("upper bits of mux output undefined", net)
-        net = self.new_net(op='c', args=3, dests=(pyrtl.Output(7),))
+        net = self.new_net(op="c", args=3, dests=(pyrtl.Output(7),))
         self.invalid_net("upper bits of concat output undefined", net)
-        net = self.new_net(op='s', args=1, op_param=(1,))
+        net = self.new_net(op="s", args=1, op_param=(1,))
         self.invalid_net("upper bits of select output undefined", net)
-        net = self.new_net(op='m', op_param=(1234, pyrtl.MemBlock(3, 2)), args=1)
+        net = self.new_net(op="m", op_param=(1234, pyrtl.MemBlock(3, 2)), args=1)
         self.invalid_net("mem read dest bitwidth mismatch", net)
 
 
@@ -370,7 +416,7 @@ class TestAsGraph(unittest.TestCase):
                 if has_virtual:
                     self.assertIs(wire, net)
                 else:
-                    self.fail("Input or Const, {} should not have a src".format(str(wire)))
+                    self.fail(f"Input or Const, {wire} should not have a src")
             else:
                 self.assertTrue(any(wire is w for w in net.dests))
 
@@ -380,7 +426,7 @@ class TestAsGraph(unittest.TestCase):
                     self.assertEqual(len(nets), 1)
                     self.assertIs(wire, nets[0])
                 else:
-                    self.fail("Output, {} should not have a dst".format(str(wire)))
+                    self.fail(f"Output, {wire} should not have a dst")
             else:
                 for net in nets:
                     self.assertTrue(any(wire is w for w in net.args))
@@ -396,7 +442,7 @@ class TestAsGraph(unittest.TestCase):
         i = pyrtl.Input(1)
         o = pyrtl.Output(1)
         b = pyrtl.working_block()
-        net = pyrtl.LogicNet('~', None, (i,), (o,))
+        net = pyrtl.LogicNet("~", None, (i,), (o,))
         b.add_net(net)
         src_g, dst_g = b.net_connections(False)
         self.check_graph_correctness(src_g, dst_g)
@@ -438,9 +484,9 @@ class TestAsGraph(unittest.TestCase):
         self.check_graph_correctness(src_g, dst_g, True)
 
     def test_as_graph_memory(self):
-        m = pyrtl.MemBlock(addrwidth=2, bitwidth=2, name='m', max_read_ports=None)
-        i = pyrtl.Register(bitwidth=2, name='i')
-        o = pyrtl.WireVector(bitwidth=2, name='o')
+        m = pyrtl.MemBlock(addrwidth=2, bitwidth=2, name="m", max_read_ports=None)
+        i = pyrtl.Register(bitwidth=2, name="i")
+        o = pyrtl.WireVector(bitwidth=2, name="o")
         i.next <<= i + 1
         m[i] <<= pyrtl.mux((m[i] != 0), 0, m[i])
         o <<= m[i]
@@ -457,9 +503,9 @@ class TestAsGraph(unittest.TestCase):
         x = pyrtl.Input(1)
         d = pyrtl.Output()
         b = a & a
-        c = pyrtl.concat(a, a)
-        m = pyrtl.MemBlock(addrwidth=3, bitwidth=3, name='m')
-        m2 = pyrtl.MemBlock(addrwidth=1, bitwidth=1, name='m')
+        _ = pyrtl.concat(a, a)
+        m = pyrtl.MemBlock(addrwidth=3, bitwidth=3, name="m")
+        m2 = pyrtl.MemBlock(addrwidth=1, bitwidth=1, name="m")
         d <<= m[a]
         m[a] <<= a
         m2[x] <<= pyrtl.MemBlock.EnabledWrite(x, x)
@@ -481,54 +527,58 @@ class TestSanityCheck(unittest.TestCase):
             pyrtl.working_block().sanity_check()
 
     def test_missing_bitwidth(self):
-        inp = pyrtl.Input()
-        out = pyrtl.Output(8)
+        _ = pyrtl.Input()
         self.sanity_error("missing bitwidth")
 
     def test_duplicate_names(self):
-        inp = pyrtl.Input(8, 'hi')
-        out = pyrtl.Output(8, 'hi')
+        inp = pyrtl.Input(8, "hi")
+        out = pyrtl.Output(8, "hi")
         out <<= inp
         self.sanity_error("Duplicate wire names")
 
     def test_unknown_wires(self):
-        inp = pyrtl.Input(8, 'inp')
-        out = pyrtl.Output(8, 'out')
+        inp = pyrtl.Input(8, "inp")
+        out = pyrtl.Output(8, "out")
         out <<= inp
         pyrtl.working_block().wirevector_set.discard(inp)
         with self.assertRaises(pyrtl.PyrtlInternalError):  # sanity_check_net()
             self.sanity_error("Unknown wires")
 
     def test_not_connected(self):
-        inp = pyrtl.Input(8, 'inp')
-        out = pyrtl.Output(8, 'out')
+        _ = pyrtl.Output(8, "out")
         self.sanity_error("declared but not connected")
 
     def test_not_driven(self):
-        w = pyrtl.WireVector(8, 'w')
-        out = pyrtl.Output(8, 'out')
+        w = pyrtl.WireVector(8, "w")
+        out = pyrtl.Output(8, "out")
         out <<= w
         self.sanity_error("used but never driven")
 
     def test_inconsistent_wirevector_by_name(self):
         c = pyrtl.Const(42)
-        inp = pyrtl.Input(8, 'inp')
-        out = pyrtl.Output(8, 'out')
+        inp = pyrtl.Input(8, "inp")
+        out = pyrtl.Output(8, "out")
         out <<= inp & c
-        pyrtl.working_block().wirevector_by_name['inp'] = c
-        self.sanity_error("inconsistent entry in wirevector_by_name", pyrtl.PyrtlInternalError)
+        pyrtl.working_block().wirevector_by_name["inp"] = c
+        self.sanity_error(
+            "inconsistent entry in wirevector_by_name", pyrtl.PyrtlInternalError
+        )
 
     def test_missing_wire_in_wirevector_by_name(self):
-        inp = pyrtl.Input(8, 'inp')
-        out = pyrtl.Output(8, 'out')
+        inp = pyrtl.Input(8, "inp")
+        out = pyrtl.Output(8, "out")
         out <<= inp
-        del pyrtl.working_block().wirevector_by_name['inp']
-        self.sanity_error("Missing entries in wirevector_by_name", pyrtl.PyrtlInternalError)
+        del pyrtl.working_block().wirevector_by_name["inp"]
+        self.sanity_error(
+            "Missing entries in wirevector_by_name", pyrtl.PyrtlInternalError
+        )
 
     def test_extra_wire_in_wirevector_by_name(self):
-        inp = pyrtl.Input(8, 'inp')
+        inp = pyrtl.Input(8, "inp")
         pyrtl.working_block().wirevector_set.discard(inp)
-        self.sanity_error("Unknown wires found in wirevector_by_name", pyrtl.PyrtlInternalError)
+        self.sanity_error(
+            "Unknown wires found in wirevector_by_name", pyrtl.PyrtlInternalError
+        )
 
 
 class TestLogicNets(unittest.TestCase):
@@ -536,7 +586,7 @@ class TestLogicNets(unittest.TestCase):
         pyrtl.reset_working_block()
 
     def test_string_format(self):
-        net = pyrtl.LogicNet('+', 'xx', ("arg1", "arg2"), ("dest",))
+        net = pyrtl.LogicNet("+", "xx", ("arg1", "arg2"), ("dest",))
         self.assertEqual(str(net), "dest <-- + -- arg1, arg2 (xx)")
 
     def test_net_with_wirevectors(self):
@@ -552,26 +602,26 @@ class TestLogicNets(unittest.TestCase):
         a = pyrtl.WireVector()
         b = pyrtl.WireVector()
         c = pyrtl.WireVector()
-        net = pyrtl.LogicNet('+', 'xx', (a, b), (c,))
+        net = pyrtl.LogicNet("+", "xx", (a, b), (c,))
         self.assertEqual(net, net)
 
     def test_comparison(self):
-        net = pyrtl.LogicNet('+', 'xx', ("arg1", "arg2"), ("dest",))
+        net = pyrtl.LogicNet("+", "xx", ("arg1", "arg2"), ("dest",))
         with self.assertRaises(pyrtl.PyrtlError):
-            a = net < net
+            _ = net < net
         with self.assertRaises(pyrtl.PyrtlError):
-            a = net <= net
+            _ = net <= net
         with self.assertRaises(pyrtl.PyrtlError):
-            a = net >= net
+            _ = net >= net
         with self.assertRaises(pyrtl.PyrtlError):
-            a = net > net
+            _ = net > net
 
     def test_equivelence_of_same_nets(self):
         a = pyrtl.WireVector(1)
         b = pyrtl.WireVector(1)
         c = pyrtl.WireVector(1)
-        net = pyrtl.LogicNet('+', 'xx', (a, b), (c,))
-        net2 = pyrtl.LogicNet('+', 'xx', (a, b), (c,))
+        net = pyrtl.LogicNet("+", "xx", (a, b), (c,))
+        net2 = pyrtl.LogicNet("+", "xx", (a, b), (c,))
         self.assertIsNot(net, net2)
         self.assertEqual(net, net2)
 
@@ -585,13 +635,13 @@ class TestLogicNets(unittest.TestCase):
         b = pyrtl.WireVector()
         c = pyrtl.WireVector()
 
-        n = pyrtl.LogicNet('-', 'John', (a, b), (c,))
-        net = pyrtl.LogicNet('+', 'John', (a, b), (c,))
-        net2 = pyrtl.LogicNet('+', 'xx', (a, b), (c,))
-        net3 = pyrtl.LogicNet('+', 'xx', (b, a), (c,))
-        net4 = pyrtl.LogicNet('+', 'xx', (b, a, c), (c,))
-        net5 = pyrtl.LogicNet('+', 'xx', (b, a, c), (c, a))
-        net6 = pyrtl.LogicNet('+', 'xx', (b, a, c), (a,))
+        n = pyrtl.LogicNet("-", "John", (a, b), (c,))
+        net = pyrtl.LogicNet("+", "John", (a, b), (c,))
+        net2 = pyrtl.LogicNet("+", "xx", (a, b), (c,))
+        net3 = pyrtl.LogicNet("+", "xx", (b, a), (c,))
+        net4 = pyrtl.LogicNet("+", "xx", (b, a, c), (c,))
+        net5 = pyrtl.LogicNet("+", "xx", (b, a, c), (c, a))
+        net6 = pyrtl.LogicNet("+", "xx", (b, a, c), (a,))
 
         self.assertDifferentNets(n, net)
         self.assertDifferentNets(net, net2)
@@ -602,8 +652,8 @@ class TestLogicNets(unittest.TestCase):
         self.assertDifferentNets(net5, net6)
 
         # some extra edge cases to check
-        netx_1 = pyrtl.LogicNet('+', 'John', (a, a), (c,))
-        netx_2 = pyrtl.LogicNet('+', 'John', (a,), (c,))
+        netx_1 = pyrtl.LogicNet("+", "John", (a, a), (c,))
+        netx_2 = pyrtl.LogicNet("+", "John", (a,), (c,))
         self.assertDifferentNets(netx_1, netx_2)
 
 
@@ -613,42 +663,42 @@ class TestMemAsyncCheck(unittest.TestCase):
         self.bitwidth = 3
         self.addrwidth = 5
         self.output1 = pyrtl.Output(self.bitwidth, "output1")
-        self.mem_read_address1 = pyrtl.Input(self.addrwidth, name='mem_read_address1')
-        self.mem_read_address2 = pyrtl.Input(self.addrwidth, name='mem_read_address2')
-        self.mem_write_address = pyrtl.Input(self.addrwidth, name='mem_write_address')
-        self.mem_write_data = pyrtl.Input(self.bitwidth, name='mem_write_data')
+        self.mem_read_address1 = pyrtl.Input(self.addrwidth, name="mem_read_address1")
+        self.mem_read_address2 = pyrtl.Input(self.addrwidth, name="mem_read_address2")
+        self.mem_write_address = pyrtl.Input(self.addrwidth, name="mem_write_address")
+        self.mem_write_data = pyrtl.Input(self.bitwidth, name="mem_write_data")
 
     def tearDown(self):
         pyrtl.reset_working_block()
 
     def test_async_check_should_pass(self):
-        memory = pyrtl.MemBlock(bitwidth=self.bitwidth,
-                                addrwidth=self.addrwidth,
-                                name='memory')
+        memory = pyrtl.MemBlock(
+            bitwidth=self.bitwidth, addrwidth=self.addrwidth, name="memory"
+        )
         self.output1 <<= memory[self.mem_read_address1]
         memory[self.mem_write_address] <<= self.mem_write_data
         pyrtl.working_block().sanity_check()
 
     def test_async_check_should_pass_with_select(self):
-        memory = pyrtl.MemBlock(bitwidth=self.bitwidth,
-                                addrwidth=self.addrwidth - 1,
-                                name='memory')
+        memory = pyrtl.MemBlock(
+            bitwidth=self.bitwidth, addrwidth=self.addrwidth - 1, name="memory"
+        )
         self.output1 <<= memory[self.mem_read_address1[0:-1]]
         pyrtl.working_block().sanity_check()
 
     def test_async_check_should_pass_with_cat(self):
-        memory = pyrtl.MemBlock(bitwidth=self.bitwidth,
-                                addrwidth=self.addrwidth,
-                                name='memory')
+        memory = pyrtl.MemBlock(
+            bitwidth=self.bitwidth, addrwidth=self.addrwidth, name="memory"
+        )
         addr = pyrtl.concat(self.mem_read_address1[0], self.mem_read_address2[0:-1])
         self.output1 <<= memory[addr]
         memory[self.mem_write_address] <<= self.mem_write_data
         pyrtl.working_block().sanity_check()
 
     def test_async_check_should_notpass_with_add(self):
-        memory = pyrtl.MemBlock(bitwidth=self.bitwidth,
-                                addrwidth=self.addrwidth,
-                                name='memory')
+        memory = pyrtl.MemBlock(
+            bitwidth=self.bitwidth, addrwidth=self.addrwidth, name="memory"
+        )
         addr = pyrtl.WireVector(self.bitwidth)
         addr <<= self.mem_read_address1 + self.mem_read_address2
         self.output1 <<= memory[addr]
@@ -666,15 +716,16 @@ class TestNetConnections(unittest.TestCase):
         self.assertDictEqual(dst_nets, {})
 
     def test_net_connections_normal(self):
-        i, j = pyrtl.input_list('i/3 j/4')
-        r = pyrtl.Register(8, 'r')
-        o = pyrtl.Output(name='o')
+        i, j = pyrtl.input_list("i/3 j/4")
+        r = pyrtl.Register(8, "r")
+        o = pyrtl.Output(name="o")
         r.next <<= i * 2 + j
         o <<= r - 1
 
         for include_virtual in (False, True):
             src_nets, dst_nets = pyrtl.working_block().net_connections(
-                include_virtual_nodes=include_virtual)
+                include_virtual_nodes=include_virtual
+            )
             if include_virtual:
                 self.assertIn(i, src_nets)
                 self.assertIn(j, src_nets)
@@ -691,9 +742,9 @@ class TestNetConnections(unittest.TestCase):
             self.assertIn(r, dst_nets)
 
     def test_net_connections_with_memblock(self):
-        waddr = pyrtl.Input(32, 'waddr')
-        raddr = pyrtl.Input(32, 'raddr')
-        mem = pyrtl.MemBlock(8, 32, 'mem')
+        waddr = pyrtl.Input(32, "waddr")
+        raddr = pyrtl.Input(32, "raddr")
+        mem = pyrtl.MemBlock(8, 32, "mem")
         data = mem[raddr]
         mem[waddr] <<= (data + pyrtl.Const(1, 8)).truncate(8)
 
@@ -702,29 +753,29 @@ class TestNetConnections(unittest.TestCase):
         self.assertNotIn(data, dst_nets)
         self.assertIn(data.wire, src_nets)
         self.assertIn(data.wire, dst_nets)
-        self.assertEqual(src_nets[data.wire].op, 'm')
-        self.assertEqual(dst_nets[data.wire][0].op, '+')
+        self.assertEqual(src_nets[data.wire].op, "m")
+        self.assertEqual(dst_nets[data.wire][0].op, "+")
 
         with self.assertRaises(pyrtl.PyrtlError) as ex:
             _s = src_nets[data]
         self.assertEqual(
             str(ex.exception),
-            "Cannot look up a _MemIndexed object's source or destination net. "
-            "Try using its '.wire' attribute as the lookup key instead."
+            "Cannot look up a _MemIndexed object's source or destination net. Try "
+            "using its '.wire' attribute as the lookup key instead.",
         )
 
         with self.assertRaises(pyrtl.PyrtlError) as ex:
             _s = dst_nets[data]
         self.assertEqual(
             str(ex.exception),
-            "Cannot look up a _MemIndexed object's source or destination net. "
-            "Try using its '.wire' attribute as the lookup key instead."
+            "Cannot look up a _MemIndexed object's source or destination net. Try "
+            "using its '.wire' attribute as the lookup key instead.",
         )
 
     def test_wire_not_in_net_connections(self):
         w = pyrtl.WireVector()
-        i = pyrtl.Input(4, 'i')
-        o = pyrtl.Output(name='o')
+        i = pyrtl.Input(4, "i")
+        o = pyrtl.Output(name="o")
         o <<= i * 2
         src_nets, dst_nets = pyrtl.working_block().net_connections()
         with self.assertRaises(KeyError):
@@ -732,6 +783,38 @@ class TestNetConnections(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             dst_nets[w]
+
+
+class TestNameSanitizer(unittest.TestCase):
+    def test_name_collision(self):
+        # Test a sanitized name that collides with an unsanitized name.
+        sanitizer = pyrtl.core._NameSanitizer(
+            identifier_regex_str=pyrtl.core._py_regex,
+            internal_prefix="sanitized",
+        )
+        # This name should be sanitized by replacing the dot with an underscore.
+        sanitized_dot = sanitizer.make_valid_string("foo.bar")
+        self.assertEqual(sanitized_dot, "foo_bar")
+        self.assertEqual(sanitizer["foo.bar"], "foo_bar")
+
+        # This name collides with the sanitized name we just generated, so the first
+        # internal_index should be appended.
+        sanitized_underscore = sanitizer.make_valid_string("foo_bar")
+        self.assertEqual(sanitized_underscore, "foo_bar0")
+        self.assertEqual(sanitizer["foo_bar"], "foo_bar0")
+
+        # This name does not require sanitization, but it will collide with the next
+        # foo.bar variant.
+        sanitized_one = sanitizer.make_valid_string("foo_bar1")
+        self.assertEqual(sanitized_one, "foo_bar1")
+        self.assertEqual(sanitizer["foo_bar1"], "foo_bar1")
+
+        # Attempting to sanitize foo!bar by appending internal_index collides with the
+        # name we just registered. _NameSanitizer should give up and use
+        # internal_prefix.
+        sanitized_bang = sanitizer.make_valid_string("foo!bar")
+        self.assertEqual(sanitized_bang, "sanitized2")
+        self.assertEqual(sanitizer["foo!bar"], "sanitized2")
 
 
 if __name__ == "__main__":

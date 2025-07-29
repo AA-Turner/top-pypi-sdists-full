@@ -1,7 +1,7 @@
 r'''
 # `aws_servicecatalogappregistry_application`
 
-Refer to the Terraform Registry for docs: [`aws_servicecatalogappregistry_application`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application).
+Refer to the Terraform Registry for docs: [`aws_servicecatalogappregistry_application`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServicecatalogappregistryApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.servicecatalogappregistryApplication.ServicecatalogappregistryApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application aws_servicecatalogappregistry_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application aws_servicecatalogappregistry_application}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ServicecatalogappregistryApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application aws_servicecatalogappregistry_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application aws_servicecatalogappregistry_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#name ServicecatalogappregistryApplication#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#description ServicecatalogappregistryApplication#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#region ServicecatalogappregistryApplication#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#tags ServicecatalogappregistryApplication#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#name ServicecatalogappregistryApplication#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#description ServicecatalogappregistryApplication#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#region ServicecatalogappregistryApplication#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#tags ServicecatalogappregistryApplication#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ServicecatalogappregistryApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServicecatalogappregistryApplication to import.
-        :param import_from_id: The id of the existing ServicecatalogappregistryApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServicecatalogappregistryApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServicecatalogappregistryApplication to import is found.
         '''
         if __debug__:
@@ -280,10 +280,10 @@ class ServicecatalogappregistryApplicationConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#name ServicecatalogappregistryApplication#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#description ServicecatalogappregistryApplication#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#region ServicecatalogappregistryApplication#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#tags ServicecatalogappregistryApplication#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#name ServicecatalogappregistryApplication#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#description ServicecatalogappregistryApplication#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#region ServicecatalogappregistryApplication#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#tags ServicecatalogappregistryApplication#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -390,14 +390,14 @@ class ServicecatalogappregistryApplicationConfig(
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#name ServicecatalogappregistryApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#name ServicecatalogappregistryApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#description ServicecatalogappregistryApplication#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#description ServicecatalogappregistryApplication#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -405,14 +405,14 @@ class ServicecatalogappregistryApplicationConfig(
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#region ServicecatalogappregistryApplication#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#region ServicecatalogappregistryApplication#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/servicecatalogappregistry_application#tags ServicecatalogappregistryApplication#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/servicecatalogappregistry_application#tags ServicecatalogappregistryApplication#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

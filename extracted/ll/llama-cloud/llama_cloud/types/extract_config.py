@@ -38,9 +38,13 @@ class ExtractConfig(pydantic.BaseModel):
     chunk_mode: typing.Optional[DocumentChunkMode] = pydantic.Field(
         description="The mode to use for chunking the document."
     )
+    high_resolution_mode: typing.Optional[bool] = pydantic.Field(
+        description="Whether to use high resolution mode for the extraction."
+    )
     invalidate_cache: typing.Optional[bool] = pydantic.Field(
         description="Whether to invalidate the cache for the extraction."
     )
+    page_range: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

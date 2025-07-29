@@ -53,6 +53,7 @@ class InputConfig:
     video_duration: Optional[float] = None  # Duration of video chunks in seconds
     max_frames: Optional[int] = None  # Maximum frames per video chunk
     video_format: str = "mp4"  # Video format for encoding
+    simulate_video_file_stream: bool = False
 
     def __post_init__(self):
         """Validate configuration after initialization."""

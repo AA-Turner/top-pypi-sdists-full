@@ -1,7 +1,18 @@
+import doctest
 import unittest
 
 import pyrtl
-from pyrtl import wire
+
+
+class TestDocTests(unittest.TestCase):
+    """Test documentation examples."""
+
+    def test_doctests(self):
+        failures, tests = doctest.testmod(
+            m=pyrtl.wire, optionflags=doctest.IGNORE_EXCEPTION_DETAIL
+        )
+        self.assertGreater(tests, 0)
+        self.assertEqual(failures, 0)
 
 
 class TestWireVector(unittest.TestCase):
@@ -53,18 +64,18 @@ class TestWireVector(unittest.TestCase):
 
 class TestWireVectorNames(unittest.TestCase):
     def is_valid_str(self, s):
-        return wire.next_tempvar_name(s) == s
+        return pyrtl.wire.next_tempvar_name(s) == s
 
     def test_invalid_name(self):
-        self.assertFalse(self.is_valid_str(''))
+        self.assertFalse(self.is_valid_str(""))
         with self.assertRaises(pyrtl.PyrtlError):
-            self.is_valid_str('clock')
+            self.is_valid_str("clock")
 
     def test_valid_names(self):
-        self.assertTrue(self.is_valid_str('xxx'))
-        self.assertTrue(self.is_valid_str('h'))
-        self.assertTrue(self.is_valid_str(' '))
-        self.assertTrue(self.is_valid_str('#$)(*&#@_+!#)('))
+        self.assertTrue(self.is_valid_str("xxx"))
+        self.assertTrue(self.is_valid_str("h"))
+        self.assertTrue(self.is_valid_str(" "))
+        self.assertTrue(self.is_valid_str("#$)(*&#@_+!#)("))
 
     def check_name_setter(self, ns):
         """test name setter in wire.py.
@@ -73,7 +84,7 @@ class TestWireVectorNames(unittest.TestCase):
 
         ns -- new name of WireVector to be set
         """
-        test = pyrtl.WireVector(1, 'test')
+        test = pyrtl.WireVector(1, "test")
         test.name = ns
         self.assertTrue(test.name == ns)
 
@@ -88,9 +99,9 @@ class TestWireVectorNames(unittest.TestCase):
 
     def test_valid_name_setter(self):
         """test string names and expect no error."""
-        self.check_name_setter('24')
+        self.check_name_setter("24")
         self.check_name_setter(str(24))
-        self.check_name_setter('twenty_four')
+        self.check_name_setter("twenty_four")
 
 
 class TestWireVectorFail(unittest.TestCase):
@@ -100,18 +111,19 @@ class TestWireVectorFail(unittest.TestCase):
     def test_undef_wirevector_length(self):
         x = pyrtl.WireVector()
         with self.assertRaises(pyrtl.PyrtlError):
-            y = len(x)
+            _ = len(x)
 
     def test_bad_bitwidth(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            x = pyrtl.WireVector(bitwidth='happy')
+            _ = pyrtl.WireVector(bitwidth="happy")
         with self.assertRaises(pyrtl.PyrtlError):
-            x = pyrtl.WireVector(bitwidth=-1)
+            _ = pyrtl.WireVector(bitwidth=-1)
         with self.assertRaises(pyrtl.PyrtlError):
-            x = pyrtl.WireVector(bitwidth=0)
+            _ = pyrtl.WireVector(bitwidth=0)
+
         y = pyrtl.WireVector(1)
         with self.assertRaises(pyrtl.PyrtlError):
-            x = pyrtl.WireVector(y)
+            _ = pyrtl.WireVector(y)
 
     def test_no_immed_operators(self):
         x = pyrtl.WireVector(bitwidth=3)
@@ -143,30 +155,30 @@ class TestWireVectorFail(unittest.TestCase):
             x.truncate(y)
 
 
-class TestWirevectorSlicing(unittest.TestCase):
+class TestWireVectorSlicing(unittest.TestCase):
     def setUp(self):
         pyrtl.reset_working_block()
 
     def invalid_empty_slice(self, bitwidth, slice):
         w = pyrtl.Input(bitwidth)
         with self.assertRaises(pyrtl.PyrtlError):
-            x = w[slice]
+            _ = w[slice]
 
     def invalid_slice_index(self, bitwidth, slice):
         w = pyrtl.Input(bitwidth)
         with self.assertRaises(IndexError):
-            x = w[slice]
+            _ = w[slice]
 
     def valid_slice(self, bitwidth, slice):
         w = pyrtl.Input(bitwidth)
-        x = w[slice]
+        _ = w[slice]
 
     def test_wire_wo_bitwidth_fails(self):
         w = pyrtl.WireVector()
         with self.assertRaises(pyrtl.PyrtlError):
-            x = w[2]
+            _ = w[2]
         with self.assertRaises(pyrtl.PyrtlError):
-            x = w[3:5]
+            _ = w[3:5]
 
     def test_valid_indicies(self):
         self.valid_slice(4, 2)
@@ -177,7 +189,9 @@ class TestWirevectorSlicing(unittest.TestCase):
     def test_valid_slices(self):
         self.valid_slice(8, slice(6))
         self.valid_slice(8, slice(1, 4))
-        self.valid_slice(8, slice(1, 8))  # Yes, supplying a end index out of bounds is valid python
+        self.valid_slice(
+            8, slice(1, 8)
+        )  # Yes, supplying a end index out of bounds is valid python
         self.valid_slice(8, slice(1, 2, 2))
         self.valid_slice(8, slice(1, 4, 2))
         self.valid_slice(8, slice(7, 1, -2))
@@ -229,18 +243,11 @@ class TestRegister(unittest.TestCase):
 
     def test_logic_operations(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            a = (self.r or True)
+            _ = self.r or True
 
     def test_register_assignment_not_next(self):
         with self.assertRaises(pyrtl.PyrtlError):
             self.r <<= 1
-
-    @unittest.skip("I don't think this is fixable")
-    def test_assign_next(self):
-        # I really don't know how we can fix this - John
-        w = pyrtl.WireVector(bitwidth=1)
-        with self.assertRaises(pyrtl.PyrtlError):
-            a = self.r.next
 
     def test_connect_next(self):
         w = pyrtl.WireVector(bitwidth=1)
@@ -249,7 +256,7 @@ class TestRegister(unittest.TestCase):
 
     def test_next_logic_operations(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            a = (self.r.next or True)
+            _ = self.r.next or True
 
     def test_reset_value_is_none(self):
         self.assertIsNone(self.r.reset_value)
@@ -264,43 +271,33 @@ class TestRegister(unittest.TestCase):
 
     def test_invalid_reset_value_too_large(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            r = pyrtl.Register(4, reset_value=16)
+            _ = pyrtl.Register(4, reset_value=16)
 
     def test_invalid_reset_value_too_large_as_string(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            r = pyrtl.Register(4, reset_value="5'd16")
+            _ = pyrtl.Register(4, reset_value="5'd16")
 
     def test_negative_reset_value(self):
         r = pyrtl.Register(4, reset_value=-4)
-        self.assertEqual(
-            pyrtl.helperfuncs.val_to_signed_integer(r.reset_value, r.bitwidth),
-            -4
-        )
+        self.assertEqual(pyrtl.val_to_signed_integer(r.reset_value, r.bitwidth), -4)
 
     def test_negative_reset_value_as_string(self):
         r = pyrtl.Register(4, reset_value="-4'd1")
-        self.assertEqual(
-            pyrtl.helperfuncs.val_to_signed_integer(r.reset_value, r.bitwidth),
-            -1
-        )
+        self.assertEqual(pyrtl.val_to_signed_integer(r.reset_value, r.bitwidth), -1)
 
     def test_invalid_negative_reset_value_as_string(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            r = pyrtl.Register(2, reset_value="-4'd1")
+            _ = pyrtl.Register(2, reset_value="-4'd1")
 
     def test_extending_negative_reset_value_as_string(self):
         r = pyrtl.Register(4, reset_value="-3'd3")
-        self.assertEqual(
-            pyrtl.helperfuncs.val_to_signed_integer(r.reset_value, r.bitwidth),
-            -3
-        )
+        self.assertEqual(pyrtl.val_to_signed_integer(r.reset_value, r.bitwidth), -3)
 
     def test_invalid_reset_value_not_an_integer(self):
         with self.assertRaises(pyrtl.PyrtlError):
-            r = pyrtl.Register(4, reset_value='hello')
+            _ = pyrtl.Register(4, reset_value="hello")
 
 
-# -------------------------------------------------------------------
 class TestConst(unittest.TestCase):
     def setUp(self):
         pyrtl.reset_working_block()
@@ -344,14 +341,14 @@ class TestConst(unittest.TestCase):
         self.check_const("5'3", 3, 5)
         self.check_const("5'b11", 3, 5)
         self.check_const("-5'b11", 29, 5)
-        self.check_const("16'xff", 0xff, 16)
-        self.check_const("17'xff", 0xff, 17)
-        self.check_const("16'hff", 0xff, 16)
-        self.check_const("17'hff", 0xff, 17)
+        self.check_const("16'xff", 0xFF, 16)
+        self.check_const("17'xff", 0xFF, 17)
+        self.check_const("16'hff", 0xFF, 16)
+        self.check_const("17'hff", 0xFF, 17)
         self.check_const("5'b011", 3, 5)
         self.check_const("5'b0_11", 3, 5)
         self.check_const("5'02_1", 21, 5)
-        self.check_const("16'HFF", 0xff, 16)
+        self.check_const("16'HFF", 0xFF, 16)
 
     def test_bad_string(self):
         self.assert_bad_const("1")
@@ -408,7 +405,7 @@ class TestConst(unittest.TestCase):
 
     def assert_bad_const(self, *args, **kwargs):
         with self.assertRaises(pyrtl.PyrtlError):
-            c = pyrtl.Const(*args, **kwargs)
+            _ = pyrtl.Const(*args, **kwargs)
 
 
 class TestOutput(unittest.TestCase):
@@ -425,12 +422,12 @@ class TestOutput(unittest.TestCase):
         o = pyrtl.Output(1)
         w = pyrtl.WireVector(1)
         with self.assertRaises(pyrtl.PyrtlInternalError):
-            x = w & o
+            _ = w & o
 
     def test_slice_output(self):
         o = pyrtl.Output(2)
         with self.assertRaises(pyrtl.PyrtlInternalError):
-            x = o[0]
+            _ = o[0]
 
 
 class TestKeepingCallStack(unittest.TestCase):
@@ -445,7 +442,7 @@ class TestKeepingCallStack(unittest.TestCase):
         pyrtl.set_debug_mode(False)
         wire = pyrtl.WireVector()
         with self.assertRaises(AttributeError):
-            call_stack = wire.init_call_stack
+            _ = wire.init_call_stack
 
     def test_get_call_stack(self):
         pyrtl.set_debug_mode(True)
@@ -459,20 +456,20 @@ class TestWrappedWireVector(unittest.TestCase):
         pyrtl.reset_working_block()
 
     def test_attr(self):
-        reg = pyrtl.Register(bitwidth=1, name='reg')
+        reg = pyrtl.Register(bitwidth=1, name="reg")
         wrapped_reg = pyrtl.wire.WrappedWireVector(reg)
         # Check __setattr__ forwarding.
         wrapped_reg.next <<= True
 
         # Check __getattr__ forwarding.
         self.assertEqual(wrapped_reg.bitwidth, 1)
-        self.assertEqual(wrapped_reg.name, 'reg')
+        self.assertEqual(wrapped_reg.name, "reg")
 
         sim = pyrtl.Simulation()
-        sim.step(provided_inputs={})
-        self.assertEqual(sim.inspect('reg'), False)
-        sim.step(provided_inputs={})
-        self.assertEqual(sim.inspect('reg'), True)
+        sim.step()
+        self.assertEqual(sim.inspect("reg"), False)
+        sim.step()
+        self.assertEqual(sim.inspect("reg"), True)
 
     def test_ops(self):
         # Check special method forwarding.
@@ -490,87 +487,87 @@ class TestWrappedWireVector(unittest.TestCase):
                 self.assertEqual(repr(a), repr(wrapped_a))
                 self.assertEqual(len(a), len(wrapped_a))
 
-                a_and_b = pyrtl.wire.WireVector(name='a_and_b', bitwidth=4)
+                a_and_b = pyrtl.WireVector(name="a_and_b", bitwidth=4)
                 a_and_b <<= wrapped_a & wrapped_b
-                a_rand_b = pyrtl.wire.WireVector(name='a_rand_b', bitwidth=4)
+                a_rand_b = pyrtl.WireVector(name="a_rand_b", bitwidth=4)
                 a_rand_b <<= wrapped_a.val & wrapped_b
-                a_or_b = pyrtl.wire.WireVector(name='a_or_b', bitwidth=4)
+                a_or_b = pyrtl.WireVector(name="a_or_b", bitwidth=4)
                 a_or_b <<= wrapped_a | wrapped_b
-                a_ror_b = pyrtl.wire.WireVector(name='a_ror_b', bitwidth=4)
+                a_ror_b = pyrtl.WireVector(name="a_ror_b", bitwidth=4)
                 a_ror_b <<= wrapped_a.val | wrapped_b
-                a_xor_b = pyrtl.wire.WireVector(name='a_xor_b', bitwidth=4)
+                a_xor_b = pyrtl.WireVector(name="a_xor_b", bitwidth=4)
                 a_xor_b <<= wrapped_a ^ wrapped_b
-                a_rxor_b = pyrtl.wire.WireVector(name='a_rxor_b', bitwidth=4)
+                a_rxor_b = pyrtl.WireVector(name="a_rxor_b", bitwidth=4)
                 a_rxor_b <<= wrapped_a.val ^ wrapped_b
-                a_add_b = pyrtl.wire.WireVector(name='a_add_b', bitwidth=5)
+                a_add_b = pyrtl.WireVector(name="a_add_b", bitwidth=5)
                 a_add_b <<= wrapped_a + wrapped_b
-                a_radd_b = pyrtl.wire.WireVector(name='a_radd_b', bitwidth=5)
+                a_radd_b = pyrtl.WireVector(name="a_radd_b", bitwidth=5)
                 a_radd_b <<= wrapped_a.val + wrapped_b
-                a_sub_b = pyrtl.wire.WireVector(name='a_sub_b', bitwidth=4)
+                a_sub_b = pyrtl.WireVector(name="a_sub_b", bitwidth=4)
                 a_sub_b <<= wrapped_a - wrapped_b
-                a_rsub_b = pyrtl.wire.WireVector(name='a_rsub_b', bitwidth=4)
+                a_rsub_b = pyrtl.WireVector(name="a_rsub_b", bitwidth=4)
                 a_rsub_b <<= wrapped_a.val - wrapped_b
-                a_mul_b = pyrtl.wire.WireVector(name='a_mul_b', bitwidth=8)
+                a_mul_b = pyrtl.WireVector(name="a_mul_b", bitwidth=8)
                 a_mul_b <<= wrapped_a * wrapped_b
-                a_rmul_b = pyrtl.wire.WireVector(name='a_rmul_b', bitwidth=8)
+                a_rmul_b = pyrtl.WireVector(name="a_rmul_b", bitwidth=8)
                 a_rmul_b <<= wrapped_a.val * wrapped_b
-                a_lt_b = pyrtl.wire.WireVector(name='a_lt_b', bitwidth=1)
+                a_lt_b = pyrtl.WireVector(name="a_lt_b", bitwidth=1)
                 a_lt_b <<= wrapped_a < wrapped_b
-                a_le_b = pyrtl.wire.WireVector(name='a_le_b', bitwidth=1)
+                a_le_b = pyrtl.WireVector(name="a_le_b", bitwidth=1)
                 a_le_b <<= wrapped_a <= wrapped_b
-                a_eq_b = pyrtl.wire.WireVector(name='a_eq_b', bitwidth=1)
+                a_eq_b = pyrtl.WireVector(name="a_eq_b", bitwidth=1)
                 a_eq_b <<= wrapped_a == wrapped_b
-                a_ne_b = pyrtl.wire.WireVector(name='a_ne_b', bitwidth=1)
+                a_ne_b = pyrtl.WireVector(name="a_ne_b", bitwidth=1)
                 a_ne_b <<= wrapped_a != wrapped_b
-                a_gt_b = pyrtl.wire.WireVector(name='a_gt_b', bitwidth=1)
+                a_gt_b = pyrtl.WireVector(name="a_gt_b", bitwidth=1)
                 a_gt_b <<= wrapped_a > wrapped_b
-                a_ge_b = pyrtl.wire.WireVector(name='a_ge_b', bitwidth=1)
+                a_ge_b = pyrtl.WireVector(name="a_ge_b", bitwidth=1)
                 a_ge_b <<= wrapped_a >= wrapped_b
-                a_invert = pyrtl.wire.WireVector(name='a_invert', bitwidth=4)
+                a_invert = pyrtl.WireVector(name="a_invert", bitwidth=4)
                 a_invert <<= ~wrapped_a
-                a_high = pyrtl.wire.WireVector(name='a_high', bitwidth=2)
+                a_high = pyrtl.WireVector(name="a_high", bitwidth=2)
                 a_high <<= wrapped_a[2:4]
-                a_low = pyrtl.wire.WireVector(name='a_low', bitwidth=2)
+                a_low = pyrtl.WireVector(name="a_low", bitwidth=2)
                 a_low <<= wrapped_a[0:2]
 
-                x = pyrtl.WireVector(name='x', bitwidth=4)
+                x = pyrtl.WireVector(name="x", bitwidth=4)
                 wrapped_x = pyrtl.wire.WrappedWireVector(x)
                 wrapped_x <<= a_val
                 self.assertEqual(type(wrapped_x), pyrtl.wire.WrappedWireVector)
 
                 sim = pyrtl.Simulation()
-                sim.step(provided_inputs={})
-                self.assertEqual(sim.inspect('a_and_b'), a.val & b.val)
-                self.assertEqual(sim.inspect('a_rand_b'), a.val & b.val)
-                self.assertEqual(sim.inspect('a_or_b'), a.val | b.val)
-                self.assertEqual(sim.inspect('a_ror_b'), a.val | b.val)
-                self.assertEqual(sim.inspect('a_xor_b'), a.val ^ b.val)
-                self.assertEqual(sim.inspect('a_rxor_b'), a.val ^ b.val)
-                self.assertEqual(sim.inspect('a_add_b'), a.val + b.val)
-                self.assertEqual(sim.inspect('a_radd_b'), a.val + b.val)
+                sim.step()
+                self.assertEqual(sim.inspect("a_and_b"), a.val & b.val)
+                self.assertEqual(sim.inspect("a_rand_b"), a.val & b.val)
+                self.assertEqual(sim.inspect("a_or_b"), a.val | b.val)
+                self.assertEqual(sim.inspect("a_ror_b"), a.val | b.val)
+                self.assertEqual(sim.inspect("a_xor_b"), a.val ^ b.val)
+                self.assertEqual(sim.inspect("a_rxor_b"), a.val ^ b.val)
+                self.assertEqual(sim.inspect("a_add_b"), a.val + b.val)
+                self.assertEqual(sim.inspect("a_radd_b"), a.val + b.val)
                 # Mask with 0xF to convert from signed to unsigned value.
-                self.assertEqual(sim.inspect('a_sub_b'), (a.val - b.val) & 0xF)
-                self.assertEqual(sim.inspect('a_rsub_b'), (a.val - b.val) & 0xF)
-                self.assertEqual(sim.inspect('a_mul_b'), a.val * b.val)
-                self.assertEqual(sim.inspect('a_rmul_b'), a.val * b.val)
-                self.assertEqual(sim.inspect('a_lt_b'), a.val < b.val)
-                self.assertEqual(sim.inspect('a_le_b'), a.val <= b.val)
-                self.assertEqual(sim.inspect('a_eq_b'), a.val == b.val)
-                self.assertEqual(sim.inspect('a_ne_b'), a.val != b.val)
-                self.assertEqual(sim.inspect('a_gt_b'), a.val > b.val)
-                self.assertEqual(sim.inspect('a_ge_b'), a.val >= b.val)
+                self.assertEqual(sim.inspect("a_sub_b"), (a.val - b.val) & 0xF)
+                self.assertEqual(sim.inspect("a_rsub_b"), (a.val - b.val) & 0xF)
+                self.assertEqual(sim.inspect("a_mul_b"), a.val * b.val)
+                self.assertEqual(sim.inspect("a_rmul_b"), a.val * b.val)
+                self.assertEqual(sim.inspect("a_lt_b"), a.val < b.val)
+                self.assertEqual(sim.inspect("a_le_b"), a.val <= b.val)
+                self.assertEqual(sim.inspect("a_eq_b"), a.val == b.val)
+                self.assertEqual(sim.inspect("a_ne_b"), a.val != b.val)
+                self.assertEqual(sim.inspect("a_gt_b"), a.val > b.val)
+                self.assertEqual(sim.inspect("a_ge_b"), a.val >= b.val)
                 # Mask with 0xF to convert from signed to unsigned value.
-                self.assertEqual(sim.inspect('a_invert'), ~a.val & 0xF)
-                self.assertEqual(sim.inspect('a_high'), a.val >> 2)
-                self.assertEqual(sim.inspect('a_low'), a.val & 0x3)
+                self.assertEqual(sim.inspect("a_invert"), ~a.val & 0xF)
+                self.assertEqual(sim.inspect("a_high"), a.val >> 2)
+                self.assertEqual(sim.inspect("a_low"), a.val & 0x3)
 
-                self.assertEqual(sim.inspect('x'), a.val)
+                self.assertEqual(sim.inspect("x"), a.val)
 
     def test_conditional_assignment(self):
         # Check forwarding for __ior__, __enter__, __exit__.
-        select = pyrtl.Input(name='select', bitwidth=1)
+        select = pyrtl.Input(name="select", bitwidth=1)
         wrapped_select = pyrtl.wire.WrappedWireVector(select)
-        x = pyrtl.WireVector(name='x', bitwidth=4)
+        x = pyrtl.WireVector(name="x", bitwidth=4)
         wrapped_x = pyrtl.wire.WrappedWireVector(x)
         with pyrtl.conditional_assignment:
             with wrapped_select:
@@ -581,9 +578,9 @@ class TestWrappedWireVector(unittest.TestCase):
 
         sim = pyrtl.Simulation()
         sim.step(provided_inputs={select: True})
-        self.assertEqual(sim.inspect('x'), 0xA)
+        self.assertEqual(sim.inspect("x"), 0xA)
         sim.step(provided_inputs={select: False})
-        self.assertEqual(sim.inspect('x'), 0xB)
+        self.assertEqual(sim.inspect("x"), 0xB)
 
     def test_exceptions(self):
         # Check forwarding for special methods that throw exceptions.

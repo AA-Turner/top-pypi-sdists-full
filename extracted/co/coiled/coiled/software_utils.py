@@ -525,7 +525,7 @@ def _get_pip_index_urls() -> List[str]:
             if ".extra-index-url" in line:
                 extra_index_urls.append(line.split("=", 1)[1].strip("' \n\""))
 
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except Exception:
         pass
 
     # Load pyproject.toml to check other tool configs
@@ -608,7 +608,7 @@ def get_conda_config() -> dict:
             encoding=encoding,
         )
         conda_config = json.loads(config_output)
-    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, ValueError):
+    except Exception:
         logger.debug("Encountered error when loading conda config", exc_info=True)
 
     return conda_config

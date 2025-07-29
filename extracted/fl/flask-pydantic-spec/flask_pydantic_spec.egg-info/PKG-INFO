@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flask_pydantic_spec
-Version: 0.8.5
+Version: 0.8.6
 Summary: generate OpenAPI document and validate request & response with Python annotations.
 Home-page: https://github.com/turner-townsend/flask-pydantic-spec
 Author: Chris Gearing, Simon Hayward, Rob Young, Donald Fleming

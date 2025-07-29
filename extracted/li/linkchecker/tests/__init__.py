@@ -160,7 +160,7 @@ def has_clamav():
     return False
 
 
-need_clamav = _need_func(has_clamav, "ClamAV")
+need_clamav = _need_func(has_clamav, "ClamAV", False)  # XXX Plugin disabled
 
 
 @lru_cache(1)

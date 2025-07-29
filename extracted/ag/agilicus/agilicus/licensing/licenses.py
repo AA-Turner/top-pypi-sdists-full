@@ -13,6 +13,7 @@ from ..output.table import (
     spec_column,
     format_table,
     metadata_column,
+    object_subtable,
 )
 
 from .formatters import constraint_columns
@@ -150,6 +151,42 @@ def format_license_details(ctx, resources):
         column("license.spec.product_name", "product_name"),
         column("license.spec.product_table_version", "product_table_version"),
         *constraint_columns(10),
+    ]
+
+    return format_table(ctx, resources, columns)
+
+
+def list_license_evaluation_contexts(ctx, **kwargs):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
+    kwargs = strip_none(kwargs)
+
+    result = apiclient.licensing_api.list_license_evaluation_contexts(**kwargs)
+    return result.license_evaluation_contexts
+
+
+def format_license_evaluation_contexts(ctx, resources):
+    usage_columns = [
+        column("num_resources"),
+        column("num_desktops"),
+        column("num_applications"),
+        column("num_networks"),
+        column("num_ssh"),
+        column("num_databases"),
+        column("num_resource_groups"),
+        column("num_fileshares"),
+        column("num_launchers"),
+        column("num_users"),
+        column("num_groups"),
+        column("num_orgs"),
+        column("num_connectors"),
+    ]
+    columns = [
+        column("org_id"),
+        column("subscription_id"),
+        object_subtable(
+            ctx, "license_evaluation_input.subscription.usage", usage_columns, "usage"
+        ),
     ]
 
     return format_table(ctx, resources, columns)

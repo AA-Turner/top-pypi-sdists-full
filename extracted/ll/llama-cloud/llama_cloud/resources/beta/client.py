@@ -4,6 +4,8 @@ import typing
 import urllib.parse
 from json.decoder import JSONDecodeError
 
+import typing_extensions
+
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.jsonable_encoder import jsonable_encoder
@@ -18,6 +20,7 @@ from ...types.http_validation_error import HttpValidationError
 from ...types.llama_parse_parameters import LlamaParseParameters
 from ...types.paginated_response_agent_data import PaginatedResponseAgentData
 from ...types.paginated_response_aggregate_group import PaginatedResponseAggregateGroup
+from ...types.paginated_response_quota_configuration import PaginatedResponseQuotaConfiguration
 
 try:
     import pydantic
@@ -208,12 +211,18 @@ class BetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get_agent_data(self, item_id: str) -> AgentData:
+    def get_agent_data(
+        self, item_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> AgentData:
         """
         Get agent data by ID.
 
         Parameters:
             - item_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
         ---
         from llama_cloud.client import LlamaCloud
 
@@ -227,6 +236,7 @@ class BetaClient:
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/agent-data/{item_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -240,12 +250,23 @@ class BetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def update_agent_data(self, item_id: str, *, data: typing.Dict[str, typing.Any]) -> AgentData:
+    def update_agent_data(
+        self,
+        item_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        data: typing.Dict[str, typing.Any],
+    ) -> AgentData:
         """
         Update agent data by ID (overwrites).
 
         Parameters:
             - item_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
 
             - data: typing.Dict[str, typing.Any].
         ---
@@ -262,6 +283,7 @@ class BetaClient:
         _response = self._client_wrapper.httpx_client.request(
             "PUT",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/agent-data/{item_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder({"data": data}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -276,12 +298,18 @@ class BetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def delete_agent_data(self, item_id: str) -> typing.Dict[str, str]:
+    def delete_agent_data(
+        self, item_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> typing.Dict[str, str]:
         """
         Delete agent data by ID.
 
         Parameters:
             - item_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
         ---
         from llama_cloud.client import LlamaCloud
 
@@ -295,6 +323,7 @@ class BetaClient:
         _response = self._client_wrapper.httpx_client.request(
             "DELETE",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/agent-data/{item_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -309,12 +338,22 @@ class BetaClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create_agent_data(
-        self, *, agent_slug: str, collection: typing.Optional[str] = OMIT, data: typing.Dict[str, typing.Any]
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        agent_slug: str,
+        collection: typing.Optional[str] = OMIT,
+        data: typing.Dict[str, typing.Any],
     ) -> AgentData:
         """
         Create new agent data.
 
         Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
             - agent_slug: str.
 
             - collection: typing.Optional[str].
@@ -337,6 +376,7 @@ class BetaClient:
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/agent-data"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -354,6 +394,8 @@ class BetaClient:
     def search_agent_data_api_v_1_beta_agent_data_search_post(
         self,
         *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
         page_size: typing.Optional[int] = OMIT,
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
@@ -367,6 +409,10 @@ class BetaClient:
         Search agent data with filtering, sorting, and pagination.
 
         Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
             - page_size: typing.Optional[int].
 
             - page_token: typing.Optional[str].
@@ -410,6 +456,7 @@ class BetaClient:
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/agent-data/:search"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -427,6 +474,8 @@ class BetaClient:
     def aggregate_agent_data_api_v_1_beta_agent_data_aggregate_post(
         self,
         *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
         page_size: typing.Optional[int] = OMIT,
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
@@ -442,6 +491,10 @@ class BetaClient:
         Aggregate agent data with grouping and optional counting/first item retrieval.
 
         Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
             - page_size: typing.Optional[int].
 
             - page_token: typing.Optional[str].
@@ -493,12 +546,62 @@ class BetaClient:
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/agent-data/:aggregate"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(PaginatedResponseAggregateGroup, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def list_quota_configurations(
+        self,
+        *,
+        source_type: typing_extensions.Literal["organization"],
+        source_id: str,
+        page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+    ) -> PaginatedResponseQuotaConfiguration:
+        """
+        Retrieve a paginated list of quota configurations with optional filtering.
+
+        Parameters:
+            - source_type: typing_extensions.Literal["organization"].
+
+            - source_id: str.
+
+            - page: typing.Optional[int].
+
+            - page_size: typing.Optional[int].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.list_quota_configurations(
+            source_type="organization",
+            source_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/quota-management"),
+            params=remove_none_from_dict(
+                {"source_type": source_type, "source_id": source_id, "page": page, "page_size": page_size}
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PaginatedResponseQuotaConfiguration, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -685,12 +788,18 @@ class AsyncBetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get_agent_data(self, item_id: str) -> AgentData:
+    async def get_agent_data(
+        self, item_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> AgentData:
         """
         Get agent data by ID.
 
         Parameters:
             - item_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
         ---
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -704,6 +813,7 @@ class AsyncBetaClient:
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/agent-data/{item_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -717,12 +827,23 @@ class AsyncBetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def update_agent_data(self, item_id: str, *, data: typing.Dict[str, typing.Any]) -> AgentData:
+    async def update_agent_data(
+        self,
+        item_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        data: typing.Dict[str, typing.Any],
+    ) -> AgentData:
         """
         Update agent data by ID (overwrites).
 
         Parameters:
             - item_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
 
             - data: typing.Dict[str, typing.Any].
         ---
@@ -739,6 +860,7 @@ class AsyncBetaClient:
         _response = await self._client_wrapper.httpx_client.request(
             "PUT",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/agent-data/{item_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder({"data": data}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -753,12 +875,18 @@ class AsyncBetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def delete_agent_data(self, item_id: str) -> typing.Dict[str, str]:
+    async def delete_agent_data(
+        self, item_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> typing.Dict[str, str]:
         """
         Delete agent data by ID.
 
         Parameters:
             - item_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
         ---
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -772,6 +900,7 @@ class AsyncBetaClient:
         _response = await self._client_wrapper.httpx_client.request(
             "DELETE",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/agent-data/{item_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -786,12 +915,22 @@ class AsyncBetaClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create_agent_data(
-        self, *, agent_slug: str, collection: typing.Optional[str] = OMIT, data: typing.Dict[str, typing.Any]
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        agent_slug: str,
+        collection: typing.Optional[str] = OMIT,
+        data: typing.Dict[str, typing.Any],
     ) -> AgentData:
         """
         Create new agent data.
 
         Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
             - agent_slug: str.
 
             - collection: typing.Optional[str].
@@ -814,6 +953,7 @@ class AsyncBetaClient:
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/agent-data"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -831,6 +971,8 @@ class AsyncBetaClient:
     async def search_agent_data_api_v_1_beta_agent_data_search_post(
         self,
         *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
         page_size: typing.Optional[int] = OMIT,
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
@@ -844,6 +986,10 @@ class AsyncBetaClient:
         Search agent data with filtering, sorting, and pagination.
 
         Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
             - page_size: typing.Optional[int].
 
             - page_token: typing.Optional[str].
@@ -887,6 +1033,7 @@ class AsyncBetaClient:
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/agent-data/:search"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -904,6 +1051,8 @@ class AsyncBetaClient:
     async def aggregate_agent_data_api_v_1_beta_agent_data_aggregate_post(
         self,
         *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
         page_size: typing.Optional[int] = OMIT,
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
@@ -919,6 +1068,10 @@ class AsyncBetaClient:
         Aggregate agent data with grouping and optional counting/first item retrieval.
 
         Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
             - page_size: typing.Optional[int].
 
             - page_token: typing.Optional[str].
@@ -970,12 +1123,62 @@ class AsyncBetaClient:
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/agent-data/:aggregate"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(PaginatedResponseAggregateGroup, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def list_quota_configurations(
+        self,
+        *,
+        source_type: typing_extensions.Literal["organization"],
+        source_id: str,
+        page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+    ) -> PaginatedResponseQuotaConfiguration:
+        """
+        Retrieve a paginated list of quota configurations with optional filtering.
+
+        Parameters:
+            - source_type: typing_extensions.Literal["organization"].
+
+            - source_id: str.
+
+            - page: typing.Optional[int].
+
+            - page_size: typing.Optional[int].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.list_quota_configurations(
+            source_type="organization",
+            source_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/quota-management"),
+            params=remove_none_from_dict(
+                {"source_type": source_type, "source_id": source_id, "page": page, "page_size": page_size}
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PaginatedResponseQuotaConfiguration, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

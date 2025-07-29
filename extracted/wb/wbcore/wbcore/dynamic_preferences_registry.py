@@ -101,17 +101,17 @@ class TimeFormatPreference(ChoicePreference):
 @user_preferences_registry.register
 class NumberFormatPreference(ChoicePreference):
     weight = 2
-    # Value is a BCP 47 language tag
+    # Value is a BCP 47 region subtag
     choices = [
-        ("en-US", "1,234,567.89"),
-        ("fr-FR", "1\u202f234\u202f567,89"),
-        ("de-DE", "1.234.567,89"),
-        ("de-CH", "1’234’567.89"),
+        ("US", "1,234,567.89"),
+        ("FR", "1\u202f234\u202f567,89"),
+        ("DE", "1.234.567,89"),
+        ("CH", "1’234’567.89"),
     ]
 
     section = wbcore
     name = "number_format"
-    default = "en-US"
+    default = "US"
 
     verbose_name = _("Number Format")
     help_text = _("Choose how you want numbers to appear throughout the Workbench.")

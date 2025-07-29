@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: langgraph-prebuilt
-Version: 0.5.2
+Version: 0.6.0
 Summary: Library with high-level APIs for creating and executing LangGraph agents and tools.
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.9
 Requires-Dist: langchain-core>=0.3.67
-Requires-Dist: langgraph-checkpoint>=2.1.0
+Requires-Dist: langgraph-checkpoint<3.0.0,>=2.1.0
 Description-Content-Type: text/markdown
 
 # LangGraph Prebuilt

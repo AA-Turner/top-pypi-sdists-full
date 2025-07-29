@@ -25076,7 +25076,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
   if (unlikely((__Pyx_modinit_variable_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
-  __Pyx_TraceStartFunc("PyInit_iter", __pyx_f[0], 1, 0, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceStartFunc("PyInit_iter", __pyx_f[0], 1, 2, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
 
   /* "cfunc.to_py":65
  * 
@@ -26173,7 +26173,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,7,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_28_AwaitableAsyncIterableMixin_14__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AwaitableAsyncIterableMixin___r, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26185,7 +26185,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,11,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,12,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_28_AwaitableAsyncIterableMixin_16__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AwaitableAsyncIterableMixin___s, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -26222,7 +26222,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,6,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_14_ASyncIterable_11__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncIterable___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26234,7 +26234,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,10,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,15,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_14_ASyncIterable_13__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncIterable___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -26421,7 +26421,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,6,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_14_ASyncIterator_17__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncIterator___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_8) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26433,7 +26433,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,13,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,9,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_14_ASyncIterator_19__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncIterator___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_8) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -26558,7 +26558,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "self._ASyncGeneratorFunction__weakself_ptr cannot be converted to a Python object for pickling"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,7,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_23_ASyncGeneratorFunction_9__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncGeneratorFunction___reduce, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[50])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26570,7 +26570,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "self._ASyncGeneratorFunction__weakself_ptr cannot be converted to a Python object for pickling"
 */
-  __Pyx_TraceLine(3,12,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,11,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_23_ASyncGeneratorFunction_11__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncGeneratorFunction___setsta, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[51])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -26651,7 +26651,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_10_ASyncView_3__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncView___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[57])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26663,7 +26663,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,14,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,10,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_10_ASyncView_5__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncView___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[58])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_5) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -26693,7 +26693,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,5,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_12_ASyncFilter_9__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFilter___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[62])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26705,7 +26705,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,15,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,13,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_12_ASyncFilter_11__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncFilter___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[63])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -26823,7 +26823,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,5,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_12_ASyncSorter_14__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncSorter___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[76])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -26835,7 +26835,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,9,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,14,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_4iter_12_ASyncSorter_16__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncSorter___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_iter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[77])); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_5) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -27013,12 +27013,12 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
  * import asyncio
  * import copy
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(0, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,2,0,__PYX_ERR(0, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_4) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 2, 0, __PYX_ERR(0, 1, __pyx_L1_error));
   __Pyx_PyMonitoring_ExitScope(0);
 
   /*--- Wrapped vars code ---*/
@@ -27032,7 +27032,7 @@ __Pyx_RefNannySetupContext("PyInit_iter", 0);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
-  __Pyx_TraceExceptionUnwind(0, 0);
+  __Pyx_TraceExceptionUnwind(2, 0);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init a_sync.iter", __pyx_clineno, __pyx_lineno, __pyx_filename);

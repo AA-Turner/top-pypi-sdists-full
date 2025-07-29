@@ -1,22 +1,71 @@
+"""Core data structures for Velithon framework.
+
+This module provides essential data structures for HTTP handling including
+Headers, QueryParams, URL handling, and protocol interfaces.
+"""
+
 #  @copyright (c) 2025 Starlette
 from __future__ import annotations
 
 import typing
 from urllib.parse import SplitResult, parse_qsl, urlencode, urlsplit
-from weakref import WeakValueDictionary
 
 from granian.rsgi import HTTPProtocol
 from granian.rsgi import Scope as RSGIScope
 
 from velithon._utils import RequestIDGenerator, run_in_threadpool
+
+# Import the Rust-based UploadFile for better performance
+from velithon._velithon import UploadFile
 from velithon.base_datastructures import (
     MultiDictBase,
     PriorityDataStructure,
-    RepresentableDataStructure,
     UrlDataStructure,
 )
 
 request_id_generator = RequestIDGenerator()
+
+
+class TempRequestContext:
+    """Temporary request context for custom request ID generation.
+
+    This class provides a minimal request-like interface that can be used
+    by custom request ID generators to access request information.
+    """
+
+    def __init__(self, scope: RSGIScope) -> None:
+        """Initialize a temporary request context with the given RSGI scope.
+
+        Args:
+            scope (RSGIScope): The RSGI scope object containing request information.
+
+        """
+        self._scope = scope
+
+    @property
+    def headers(self) -> Headers:
+        """Access request headers."""
+        return Headers(self._scope.headers)
+
+    @property
+    def method(self) -> str:
+        """HTTP method of the request."""
+        return self._scope.method
+
+    @property
+    def path(self) -> str:
+        """Request path."""
+        return self._scope.path
+
+    @property
+    def client(self) -> str:
+        """Client address."""
+        return self._scope.client
+
+    @property
+    def query_params(self) -> QueryParams:
+        """Query parameters."""
+        return QueryParams(self._scope.query_string)
 
 
 class ResponseDataCapture:
@@ -46,10 +95,16 @@ class ResponseDataCapture:
     """
 
     # Simple memory pool for byte buffers
-    _buffer_pool: list[list[bytes]] = []
+    _buffer_pool: typing.ClassVar[list[list[bytes]]] = []
     _pool_max_size = 50
 
     def __init__(self, enabled: bool = False):
+        """Initialize ResponseDataCapture.
+
+        Args:
+            enabled (bool): Whether to enable response data capture initially.
+
+        """
         self.enabled = enabled
         self._data: list[bytes] | None = self._get_buffer() if enabled else None
 
@@ -112,63 +167,93 @@ class Scope:
     )
 
     def __init__(self, scope: RSGIScope) -> None:
+        """Initialize a Scope wrapper for the given RSGI scope.
+
+        Args:
+            scope (RSGIScope): The RSGI scope object containing request information.
+
+        """
         self._scope = scope
         # extend the scope with additional properties
         self._path_params = {}
+
+        # Generate request ID using default generator for now
+        # The request ID will be updated later by the context manager
         self._request_id = request_id_generator.generate()
+
         self._di_context = {}
         self._session = None
 
     @property
     def proto(self) -> typing.Literal['http', 'websocket']:
+        """Get the protocol type of the request."""
         return self._scope.proto
 
     @property
     def rsgi_version(self) -> str:
+        """Get the RSGI version of the request."""
         return self._scope.rsgi_version
 
     @property
     def http_version(self) -> str:
+        """Get the HTTP version of the request."""
         return self._scope.http_version
 
     @property
     def server(self) -> str:
+        """Get the server information."""
         return self._scope.server
 
     @property
     def client(self) -> str:
+        """Get the client information."""
         return self._scope.client
 
     @property
     def scheme(self) -> str:
+        """Get the scheme of the request."""
         return self._scope.scheme
 
     @property
     def method(self) -> str:
+        """Get the HTTP method of the request."""
         return self._scope.method
 
     @property
     def path(self) -> str:
+        """Get the path of the request."""
         return self._scope.path
 
     @property
     def query_string(self) -> str:
+        """Get the query string of the request."""
         return self._scope.query_string
 
     @property
     def headers(self) -> typing.MutableMapping[str, str]:
+        """Get the headers of the request."""
         return self._scope.headers
 
     @property
     def authority(self) -> str | None:
+        """Get the authority of the request."""
         return self._scope.authority
 
     @property
     def path_params(self) -> typing.Mapping[str, str]:
+        """Get the path parameters of the request."""
         return self._path_params
 
 
 class Protocol:
+    """
+    Protocol abstraction for HTTP response handling in Velithon.
+
+    This class wraps the underlying Granian HTTPProtocol, providing methods for
+    sending responses, managing headers, status codes, and optionally capturing
+    response data for middleware or debugging purposes.
+    """
+
     __slots__ = (
         '_headers',
         '_protocol',
@@ -179,6 +264,7 @@ class Protocol:
     def __init__(
         self, protocol: HTTPProtocol, capture_response_data: bool = False
     ) -> None:
+        """Initialize the Protocol wrapper."""
         self._protocol = protocol
         self._status_code = 200
         self._headers = []
@@ -195,7 +281,7 @@ class Protocol:
         return self._status_code
 
     def enable_response_capture(self) -> None:
-        """Enable response data capture. Should be called before any response methods."""
+        """Enable response data capture. Should be called before any response methods."""  # noqa: E501
         self._response_capture.enable()
 
     def disable_response_capture(self) -> None:
@@ -203,25 +289,30 @@ class Protocol:
         self._response_capture.disable()
 
     async def __call__(self, *args, **kwds) -> bytes:
+        """Call the underlying protocol with the given arguments."""
         return await self._protocol(*args, **kwds)
 
     def __aiter__(self) -> typing.AsyncIterator[bytes]:
+        """Return an async iterator for the protocol."""
         return self._protocol.__aiter__()
 
     async def client_disconnect(self) -> None:
+        """Handle client disconnection."""
         await self._protocol.client_disconnect()
 
     def update_headers(self, headers: list[tuple[str, str]]) -> None:
-        # extend the existing headers with new ones
+        """Update the response headers with the given list of tuples."""
         self._headers.extend(headers)
 
     def response_empty(self, status: int, headers: tuple[str, str]) -> None:
+        """Send an empty response with the given status and headers."""
         self._status_code = status
         self._headers.extend(headers)
         self._protocol.response_empty(status, self._headers)
         self._response_capture.append(b'')
 
     def response_str(self, status: int, headers: tuple[str, str], body: str) -> None:
+        """Send a string response with the given status, headers, and body."""
         self._status_code = status
         self._headers.extend(headers)
         self._protocol.response_str(status, self._headers, body)
@@ -230,6 +321,7 @@ class Protocol:
     def response_bytes(
         self, status: int, headers: tuple[str, str], body: bytes
     ) -> None:
+        """Send a bytes response with the given status, headers, and body."""
         self._status_code = status
         self._headers.extend(headers)
         self._protocol.response_bytes(status, self._headers, body)
@@ -238,18 +330,22 @@ class Protocol:
     def response_file(
         self, status: int, headers: tuple[str, str], file: typing.Any
     ) -> None:
+        """Send a file response with the given status, headers, and file object."""
         self._status_code = status
         self._headers.extend(headers)
         self._protocol.response_file(status, self._headers, file)
         self._response_capture.append(file)
 
     def response_stream(self, status: int, headers: tuple[str, str]) -> typing.Any:
+        """Start a streaming response with the given status and headers."""
         self._status_code = status
         self._headers.extend(headers)
         return self._protocol.response_stream(status, self._headers)
 
 
 class Address(typing.NamedTuple):
+    """Represents a network address."""
+
     host: str
     port: int
 
@@ -262,12 +358,30 @@ _CovariantValueType = typing.TypeVar('_CovariantValueType', covariant=True)
 
 
 class URL(UrlDataStructure):
+    """Represents and manipulates URLs within the Velithon framework.
+
+    This class provides properties and methods for parsing, constructing, and
+    modifying URLs, supporting both direct string input and construction from
+    request scope or components.
+    """
+
     def __init__(
         self,
         url: str = '',
         scope: Scope | None = None,
         **components: typing.Any,
     ) -> None:
+        """Initialize a URL object with a string, Scope, or components.
+
+        Args:
+            url (str): The URL string.
+            scope (Scope | None): Optional Scope object to construct the URL from request context.
+            **components: Arbitrary URL components for dynamic construction.
+
+        Raises:
+            AssertionError: If both 'url' and 'scope' or 'url' and '**components' are provided.
+
+        """  # noqa: E501
         if scope is not None:
             assert not url, 'Cannot set both "url" and "scope".'
             assert not components, 'Cannot set both "scope" and "**components".'
@@ -304,51 +418,63 @@ class URL(UrlDataStructure):
 
     @property
     def components(self) -> SplitResult:
+        """Parse the URL into its components."""
         if not hasattr(self, '_components'):
             self._components = urlsplit(self._url)
         return self._components
 
     @property
     def scheme(self) -> str:
+        """Get the scheme of the URL."""
         return self.components.scheme
 
     @property
     def netloc(self) -> str:
+        """Get the network location of the URL."""
         return self.components.netloc
 
     @property
     def path(self) -> str:
+        """Get the path of the URL."""
         return self.components.path
 
     @property
     def query(self) -> str:
+        """Get the query string of the URL."""
         return self.components.query
 
     @property
     def fragment(self) -> str:
+        """Get the fragment identifier of the URL."""
         return self.components.fragment
 
     @property
     def username(self) -> None | str:
+        """Get the username of the URL."""
         return self.components.username
 
     @property
     def password(self) -> None | str:
+        """Get the password of the URL."""
         return self.components.password
 
     @property
     def hostname(self) -> None | str:
+        """Get the hostname of the URL."""
         return self.components.hostname
 
     @property
     def port(self) -> int | None:
+        """Get the port of the URL."""
         return self.components.port
 
     @property
     def is_secure(self) -> bool:
+        """Check if the URL is secure."""
         return self.scheme in ('https', 'wss')
 
     def replace(self, **kwargs: typing.Any) -> URL:
+        """Replace components of the URL with new values."""
         if (
             'username' in kwargs
             or 'password' in kwargs
@@ -394,6 +520,7 @@ class URL(UrlDataStructure):
 
 class URLPath(str):
     """A URL path string that may also hold an associated protocol and/or host.
+
     Used by the routing to return `url_path_for` matches.
     """
 
@@ -454,7 +581,7 @@ class ImmutableMultiDict(MultiDictBase, typing.Mapping[_KeyType, _CovariantValue
             value = typing.cast('list[tuple[typing.Any, typing.Any]]', value)
             _items = list(value)
 
-        self._dict = {k: v for k, v in _items}
+        self._dict = dict(_items)
         self._list = _items
 
     def getlist(self, key: typing.Any) -> list[_CovariantValueType]:
@@ -555,6 +682,7 @@ class QueryParams(ImmutableMultiDict[str, str]):
         | bytes,
         **kwargs: typing.Any,
     ) -> None:
+        """Initialize QueryParams with a string, bytes, or other iterable."""
         assert len(args) < 2, 'Too many arguments.'
 
         value = args[0] if args else []
@@ -571,60 +699,11 @@ class QueryParams(ImmutableMultiDict[str, str]):
         self._dict = {str(k): str(v) for k, v in self._dict.items()}
 
     def __str__(self) -> str:
+        """Return the query parameters as a URL-encoded string."""
         return urlencode(self._list)
 
-
-class UploadFile(RepresentableDataStructure):
-    """An uploaded file included as part of the request data."""
-
-    def __init__(
-        self,
-        file: typing.BinaryIO,
-        *,
-        size: int | None = None,
-        filename: str | None = None,
-        headers: Headers | None = None,
-    ) -> None:
-        self.filename = filename
-        self.file = file
-        self.size = size
-        self.headers = headers or Headers()
-
-    @property
-    def content_type(self) -> str | None:
-        return self.headers.get('content-type', None)
-
-    @property
-    def _in_memory(self) -> bool:
-        # check for SpooledTemporaryFile._rolled
-        rolled_to_disk = getattr(self.file, '_rolled', True)
-        return not rolled_to_disk
-
-    async def write(self, data: bytes) -> None:
-        if self.size is not None:
-            self.size += len(data)
-
-        if self._in_memory:
-            self.file.write(data)
-        else:
-            await run_in_threadpool(self.file.write, data)
-
-    async def read(self, size: int = -1) -> bytes:
-        if self._in_memory:
-            return self.file.read(size)
-        return await run_in_threadpool(self.file.read, size)
-
-    async def seek(self, offset: int) -> None:
-        if self._in_memory:
-            self.file.seek(offset)
-        else:
-            await run_in_threadpool(self.file.seek, offset)
-
-    async def close(self) -> None:
-        if self._in_memory:
-            self.file.close()
-        else:
-            await run_in_threadpool(self.file.close)
+    # UploadFile is now implemented in Rust for better performance
+    # Import it from the _velithon module instead
 
     def _get_repr_attrs(self) -> dict[str, typing.Any]:
         """Return attributes to include in __repr__."""
@@ -641,12 +720,15 @@ class FormData(ImmutableMultiDict[str, typing.Union[UploadFile, str]]):
         | list[tuple[str, str | UploadFile]],
         **kwargs: str | UploadFile,
     ) -> None:
+        """Initialize FormData with a mapping or iterable of key-value pairs."""
         super().__init__(*args, **kwargs)
 
     async def close(self) -> None:
-        for key, value in self.multi_items():
+        """Close all UploadFile instances in the FormData."""
+        for _, value in self.multi_items():
             if isinstance(value, UploadFile):
-                await value.close()
+                # Rust UploadFile has synchronous close method
+                value.close()
 
 
 class Headers(MultiDictBase, typing.Mapping[str, str]):
@@ -657,6 +739,7 @@ class Headers(MultiDictBase, typing.Mapping[str, str]):
         headers: list[tuple[str, str]] | None = None,
         scope: Scope | None = None,
     ) -> None:
+        """Initialize Headers with a list of tuples or from a Scope object."""
         self._list: list[tuple[str, str]] = []
         if headers is not None:
             assert scope is None, 'Cannot set both "headers" and "scope".'
@@ -666,18 +749,23 @@ class Headers(MultiDictBase, typing.Mapping[str, str]):
 
     @property
     def raw(self) -> list[tuple[str, str]]:
+        """Return the raw headers as a list of tuples."""
         return list(self._list)
 
     def keys(self) -> list[str]:  # type: ignore[override]
+        """Return the keys of the headers, case-insensitive."""
         return [key for key, value in self._list]
 
     def values(self) -> list[str]:  # type: ignore[override]
+        """Return the values of the headers, case-insensitive."""
         return [value for key, value in self._list]
 
     def items(self) -> list[tuple[str, str]]:  # type: ignore[override]
+        """Return the items of the headers as a list of tuples."""
         return [(key, value) for key, value in self._list]
 
     def __getitem__(self, key: str) -> str:
+        """Get the value for the given header key, case-insensitive."""
         get_header_key = key.lower()
         for header_key, header_value in self._list:
             if header_key == get_header_key:
@@ -685,26 +773,30 @@ class Headers(MultiDictBase, typing.Mapping[str, str]):
         raise KeyError(key)
 
     def __contains__(self, key: typing.Any) -> bool:
+        """Check if the header key exists, case-insensitive."""
         get_header_key = key.lower()
-        for header_key, header_value in self._list:
+        for header_key, _header_value in self._list:
             if header_key == get_header_key:
                 return True
         return False
 
     def __iter__(self) -> typing.Iterator[typing.Any]:
+        """Return an iterator over the header keys, case-insensitive."""
         return iter(self.keys())
 
     def __len__(self) -> int:
+        """Return the number of unique header keys."""
         return len(self._list)
 
     def __setitem__(self, key: str, value: str) -> None:
         """Set the header `key` to `value`, removing any duplicate entries.
+
         Retains insertion order.
         """
         key = key.lower()
 
         found_indexes: list[int] = []
-        for idx, (item_key, item_value) in enumerate(self._list):
+        for idx, (item_key, _item_value) in enumerate(self._list):
             if item_key == key:
                 found_indexes.append(idx)
 
@@ -719,6 +811,10 @@ class Headers(MultiDictBase, typing.Mapping[str, str]):
 
 
 class FunctionInfo(PriorityDataStructure):
+    """A data structure to hold information about a function call."""
+
+    __slots__ = ('args', 'func', 'is_async', 'kwargs', 'priority')
+
     def __init__(
         self,
         func: typing.Callable[..., typing.Any],
@@ -727,6 +823,16 @@ class FunctionInfo(PriorityDataStructure):
         is_async: bool = False,
         priority: int = 0,
     ):
+        """Initialize FunctionInfo with function, arguments, async flag, and priority.
+
+        Args:
+            func (Callable): The function to be called.
+            args (tuple, optional): Arguments for the function.
+            kwargs (dict, optional): Keyword arguments for the function.
+            is_async (bool, optional): Whether the function is asynchronous.
+            priority (int, optional): Priority value for sorting or execution.
+
+        """
         self.func = func
         self.args = args or ()
         self.kwargs = kwargs or {}
@@ -754,10 +860,27 @@ class FunctionInfo(PriorityDataStructure):
         }
 
     def __hash__(self) -> int:
+        """Return a hash of the function info based on its attributes."""
         return hash(self._get_hash_key())
 
     def __call__(self):
+        """Call the function with its arguments and keyword arguments."""
         if self.is_async:
             return self.func(*self.args, **self.kwargs)
         else:
             return run_in_threadpool(self.func, *self.args, **self.kwargs)
+
+
+# Export all public classes and functions
+__all__ = [
+    'URL',
+    'Address',
+    'FormData',
+    'FunctionInfo',
+    'Headers',
+    'Protocol',
+    'QueryParams',
+    'ResponseDataCapture',
+    'Scope',
+    'UploadFile',
+]

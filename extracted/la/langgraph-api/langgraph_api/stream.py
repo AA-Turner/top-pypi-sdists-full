@@ -28,6 +28,7 @@ from langgraph_api import __version__
 from langgraph_api import store as api_store
 from langgraph_api.asyncio import ValueEvent, wait_if_not_done
 from langgraph_api.command import map_cmd
+from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
 from langgraph_api.graph import get_graph
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
@@ -95,6 +96,7 @@ async def astream_state(
     kwargs.pop("resumable", False)
     subgraphs = kwargs.get("subgraphs", False)
     temporary = kwargs.pop("temporary", False)
+    context = kwargs.pop("context", None)
     config = kwargs.pop("config")
     stack = AsyncExitStack()
     graph = await stack.enter_async_context(
@@ -116,6 +118,9 @@ async def astream_state(
     if "messages-tuple" in stream_modes_set and not isinstance(graph, BaseRemotePregel):
         stream_modes_set.remove("messages-tuple")
         stream_modes_set.add("messages")
+    if "updates" not in stream_modes_set:
+        stream_modes_set.add("updates")
+        only_interrupt_updates = True
     # attach attempt metadata
     config["metadata"]["run_attempt"] = attempt
     # attach langgraph metadata
@@ -224,7 +229,12 @@ async def astream_state(
                                 ),
                                 [message_chunk_to_message(messages[msg.id])],
                             )
-                    elif mode in stream_mode:
+                    elif mode in stream_mode or (
+                        mode == "updates"
+                        and isinstance(chunk, dict)
+                        and "__interrupt__" in chunk
+                        and only_interrupt_updates
+                    ):
                         if subgraphs and ns:
                             yield f"{mode}|{'|'.join(ns)}", chunk
                         else:
@@ -234,6 +244,8 @@ async def astream_state(
                     yield "events", event
     else:
         output_keys = kwargs.pop("output_keys", graph.output_channels)
+        if USE_RUNTIME_CONTEXT_API:
+            kwargs["context"] = context
         async with (
             stack,
             aclosing(
@@ -288,7 +300,12 @@ async def astream_state(
                             ),
                             [message_chunk_to_message(messages[msg.id])],
                         )
-                elif mode in stream_mode:
+                elif mode in stream_mode or (
+                    mode == "updates"
+                    and isinstance(chunk, dict)
+                    and "__interrupt__" in chunk
+                    and only_interrupt_updates
+                ):
                     if subgraphs and ns:
                         yield f"{mode}|{'|'.join(ns)}", chunk
                     else:

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.5.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.6.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.5.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.6.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -459,6 +459,7 @@ __all__ = [
     "connect_instance_storage_config",
     "connect_lambda_function_association",
     "connect_phone_number",
+    "connect_phone_number_contact_flow_association",
     "connect_queue",
     "connect_quick_connect",
     "connect_routing_profile",
@@ -1648,6 +1649,7 @@ __all__ = [
     "mskconnect_worker_configuration",
     "mwaa_environment",
     "nat_gateway",
+    "nat_gateway_eip_association",
     "neptune_cluster",
     "neptune_cluster_endpoint",
     "neptune_cluster_instance",
@@ -2586,6 +2588,7 @@ from . import connect_instance
 from . import connect_instance_storage_config
 from . import connect_lambda_function_association
 from . import connect_phone_number
+from . import connect_phone_number_contact_flow_association
 from . import connect_queue
 from . import connect_quick_connect
 from . import connect_routing_profile
@@ -3775,6 +3778,7 @@ from . import mskconnect_custom_plugin
 from . import mskconnect_worker_configuration
 from . import mwaa_environment
 from . import nat_gateway
+from . import nat_gateway_eip_association
 from . import neptune_cluster
 from . import neptune_cluster_endpoint
 from . import neptune_cluster_instance

@@ -12,9 +12,15 @@
 
 #include "model.h"
 
-/* Apply the len bits at dat to crc using the CRC described in model. If dat
-   is NULL, then return the initial CRC for this model.  This allows for the
-   calculation of a CRC in pieces, where the first call must be with crc equal
+/* Pre-process the CRC. Reversing the previously applied xorout and reversing
+   the CRC if rev is true. */
+word_t crc_preprocess(model_t* model, word_t crc);
+
+/* Post-process the CRC. Reverses the CRC and XORs it with xorout. */
+word_t crc_postprocess(model_t* model, word_t crc);
+
+/* Apply the len bits at dat to crc using the CRC described in model. This allows
+   for the calculation of a CRC in pieces, where the first call must be with crc equal
    to the initial value for this CRC model. crc_bitwise() must only be used for
    model->width less than or equal to WORDBITS.
 
@@ -68,6 +74,6 @@ void crc_table_combine(model_t *model);
    length of the second portion of the message in bits. (The length of the
    first portion is not needed.) This assumes that model->table_comb has been
    initialized by crc_table_combine(). */
-word_t crc_combine(model_t *model, word_t crc1, word_t crc2, uintmax_t len2);
+word_t crc_combine(model_t *model, word_t crc1, word_t crc2, size_t len2);
 
 #endif

@@ -1537,7 +1537,7 @@ struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_gene
 struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr;
 struct __pyx_opt_args_7ddtrace_9profiling_9collector_5stack_stack_collect;
 
-/* "ddtrace/profiling/collector/stack.pyx":274
+/* "ddtrace/profiling/collector/stack.pyx":275
  * 
  * 
  * cdef stack_collect(ignore_profiler, thread_time, max_nframes, interval, wall_time, thread_span_links, collect_endpoint, now_ns = 0):             # <<<<<<<<<<<<<<
@@ -1549,7 +1549,7 @@ struct __pyx_opt_args_7ddtrace_9profiling_9collector_5stack_stack_collect {
   PyObject *now_ns;
 };
 
-/* "ddtrace/profiling/collector/stack.pyx":67
+/* "ddtrace/profiling/collector/stack.pyx":68
  *         PyErr_SetFromErrno(OSError)
  * 
  *     cdef class _ThreadTime(object):             # <<<<<<<<<<<<<<
@@ -1562,7 +1562,7 @@ struct __pyx_obj_7ddtrace_9profiling_9collector_5stack__ThreadTime {
 };
 
 
-/* "ddtrace/profiling/collector/stack.pyx":417
+/* "ddtrace/profiling/collector/stack.pyx":418
  *     )
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
@@ -1578,7 +1578,7 @@ struct __pyx_defaults {
 };
 
 
-/* "ddtrace/profiling/collector/stack.pyx":204
+/* "ddtrace/profiling/collector/stack.pyx":205
  * 
  * 
  * cdef collect_threads(thread_id_ignore_list, thread_time, thread_span_links) with gil:             # <<<<<<<<<<<<<<
@@ -1594,7 +1594,7 @@ struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx
 };
 
 
-/* "ddtrace/profiling/collector/stack.pyx":261
+/* "ddtrace/profiling/collector/stack.pyx":262
  *     return tuple(
  *         (
  *             pthread_id,             # <<<<<<<<<<<<<<
@@ -1615,7 +1615,7 @@ struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_gene
 };
 
 
-/* "ddtrace/profiling/collector/stack.pyx":289
+/* "ddtrace/profiling/collector/stack.pyx":290
  *     if thread_span_links:
  *         # FIXME also use native thread id
  *         thread_span_links.clear_threads(set(thread[0] for thread in running_threads))             # <<<<<<<<<<<<<<
@@ -1629,7 +1629,7 @@ struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_gene
 };
 
 
-/* "ddtrace/profiling/collector/stack.pyx":446
+/* "ddtrace/profiling/collector/stack.pyx":447
  *         class_name = self.__class__.__name__
  *         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
  *         attrs_str = ", ".join(f"{k}={v!r}" for k, v in attrs.items())             # <<<<<<<<<<<<<<
@@ -1644,7 +1644,7 @@ struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_gene
 };
 
 
-/* "ddtrace/profiling/collector/stack.pyx":449
+/* "ddtrace/profiling/collector/stack.pyx":450
  * 
  *         slot_attrs = {slot: getattr(self, slot) for slot in self.__slots__ if not slot.startswith("_")}
  *         slot_attrs_str = ", ".join(f"{k}={v!r}" for k, v in slot_attrs.items())             # <<<<<<<<<<<<<<
@@ -2854,6 +2854,7 @@ static const char __pyx_k__7[] = "?";
 static const char __pyx_k__8[] = "\260!";
 static const char __pyx_k__9[] = "\200\001\330\004)\250\021\250&\260\001";
 static const char __pyx_k_gc[] = "gc";
+static const char __pyx_k_on[] = "on";
 static const char __pyx_k_LOG[] = "LOG";
 static const char __pyx_k_doc[] = "__doc__";
 static const char __pyx_k_get[] = "get";
@@ -2868,6 +2869,7 @@ static const char __pyx_k_4q_A[] = "\210\001\330\014\023\2204\220q\230\004\230A"
 static const char __pyx_k_None[] = "None";
 static const char __pyx_k_Span[] = "Span";
 static const char __pyx_k_bool[] = "bool";
+static const char __pyx_k_core[] = "core";
 static const char __pyx_k_ddup[] = "ddup";
 static const char __pyx_k_dict[] = "__dict__";
 static const char __pyx_k_func[] = "__func__";
@@ -2970,7 +2972,6 @@ static const char __pyx_k_PickleError[] = "PickleError";
 static const char __pyx_k_active_span[] = "active_span";
 static const char __pyx_k_link_object[] = "link_object";
 static const char __pyx_k_mro_entries[] = "__mro_entries__";
-static const char __pyx_k_on_activate[] = "_on_activate";
 static const char __pyx_k_pthread_ids[] = "pthread_ids";
 static const char __pyx_k_real_thread[] = "_real_thread";
 static const char __pyx_k_thread_time[] = "_thread_time";
@@ -3008,8 +3009,9 @@ static const char __pyx_k_ignore_profiler[] = "ignore_profiler";
 static const char __pyx_k_push_class_name[] = "push_class_name";
 static const char __pyx_k_push_threadinfo[] = "push_threadinfo";
 static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
+static const char __pyx_k_reset_listeners[] = "reset_listeners";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
-static const char __pyx_k_context_provider[] = "context_provider";
+static const char __pyx_k_ddtrace_internal[] = "ddtrace.internal";
 static const char __pyx_k_native_thread_id[] = "native_thread_id";
 static const char __pyx_k_periodic_threads[] = "periodic_threads";
 static const char __pyx_k_stack_exceptions[] = "stack-exceptions";
@@ -3040,7 +3042,6 @@ static const char __pyx_k_StackCollector___init[] = "StackCollector.__init__";
 static const char __pyx_k_StackCollector___repr[] = "StackCollector.__repr__";
 static const char __pyx_k_set_adaptive_sampling[] = "set_adaptive_sampling";
 static const char __pyx_k_StackCollector_collect[] = "StackCollector.collect";
-static const char __pyx_k_deregister_on_activate[] = "_deregister_on_activate";
 static const char __pyx_k_thread_span_links_base[] = "_thread_span_links_base";
 static const char __pyx_k_typing_Optional_Tracer[] = "typing.Optional[Tracer]";
 static const char __pyx_k_CPU_profiling_collector[] = "CPU profiling collector.";
@@ -3060,15 +3061,15 @@ static const char __pyx_k_StackCollector__stop_service[] = "StackCollector._stop
 static const char __pyx_k_T_G1F_a_vWA_q_t_gQ_q_D_7_D_1[] = "\200\001\360\010\000\005\016\210T\220\021\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W\220A\330\010\022\220!\330\010\027\220q\340\010\027\220t\320\033.\250g\260Q\330\004\007\200q\330\010\017\320\017,\250D\260\001\260\027\270\013\3007\310!\340\010\017\320\017,\250D\260\001\260\027\270\013\3001";
 static const char __pyx_k_ThreadTime___setstate_cython[] = "_ThreadTime.__setstate_cython__";
 static const char __pyx_k_stack_collect_locals_genexpr[] = "stack_collect.<locals>.genexpr";
-static const char __pyx_k_A_6_Q_e_4xwa_d2TTXXkkl_6_4q_E[] = "\200A\340\010\013\2106\220\021\220!\330\010\r\210Q\320\016\036\230e\240>\260\021\330\010\013\2104\210x\220w\230a\330\014\030\230\010\240\016\250d\3202T\320TX\320Xk\320kl\330\014\020\220\007\320\027(\320(@\300\001\300\021\330\010\013\2106\220\021\220!\360\006\000\t\014\2104\210q\330\014\024\220E\230\021";
 static const char __pyx_k_StackCollector__start_service[] = "StackCollector._start_service";
 static const char __pyx_k_collect_threads_locals_genexpr[] = "collect_threads.<locals>.genexpr";
 static const char __pyx_k_get_active_span_from_thread_id[] = "get_active_span_from_thread_id";
+static const char __pyx_k_A_Kq_t_4xwa_6a_d2TTXXkkl_1_9_4q[] = "\200A\340\010\014\320\014\034\230K\240q\330\010\014\320\014\037\230t\240=\260\001\330\010\013\2104\210x\220w\230a\330\014\020\320\020&\320&6\260a\330\014\030\230\010\240\016\250d\3202T\320TX\320Xk\320kl\330\014\020\220\003\2201\320\0249\270\021\360\006\000\t\014\2104\210q\360\010\000\r\026\220^\2401\330\014\024\320\024*\250!\2506\260\026\260q\330\014\024\220F\230!";
 static const char __pyx_k_A_T_1_Bd_U_ivS_4q_1A_D_Qa_QfG1F[] = "\200A\330\010\025\220T\230\032\2401\330\010\020\220\001\220\023\220B\220d\230#\230U\240$\240i\250v\260S\270\003\2704\270q\300\013\3101\310A\330\010\024\220D\230\005\230Q\230a\340\010\025\220Q\220f\230G\2401\240F\250&\260\004\260H\270D\300\013\3103\310d\320RV\320Va\320ab\320bc\330\010\031\230\024\230U\240!\2401\340\010\017\210r\220\024\220]\240-\250q";
 static const char __pyx_k_A_d_q_D_a_q_Q_4t1_a_A_A_A_A_A_A[] = "\200A\340\010\016\210d\220-\230q\330\010\024\220D\230\002\230$\230a\330\010\014\320\014\037\230q\330\010\025\220Q\360\006\000\t\014\2104\210t\2201\330\014\031\230\035\240a\330\020\024\220A\330\020\024\220A\330\020\024\220A\330\020\024\220A\330\020\021\330\020\024\220A\330\020\024\220A\330\027\030\360\006\000\t\035\230D\240\r\250S\260\002\260!\330\010\014\210L\230\004\320\0342\260!\2601\340\010\017\210q";
 static const char __pyx_k_ThreadSpanLinks_get_active_span[] = "_ThreadSpanLinks.get_active_span_from_thread_id";
 static const char __pyx_k_ThreadTime__get_last_thread_tim[] = "_ThreadTime._get_last_thread_time";
-static const char __pyx_k_A_Kq_t_4xwa_6a_d2TTXXkkl_Qa_4q_1[] = "\200A\340\010\014\320\014\034\230K\240q\330\010\014\320\014\037\230t\240=\260\001\330\010\013\2104\210x\220w\230a\330\014\020\320\020&\320&6\260a\330\014\030\230\010\240\016\250d\3202T\320TX\320Xk\320kl\330\014\020\220\007\320\027(\250\r\260Q\260a\360\006\000\t\014\2104\210q\360\010\000\r\026\220^\2401\330\014\024\320\024*\250!\2506\260\026\260q\330\014\024\220F\230!";
+static const char __pyx_k_A_6_Q_e_4xwa_d2TTXXkkl_Fa_6_4q_E[] = "\200A\340\010\013\2106\220\021\220!\330\010\r\210Q\320\016\036\230e\240>\260\021\330\010\013\2104\210x\220w\230a\330\014\030\230\010\240\016\250d\3202T\320TX\320Xk\320kl\330\014\020\320\020 \240\001\320!F\300a\330\010\013\2106\220\021\220!\360\006\000\t\014\2104\210q\330\014\024\220E\230\021";
 static const char __pyx_k_A_V1_a_q_a_5V6_Ry_Q_c_3_9_1_AQ_B[] = "\200A\330%-\250V\2601\330\032 \240\006\240a\330\")\250\026\250q\330\021.\250a\330\021\031\230\021\330.5\260V\2706\300\021\330\010\r\210R\210y\230\001\230\032\320#=\270Q\330\010\013\320\013\036\230c\240\022\2403\320&9\270\022\2701\330\014\022\220*\230A\230Q\360\006\000\t\r\320\014\"\240!\330\010\014\320\014(\320(B\300!\340\010\014\320\014)\250\021\330\010\014\320\014\034\230A\330\010\014\320\014%\240Q\330\010\014\320\014B\300!\330\010\014\320\014/\250q\330\010\014\320\014:\270!\330\010\014\320\014$\240A\330\010\014\320\014E\300Q\330\010\014\320\0141\260\021";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x818c784, 0xc4f49e5, 0x1798efe) = (_last_thread_time))";
 static const char __pyx_k_Max_time_usage_percent_must_be_g[] = "Max time usage percent must be greater than 0 and smaller or equal to 100";
@@ -3079,6 +3080,7 @@ static const char __pyx_k_Profiling_StackCollector_stopped[] = "Profiling StackC
 static const char __pyx_k_Profiling_StackCollector_stoppin[] = "Profiling StackCollector stopping";
 static const char __pyx_k_StackCollector___repr___locals_g[] = "StackCollector.__repr__.<locals>.genexpr";
 static const char __pyx_k_StackCollector__compute_new_inte[] = "StackCollector._compute_new_interval";
+static const char __pyx_k_ddtrace_context_provider_activat[] = "ddtrace.context_provider.activate";
 static const char __pyx_k_ddtrace_internal_datadog_profili[] = "ddtrace.internal.datadog.profiling";
 static const char __pyx_k_ddtrace_profiling_collector_stac[] = "ddtrace.profiling.collector.stack";
 static const char __pyx_k_ddtrace_profiling_collector_stac_2[] = "ddtrace/profiling/collector/stack.pyx";
@@ -3169,7 +3171,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   PyObject *__pyx_tuple[2];
   PyObject *__pyx_codeobj_tab[18];
-  PyObject *__pyx_string_tab[224];
+  PyObject *__pyx_string_tab[226];
   PyObject *__pyx_float_1e9;
   PyObject *__pyx_float_100_0;
   PyObject *__pyx_int_0;
@@ -3309,166 +3311,168 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_compute_new_interval __pyx_string_tab[61]
 #define __pyx_n_u_config __pyx_string_tab[62]
 #define __pyx_n_u_context __pyx_string_tab[63]
-#define __pyx_n_u_context_provider __pyx_string_tab[64]
+#define __pyx_n_u_core __pyx_string_tab[64]
 #define __pyx_kp_u_cpu_time __pyx_string_tab[65]
 #define __pyx_n_u_cpu_time_2 __pyx_string_tab[66]
 #define __pyx_n_u_ddspan __pyx_string_tab[67]
 #define __pyx_n_u_ddtrace__trace __pyx_string_tab[68]
-#define __pyx_n_u_ddtrace_internal__threads __pyx_string_tab[69]
-#define __pyx_n_u_ddtrace_internal__unpatched __pyx_string_tab[70]
-#define __pyx_n_u_ddtrace_internal_datadog_profili __pyx_string_tab[71]
-#define __pyx_n_u_ddtrace_profiling __pyx_string_tab[72]
-#define __pyx_n_u_ddtrace_profiling_collector __pyx_string_tab[73]
-#define __pyx_n_u_ddtrace_profiling_collector_stac __pyx_string_tab[74]
-#define __pyx_kp_u_ddtrace_profiling_collector_stac_2 __pyx_string_tab[75]
-#define __pyx_n_u_ddtrace_profiling_ignore __pyx_string_tab[76]
-#define __pyx_n_u_ddtrace_settings_profiling __pyx_string_tab[77]
-#define __pyx_n_u_ddtrace_threading __pyx_string_tab[78]
-#define __pyx_n_u_ddtrace_trace __pyx_string_tab[79]
-#define __pyx_n_u_ddup __pyx_string_tab[80]
-#define __pyx_n_u_debug __pyx_string_tab[81]
-#define __pyx_n_u_default_min_interval_time __pyx_string_tab[82]
-#define __pyx_n_u_deregister_on_activate __pyx_string_tab[83]
-#define __pyx_n_u_dict __pyx_string_tab[84]
-#define __pyx_n_u_dict_2 __pyx_string_tab[85]
-#define __pyx_kp_u_disable __pyx_string_tab[86]
-#define __pyx_n_u_doc __pyx_string_tab[87]
-#define __pyx_kp_u_enable __pyx_string_tab[88]
-#define __pyx_n_u_endpoint_collection_enabled __pyx_string_tab[89]
-#define __pyx_n_u_file_name __pyx_string_tab[90]
-#define __pyx_n_u_finished __pyx_string_tab[91]
-#define __pyx_n_u_float __pyx_string_tab[92]
-#define __pyx_n_u_flush_sample __pyx_string_tab[93]
-#define __pyx_n_u_func __pyx_string_tab[94]
-#define __pyx_n_u_function_name __pyx_string_tab[95]
-#define __pyx_kp_u_gc __pyx_string_tab[96]
-#define __pyx_n_u_genexpr __pyx_string_tab[97]
-#define __pyx_n_u_get __pyx_string_tab[98]
-#define __pyx_n_u_getLogger __pyx_string_tab[99]
-#define __pyx_n_u_get_active_span_from_thread_id __pyx_string_tab[100]
-#define __pyx_n_u_get_last_thread_time __pyx_string_tab[101]
-#define __pyx_n_u_get_object __pyx_string_tab[102]
-#define __pyx_n_u_get_thread_name __pyx_string_tab[103]
-#define __pyx_n_u_get_thread_native_id __pyx_string_tab[104]
-#define __pyx_n_u_getstate __pyx_string_tab[105]
-#define __pyx_n_u_getswitchinterval __pyx_string_tab[106]
-#define __pyx_n_u_ignore_profiler __pyx_string_tab[107]
-#define __pyx_n_u_init __pyx_string_tab[108]
-#define __pyx_n_u_init_2 __pyx_string_tab[109]
-#define __pyx_n_u_init_stack_v2 __pyx_string_tab[110]
-#define __pyx_n_u_initializing __pyx_string_tab[111]
-#define __pyx_n_u_int __pyx_string_tab[112]
-#define __pyx_n_u_interval __pyx_string_tab[113]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[114]
-#define __pyx_kp_u_isenabled __pyx_string_tab[115]
-#define __pyx_n_u_items __pyx_string_tab[116]
-#define __pyx_n_u_itertools __pyx_string_tab[117]
-#define __pyx_n_u_k __pyx_string_tab[118]
-#define __pyx_n_u_keys __pyx_string_tab[119]
-#define __pyx_n_u_last_wall_time __pyx_string_tab[120]
-#define __pyx_n_u_lineno __pyx_string_tab[121]
-#define __pyx_n_u_link_object __pyx_string_tab[122]
-#define __pyx_n_u_link_span __pyx_string_tab[123]
-#define __pyx_n_u_list_tasks __pyx_string_tab[124]
-#define __pyx_n_u_logging __pyx_string_tab[125]
-#define __pyx_n_u_main __pyx_string_tab[126]
-#define __pyx_n_u_max_frames __pyx_string_tab[127]
-#define __pyx_n_u_max_time_usage_pct __pyx_string_tab[128]
-#define __pyx_n_u_metaclass __pyx_string_tab[129]
-#define __pyx_n_u_min_interval_time __pyx_string_tab[130]
-#define __pyx_n_u_module __pyx_string_tab[131]
-#define __pyx_n_u_monotonic_ns __pyx_string_tab[132]
-#define __pyx_n_u_mro_entries __pyx_string_tab[133]
-#define __pyx_n_u_name __pyx_string_tab[134]
-#define __pyx_n_u_native_thread_id __pyx_string_tab[135]
-#define __pyx_n_u_new __pyx_string_tab[136]
-#define __pyx_n_u_next __pyx_string_tab[137]
-#define __pyx_n_u_nframes __pyx_string_tab[138]
-#define __pyx_n_u_now __pyx_string_tab[139]
-#define __pyx_n_u_on_activate __pyx_string_tab[140]
-#define __pyx_n_u_periodic_threads __pyx_string_tab[141]
-#define __pyx_n_u_pickle __pyx_string_tab[142]
-#define __pyx_n_u_pop __pyx_string_tab[143]
-#define __pyx_n_u_prepare __pyx_string_tab[144]
-#define __pyx_n_u_pthread_id __pyx_string_tab[145]
-#define __pyx_n_u_pthread_ids __pyx_string_tab[146]
-#define __pyx_n_u_push_class_name __pyx_string_tab[147]
-#define __pyx_n_u_push_cputime __pyx_string_tab[148]
-#define __pyx_n_u_push_exceptioninfo __pyx_string_tab[149]
-#define __pyx_n_u_push_frame __pyx_string_tab[150]
-#define __pyx_n_u_push_monotonic_ns __pyx_string_tab[151]
-#define __pyx_n_u_push_span __pyx_string_tab[152]
-#define __pyx_n_u_push_task_id __pyx_string_tab[153]
-#define __pyx_n_u_push_task_name __pyx_string_tab[154]
-#define __pyx_n_u_push_threadinfo __pyx_string_tab[155]
-#define __pyx_n_u_push_walltime __pyx_string_tab[156]
-#define __pyx_n_u_pyframe_to_frames __pyx_string_tab[157]
-#define __pyx_n_u_pyx_PickleError __pyx_string_tab[158]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[159]
-#define __pyx_n_u_pyx_result __pyx_string_tab[160]
-#define __pyx_n_u_pyx_state __pyx_string_tab[161]
-#define __pyx_n_u_pyx_type __pyx_string_tab[162]
-#define __pyx_n_u_pyx_unpickle__ThreadTime __pyx_string_tab[163]
-#define __pyx_n_u_qualname __pyx_string_tab[164]
-#define __pyx_n_u_real_thread __pyx_string_tab[165]
-#define __pyx_n_u_reduce __pyx_string_tab[166]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[167]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[168]
-#define __pyx_n_u_repr __pyx_string_tab[169]
-#define __pyx_n_u_self __pyx_string_tab[170]
-#define __pyx_n_u_send __pyx_string_tab[171]
-#define __pyx_n_u_set_adaptive_sampling __pyx_string_tab[172]
-#define __pyx_n_u_set_name __pyx_string_tab[173]
-#define __pyx_n_u_setstate __pyx_string_tab[174]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[175]
-#define __pyx_n_u_slot __pyx_string_tab[176]
-#define __pyx_n_u_slot_attrs __pyx_string_tab[177]
-#define __pyx_n_u_slot_attrs_str __pyx_string_tab[178]
-#define __pyx_n_u_slots __pyx_string_tab[179]
-#define __pyx_n_u_span __pyx_string_tab[180]
-#define __pyx_n_u_spec __pyx_string_tab[181]
-#define __pyx_n_u_stack __pyx_string_tab[182]
-#define __pyx_n_u_stack_collect_locals_genexpr __pyx_string_tab[183]
-#define __pyx_n_u_stack_collector_v2_enabled __pyx_string_tab[184]
-#define __pyx_kp_u_stack_exceptions __pyx_string_tab[185]
-#define __pyx_n_u_stack_v2 __pyx_string_tab[186]
-#define __pyx_n_u_start __pyx_string_tab[187]
-#define __pyx_n_u_start_service __pyx_string_tab[188]
-#define __pyx_n_u_startswith __pyx_string_tab[189]
-#define __pyx_n_u_state __pyx_string_tab[190]
-#define __pyx_n_u_stop __pyx_string_tab[191]
-#define __pyx_n_u_stop_service __pyx_string_tab[192]
-#define __pyx_kp_u_stringsource __pyx_string_tab[193]
-#define __pyx_n_u_super __pyx_string_tab[194]
-#define __pyx_n_u_sys __pyx_string_tab[195]
-#define __pyx_n_u_task __pyx_string_tab[196]
-#define __pyx_n_u_test __pyx_string_tab[197]
-#define __pyx_n_u_thread __pyx_string_tab[198]
-#define __pyx_n_u_thread_id __pyx_string_tab[199]
-#define __pyx_n_u_thread_span_links __pyx_string_tab[200]
-#define __pyx_n_u_thread_span_links_base __pyx_string_tab[201]
-#define __pyx_n_u_thread_time __pyx_string_tab[202]
-#define __pyx_n_u_threading __pyx_string_tab[203]
-#define __pyx_n_u_threading_2 __pyx_string_tab[204]
-#define __pyx_n_u_throw __pyx_string_tab[205]
-#define __pyx_n_u_time __pyx_string_tab[206]
-#define __pyx_n_u_traceback __pyx_string_tab[207]
-#define __pyx_n_u_traceback_2 __pyx_string_tab[208]
-#define __pyx_n_u_traceback_to_frames __pyx_string_tab[209]
-#define __pyx_n_u_tracer __pyx_string_tab[210]
-#define __pyx_n_u_transparent_events __pyx_string_tab[211]
-#define __pyx_n_u_typing __pyx_string_tab[212]
-#define __pyx_kp_u_typing_Optional_Tracer __pyx_string_tab[213]
-#define __pyx_kp_u_typing_Optional_bool __pyx_string_tab[214]
-#define __pyx_n_u_update __pyx_string_tab[215]
-#define __pyx_n_u_use_setstate __pyx_string_tab[216]
-#define __pyx_n_u_used_wall_time_ns __pyx_string_tab[217]
-#define __pyx_n_u_v __pyx_string_tab[218]
-#define __pyx_n_u_v2_adaptive_sampling __pyx_string_tab[219]
-#define __pyx_n_u_v2_enabled __pyx_string_tab[220]
-#define __pyx_n_u_value __pyx_string_tab[221]
-#define __pyx_n_u_wall_time __pyx_string_tab[222]
-#define __pyx_n_u_zip __pyx_string_tab[223]
+#define __pyx_kp_u_ddtrace_context_provider_activat __pyx_string_tab[69]
+#define __pyx_n_u_ddtrace_internal __pyx_string_tab[70]
+#define __pyx_n_u_ddtrace_internal__threads __pyx_string_tab[71]
+#define __pyx_n_u_ddtrace_internal__unpatched __pyx_string_tab[72]
+#define __pyx_n_u_ddtrace_internal_datadog_profili __pyx_string_tab[73]
+#define __pyx_n_u_ddtrace_profiling __pyx_string_tab[74]
+#define __pyx_n_u_ddtrace_profiling_collector __pyx_string_tab[75]
+#define __pyx_n_u_ddtrace_profiling_collector_stac __pyx_string_tab[76]
+#define __pyx_kp_u_ddtrace_profiling_collector_stac_2 __pyx_string_tab[77]
+#define __pyx_n_u_ddtrace_profiling_ignore __pyx_string_tab[78]
+#define __pyx_n_u_ddtrace_settings_profiling __pyx_string_tab[79]
+#define __pyx_n_u_ddtrace_threading __pyx_string_tab[80]
+#define __pyx_n_u_ddtrace_trace __pyx_string_tab[81]
+#define __pyx_n_u_ddup __pyx_string_tab[82]
+#define __pyx_n_u_debug __pyx_string_tab[83]
+#define __pyx_n_u_default_min_interval_time __pyx_string_tab[84]
+#define __pyx_n_u_dict __pyx_string_tab[85]
+#define __pyx_n_u_dict_2 __pyx_string_tab[86]
+#define __pyx_kp_u_disable __pyx_string_tab[87]
+#define __pyx_n_u_doc __pyx_string_tab[88]
+#define __pyx_kp_u_enable __pyx_string_tab[89]
+#define __pyx_n_u_endpoint_collection_enabled __pyx_string_tab[90]
+#define __pyx_n_u_file_name __pyx_string_tab[91]
+#define __pyx_n_u_finished __pyx_string_tab[92]
+#define __pyx_n_u_float __pyx_string_tab[93]
+#define __pyx_n_u_flush_sample __pyx_string_tab[94]
+#define __pyx_n_u_func __pyx_string_tab[95]
+#define __pyx_n_u_function_name __pyx_string_tab[96]
+#define __pyx_kp_u_gc __pyx_string_tab[97]
+#define __pyx_n_u_genexpr __pyx_string_tab[98]
+#define __pyx_n_u_get __pyx_string_tab[99]
+#define __pyx_n_u_getLogger __pyx_string_tab[100]
+#define __pyx_n_u_get_active_span_from_thread_id __pyx_string_tab[101]
+#define __pyx_n_u_get_last_thread_time __pyx_string_tab[102]
+#define __pyx_n_u_get_object __pyx_string_tab[103]
+#define __pyx_n_u_get_thread_name __pyx_string_tab[104]
+#define __pyx_n_u_get_thread_native_id __pyx_string_tab[105]
+#define __pyx_n_u_getstate __pyx_string_tab[106]
+#define __pyx_n_u_getswitchinterval __pyx_string_tab[107]
+#define __pyx_n_u_ignore_profiler __pyx_string_tab[108]
+#define __pyx_n_u_init __pyx_string_tab[109]
+#define __pyx_n_u_init_2 __pyx_string_tab[110]
+#define __pyx_n_u_init_stack_v2 __pyx_string_tab[111]
+#define __pyx_n_u_initializing __pyx_string_tab[112]
+#define __pyx_n_u_int __pyx_string_tab[113]
+#define __pyx_n_u_interval __pyx_string_tab[114]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[115]
+#define __pyx_kp_u_isenabled __pyx_string_tab[116]
+#define __pyx_n_u_items __pyx_string_tab[117]
+#define __pyx_n_u_itertools __pyx_string_tab[118]
+#define __pyx_n_u_k __pyx_string_tab[119]
+#define __pyx_n_u_keys __pyx_string_tab[120]
+#define __pyx_n_u_last_wall_time __pyx_string_tab[121]
+#define __pyx_n_u_lineno __pyx_string_tab[122]
+#define __pyx_n_u_link_object __pyx_string_tab[123]
+#define __pyx_n_u_link_span __pyx_string_tab[124]
+#define __pyx_n_u_list_tasks __pyx_string_tab[125]
+#define __pyx_n_u_logging __pyx_string_tab[126]
+#define __pyx_n_u_main __pyx_string_tab[127]
+#define __pyx_n_u_max_frames __pyx_string_tab[128]
+#define __pyx_n_u_max_time_usage_pct __pyx_string_tab[129]
+#define __pyx_n_u_metaclass __pyx_string_tab[130]
+#define __pyx_n_u_min_interval_time __pyx_string_tab[131]
+#define __pyx_n_u_module __pyx_string_tab[132]
+#define __pyx_n_u_monotonic_ns __pyx_string_tab[133]
+#define __pyx_n_u_mro_entries __pyx_string_tab[134]
+#define __pyx_n_u_name __pyx_string_tab[135]
+#define __pyx_n_u_native_thread_id __pyx_string_tab[136]
+#define __pyx_n_u_new __pyx_string_tab[137]
+#define __pyx_n_u_next __pyx_string_tab[138]
+#define __pyx_n_u_nframes __pyx_string_tab[139]
+#define __pyx_n_u_now __pyx_string_tab[140]
+#define __pyx_n_u_on __pyx_string_tab[141]
+#define __pyx_n_u_periodic_threads __pyx_string_tab[142]
+#define __pyx_n_u_pickle __pyx_string_tab[143]
+#define __pyx_n_u_pop __pyx_string_tab[144]
+#define __pyx_n_u_prepare __pyx_string_tab[145]
+#define __pyx_n_u_pthread_id __pyx_string_tab[146]
+#define __pyx_n_u_pthread_ids __pyx_string_tab[147]
+#define __pyx_n_u_push_class_name __pyx_string_tab[148]
+#define __pyx_n_u_push_cputime __pyx_string_tab[149]
+#define __pyx_n_u_push_exceptioninfo __pyx_string_tab[150]
+#define __pyx_n_u_push_frame __pyx_string_tab[151]
+#define __pyx_n_u_push_monotonic_ns __pyx_string_tab[152]
+#define __pyx_n_u_push_span __pyx_string_tab[153]
+#define __pyx_n_u_push_task_id __pyx_string_tab[154]
+#define __pyx_n_u_push_task_name __pyx_string_tab[155]
+#define __pyx_n_u_push_threadinfo __pyx_string_tab[156]
+#define __pyx_n_u_push_walltime __pyx_string_tab[157]
+#define __pyx_n_u_pyframe_to_frames __pyx_string_tab[158]
+#define __pyx_n_u_pyx_PickleError __pyx_string_tab[159]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[160]
+#define __pyx_n_u_pyx_result __pyx_string_tab[161]
+#define __pyx_n_u_pyx_state __pyx_string_tab[162]
+#define __pyx_n_u_pyx_type __pyx_string_tab[163]
+#define __pyx_n_u_pyx_unpickle__ThreadTime __pyx_string_tab[164]
+#define __pyx_n_u_qualname __pyx_string_tab[165]
+#define __pyx_n_u_real_thread __pyx_string_tab[166]
+#define __pyx_n_u_reduce __pyx_string_tab[167]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[168]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[169]
+#define __pyx_n_u_repr __pyx_string_tab[170]
+#define __pyx_n_u_reset_listeners __pyx_string_tab[171]
+#define __pyx_n_u_self __pyx_string_tab[172]
+#define __pyx_n_u_send __pyx_string_tab[173]
+#define __pyx_n_u_set_adaptive_sampling __pyx_string_tab[174]
+#define __pyx_n_u_set_name __pyx_string_tab[175]
+#define __pyx_n_u_setstate __pyx_string_tab[176]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[177]
+#define __pyx_n_u_slot __pyx_string_tab[178]
+#define __pyx_n_u_slot_attrs __pyx_string_tab[179]
+#define __pyx_n_u_slot_attrs_str __pyx_string_tab[180]
+#define __pyx_n_u_slots __pyx_string_tab[181]
+#define __pyx_n_u_span __pyx_string_tab[182]
+#define __pyx_n_u_spec __pyx_string_tab[183]
+#define __pyx_n_u_stack __pyx_string_tab[184]
+#define __pyx_n_u_stack_collect_locals_genexpr __pyx_string_tab[185]
+#define __pyx_n_u_stack_collector_v2_enabled __pyx_string_tab[186]
+#define __pyx_kp_u_stack_exceptions __pyx_string_tab[187]
+#define __pyx_n_u_stack_v2 __pyx_string_tab[188]
+#define __pyx_n_u_start __pyx_string_tab[189]
+#define __pyx_n_u_start_service __pyx_string_tab[190]
+#define __pyx_n_u_startswith __pyx_string_tab[191]
+#define __pyx_n_u_state __pyx_string_tab[192]
+#define __pyx_n_u_stop __pyx_string_tab[193]
+#define __pyx_n_u_stop_service __pyx_string_tab[194]
+#define __pyx_kp_u_stringsource __pyx_string_tab[195]
+#define __pyx_n_u_super __pyx_string_tab[196]
+#define __pyx_n_u_sys __pyx_string_tab[197]
+#define __pyx_n_u_task __pyx_string_tab[198]
+#define __pyx_n_u_test __pyx_string_tab[199]
+#define __pyx_n_u_thread __pyx_string_tab[200]
+#define __pyx_n_u_thread_id __pyx_string_tab[201]
+#define __pyx_n_u_thread_span_links __pyx_string_tab[202]
+#define __pyx_n_u_thread_span_links_base __pyx_string_tab[203]
+#define __pyx_n_u_thread_time __pyx_string_tab[204]
+#define __pyx_n_u_threading __pyx_string_tab[205]
+#define __pyx_n_u_threading_2 __pyx_string_tab[206]
+#define __pyx_n_u_throw __pyx_string_tab[207]
+#define __pyx_n_u_time __pyx_string_tab[208]
+#define __pyx_n_u_traceback __pyx_string_tab[209]
+#define __pyx_n_u_traceback_2 __pyx_string_tab[210]
+#define __pyx_n_u_traceback_to_frames __pyx_string_tab[211]
+#define __pyx_n_u_tracer __pyx_string_tab[212]
+#define __pyx_n_u_transparent_events __pyx_string_tab[213]
+#define __pyx_n_u_typing __pyx_string_tab[214]
+#define __pyx_kp_u_typing_Optional_Tracer __pyx_string_tab[215]
+#define __pyx_kp_u_typing_Optional_bool __pyx_string_tab[216]
+#define __pyx_n_u_update __pyx_string_tab[217]
+#define __pyx_n_u_use_setstate __pyx_string_tab[218]
+#define __pyx_n_u_used_wall_time_ns __pyx_string_tab[219]
+#define __pyx_n_u_v __pyx_string_tab[220]
+#define __pyx_n_u_v2_adaptive_sampling __pyx_string_tab[221]
+#define __pyx_n_u_v2_enabled __pyx_string_tab[222]
+#define __pyx_n_u_value __pyx_string_tab[223]
+#define __pyx_n_u_wall_time __pyx_string_tab[224]
+#define __pyx_n_u_zip __pyx_string_tab[225]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3506,7 +3510,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr);
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<18; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<224; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<226; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_float_1e9);
   Py_CLEAR(clear_module_state->__pyx_float_100_0);
   Py_CLEAR(clear_module_state->__pyx_int_0);
@@ -3552,7 +3556,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr);
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<18; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<224; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<226; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_float_1e9);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_float_100_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_0);
@@ -3566,7 +3570,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
 #endif
 /* #### Code section: module_code ### */
 
-/* "ddtrace/profiling/collector/stack.pyx":54
+/* "ddtrace/profiling/collector/stack.pyx":55
  *         int pthread_getcpuclockid(unsigned long thread, clockid_t *clock_id)
  * 
  *     cdef p_pthread_getcpuclockid(tid):             # <<<<<<<<<<<<<<
@@ -3587,18 +3591,18 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_pthread_getcpuc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("p_pthread_getcpuclockid", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":56
+  /* "ddtrace/profiling/collector/stack.pyx":57
  *     cdef p_pthread_getcpuclockid(tid):
  *         cdef clockid_t clock_id
  *         if pthread_getcpuclockid(tid, &clock_id) == 0:             # <<<<<<<<<<<<<<
  *             return clock_id
  *         PyErr_SetFromErrno(OSError)
 */
-  __pyx_t_1 = __Pyx_PyLong_As_unsigned_long(__pyx_v_tid); if (unlikely((__pyx_t_1 == (unsigned long)-1) && PyErr_Occurred())) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_unsigned_long(__pyx_v_tid); if (unlikely((__pyx_t_1 == (unsigned long)-1) && PyErr_Occurred())) __PYX_ERR(0, 57, __pyx_L1_error)
   __pyx_t_2 = (pthread_getcpuclockid(__pyx_t_1, (&__pyx_v_clock_id)) == 0);
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":57
+    /* "ddtrace/profiling/collector/stack.pyx":58
  *         cdef clockid_t clock_id
  *         if pthread_getcpuclockid(tid, &clock_id) == 0:
  *             return clock_id             # <<<<<<<<<<<<<<
@@ -3606,13 +3610,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_pthread_getcpuc
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyLong_From_clockid_t(__pyx_v_clock_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_clockid_t(__pyx_v_clock_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":56
+    /* "ddtrace/profiling/collector/stack.pyx":57
  *     cdef p_pthread_getcpuclockid(tid):
  *         cdef clockid_t clock_id
  *         if pthread_getcpuclockid(tid, &clock_id) == 0:             # <<<<<<<<<<<<<<
@@ -3621,16 +3625,16 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_pthread_getcpuc
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":58
+  /* "ddtrace/profiling/collector/stack.pyx":59
  *         if pthread_getcpuclockid(tid, &clock_id) == 0:
  *             return clock_id
  *         PyErr_SetFromErrno(OSError)             # <<<<<<<<<<<<<<
  * 
  *     # Python < 3.3 does not have `time.clock_gettime`
 */
-  __pyx_t_4 = PyErr_SetFromErrno(__pyx_builtin_OSError); if (unlikely(__pyx_t_4 == ((PyObject *)0))) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_4 = PyErr_SetFromErrno(__pyx_builtin_OSError); if (unlikely(__pyx_t_4 == ((PyObject *)0))) __PYX_ERR(0, 59, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":54
+  /* "ddtrace/profiling/collector/stack.pyx":55
  *         int pthread_getcpuclockid(unsigned long thread, clockid_t *clock_id)
  * 
  *     cdef p_pthread_getcpuclockid(tid):             # <<<<<<<<<<<<<<
@@ -3651,7 +3655,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_pthread_getcpuc
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":61
+/* "ddtrace/profiling/collector/stack.pyx":62
  * 
  *     # Python < 3.3 does not have `time.clock_gettime`
  *     cdef p_clock_gettime_ns(clk_id):             # <<<<<<<<<<<<<<
@@ -3672,18 +3676,18 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_clock_gettime_n
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("p_clock_gettime_ns", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":63
+  /* "ddtrace/profiling/collector/stack.pyx":64
  *     cdef p_clock_gettime_ns(clk_id):
  *         cdef timespec tp
  *         if clock_gettime(clk_id, &tp) == 0:             # <<<<<<<<<<<<<<
  *             return int(tp.tv_nsec + tp.tv_sec * 10e8)
  *         PyErr_SetFromErrno(OSError)
 */
-  __pyx_t_1 = __Pyx_PyLong_As_clockid_t(__pyx_v_clk_id); if (unlikely((__pyx_t_1 == ((clockid_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_clockid_t(__pyx_v_clk_id); if (unlikely((__pyx_t_1 == ((clockid_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L1_error)
   __pyx_t_2 = (clock_gettime(__pyx_t_1, (&__pyx_v_tp)) == 0);
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":64
+    /* "ddtrace/profiling/collector/stack.pyx":65
  *         cdef timespec tp
  *         if clock_gettime(clk_id, &tp) == 0:
  *             return int(tp.tv_nsec + tp.tv_sec * 10e8)             # <<<<<<<<<<<<<<
@@ -3691,13 +3695,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_clock_gettime_n
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = PyLong_FromDouble((__pyx_v_tp.tv_nsec + (__pyx_v_tp.tv_sec * 10e8))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_3 = PyLong_FromDouble((__pyx_v_tp.tv_nsec + (__pyx_v_tp.tv_sec * 10e8))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":63
+    /* "ddtrace/profiling/collector/stack.pyx":64
  *     cdef p_clock_gettime_ns(clk_id):
  *         cdef timespec tp
  *         if clock_gettime(clk_id, &tp) == 0:             # <<<<<<<<<<<<<<
@@ -3706,16 +3710,16 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_clock_gettime_n
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":65
+  /* "ddtrace/profiling/collector/stack.pyx":66
  *         if clock_gettime(clk_id, &tp) == 0:
  *             return int(tp.tv_nsec + tp.tv_sec * 10e8)
  *         PyErr_SetFromErrno(OSError)             # <<<<<<<<<<<<<<
  * 
  *     cdef class _ThreadTime(object):
 */
-  __pyx_t_4 = PyErr_SetFromErrno(__pyx_builtin_OSError); if (unlikely(__pyx_t_4 == ((PyObject *)0))) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_4 = PyErr_SetFromErrno(__pyx_builtin_OSError); if (unlikely(__pyx_t_4 == ((PyObject *)0))) __PYX_ERR(0, 66, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":61
+  /* "ddtrace/profiling/collector/stack.pyx":62
  * 
  *     # Python < 3.3 does not have `time.clock_gettime`
  *     cdef p_clock_gettime_ns(clk_id):             # <<<<<<<<<<<<<<
@@ -3736,7 +3740,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_p_clock_gettime_n
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":70
+/* "ddtrace/profiling/collector/stack.pyx":71
  *         cdef dict _last_thread_time
  * 
  *         def __init__(self):             # <<<<<<<<<<<<<<
@@ -3778,14 +3782,14 @@ static int __pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime___init__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":73
+  /* "ddtrace/profiling/collector/stack.pyx":74
  *             # This uses a tuple of (pthread_id, thread_native_id) as the key to identify the thread: you'd think using
  *             # the pthread_t id would be enough, but the glibc reuses the id.
  *             self._last_thread_time = {}             # <<<<<<<<<<<<<<
  * 
  *         # Only used in tests
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_last_thread_time);
@@ -3793,7 +3797,7 @@ static int __pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime___init__
   __pyx_v_self->_last_thread_time = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":70
+  /* "ddtrace/profiling/collector/stack.pyx":71
  *         cdef dict _last_thread_time
  * 
  *         def __init__(self):             # <<<<<<<<<<<<<<
@@ -3813,7 +3817,7 @@ static int __pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime___init__
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":76
+/* "ddtrace/profiling/collector/stack.pyx":77
  * 
  *         # Only used in tests
  *         def _get_last_thread_time(self):             # <<<<<<<<<<<<<<
@@ -3872,7 +3876,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_2_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_last_thread_time", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":77
+  /* "ddtrace/profiling/collector/stack.pyx":78
  *         # Only used in tests
  *         def _get_last_thread_time(self):
  *             return dict(self._last_thread_time)             # <<<<<<<<<<<<<<
@@ -3882,15 +3886,15 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_2_
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_self->_last_thread_time == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' is not iterable");
-    __PYX_ERR(0, 77, __pyx_L1_error)
+    __PYX_ERR(0, 78, __pyx_L1_error)
   }
-  __pyx_t_1 = PyDict_Copy(__pyx_v_self->_last_thread_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_self->_last_thread_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":76
+  /* "ddtrace/profiling/collector/stack.pyx":77
  * 
  *         # Only used in tests
  *         def _get_last_thread_time(self):             # <<<<<<<<<<<<<<
@@ -3909,7 +3913,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_2_
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":79
+/* "ddtrace/profiling/collector/stack.pyx":80
  *             return dict(self._last_thread_time)
  * 
  *         def __call__(self, pthread_ids):             # <<<<<<<<<<<<<<
@@ -3939,32 +3943,32 @@ static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_5_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_pthread_ids,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 79, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 80, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 79, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 80, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 80, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 79, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, i); __PYX_ERR(0, 80, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 80, __pyx_L3_error)
     }
     __pyx_v_pthread_ids = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 79, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 80, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4016,19 +4020,19 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__call__", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":80
+  /* "ddtrace/profiling/collector/stack.pyx":81
  * 
  *         def __call__(self, pthread_ids):
  *             cdef list cpu_times = []             # <<<<<<<<<<<<<<
  *             for pthread_id in pthread_ids:
  *                 # TODO: Use QueryThreadCycleTime on Windows?
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_cpu_times = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":81
+  /* "ddtrace/profiling/collector/stack.pyx":82
  *         def __call__(self, pthread_ids):
  *             cdef list cpu_times = []
  *             for pthread_id in pthread_ids:             # <<<<<<<<<<<<<<
@@ -4040,9 +4044,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_pthread_ids); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_pthread_ids); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_3)) {
@@ -4050,7 +4054,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -4060,7 +4064,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -4071,13 +4075,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_3(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 81, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 82, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4087,7 +4091,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     __Pyx_XDECREF_SET(__pyx_v_pthread_id, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":88
+    /* "ddtrace/profiling/collector/stack.pyx":89
  *                 # This is why this whole file is compiled down to C: we make sure we never release the GIL between
  *                 # calling sys._current_frames() and pthread_getcpuclockid, making sure no thread disappeared.
  *                 try:             # <<<<<<<<<<<<<<
@@ -4103,22 +4107,22 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __Pyx_XGOTREF(__pyx_t_7);
       /*try:*/ {
 
-        /* "ddtrace/profiling/collector/stack.pyx":89
+        /* "ddtrace/profiling/collector/stack.pyx":90
  *                 # calling sys._current_frames() and pthread_getcpuclockid, making sure no thread disappeared.
  *                 try:
  *                     cpu_time = p_clock_gettime_ns(p_pthread_getcpuclockid(pthread_id))             # <<<<<<<<<<<<<<
  *                 except OSError:
  *                     # Just in case it fails, set it to 0
 */
-        __pyx_t_4 = __pyx_f_7ddtrace_9profiling_9collector_5stack_p_pthread_getcpuclockid(__pyx_v_pthread_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L5_error)
+        __pyx_t_4 = __pyx_f_7ddtrace_9profiling_9collector_5stack_p_pthread_getcpuclockid(__pyx_v_pthread_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 90, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_8 = __pyx_f_7ddtrace_9profiling_9collector_5stack_p_clock_gettime_ns(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 89, __pyx_L5_error)
+        __pyx_t_8 = __pyx_f_7ddtrace_9profiling_9collector_5stack_p_clock_gettime_ns(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 90, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_XDECREF_SET(__pyx_v_cpu_time, __pyx_t_8);
         __pyx_t_8 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":88
+        /* "ddtrace/profiling/collector/stack.pyx":89
  *                 # This is why this whole file is compiled down to C: we make sure we never release the GIL between
  *                 # calling sys._current_frames() and pthread_getcpuclockid, making sure no thread disappeared.
  *                 try:             # <<<<<<<<<<<<<<
@@ -4134,7 +4138,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":90
+      /* "ddtrace/profiling/collector/stack.pyx":91
  *                 try:
  *                     cpu_time = p_clock_gettime_ns(p_pthread_getcpuclockid(pthread_id))
  *                 except OSError:             # <<<<<<<<<<<<<<
@@ -4144,12 +4148,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_OSError);
       if (__pyx_t_9) {
         __Pyx_AddTraceback("ddtrace.profiling.collector.stack._ThreadTime.__call__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_8, &__pyx_t_4, &__pyx_t_10) < 0) __PYX_ERR(0, 90, __pyx_L7_except_error)
+        if (__Pyx_GetException(&__pyx_t_8, &__pyx_t_4, &__pyx_t_10) < 0) __PYX_ERR(0, 91, __pyx_L7_except_error)
         __Pyx_XGOTREF(__pyx_t_8);
         __Pyx_XGOTREF(__pyx_t_4);
         __Pyx_XGOTREF(__pyx_t_10);
 
-        /* "ddtrace/profiling/collector/stack.pyx":93
+        /* "ddtrace/profiling/collector/stack.pyx":94
  *                     # Just in case it fails, set it to 0
  *                     # (Note that glibc never fails, it segfaults instead)
  *                     cpu_time = 0             # <<<<<<<<<<<<<<
@@ -4165,7 +4169,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       }
       goto __pyx_L7_except_error;
 
-      /* "ddtrace/profiling/collector/stack.pyx":88
+      /* "ddtrace/profiling/collector/stack.pyx":89
  *                 # This is why this whole file is compiled down to C: we make sure we never release the GIL between
  *                 # calling sys._current_frames() and pthread_getcpuclockid, making sure no thread disappeared.
  *                 try:             # <<<<<<<<<<<<<<
@@ -4186,16 +4190,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __pyx_L12_try_end:;
     }
 
-    /* "ddtrace/profiling/collector/stack.pyx":94
+    /* "ddtrace/profiling/collector/stack.pyx":95
  *                     # (Note that glibc never fails, it segfaults instead)
  *                     cpu_time = 0
  *                 cpu_times.append(cpu_time)             # <<<<<<<<<<<<<<
  * 
  *             cdef dict pthread_cpu_time = {}
 */
-    __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_cpu_times, __pyx_v_cpu_time); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 94, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_cpu_times, __pyx_v_cpu_time); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 95, __pyx_L1_error)
 
-    /* "ddtrace/profiling/collector/stack.pyx":81
+    /* "ddtrace/profiling/collector/stack.pyx":82
  *         def __call__(self, pthread_ids):
  *             cdef list cpu_times = []
  *             for pthread_id in pthread_ids:             # <<<<<<<<<<<<<<
@@ -4205,19 +4209,19 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":96
+  /* "ddtrace/profiling/collector/stack.pyx":97
  *                 cpu_times.append(cpu_time)
  * 
  *             cdef dict pthread_cpu_time = {}             # <<<<<<<<<<<<<<
  * 
  *             # We should now be safe doing more Pythonic stuff and maybe releasing the GIL
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_pthread_cpu_time = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":99
+  /* "ddtrace/profiling/collector/stack.pyx":100
  * 
  *             # We should now be safe doing more Pythonic stuff and maybe releasing the GIL
  *             for pthread_id, cpu_time in zip(pthread_ids, cpu_times):             # <<<<<<<<<<<<<<
@@ -4233,7 +4237,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
@@ -4241,9 +4245,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4252,7 +4256,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 99, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 100, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -4262,7 +4266,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 99, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 100, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -4273,13 +4277,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_3(__pyx_t_4);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 99, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 100, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4292,7 +4296,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 99, __pyx_L1_error)
+        __PYX_ERR(0, 100, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -4302,22 +4306,22 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
         __Pyx_INCREF(__pyx_t_8);
       } else {
         __pyx_t_10 = __Pyx_PyList_GetItemRef(sequence, 0);
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 99, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 100, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_10);
         __pyx_t_8 = __Pyx_PyList_GetItemRef(sequence, 1);
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 99, __pyx_L1_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 100, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_8);
       }
       #else
-      __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 99, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 100, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 99, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 100, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       #endif
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_13 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 99, __pyx_L1_error)
+      __pyx_t_13 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 100, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_13);
@@ -4325,7 +4329,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __Pyx_GOTREF(__pyx_t_10);
       index = 1; __pyx_t_8 = __pyx_t_14(__pyx_t_13); if (unlikely(!__pyx_t_8)) goto __pyx_L18_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_8);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_14(__pyx_t_13), 2) < 0) __PYX_ERR(0, 99, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_14(__pyx_t_13), 2) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
       __pyx_t_14 = NULL;
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
       goto __pyx_L19_unpacking_done;
@@ -4333,7 +4337,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
       __pyx_t_14 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 99, __pyx_L1_error)
+      __PYX_ERR(0, 100, __pyx_L1_error)
       __pyx_L19_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_pthread_id, __pyx_t_10);
@@ -4341,7 +4345,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     __Pyx_XDECREF_SET(__pyx_v_cpu_time, __pyx_t_8);
     __pyx_t_8 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":100
+    /* "ddtrace/profiling/collector/stack.pyx":101
  *             # We should now be safe doing more Pythonic stuff and maybe releasing the GIL
  *             for pthread_id, cpu_time in zip(pthread_ids, cpu_times):
  *                 thread_native_id = _threading.get_thread_native_id(pthread_id)             # <<<<<<<<<<<<<<
@@ -4349,9 +4353,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
  *                 # Do a max(0, ) here just in case the result is < 0:
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 100, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_get_thread_native_id); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 100, __pyx_L1_error)
+    __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_get_thread_native_id); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_13);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_12 = 1;
@@ -4371,31 +4375,31 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_XDECREF_SET(__pyx_v_thread_native_id, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":101
+    /* "ddtrace/profiling/collector/stack.pyx":102
  *             for pthread_id, cpu_time in zip(pthread_ids, cpu_times):
  *                 thread_native_id = _threading.get_thread_native_id(pthread_id)
  *                 key = pthread_id, thread_native_id             # <<<<<<<<<<<<<<
  *                 # Do a max(0, ) here just in case the result is < 0:
  *                 # This should never happen, but it can happen if the one chance in a billion happens:
 */
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_v_pthread_id);
     __Pyx_GIVEREF(__pyx_v_pthread_id);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_pthread_id) != (0)) __PYX_ERR(0, 101, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_pthread_id) != (0)) __PYX_ERR(0, 102, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_thread_native_id);
     __Pyx_GIVEREF(__pyx_v_thread_native_id);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_thread_native_id) != (0)) __PYX_ERR(0, 101, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_thread_native_id) != (0)) __PYX_ERR(0, 102, __pyx_L1_error);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":106
+    /* "ddtrace/profiling/collector/stack.pyx":107
  *                 # - A new thread has been created and has the same native id and the same pthread_id.
  *                 # - We got an OSError with clock_gettime_ns
  *                 pthread_cpu_time[key] = max(0, cpu_time - self._last_thread_time.get(key, cpu_time))             # <<<<<<<<<<<<<<
@@ -4404,25 +4408,25 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
 */
     if (unlikely(__pyx_v_self->_last_thread_time == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-      __PYX_ERR(0, 106, __pyx_L1_error)
+      __PYX_ERR(0, 107, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_last_thread_time, __pyx_v_key, __pyx_v_cpu_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->_last_thread_time, __pyx_v_key, __pyx_v_cpu_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_13 = PyNumber_Subtract(__pyx_v_cpu_time, __pyx_t_1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_13 = PyNumber_Subtract(__pyx_v_cpu_time, __pyx_t_1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_13);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_15 = 0;
-    __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_10 = PyObject_RichCompare(__pyx_t_13, __pyx_t_8, Py_GT); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_10 = PyObject_RichCompare(__pyx_t_13, __pyx_t_8, Py_GT); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_16 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     if (__pyx_t_16) {
       __Pyx_INCREF(__pyx_t_13);
       __pyx_t_1 = __pyx_t_13;
     } else {
-      __pyx_t_10 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 106, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 107, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __pyx_t_1 = __pyx_t_10;
       __pyx_t_10 = 0;
@@ -4431,10 +4435,10 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     __pyx_t_13 = __pyx_t_1;
     __Pyx_INCREF(__pyx_t_13);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely((PyDict_SetItem(__pyx_v_pthread_cpu_time, __pyx_v_key, __pyx_t_13) < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_pthread_cpu_time, __pyx_v_key, __pyx_t_13) < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":107
+    /* "ddtrace/profiling/collector/stack.pyx":108
  *                 # - We got an OSError with clock_gettime_ns
  *                 pthread_cpu_time[key] = max(0, cpu_time - self._last_thread_time.get(key, cpu_time))
  *                 self._last_thread_time[key] = cpu_time             # <<<<<<<<<<<<<<
@@ -4443,11 +4447,11 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
 */
     if (unlikely(__pyx_v_self->_last_thread_time == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 107, __pyx_L1_error)
+      __PYX_ERR(0, 108, __pyx_L1_error)
     }
-    if (unlikely((PyDict_SetItem(__pyx_v_self->_last_thread_time, __pyx_v_key, __pyx_v_cpu_time) < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_self->_last_thread_time, __pyx_v_key, __pyx_v_cpu_time) < 0))) __PYX_ERR(0, 108, __pyx_L1_error)
 
-    /* "ddtrace/profiling/collector/stack.pyx":99
+    /* "ddtrace/profiling/collector/stack.pyx":100
  * 
  *             # We should now be safe doing more Pythonic stuff and maybe releasing the GIL
  *             for pthread_id, cpu_time in zip(pthread_ids, cpu_times):             # <<<<<<<<<<<<<<
@@ -4457,22 +4461,22 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":110
+  /* "ddtrace/profiling/collector/stack.pyx":111
  * 
  *             # Clear cache
  *             keys = list(pthread_cpu_time.keys())             # <<<<<<<<<<<<<<
  *             for key in list(self._last_thread_time.keys()):
  *                 if key not in keys:
 */
-  __pyx_t_4 = __Pyx_PyDict_Keys(__pyx_v_pthread_cpu_time); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_Keys(__pyx_v_pthread_cpu_time); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_13 = __Pyx_PySequence_ListKeepNew(__pyx_t_4); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PySequence_ListKeepNew(__pyx_t_4); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_keys = ((PyObject*)__pyx_t_13);
   __pyx_t_13 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":111
+  /* "ddtrace/profiling/collector/stack.pyx":112
  *             # Clear cache
  *             keys = list(pthread_cpu_time.keys())
  *             for key in list(self._last_thread_time.keys()):             # <<<<<<<<<<<<<<
@@ -4481,11 +4485,11 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
 */
   if (unlikely(__pyx_v_self->_last_thread_time == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "keys");
-    __PYX_ERR(0, 111, __pyx_L1_error)
+    __PYX_ERR(0, 112, __pyx_L1_error)
   }
-  __pyx_t_13 = __Pyx_PyDict_Keys(__pyx_v_self->_last_thread_time); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyDict_Keys(__pyx_v_self->_last_thread_time); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
-  __pyx_t_4 = __Pyx_PySequence_ListKeepNew(__pyx_t_13); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PySequence_ListKeepNew(__pyx_t_13); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
   __pyx_t_13 = __pyx_t_4; __Pyx_INCREF(__pyx_t_13);
@@ -4495,28 +4499,28 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_13);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 111, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 112, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     __pyx_t_4 = __Pyx_PyList_GetItemRef(__pyx_t_13, __pyx_t_2);
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":112
+    /* "ddtrace/profiling/collector/stack.pyx":113
  *             keys = list(pthread_cpu_time.keys())
  *             for key in list(self._last_thread_time.keys()):
  *                 if key not in keys:             # <<<<<<<<<<<<<<
  *                     del self._last_thread_time[key]
  * 
 */
-    __pyx_t_16 = (__Pyx_PySequence_ContainsTF(__pyx_v_key, __pyx_v_keys, Py_NE)); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 112, __pyx_L1_error)
+    __pyx_t_16 = (__Pyx_PySequence_ContainsTF(__pyx_v_key, __pyx_v_keys, Py_NE)); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 113, __pyx_L1_error)
     if (__pyx_t_16) {
 
-      /* "ddtrace/profiling/collector/stack.pyx":113
+      /* "ddtrace/profiling/collector/stack.pyx":114
  *             for key in list(self._last_thread_time.keys()):
  *                 if key not in keys:
  *                     del self._last_thread_time[key]             # <<<<<<<<<<<<<<
@@ -4525,11 +4529,11 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
 */
       if (unlikely(__pyx_v_self->_last_thread_time == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 113, __pyx_L1_error)
+        __PYX_ERR(0, 114, __pyx_L1_error)
       }
-      if (unlikely((PyDict_DelItem(__pyx_v_self->_last_thread_time, __pyx_v_key) < 0))) __PYX_ERR(0, 113, __pyx_L1_error)
+      if (unlikely((PyDict_DelItem(__pyx_v_self->_last_thread_time, __pyx_v_key) < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
 
-      /* "ddtrace/profiling/collector/stack.pyx":112
+      /* "ddtrace/profiling/collector/stack.pyx":113
  *             keys = list(pthread_cpu_time.keys())
  *             for key in list(self._last_thread_time.keys()):
  *                 if key not in keys:             # <<<<<<<<<<<<<<
@@ -4538,7 +4542,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
 */
     }
 
-    /* "ddtrace/profiling/collector/stack.pyx":111
+    /* "ddtrace/profiling/collector/stack.pyx":112
  *             # Clear cache
  *             keys = list(pthread_cpu_time.keys())
  *             for key in list(self._last_thread_time.keys()):             # <<<<<<<<<<<<<<
@@ -4548,7 +4552,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
   }
   __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":115
+  /* "ddtrace/profiling/collector/stack.pyx":116
  *                     del self._last_thread_time[key]
  * 
  *             return pthread_cpu_time             # <<<<<<<<<<<<<<
@@ -4560,7 +4564,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_4_
   __pyx_r = __pyx_v_pthread_cpu_time;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":79
+  /* "ddtrace/profiling/collector/stack.pyx":80
  *             return dict(self._last_thread_time)
  * 
  *         def __call__(self, pthread_ids):             # <<<<<<<<<<<<<<
@@ -4982,7 +4986,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_8_
 }
 static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_threads_2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "ddtrace/profiling/collector/stack.pyx":261
+/* "ddtrace/profiling/collector/stack.pyx":262
  *     return tuple(
  *         (
  *             pthread_id,             # <<<<<<<<<<<<<<
@@ -5002,7 +5006,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_15collect_thread
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 261, __pyx_L1_error)
+    __PYX_ERR(0, 262, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -5013,7 +5017,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_15collect_thread
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_threads_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_collect_threads_locals_genexpr, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 261, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_threads_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_collect_threads_locals_genexpr, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 262, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -5062,10 +5066,10 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started generator");
-    __PYX_ERR(0, 261, __pyx_L1_error)
+    __PYX_ERR(0, 262, __pyx_L1_error)
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":269
+  /* "ddtrace/profiling/collector/stack.pyx":270
  *             cpu_time,
  *         )
  *         for (pthread_id, native_thread_id), cpu_time in cpu_times.items()             # <<<<<<<<<<<<<<
@@ -5073,12 +5077,12 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
  *     )
 */
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 269, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 270, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 269, __pyx_L1_error)
+    __PYX_ERR(0, 270, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -5086,7 +5090,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 269, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     if ((likely(PyTuple_CheckExact(__pyx_t_5))) || (PyList_CheckExact(__pyx_t_5))) {
@@ -5095,7 +5099,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 269, __pyx_L1_error)
+        __PYX_ERR(0, 270, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -5105,22 +5109,22 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
         __Pyx_INCREF(__pyx_t_9);
       } else {
         __pyx_t_8 = __Pyx_PyList_GetItemRef(sequence, 0);
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 269, __pyx_L1_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 270, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_8);
         __pyx_t_9 = __Pyx_PyList_GetItemRef(sequence, 1);
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 269, __pyx_L1_error)
+        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 270, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_9);
       }
       #else
-      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 269, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 270, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 269, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 270, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       #endif
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_10 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 269, __pyx_L1_error)
+      __pyx_t_10 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 270, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10);
@@ -5128,7 +5132,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
       __Pyx_GOTREF(__pyx_t_8);
       index = 1; __pyx_t_9 = __pyx_t_11(__pyx_t_10); if (unlikely(!__pyx_t_9)) goto __pyx_L6_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_9);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_11(__pyx_t_10), 2) < 0) __PYX_ERR(0, 269, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_11(__pyx_t_10), 2) < 0) __PYX_ERR(0, 270, __pyx_L1_error)
       __pyx_t_11 = NULL;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       goto __pyx_L7_unpacking_done;
@@ -5136,7 +5140,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_11 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 269, __pyx_L1_error)
+      __PYX_ERR(0, 270, __pyx_L1_error)
       __pyx_L7_unpacking_done:;
     }
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_pthread_id);
@@ -5152,18 +5156,18 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":270
+    /* "ddtrace/profiling/collector/stack.pyx":271
  *         )
  *         for (pthread_id, native_thread_id), cpu_time in cpu_times.items()
  *         if pthread_id not in thread_id_ignore_list             # <<<<<<<<<<<<<<
  *     )
  * 
 */
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_id_ignore_list)) { __Pyx_RaiseClosureNameError("thread_id_ignore_list"); __PYX_ERR(0, 270, __pyx_L1_error) }
-    __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_cur_scope->__pyx_v_pthread_id, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_id_ignore_list, Py_NE)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 270, __pyx_L1_error)
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_id_ignore_list)) { __Pyx_RaiseClosureNameError("thread_id_ignore_list"); __PYX_ERR(0, 271, __pyx_L1_error) }
+    __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_cur_scope->__pyx_v_pthread_id, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_id_ignore_list, Py_NE)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 271, __pyx_L1_error)
     if (__pyx_t_12) {
 
-      /* "ddtrace/profiling/collector/stack.pyx":263
+      /* "ddtrace/profiling/collector/stack.pyx":264
  *             pthread_id,
  *             native_thread_id,
  *             _threading.get_thread_name(pthread_id),             # <<<<<<<<<<<<<<
@@ -5171,9 +5175,9 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
  *             current_exceptions.get(pthread_id),
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 263, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 264, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_get_thread_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 263, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_get_thread_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 264, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_13 = 1;
@@ -5193,51 +5197,51 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 263, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 264, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
 
-      /* "ddtrace/profiling/collector/stack.pyx":264
+      /* "ddtrace/profiling/collector/stack.pyx":265
  *             native_thread_id,
  *             _threading.get_thread_name(pthread_id),
  *             running_threads[pthread_id],             # <<<<<<<<<<<<<<
  *             current_exceptions.get(pthread_id),
  *             thread_span_links.get_active_span_from_thread_id(pthread_id) if thread_span_links else None,
 */
-      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_running_threads)) { __Pyx_RaiseClosureNameError("running_threads"); __PYX_ERR(0, 264, __pyx_L1_error) }
+      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_running_threads)) { __Pyx_RaiseClosureNameError("running_threads"); __PYX_ERR(0, 265, __pyx_L1_error) }
       if (unlikely(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_running_threads == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 264, __pyx_L1_error)
+        __PYX_ERR(0, 265, __pyx_L1_error)
       }
-      __pyx_t_8 = __Pyx_PyDict_GetItem(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_running_threads, __pyx_cur_scope->__pyx_v_pthread_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 264, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyDict_GetItem(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_running_threads, __pyx_cur_scope->__pyx_v_pthread_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 265, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
 
-      /* "ddtrace/profiling/collector/stack.pyx":265
+      /* "ddtrace/profiling/collector/stack.pyx":266
  *             _threading.get_thread_name(pthread_id),
  *             running_threads[pthread_id],
  *             current_exceptions.get(pthread_id),             # <<<<<<<<<<<<<<
  *             thread_span_links.get_active_span_from_thread_id(pthread_id) if thread_span_links else None,
  *             cpu_time,
 */
-      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_current_exceptions)) { __Pyx_RaiseClosureNameError("current_exceptions"); __PYX_ERR(0, 265, __pyx_L1_error) }
+      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_current_exceptions)) { __Pyx_RaiseClosureNameError("current_exceptions"); __PYX_ERR(0, 266, __pyx_L1_error) }
       if (unlikely(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_current_exceptions == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-        __PYX_ERR(0, 265, __pyx_L1_error)
+        __PYX_ERR(0, 266, __pyx_L1_error)
       }
-      __pyx_t_5 = __Pyx_PyDict_GetItemDefault(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_current_exceptions, __pyx_cur_scope->__pyx_v_pthread_id, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 265, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyDict_GetItemDefault(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_current_exceptions, __pyx_cur_scope->__pyx_v_pthread_id, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 266, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
 
-      /* "ddtrace/profiling/collector/stack.pyx":266
+      /* "ddtrace/profiling/collector/stack.pyx":267
  *             running_threads[pthread_id],
  *             current_exceptions.get(pthread_id),
  *             thread_span_links.get_active_span_from_thread_id(pthread_id) if thread_span_links else None,             # <<<<<<<<<<<<<<
  *             cpu_time,
  *         )
 */
-      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links)) { __Pyx_RaiseClosureNameError("thread_span_links"); __PYX_ERR(0, 266, __pyx_L1_error) }
-      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links)) { __Pyx_RaiseClosureNameError("thread_span_links"); __PYX_ERR(0, 267, __pyx_L1_error) }
+      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 267, __pyx_L1_error)
       if (__pyx_t_12) {
-        if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links)) { __Pyx_RaiseClosureNameError("thread_span_links"); __PYX_ERR(0, 266, __pyx_L1_error) }
+        if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links)) { __Pyx_RaiseClosureNameError("thread_span_links"); __PYX_ERR(0, 267, __pyx_L1_error) }
         __pyx_t_14 = __pyx_cur_scope->__pyx_outer_scope->__pyx_v_thread_span_links;
         __Pyx_INCREF(__pyx_t_14);
         __pyx_t_13 = 0;
@@ -5245,7 +5249,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
           PyObject *__pyx_callargs[2] = {__pyx_t_14, __pyx_cur_scope->__pyx_v_pthread_id};
           __pyx_t_10 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_active_span_from_thread_id, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 266, __pyx_L1_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 267, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __pyx_t_9 = __pyx_t_10;
@@ -5255,32 +5259,32 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
         __pyx_t_9 = Py_None;
       }
 
-      /* "ddtrace/profiling/collector/stack.pyx":261
+      /* "ddtrace/profiling/collector/stack.pyx":262
  *     return tuple(
  *         (
  *             pthread_id,             # <<<<<<<<<<<<<<
  *             native_thread_id,
  *             _threading.get_thread_name(pthread_id),
 */
-      __pyx_t_10 = PyTuple_New(7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 261, __pyx_L1_error)
+      __pyx_t_10 = PyTuple_New(7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 262, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_pthread_id);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_pthread_id);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_cur_scope->__pyx_v_pthread_id) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_cur_scope->__pyx_v_pthread_id) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_native_thread_id);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_native_thread_id);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_cur_scope->__pyx_v_native_thread_id) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_cur_scope->__pyx_v_native_thread_id) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __Pyx_GIVEREF(__pyx_t_6);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __Pyx_GIVEREF(__pyx_t_8);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 3, __pyx_t_8) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 3, __pyx_t_8) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __Pyx_GIVEREF(__pyx_t_5);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_t_5) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_t_5) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __Pyx_GIVEREF(__pyx_t_9);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 5, __pyx_t_9) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 5, __pyx_t_9) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_cpu_time);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_cpu_time);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 6, __pyx_cur_scope->__pyx_v_cpu_time) != (0)) __PYX_ERR(0, 261, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 6, __pyx_cur_scope->__pyx_v_cpu_time) != (0)) __PYX_ERR(0, 262, __pyx_L1_error);
       __pyx_t_6 = 0;
       __pyx_t_8 = 0;
       __pyx_t_5 = 0;
@@ -5305,9 +5309,9 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
       __pyx_t_2 = __pyx_cur_scope->__pyx_t_1;
       __pyx_t_3 = __pyx_cur_scope->__pyx_t_2;
       __pyx_t_4 = __pyx_cur_scope->__pyx_t_3;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 261, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 262, __pyx_L1_error)
 
-      /* "ddtrace/profiling/collector/stack.pyx":270
+      /* "ddtrace/profiling/collector/stack.pyx":271
  *         )
  *         for (pthread_id, native_thread_id), cpu_time in cpu_times.items()
  *         if pthread_id not in thread_id_ignore_list             # <<<<<<<<<<<<<<
@@ -5319,7 +5323,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "ddtrace/profiling/collector/stack.pyx":261
+  /* "ddtrace/profiling/collector/stack.pyx":262
  *     return tuple(
  *         (
  *             pthread_id,             # <<<<<<<<<<<<<<
@@ -5353,7 +5357,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_15collect_thread
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":204
+/* "ddtrace/profiling/collector/stack.pyx":205
  * 
  * 
  * cdef collect_threads(thread_id_ignore_list, thread_time, thread_span_links) with gil:             # <<<<<<<<<<<<<<
@@ -5391,7 +5395,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 204, __pyx_L1_error)
+    __PYX_ERR(0, 205, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -5403,7 +5407,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_thread_span_links);
   __Pyx_INCREF(__pyx_v_thread_time);
 
-  /* "ddtrace/profiling/collector/stack.pyx":205
+  /* "ddtrace/profiling/collector/stack.pyx":206
  * 
  * cdef collect_threads(thread_id_ignore_list, thread_time, thread_span_links) with gil:
  *     cdef dict running_threads = <dict>_PyThread_CurrentFrames()             # <<<<<<<<<<<<<<
@@ -5417,7 +5421,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   __pyx_cur_scope->__pyx_v_running_threads = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":206
+  /* "ddtrace/profiling/collector/stack.pyx":207
  * cdef collect_threads(thread_id_ignore_list, thread_time, thread_span_links) with gil:
  *     cdef dict running_threads = <dict>_PyThread_CurrentFrames()
  *     Py_DECREF(running_threads)             # <<<<<<<<<<<<<<
@@ -5429,7 +5433,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   Py_DECREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":212
+  /* "ddtrace/profiling/collector/stack.pyx":213
  *             current_exceptions = sys._current_exceptions()
  *         ELSE:
  *             cdef dict current_exceptions = <dict>_PyThread_CurrentExceptions()             # <<<<<<<<<<<<<<
@@ -5443,7 +5447,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   __pyx_cur_scope->__pyx_v_current_exceptions = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":213
+  /* "ddtrace/profiling/collector/stack.pyx":214
  *         ELSE:
  *             cdef dict current_exceptions = <dict>_PyThread_CurrentExceptions()
  *             Py_DECREF(current_exceptions)             # <<<<<<<<<<<<<<
@@ -5455,7 +5459,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   Py_DECREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":215
+  /* "ddtrace/profiling/collector/stack.pyx":216
  *             Py_DECREF(current_exceptions)
  * 
  *         for thread_id, exc_info in current_exceptions.items():             # <<<<<<<<<<<<<<
@@ -5465,9 +5469,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   __pyx_t_3 = 0;
   if (unlikely(__pyx_cur_scope->__pyx_v_current_exceptions == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 215, __pyx_L1_error)
+    __PYX_ERR(0, 216, __pyx_L1_error)
   }
-  __pyx_t_6 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_v_current_exceptions, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_v_current_exceptions, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_2);
   __pyx_t_2 = __pyx_t_6;
@@ -5475,7 +5479,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   while (1) {
     __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_4, &__pyx_t_3, &__pyx_t_6, &__pyx_t_7, NULL, __pyx_t_5);
     if (unlikely(__pyx_t_8 == 0)) break;
-    if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 215, __pyx_L1_error)
+    if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 216, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_XDECREF_SET(__pyx_v_thread_id, __pyx_t_6);
@@ -5483,7 +5487,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
     __Pyx_XDECREF_SET(__pyx_v_exc_info, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":216
+    /* "ddtrace/profiling/collector/stack.pyx":217
  * 
  *         for thread_id, exc_info in current_exceptions.items():
  *             if exc_info is None:             # <<<<<<<<<<<<<<
@@ -5493,7 +5497,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
     __pyx_t_9 = (__pyx_v_exc_info == Py_None);
     if (__pyx_t_9) {
 
-      /* "ddtrace/profiling/collector/stack.pyx":217
+      /* "ddtrace/profiling/collector/stack.pyx":218
  *         for thread_id, exc_info in current_exceptions.items():
  *             if exc_info is None:
  *                 continue             # <<<<<<<<<<<<<<
@@ -5502,7 +5506,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
 */
       goto __pyx_L3_continue;
 
-      /* "ddtrace/profiling/collector/stack.pyx":216
+      /* "ddtrace/profiling/collector/stack.pyx":217
  * 
  *         for thread_id, exc_info in current_exceptions.items():
  *             if exc_info is None:             # <<<<<<<<<<<<<<
@@ -5511,7 +5515,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
 */
     }
 
-    /* "ddtrace/profiling/collector/stack.pyx":219
+    /* "ddtrace/profiling/collector/stack.pyx":220
  *                 continue
  *             IF PY_VERSION_HEX >= 0x030c0000:
  *                 exc_type = type(exc_info)             # <<<<<<<<<<<<<<
@@ -5521,44 +5525,44 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
     __Pyx_INCREF(((PyObject *)Py_TYPE(__pyx_v_exc_info)));
     __Pyx_XDECREF_SET(__pyx_v_exc_type, ((PyTypeObject*)((PyObject *)Py_TYPE(__pyx_v_exc_info))));
 
-    /* "ddtrace/profiling/collector/stack.pyx":220
+    /* "ddtrace/profiling/collector/stack.pyx":221
  *             IF PY_VERSION_HEX >= 0x030c0000:
  *                 exc_type = type(exc_info)
  *                 exc_traceback = getattr(exc_info, "__traceback__", None)             # <<<<<<<<<<<<<<
  *             ELSE:
  *                 exc_type, exc_value, exc_traceback = exc_info
 */
-    __pyx_t_7 = __Pyx_GetAttr3(__pyx_v_exc_info, __pyx_mstate_global->__pyx_n_u_traceback, Py_None); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 220, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_GetAttr3(__pyx_v_exc_info, __pyx_mstate_global->__pyx_n_u_traceback, Py_None); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 221, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_XDECREF_SET(__pyx_v_exc_traceback, __pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":223
+    /* "ddtrace/profiling/collector/stack.pyx":224
  *             ELSE:
  *                 exc_type, exc_value, exc_traceback = exc_info
  *             current_exceptions[thread_id] = exc_type, exc_traceback             # <<<<<<<<<<<<<<
  * 
  *     ELIF UNAME_SYSNAME != "Windows":
 */
-    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 223, __pyx_L1_error)
+    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 224, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_INCREF((PyObject *)__pyx_v_exc_type);
     __Pyx_GIVEREF((PyObject *)__pyx_v_exc_type);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, ((PyObject *)__pyx_v_exc_type)) != (0)) __PYX_ERR(0, 223, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, ((PyObject *)__pyx_v_exc_type)) != (0)) __PYX_ERR(0, 224, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_exc_traceback);
     __Pyx_GIVEREF(__pyx_v_exc_traceback);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_v_exc_traceback) != (0)) __PYX_ERR(0, 223, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_v_exc_traceback) != (0)) __PYX_ERR(0, 224, __pyx_L1_error);
     if (unlikely(__pyx_cur_scope->__pyx_v_current_exceptions == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 223, __pyx_L1_error)
+      __PYX_ERR(0, 224, __pyx_L1_error)
     }
-    if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_current_exceptions, __pyx_v_thread_id, __pyx_t_7) < 0))) __PYX_ERR(0, 223, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_current_exceptions, __pyx_v_thread_id, __pyx_t_7) < 0))) __PYX_ERR(0, 224, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_L3_continue:;
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":257
+  /* "ddtrace/profiling/collector/stack.pyx":258
  *         cdef dict current_exceptions = {}
  * 
  *     cdef dict cpu_times = thread_time(running_threads.keys())             # <<<<<<<<<<<<<<
@@ -5570,9 +5574,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
   __pyx_t_6 = __pyx_v_thread_time; 
   if (unlikely(__pyx_cur_scope->__pyx_v_running_threads == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "keys");
-    __PYX_ERR(0, 257, __pyx_L1_error)
+    __PYX_ERR(0, 258, __pyx_L1_error)
   }
-  __pyx_t_10 = __Pyx_PyDict_Keys(__pyx_cur_scope->__pyx_v_running_threads); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 257, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_Keys(__pyx_cur_scope->__pyx_v_running_threads); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_11 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5592,14 +5596,14 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 257, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 258, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (!(likely(PyDict_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_2))) __PYX_ERR(0, 257, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_2))) __PYX_ERR(0, 258, __pyx_L1_error)
   __pyx_v_cpu_times = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":259
+  /* "ddtrace/profiling/collector/stack.pyx":260
  *     cdef dict cpu_times = thread_time(running_threads.keys())
  * 
  *     return tuple(             # <<<<<<<<<<<<<<
@@ -5608,31 +5612,31 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "ddtrace/profiling/collector/stack.pyx":261
+  /* "ddtrace/profiling/collector/stack.pyx":262
  *     return tuple(
  *         (
  *             pthread_id,             # <<<<<<<<<<<<<<
  *             native_thread_id,
  *             _threading.get_thread_name(pthread_id),
 */
-  __pyx_t_2 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_15collect_threads_genexpr(((PyObject*)__pyx_cur_scope), __pyx_v_cpu_times); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_15collect_threads_genexpr(((PyObject*)__pyx_cur_scope), __pyx_v_cpu_times); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 262, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "ddtrace/profiling/collector/stack.pyx":259
+  /* "ddtrace/profiling/collector/stack.pyx":260
  *     cdef dict cpu_times = thread_time(running_threads.keys())
  * 
  *     return tuple(             # <<<<<<<<<<<<<<
  *         (
  *             pthread_id,
 */
-  __pyx_t_6 = __Pyx_PySequence_Tuple(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PySequence_Tuple(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_6;
   __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":204
+  /* "ddtrace/profiling/collector/stack.pyx":205
  * 
  * 
  * cdef collect_threads(thread_id_ignore_list, thread_time, thread_span_links) with gil:             # <<<<<<<<<<<<<<
@@ -5664,7 +5668,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(P
 }
 static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_2generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "ddtrace/profiling/collector/stack.pyx":289
+/* "ddtrace/profiling/collector/stack.pyx":290
  *     if thread_span_links:
  *         # FIXME also use native thread id
  *         thread_span_links.clear_threads(set(thread[0] for thread in running_threads))             # <<<<<<<<<<<<<<
@@ -5684,7 +5688,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_13stack_collect_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 289, __pyx_L1_error)
+    __PYX_ERR(0, 290, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -5692,7 +5696,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_13stack_collect_
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_2generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_stack_collect_locals_genexpr, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_2generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_stack_collect_locals_genexpr, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -5728,18 +5732,18 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 289, __pyx_L1_error)
-  __pyx_r = PySet_New(NULL); if (unlikely(!__pyx_r)) __PYX_ERR(0, 289, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_r = PySet_New(NULL); if (unlikely(!__pyx_r)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 289, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 290, __pyx_L1_error) }
   if (likely(PyList_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) || PyTuple_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) {
     __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_3)) {
@@ -5747,7 +5751,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 289, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 290, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -5757,7 +5761,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 289, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 290, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -5768,13 +5772,13 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 289, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 290, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_3(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 289, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 290, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -5785,9 +5789,9 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_thread, __pyx_t_4);
     __Pyx_GIVEREF(__pyx_t_4);
     __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_thread, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_thread, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (unlikely(PySet_Add(__pyx_r, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 289, __pyx_L1_error)
+    if (unlikely(PySet_Add(__pyx_r, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -5814,7 +5818,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_13stack_collect_
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":274
+/* "ddtrace/profiling/collector/stack.pyx":275
  * 
  * 
  * cdef stack_collect(ignore_profiler, thread_time, max_nframes, interval, wall_time, thread_span_links, collect_endpoint, now_ns = 0):             # <<<<<<<<<<<<<<
@@ -5880,28 +5884,28 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     }
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":283
+  /* "ddtrace/profiling/collector/stack.pyx":284
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())
  *         if getattr(thread, "_ddtrace_profiling_ignore", False)
  *     } if ignore_profiler else set()             # <<<<<<<<<<<<<<
  * 
  *     running_threads = collect_threads(thread_id_ignore_list, thread_time, thread_span_links)
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_ignore_profiler); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 283, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_ignore_profiler); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 284, __pyx_L1_error)
   if (__pyx_t_2) {
     { /* enter inner scope */
 
-      /* "ddtrace/profiling/collector/stack.pyx":279
+      /* "ddtrace/profiling/collector/stack.pyx":280
  *     # threading module, to keep backward compatibility with the previous
  *     # pure-Python implementation of periodic threads.
  *     thread_id_ignore_list = {             # <<<<<<<<<<<<<<
  *         thread_id
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())
 */
-      __pyx_t_3 = PySet_New(NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L5_error)
+      __pyx_t_3 = PySet_New(NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 280, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
 
-      /* "ddtrace/profiling/collector/stack.pyx":281
+      /* "ddtrace/profiling/collector/stack.pyx":282
  *     thread_id_ignore_list = {
  *         thread_id
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())             # <<<<<<<<<<<<<<
@@ -5909,12 +5913,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *     } if ignore_profiler else set()
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_chain); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 281, __pyx_L5_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_chain); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 282, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_8 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_periodic_threads); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 281, __pyx_L5_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_periodic_threads); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 282, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_items); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L5_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_items); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 282, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_11 = 1;
@@ -5934,12 +5938,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 281, __pyx_L5_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 282, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
-      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_ddtrace_threading); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 281, __pyx_L5_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_ddtrace_threading); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 282, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_active); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 281, __pyx_L5_error)
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_active); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 282, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_8 = __pyx_t_12;
@@ -5950,7 +5954,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_10 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_items, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L5_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 282, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __pyx_t_11 = 1;
@@ -5972,7 +5976,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 281, __pyx_L5_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       if (likely(PyList_CheckExact(__pyx_t_4)) || PyTuple_CheckExact(__pyx_t_4)) {
@@ -5980,9 +5984,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_13 = 0;
         __pyx_t_14 = NULL;
       } else {
-        __pyx_t_13 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 281, __pyx_L5_error)
+        __pyx_t_13 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 282, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 281, __pyx_L5_error)
+        __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 282, __pyx_L5_error)
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       for (;;) {
@@ -5991,7 +5995,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 281, __pyx_L5_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 282, __pyx_L5_error)
               #endif
               if (__pyx_t_13 >= __pyx_temp) break;
             }
@@ -6001,7 +6005,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 281, __pyx_L5_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 282, __pyx_L5_error)
               #endif
               if (__pyx_t_13 >= __pyx_temp) break;
             }
@@ -6012,13 +6016,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             #endif
             ++__pyx_t_13;
           }
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 281, __pyx_L5_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L5_error)
         } else {
           __pyx_t_4 = __pyx_t_14(__pyx_t_6);
           if (unlikely(!__pyx_t_4)) {
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
-              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 281, __pyx_L5_error)
+              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 282, __pyx_L5_error)
               PyErr_Clear();
             }
             break;
@@ -6031,7 +6035,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           if (unlikely(size != 2)) {
             if (size > 2) __Pyx_RaiseTooManyValuesError(2);
             else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-            __PYX_ERR(0, 281, __pyx_L5_error)
+            __PYX_ERR(0, 282, __pyx_L5_error)
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
           if (likely(PyTuple_CheckExact(sequence))) {
@@ -6041,22 +6045,22 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             __Pyx_INCREF(__pyx_t_7);
           } else {
             __pyx_t_10 = __Pyx_PyList_GetItemRef(sequence, 0);
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L5_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 282, __pyx_L5_error)
             __Pyx_XGOTREF(__pyx_t_10);
             __pyx_t_7 = __Pyx_PyList_GetItemRef(sequence, 1);
-            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 281, __pyx_L5_error)
+            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 282, __pyx_L5_error)
             __Pyx_XGOTREF(__pyx_t_7);
           }
           #else
-          __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L5_error)
+          __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 282, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_10);
-          __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 281, __pyx_L5_error)
+          __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 282, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_7);
           #endif
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         } else {
           Py_ssize_t index = -1;
-          __pyx_t_5 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 281, __pyx_L5_error)
+          __pyx_t_5 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 282, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_5);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5);
@@ -6064,7 +6068,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_GOTREF(__pyx_t_10);
           index = 1; __pyx_t_7 = __pyx_t_15(__pyx_t_5); if (unlikely(!__pyx_t_7)) goto __pyx_L8_unpacking_failed;
           __Pyx_GOTREF(__pyx_t_7);
-          if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_5), 2) < 0) __PYX_ERR(0, 281, __pyx_L5_error)
+          if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_5), 2) < 0) __PYX_ERR(0, 282, __pyx_L5_error)
           __pyx_t_15 = NULL;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           goto __pyx_L9_unpacking_done;
@@ -6072,7 +6076,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __pyx_t_15 = NULL;
           if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-          __PYX_ERR(0, 281, __pyx_L5_error)
+          __PYX_ERR(0, 282, __pyx_L5_error)
           __pyx_L9_unpacking_done:;
         }
         __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_thread_id, __pyx_t_10);
@@ -6080,29 +6084,29 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_thread, __pyx_t_7);
         __pyx_t_7 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":282
+        /* "ddtrace/profiling/collector/stack.pyx":283
  *         thread_id
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())
  *         if getattr(thread, "_ddtrace_profiling_ignore", False)             # <<<<<<<<<<<<<<
  *     } if ignore_profiler else set()
  * 
 */
-        __pyx_t_4 = __Pyx_GetAttr3(__pyx_8genexpr1__pyx_v_thread, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_ignore, Py_False); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L5_error)
+        __pyx_t_4 = __Pyx_GetAttr3(__pyx_8genexpr1__pyx_v_thread, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_ignore, Py_False); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 283, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_16 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 282, __pyx_L5_error)
+        __pyx_t_16 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 283, __pyx_L5_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         if (__pyx_t_16) {
 
-          /* "ddtrace/profiling/collector/stack.pyx":280
+          /* "ddtrace/profiling/collector/stack.pyx":281
  *     # pure-Python implementation of periodic threads.
  *     thread_id_ignore_list = {
  *         thread_id             # <<<<<<<<<<<<<<
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())
  *         if getattr(thread, "_ddtrace_profiling_ignore", False)
 */
-          if (unlikely(PySet_Add(__pyx_t_3, (PyObject*)__pyx_8genexpr1__pyx_v_thread_id))) __PYX_ERR(0, 280, __pyx_L5_error)
+          if (unlikely(PySet_Add(__pyx_t_3, (PyObject*)__pyx_8genexpr1__pyx_v_thread_id))) __PYX_ERR(0, 281, __pyx_L5_error)
 
-          /* "ddtrace/profiling/collector/stack.pyx":282
+          /* "ddtrace/profiling/collector/stack.pyx":283
  *         thread_id
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())
  *         if getattr(thread, "_ddtrace_profiling_ignore", False)             # <<<<<<<<<<<<<<
@@ -6111,7 +6115,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
         }
 
-        /* "ddtrace/profiling/collector/stack.pyx":281
+        /* "ddtrace/profiling/collector/stack.pyx":282
  *     thread_id_ignore_list = {
  *         thread_id
  *         for thread_id, thread in chain(periodic_threads.items(), ddtrace_threading._active.items())             # <<<<<<<<<<<<<<
@@ -6132,7 +6136,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
   } else {
-    __pyx_t_3 = PySet_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __pyx_t_3 = PySet_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -6140,29 +6144,29 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
   __pyx_v_thread_id_ignore_list = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":285
+  /* "ddtrace/profiling/collector/stack.pyx":286
  *     } if ignore_profiler else set()
  * 
  *     running_threads = collect_threads(thread_id_ignore_list, thread_time, thread_span_links)             # <<<<<<<<<<<<<<
  * 
  *     if thread_span_links:
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(__pyx_v_thread_id_ignore_list, __pyx_v_thread_time, __pyx_v_thread_span_links); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads(__pyx_v_thread_id_ignore_list, __pyx_v_thread_time, __pyx_v_thread_span_links); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_running_threads = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":287
+  /* "ddtrace/profiling/collector/stack.pyx":288
  *     running_threads = collect_threads(thread_id_ignore_list, thread_time, thread_span_links)
  * 
  *     if thread_span_links:             # <<<<<<<<<<<<<<
  *         # FIXME also use native thread id
  *         thread_span_links.clear_threads(set(thread[0] for thread in running_threads))
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_thread_span_links); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_thread_span_links); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 288, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":289
+    /* "ddtrace/profiling/collector/stack.pyx":290
  *     if thread_span_links:
  *         # FIXME also use native thread id
  *         thread_span_links.clear_threads(set(thread[0] for thread in running_threads))             # <<<<<<<<<<<<<<
@@ -6171,9 +6175,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
     __pyx_t_3 = __pyx_v_thread_span_links;
     __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_6 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_13stack_collect_genexpr(NULL, __pyx_v_running_threads); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_6 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_13stack_collect_genexpr(NULL, __pyx_v_running_threads); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_4 = __Pyx_Generator_GetInlinedResult(__pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 289, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_Generator_GetInlinedResult(__pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_11 = 0;
@@ -6182,12 +6186,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_clear_threads, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 290, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":287
+    /* "ddtrace/profiling/collector/stack.pyx":288
  *     running_threads = collect_threads(thread_id_ignore_list, thread_time, thread_span_links)
  * 
  *     if thread_span_links:             # <<<<<<<<<<<<<<
@@ -6196,31 +6200,31 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":291
+  /* "ddtrace/profiling/collector/stack.pyx":292
  *         thread_span_links.clear_threads(set(thread[0] for thread in running_threads))
  * 
  *     stack_events = []             # <<<<<<<<<<<<<<
  *     exc_events = []
  * 
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 292, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_stack_events = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":292
+  /* "ddtrace/profiling/collector/stack.pyx":293
  * 
  *     stack_events = []
  *     exc_events = []             # <<<<<<<<<<<<<<
  * 
  *     for thread_id, thread_native_id, thread_name, thread_pyframes, exception, span, cpu_time in running_threads:
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 292, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_exc_events = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":294
+  /* "ddtrace/profiling/collector/stack.pyx":295
  *     exc_events = []
  * 
  *     for thread_id, thread_native_id, thread_name, thread_pyframes, exception, span, cpu_time in running_threads:             # <<<<<<<<<<<<<<
@@ -6232,9 +6236,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     __pyx_t_13 = 0;
     __pyx_t_14 = NULL;
   } else {
-    __pyx_t_13 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_running_threads); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __pyx_t_13 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_running_threads); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 295, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_14)) {
@@ -6242,7 +6246,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 294, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 295, __pyx_L1_error)
           #endif
           if (__pyx_t_13 >= __pyx_temp) break;
         }
@@ -6252,7 +6256,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 294, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 295, __pyx_L1_error)
           #endif
           if (__pyx_t_13 >= __pyx_temp) break;
         }
@@ -6263,13 +6267,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         #endif
         ++__pyx_t_13;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 294, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 295, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_14(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 294, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 295, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -6282,7 +6286,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       if (unlikely(size != 7)) {
         if (size > 7) __Pyx_RaiseTooManyValuesError(7);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 294, __pyx_L1_error)
+        __PYX_ERR(0, 295, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -6302,25 +6306,25 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_INCREF(__pyx_t_8);
       } else {
         __pyx_t_3 = __Pyx_PyList_GetItemRef(sequence, 0);
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_3);
         __pyx_t_6 = __Pyx_PyList_GetItemRef(sequence, 1);
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __pyx_t_7 = __Pyx_PyList_GetItemRef(sequence, 2);
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_7);
         __pyx_t_10 = __Pyx_PyList_GetItemRef(sequence, 3);
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_10);
         __pyx_t_5 = __Pyx_PyList_GetItemRef(sequence, 4);
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_5);
         __pyx_t_12 = __Pyx_PyList_GetItemRef(sequence, 5);
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_12);
         __pyx_t_8 = __Pyx_PyList_GetItemRef(sequence, 6);
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 294, __pyx_L1_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 295, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_8);
       }
       #else
@@ -6328,7 +6332,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         Py_ssize_t i;
         PyObject** temps[7] = {&__pyx_t_3,&__pyx_t_6,&__pyx_t_7,&__pyx_t_10,&__pyx_t_5,&__pyx_t_12,&__pyx_t_8};
         for (i=0; i < 7; i++) {
-          PyObject* item = __Pyx_PySequence_ITEM(sequence, i); if (unlikely(!item)) __PYX_ERR(0, 294, __pyx_L1_error)
+          PyObject* item = __Pyx_PySequence_ITEM(sequence, i); if (unlikely(!item)) __PYX_ERR(0, 295, __pyx_L1_error)
           __Pyx_GOTREF(item);
           *(temps[i]) = item;
         }
@@ -6338,7 +6342,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     } else {
       Py_ssize_t index = -1;
       PyObject** temps[7] = {&__pyx_t_3,&__pyx_t_6,&__pyx_t_7,&__pyx_t_10,&__pyx_t_5,&__pyx_t_12,&__pyx_t_8};
-      __pyx_t_9 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 294, __pyx_L1_error)
+      __pyx_t_9 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 295, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9);
@@ -6347,7 +6351,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_GOTREF(item);
         *(temps[index]) = item;
       }
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_9), 7) < 0) __PYX_ERR(0, 294, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_9), 7) < 0) __PYX_ERR(0, 295, __pyx_L1_error)
       __pyx_t_15 = NULL;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       goto __pyx_L17_unpacking_done;
@@ -6355,7 +6359,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_15 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 294, __pyx_L1_error)
+      __PYX_ERR(0, 295, __pyx_L1_error)
       __pyx_L17_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_thread_id, __pyx_t_3);
@@ -6373,7 +6377,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     __Pyx_XDECREF_SET(__pyx_v_cpu_time, __pyx_t_8);
     __pyx_t_8 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":295
+    /* "ddtrace/profiling/collector/stack.pyx":296
  * 
  *     for thread_id, thread_native_id, thread_name, thread_pyframes, exception, span, cpu_time in running_threads:
  *         if thread_name is None:             # <<<<<<<<<<<<<<
@@ -6383,7 +6387,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     __pyx_t_2 = (__pyx_v_thread_name == Py_None);
     if (__pyx_t_2) {
 
-      /* "ddtrace/profiling/collector/stack.pyx":299
+      /* "ddtrace/profiling/collector/stack.pyx":300
  *             # ignore it to avoid reporting potentially misleading data.
  *             # Effectively we would be discarding a negligible number of samples.
  *             continue             # <<<<<<<<<<<<<<
@@ -6392,7 +6396,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
       goto __pyx_L14_continue;
 
-      /* "ddtrace/profiling/collector/stack.pyx":295
+      /* "ddtrace/profiling/collector/stack.pyx":296
  * 
  *     for thread_id, thread_native_id, thread_name, thread_pyframes, exception, span, cpu_time in running_threads:
  *         if thread_name is None:             # <<<<<<<<<<<<<<
@@ -6401,7 +6405,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
     }
 
-    /* "ddtrace/profiling/collector/stack.pyx":301
+    /* "ddtrace/profiling/collector/stack.pyx":302
  *             continue
  * 
  *         tasks = _task.list_tasks(thread_id)             # <<<<<<<<<<<<<<
@@ -6409,9 +6413,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *         # Inject wall time for all running tasks
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_task); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 301, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_task); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 302, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_list_tasks); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 301, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_list_tasks); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 302, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __pyx_t_11 = 1;
@@ -6431,13 +6435,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 301, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 302, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_XDECREF_SET(__pyx_v_tasks, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":304
+    /* "ddtrace/profiling/collector/stack.pyx":305
  * 
  *         # Inject wall time for all running tasks
  *         for task_id, task_name, task_pyframes in tasks:             # <<<<<<<<<<<<<<
@@ -6449,9 +6453,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __pyx_t_17 = 0;
       __pyx_t_18 = NULL;
     } else {
-      __pyx_t_17 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_tasks); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 304, __pyx_L1_error)
+      __pyx_t_17 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_tasks); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 304, __pyx_L1_error)
+      __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 305, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_18)) {
@@ -6459,7 +6463,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 304, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 305, __pyx_L1_error)
             #endif
             if (__pyx_t_17 >= __pyx_temp) break;
           }
@@ -6469,7 +6473,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 304, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 305, __pyx_L1_error)
             #endif
             if (__pyx_t_17 >= __pyx_temp) break;
           }
@@ -6480,13 +6484,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           #endif
           ++__pyx_t_17;
         }
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 304, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 305, __pyx_L1_error)
       } else {
         __pyx_t_5 = __pyx_t_18(__pyx_t_4);
         if (unlikely(!__pyx_t_5)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 304, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 305, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -6499,7 +6503,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         if (unlikely(size != 3)) {
           if (size > 3) __Pyx_RaiseTooManyValuesError(3);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 304, __pyx_L1_error)
+          __PYX_ERR(0, 305, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -6511,27 +6515,27 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_INCREF(__pyx_t_10);
         } else {
           __pyx_t_8 = __Pyx_PyList_GetItemRef(sequence, 0);
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 304, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 305, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_8);
           __pyx_t_12 = __Pyx_PyList_GetItemRef(sequence, 1);
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 304, __pyx_L1_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 305, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_12);
           __pyx_t_10 = __Pyx_PyList_GetItemRef(sequence, 2);
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 304, __pyx_L1_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 305, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_10);
         }
         #else
-        __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 304, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 305, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 304, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 305, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
-        __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 304, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 305, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         #endif
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_7 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 304, __pyx_L1_error)
+        __pyx_t_7 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 305, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7);
@@ -6541,7 +6545,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_GOTREF(__pyx_t_12);
         index = 2; __pyx_t_10 = __pyx_t_15(__pyx_t_7); if (unlikely(!__pyx_t_10)) goto __pyx_L21_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_10);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_7), 3) < 0) __PYX_ERR(0, 304, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_7), 3) < 0) __PYX_ERR(0, 305, __pyx_L1_error)
         __pyx_t_15 = NULL;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         goto __pyx_L22_unpacking_done;
@@ -6549,7 +6553,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_15 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 304, __pyx_L1_error)
+        __PYX_ERR(0, 305, __pyx_L1_error)
         __pyx_L22_unpacking_done:;
       }
       __Pyx_XDECREF_SET(__pyx_v_task_id, __pyx_t_8);
@@ -6559,7 +6563,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_XDECREF_SET(__pyx_v_task_pyframes, __pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":307
+      /* "ddtrace/profiling/collector/stack.pyx":308
  * 
  *             # Ignore tasks with no frames; nothing to show.
  *             if task_pyframes is None:             # <<<<<<<<<<<<<<
@@ -6569,7 +6573,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __pyx_t_2 = (__pyx_v_task_pyframes == Py_None);
       if (__pyx_t_2) {
 
-        /* "ddtrace/profiling/collector/stack.pyx":308
+        /* "ddtrace/profiling/collector/stack.pyx":309
  *             # Ignore tasks with no frames; nothing to show.
  *             if task_pyframes is None:
  *                 continue             # <<<<<<<<<<<<<<
@@ -6578,7 +6582,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
         goto __pyx_L19_continue;
 
-        /* "ddtrace/profiling/collector/stack.pyx":307
+        /* "ddtrace/profiling/collector/stack.pyx":308
  * 
  *             # Ignore tasks with no frames; nothing to show.
  *             if task_pyframes is None:             # <<<<<<<<<<<<<<
@@ -6587,7 +6591,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
       }
 
-      /* "ddtrace/profiling/collector/stack.pyx":310
+      /* "ddtrace/profiling/collector/stack.pyx":311
  *                 continue
  * 
  *             frames, nframes = _traceback.pyframe_to_frames(task_pyframes, max_nframes)             # <<<<<<<<<<<<<<
@@ -6595,9 +6599,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *             if nframes:
 */
       __pyx_t_10 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 310, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 311, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_pyframe_to_frames); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 310, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_pyframe_to_frames); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 311, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_t_11 = 1;
@@ -6617,7 +6621,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 310, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 311, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
       if ((likely(PyTuple_CheckExact(__pyx_t_5))) || (PyList_CheckExact(__pyx_t_5))) {
@@ -6626,7 +6630,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 310, __pyx_L1_error)
+          __PYX_ERR(0, 311, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -6636,22 +6640,22 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_INCREF(__pyx_t_10);
         } else {
           __pyx_t_8 = __Pyx_PyList_GetItemRef(sequence, 0);
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 310, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 311, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_8);
           __pyx_t_10 = __Pyx_PyList_GetItemRef(sequence, 1);
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 310, __pyx_L1_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 311, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_10);
         }
         #else
-        __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 310, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 311, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 310, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 311, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         #endif
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_12 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 310, __pyx_L1_error)
+        __pyx_t_12 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 311, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_12);
@@ -6659,7 +6663,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_GOTREF(__pyx_t_8);
         index = 1; __pyx_t_10 = __pyx_t_15(__pyx_t_12); if (unlikely(!__pyx_t_10)) goto __pyx_L24_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_10);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_12), 2) < 0) __PYX_ERR(0, 310, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_12), 2) < 0) __PYX_ERR(0, 311, __pyx_L1_error)
         __pyx_t_15 = NULL;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         goto __pyx_L25_unpacking_done;
@@ -6667,7 +6671,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __pyx_t_15 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 310, __pyx_L1_error)
+        __PYX_ERR(0, 311, __pyx_L1_error)
         __pyx_L25_unpacking_done:;
       }
       __Pyx_XDECREF_SET(__pyx_v_frames, __pyx_t_8);
@@ -6675,17 +6679,17 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_XDECREF_SET(__pyx_v_nframes, __pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":312
+      /* "ddtrace/profiling/collector/stack.pyx":313
  *             frames, nframes = _traceback.pyframe_to_frames(task_pyframes, max_nframes)
  * 
  *             if nframes:             # <<<<<<<<<<<<<<
  *                 handle = ddup.SampleHandle()
  *                 handle.push_monotonic_ns(now_ns)
 */
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_nframes); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 312, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_nframes); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 313, __pyx_L1_error)
       if (__pyx_t_2) {
 
-        /* "ddtrace/profiling/collector/stack.pyx":313
+        /* "ddtrace/profiling/collector/stack.pyx":314
  * 
  *             if nframes:
  *                 handle = ddup.SampleHandle()             # <<<<<<<<<<<<<<
@@ -6693,9 +6697,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *                 handle.push_walltime(wall_time, 1)
 */
         __pyx_t_10 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 313, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 314, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SampleHandle); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 313, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SampleHandle); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 314, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __pyx_t_11 = 1;
@@ -6715,13 +6719,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 313, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 314, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_XDECREF_SET(__pyx_v_handle, __pyx_t_5);
         __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":314
+        /* "ddtrace/profiling/collector/stack.pyx":315
  *             if nframes:
  *                 handle = ddup.SampleHandle()
  *                 handle.push_monotonic_ns(now_ns)             # <<<<<<<<<<<<<<
@@ -6735,12 +6739,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_v_now_ns};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_monotonic_ns, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 314, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 315, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":315
+        /* "ddtrace/profiling/collector/stack.pyx":316
  *                 handle = ddup.SampleHandle()
  *                 handle.push_monotonic_ns(now_ns)
  *                 handle.push_walltime(wall_time, 1)             # <<<<<<<<<<<<<<
@@ -6754,12 +6758,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_v_wall_time, __pyx_mstate_global->__pyx_int_1};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_walltime, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 315, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":316
+        /* "ddtrace/profiling/collector/stack.pyx":317
  *                 handle.push_monotonic_ns(now_ns)
  *                 handle.push_walltime(wall_time, 1)
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)             # <<<<<<<<<<<<<<
@@ -6773,12 +6777,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[4] = {__pyx_t_12, __pyx_v_thread_id, __pyx_v_thread_native_id, __pyx_v_thread_name};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_threadinfo, __pyx_callargs+__pyx_t_11, (4-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 317, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":317
+        /* "ddtrace/profiling/collector/stack.pyx":318
  *                 handle.push_walltime(wall_time, 1)
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *                 handle.push_task_id(task_id)             # <<<<<<<<<<<<<<
@@ -6792,12 +6796,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_v_task_id};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_task_id, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 317, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 318, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":318
+        /* "ddtrace/profiling/collector/stack.pyx":319
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *                 handle.push_task_id(task_id)
  *                 handle.push_task_name(task_name)             # <<<<<<<<<<<<<<
@@ -6811,12 +6815,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_v_task_name};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_task_name, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 318, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 319, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":319
+        /* "ddtrace/profiling/collector/stack.pyx":320
  *                 handle.push_task_id(task_id)
  *                 handle.push_task_name(task_name)
  *                 handle.push_class_name(frames[0].class_name)             # <<<<<<<<<<<<<<
@@ -6825,9 +6829,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
         __pyx_t_12 = __pyx_v_handle;
         __Pyx_INCREF(__pyx_t_12);
-        __pyx_t_10 = __Pyx_GetItemInt(__pyx_v_frames, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 319, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_GetItemInt(__pyx_v_frames, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 320, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_class_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 319, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_class_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 320, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_t_11 = 0;
@@ -6836,12 +6840,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_class_name, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 319, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 320, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":320
+        /* "ddtrace/profiling/collector/stack.pyx":321
  *                 handle.push_task_name(task_name)
  *                 handle.push_class_name(frames[0].class_name)
  *                 for frame in frames:             # <<<<<<<<<<<<<<
@@ -6853,9 +6857,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __pyx_t_19 = 0;
           __pyx_t_20 = NULL;
         } else {
-          __pyx_t_19 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_v_frames); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 320, __pyx_L1_error)
+          __pyx_t_19 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_v_frames); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 321, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
-          __pyx_t_20 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 320, __pyx_L1_error)
+          __pyx_t_20 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 321, __pyx_L1_error)
         }
         for (;;) {
           if (likely(!__pyx_t_20)) {
@@ -6863,7 +6867,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 320, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 321, __pyx_L1_error)
                 #endif
                 if (__pyx_t_19 >= __pyx_temp) break;
               }
@@ -6873,7 +6877,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_5);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 320, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 321, __pyx_L1_error)
                 #endif
                 if (__pyx_t_19 >= __pyx_temp) break;
               }
@@ -6884,13 +6888,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
               #endif
               ++__pyx_t_19;
             }
-            if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 320, __pyx_L1_error)
+            if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L1_error)
           } else {
             __pyx_t_8 = __pyx_t_20(__pyx_t_5);
             if (unlikely(!__pyx_t_8)) {
               PyObject* exc_type = PyErr_Occurred();
               if (exc_type) {
-                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 320, __pyx_L1_error)
+                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 321, __pyx_L1_error)
                 PyErr_Clear();
               }
               break;
@@ -6900,7 +6904,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_XDECREF_SET(__pyx_v_frame, __pyx_t_8);
           __pyx_t_8 = 0;
 
-          /* "ddtrace/profiling/collector/stack.pyx":321
+          /* "ddtrace/profiling/collector/stack.pyx":322
  *                 handle.push_class_name(frames[0].class_name)
  *                 for frame in frames:
  *                     handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)             # <<<<<<<<<<<<<<
@@ -6909,11 +6913,11 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
           __pyx_t_12 = __pyx_v_handle;
           __Pyx_INCREF(__pyx_t_12);
-          __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_function_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 321, __pyx_L1_error)
+          __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_function_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 322, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
-          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_file_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 321, __pyx_L1_error)
+          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_file_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 322, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_lineno); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 321, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_lineno); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 322, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __pyx_t_11 = 0;
           {
@@ -6923,12 +6927,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-            if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L1_error)
+            if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 322, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_8);
           }
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-          /* "ddtrace/profiling/collector/stack.pyx":320
+          /* "ddtrace/profiling/collector/stack.pyx":321
  *                 handle.push_task_name(task_name)
  *                 handle.push_class_name(frames[0].class_name)
  *                 for frame in frames:             # <<<<<<<<<<<<<<
@@ -6938,7 +6942,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":322
+        /* "ddtrace/profiling/collector/stack.pyx":323
  *                 for frame in frames:
  *                     handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)
  *                 handle.flush_sample()             # <<<<<<<<<<<<<<
@@ -6952,12 +6956,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_flush_sample, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 322, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 323, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":312
+        /* "ddtrace/profiling/collector/stack.pyx":313
  *             frames, nframes = _traceback.pyframe_to_frames(task_pyframes, max_nframes)
  * 
  *             if nframes:             # <<<<<<<<<<<<<<
@@ -6966,7 +6970,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
       }
 
-      /* "ddtrace/profiling/collector/stack.pyx":304
+      /* "ddtrace/profiling/collector/stack.pyx":305
  * 
  *         # Inject wall time for all running tasks
  *         for task_id, task_name, task_pyframes in tasks:             # <<<<<<<<<<<<<<
@@ -6977,7 +6981,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":324
+    /* "ddtrace/profiling/collector/stack.pyx":325
  *                 handle.flush_sample()
  * 
  *         frames, nframes = _traceback.pyframe_to_frames(thread_pyframes, max_nframes)             # <<<<<<<<<<<<<<
@@ -6985,9 +6989,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *         if nframes:
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 324, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 325, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_pyframe_to_frames); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 324, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_pyframe_to_frames); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 325, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_11 = 1;
@@ -7007,7 +7011,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 325, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     if ((likely(PyTuple_CheckExact(__pyx_t_4))) || (PyList_CheckExact(__pyx_t_4))) {
@@ -7016,7 +7020,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 324, __pyx_L1_error)
+        __PYX_ERR(0, 325, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -7026,22 +7030,22 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_INCREF(__pyx_t_5);
       } else {
         __pyx_t_6 = __Pyx_PyList_GetItemRef(sequence, 0);
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 324, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 325, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __pyx_t_5 = __Pyx_PyList_GetItemRef(sequence, 1);
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 324, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 325, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_5);
       }
       #else
-      __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 325, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_5 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 325, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       #endif
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_8 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_8 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 325, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -7049,7 +7053,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_GOTREF(__pyx_t_6);
       index = 1; __pyx_t_5 = __pyx_t_15(__pyx_t_8); if (unlikely(!__pyx_t_5)) goto __pyx_L31_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_8), 2) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_8), 2) < 0) __PYX_ERR(0, 325, __pyx_L1_error)
       __pyx_t_15 = NULL;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       goto __pyx_L32_unpacking_done;
@@ -7057,7 +7061,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_t_15 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 324, __pyx_L1_error)
+      __PYX_ERR(0, 325, __pyx_L1_error)
       __pyx_L32_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_frames, __pyx_t_6);
@@ -7065,17 +7069,17 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     __Pyx_XDECREF_SET(__pyx_v_nframes, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":326
+    /* "ddtrace/profiling/collector/stack.pyx":327
  *         frames, nframes = _traceback.pyframe_to_frames(thread_pyframes, max_nframes)
  * 
  *         if nframes:             # <<<<<<<<<<<<<<
  *             handle = ddup.SampleHandle()
  *             handle.push_monotonic_ns(now_ns)
 */
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_nframes); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 326, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_nframes); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 327, __pyx_L1_error)
     if (__pyx_t_2) {
 
-      /* "ddtrace/profiling/collector/stack.pyx":327
+      /* "ddtrace/profiling/collector/stack.pyx":328
  * 
  *         if nframes:
  *             handle = ddup.SampleHandle()             # <<<<<<<<<<<<<<
@@ -7083,9 +7087,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *             handle.push_cputime( cpu_time, 1)
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 327, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 328, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_SampleHandle); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 327, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_SampleHandle); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 328, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_11 = 1;
@@ -7105,13 +7109,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 327, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 328, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_XDECREF_SET(__pyx_v_handle, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":328
+      /* "ddtrace/profiling/collector/stack.pyx":329
  *         if nframes:
  *             handle = ddup.SampleHandle()
  *             handle.push_monotonic_ns(now_ns)             # <<<<<<<<<<<<<<
@@ -7125,12 +7129,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_now_ns};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_monotonic_ns, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 328, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 329, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":329
+      /* "ddtrace/profiling/collector/stack.pyx":330
  *             handle = ddup.SampleHandle()
  *             handle.push_monotonic_ns(now_ns)
  *             handle.push_cputime( cpu_time, 1)             # <<<<<<<<<<<<<<
@@ -7144,12 +7148,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         PyObject *__pyx_callargs[3] = {__pyx_t_8, __pyx_v_cpu_time, __pyx_mstate_global->__pyx_int_1};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_cputime, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 329, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 330, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":330
+      /* "ddtrace/profiling/collector/stack.pyx":331
  *             handle.push_monotonic_ns(now_ns)
  *             handle.push_cputime( cpu_time, 1)
  *             handle.push_walltime( wall_time, 1)             # <<<<<<<<<<<<<<
@@ -7163,12 +7167,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         PyObject *__pyx_callargs[3] = {__pyx_t_8, __pyx_v_wall_time, __pyx_mstate_global->__pyx_int_1};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_walltime, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 330, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 331, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":331
+      /* "ddtrace/profiling/collector/stack.pyx":332
  *             handle.push_cputime( cpu_time, 1)
  *             handle.push_walltime( wall_time, 1)
  *             handle.push_threadinfo(thread_id, thread_native_id, thread_name)             # <<<<<<<<<<<<<<
@@ -7182,12 +7186,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         PyObject *__pyx_callargs[4] = {__pyx_t_8, __pyx_v_thread_id, __pyx_v_thread_native_id, __pyx_v_thread_name};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_threadinfo, __pyx_callargs+__pyx_t_11, (4-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 331, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":332
+      /* "ddtrace/profiling/collector/stack.pyx":333
  *             handle.push_walltime( wall_time, 1)
  *             handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *             handle.push_class_name(frames[0].class_name)             # <<<<<<<<<<<<<<
@@ -7196,9 +7200,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
       __pyx_t_8 = __pyx_v_handle;
       __Pyx_INCREF(__pyx_t_8);
-      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_frames, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 332, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_frames, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 333, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_class_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 332, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_class_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 333, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_11 = 0;
@@ -7207,12 +7211,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_class_name, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 333, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":333
+      /* "ddtrace/profiling/collector/stack.pyx":334
  *             handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *             handle.push_class_name(frames[0].class_name)
  *             for frame in frames:             # <<<<<<<<<<<<<<
@@ -7224,9 +7228,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_17 = 0;
         __pyx_t_18 = NULL;
       } else {
-        __pyx_t_17 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_frames); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 333, __pyx_L1_error)
+        __pyx_t_17 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_frames); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 333, __pyx_L1_error)
+        __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 334, __pyx_L1_error)
       }
       for (;;) {
         if (likely(!__pyx_t_18)) {
@@ -7234,7 +7238,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 333, __pyx_L1_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 334, __pyx_L1_error)
               #endif
               if (__pyx_t_17 >= __pyx_temp) break;
             }
@@ -7244,7 +7248,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 333, __pyx_L1_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 334, __pyx_L1_error)
               #endif
               if (__pyx_t_17 >= __pyx_temp) break;
             }
@@ -7255,13 +7259,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             #endif
             ++__pyx_t_17;
           }
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 333, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 334, __pyx_L1_error)
         } else {
           __pyx_t_6 = __pyx_t_18(__pyx_t_4);
           if (unlikely(!__pyx_t_6)) {
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
-              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 333, __pyx_L1_error)
+              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 334, __pyx_L1_error)
               PyErr_Clear();
             }
             break;
@@ -7271,7 +7275,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_XDECREF_SET(__pyx_v_frame, __pyx_t_6);
         __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":334
+        /* "ddtrace/profiling/collector/stack.pyx":335
  *             handle.push_class_name(frames[0].class_name)
  *             for frame in frames:
  *                 handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)             # <<<<<<<<<<<<<<
@@ -7280,11 +7284,11 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
         __pyx_t_8 = __pyx_v_handle;
         __Pyx_INCREF(__pyx_t_8);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_function_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 334, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_function_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 335, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_file_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 334, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_file_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 335, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_lineno); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 334, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_lineno); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 335, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_11 = 0;
         {
@@ -7294,12 +7298,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 334, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 335, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":333
+        /* "ddtrace/profiling/collector/stack.pyx":334
  *             handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *             handle.push_class_name(frames[0].class_name)
  *             for frame in frames:             # <<<<<<<<<<<<<<
@@ -7309,7 +7313,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":335
+      /* "ddtrace/profiling/collector/stack.pyx":336
  *             for frame in frames:
  *                 handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)
  *             handle.push_span(span)             # <<<<<<<<<<<<<<
@@ -7323,12 +7327,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_span};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_span, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 335, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 336, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":336
+      /* "ddtrace/profiling/collector/stack.pyx":337
  *                 handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)
  *             handle.push_span(span)
  *             handle.flush_sample()             # <<<<<<<<<<<<<<
@@ -7342,12 +7346,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_flush_sample, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 336, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 337, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":326
+      /* "ddtrace/profiling/collector/stack.pyx":327
  *         frames, nframes = _traceback.pyframe_to_frames(thread_pyframes, max_nframes)
  * 
  *         if nframes:             # <<<<<<<<<<<<<<
@@ -7356,7 +7360,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
     }
 
-    /* "ddtrace/profiling/collector/stack.pyx":338
+    /* "ddtrace/profiling/collector/stack.pyx":339
  *             handle.flush_sample()
  * 
  *         if exception is not None:             # <<<<<<<<<<<<<<
@@ -7366,7 +7370,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
     __pyx_t_2 = (__pyx_v_exception != Py_None);
     if (__pyx_t_2) {
 
-      /* "ddtrace/profiling/collector/stack.pyx":339
+      /* "ddtrace/profiling/collector/stack.pyx":340
  * 
  *         if exception is not None:
  *             exc_type, exc_traceback = exception             # <<<<<<<<<<<<<<
@@ -7379,7 +7383,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 339, __pyx_L1_error)
+          __PYX_ERR(0, 340, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -7389,28 +7393,28 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_INCREF(__pyx_t_6);
         } else {
           __pyx_t_4 = __Pyx_PyList_GetItemRef(sequence, 0);
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 339, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 340, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_4);
           __pyx_t_6 = __Pyx_PyList_GetItemRef(sequence, 1);
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 339, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 340, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_6);
         }
         #else
-        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 339, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 340, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 339, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 340, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         #endif
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_10 = PyObject_GetIter(__pyx_v_exception); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 339, __pyx_L1_error)
+        __pyx_t_10 = PyObject_GetIter(__pyx_v_exception); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 340, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10);
         index = 0; __pyx_t_4 = __pyx_t_15(__pyx_t_10); if (unlikely(!__pyx_t_4)) goto __pyx_L38_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_4);
         index = 1; __pyx_t_6 = __pyx_t_15(__pyx_t_10); if (unlikely(!__pyx_t_6)) goto __pyx_L38_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_6);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_10), 2) < 0) __PYX_ERR(0, 339, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_10), 2) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
         __pyx_t_15 = NULL;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         goto __pyx_L39_unpacking_done;
@@ -7418,7 +7422,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_t_15 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 339, __pyx_L1_error)
+        __PYX_ERR(0, 340, __pyx_L1_error)
         __pyx_L39_unpacking_done:;
       }
       __Pyx_XDECREF_SET(__pyx_v_exc_type, __pyx_t_4);
@@ -7426,7 +7430,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_XDECREF_SET(__pyx_v_exc_traceback, __pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":341
+      /* "ddtrace/profiling/collector/stack.pyx":342
  *             exc_type, exc_traceback = exception
  * 
  *             frames, nframes = _traceback.traceback_to_frames(exc_traceback, max_nframes)             # <<<<<<<<<<<<<<
@@ -7434,9 +7438,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *             if nframes:
 */
       __pyx_t_4 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 341, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 342, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_traceback_to_frames); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 341, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_traceback_to_frames); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_11 = 1;
@@ -7456,7 +7460,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 341, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 342, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       if ((likely(PyTuple_CheckExact(__pyx_t_6))) || (PyList_CheckExact(__pyx_t_6))) {
@@ -7465,7 +7469,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 341, __pyx_L1_error)
+          __PYX_ERR(0, 342, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -7475,22 +7479,22 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_INCREF(__pyx_t_4);
         } else {
           __pyx_t_7 = __Pyx_PyList_GetItemRef(sequence, 0);
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 341, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_7);
           __pyx_t_4 = __Pyx_PyList_GetItemRef(sequence, 1);
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 341, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 342, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_4);
         }
         #else
-        __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 341, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 342, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 341, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 342, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_10 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 341, __pyx_L1_error)
+        __pyx_t_10 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 342, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_t_15 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10);
@@ -7498,7 +7502,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_GOTREF(__pyx_t_7);
         index = 1; __pyx_t_4 = __pyx_t_15(__pyx_t_10); if (unlikely(!__pyx_t_4)) goto __pyx_L40_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_4);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_10), 2) < 0) __PYX_ERR(0, 341, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_15(__pyx_t_10), 2) < 0) __PYX_ERR(0, 342, __pyx_L1_error)
         __pyx_t_15 = NULL;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         goto __pyx_L41_unpacking_done;
@@ -7506,7 +7510,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_t_15 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 341, __pyx_L1_error)
+        __PYX_ERR(0, 342, __pyx_L1_error)
         __pyx_L41_unpacking_done:;
       }
       __Pyx_DECREF_SET(__pyx_v_frames, __pyx_t_7);
@@ -7514,17 +7518,17 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
       __Pyx_DECREF_SET(__pyx_v_nframes, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/stack.pyx":343
+      /* "ddtrace/profiling/collector/stack.pyx":344
  *             frames, nframes = _traceback.traceback_to_frames(exc_traceback, max_nframes)
  * 
  *             if nframes:             # <<<<<<<<<<<<<<
  *                 handle = ddup.SampleHandle()
  *                 handle.push_monotonic_ns(now_ns)
 */
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_nframes); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 343, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_nframes); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 344, __pyx_L1_error)
       if (__pyx_t_2) {
 
-        /* "ddtrace/profiling/collector/stack.pyx":344
+        /* "ddtrace/profiling/collector/stack.pyx":345
  * 
  *             if nframes:
  *                 handle = ddup.SampleHandle()             # <<<<<<<<<<<<<<
@@ -7532,9 +7536,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)
 */
         __pyx_t_4 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 344, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 345, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SampleHandle); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 344, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SampleHandle); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 345, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_11 = 1;
@@ -7554,13 +7558,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 344, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 345, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_XDECREF_SET(__pyx_v_handle, __pyx_t_6);
         __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":345
+        /* "ddtrace/profiling/collector/stack.pyx":346
  *             if nframes:
  *                 handle = ddup.SampleHandle()
  *                 handle.push_monotonic_ns(now_ns)             # <<<<<<<<<<<<<<
@@ -7574,12 +7578,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_v_now_ns};
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_monotonic_ns, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 345, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 346, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":346
+        /* "ddtrace/profiling/collector/stack.pyx":347
  *                 handle = ddup.SampleHandle()
  *                 handle.push_monotonic_ns(now_ns)
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)             # <<<<<<<<<<<<<<
@@ -7593,12 +7597,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[4] = {__pyx_t_10, __pyx_v_thread_id, __pyx_v_thread_native_id, __pyx_v_thread_name};
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_threadinfo, __pyx_callargs+__pyx_t_11, (4-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 346, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 347, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":347
+        /* "ddtrace/profiling/collector/stack.pyx":348
  *                 handle.push_monotonic_ns(now_ns)
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *                 handle.push_exceptioninfo(exc_type, 1)             # <<<<<<<<<<<<<<
@@ -7612,12 +7616,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[3] = {__pyx_t_10, __pyx_v_exc_type, __pyx_mstate_global->__pyx_int_1};
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_exceptioninfo, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 347, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 348, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":348
+        /* "ddtrace/profiling/collector/stack.pyx":349
  *                 handle.push_threadinfo(thread_id, thread_native_id, thread_name)
  *                 handle.push_exceptioninfo(exc_type, 1)
  *                 handle.push_class_name(frames[0].class_name)             # <<<<<<<<<<<<<<
@@ -7626,9 +7630,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
         __pyx_t_10 = __pyx_v_handle;
         __Pyx_INCREF(__pyx_t_10);
-        __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_frames, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 348, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_frames, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 349, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_class_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 348, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_class_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 349, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __pyx_t_11 = 0;
@@ -7637,12 +7641,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_class_name, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 348, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 349, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":349
+        /* "ddtrace/profiling/collector/stack.pyx":350
  *                 handle.push_exceptioninfo(exc_type, 1)
  *                 handle.push_class_name(frames[0].class_name)
  *                 for frame in frames:             # <<<<<<<<<<<<<<
@@ -7654,9 +7658,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __pyx_t_17 = 0;
           __pyx_t_18 = NULL;
         } else {
-          __pyx_t_17 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_v_frames); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 349, __pyx_L1_error)
+          __pyx_t_17 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_v_frames); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 350, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
-          __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 349, __pyx_L1_error)
+          __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 350, __pyx_L1_error)
         }
         for (;;) {
           if (likely(!__pyx_t_18)) {
@@ -7664,7 +7668,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 349, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 350, __pyx_L1_error)
                 #endif
                 if (__pyx_t_17 >= __pyx_temp) break;
               }
@@ -7674,7 +7678,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 349, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 350, __pyx_L1_error)
                 #endif
                 if (__pyx_t_17 >= __pyx_temp) break;
               }
@@ -7685,13 +7689,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
               #endif
               ++__pyx_t_17;
             }
-            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 349, __pyx_L1_error)
+            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 350, __pyx_L1_error)
           } else {
             __pyx_t_7 = __pyx_t_18(__pyx_t_6);
             if (unlikely(!__pyx_t_7)) {
               PyObject* exc_type = PyErr_Occurred();
               if (exc_type) {
-                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 349, __pyx_L1_error)
+                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 350, __pyx_L1_error)
                 PyErr_Clear();
               }
               break;
@@ -7701,7 +7705,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           __Pyx_XDECREF_SET(__pyx_v_frame, __pyx_t_7);
           __pyx_t_7 = 0;
 
-          /* "ddtrace/profiling/collector/stack.pyx":350
+          /* "ddtrace/profiling/collector/stack.pyx":351
  *                 handle.push_class_name(frames[0].class_name)
  *                 for frame in frames:
  *                     handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)             # <<<<<<<<<<<<<<
@@ -7710,11 +7714,11 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
           __pyx_t_10 = __pyx_v_handle;
           __Pyx_INCREF(__pyx_t_10);
-          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_function_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_function_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 351, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_file_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_file_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 351, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
-          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_lineno); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_frame, __pyx_mstate_global->__pyx_n_u_lineno); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 351, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __pyx_t_11 = 0;
           {
@@ -7724,12 +7728,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
             __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 350, __pyx_L1_error)
+            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 351, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
           }
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-          /* "ddtrace/profiling/collector/stack.pyx":349
+          /* "ddtrace/profiling/collector/stack.pyx":350
  *                 handle.push_exceptioninfo(exc_type, 1)
  *                 handle.push_class_name(frames[0].class_name)
  *                 for frame in frames:             # <<<<<<<<<<<<<<
@@ -7739,7 +7743,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":351
+        /* "ddtrace/profiling/collector/stack.pyx":352
  *                 for frame in frames:
  *                     handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)
  *                 handle.push_span(span)             # <<<<<<<<<<<<<<
@@ -7753,12 +7757,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_span};
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_push_span, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 351, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 352, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":352
+        /* "ddtrace/profiling/collector/stack.pyx":353
  *                     handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)
  *                 handle.push_span(span)
  *                 handle.flush_sample()             # <<<<<<<<<<<<<<
@@ -7772,12 +7776,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
           PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_flush_sample, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 352, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 353, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/stack.pyx":343
+        /* "ddtrace/profiling/collector/stack.pyx":344
  *             frames, nframes = _traceback.traceback_to_frames(exc_traceback, max_nframes)
  * 
  *             if nframes:             # <<<<<<<<<<<<<<
@@ -7786,7 +7790,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
       }
 
-      /* "ddtrace/profiling/collector/stack.pyx":338
+      /* "ddtrace/profiling/collector/stack.pyx":339
  *             handle.flush_sample()
  * 
  *         if exception is not None:             # <<<<<<<<<<<<<<
@@ -7795,7 +7799,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
 */
     }
 
-    /* "ddtrace/profiling/collector/stack.pyx":294
+    /* "ddtrace/profiling/collector/stack.pyx":295
  *     exc_events = []
  * 
  *     for thread_id, thread_native_id, thread_name, thread_pyframes, exception, span, cpu_time in running_threads:             # <<<<<<<<<<<<<<
@@ -7806,7 +7810,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":354
+  /* "ddtrace/profiling/collector/stack.pyx":355
  *                 handle.flush_sample()
  * 
  *     return stack_events, exc_events             # <<<<<<<<<<<<<<
@@ -7814,19 +7818,19 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_stack_events);
   __Pyx_GIVEREF(__pyx_v_stack_events);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_stack_events) != (0)) __PYX_ERR(0, 354, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_stack_events) != (0)) __PYX_ERR(0, 355, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_exc_events);
   __Pyx_GIVEREF(__pyx_v_exc_events);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_exc_events) != (0)) __PYX_ERR(0, 354, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_exc_events) != (0)) __PYX_ERR(0, 355, __pyx_L1_error);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":274
+  /* "ddtrace/profiling/collector/stack.pyx":275
  * 
  * 
  * cdef stack_collect(ignore_profiler, thread_time, max_nframes, interval, wall_time, thread_span_links, collect_endpoint, now_ns = 0):             # <<<<<<<<<<<<<<
@@ -7878,7 +7882,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(PyO
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":367
+/* "ddtrace/profiling/collector/stack.pyx":368
  *     __slots__ = ()
  * 
  *     def link_span(             # <<<<<<<<<<<<<<
@@ -7927,39 +7931,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_span,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 367, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 368, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 367, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 368, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 367, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 368, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "link_span", 0) < 0) __PYX_ERR(0, 367, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "link_span", 0) < 0) __PYX_ERR(0, 368, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("link_span", 1, 2, 2, i); __PYX_ERR(0, 367, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("link_span", 1, 2, 2, i); __PYX_ERR(0, 368, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 367, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 368, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 367, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 368, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_span = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("link_span", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 367, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("link_span", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 368, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7992,23 +7996,23 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("link_span", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":377
+  /* "ddtrace/profiling/collector/stack.pyx":378
  *         """
  *         # Since we're going to iterate over the set, make sure it's locked
  *         if isinstance(span, ddspan.Span):             # <<<<<<<<<<<<<<
  *             self.link_object(span)
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ddspan); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ddspan); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Span); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Span); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = PyObject_IsInstance(__pyx_v_span, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_t_3 = PyObject_IsInstance(__pyx_v_span, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_3) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":378
+    /* "ddtrace/profiling/collector/stack.pyx":379
  *         # Since we're going to iterate over the set, make sure it's locked
  *         if isinstance(span, ddspan.Span):
  *             self.link_object(span)             # <<<<<<<<<<<<<<
@@ -8022,12 +8026,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
       PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_span};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_link_object, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 379, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":377
+    /* "ddtrace/profiling/collector/stack.pyx":378
  *         """
  *         # Since we're going to iterate over the set, make sure it's locked
  *         if isinstance(span, ddspan.Span):             # <<<<<<<<<<<<<<
@@ -8036,7 +8040,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":367
+  /* "ddtrace/profiling/collector/stack.pyx":368
  *     __slots__ = ()
  * 
  *     def link_span(             # <<<<<<<<<<<<<<
@@ -8058,7 +8062,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":380
+/* "ddtrace/profiling/collector/stack.pyx":381
  *             self.link_object(span)
  * 
  *     def get_active_span_from_thread_id(             # <<<<<<<<<<<<<<
@@ -8107,39 +8111,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_thread_id,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 380, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 381, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 380, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 381, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 380, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 381, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_active_span_from_thread_id", 0) < 0) __PYX_ERR(0, 380, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_active_span_from_thread_id", 0) < 0) __PYX_ERR(0, 381, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_active_span_from_thread_id", 1, 2, 2, i); __PYX_ERR(0, 380, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_active_span_from_thread_id", 1, 2, 2, i); __PYX_ERR(0, 381, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 380, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 381, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 380, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 381, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_thread_id = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_active_span_from_thread_id", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 380, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_active_span_from_thread_id", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 381, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8175,7 +8179,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_active_span_from_thread_id", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":390
+  /* "ddtrace/profiling/collector/stack.pyx":391
  *         :return: A set with the active spans.
  *         """
  *         active_span = self.get_object(thread_id)             # <<<<<<<<<<<<<<
@@ -8189,13 +8193,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_thread_id};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_object, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 390, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 391, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_active_span = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":391
+  /* "ddtrace/profiling/collector/stack.pyx":392
  *         """
  *         active_span = self.get_object(thread_id)
  *         if active_span is not None and not active_span.finished:             # <<<<<<<<<<<<<<
@@ -8208,16 +8212,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
     __pyx_t_4 = __pyx_t_5;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_active_span, __pyx_mstate_global->__pyx_n_u_finished); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_active_span, __pyx_mstate_global->__pyx_n_u_finished); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 391, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = (!__pyx_t_5);
   __pyx_t_4 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_4) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":392
+    /* "ddtrace/profiling/collector/stack.pyx":393
  *         active_span = self.get_object(thread_id)
  *         if active_span is not None and not active_span.finished:
  *             return active_span             # <<<<<<<<<<<<<<
@@ -8229,7 +8233,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
     __pyx_r = __pyx_v_active_span;
     goto __pyx_L0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":391
+    /* "ddtrace/profiling/collector/stack.pyx":392
  *         """
  *         active_span = self.get_object(thread_id)
  *         if active_span is not None and not active_span.finished:             # <<<<<<<<<<<<<<
@@ -8238,7 +8242,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":393
+  /* "ddtrace/profiling/collector/stack.pyx":394
  *         if active_span is not None and not active_span.finished:
  *             return active_span
  *         return None             # <<<<<<<<<<<<<<
@@ -8249,7 +8253,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":380
+  /* "ddtrace/profiling/collector/stack.pyx":381
  *             self.link_object(span)
  * 
  *     def get_active_span_from_thread_id(             # <<<<<<<<<<<<<<
@@ -8270,7 +8274,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLin
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":396
+/* "ddtrace/profiling/collector/stack.pyx":397
  * 
  * 
  * def _default_min_interval_time():             # <<<<<<<<<<<<<<
@@ -8307,7 +8311,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack__default_min_int
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_default_min_interval_time", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":397
+  /* "ddtrace/profiling/collector/stack.pyx":398
  * 
  * def _default_min_interval_time():
  *     return sys.getswitchinterval() * 2             # <<<<<<<<<<<<<<
@@ -8316,9 +8320,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack__default_min_int
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 397, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getswitchinterval); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 397, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getswitchinterval); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 398, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -8338,17 +8342,17 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack__default_min_int
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 397, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 398, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyLong_MultiplyObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 397, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_MultiplyObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_2, 2, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 398, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":396
+  /* "ddtrace/profiling/collector/stack.pyx":397
  * 
  * 
  * def _default_min_interval_time():             # <<<<<<<<<<<<<<
@@ -8370,7 +8374,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack__default_min_int
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":417
+/* "ddtrace/profiling/collector/stack.pyx":418
  *     )
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
@@ -8388,51 +8392,51 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_4__defaults__(CY
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__defaults__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "ddtrace/profiling/collector/stack.pyx":422
+  /* "ddtrace/profiling/collector/stack.pyx":423
  *                  ignore_profiler: bool = config.ignore_profiler,
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,
  *                  tracer: typing.Optional[Tracer] = None,             # <<<<<<<<<<<<<<
  *                  _stack_collector_v2_enabled: bool = config.stack.v2_enabled):
  *         super().__init__(interval= _default_min_interval_time())
 */
-  __pyx_t_2 = PyTuple_New(6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __Pyx_INCREF(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg0);
   __Pyx_GIVEREF(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg0);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg0) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg0) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __Pyx_INCREF(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg1);
   __Pyx_GIVEREF(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 2, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg1) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 2, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg1) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 3, Py_None) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 3, Py_None) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 4, Py_None) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 4, Py_None) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __Pyx_INCREF(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg2);
   __Pyx_GIVEREF(__Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 5, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg2) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 5, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg2) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":417
+  /* "ddtrace/profiling/collector/stack.pyx":418
  *     )
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
  *                  max_time_usage_pct: float = config.max_time_usage_pct,
  *                  nframes: int = config.max_frames,
 */
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None) != (0)) __PYX_ERR(0, 417, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, Py_None) != (0)) __PYX_ERR(0, 418, __pyx_L1_error);
   __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8496,46 +8500,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_max_time_usage_pct,&__pyx_mstate_global->__pyx_n_u_nframes,&__pyx_mstate_global->__pyx_n_u_ignore_profiler,&__pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled,&__pyx_mstate_global->__pyx_n_u_tracer,&__pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled,0};
     struct __pyx_defaults *__pyx_dynamic_args = __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self);
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 417, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 418, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 417, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 418, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(__pyx_dynamic_args->arg0);
       if (!values[3]) values[3] = __Pyx_NewRef(__pyx_dynamic_args->arg1);
 
-      /* "ddtrace/profiling/collector/stack.pyx":421
+      /* "ddtrace/profiling/collector/stack.pyx":422
  *                  nframes: int = config.max_frames,
  *                  ignore_profiler: bool = config.ignore_profiler,
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,             # <<<<<<<<<<<<<<
@@ -8544,7 +8548,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "ddtrace/profiling/collector/stack.pyx":422
+      /* "ddtrace/profiling/collector/stack.pyx":423
  *                  ignore_profiler: bool = config.ignore_profiler,
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,
  *                  tracer: typing.Optional[Tracer] = None,             # <<<<<<<<<<<<<<
@@ -8554,44 +8558,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[6]) values[6] = __Pyx_NewRef(__pyx_dynamic_args->arg2);
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 7, i); __PYX_ERR(0, 417, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 7, i); __PYX_ERR(0, 418, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 418, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 417, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 418, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
       if (!values[2]) values[2] = __Pyx_NewRef(__pyx_dynamic_args->arg0);
       if (!values[3]) values[3] = __Pyx_NewRef(__pyx_dynamic_args->arg1);
 
-      /* "ddtrace/profiling/collector/stack.pyx":421
+      /* "ddtrace/profiling/collector/stack.pyx":422
  *                  nframes: int = config.max_frames,
  *                  ignore_profiler: bool = config.ignore_profiler,
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,             # <<<<<<<<<<<<<<
@@ -8600,7 +8604,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
 
-      /* "ddtrace/profiling/collector/stack.pyx":422
+      /* "ddtrace/profiling/collector/stack.pyx":423
  *                  ignore_profiler: bool = config.ignore_profiler,
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,
  *                  tracer: typing.Optional[Tracer] = None,             # <<<<<<<<<<<<<<
@@ -8612,7 +8616,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     }
     __pyx_v_self = values[0];
     if (values[1]) {
-      __pyx_v_max_time_usage_pct = __Pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_max_time_usage_pct == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 418, __pyx_L3_error)
+      __pyx_v_max_time_usage_pct = __Pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_max_time_usage_pct == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 419, __pyx_L3_error)
     } else {
       __pyx_v_max_time_usage_pct = __pyx_dynamic_args->arg3;
     }
@@ -8624,7 +8628,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 7, __pyx_nargs); __PYX_ERR(0, 417, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 7, __pyx_nargs); __PYX_ERR(0, 418, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8635,10 +8639,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_nframes), (&PyLong_Type), 0, "nframes", 2))) __PYX_ERR(0, 419, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_nframes), (&PyLong_Type), 0, "nframes", 2))) __PYX_ERR(0, 420, __pyx_L1_error)
   __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector___init__(__pyx_self, __pyx_v_self, __pyx_v_max_time_usage_pct, __pyx_v_nframes, __pyx_v_ignore_profiler, __pyx_v_endpoint_collection_enabled, __pyx_v_tracer, __pyx_v__stack_collector_v2_enabled);
 
-  /* "ddtrace/profiling/collector/stack.pyx":417
+  /* "ddtrace/profiling/collector/stack.pyx":418
  *     )
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
@@ -8680,7 +8684,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":424
+  /* "ddtrace/profiling/collector/stack.pyx":425
  *                  tracer: typing.Optional[Tracer] = None,
  *                  _stack_collector_v2_enabled: bool = config.stack.v2_enabled):
  *         super().__init__(interval= _default_min_interval_time())             # <<<<<<<<<<<<<<
@@ -8691,7 +8695,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __Pyx_INCREF(__pyx_builtin_super);
   __pyx_t_5 = __pyx_builtin_super; 
   __pyx_t_6 = __Pyx_CyFunction_GetClassObj(__pyx_self);
-  if (!__pyx_t_6) { PyErr_SetString(PyExc_RuntimeError, "super(): empty __class__ cell"); __PYX_ERR(0, 424, __pyx_L1_error) }
+  if (!__pyx_t_6) { PyErr_SetString(PyExc_RuntimeError, "super(): empty __class__ cell"); __PYX_ERR(0, 425, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_t_6);
   __pyx_t_7 = 1;
   {
@@ -8700,13 +8704,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_default_min_interval_time); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_default_min_interval_time); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -8725,26 +8729,26 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 424, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_interval, __pyx_t_5, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_interval, __pyx_t_5, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 425, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_init, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":425
+  /* "ddtrace/profiling/collector/stack.pyx":426
  *                  _stack_collector_v2_enabled: bool = config.stack.v2_enabled):
  *         super().__init__(interval= _default_min_interval_time())
  *         if max_time_usage_pct <= 0 or max_time_usage_pct > 100:             # <<<<<<<<<<<<<<
@@ -8762,7 +8766,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_8)) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":426
+    /* "ddtrace/profiling/collector/stack.pyx":427
  *         super().__init__(interval= _default_min_interval_time())
  *         if max_time_usage_pct <= 0 or max_time_usage_pct > 100:
  *             raise ValueError("Max time usage percent must be greater than 0 and smaller or equal to 100")             # <<<<<<<<<<<<<<
@@ -8778,14 +8782,14 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 427, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 426, __pyx_L1_error)
+    __PYX_ERR(0, 427, __pyx_L1_error)
 
-    /* "ddtrace/profiling/collector/stack.pyx":425
+    /* "ddtrace/profiling/collector/stack.pyx":426
  *                  _stack_collector_v2_enabled: bool = config.stack.v2_enabled):
  *         super().__init__(interval= _default_min_interval_time())
  *         if max_time_usage_pct <= 0 or max_time_usage_pct > 100:             # <<<<<<<<<<<<<<
@@ -8794,16 +8798,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":429
+  /* "ddtrace/profiling/collector/stack.pyx":430
  * 
  *         # This need to be a real OS thread in order to catch
  *         self._real_thread: bool = True             # <<<<<<<<<<<<<<
  *         self.min_interval_time: float = _default_min_interval_time()
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_real_thread, Py_True) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_real_thread, Py_True) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":430
+  /* "ddtrace/profiling/collector/stack.pyx":431
  *         # This need to be a real OS thread in order to catch
  *         self._real_thread: bool = True
  *         self.min_interval_time: float = _default_min_interval_time()             # <<<<<<<<<<<<<<
@@ -8811,7 +8815,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *         self.max_time_usage_pct: float = max_time_usage_pct
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_default_min_interval_time); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_default_min_interval_time); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -8830,97 +8834,97 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 430, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 431, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_min_interval_time, __pyx_t_1) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_min_interval_time, __pyx_t_1) < 0) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":432
+  /* "ddtrace/profiling/collector/stack.pyx":433
  *         self.min_interval_time: float = _default_min_interval_time()
  * 
  *         self.max_time_usage_pct: float = max_time_usage_pct             # <<<<<<<<<<<<<<
  *         self.nframes: int = nframes
  *         self.ignore_profiler: bool = ignore_profiler
 */
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_max_time_usage_pct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 432, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_max_time_usage_pct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct, __pyx_t_1) < 0) __PYX_ERR(0, 432, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct, __pyx_t_1) < 0) __PYX_ERR(0, 433, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":433
+  /* "ddtrace/profiling/collector/stack.pyx":434
  * 
  *         self.max_time_usage_pct: float = max_time_usage_pct
  *         self.nframes: int = nframes             # <<<<<<<<<<<<<<
  *         self.ignore_profiler: bool = ignore_profiler
  *         self.endpoint_collection_enabled: typing.Optional[bool] = endpoint_collection_enabled
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_nframes, __pyx_v_nframes) < 0) __PYX_ERR(0, 433, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_nframes, __pyx_v_nframes) < 0) __PYX_ERR(0, 434, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":434
+  /* "ddtrace/profiling/collector/stack.pyx":435
  *         self.max_time_usage_pct: float = max_time_usage_pct
  *         self.nframes: int = nframes
  *         self.ignore_profiler: bool = ignore_profiler             # <<<<<<<<<<<<<<
  *         self.endpoint_collection_enabled: typing.Optional[bool] = endpoint_collection_enabled
  *         self.tracer: typing.Optional[Tracer] = tracer
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ignore_profiler, __pyx_v_ignore_profiler) < 0) __PYX_ERR(0, 434, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ignore_profiler, __pyx_v_ignore_profiler) < 0) __PYX_ERR(0, 435, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":435
+  /* "ddtrace/profiling/collector/stack.pyx":436
  *         self.nframes: int = nframes
  *         self.ignore_profiler: bool = ignore_profiler
  *         self.endpoint_collection_enabled: typing.Optional[bool] = endpoint_collection_enabled             # <<<<<<<<<<<<<<
  *         self.tracer: typing.Optional[Tracer] = tracer
  *         self._thread_time: typing.Optional[_ThreadTime] = None
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled, __pyx_v_endpoint_collection_enabled) < 0) __PYX_ERR(0, 435, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled, __pyx_v_endpoint_collection_enabled) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":436
+  /* "ddtrace/profiling/collector/stack.pyx":437
  *         self.ignore_profiler: bool = ignore_profiler
  *         self.endpoint_collection_enabled: typing.Optional[bool] = endpoint_collection_enabled
  *         self.tracer: typing.Optional[Tracer] = tracer             # <<<<<<<<<<<<<<
  *         self._thread_time: typing.Optional[_ThreadTime] = None
  *         self._last_wall_time: int = 0  # Placeholder for initial value
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer, __pyx_v_tracer) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer, __pyx_v_tracer) < 0) __PYX_ERR(0, 437, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":437
+  /* "ddtrace/profiling/collector/stack.pyx":438
  *         self.endpoint_collection_enabled: typing.Optional[bool] = endpoint_collection_enabled
  *         self.tracer: typing.Optional[Tracer] = tracer
  *         self._thread_time: typing.Optional[_ThreadTime] = None             # <<<<<<<<<<<<<<
  *         self._last_wall_time: int = 0  # Placeholder for initial value
  *         self._thread_span_links: typing.Optional[_ThreadSpanLinks] = None
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_time, Py_None) < 0) __PYX_ERR(0, 437, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_time, Py_None) < 0) __PYX_ERR(0, 438, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":438
+  /* "ddtrace/profiling/collector/stack.pyx":439
  *         self.tracer: typing.Optional[Tracer] = tracer
  *         self._thread_time: typing.Optional[_ThreadTime] = None
  *         self._last_wall_time: int = 0  # Placeholder for initial value             # <<<<<<<<<<<<<<
  *         self._thread_span_links: typing.Optional[_ThreadSpanLinks] = None
  *         self._stack_collector_v2_enabled: bool = _stack_collector_v2_enabled
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_mstate_global->__pyx_int_0) < 0) __PYX_ERR(0, 438, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_mstate_global->__pyx_int_0) < 0) __PYX_ERR(0, 439, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":439
+  /* "ddtrace/profiling/collector/stack.pyx":440
  *         self._thread_time: typing.Optional[_ThreadTime] = None
  *         self._last_wall_time: int = 0  # Placeholder for initial value
  *         self._thread_span_links: typing.Optional[_ThreadSpanLinks] = None             # <<<<<<<<<<<<<<
  *         self._stack_collector_v2_enabled: bool = _stack_collector_v2_enabled
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links, Py_None) < 0) __PYX_ERR(0, 439, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links, Py_None) < 0) __PYX_ERR(0, 440, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":440
+  /* "ddtrace/profiling/collector/stack.pyx":441
  *         self._last_wall_time: int = 0  # Placeholder for initial value
  *         self._thread_span_links: typing.Optional[_ThreadSpanLinks] = None
  *         self._stack_collector_v2_enabled: bool = _stack_collector_v2_enabled             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled, __pyx_v__stack_collector_v2_enabled) < 0) __PYX_ERR(0, 440, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled, __pyx_v__stack_collector_v2_enabled) < 0) __PYX_ERR(0, 441, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":417
+  /* "ddtrace/profiling/collector/stack.pyx":418
  *     )
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
@@ -8946,7 +8950,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":443
+/* "ddtrace/profiling/collector/stack.pyx":444
  * 
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -8993,32 +8997,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 443, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 444, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 443, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 444, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__repr__", 0) < 0) __PYX_ERR(0, 443, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__repr__", 0) < 0) __PYX_ERR(0, 444, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, i); __PYX_ERR(0, 443, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, i); __PYX_ERR(0, 444, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 443, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 444, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 443, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 444, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9040,7 +9044,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___2generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "ddtrace/profiling/collector/stack.pyx":446
+/* "ddtrace/profiling/collector/stack.pyx":447
  *         class_name = self.__class__.__name__
  *         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
  *         attrs_str = ", ".join(f"{k}={v!r}" for k, v in attrs.items())             # <<<<<<<<<<<<<<
@@ -9060,7 +9064,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 446, __pyx_L1_error)
+    __PYX_ERR(0, 447, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9068,7 +9072,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___2generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_StackCollector___repr___locals_g, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 446, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___2generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_StackCollector___repr___locals_g, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 447, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9109,12 +9113,12 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 446, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 446, __pyx_L1_error) }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 446, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 447, __pyx_L1_error) }
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -9122,7 +9126,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 446, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 447, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -9133,19 +9137,19 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 446, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 447, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_cur_scope->__pyx_v_v), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 446, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_cur_scope->__pyx_v_v), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 447, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_8[0] = __pyx_t_6;
     __pyx_t_8[1] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_8[2] = __pyx_t_5;
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 446, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 447, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 446, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 447, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9175,7 +9179,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
 }
 static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___5generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "ddtrace/profiling/collector/stack.pyx":449
+/* "ddtrace/profiling/collector/stack.pyx":450
  * 
  *         slot_attrs = {slot: getattr(self, slot) for slot in self.__slots__ if not slot.startswith("_")}
  *         slot_attrs_str = ", ".join(f"{k}={v!r}" for k, v in slot_attrs.items())             # <<<<<<<<<<<<<<
@@ -9195,7 +9199,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 449, __pyx_L1_error)
+    __PYX_ERR(0, 450, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9203,7 +9207,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___5generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_StackCollector___repr___locals_g, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 449, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___5generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_StackCollector___repr___locals_g, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac); if (unlikely(!gen)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9244,12 +9248,12 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 449, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 449, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 449, __pyx_L1_error) }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 449, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 450, __pyx_L1_error) }
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -9257,7 +9261,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 449, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -9268,19 +9272,19 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 449, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_cur_scope->__pyx_v_v), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 449, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_cur_scope->__pyx_v_v), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_8[0] = __pyx_t_6;
     __pyx_t_8[1] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_8[2] = __pyx_t_5;
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 449, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 449, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9309,7 +9313,7 @@ static PyObject *__pyx_gb_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":443
+/* "ddtrace/profiling/collector/stack.pyx":444
  * 
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -9348,22 +9352,22 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":444
+  /* "ddtrace/profiling/collector/stack.pyx":445
  * 
  *     def __repr__(self):
  *         class_name = self.__class__.__name__             # <<<<<<<<<<<<<<
  *         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
  *         attrs_str = ", ".join(f"{k}={v!r}" for k, v in attrs.items())
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 444, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 444, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_class_name = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":445
+  /* "ddtrace/profiling/collector/stack.pyx":446
  *     def __repr__(self):
  *         class_name = self.__class__.__name__
  *         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}             # <<<<<<<<<<<<<<
@@ -9371,16 +9375,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  * 
 */
   { /* enter inner scope */
-    __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L5_error)
+    __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_3 = 0;
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 445, __pyx_L5_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 446, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_6);
     if (unlikely(__pyx_t_6 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 445, __pyx_L5_error)
+      __PYX_ERR(0, 446, __pyx_L5_error)
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 445, __pyx_L5_error)
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 446, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_1);
@@ -9389,7 +9393,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     while (1) {
       __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_4, &__pyx_t_3, &__pyx_t_7, &__pyx_t_6, NULL, __pyx_t_5);
       if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 445, __pyx_L5_error)
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 446, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_XDECREF_SET(__pyx_8genexpr3__pyx_v_k, __pyx_t_7);
@@ -9403,14 +9407,14 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u__2};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_startswith, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 445, __pyx_L5_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 446, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 445, __pyx_L5_error)
+      __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 446, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_11 = (!__pyx_t_10);
       if (__pyx_t_11) {
-        if (unlikely(PyDict_SetItem(__pyx_t_2, (PyObject*)__pyx_8genexpr3__pyx_v_k, (PyObject*)__pyx_8genexpr3__pyx_v_v))) __PYX_ERR(0, 445, __pyx_L5_error)
+        if (unlikely(PyDict_SetItem(__pyx_t_2, (PyObject*)__pyx_8genexpr3__pyx_v_k, (PyObject*)__pyx_8genexpr3__pyx_v_v))) __PYX_ERR(0, 446, __pyx_L5_error)
       }
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9426,25 +9430,25 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_v_attrs = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":446
+  /* "ddtrace/profiling/collector/stack.pyx":447
  *         class_name = self.__class__.__name__
  *         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
  *         attrs_str = ", ".join(f"{k}={v!r}" for k, v in attrs.items())             # <<<<<<<<<<<<<<
  * 
  *         slot_attrs = {slot: getattr(self, slot) for slot in self.__slots__ if not slot.startswith("_")}
 */
-  __pyx_t_2 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___genexpr(NULL, __pyx_v_attrs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___genexpr(NULL, __pyx_v_attrs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_attrs_str = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":448
+  /* "ddtrace/profiling/collector/stack.pyx":449
  *         attrs_str = ", ".join(f"{k}={v!r}" for k, v in attrs.items())
  * 
  *         slot_attrs = {slot: getattr(self, slot) for slot in self.__slots__ if not slot.startswith("_")}             # <<<<<<<<<<<<<<
@@ -9452,18 +9456,18 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  * 
 */
   { /* enter inner scope */
-    __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 448, __pyx_L12_error)
+    __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 449, __pyx_L12_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_slots); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 448, __pyx_L12_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_slots); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 449, __pyx_L12_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
       __pyx_t_6 = __pyx_t_1; __Pyx_INCREF(__pyx_t_6);
       __pyx_t_4 = 0;
       __pyx_t_12 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 448, __pyx_L12_error)
+      __pyx_t_4 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 449, __pyx_L12_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_12 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 448, __pyx_L12_error)
+      __pyx_t_12 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 449, __pyx_L12_error)
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     for (;;) {
@@ -9472,7 +9476,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 448, __pyx_L12_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 449, __pyx_L12_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -9482,7 +9486,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 448, __pyx_L12_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 449, __pyx_L12_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -9493,13 +9497,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
           #endif
           ++__pyx_t_4;
         }
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 448, __pyx_L12_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 449, __pyx_L12_error)
       } else {
         __pyx_t_1 = __pyx_t_12(__pyx_t_6);
         if (unlikely(!__pyx_t_1)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 448, __pyx_L12_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 449, __pyx_L12_error)
             PyErr_Clear();
           }
           break;
@@ -9515,16 +9519,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u__2};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_startswith, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 448, __pyx_L12_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 449, __pyx_L12_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
-      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 448, __pyx_L12_error)
+      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 449, __pyx_L12_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_10 = (!__pyx_t_11);
       if (__pyx_t_10) {
-        __pyx_t_1 = __Pyx_GetAttr(__pyx_v_self, __pyx_8genexpr5__pyx_v_slot); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 448, __pyx_L12_error)
+        __pyx_t_1 = __Pyx_GetAttr(__pyx_v_self, __pyx_8genexpr5__pyx_v_slot); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 449, __pyx_L12_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely(PyDict_SetItem(__pyx_t_2, (PyObject*)__pyx_8genexpr5__pyx_v_slot, (PyObject*)__pyx_t_1))) __PYX_ERR(0, 448, __pyx_L12_error)
+        if (unlikely(PyDict_SetItem(__pyx_t_2, (PyObject*)__pyx_8genexpr5__pyx_v_slot, (PyObject*)__pyx_t_1))) __PYX_ERR(0, 449, __pyx_L12_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       }
     }
@@ -9539,25 +9543,25 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_v_slot_attrs = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":449
+  /* "ddtrace/profiling/collector/stack.pyx":450
  * 
  *         slot_attrs = {slot: getattr(self, slot) for slot in self.__slots__ if not slot.startswith("_")}
  *         slot_attrs_str = ", ".join(f"{k}={v!r}" for k, v in slot_attrs.items())             # <<<<<<<<<<<<<<
  * 
  *         return f"{class_name}({attrs_str}, {slot_attrs_str})"
 */
-  __pyx_t_2 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___3genexpr(NULL, __pyx_v_slot_attrs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector_8__repr___3genexpr(NULL, __pyx_v_slot_attrs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_2 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_v_slot_attrs_str = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":451
+  /* "ddtrace/profiling/collector/stack.pyx":452
  *         slot_attrs_str = ", ".join(f"{k}={v!r}" for k, v in slot_attrs.items())
  * 
  *         return f"{class_name}({attrs_str}, {slot_attrs_str})"             # <<<<<<<<<<<<<<
@@ -9565,11 +9569,11 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_class_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 451, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_class_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 452, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_PyUnicode_Unicode(__pyx_v_attrs_str); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 451, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyUnicode_Unicode(__pyx_v_attrs_str); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 452, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_slot_attrs_str); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 451, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_slot_attrs_str); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 452, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_13[0] = __pyx_t_2;
   __pyx_t_13[1] = __pyx_mstate_global->__pyx_kp_u__4;
@@ -9578,7 +9582,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_t_13[4] = __pyx_t_1;
   __pyx_t_13[5] = __pyx_mstate_global->__pyx_kp_u__5;
   __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_13, 6, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1));
-  if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 451, __pyx_L1_error)
+  if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 452, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -9587,7 +9591,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_t_7 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":443
+  /* "ddtrace/profiling/collector/stack.pyx":444
  * 
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -9619,7 +9623,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":454
+/* "ddtrace/profiling/collector/stack.pyx":455
  * 
  * 
  *     def _init(self):             # <<<<<<<<<<<<<<
@@ -9666,32 +9670,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 454, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 455, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 454, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 455, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_init", 0) < 0) __PYX_ERR(0, 454, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_init", 0) < 0) __PYX_ERR(0, 455, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_init", 1, 1, 1, i); __PYX_ERR(0, 454, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_init", 1, 1, 1, i); __PYX_ERR(0, 455, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 454, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 455, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_init", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 454, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_init", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 455, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9728,7 +9732,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_init", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":456
+  /* "ddtrace/profiling/collector/stack.pyx":457
  *     def _init(self):
  *         # type: (...) -> None
  *         self._thread_time = _ThreadTime()             # <<<<<<<<<<<<<<
@@ -9744,13 +9748,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 456, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 457, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_time, ((PyObject *)__pyx_t_1)) < 0) __PYX_ERR(0, 456, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_time, ((PyObject *)__pyx_t_1)) < 0) __PYX_ERR(0, 457, __pyx_L1_error)
   __Pyx_DECREF((PyObject *)__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":457
+  /* "ddtrace/profiling/collector/stack.pyx":458
  *         # type: (...) -> None
  *         self._thread_time = _ThreadTime()
  *         self._last_wall_time = time.monotonic_ns()             # <<<<<<<<<<<<<<
@@ -9758,9 +9762,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *             self._thread_span_links = _ThreadSpanLinks()
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_monotonic_ns); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_monotonic_ns); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4 = 1;
@@ -9780,34 +9784,34 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 457, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 458, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_t_1) < 0) __PYX_ERR(0, 457, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_t_1) < 0) __PYX_ERR(0, 458, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":458
+  /* "ddtrace/profiling/collector/stack.pyx":459
  *         self._thread_time = _ThreadTime()
  *         self._last_wall_time = time.monotonic_ns()
  *         if self.tracer is not None:             # <<<<<<<<<<<<<<
  *             self._thread_span_links = _ThreadSpanLinks()
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_6 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_6) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":459
+    /* "ddtrace/profiling/collector/stack.pyx":460
  *         self._last_wall_time = time.monotonic_ns()
  *         if self.tracer is not None:
  *             self._thread_span_links = _ThreadSpanLinks()             # <<<<<<<<<<<<<<
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
- *             self.tracer.context_provider._on_activate(link_span)
+ *             core.on("ddtrace.context_provider.activate", link_span)
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 459, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 460, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -9826,35 +9830,35 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 459, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 460, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links, __pyx_t_1) < 0) __PYX_ERR(0, 459, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links, __pyx_t_1) < 0) __PYX_ERR(0, 460, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":460
+    /* "ddtrace/profiling/collector/stack.pyx":461
  *         if self.tracer is not None:
  *             self._thread_span_links = _ThreadSpanLinks()
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span             # <<<<<<<<<<<<<<
- *             self.tracer.context_provider._on_activate(link_span)
+ *             core.on("ddtrace.context_provider.activate", link_span)
  * 
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 460, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 461, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 460, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 461, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_6) {
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 460, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 461, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 460, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 461, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_1 = __pyx_t_5;
       __pyx_t_5 = 0;
     } else {
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 460, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 461, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 460, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 461, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_1 = __pyx_t_3;
@@ -9863,32 +9867,42 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_v_link_span = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":461
+    /* "ddtrace/profiling/collector/stack.pyx":462
  *             self._thread_span_links = _ThreadSpanLinks()
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
- *             self.tracer.context_provider._on_activate(link_span)             # <<<<<<<<<<<<<<
+ *             core.on("ddtrace.context_provider.activate", link_span)             # <<<<<<<<<<<<<<
  * 
  *         # If stack v2 is enabled, then use the v2 sampler
 */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 461, __pyx_L1_error)
+    __pyx_t_3 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_core); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 462, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_context_provider); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 461, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_on); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 462, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_3 = __pyx_t_2;
-    __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_4 = 0;
+    __pyx_t_4 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_2))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+      assert(__pyx_t_3);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
+      __pyx_t_4 = 0;
+    }
+    #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_link_span};
-      __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_on_activate, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_ddtrace_context_provider_activat, __pyx_v_link_span};
+      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 461, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 462, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":458
+    /* "ddtrace/profiling/collector/stack.pyx":459
  *         self._thread_time = _ThreadTime()
  *         self._last_wall_time = time.monotonic_ns()
  *         if self.tracer is not None:             # <<<<<<<<<<<<<<
@@ -9897,20 +9911,20 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":464
+  /* "ddtrace/profiling/collector/stack.pyx":465
  * 
  *         # If stack v2 is enabled, then use the v2 sampler
  *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
  *             # stack v2 requires us to patch the Threading module.  It's possible to do this from the stack v2 code
  *             # itself, but it's a little bit fiddly and it's easier to make it correct here.
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 464, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 464, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_6) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":468
+    /* "ddtrace/profiling/collector/stack.pyx":469
  *             # itself, but it's a little bit fiddly and it's easier to make it correct here.
  *             # TODO take the `threading` import out of here and just handle it in v2 startup
  *             threading.init_stack_v2()             # <<<<<<<<<<<<<<
@@ -9918,9 +9932,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *             stack_v2.start()
 */
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 468, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 469, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init_stack_v2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 468, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init_stack_v2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 469, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_4 = 1;
@@ -9940,12 +9954,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 468, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 469, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":469
+    /* "ddtrace/profiling/collector/stack.pyx":470
  *             # TODO take the `threading` import out of here and just handle it in v2 startup
  *             threading.init_stack_v2()
  *             stack_v2.set_adaptive_sampling(config.stack.v2_adaptive_sampling)             # <<<<<<<<<<<<<<
@@ -9953,17 +9967,17 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  * 
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 469, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_set_adaptive_sampling); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 469, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_set_adaptive_sampling); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 469, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 469, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_v2_adaptive_sampling); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 469, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_v2_adaptive_sampling); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_4 = 1;
@@ -9984,12 +9998,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 469, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 470, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":470
+    /* "ddtrace/profiling/collector/stack.pyx":471
  *             threading.init_stack_v2()
  *             stack_v2.set_adaptive_sampling(config.stack.v2_adaptive_sampling)
  *             stack_v2.start()             # <<<<<<<<<<<<<<
@@ -9997,9 +10011,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *     def _start_service(self):
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 471, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_start); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_start); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 471, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_4 = 1;
@@ -10019,12 +10033,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 470, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 471, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":464
+    /* "ddtrace/profiling/collector/stack.pyx":465
  * 
  *         # If stack v2 is enabled, then use the v2 sampler
  *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
@@ -10033,7 +10047,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":454
+  /* "ddtrace/profiling/collector/stack.pyx":455
  * 
  * 
  *     def _init(self):             # <<<<<<<<<<<<<<
@@ -10059,7 +10073,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":472
+/* "ddtrace/profiling/collector/stack.pyx":473
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
@@ -10106,32 +10120,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 472, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 473, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 472, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 473, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_start_service", 0) < 0) __PYX_ERR(0, 472, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_start_service", 0) < 0) __PYX_ERR(0, 473, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_start_service", 1, 1, 1, i); __PYX_ERR(0, 472, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_start_service", 1, 1, 1, i); __PYX_ERR(0, 473, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 472, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 473, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_start_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 472, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_start_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 473, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10167,7 +10181,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_start_service", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":475
+  /* "ddtrace/profiling/collector/stack.pyx":476
  *         # type: (...) -> None
  *         # This is split in its own function to ease testing
  *         LOG.debug("Profiling StackCollector starting")             # <<<<<<<<<<<<<<
@@ -10175,9 +10189,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *         super(StackCollector, self)._start_service()
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 475, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 475, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -10197,12 +10211,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 475, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":476
+  /* "ddtrace/profiling/collector/stack.pyx":477
  *         # This is split in its own function to ease testing
  *         LOG.debug("Profiling StackCollector starting")
  *         self._init()             # <<<<<<<<<<<<<<
@@ -10216,12 +10230,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_init_2, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 477, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":477
+  /* "ddtrace/profiling/collector/stack.pyx":478
  *         LOG.debug("Profiling StackCollector starting")
  *         self._init()
  *         super(StackCollector, self)._start_service()             # <<<<<<<<<<<<<<
@@ -10231,7 +10245,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_builtin_super);
   __pyx_t_6 = __pyx_builtin_super; 
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_StackCollector); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 477, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_StackCollector); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_5 = 1;
   {
@@ -10240,7 +10254,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 477, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 478, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_t_4 = __pyx_t_2;
@@ -10251,12 +10265,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_start_service, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 477, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 478, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":478
+  /* "ddtrace/profiling/collector/stack.pyx":479
  *         self._init()
  *         super(StackCollector, self)._start_service()
  *         LOG.debug("Profiling StackCollector started")             # <<<<<<<<<<<<<<
@@ -10264,9 +10278,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *     def _stop_service(self):
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 479, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 479, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_5 = 1;
@@ -10286,12 +10300,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 478, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 479, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":472
+  /* "ddtrace/profiling/collector/stack.pyx":473
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
@@ -10317,7 +10331,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":480
+/* "ddtrace/profiling/collector/stack.pyx":481
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
@@ -10364,32 +10378,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 480, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 481, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 480, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 481, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_stop_service", 0) < 0) __PYX_ERR(0, 480, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_stop_service", 0) < 0) __PYX_ERR(0, 481, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_stop_service", 1, 1, 1, i); __PYX_ERR(0, 480, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_stop_service", 1, 1, 1, i); __PYX_ERR(0, 481, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 480, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 481, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_stop_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 480, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_stop_service", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 481, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10427,7 +10441,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_stop_service", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":482
+  /* "ddtrace/profiling/collector/stack.pyx":483
  *     def _stop_service(self):
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")             # <<<<<<<<<<<<<<
@@ -10435,9 +10449,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *         if self.tracer is not None:
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 482, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 483, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 482, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 483, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -10457,12 +10471,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 483, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":483
+  /* "ddtrace/profiling/collector/stack.pyx":484
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")
  *         super(StackCollector, self)._stop_service()             # <<<<<<<<<<<<<<
@@ -10472,7 +10486,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_builtin_super);
   __pyx_t_6 = __pyx_builtin_super; 
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_StackCollector); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 483, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_StackCollector); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_5 = 1;
   {
@@ -10481,7 +10495,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 483, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_t_4 = __pyx_t_2;
@@ -10492,47 +10506,47 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_stop_service, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 483, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 484, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":484
+  /* "ddtrace/profiling/collector/stack.pyx":485
  *         LOG.debug("Profiling StackCollector stopping")
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:             # <<<<<<<<<<<<<<
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
- *             self.tracer.context_provider._deregister_on_activate(link_span)
+ *             core.reset_listeners("ddtrace.context_provider.activate", link_span)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 485, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_8 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_8) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":485
+    /* "ddtrace/profiling/collector/stack.pyx":486
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span             # <<<<<<<<<<<<<<
- *             self.tracer.context_provider._deregister_on_activate(link_span)
+ *             core.reset_listeners("ddtrace.context_provider.activate", link_span)
  *         LOG.debug("Profiling StackCollector stopped")
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 485, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 486, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (__pyx_t_8) {
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 485, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 486, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_1 = __pyx_t_4;
       __pyx_t_4 = 0;
     } else {
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 485, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 486, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_link_span); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_1 = __pyx_t_2;
@@ -10541,51 +10555,61 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_v_link_span = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":486
+    /* "ddtrace/profiling/collector/stack.pyx":487
  *         if self.tracer is not None:
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
- *             self.tracer.context_provider._deregister_on_activate(link_span)             # <<<<<<<<<<<<<<
+ *             core.reset_listeners("ddtrace.context_provider.activate", link_span)             # <<<<<<<<<<<<<<
  *         LOG.debug("Profiling StackCollector stopped")
  * 
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tracer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 486, __pyx_L1_error)
+    __pyx_t_2 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_core); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 487, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context_provider); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 486, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_reset_listeners); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 487, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_2 = __pyx_t_6;
-    __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_5 = 0;
+    __pyx_t_5 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_2);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_2);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_5 = 0;
+    }
+    #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_link_span};
-      __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_deregister_on_activate, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_ddtrace_context_provider_activat, __pyx_v_link_span};
+      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 486, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":484
+    /* "ddtrace/profiling/collector/stack.pyx":485
  *         LOG.debug("Profiling StackCollector stopping")
  *         super(StackCollector, self)._stop_service()
  *         if self.tracer is not None:             # <<<<<<<<<<<<<<
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
- *             self.tracer.context_provider._deregister_on_activate(link_span)
+ *             core.reset_listeners("ddtrace.context_provider.activate", link_span)
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":487
+  /* "ddtrace/profiling/collector/stack.pyx":488
  *             link_span = stack_v2.link_span if self._stack_collector_v2_enabled else self._thread_span_links.link_span
- *             self.tracer.context_provider._deregister_on_activate(link_span)
+ *             core.reset_listeners("ddtrace.context_provider.activate", link_span)
  *         LOG.debug("Profiling StackCollector stopped")             # <<<<<<<<<<<<<<
  * 
  *         # Also tell the native thread running the v2 sampler to stop, if needed
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 487, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_LOG); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 487, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_5 = 1;
@@ -10605,25 +10629,25 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 488, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":490
+  /* "ddtrace/profiling/collector/stack.pyx":491
  * 
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
  *             stack_v2.stop()
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 491, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 491, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_8) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":491
+    /* "ddtrace/profiling/collector/stack.pyx":492
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  *         if self._stack_collector_v2_enabled:
  *             stack_v2.stop()             # <<<<<<<<<<<<<<
@@ -10631,9 +10655,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *     def _compute_new_interval(self, used_wall_time_ns):
 */
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 491, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 492, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_stop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 491, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_stop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 492, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_5 = 1;
@@ -10653,12 +10677,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 491, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 492, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":490
+    /* "ddtrace/profiling/collector/stack.pyx":491
  * 
  *         # Also tell the native thread running the v2 sampler to stop, if needed
  *         if self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
@@ -10667,7 +10691,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":480
+  /* "ddtrace/profiling/collector/stack.pyx":481
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
@@ -10694,7 +10718,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":493
+/* "ddtrace/profiling/collector/stack.pyx":494
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
@@ -10742,39 +10766,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_used_wall_time_ns,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 493, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 494, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 493, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 494, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 493, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 494, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_compute_new_interval", 0) < 0) __PYX_ERR(0, 493, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_compute_new_interval", 0) < 0) __PYX_ERR(0, 494, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, i); __PYX_ERR(0, 493, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, i); __PYX_ERR(0, 494, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 493, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 494, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 493, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 494, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_used_wall_time_ns = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 493, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_compute_new_interval", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 494, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10809,28 +10833,28 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_compute_new_interval", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":494
+  /* "ddtrace/profiling/collector/stack.pyx":495
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns             # <<<<<<<<<<<<<<
  *         return max(interval / 1e9, self.min_interval_time)
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyFloat_TrueDivideObjC(__pyx_t_1, __pyx_mstate_global->__pyx_float_100_0, 100.0, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyFloat_TrueDivideObjC(__pyx_t_1, __pyx_mstate_global->__pyx_float_100_0, 100.0, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_used_wall_time_ns, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_used_wall_time_ns, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyNumber_Subtract(__pyx_t_1, __pyx_v_used_wall_time_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_2 = PyNumber_Subtract(__pyx_t_1, __pyx_v_used_wall_time_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_interval = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":495
+  /* "ddtrace/profiling/collector/stack.pyx":496
  *     def _compute_new_interval(self, used_wall_time_ns):
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns
  *         return max(interval / 1e9, self.min_interval_time)             # <<<<<<<<<<<<<<
@@ -10838,12 +10862,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *     def collect(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_min_interval_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_min_interval_time); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 496, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyFloat_TrueDivideObjC(__pyx_v_interval, __pyx_mstate_global->__pyx_float_1e9, 1e9, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyFloat_TrueDivideObjC(__pyx_v_interval, __pyx_mstate_global->__pyx_float_1e9, 1e9, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 495, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 496, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_5) {
     __Pyx_INCREF(__pyx_t_2);
@@ -10859,7 +10883,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":493
+  /* "ddtrace/profiling/collector/stack.pyx":494
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
@@ -10882,7 +10906,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/stack.pyx":497
+/* "ddtrace/profiling/collector/stack.pyx":498
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
@@ -10929,32 +10953,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 497, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 498, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 497, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 498, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "collect", 0) < 0) __PYX_ERR(0, 497, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "collect", 0) < 0) __PYX_ERR(0, 498, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("collect", 1, 1, 1, i); __PYX_ERR(0, 497, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("collect", 1, 1, 1, i); __PYX_ERR(0, 498, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 497, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 498, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("collect", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 497, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("collect", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 498, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10998,7 +11022,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("collect", 0);
 
-  /* "ddtrace/profiling/collector/stack.pyx":499
+  /* "ddtrace/profiling/collector/stack.pyx":500
  *     def collect(self):
  *         # Compute wall time
  *         now = time.monotonic_ns()             # <<<<<<<<<<<<<<
@@ -11006,9 +11030,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  *         self._last_wall_time = now
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 499, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 500, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_monotonic_ns); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 499, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_monotonic_ns); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 500, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -11028,123 +11052,123 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 499, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 500, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_now = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":500
+  /* "ddtrace/profiling/collector/stack.pyx":501
  *         # Compute wall time
  *         now = time.monotonic_ns()
  *         wall_time = now - self._last_wall_time             # <<<<<<<<<<<<<<
  *         self._last_wall_time = now
  *         all_events = []
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 500, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 501, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = PyNumber_Subtract(__pyx_v_now, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 500, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Subtract(__pyx_v_now, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 501, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_wall_time = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":501
+  /* "ddtrace/profiling/collector/stack.pyx":502
  *         now = time.monotonic_ns()
  *         wall_time = now - self._last_wall_time
  *         self._last_wall_time = now             # <<<<<<<<<<<<<<
  *         all_events = []
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_v_now) < 0) __PYX_ERR(0, 501, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_v_now) < 0) __PYX_ERR(0, 502, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":502
+  /* "ddtrace/profiling/collector/stack.pyx":503
  *         wall_time = now - self._last_wall_time
  *         self._last_wall_time = now
  *         all_events = []             # <<<<<<<<<<<<<<
  * 
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
 */
-  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 502, __pyx_L1_error)
+  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 503, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_all_events = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":505
+  /* "ddtrace/profiling/collector/stack.pyx":506
  * 
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  *         if not self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
  *             all_events = stack_collect(
  *                 self.ignore_profiler,
 */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 505, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 506, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 505, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 506, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_7 = (!__pyx_t_6);
   if (__pyx_t_7) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":507
+    /* "ddtrace/profiling/collector/stack.pyx":508
  *         if not self._stack_collector_v2_enabled:
  *             all_events = stack_collect(
  *                 self.ignore_profiler,             # <<<<<<<<<<<<<<
  *                 self._thread_time,
  *                 self.nframes,
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ignore_profiler); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ignore_profiler); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
 
-    /* "ddtrace/profiling/collector/stack.pyx":508
+    /* "ddtrace/profiling/collector/stack.pyx":509
  *             all_events = stack_collect(
  *                 self.ignore_profiler,
  *                 self._thread_time,             # <<<<<<<<<<<<<<
  *                 self.nframes,
  *                 self.interval,
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 508, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 509, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "ddtrace/profiling/collector/stack.pyx":509
+    /* "ddtrace/profiling/collector/stack.pyx":510
  *                 self.ignore_profiler,
  *                 self._thread_time,
  *                 self.nframes,             # <<<<<<<<<<<<<<
  *                 self.interval,
  *                 wall_time,
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_nframes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 509, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_nframes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 510, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
 
-    /* "ddtrace/profiling/collector/stack.pyx":510
+    /* "ddtrace/profiling/collector/stack.pyx":511
  *                 self._thread_time,
  *                 self.nframes,
  *                 self.interval,             # <<<<<<<<<<<<<<
  *                 wall_time,
  *                 self._thread_span_links,
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_interval); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 510, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_interval); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
 
-    /* "ddtrace/profiling/collector/stack.pyx":512
+    /* "ddtrace/profiling/collector/stack.pyx":513
  *                 self.interval,
  *                 wall_time,
  *                 self._thread_span_links,             # <<<<<<<<<<<<<<
  *                 self.endpoint_collection_enabled,
  *                 now_ns=now,
 */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 512, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_thread_span_links); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 513, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
 
-    /* "ddtrace/profiling/collector/stack.pyx":513
+    /* "ddtrace/profiling/collector/stack.pyx":514
  *                 wall_time,
  *                 self._thread_span_links,
  *                 self.endpoint_collection_enabled,             # <<<<<<<<<<<<<<
  *                 now_ns=now,
  *             )
 */
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 513, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 514, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
 
-    /* "ddtrace/profiling/collector/stack.pyx":506
+    /* "ddtrace/profiling/collector/stack.pyx":507
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  *         if not self._stack_collector_v2_enabled:
  *             all_events = stack_collect(             # <<<<<<<<<<<<<<
@@ -11153,7 +11177,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
 */
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.now_ns = __pyx_v_now;
-    __pyx_t_10 = __pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(__pyx_t_4, __pyx_t_1, __pyx_t_2, __pyx_t_3, __pyx_v_wall_time, __pyx_t_8, __pyx_t_9, &__pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_10 = __pyx_f_7ddtrace_9profiling_9collector_5stack_stack_collect(__pyx_t_4, __pyx_t_1, __pyx_t_2, __pyx_t_3, __pyx_v_wall_time, __pyx_t_8, __pyx_t_9, &__pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 507, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -11164,7 +11188,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __Pyx_DECREF_SET(__pyx_v_all_events, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":505
+    /* "ddtrace/profiling/collector/stack.pyx":506
  * 
  *         # If the stack v2 collector is enabled, then do not collect the stack samples here.
  *         if not self._stack_collector_v2_enabled:             # <<<<<<<<<<<<<<
@@ -11173,7 +11197,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
 */
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":517
+  /* "ddtrace/profiling/collector/stack.pyx":518
  *             )
  * 
  *         used_wall_time_ns = time.monotonic_ns() - now             # <<<<<<<<<<<<<<
@@ -11181,9 +11205,9 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
  * 
 */
   __pyx_t_9 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 517, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 518, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_monotonic_ns); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 517, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_monotonic_ns); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 518, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __pyx_t_5 = 1;
@@ -11203,16 +11227,16 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 517, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  __pyx_t_3 = PyNumber_Subtract(__pyx_t_10, __pyx_v_now); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 517, __pyx_L1_error)
+  __pyx_t_3 = PyNumber_Subtract(__pyx_t_10, __pyx_v_now); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 518, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __pyx_v_used_wall_time_ns = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":518
+  /* "ddtrace/profiling/collector/stack.pyx":519
  * 
  *         used_wall_time_ns = time.monotonic_ns() - now
  *         self.interval = self._compute_new_interval(used_wall_time_ns)             # <<<<<<<<<<<<<<
@@ -11226,13 +11250,13 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
     PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_v_used_wall_time_ns};
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_compute_new_interval, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 518, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 519, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_interval, __pyx_t_3) < 0) __PYX_ERR(0, 518, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_interval, __pyx_t_3) < 0) __PYX_ERR(0, 519, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":520
+  /* "ddtrace/profiling/collector/stack.pyx":521
  *         self.interval = self._compute_new_interval(used_wall_time_ns)
  * 
  *         return all_events             # <<<<<<<<<<<<<<
@@ -11242,7 +11266,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5stack_14StackCollector
   __pyx_r = __pyx_v_all_events;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":497
+  /* "ddtrace/profiling/collector/stack.pyx":498
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
@@ -12889,33 +12913,33 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack__ThreadTime_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime)) __PYX_ERR(0, 67, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack__ThreadTime_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack__ThreadTime_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack__ThreadTime_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 68, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime = &__pyx_type_7ddtrace_9profiling_9collector_5stack__ThreadTime;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 67, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 68, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ThreadTime, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 67, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 67, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ThreadTime, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime) < 0) __PYX_ERR(0, 68, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_defaults_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults)) __PYX_ERR(0, 417, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_defaults_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_defaults_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults)) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_defaults_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults = &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_defaults;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults->tp_getattro == PyObject_GenericGetAttr)) {
@@ -12923,15 +12947,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads)) __PYX_ERR(0, 204, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads) < 0) __PYX_ERR(0, 204, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads)) __PYX_ERR(0, 205, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads) < 0) __PYX_ERR(0, 205, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads = &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads) < 0) __PYX_ERR(0, 204, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads) < 0) __PYX_ERR(0, 205, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct____pyx_f_7ddtrace_9profiling_9collector_5stack_collect_threads->tp_getattro == PyObject_GenericGetAttr)) {
@@ -12939,15 +12963,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr)) __PYX_ERR(0, 261, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr)) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr = &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_1_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -12955,15 +12979,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr)) __PYX_ERR(0, 289, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr) < 0) __PYX_ERR(0, 289, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr)) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr = &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr) < 0) __PYX_ERR(0, 289, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_2_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -12971,15 +12995,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr)) __PYX_ERR(0, 446, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr) < 0) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr)) __PYX_ERR(0, 447, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr) < 0) __PYX_ERR(0, 447, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr = &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr) < 0) __PYX_ERR(0, 446, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr) < 0) __PYX_ERR(0, 447, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_3_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -12987,15 +13011,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr)) __PYX_ERR(0, 449, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr) < 0) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr)) __PYX_ERR(0, 450, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr = &__pyx_type_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr) < 0) __PYX_ERR(0, 449, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_scope_struct_4_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -13455,7 +13479,7 @@ __Pyx_RefNannySetupContext("PyInit_stack", 0);
  * from ddtrace._trace import context
  * from ddtrace._trace import span as ddspan             # <<<<<<<<<<<<<<
  * from ddtrace.trace import Tracer
- * from ddtrace.internal._threads import periodic_threads
+ * from ddtrace.internal import core
 */
   __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_span); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -13472,8 +13496,8 @@ __Pyx_RefNannySetupContext("PyInit_stack", 0);
  * from ddtrace._trace import context
  * from ddtrace._trace import span as ddspan
  * from ddtrace.trace import Tracer             # <<<<<<<<<<<<<<
+ * from ddtrace.internal import core
  * from ddtrace.internal._threads import periodic_threads
- * from ddtrace.internal.datadog.profiling import ddup
 */
   __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_Tracer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -13489,257 +13513,275 @@ __Pyx_RefNannySetupContext("PyInit_stack", 0);
   /* "ddtrace/profiling/collector/stack.pyx":14
  * from ddtrace._trace import span as ddspan
  * from ddtrace.trace import Tracer
- * from ddtrace.internal._threads import periodic_threads             # <<<<<<<<<<<<<<
+ * from ddtrace.internal import core             # <<<<<<<<<<<<<<
+ * from ddtrace.internal._threads import periodic_threads
  * from ddtrace.internal.datadog.profiling import ddup
- * from ddtrace.internal.datadog.profiling import stack_v2
 */
-  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_periodic_threads); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_core); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal__threads, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_periodic_threads); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_core); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_periodic_threads, __pyx_t_3) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_core, __pyx_t_3) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "ddtrace/profiling/collector/stack.pyx":15
  * from ddtrace.trace import Tracer
+ * from ddtrace.internal import core
+ * from ddtrace.internal._threads import periodic_threads             # <<<<<<<<<<<<<<
+ * from ddtrace.internal.datadog.profiling import ddup
+ * from ddtrace.internal.datadog.profiling import stack_v2
+*/
+  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_periodic_threads); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal__threads, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_periodic_threads); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_periodic_threads, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "ddtrace/profiling/collector/stack.pyx":16
+ * from ddtrace.internal import core
  * from ddtrace.internal._threads import periodic_threads
  * from ddtrace.internal.datadog.profiling import ddup             # <<<<<<<<<<<<<<
  * from ddtrace.internal.datadog.profiling import stack_v2
  * from ddtrace.profiling import _threading
 */
-  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal_datadog_profili, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal_datadog_profili, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ddup, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ddup); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ddup, __pyx_t_3) < 0) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":16
+  /* "ddtrace/profiling/collector/stack.pyx":17
  * from ddtrace.internal._threads import periodic_threads
  * from ddtrace.internal.datadog.profiling import ddup
  * from ddtrace.internal.datadog.profiling import stack_v2             # <<<<<<<<<<<<<<
  * from ddtrace.profiling import _threading
  * from ddtrace.profiling import collector
 */
-  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal_datadog_profili, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_internal_datadog_profili, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_stack_v2, __pyx_t_3) < 0) __PYX_ERR(0, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_stack_v2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_stack_v2, __pyx_t_2) < 0) __PYX_ERR(0, 17, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":17
+  /* "ddtrace/profiling/collector/stack.pyx":18
  * from ddtrace.internal.datadog.profiling import ddup
  * from ddtrace.internal.datadog.profiling import stack_v2
  * from ddtrace.profiling import _threading             # <<<<<<<<<<<<<<
  * from ddtrace.profiling import collector
  * from ddtrace.profiling.collector import _task
 */
-  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_threading, __pyx_t_2) < 0) __PYX_ERR(0, 17, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_threading, __pyx_t_3) < 0) __PYX_ERR(0, 18, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":18
+  /* "ddtrace/profiling/collector/stack.pyx":19
  * from ddtrace.internal.datadog.profiling import stack_v2
  * from ddtrace.profiling import _threading
  * from ddtrace.profiling import collector             # <<<<<<<<<<<<<<
  * from ddtrace.profiling.collector import _task
  * from ddtrace.profiling.collector import _traceback
 */
-  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_collector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_collector); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_collector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_collector, __pyx_t_3) < 0) __PYX_ERR(0, 18, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_collector); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_collector, __pyx_t_2) < 0) __PYX_ERR(0, 19, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":19
+  /* "ddtrace/profiling/collector/stack.pyx":20
  * from ddtrace.profiling import _threading
  * from ddtrace.profiling import collector
  * from ddtrace.profiling.collector import _task             # <<<<<<<<<<<<<<
  * from ddtrace.profiling.collector import _traceback
  * from ddtrace.profiling.collector import threading
 */
-  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_task); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_task); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_task, __pyx_t_2) < 0) __PYX_ERR(0, 19, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_task); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_task, __pyx_t_3) < 0) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":20
+  /* "ddtrace/profiling/collector/stack.pyx":21
  * from ddtrace.profiling import collector
  * from ddtrace.profiling.collector import _task
  * from ddtrace.profiling.collector import _traceback             # <<<<<<<<<<<<<<
  * from ddtrace.profiling.collector import threading
  * from ddtrace.settings.profiling import config
 */
-  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_traceback_2, __pyx_t_3) < 0) __PYX_ERR(0, 20, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_traceback_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_traceback_2, __pyx_t_2) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":21
+  /* "ddtrace/profiling/collector/stack.pyx":22
  * from ddtrace.profiling.collector import _task
  * from ddtrace.profiling.collector import _traceback
  * from ddtrace.profiling.collector import threading             # <<<<<<<<<<<<<<
  * from ddtrace.settings.profiling import config
  * 
 */
-  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_threading_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_threading_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_threading_2, __pyx_t_2) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_threading_2, __pyx_t_3) < 0) __PYX_ERR(0, 22, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":22
+  /* "ddtrace/profiling/collector/stack.pyx":23
  * from ddtrace.profiling.collector import _traceback
  * from ddtrace.profiling.collector import threading
  * from ddtrace.settings.profiling import config             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_settings_profiling, __pyx_t_3, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_settings_profiling, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_config, __pyx_t_3) < 0) __PYX_ERR(0, 22, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_config, __pyx_t_2) < 0) __PYX_ERR(0, 23, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":25
+  /* "ddtrace/profiling/collector/stack.pyx":26
  * 
  * 
  * LOG = logging.getLogger(__name__)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_getLogger); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_getLogger); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_6 = 1;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_4};
-    __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_4};
+    __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 25, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 26, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_LOG, __pyx_t_2) < 0) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_LOG, __pyx_t_3) < 0) __PYX_ERR(0, 26, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":30
+  /* "ddtrace/profiling/collector/stack.pyx":31
  * # These are special features that might not be available depending on your Python version and platform
  * FEATURES = {
  *     "cpu-time": False,             # <<<<<<<<<<<<<<
  *     "stack-exceptions": True,
  *     "transparent_events": False,
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 30, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_cpu_time, Py_False) < 0) __PYX_ERR(0, 30, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cpu_time, Py_False) < 0) __PYX_ERR(0, 31, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":31
+  /* "ddtrace/profiling/collector/stack.pyx":32
  * FEATURES = {
  *     "cpu-time": False,
  *     "stack-exceptions": True,             # <<<<<<<<<<<<<<
  *     "transparent_events": False,
  * }
 */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_stack_exceptions, Py_True) < 0) __PYX_ERR(0, 30, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_stack_exceptions, Py_True) < 0) __PYX_ERR(0, 31, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":32
+  /* "ddtrace/profiling/collector/stack.pyx":33
  *     "cpu-time": False,
  *     "stack-exceptions": True,
  *     "transparent_events": False,             # <<<<<<<<<<<<<<
  * }
  * 
 */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_transparent_events, Py_False) < 0) __PYX_ERR(0, 30, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_FEATURES, __pyx_t_2) < 0) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_transparent_events, Py_False) < 0) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_FEATURES, __pyx_t_3) < 0) __PYX_ERR(0, 30, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":37
+  /* "ddtrace/profiling/collector/stack.pyx":38
  * 
  * IF UNAME_SYSNAME == "Linux":
  *     FEATURES['cpu-time'] = True             # <<<<<<<<<<<<<<
  * 
  *     from posix.time cimport clock_gettime
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_FEATURES); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (unlikely((PyObject_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_cpu_time, Py_True) < 0))) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FEATURES); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (unlikely((PyObject_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cpu_time, Py_True) < 0))) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":76
+  /* "ddtrace/profiling/collector/stack.pyx":77
  * 
  *         # Only used in tests
  *         def _get_last_thread_time(self):             # <<<<<<<<<<<<<<
  *             return dict(self._last_thread_time)
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_3_get_last_thread_time, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadTime__get_last_thread_tim, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime, __pyx_mstate_global->__pyx_n_u_get_last_thread_time, __pyx_t_2) < 0) __PYX_ERR(0, 76, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_3_get_last_thread_time, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadTime__get_last_thread_tim, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime, __pyx_mstate_global->__pyx_n_u_get_last_thread_time, __pyx_t_3) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     cdef tuple state
  *     cdef object _dict
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_7__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadTime___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_7__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadTime___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":16
  *     else:
@@ -13747,52 +13789,52 @@ __Pyx_RefNannySetupContext("PyInit_stack", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle__ThreadTime__set_state(self, __pyx_state)
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_9__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadTime___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_11_ThreadTime_9__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadTime___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack__ThreadTime, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":357
+  /* "ddtrace/profiling/collector/stack.pyx":358
  * 
  * 
  * if typing.TYPE_CHECKING:             # <<<<<<<<<<<<<<
  *     _thread_span_links_base = _threading._ThreadLink[ddspan.Span]
  * else:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_typing); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 357, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TYPE_CHECKING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_typing); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_TYPE_CHECKING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 357, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 358, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_7) {
 
-    /* "ddtrace/profiling/collector/stack.pyx":358
+    /* "ddtrace/profiling/collector/stack.pyx":359
  * 
  * if typing.TYPE_CHECKING:
  *     _thread_span_links_base = _threading._ThreadLink[ddspan.Span]             # <<<<<<<<<<<<<<
  * else:
  *     _thread_span_links_base = _threading._ThreadLink
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 359, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ThreadLink); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 358, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ThreadLink); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 359, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ddspan); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ddspan); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 359, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Span); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Span); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 359, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 359, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_span_links_base, __pyx_t_5) < 0) __PYX_ERR(0, 358, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_span_links_base, __pyx_t_5) < 0) __PYX_ERR(0, 359, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "ddtrace/profiling/collector/stack.pyx":357
+    /* "ddtrace/profiling/collector/stack.pyx":358
  * 
  * 
  * if typing.TYPE_CHECKING:             # <<<<<<<<<<<<<<
@@ -13802,7 +13844,7 @@ __Pyx_RefNannySetupContext("PyInit_stack", 0);
     goto __pyx_L2;
   }
 
-  /* "ddtrace/profiling/collector/stack.pyx":360
+  /* "ddtrace/profiling/collector/stack.pyx":361
  *     _thread_span_links_base = _threading._ThreadLink[ddspan.Span]
  * else:
  *     _thread_span_links_base = _threading._ThreadLink             # <<<<<<<<<<<<<<
@@ -13810,337 +13852,337 @@ __Pyx_RefNannySetupContext("PyInit_stack", 0);
  * 
 */
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 361, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ThreadLink); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ThreadLink); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 361, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_span_links_base, __pyx_t_4) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_span_links_base, __pyx_t_4) < 0) __PYX_ERR(0, 361, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_L2:;
 
-  /* "ddtrace/profiling/collector/stack.pyx":363
+  /* "ddtrace/profiling/collector/stack.pyx":364
  * 
  * 
  * class _ThreadSpanLinks(_thread_span_links_base):             # <<<<<<<<<<<<<<
  * 
  *     __slots__ = ()
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_thread_span_links_base); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_thread_span_links_base); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyTuple_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 363, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_4, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_4, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   if (__pyx_t_4 != __pyx_t_5) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 363, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_2, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 364, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":365
+  /* "ddtrace/profiling/collector/stack.pyx":366
  * class _ThreadSpanLinks(_thread_span_links_base):
  * 
  *     __slots__ = ()             # <<<<<<<<<<<<<<
  * 
  *     def link_span(
 */
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_slots, __pyx_mstate_global->__pyx_empty_tuple) < 0) __PYX_ERR(0, 365, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_slots, __pyx_mstate_global->__pyx_empty_tuple) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":367
+  /* "ddtrace/profiling/collector/stack.pyx":368
  *     __slots__ = ()
  * 
  *     def link_span(             # <<<<<<<<<<<<<<
  *             self,
  *             span # type: typing.Optional[typing.Union[context.Context, ddspan.Span]]
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLinks_1link_span, 0, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks_link_span, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLinks_1link_span, 0, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks_link_span, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_link_span, __pyx_t_5) < 0) __PYX_ERR(0, 367, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_link_span, __pyx_t_5) < 0) __PYX_ERR(0, 368, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":380
+  /* "ddtrace/profiling/collector/stack.pyx":381
  *             self.link_object(span)
  * 
  *     def get_active_span_from_thread_id(             # <<<<<<<<<<<<<<
  *             self,
  *             thread_id # type: int
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLinks_3get_active_span_from_thread_id, 0, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks_get_active_span, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 380, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_16_ThreadSpanLinks_3get_active_span_from_thread_id, 0, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks_get_active_span, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_active_span_from_thread_id, __pyx_t_5) < 0) __PYX_ERR(0, 380, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_active_span_from_thread_id, __pyx_t_5) < 0) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":363
+  /* "ddtrace/profiling/collector/stack.pyx":364
  * 
  * 
  * class _ThreadSpanLinks(_thread_span_links_base):             # <<<<<<<<<<<<<<
  * 
  *     __slots__ = ()
 */
-  __pyx_t_5 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, __pyx_t_4, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, __pyx_t_4, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, __pyx_t_5) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ThreadSpanLinks, __pyx_t_5) < 0) __PYX_ERR(0, 364, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":396
+  /* "ddtrace/profiling/collector/stack.pyx":397
  * 
  * 
  * def _default_min_interval_time():             # <<<<<<<<<<<<<<
  *     return sys.getswitchinterval() * 2
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_1_default_min_interval_time, 0, __pyx_mstate_global->__pyx_n_u_default_min_interval_time, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 396, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_1_default_min_interval_time, 0, __pyx_mstate_global->__pyx_n_u_default_min_interval_time, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 397, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_default_min_interval_time, __pyx_t_4) < 0) __PYX_ERR(0, 396, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_default_min_interval_time, __pyx_t_4) < 0) __PYX_ERR(0, 397, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":400
+  /* "ddtrace/profiling/collector/stack.pyx":401
  * 
  * 
  * class StackCollector(collector.PeriodicCollector):             # <<<<<<<<<<<<<<
  *     """Execution stacks collector."""
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_collector); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_collector); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PeriodicCollector); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PeriodicCollector); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_StackCollector, __pyx_mstate_global->__pyx_n_u_StackCollector, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_kp_u_Execution_stacks_collector); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 401, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 401, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 401, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_StackCollector, __pyx_mstate_global->__pyx_n_u_StackCollector, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_kp_u_Execution_stacks_collector); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__pyx_t_2 != __pyx_t_4) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_5, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 400, __pyx_L1_error)
+  if (__pyx_t_3 != __pyx_t_4) {
+    if (unlikely((PyDict_SetItemString(__pyx_t_5, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 401, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "ddtrace/profiling/collector/stack.pyx":404
+  /* "ddtrace/profiling/collector/stack.pyx":405
  * 
  *     __slots__ = (
  *         "_real_thread",             # <<<<<<<<<<<<<<
  *         "min_interval_time",
  *         "max_time_usage_pct",
 */
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_slots, __pyx_mstate_global->__pyx_tuple[1]) < 0) __PYX_ERR(0, 403, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_slots, __pyx_mstate_global->__pyx_tuple[1]) < 0) __PYX_ERR(0, 404, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":417
+  /* "ddtrace/profiling/collector/stack.pyx":418
  *     )
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
  *                  max_time_usage_pct: float = config.max_time_usage_pct,
  *                  nframes: int = config.max_frames,
 */
-  __pyx_t_8 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct, __pyx_mstate_global->__pyx_n_u_float) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_nframes, __pyx_mstate_global->__pyx_n_u_int) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ignore_profiler, __pyx_mstate_global->__pyx_n_u_bool) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled, __pyx_mstate_global->__pyx_kp_u_typing_Optional_bool) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_tracer, __pyx_mstate_global->__pyx_kp_u_typing_Optional_Tracer) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled, __pyx_mstate_global->__pyx_n_u_bool) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_1__init__, 0, __pyx_mstate_global->__pyx_n_u_StackCollector___init, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 417, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct, __pyx_mstate_global->__pyx_n_u_float) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_nframes, __pyx_mstate_global->__pyx_n_u_int) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ignore_profiler, __pyx_mstate_global->__pyx_n_u_bool) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled, __pyx_mstate_global->__pyx_kp_u_typing_Optional_bool) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_tracer, __pyx_mstate_global->__pyx_kp_u_typing_Optional_Tracer) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled, __pyx_mstate_global->__pyx_n_u_bool) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_1__init__, 0, __pyx_mstate_global->__pyx_n_u_StackCollector___init, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   PyList_Append(__pyx_t_4, __pyx_t_9);
-  if (!__Pyx_CyFunction_InitDefaults(__pyx_t_9, __pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults)) __PYX_ERR(0, 417, __pyx_L1_error)
+  if (!__Pyx_CyFunction_InitDefaults(__pyx_t_9, __pyx_mstate_global->__pyx_ptype_7ddtrace_9profiling_9collector_5stack___pyx_defaults)) __PYX_ERR(0, 418, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/stack.pyx":419
+  /* "ddtrace/profiling/collector/stack.pyx":420
  *     def __init__(self,
  *                  max_time_usage_pct: float = config.max_time_usage_pct,
  *                  nframes: int = config.max_frames,             # <<<<<<<<<<<<<<
  *                  ignore_profiler: bool = config.ignore_profiler,
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 420, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_max_frames); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_max_frames); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 420, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (!(likely(PyLong_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("int", __pyx_t_11))) __PYX_ERR(0, 419, __pyx_L1_error)
+  if (!(likely(PyLong_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("int", __pyx_t_11))) __PYX_ERR(0, 420, __pyx_L1_error)
   __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_t_9)->arg0 = ((PyObject*)__pyx_t_11);
   __Pyx_GIVEREF(__pyx_t_11);
   __pyx_t_11 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":420
+  /* "ddtrace/profiling/collector/stack.pyx":421
  *                  max_time_usage_pct: float = config.max_time_usage_pct,
  *                  nframes: int = config.max_frames,
  *                  ignore_profiler: bool = config.ignore_profiler,             # <<<<<<<<<<<<<<
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,
  *                  tracer: typing.Optional[Tracer] = None,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 420, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 421, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ignore_profiler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 420, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ignore_profiler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 421, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_t_9)->arg1 = __pyx_t_10;
   __Pyx_GIVEREF(__pyx_t_10);
   __pyx_t_10 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":423
+  /* "ddtrace/profiling/collector/stack.pyx":424
  *                  endpoint_collection_enabled: typing.Optional[bool] = None,
  *                  tracer: typing.Optional[Tracer] = None,
  *                  _stack_collector_v2_enabled: bool = config.stack.v2_enabled):             # <<<<<<<<<<<<<<
  *         super().__init__(interval= _default_min_interval_time())
  *         if max_time_usage_pct <= 0 or max_time_usage_pct > 100:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 424, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_stack); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_stack); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 424, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_v2_enabled); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_v2_enabled); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 424, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_t_9)->arg2 = __pyx_t_10;
   __Pyx_GIVEREF(__pyx_t_10);
   __pyx_t_10 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":418
+  /* "ddtrace/profiling/collector/stack.pyx":419
  * 
  *     def __init__(self,
  *                  max_time_usage_pct: float = config.max_time_usage_pct,             # <<<<<<<<<<<<<<
  *                  nframes: int = config.max_frames,
  *                  ignore_profiler: bool = config.ignore_profiler,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_12 = __Pyx_PyFloat_AsDouble(__pyx_t_11); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyFloat_AsDouble(__pyx_t_11); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_t_9)->arg3 = __pyx_t_12;
   __Pyx_CyFunction_SetDefaultsGetter(__pyx_t_9, __pyx_pf_7ddtrace_9profiling_9collector_5stack_4__defaults__);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_8);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_9) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_9) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":443
+  /* "ddtrace/profiling/collector/stack.pyx":444
  * 
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
  *         class_name = self.__class__.__name__
  *         attrs = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 */
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_3__repr__, 0, __pyx_mstate_global->__pyx_n_u_StackCollector___repr, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 443, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_3__repr__, 0, __pyx_mstate_global->__pyx_n_u_StackCollector___repr, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_repr, __pyx_t_9) < 0) __PYX_ERR(0, 443, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_repr, __pyx_t_9) < 0) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":454
+  /* "ddtrace/profiling/collector/stack.pyx":455
  * 
  * 
  *     def _init(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         self._thread_time = _ThreadTime()
 */
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_5_init, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__init, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 454, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_5_init, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__init, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 455, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_init_2, __pyx_t_9) < 0) __PYX_ERR(0, 454, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_init_2, __pyx_t_9) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":472
+  /* "ddtrace/profiling/collector/stack.pyx":473
  *             stack_v2.start()
  * 
  *     def _start_service(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         # This is split in its own function to ease testing
 */
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_7_start_service, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__start_service, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 472, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_7_start_service, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__start_service, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 473, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_start_service, __pyx_t_9) < 0) __PYX_ERR(0, 472, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_start_service, __pyx_t_9) < 0) __PYX_ERR(0, 473, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":480
+  /* "ddtrace/profiling/collector/stack.pyx":481
  *         LOG.debug("Profiling StackCollector started")
  * 
  *     def _stop_service(self):             # <<<<<<<<<<<<<<
  *         # type: (...) -> None
  *         LOG.debug("Profiling StackCollector stopping")
 */
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_9_stop_service, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__stop_service, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_9_stop_service, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__stop_service, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 481, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_stop_service, __pyx_t_9) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_stop_service, __pyx_t_9) < 0) __PYX_ERR(0, 481, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":493
+  /* "ddtrace/profiling/collector/stack.pyx":494
  *             stack_v2.stop()
  * 
  *     def _compute_new_interval(self, used_wall_time_ns):             # <<<<<<<<<<<<<<
  *         interval = (used_wall_time_ns / (self.max_time_usage_pct / 100.0)) - used_wall_time_ns
  *         return max(interval / 1e9, self.min_interval_time)
 */
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_11_compute_new_interval, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__compute_new_inte, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 493, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_11_compute_new_interval, 0, __pyx_mstate_global->__pyx_n_u_StackCollector__compute_new_inte, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_compute_new_interval, __pyx_t_9) < 0) __PYX_ERR(0, 493, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_compute_new_interval, __pyx_t_9) < 0) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":497
+  /* "ddtrace/profiling/collector/stack.pyx":498
  *         return max(interval / 1e9, self.min_interval_time)
  * 
  *     def collect(self):             # <<<<<<<<<<<<<<
  *         # Compute wall time
  *         now = time.monotonic_ns()
 */
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_13collect, 0, __pyx_mstate_global->__pyx_n_u_StackCollector_collect, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 497, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_14StackCollector_13collect, 0, __pyx_mstate_global->__pyx_n_u_StackCollector_collect, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 498, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_collect, __pyx_t_9) < 0) __PYX_ERR(0, 497, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_collect, __pyx_t_9) < 0) __PYX_ERR(0, 498, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "ddtrace/profiling/collector/stack.pyx":400
+  /* "ddtrace/profiling/collector/stack.pyx":401
  * 
  * 
  * class StackCollector(collector.PeriodicCollector):             # <<<<<<<<<<<<<<
  *     """Execution stacks collector."""
  * 
 */
-  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_StackCollector, __pyx_t_2, __pyx_t_5, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_StackCollector, __pyx_t_3, __pyx_t_5, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (__Pyx_CyFunction_InitClassCell(__pyx_t_4, __pyx_t_9) < 0) __PYX_ERR(0, 400, __pyx_L1_error)
+  if (__Pyx_CyFunction_InitClassCell(__pyx_t_4, __pyx_t_9) < 0) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_StackCollector, __pyx_t_9) < 0) __PYX_ERR(0, 400, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_StackCollector, __pyx_t_9) < 0) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":1
  * def __pyx_unpickle__ThreadTime(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_3__pyx_unpickle__ThreadTime, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ThreadTime, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ThreadTime, __pyx_t_2) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5stack_3__pyx_unpickle__ThreadTime, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ThreadTime, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector_stac, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ThreadTime, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "ddtrace/profiling/collector/stack.pyx":1
  * """CPU profiling collector."""             # <<<<<<<<<<<<<<
  * from __future__ import absolute_import
  * 
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_2) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -14271,11 +14313,13 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_compute_new_interval, sizeof(__pyx_k_compute_new_interval), 0, 1, 1}, /* PyObject cname: __pyx_n_u_compute_new_interval */
   {__pyx_k_config, sizeof(__pyx_k_config), 0, 1, 1}, /* PyObject cname: __pyx_n_u_config */
   {__pyx_k_context, sizeof(__pyx_k_context), 0, 1, 1}, /* PyObject cname: __pyx_n_u_context */
-  {__pyx_k_context_provider, sizeof(__pyx_k_context_provider), 0, 1, 1}, /* PyObject cname: __pyx_n_u_context_provider */
+  {__pyx_k_core, sizeof(__pyx_k_core), 0, 1, 1}, /* PyObject cname: __pyx_n_u_core */
   {__pyx_k_cpu_time, sizeof(__pyx_k_cpu_time), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_cpu_time */
   {__pyx_k_cpu_time_2, sizeof(__pyx_k_cpu_time_2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_cpu_time_2 */
   {__pyx_k_ddspan, sizeof(__pyx_k_ddspan), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddspan */
   {__pyx_k_ddtrace__trace, sizeof(__pyx_k_ddtrace__trace), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace__trace */
+  {__pyx_k_ddtrace_context_provider_activat, sizeof(__pyx_k_ddtrace_context_provider_activat), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_ddtrace_context_provider_activat */
+  {__pyx_k_ddtrace_internal, sizeof(__pyx_k_ddtrace_internal), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace_internal */
   {__pyx_k_ddtrace_internal__threads, sizeof(__pyx_k_ddtrace_internal__threads), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace_internal__threads */
   {__pyx_k_ddtrace_internal__unpatched, sizeof(__pyx_k_ddtrace_internal__unpatched), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace_internal__unpatched */
   {__pyx_k_ddtrace_internal_datadog_profili, sizeof(__pyx_k_ddtrace_internal_datadog_profili), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace_internal_datadog_profili */
@@ -14290,7 +14334,6 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_ddup, sizeof(__pyx_k_ddup), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddup */
   {__pyx_k_debug, sizeof(__pyx_k_debug), 0, 1, 1}, /* PyObject cname: __pyx_n_u_debug */
   {__pyx_k_default_min_interval_time, sizeof(__pyx_k_default_min_interval_time), 0, 1, 1}, /* PyObject cname: __pyx_n_u_default_min_interval_time */
-  {__pyx_k_deregister_on_activate, sizeof(__pyx_k_deregister_on_activate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_deregister_on_activate */
   {__pyx_k_dict, sizeof(__pyx_k_dict), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dict */
   {__pyx_k_dict_2, sizeof(__pyx_k_dict_2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dict_2 */
   {__pyx_k_disable, sizeof(__pyx_k_disable), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_disable */
@@ -14347,7 +14390,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_next, sizeof(__pyx_k_next), 0, 1, 1}, /* PyObject cname: __pyx_n_u_next */
   {__pyx_k_nframes, sizeof(__pyx_k_nframes), 0, 1, 1}, /* PyObject cname: __pyx_n_u_nframes */
   {__pyx_k_now, sizeof(__pyx_k_now), 0, 1, 1}, /* PyObject cname: __pyx_n_u_now */
-  {__pyx_k_on_activate, sizeof(__pyx_k_on_activate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_on_activate */
+  {__pyx_k_on, sizeof(__pyx_k_on), 0, 1, 1}, /* PyObject cname: __pyx_n_u_on */
   {__pyx_k_periodic_threads, sizeof(__pyx_k_periodic_threads), 0, 1, 1}, /* PyObject cname: __pyx_n_u_periodic_threads */
   {__pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pickle */
   {__pyx_k_pop, sizeof(__pyx_k_pop), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pop */
@@ -14377,6 +14420,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reduce_cython */
   {__pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reduce_ex */
   {__pyx_k_repr, sizeof(__pyx_k_repr), 0, 1, 1}, /* PyObject cname: __pyx_n_u_repr */
+  {__pyx_k_reset_listeners, sizeof(__pyx_k_reset_listeners), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reset_listeners */
   {__pyx_k_self, sizeof(__pyx_k_self), 0, 1, 1}, /* PyObject cname: __pyx_n_u_self */
   {__pyx_k_send, sizeof(__pyx_k_send), 0, 1, 1}, /* PyObject cname: __pyx_n_u_send */
   {__pyx_k_set_adaptive_sampling, sizeof(__pyx_k_set_adaptive_sampling), 0, 1, 1}, /* PyObject cname: __pyx_n_u_set_adaptive_sampling */
@@ -14440,10 +14484,10 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_OSError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_OSError); if (!__pyx_builtin_OSError) __PYX_ERR(0, 58, __pyx_L1_error)
-  __pyx_builtin_zip = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_zip); if (!__pyx_builtin_zip) __PYX_ERR(0, 99, __pyx_L1_error)
-  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 424, __pyx_L1_error)
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_builtin_OSError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_OSError); if (!__pyx_builtin_OSError) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_builtin_zip = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_zip); if (!__pyx_builtin_zip) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 425, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 427, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -14466,14 +14510,14 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "ddtrace/profiling/collector/stack.pyx":404
+  /* "ddtrace/profiling/collector/stack.pyx":405
  * 
  *     __slots__ = (
  *         "_real_thread",             # <<<<<<<<<<<<<<
  *         "min_interval_time",
  *         "max_time_usage_pct",
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(11, __pyx_mstate_global->__pyx_n_u_real_thread, __pyx_mstate_global->__pyx_n_u_min_interval_time, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct, __pyx_mstate_global->__pyx_n_u_nframes, __pyx_mstate_global->__pyx_n_u_ignore_profiler, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled, __pyx_mstate_global->__pyx_n_u_tracer, __pyx_mstate_global->__pyx_n_u_thread_time, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_mstate_global->__pyx_n_u_thread_span_links, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 404, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(11, __pyx_mstate_global->__pyx_n_u_real_thread, __pyx_mstate_global->__pyx_n_u_min_interval_time, __pyx_mstate_global->__pyx_n_u_max_time_usage_pct, __pyx_mstate_global->__pyx_n_u_nframes, __pyx_mstate_global->__pyx_n_u_ignore_profiler, __pyx_mstate_global->__pyx_n_u_endpoint_collection_enabled, __pyx_mstate_global->__pyx_n_u_tracer, __pyx_mstate_global->__pyx_n_u_thread_time, __pyx_mstate_global->__pyx_n_u_last_wall_time, __pyx_mstate_global->__pyx_n_u_thread_span_links, __pyx_mstate_global->__pyx_n_u_stack_collector_v2_enabled); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 405, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_RefNannyFinishContext();
@@ -14531,27 +14575,27 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 261, 2};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 262, 2};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_pthread_id, __pyx_mstate->__pyx_n_u_native_thread_id, __pyx_mstate->__pyx_n_u_cpu_time_2};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 289, 2};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 290, 2};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_thread};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k__8, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 446, 2};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 447, 2};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_v};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 449, 2};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 450, 2};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_v};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 76, 13};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 77, 13};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_get_last_thread_time, __pyx_k_4q_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
@@ -14566,52 +14610,52 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k__9, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 367, 26};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 368, 26};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_span};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_link_span, __pyx_k_A_QfF_AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 380, 42};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 381, 42};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_thread_id, __pyx_mstate->__pyx_n_u_active_span};
     __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_get_active_span_from_thread_id, __pyx_k_A_d_Qa_we4t_a_1_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 0, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 396, 16};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 0, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 397, 16};
     PyObject* const varnames[] = {0};
     __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_default_min_interval_time, __pyx_k_3_2Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 417, 179};
+    const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 418, 179};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_max_time_usage_pct, __pyx_mstate->__pyx_n_u_nframes, __pyx_mstate->__pyx_n_u_ignore_profiler, __pyx_mstate->__pyx_n_u_endpoint_collection_enabled, __pyx_mstate->__pyx_n_u_tracer, __pyx_mstate->__pyx_n_u_stack_collector_v2_enabled};
     __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_V1_a_q_a_5V6_Ry_Q_c_3_9_1_AQ_B, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 443, 120};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 444, 120};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_class_name, __pyx_mstate->__pyx_n_u_attrs, __pyx_mstate->__pyx_n_u_attrs_str, __pyx_mstate->__pyx_n_u_slot_attrs, __pyx_mstate->__pyx_n_u_slot_attrs_str, __pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_slot, __pyx_mstate->__pyx_n_u_genexpr};
     __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_repr, __pyx_k_A_T_1_Bd_U_ivS_4q_1A_D_Qa_QfG1F, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 454, 120};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 455, 118};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_link_span};
-    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_init_2, __pyx_k_A_Kq_t_4xwa_6a_d2TTXXkkl_Qa_4q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_init_2, __pyx_k_A_Kq_t_4xwa_6a_d2TTXXkkl_1_9_4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 472, 43};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 473, 43};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_start_service, __pyx_k_A_6_F_Q_e_6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 480, 97};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 481, 95};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_link_span};
-    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_stop_service, __pyx_k_A_6_Q_e_4xwa_d2TTXXkkl_6_4q_E, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_stop_service, __pyx_k_A_6_Q_e_4xwa_d2TTXXkkl_Fa_6_4q_E, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 493, 36};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 494, 36};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_used_wall_time_ns, __pyx_mstate->__pyx_n_u_interval};
     __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_compute_new_interval, __pyx_k_A_c_A_82Q_9Be4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 497, 123};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 498, 123};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_now, __pyx_mstate->__pyx_n_u_wall_time, __pyx_mstate->__pyx_n_u_all_events, __pyx_mstate->__pyx_n_u_used_wall_time_ns};
     __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector_stac_2, __pyx_mstate->__pyx_n_u_collect, __pyx_k_A_d_q_D_a_q_Q_4t1_a_A_A_A_A_A_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }

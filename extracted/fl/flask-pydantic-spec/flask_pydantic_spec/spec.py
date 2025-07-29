@@ -2,13 +2,16 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import wraps
 from typing import Mapping, Optional, Type, Union, Callable, Iterable, Any, Dict
+from operator import itemgetter
 
-from flask import Flask, Response as FlaskResponse
+from flask import Flask, Response as FlaskResponse, Blueprint, jsonify
+from flask.blueprints import BlueprintSetupState
 from inflection import camelize
 
 from . import Request
 from .config import Config
 from .flask_backend import FlaskBackend
+from .page import PAGES
 from .types import BaseModelUnion, RequestBase, ResponseBase
 from .utils import (
     get_model_schema,
@@ -49,6 +52,7 @@ class FlaskPydanticSpec:
         backend_name: str = "base",
         backend: Type[FlaskBackend] = FlaskBackend,
         app: Optional[Flask] = None,
+        blueprint: Optional[Blueprint] = None,
         before: Callable = default_before_handler,
         after: Callable = default_after_handler,
         **kwargs: Any,
@@ -62,16 +66,56 @@ class FlaskPydanticSpec:
         self.models: Dict[str, Any] = {}
         if app:
             self.register(app)
+        if blueprint:
+            self.register(blueprint)
 
-    def register(self, app: Flask) -> None:
+    def register(
+        self,
+        app_or_blueprint: Union[Flask, Blueprint],
+        register_route: bool = True,
+    ) -> None:
         """
         register to backend application
 
         This will be automatically triggered if the app is passed into the
         init step.
         """
-        self.app = app
-        self.backend.register_route(self.app)
+        if isinstance(app_or_blueprint, Flask):
+            self.app = app_or_blueprint
+            self.backend.app = app_or_blueprint
+        elif isinstance(app_or_blueprint, Blueprint):
+            self.blueprint = app_or_blueprint
+        else:
+            raise TypeError(f"unknown type provided {app_or_blueprint.__class__}")
+
+        if register_route:
+            self.register_spec_routes(app_or_blueprint)
+
+    def register_spec_routes(self, app_or_blueprint: Union[Flask, Blueprint]) -> None:
+        app_or_blueprint.add_url_rule(
+            self.config.spec_url,
+            "openapi",
+            lambda: jsonify(self.spec),
+        )
+
+        for ui in PAGES:
+            app_or_blueprint.add_url_rule(
+                f"/{self.config.PATH}/{ui}",
+                f"doc_page_{ui}",
+                lambda ui=ui: PAGES[ui].format(self.config),
+            )
+
+    def for_blueprint(self, blueprint: Blueprint, **kwargs: Any) -> "FlaskPydanticSpec":
+        def _record_app(state: BlueprintSetupState) -> None:
+            bp_api.register(state.app, register_route=False)
+
+        bp_api = FlaskPydanticSpec(
+            backend_name=self.backend_name,
+            blueprint=blueprint,
+            **kwargs,
+        )
+        blueprint.record(_record_app)
+        return bp_api
 
     @property
     def spec(self) -> Mapping[str, Any]:
@@ -104,6 +148,7 @@ class FlaskPydanticSpec:
         deprecated: bool = False,
         before: Optional[Callable] = None,
         after: Optional[Callable] = None,
+        extensions: Optional[Dict[str, Any]] = None,
     ) -> Callable:
         """
         - validate query, body, headers in request
@@ -120,6 +165,7 @@ class FlaskPydanticSpec:
                     should be transitioned out of usage
         :param before: :meth:`spectree.utils.default_before_handler` for specific endpoint
         :param after: :meth:`spectree.utils.default_after_handler` for specific endpoint
+        :param extensions: a key value map of extension strings
         """
 
         def decorate_validation(func: Callable) -> Callable:
@@ -167,6 +213,12 @@ class FlaskPydanticSpec:
             if deprecated:
                 setattr(validation, "deprecated", True)
 
+            if extensions:
+                for key, value in extensions.items():
+                    if not key or not key.startswith("x-"):
+                        raise ValueError("Swagger vendor extensions must begin with 'x-'")
+                setattr(validation, "extensions", extensions)
+
             # register decorator
             setattr(validation, "_decorator", self)
             return validation
@@ -183,10 +235,14 @@ class FlaskPydanticSpec:
         tag_lookup = {tag["name"]: tag for tag in self.config.TAGS}
         routes: Dict[str, Any] = {}
         tags: Dict[str, Any] = {}
-        for route in self.backend.find_routes():
+
+        if self.app is None:
+            raise RuntimeError("Flask app must be registered this instance to generate a spec")
+
+        for route in self.backend.find_routes(self.app):
             path, parameters = self.backend.parse_path(route)
             routes[path] = routes.get(path, {})
-            for method, func in self.backend.parse_func(route):
+            for method, func in self.backend.parse_func(self.app, route):
                 if self.backend.bypass(func, method) or self.bypass(func):
                     continue
 
@@ -196,7 +252,6 @@ class FlaskPydanticSpec:
                 for tag in func_tags:
                     if tag not in tags:
                         tags[tag] = tag_lookup.get(tag, {"name": tag})
-
                 routes[path][method.lower()] = {
                     "summary": summary or f"{operation_id} <{method}>",
                     "operationId": camelize(f"{operation_id}", False),
@@ -207,6 +262,10 @@ class FlaskPydanticSpec:
                 }
                 if hasattr(func, "deprecated"):
                     routes[path][method.lower()]["deprecated"] = True
+
+                extensions = getattr(func, "extensions", {})
+                if extensions:
+                    routes[path][method.lower()].update(**extensions)
 
                 request_body = parse_request(func)
                 if request_body:
@@ -226,8 +285,10 @@ class FlaskPydanticSpec:
                 },
             },
             "tags": sorted(tags.values(), key=lambda t: t["name"]),
-            "paths": {**routes},
-            "components": {"schemas": {**self._get_model_definitions()}},
+            "paths": dict(sorted(routes.items(), key=itemgetter(0))),
+            "components": {
+                "schemas": dict(sorted(self._get_model_definitions().items(), key=itemgetter(0)))
+            },
         }
         return spec
 

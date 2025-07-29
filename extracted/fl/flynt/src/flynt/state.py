@@ -8,15 +8,17 @@ from typing import Optional
 class State:
     # -- Options
     quiet: bool = False
-    aggressive: bool = False
+    aggressive: int = 0
     dry_run: bool = False
     stdout: bool = False
     multiline: bool = True
     len_limit: Optional[int] = None
+    report: bool = False
     transform_percent: bool = True
     transform_format: bool = True
     transform_concat: bool = False
     transform_join: bool = False
+    process_notebooks: bool = False
 
     # -- Statistics
     percent_candidates: int = 0

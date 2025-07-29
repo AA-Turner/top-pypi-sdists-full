@@ -48,9 +48,8 @@ pub struct SubConfig {
 }
 
 impl SubConfig {
-    fn rewrite_with_path_to_config(&mut self, config_root: &Path) -> anyhow::Result<()> {
-        self.matches = self.matches.clone().from_root(config_root)?;
-        Ok(())
+    fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
+        self.matches = self.matches.clone().from_root(config_root);
     }
 }
 
@@ -85,29 +84,43 @@ pub enum ProjectLayout {
     Flat,
     /// Python packages live in a src/ subdirectory
     Src,
+    /// The parent directory of the project root is the import root
+    /// (this is how pandas is set up for some reason)
+    Parent,
 }
 
 impl ProjectLayout {
     pub fn new(project_root: &Path) -> Self {
+        let error = |path: PathBuf, error| {
+            debug!(
+                "Error checking for existence of path {}: {}",
+                path.display(),
+                error
+            );
+            Self::default()
+        };
         let src_subdir = project_root.join("src");
         match src_subdir.try_exists() {
-            Ok(true) => Self::Src,
-            Ok(false) => Self::Flat,
-            Err(e) => {
-                debug!(
-                    "Error checking for existence of path {}: {}",
-                    src_subdir.display(),
-                    e
-                );
-                Self::default()
+            Ok(true) => return Self::Src,
+            Ok(false) => (),
+            Err(e) => return error(src_subdir, e),
+        }
+        for suffix in ["py", "pyi"] {
+            let init_file = project_root.join(format!("__init__.{suffix}"));
+            match init_file.try_exists() {
+                Ok(true) => return Self::Parent,
+                Ok(false) => (),
+                Err(e) => return error(init_file, e),
             }
         }
+        Self::Flat
     }
 
     fn get_import_root(&self, project_root: &Path) -> PathBuf {
         match self {
             Self::Flat => project_root.to_path_buf(),
             Self::Src => project_root.join("src"),
+            Self::Parent => project_root.parent().unwrap_or(project_root).to_path_buf(),
         }
     }
 }
@@ -323,14 +336,13 @@ impl ConfigFile {
         let mut result = Self {
             project_includes: Self::default_project_includes(),
             project_excludes: Self::default_project_excludes(),
-            // Note that rewrite_with_path_to_config() converts "" to the config file's containing directory.
-            import_root: Some(layout.get_import_root(Path::new(""))),
+            import_root: Some(layout.get_import_root(root)),
             ..Default::default()
         };
         // ignore failures rewriting path to config, since we're trying to construct
         // an ephemeral config for the user, and it's not fatal (but things might be
         // a little weird)
-        let _ = result.rewrite_with_path_to_config(root);
+        result.rewrite_with_path_to_config(root);
         result
     }
 
@@ -611,9 +623,9 @@ impl ConfigFile {
     /// We do this as a step separate from `configure()` because CLI args may override some of these
     /// values, but CLI args will always be relative to CWD, whereas config values should be relative
     /// to the config root.
-    fn rewrite_with_path_to_config(&mut self, config_root: &Path) -> anyhow::Result<()> {
-        self.project_includes = self.project_includes.clone().from_root(config_root)?;
-        self.project_excludes = self.project_excludes.clone().from_root(config_root)?;
+    fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
+        self.project_includes = self.project_includes.clone().from_root(config_root);
+        self.project_excludes = self.project_excludes.clone().from_root(config_root);
         self.search_path_from_file
             .iter_mut()
             .for_each(|search_root| {
@@ -637,8 +649,7 @@ impl ConfigFile {
             .map(|s| s.map(|i| i.absolutize_from(config_root)));
         self.sub_configs
             .iter_mut()
-            .try_for_each(|c| c.rewrite_with_path_to_config(config_root))?;
-        Ok(())
+            .for_each(|c| c.rewrite_with_path_to_config(config_root));
     }
 
     pub fn from_file(config_path: &Path) -> (ConfigFile, Vec<ConfigError>) {
@@ -670,10 +681,7 @@ impl ConfigFile {
                 Some(config_root) => {
                     let layout = ProjectLayout::new(config_root);
                     if let Some(mut config) = maybe_config {
-                        let rewrite_error = config.rewrite_with_path_to_config(config_root);
-                        if let Err(error) = rewrite_error {
-                            errors.push(ConfigError::error(error));
-                        }
+                        config.rewrite_with_path_to_config(config_root);
                         config.import_root = Some(layout.get_import_root(config_root));
                         config
                     } else {
@@ -1128,7 +1136,7 @@ mod tests {
         )
         .unwrap();
 
-        config.rewrite_with_path_to_config(&test_path).unwrap();
+        config.rewrite_with_path_to_config(&test_path);
 
         let expected_config = ConfigFile {
             source: ConfigSource::Synthetic,

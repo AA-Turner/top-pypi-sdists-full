@@ -1,16 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from asyncio import Event
-from collections.abc import (
-    Callable,
-    Collection,
-    Coroutine,
-    Hashable,
-    Iterable,
-    Mapping,
-    Sequence,
-)
+from collections.abc import Callable, Collection, Coroutine, Iterable, Mapping
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
 from logging import Logger
@@ -27,6 +18,7 @@ from typing import (
     overload,
     runtime_checkable,
 )
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from whenever import (
@@ -47,6 +39,7 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 
 
 # basic
+type BoolLike = MaybeStr[bool]
 type OpenMode = Literal[
     "r",
     "w",
@@ -70,8 +63,7 @@ type OpenMode = Literal[
     "a+b",
 ]
 type MaybeCallable[T] = T | Callable[[], T]
-type MaybeCallableBool = MaybeCallable[bool]
-type MaybeCallableStr = MaybeCallable[str]
+type MaybeCallableBoolLike = MaybeCallable[BoolLike]
 type MaybeStr[T] = T | str
 type MaybeType[T] = T | type[T]
 type StrMapping = Mapping[str, Any]
@@ -82,7 +74,6 @@ type TupleOrStrMapping = tuple[Any, ...] | StrMapping
 
 # asyncio
 type Coro[T] = Coroutine[Any, Any, T]
-type MaybeCallableEvent = MaybeCallable[Event]
 type MaybeCoro[T] = T | Coro[T]
 
 
@@ -123,25 +114,22 @@ IPv6AddressLike = MaybeStr[IPv6Address]
 
 
 # iterables
-type IterableHashable[T: Hashable] = tuple[T, ...] | frozenset[T]
+type SequenceLT[T] = list[T] | tuple[T, ...]
+# iterables - maybe
 type MaybeCollection[T] = T | Collection[T]
-type MaybeIterableHashable[T: Hashable] = T | IterableHashable[T]
 type MaybeIterable[T] = T | Iterable[T]
-type MaybeList[T] = T | list[T]
-type MaybeSequence[T] = T | Sequence[T]
+type MaybeSequence[T] = T | SequenceLT[T]
 # iterables - str
-type CollectionStr = (
-    dict[str, Any] | frozenset[str] | list[str] | set[str] | tuple[str, ...]
-)
+type SequenceStr = SequenceLT[str]
+type CollectionStr = dict[str, Any] | frozenset[str] | set[str] | SequenceStr
+# iterables - maybe str
 type MaybeCollectionStr = str | CollectionStr
-type MaybeListStr = MaybeList[str]
 type MaybeSequenceStr = str | SequenceStr
-type SequenceStr = list[str] | tuple[str, ...]
 
 
 # logging
 type LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-type LoggerOrName = MaybeStr[Logger]
+type LoggerLike = MaybeStr[Logger]
 
 
 # math
@@ -225,8 +213,8 @@ type SerializeObjectExtra = Mapping[Any, Callable[[Any], str]]
 
 
 # pathlib
-type MaybeCallablePathLike = MaybeCallable[PathLike]
 type PathLike = MaybeStr[Path]
+type MaybeCallablePathLike = MaybeCallable[PathLike]
 
 
 # random
@@ -237,9 +225,18 @@ type Seed = int | float | str | bytes | bytearray | Random
 type PatternLike = MaybeStr[Pattern[str]]
 
 
+# text
+type MaybeCallableStr = MaybeCallable[str]
+
+
 # traceback
 type ExcInfo = tuple[type[BaseException], BaseException, TracebackType]
 type OptExcInfo = ExcInfo | tuple[None, None, None]
+
+
+# uuid
+type UUIDLike = MaybeStr[UUID]
+type MaybeCallableUUIDLike = MaybeCallable[UUIDLike | Seed]
 
 
 # whenever
@@ -251,8 +248,8 @@ type DateTimeRoundMode = Literal[
     "ceil", "floor", "half_ceil", "half_floor", "half_even"
 ]
 type Delta = DateDelta | TimeDelta | DateTimeDelta
-type MaybeCallableDate = MaybeCallable[Date]
-type MaybeCallableZonedDateTime = MaybeCallable[ZonedDateTime]
+type MaybeCallableDateLike = MaybeCallable[DateLike]
+type MaybeCallableZonedDateTimeLike = MaybeCallable[ZonedDateTimeLike]
 type MonthDayLike = MaybeStr[MonthDay]
 type PlainDateTimeLike = MaybeStr[PlainDateTime]
 type TimeDeltaLike = MaybeStr[TimeDelta]
@@ -288,24 +285,20 @@ __all__ = [
     "ExceptionTypeLike",
     "IPv4AddressLike",
     "IPv6AddressLike",
-    "IterableHashable",
     "LogLevel",
-    "LoggerOrName",
+    "LoggerLike",
     "MathRoundMode",
     "MaybeCallable",
-    "MaybeCallableBool",
-    "MaybeCallableDate",
-    "MaybeCallableEvent",
+    "MaybeCallableBoolLike",
+    "MaybeCallableDateLike",
     "MaybeCallablePathLike",
     "MaybeCallableStr",
-    "MaybeCallableZonedDateTime",
+    "MaybeCallableUUIDLike",
+    "MaybeCallableZonedDateTimeLike",
     "MaybeCollection",
     "MaybeCollectionStr",
     "MaybeCoro",
     "MaybeIterable",
-    "MaybeIterableHashable",
-    "MaybeList",
-    "MaybeListStr",
     "MaybeSequence",
     "MaybeSequenceStr",
     "MaybeStr",
@@ -345,6 +338,7 @@ __all__ = [
     "TimeZoneLike",
     "TupleOrStrMapping",
     "TypeLike",
+    "UUIDLike",
     "WeekDay",
     "YearMonthLike",
     "ZonedDateTimeLike",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdmf_zarr
-Version: 0.11.1
+Version: 0.11.2
 Summary: A package defining a Zarr I/O backend for HDMF
 Project-URL: Homepage, https://github.com/hdmf-dev/hdmf-zarr
 Project-URL: Bug Tracker, https://github.com/hdmf-dev/hdmf-zarr/issues

@@ -72,6 +72,7 @@ ignored_schemes_permanent = r"""
 |dav        # dav
 |dict       # dictionary service protocol
 |dns        # Domain Name System
+|doi        # doi
 |dtn        # DTNRG research and development
 |example    # example
 |geo        # Geographic Locations
@@ -162,6 +163,7 @@ ignored_schemes_provisional = r"""
 |appdata    # appdata
 |apt        # apt
 |ar         # ar
+|ari        # ari
 |ark        # ark
 |at         # at (see [reviewer notes])
 |attachment # attachment
@@ -170,6 +172,7 @@ ignored_schemes_provisional = r"""
 |beshare    # beshare
 |bitcoin    # bitcoin
 |bitcoincash # bitcoincash
+|bl         # bluetooth (shortened)
 |blob       # blob
 |bluetooth  # bluetooth
 |bolo       # bolo
@@ -196,7 +199,6 @@ ignored_schemes_provisional = r"""
 |dlna\-playcontainer # dlna-playcontainer
 |dlna\-playsingle # dlna-playsingle
 |dntp       # dntp
-|doi        # doi
 |dpp        # dpp
 |drm        # drm
 |dtmi       # dtmi
@@ -233,6 +235,7 @@ ignored_schemes_provisional = r"""
 |hydrazone  # hydrazone
 |hyper      # hyper
 |icon       # icon
+|ilstring   # ilstring
 |iotdisco   # iotdisco
 |ipfs       # ipfs
 |ipns       # ipns
@@ -330,6 +333,8 @@ ignored_schemes_provisional = r"""
 |ms\-walk\-to # ms-walk-to
 |ms\-whiteboard # ms-whiteboard
 |ms\-whiteboard\-cmd # ms-whiteboard-cmd
+|ms\-widgetboard # ms-widgetboard
+|ms\-widgets # ms-widgets
 |ms\-word   # ms-word
 |msnim      # msnim
 |mss        # mss
@@ -371,6 +376,7 @@ ignored_schemes_provisional = r"""
 |sftp       # query
 |sgn        # sgn
 |shc        # shc
+|shelter    # shelter
 |simpleledger # simpleledger
 |simplex    # simplex
 |skype      # skype
@@ -391,6 +397,8 @@ ignored_schemes_provisional = r"""
 |swidpath   # swidpath (see [reviewer notes])
 |taler      # taler
 |teamspeak  # teamspeak
+|teapot     # teapot
+|teapots    # teapots
 |teliaeid   # teliaeid
 |things     # things
 |tool       # tool
@@ -406,6 +414,8 @@ ignored_schemes_provisional = r"""
 |vscode\-insiders # vscode-insiders
 |vsls       # vsls
 |w3         # w3 (see [reviewer notes])
+|wasm       # wasm
+|wasm\-js   # wasm-js
 |wcr        # wcr
 |web\+ap    # web+ap
 |web3       # web3
@@ -447,6 +457,8 @@ ignored_schemes_other = r"""
 |gemini     # Gemini protocol
 |isbn       # ISBN (int. book numbers)
 |javascript # JavaScript
+|litecoin   # Litecoin payment
+|ltclightning # Litecoin Lightning invoice
 |ms\-windows\-store # Microsoft Store
 |slack      # Slack Technologies client
 |tg         # Telegram

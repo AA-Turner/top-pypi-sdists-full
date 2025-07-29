@@ -1,22 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-readers-s3
-Version: 0.4.0
+Version: 0.4.1
 Summary: llama-index readers s3 integration
-License: MIT
-Keywords: amazon web services,aws s3,bucket
-Author: Your Name
-Author-email: you@example.com
+Author-email: Your Name <you@example.com>
 Maintainer: thejessezhang
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
-Requires-Dist: llama-index-readers-file (>=0.4.0,<0.5.0)
-Requires-Dist: s3fs (>=2024.3.1)
+License-Expression: MIT
+License-File: LICENSE
+Keywords: amazon web services,aws s3,bucket
+Requires-Python: <4.0,>=3.9
+Requires-Dist: llama-index-core<0.13,>=0.12.0
+Requires-Dist: llama-index-readers-file<0.5,>=0.4.0
+Requires-Dist: s3fs>=2024.3.1
 Description-Content-Type: text/markdown
 
 # S3 File or Directory Loader
@@ -48,4 +42,3 @@ documents = loader.load_data()
 ```
 
 This loader is designed to be used as a way to load data into [LlamaIndex](https://github.com/run-llama/llama_index/).
-

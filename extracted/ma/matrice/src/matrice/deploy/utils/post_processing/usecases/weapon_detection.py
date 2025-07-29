@@ -15,9 +15,10 @@ from ..utils import (
 )
 from ..core.config import BaseConfig, AlertConfig
 
+
 @dataclass
 class WeaponDetectionConfig(BaseConfig):
-    """Configuration for Weapon detection use case."""
+    """Configuration for weapon detection use case."""
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
@@ -42,14 +43,359 @@ class WeaponDetectionConfig(BaseConfig):
     )
 
 class WeaponDetectionUseCase(BaseProcessor):
+    CATEGORY_DISPLAY = {
+        "billete": "Billete",
+        "bluntweapon": "Blunt Weapon",
+        "glass": "Glass",
+        "gun": "Gun",
+        "knife": "Knife",
+        "monedero": "Monedero",
+        "pistol": "Pistol",
+        "smartphone": "Smartphone",
+        "tarjeta": "Tarjeta"
+    }
+
+    def __init__(self):
+        super().__init__("weapon_detection")
+        self.category = "security"
+        self.CASE_TYPE: Optional[str] = 'weapon_detection'
+        self.CASE_VERSION: Optional[str] = '1.0'
+        self.target_categories = ['bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'pistol', 'tarjeta']
+        self.smoothing_tracker = None
+        self.tracker = None
+        self._total_frame_counter = 0
+        self._global_frame_offset = 0
+        self._tracking_start_time = None
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        self._track_merge_iou_threshold: float = 0.05
+        self._track_merge_time_window: float = 7.0
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
+
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        start_time = time.time()
+        if not isinstance(config, WeaponDetectionConfig):
+            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
+        if context is None:
+            context = ProcessingContext()
+
+        input_format = match_results_structure(data)
+        context.input_format = input_format
+        context.confidence_threshold = config.confidence_threshold
+
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+        else:
+            processed_data = data
+            self.logger.debug("No confidence filtering applied")
+
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+            self.logger.debug("Applied category mapping")
+
+        if config.target_weapon_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            self.logger.debug("Applied category filtering")
+
+        # Alert for detected weapons
+        for detection in processed_data:
+            if detection.get('category') in config.target_weapon_categories:
+                self.logger.warning(f"ALERT: {detection.get('category')} detected at {self._get_current_timestamp_str(stream_info)}")
+
+        if config.enable_smoothing:
+            if self.smoothing_tracker is None:
+                smoothing_config = BBoxSmoothingConfig(
+                    smoothing_algorithm=config.smoothing_algorithm,
+                    window_size=config.smoothing_window_size,
+                    cooldown_frames=config.smoothing_cooldown_frames,
+                    confidence_threshold=config.confidence_threshold,
+                    confidence_range_factor=config.smoothing_confidence_range_factor,
+                    enable_smoothing=True
+                )
+                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+
+        try:
+            from ..advanced_tracker import AdvancedTracker
+            from ..advanced_tracker.config import TrackerConfig
+            if self.tracker is None:
+                tracker_config = TrackerConfig()
+                self.tracker = AdvancedTracker(tracker_config)
+                self.logger.info("Initialized AdvancedTracker for Weapon Detection")
+            processed_data = self.tracker.update(processed_data)
+        except Exception as e:
+            self.logger.warning(f"AdvancedTracker failed: {e}")
+
+        self._update_tracking_state(processed_data)
+        self._total_frame_counter += 1
+
+        frame_number = None
+        if stream_info:
+            input_settings = stream_info.get("input_settings", {})
+            start_frame = input_settings.get("start_frame")
+            end_frame = input_settings.get("end_frame")
+            if start_frame is not None and end_frame is not None and start_frame == end_frame:
+                frame_number = start_frame
+
+        general_counting_summary = calculate_counting_summary(data)
+        counting_summary = self._count_categories(processed_data, config)
+        total_counts = self.get_total_counts()
+        counting_summary['total_counts'] = total_counts
+        alerts = self._check_alerts(counting_summary, frame_number, config)
+        predictions = self._extract_predictions(processed_data)
+
+        incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
+        business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=True)
+        summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
+
+        incidents = incidents_list[0] if incidents_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        business_analytics = business_analytics_list[0] if business_analytics_list else {}
+        summary = summary_list[0] if summary_list else {}
+        agg_summary = {str(frame_number): {
+            "incidents": incidents,
+            "tracking_stats": tracking_stats,
+            "business_analytics": business_analytics,
+            "alerts": alerts,
+            "human_text": summary}
+        }
+
+        context.mark_completed()
+        result = self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
+        return result
+
+    def _check_alerts(self, summary: dict, frame_number: Any, config: WeaponDetectionConfig) -> List[Dict]:
+        def get_trend(data, lookback=900, threshold=0.6):
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            ratio = increasing / total
+            return ratio >= threshold
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        alerts = []
+        total_detections = summary.get("total_count", 0)
+        total_counts_dict = summary.get("total_counts", {})
+        per_category_count = summary.get("per_category_count", {})
+
+        if not config.alert_config:
+            return alerts
+
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category == "all" and total_detections > threshold:
+                    alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                        "alert_id": f"alert_{category}_{frame_key}",
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                        getattr(config.alert_config, 'alert_value', ['JSON']))}
+                    })
+                elif category in per_category_count:
+                    count = per_category_count[category]
+                    if count > threshold:
+                        alerts.append({
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                            "alert_id": f"alert_{category}_{frame_key}",
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                            getattr(config.alert_config, 'alert_value', ['JSON']))}
+                        })
+        return alerts
+
+    def _generate_incidents(self, counting_summary: Dict, alerts: List, config: WeaponDetectionConfig,
+                           frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        incidents = []
+        total_detections = counting_summary.get("total_count", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+
+        if total_detections > 0:
+            level = "low"
+            intensity = 5.0
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            if start_timestamp and self.current_incident_end_timestamp == 'N/A':
+                self.current_incident_end_timestamp = 'Incident still active'
+            elif start_timestamp and self.current_incident_end_timestamp == 'Incident still active':
+                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                    self.current_incident_end_timestamp = current_timestamp
+            elif self.current_incident_end_timestamp != 'Incident still active' and self.current_incident_end_timestamp != 'N/A':
+                self.current_incident_end_timestamp = 'N/A'
+
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 1)
+                intensity = min(10.0, (total_detections / threshold) * 10)
+                if intensity >= 9:
+                    level = "critical"
+                    self._ascending_alert_list.append(3)
+                elif intensity >= 7:
+                    level = "significant"
+                    self._ascending_alert_list.append(2)
+                elif intensity >= 5:
+                    level = "medium"
+                    self._ascending_alert_list.append(1)
+                else:
+                    self._ascending_alert_list.append(0)
+            else:
+                if total_detections > 30:
+                    level = "critical"
+                    intensity = 10.0
+                    self._ascending_alert_list.append(3)
+                elif total_detections > 25:
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
+                elif total_detections > 15:
+                    level = "medium"
+                    intensity = 7.0
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    intensity = min(10.0, total_detections / 3.0)
+                    self._ascending_alert_list.append(0)
+
+            human_text_lines = [f"WEAPON DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
+            human_text = "\n".join(human_text_lines)
+
+            alert_settings = []
+            if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+                alert_settings.append({
+                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                    "ascending": True,
+                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                    getattr(config.alert_config, 'alert_value', ['JSON']))}
+                })
+
+            event = self.create_incident(
+                incident_id=f"{self.CASE_TYPE}_{str(frame_number)}",
+                incident_type=self.CASE_TYPE,
+                severity_level=level,
+                human_text=human_text,
+                camera_info=camera_info,
+                alerts=alerts,
+                alert_settings=alert_settings,
+                start_time=start_timestamp,
+                end_time=self.current_incident_end_timestamp,
+                level_settings={"low": 1, "medium": 3, "significant": 4, "critical": 7}
+            )
+            incidents.append(event)
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+
+        return incidents
+
+    def _generate_tracking_stats(self, counting_summary: Dict, alerts: List, config: WeaponDetectionConfig,
+                                frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        tracking_stats = []
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts_dict = counting_summary.get("total_counts", {})
+        per_category_count = counting_summary.get("per_category_count", {})
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        total_counts = [{"category": cat, "count": count} for cat, count in total_counts_dict.items() if count > 0]
+        current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items() if count > 0 or total_detections > 0]
+        detections = [{"category": det.get("category"), "bounding_box": det.get("bounding_box", {})} for det in counting_summary.get("detections", [])]
+
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                getattr(config.alert_config, 'alert_value', ['JSON']))}
+            })
+        weapon_counts = {cat: per_category_count.get(cat, 0) for cat in config.target_weapon_categories}
+
+        human_text_lines = [f"Tracking Statistics:"]
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
+        if any(count > 0 for count in weapon_counts.values()):
+            for cat, count in weapon_counts.items():
+                if count > 0:
+                    human_text_lines.append(f"\t- {count} {cat.capitalize()} incident(s) detected")
+        else:
+            human_text_lines.append(f"\t- No weapon[s] detected")
+
+        human_text_lines.append("")
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
+        for cat, count in total_counts_dict.items():
+            if count > 0:
+                human_text_lines.append(f"\t{count} {cat} [s] Detected")
+        human_text_lines.append("")
+        human_text_lines.append("Alerts: None" if not alerts else f"Alerts: {alerts[0].get('settings', {})} sent @ {current_timestamp}")
+        human_text = "\n".join(human_text_lines)
+
+        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        tracking_stat = self.create_tracking_stats(
+            total_counts=total_counts,
+            current_counts=current_counts,
+            detections=detections,
+            human_text=human_text,
+            camera_info=camera_info,
+            alerts=alerts,
+            alert_settings=alert_settings,
+            reset_settings=reset_settings,
+            start_time=high_precision_start_timestamp,
+            reset_time=high_precision_reset_timestamp
+        )
+        tracking_stats.append(tracking_stat)
+        return tracking_stats
+
+    def _generate_business_analytics(self, counting_summary: Dict, alerts: List, config: WeaponDetectionConfig,
+                                    frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None,
+                                    is_empty=False) -> List[Dict]:
+        if is_empty:
+            return []
+        return []
+
+    def _generate_summary(self, summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[Dict]:
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if incidents:
+            lines["Incidents:"] = f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if tracking_stats:
+            lines["Tracking Statistics:"] = f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if business_analytics:
+            lines["Business Analytics:"] = f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+        if not (incidents or tracking_stats or business_analytics):
+            lines["Summary"] = "No Summary Data"
+        return [lines]
+
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
-        frame_track_ids = set()
-        for det in detections:
-            tid = det.get('track_id')
-            if tid is not None:
-                frame_track_ids.add(tid)
+        frame_track_ids = {det.get('track_id') for det in detections if det.get('track_id') is not None}
         total_track_ids = set()
-        for s in getattr(self, '_weapon_total_track_ids', {}).values():
+        for s in getattr(self, '_per_category_total_track_ids', {}).values():
             total_track_ids.update(s)
         return {
             "total_count": len(total_track_ids),
@@ -60,64 +406,24 @@ class WeaponDetectionUseCase(BaseProcessor):
             "total_frames_processed": getattr(self, '_total_frame_counter', 0)
         }
 
-    @staticmethod
-    def _iou(bbox1, bbox2):
-        x1 = max(bbox1["xmin"], bbox2["xmin"])
-        y1 = max(bbox1["ymin"], bbox2["ymin"])
-        x2 = min(bbox1["xmax"], bbox2["xmax"])
-        y2 = min(bbox1["ymax"], bbox2["ymax"])
-        inter_w = max(0, x2 - x1)
-        inter_h = max(0, y2 - y1)
-        inter_area = inter_w * inter_h
-        area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
-        area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
-        union = area1 + area2 - inter_area
-        if union == 0:
-            return 0.0
-        return inter_area / union
-
-    @staticmethod
-    def _deduplicate_detections(detections, iou_thresh=0.7):
-        filtered = []
-        used = [False] * len(detections)
-        for i, det in enumerate(detections):
-            if used[i]:
-                continue
-            group = [i]
-            for j in range(i+1, len(detections)):
-                if used[j]:
-                    continue
-                if det.get("category") == detections[j].get("category"):
-                    bbox1 = det.get("bounding_box")
-                    bbox2 = detections[j].get("bounding_box")
-                    if bbox1 and bbox2:
-                        iou = WeaponDetectionUseCase._iou(bbox1, bbox2)
-                        if iou > iou_thresh:
-                            used[j] = True
-                            group.append(j)
-            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
-            filtered.append(detections[best_idx])
-            used[best_idx] = True
-        return filtered
-
-    def _update_weapon_tracking_state(self, detections: list):
-        if not hasattr(self, "_weapon_total_track_ids"):
-            self._weapon_total_track_ids = {cat: set() for cat in self.weapon_categories}
-        self._weapon_current_frame_track_ids = {cat: set() for cat in self.weapon_categories}
+    def _update_tracking_state(self, detections: list):
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
 
         for det in detections:
             cat = det.get("category")
             raw_track_id = det.get("track_id")
-            if cat not in self.weapon_categories or raw_track_id is None:
+            if cat not in self.target_categories or raw_track_id is None:
                 continue
             bbox = det.get("bounding_box", det.get("bbox"))
             canonical_id = self._merge_or_register_track(raw_track_id, bbox)
             det["track_id"] = canonical_id
-            self._weapon_total_track_ids.setdefault(cat, set()).add(canonical_id)
-            self._weapon_current_frame_track_ids[cat].add(canonical_id)
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
 
-    def get_total_weapon_counts(self):
-        return {cat: len(ids) for cat, ids in getattr(self, '_weapon_total_track_ids', {}).items()}
+    def get_total_counts(self):
+        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
 
     def _format_timestamp_for_video(self, timestamp: float) -> str:
         hours = int(timestamp // 3600)
@@ -129,9 +435,15 @@ class WeaponDetectionUseCase(BaseProcessor):
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
         if not stream_info:
             return "00:00:00.00"
+        if precision:
+            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+                stream_time_str = stream_info.get("video_timestamp", "")
+                return stream_time_str[:8]
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
         if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             stream_time_str = stream_info.get("video_timestamp", "")
             return stream_time_str[:8]
@@ -148,11 +460,15 @@ class WeaponDetectionUseCase(BaseProcessor):
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
         if not stream_info:
             return "00:00:00"
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        if is_video_chunk or stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        if precision:
+            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             return "00:00:00"
         else:
             if self._tracking_start_time is None:
@@ -169,263 +485,6 @@ class WeaponDetectionUseCase(BaseProcessor):
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-    def __init__(self):
-        super().__init__("weapon_detection")
-        self.category = "security"
-        self.weapon_categories = ['billete', 'bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'pistol', 'smartphone', 'tarjeta']
-        self.smoothing_tracker = None
-        self.tracker = None
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self._tracking_start_time = None
-        self._track_aliases: Dict[Any, Any] = {}
-        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
-        self._track_merge_iou_threshold: float = 0.05
-        self._track_merge_time_window: float = 7.0
-
-    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        start_time = time.time()
-        if not isinstance(config, WeaponDetectionConfig):
-            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
-        if context is None:
-            context = ProcessingContext()
-
-        input_format = match_results_structure(data)
-        context.input_format = input_format
-        context.confidence_threshold = config.confidence_threshold
-
-        if config.confidence_threshold is not None:
-            processed_data = filter_by_confidence(data, config.confidence_threshold)
-        else:
-            processed_data = data
-
-        if config.index_to_category:
-            processed_data = apply_category_mapping(processed_data, config.index_to_category)
-
-        if config.target_weapon_categories:
-            processed_data = [d for d in processed_data if d.get('category') in self.weapon_categories]
-
-        if config.enable_smoothing:
-            if self.smoothing_tracker is None:
-                smoothing_config = BBoxSmoothingConfig(
-                    smoothing_algorithm=config.smoothing_algorithm,
-                    window_size=config.smoothing_window_size,
-                    cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,
-                    confidence_range_factor=config.smoothing_confidence_range_factor,
-                    enable_smoothing=True
-                )
-                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            smoothed_detections = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            processed_data = smoothed_detections
-
-        try:
-            from ..advanced_tracker import AdvancedTracker
-            from ..advanced_tracker.config import TrackerConfig
-            if self.tracker is None:
-                tracker_config = TrackerConfig()
-                self.tracker = AdvancedTracker(tracker_config)
-            processed_data = self.tracker.update(processed_data)
-        except Exception as e:
-            self.logger.warning(f"AdvancedTracker failed: {e}")
-
-        processed_data = self._deduplicate_detections(processed_data, iou_thresh=0.95)
-        self._update_weapon_tracking_state(processed_data)
-        self._total_frame_counter += 1
-
-        frame_number = None
-        if stream_info:
-            input_settings = stream_info.get("input_settings", {})
-            start_frame = input_settings.get("start_frame")
-            end_frame = input_settings.get("end_frame")
-            if start_frame is not None and end_frame is not None and start_frame == end_frame:
-                frame_number = start_frame
-
-        general_counting_summary = calculate_counting_summary(data)
-        counting_summary = self._count_categories(processed_data, config)
-        total_weapon_counts = self.get_total_weapon_counts()
-        counting_summary['total_weapon_counts'] = total_weapon_counts
-        insights = self._generate_insights(counting_summary, config)
-        alerts = self._check_alerts(counting_summary, config)
-        predictions = self._extract_predictions(processed_data)
-        summary = self._generate_summary(counting_summary, alerts)
-
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
-
-        events = events_list[0] if events_list else {}
-        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
-
-        context.mark_completed()
-        result = self.create_result(
-            data={
-                "counting_summary": counting_summary,
-                "general_counting_summary": general_counting_summary,
-                "alerts": alerts,
-                "total_detections": counting_summary.get("total_count", 0),
-                "events": events,
-                "tracking_stats": tracking_stats,
-            },
-            usecase=self.name,
-            category=self.category,
-            context=context
-        )
-        result.summary = summary
-        result.insights = insights
-        result.predictions = predictions
-        return result
-
-    def reset_tracker(self) -> None:
-        if self.tracker is not None:
-            self.tracker.reset()
-
-    def reset_weapon_tracking(self) -> None:
-        self._weapon_total_track_ids = {cat: set() for cat in self.weapon_categories}
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self._tracking_start_time = None
-        self._track_aliases.clear()
-        self._canonical_tracks.clear()
-
-    def reset_all_tracking(self) -> None:
-        self.reset_tracker()
-        self.reset_weapon_tracking()
-
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: WeaponDetectionConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = [{frame_key: []}]
-        frame_events = events[0][frame_key]
-        total_detections = counting_summary.get("total_count", 0)
-
-        if total_detections > 0:
-            level = "info"
-            intensity = 5.0
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
-                intensity = min(10.0, (total_detections / threshold) * 10)
-                if intensity >= 7:
-                    level = "critical"
-                elif intensity >= 5:
-                    level = "warning"
-                else:
-                    level = "info"
-            else:
-                if total_detections > 25:
-                    level = "critical"
-                    intensity = 9.0
-                elif total_detections > 15:
-                    level = "warning"
-                    intensity = 7.0
-                else:
-                    level = "info"
-                    intensity = min(10.0, total_detections / 3.0)
-
-            weapon_counts = {cat: counting_summary.get("per_category_count", {}).get(cat, 0) for cat in config.target_weapon_categories}
-            if any(count > 0 for count in weapon_counts.values()):
-                human_text_lines = ["EVENTS DETECTED:"]
-                for cat, count in weapon_counts.items():
-                    if count > 0:
-                        human_text_lines.append(f"    - {count} {cat.capitalize()} incident(s) detected [INFO]")
-                human_text = "\n".join(human_text_lines)
-
-                event = {
-                    "type": "weapon_detection",
-                    "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                    "level": level,
-                    "intensity": round(intensity, 1),
-                    "config": {
-                        "min_value": 0,
-                        "max_value": 10,
-                        "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                    },
-                    "application_name": "Weapon Detection System",
-                    "application_version": "1.0",
-                    "location_info": None,
-                    "human_text": human_text
-                }
-                frame_events.append(event)
-
-        for alert in alerts:
-            total_detections = counting_summary.get("total_count", 0)
-            intensity_message = "ALERT: Possible weapon detected"
-            alert_event = {
-                "type": alert.get("type", "weapon_alert"),
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": alert.get("severity", "warning"),
-                "intensity": 8.0,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Weapon Alert System",
-                "application_version": "1.0",
-                "location_info": alert.get("zone"),
-                "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
-            }
-            frame_events.append(alert_event)
-
-        return events
-
-    def _generate_tracking_stats(
-            self,
-            counting_summary: Dict,
-            insights: List[str],
-            summary: str,
-            config: WeaponDetectionConfig,
-            frame_number: Optional[int] = None,
-            stream_info: Optional[Dict[str, Any]] = None
-    ) -> List[Dict]:
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
-
-        total_detections = counting_summary.get("total_count", 0)
-        total_weapon_counts = counting_summary.get("total_weapon_counts", {})
-        cumulative_total = sum(total_weapon_counts.values()) if total_weapon_counts else 0
-        per_category_count = counting_summary.get("per_category_count", {})
-        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        start_timestamp = self._get_start_timestamp_str(stream_info)
-
-        human_text_lines = []
-        weapon_counts = {cat: per_category_count.get(cat, 0) for cat in config.target_weapon_categories}
-        total_weapon_counts_filtered = {cat: total_weapon_counts.get(cat, 0) for cat in config.target_weapon_categories}
-
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if any(count > 0 for count in weapon_counts.values()):
-            for cat, count in weapon_counts.items():
-                if count > 0:
-                    human_text_lines.append(f"\t- {count} {cat.capitalize()} incident(s) detected")
-        else:
-            human_text_lines.append(f"\t- No weapon[s] detected")
-
-        human_text_lines.append("")
-        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        for cat, count in total_weapon_counts_filtered.items():
-            if count > 0:
-                human_text_lines.append(f"\t- Total {cat.capitalize()}[s] Detected: {count}")
-
-        human_text = "\n".join(human_text_lines)
-
-        tracking_stat = {
-            "type": "weapon_detection",
-            "category": "security",
-            "count": total_detections,
-            "insights": insights,
-            "summary": summary,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": human_text,
-            "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key,
-            "detections": counting_summary.get("detections", [])
-        }
-
-        frame_tracking_stats.append(tracking_stat)
-        return tracking_stats
 
     def _count_categories(self, detections: list, config: WeaponDetectionConfig) -> dict:
         counts = {}
@@ -447,74 +506,6 @@ class WeaponDetectionUseCase(BaseProcessor):
             ]
         }
 
-    CATEGORY_DISPLAY = {
-        "Billete": "billete",
-        "Bluntweapon": "bluntweapon",
-        "Glass": "glass",
-        "Gun": "gun",
-        "Knife": "knife",
-        "Monedero": "monedero",
-        "Pistol": "pistol",
-        "Smartphone": "smartphone",
-        "Tarjeta": "tarjeta"
-    }
-
-    def _generate_insights(self, summary: dict, config: WeaponDetectionConfig) -> List[str]:
-        insights = []
-        per_cat = summary.get("per_category_count", {})
-        total_detections = summary.get("total_count", 0)
-        weapon_counts = {cat: per_cat.get(cat, 0) for cat in config.target_weapon_categories}
-
-        if total_detections == 0:
-            insights.append("No activities detected in the scene")
-        elif any(count > 0 for count in weapon_counts.values()):
-            for cat, count in weapon_counts.items():
-                if count > 0:
-                    insights.append(f"EVENT: Detected {count} {cat.capitalize()} incident(s) in the scene")
-
-        intensity_threshold = config.alert_config.count_thresholds.get("all", 15) if config.alert_config and config.alert_config.count_thresholds else 15
-        total_weapon_detections = sum(weapon_counts.values())
-        if total_weapon_detections > 0:
-            percentage = (total_weapon_detections / intensity_threshold) * 100
-            if percentage < 20:
-                insights.append(f"INTENSITY: Low weapon activity ({percentage:.1f}% of threshold)")
-            elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate weapon activity ({percentage:.1f}% of threshold)")
-            elif percentage <= 70:
-                insights.append(f"INTENSITY: High weapon activity ({percentage:.1f}% of threshold)")
-            else:
-                insights.append(f"INTENSITY: Severe weapon activity ({percentage:.1f}% of threshold)")
-        return insights
-
-    def _check_alerts(self, summary: dict, config: WeaponDetectionConfig) -> List[Dict]:
-        alerts = []
-        if not config.alert_config:
-            return alerts
-        total = summary.get("total_count", 0)
-        if config.alert_config.count_thresholds:
-            for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total >= threshold:
-                    alerts.append({
-                        "type": "count_threshold",
-                        "severity": "warning",
-                        "message": f"Total detection count ({total}) exceeds threshold ({threshold})",
-                        "category": category,
-                        "current_count": total,
-                        "threshold": threshold
-                    })
-                elif category in config.target_weapon_categories and category in summary.get("per_category_count", {}):
-                    count = summary.get("per_category_count", {}).get(category, 0)
-                    if count >= threshold:
-                        alerts.append({
-                            "type": "count_threshold",
-                            "severity": "warning",
-                            "message": f"{category.capitalize()} count ({count}) exceeds threshold ({threshold})",
-                            "category": category,
-                            "current_count": count,
-                            "threshold": threshold
-                        })
-        return alerts
-
     def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
         return [
             {
@@ -524,25 +515,6 @@ class WeaponDetectionUseCase(BaseProcessor):
             }
             for det in detections
         ]
-
-    def _generate_summary(self, summary: dict, alerts: List) -> str:
-        total = summary.get("total_count", 0)
-        per_cat = summary.get("per_category_count", {})
-        cumulative = summary.get("total_weapon_counts", {})
-        cumulative_total = sum(cumulative.get(cat, 0) for cat in self.CATEGORY_DISPLAY.values() if cat in cumulative) if cumulative else 0
-        lines = []
-        weapon_counts = {cat: per_cat.get(cat, 0) for cat in self.CATEGORY_DISPLAY.values()}
-        if any(count > 0 for count in weapon_counts.values()):
-            for cat, count in weapon_counts.items():
-                if count > 0 and cat in ['bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'pistol', 'tarjeta']:
-                    lines.append(f"{count} {cat.capitalize()} incident(s) detected")
-                    lines.append(f"\t{cat.capitalize()}:{count}")
-        else:
-            lines.append("No weapon incidents detected")
-        lines.append(f"Total weapon incidents detected: {cumulative_total}")
-        if alerts:
-            lines.append(f"{len(alerts)} alert(s)")
-        return "\n".join(lines)
 
     def _compute_iou(self, box1: Any, box2: Any) -> float:
         def _bbox_to_list(bbox):

@@ -3,6 +3,8 @@
 import datetime as dt
 import typing
 
+import typing_extensions
+
 from ..core.datetime_utils import serialize_datetime
 from .extract_agent_data_schema_value import ExtractAgentDataSchemaValue
 from .extract_config import ExtractConfig
@@ -28,6 +30,7 @@ class ExtractAgent(pydantic.BaseModel):
         description="The schema of the data."
     )
     config: ExtractConfig = pydantic.Field(description="The configuration parameters for the extraction agent.")
+    custom_configuration: typing.Optional[typing_extensions.Literal["default"]]
     created_at: typing.Optional[dt.datetime]
     updated_at: typing.Optional[dt.datetime]
 

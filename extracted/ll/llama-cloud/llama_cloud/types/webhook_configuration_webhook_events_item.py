@@ -12,6 +12,11 @@ class WebhookConfigurationWebhookEventsItem(str, enum.Enum):
     EXTRACT_ERROR = "extract.error"
     EXTRACT_PARTIAL_SUCCESS = "extract.partial_success"
     EXTRACT_CANCELLED = "extract.cancelled"
+    PARSE_PENDING = "parse.pending"
+    PARSE_SUCCESS = "parse.success"
+    PARSE_ERROR = "parse.error"
+    PARSE_PARTIAL_SUCCESS = "parse.partial_success"
+    PARSE_CANCELLED = "parse.cancelled"
     UNMAPPED_EVENT = "unmapped_event"
 
     def visit(
@@ -21,6 +26,11 @@ class WebhookConfigurationWebhookEventsItem(str, enum.Enum):
         extract_error: typing.Callable[[], T_Result],
         extract_partial_success: typing.Callable[[], T_Result],
         extract_cancelled: typing.Callable[[], T_Result],
+        parse_pending: typing.Callable[[], T_Result],
+        parse_success: typing.Callable[[], T_Result],
+        parse_error: typing.Callable[[], T_Result],
+        parse_partial_success: typing.Callable[[], T_Result],
+        parse_cancelled: typing.Callable[[], T_Result],
         unmapped_event: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is WebhookConfigurationWebhookEventsItem.EXTRACT_PENDING:
@@ -33,5 +43,15 @@ class WebhookConfigurationWebhookEventsItem(str, enum.Enum):
             return extract_partial_success()
         if self is WebhookConfigurationWebhookEventsItem.EXTRACT_CANCELLED:
             return extract_cancelled()
+        if self is WebhookConfigurationWebhookEventsItem.PARSE_PENDING:
+            return parse_pending()
+        if self is WebhookConfigurationWebhookEventsItem.PARSE_SUCCESS:
+            return parse_success()
+        if self is WebhookConfigurationWebhookEventsItem.PARSE_ERROR:
+            return parse_error()
+        if self is WebhookConfigurationWebhookEventsItem.PARSE_PARTIAL_SUCCESS:
+            return parse_partial_success()
+        if self is WebhookConfigurationWebhookEventsItem.PARSE_CANCELLED:
+            return parse_cancelled()
         if self is WebhookConfigurationWebhookEventsItem.UNMAPPED_EVENT:
             return unmapped_event()

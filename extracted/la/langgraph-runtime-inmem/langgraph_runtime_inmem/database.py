@@ -29,6 +29,7 @@ class Assistant(TypedDict):
     created_at: NotRequired[datetime]
     updated_at: NotRequired[datetime]
     config: dict[str, Any]
+    context: dict[str, Any]
     metadata: dict[str, Any]
 
 
@@ -67,6 +68,7 @@ class AssistantVersion(TypedDict):
     version: int
     graph_id: str
     config: dict[str, Any]
+    context: dict[str, Any]
     metadata: dict[str, Any]
     created_at: NotRequired[datetime]
     name: str

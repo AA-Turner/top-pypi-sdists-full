@@ -1,7 +1,7 @@
 r'''
 # `aws_wafv2_rule_group`
 
-Refer to the Terraform Registry for docs: [`aws_wafv2_rule_group`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group).
+Refer to the Terraform Registry for docs: [`aws_wafv2_rule_group`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Wafv2RuleGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafv2RuleGroup.Wafv2RuleGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group aws_wafv2_rule_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group aws_wafv2_rule_group}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class Wafv2RuleGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group aws_wafv2_rule_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group aws_wafv2_rule_group} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#capacity Wafv2RuleGroup#capacity}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#scope Wafv2RuleGroup#scope}.
-        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
-        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response_body Wafv2RuleGroup#custom_response_body}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#description Wafv2RuleGroup#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#id Wafv2RuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name_prefix Wafv2RuleGroup#name_prefix}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#region Wafv2RuleGroup#region}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rule Wafv2RuleGroup#rule}
-        :param rules_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rules_json Wafv2RuleGroup#rules_json}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#tags Wafv2RuleGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#tags_all Wafv2RuleGroup#tags_all}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#capacity Wafv2RuleGroup#capacity}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#scope Wafv2RuleGroup#scope}.
+        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
+        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response_body Wafv2RuleGroup#custom_response_body}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#description Wafv2RuleGroup#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#id Wafv2RuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name_prefix Wafv2RuleGroup#name_prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#region Wafv2RuleGroup#region}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rule Wafv2RuleGroup#rule}
+        :param rules_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rules_json Wafv2RuleGroup#rules_json}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#tags Wafv2RuleGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#tags_all Wafv2RuleGroup#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class Wafv2RuleGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Wafv2RuleGroup to import.
-        :param import_from_id: The id of the existing Wafv2RuleGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Wafv2RuleGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Wafv2RuleGroup to import is found.
         '''
         if __debug__:
@@ -185,9 +185,9 @@ class Wafv2RuleGroup(
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
         '''
         value = Wafv2RuleGroupVisibilityConfig(
             cloudwatch_metrics_enabled=cloudwatch_metrics_enabled,
@@ -528,19 +528,19 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#capacity Wafv2RuleGroup#capacity}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#scope Wafv2RuleGroup#scope}.
-        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
-        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response_body Wafv2RuleGroup#custom_response_body}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#description Wafv2RuleGroup#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#id Wafv2RuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name_prefix Wafv2RuleGroup#name_prefix}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#region Wafv2RuleGroup#region}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rule Wafv2RuleGroup#rule}
-        :param rules_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rules_json Wafv2RuleGroup#rules_json}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#tags Wafv2RuleGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#tags_all Wafv2RuleGroup#tags_all}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#capacity Wafv2RuleGroup#capacity}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#scope Wafv2RuleGroup#scope}.
+        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
+        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response_body Wafv2RuleGroup#custom_response_body}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#description Wafv2RuleGroup#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#id Wafv2RuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name_prefix Wafv2RuleGroup#name_prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#region Wafv2RuleGroup#region}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rule Wafv2RuleGroup#rule}
+        :param rules_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rules_json Wafv2RuleGroup#rules_json}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#tags Wafv2RuleGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#tags_all Wafv2RuleGroup#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -674,14 +674,14 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#capacity Wafv2RuleGroup#capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#capacity Wafv2RuleGroup#capacity}.'''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#scope Wafv2RuleGroup#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#scope Wafv2RuleGroup#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
@@ -690,7 +690,7 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def visibility_config(self) -> "Wafv2RuleGroupVisibilityConfig":
         '''visibility_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
         '''
         result = self._values.get("visibility_config")
         assert result is not None, "Required property 'visibility_config' is missing"
@@ -702,20 +702,20 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupCustomResponseBody"]]]:
         '''custom_response_body block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response_body Wafv2RuleGroup#custom_response_body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response_body Wafv2RuleGroup#custom_response_body}
         '''
         result = self._values.get("custom_response_body")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupCustomResponseBody"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#description Wafv2RuleGroup#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#description Wafv2RuleGroup#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#id Wafv2RuleGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#id Wafv2RuleGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -725,13 +725,13 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name_prefix Wafv2RuleGroup#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name_prefix Wafv2RuleGroup#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -739,7 +739,7 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#region Wafv2RuleGroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#region Wafv2RuleGroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -750,26 +750,26 @@ class Wafv2RuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rule Wafv2RuleGroup#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rule Wafv2RuleGroup#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRule"]]], result)
 
     @builtins.property
     def rules_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rules_json Wafv2RuleGroup#rules_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rules_json Wafv2RuleGroup#rules_json}.'''
         result = self._values.get("rules_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#tags Wafv2RuleGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#tags Wafv2RuleGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#tags_all Wafv2RuleGroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#tags_all Wafv2RuleGroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -799,9 +799,9 @@ class Wafv2RuleGroupCustomResponseBody:
         key: builtins.str,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#content Wafv2RuleGroup#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#content_type Wafv2RuleGroup#content_type}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#key Wafv2RuleGroup#key}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#content Wafv2RuleGroup#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#content_type Wafv2RuleGroup#content_type}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#key Wafv2RuleGroup#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d79c7ed4b50507ab30e00ab72895d7898d2aa4f5461d116f4c661e2ada757f8e)
@@ -816,21 +816,21 @@ class Wafv2RuleGroupCustomResponseBody:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#content Wafv2RuleGroup#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#content Wafv2RuleGroup#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#content_type Wafv2RuleGroup#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#content_type Wafv2RuleGroup#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#key Wafv2RuleGroup#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#key Wafv2RuleGroup#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -1061,13 +1061,13 @@ class Wafv2RuleGroupRule:
         statement: typing.Any = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#action Wafv2RuleGroup#action}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#priority Wafv2RuleGroup#priority}.
-        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
-        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#captcha_config Wafv2RuleGroup#captcha_config}
-        :param rule_label: rule_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rule_label Wafv2RuleGroup#rule_label}
-        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#statement Wafv2RuleGroup#statement}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#action Wafv2RuleGroup#action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#priority Wafv2RuleGroup#priority}.
+        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
+        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#captcha_config Wafv2RuleGroup#captcha_config}
+        :param rule_label: rule_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rule_label Wafv2RuleGroup#rule_label}
+        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#statement Wafv2RuleGroup#statement}
         '''
         if isinstance(action, dict):
             action = Wafv2RuleGroupRuleAction(**action)
@@ -1101,7 +1101,7 @@ class Wafv2RuleGroupRule:
     def action(self) -> "Wafv2RuleGroupRuleAction":
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#action Wafv2RuleGroup#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#action Wafv2RuleGroup#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -1109,14 +1109,14 @@ class Wafv2RuleGroupRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#priority Wafv2RuleGroup#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#priority Wafv2RuleGroup#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
@@ -1125,7 +1125,7 @@ class Wafv2RuleGroupRule:
     def visibility_config(self) -> "Wafv2RuleGroupRuleVisibilityConfig":
         '''visibility_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#visibility_config Wafv2RuleGroup#visibility_config}
         '''
         result = self._values.get("visibility_config")
         assert result is not None, "Required property 'visibility_config' is missing"
@@ -1135,7 +1135,7 @@ class Wafv2RuleGroupRule:
     def captcha_config(self) -> typing.Optional["Wafv2RuleGroupRuleCaptchaConfig"]:
         '''captcha_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#captcha_config Wafv2RuleGroup#captcha_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#captcha_config Wafv2RuleGroup#captcha_config}
         '''
         result = self._values.get("captcha_config")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleCaptchaConfig"], result)
@@ -1146,7 +1146,7 @@ class Wafv2RuleGroupRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleRuleLabel"]]]:
         '''rule_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#rule_label Wafv2RuleGroup#rule_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#rule_label Wafv2RuleGroup#rule_label}
         '''
         result = self._values.get("rule_label")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleRuleLabel"]]], result)
@@ -1155,7 +1155,7 @@ class Wafv2RuleGroupRule:
     def statement(self) -> typing.Any:
         '''statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#statement Wafv2RuleGroup#statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#statement Wafv2RuleGroup#statement}
         '''
         result = self._values.get("statement")
         return typing.cast(typing.Any, result)
@@ -1194,11 +1194,11 @@ class Wafv2RuleGroupRuleAction:
         count: typing.Optional[typing.Union["Wafv2RuleGroupRuleActionCount", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#allow Wafv2RuleGroup#allow}
-        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#block Wafv2RuleGroup#block}
-        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#captcha Wafv2RuleGroup#captcha}
-        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#challenge Wafv2RuleGroup#challenge}
-        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#count Wafv2RuleGroup#count}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#allow Wafv2RuleGroup#allow}
+        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#block Wafv2RuleGroup#block}
+        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#captcha Wafv2RuleGroup#captcha}
+        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#challenge Wafv2RuleGroup#challenge}
+        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#count Wafv2RuleGroup#count}
         '''
         if isinstance(allow, dict):
             allow = Wafv2RuleGroupRuleActionAllow(**allow)
@@ -1233,7 +1233,7 @@ class Wafv2RuleGroupRuleAction:
     def allow(self) -> typing.Optional["Wafv2RuleGroupRuleActionAllow"]:
         '''allow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#allow Wafv2RuleGroup#allow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#allow Wafv2RuleGroup#allow}
         '''
         result = self._values.get("allow")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionAllow"], result)
@@ -1242,7 +1242,7 @@ class Wafv2RuleGroupRuleAction:
     def block(self) -> typing.Optional["Wafv2RuleGroupRuleActionBlock"]:
         '''block block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#block Wafv2RuleGroup#block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#block Wafv2RuleGroup#block}
         '''
         result = self._values.get("block")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionBlock"], result)
@@ -1251,7 +1251,7 @@ class Wafv2RuleGroupRuleAction:
     def captcha(self) -> typing.Optional["Wafv2RuleGroupRuleActionCaptcha"]:
         '''captcha block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#captcha Wafv2RuleGroup#captcha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#captcha Wafv2RuleGroup#captcha}
         '''
         result = self._values.get("captcha")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionCaptcha"], result)
@@ -1260,7 +1260,7 @@ class Wafv2RuleGroupRuleAction:
     def challenge(self) -> typing.Optional["Wafv2RuleGroupRuleActionChallenge"]:
         '''challenge block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#challenge Wafv2RuleGroup#challenge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#challenge Wafv2RuleGroup#challenge}
         '''
         result = self._values.get("challenge")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionChallenge"], result)
@@ -1269,7 +1269,7 @@ class Wafv2RuleGroupRuleAction:
     def count(self) -> typing.Optional["Wafv2RuleGroupRuleActionCount"]:
         '''count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#count Wafv2RuleGroup#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#count Wafv2RuleGroup#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionCount"], result)
@@ -1298,7 +1298,7 @@ class Wafv2RuleGroupRuleActionAllow:
         custom_request_handling: typing.Optional[typing.Union["Wafv2RuleGroupRuleActionAllowCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2RuleGroupRuleActionAllowCustomRequestHandling(**custom_request_handling)
@@ -1315,7 +1315,7 @@ class Wafv2RuleGroupRuleActionAllow:
     ) -> typing.Optional["Wafv2RuleGroupRuleActionAllowCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionAllowCustomRequestHandling"], result)
@@ -1344,7 +1344,7 @@ class Wafv2RuleGroupRuleActionAllowCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2RuleGroupRuleActionAllowCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e6a7e3fe944cdb94ae54584a4dfd452c8b5cb9beea2e01990e3701a43bdfd7e)
@@ -1359,7 +1359,7 @@ class Wafv2RuleGroupRuleActionAllowCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleActionAllowCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -1385,8 +1385,8 @@ class Wafv2RuleGroupRuleActionAllowCustomRequestHandling:
 class Wafv2RuleGroupRuleActionAllowCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__661cf01752a8048e6ab4fc747e39a6475d7db9c474d26715d6238586e4ec0cca)
@@ -1399,14 +1399,14 @@ class Wafv2RuleGroupRuleActionAllowCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1686,7 +1686,7 @@ class Wafv2RuleGroupRuleActionAllowOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2RuleGroupRuleActionAllowCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         value = Wafv2RuleGroupRuleActionAllowCustomRequestHandling(
             insert_header=insert_header
@@ -1740,7 +1740,7 @@ class Wafv2RuleGroupRuleActionBlock:
         custom_response: typing.Optional[typing.Union["Wafv2RuleGroupRuleActionBlockCustomResponse", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response Wafv2RuleGroup#custom_response}
+        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response Wafv2RuleGroup#custom_response}
         '''
         if isinstance(custom_response, dict):
             custom_response = Wafv2RuleGroupRuleActionBlockCustomResponse(**custom_response)
@@ -1757,7 +1757,7 @@ class Wafv2RuleGroupRuleActionBlock:
     ) -> typing.Optional["Wafv2RuleGroupRuleActionBlockCustomResponse"]:
         '''custom_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response Wafv2RuleGroup#custom_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response Wafv2RuleGroup#custom_response}
         '''
         result = self._values.get("custom_response")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionBlockCustomResponse"], result)
@@ -1792,9 +1792,9 @@ class Wafv2RuleGroupRuleActionBlockCustomResponse:
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2RuleGroupRuleActionBlockCustomResponseResponseHeader", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#response_code Wafv2RuleGroup#response_code}.
-        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response_body_key Wafv2RuleGroup#custom_response_body_key}.
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#response_header Wafv2RuleGroup#response_header}
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#response_code Wafv2RuleGroup#response_code}.
+        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response_body_key Wafv2RuleGroup#custom_response_body_key}.
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#response_header Wafv2RuleGroup#response_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bf8ae0fb815a244515d87ebc0569102ac1f38dfcd025b67e69192b08d82f0d7)
@@ -1811,14 +1811,14 @@ class Wafv2RuleGroupRuleActionBlockCustomResponse:
 
     @builtins.property
     def response_code(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#response_code Wafv2RuleGroup#response_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#response_code Wafv2RuleGroup#response_code}.'''
         result = self._values.get("response_code")
         assert result is not None, "Required property 'response_code' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def custom_response_body_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response_body_key Wafv2RuleGroup#custom_response_body_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response_body_key Wafv2RuleGroup#custom_response_body_key}.'''
         result = self._values.get("custom_response_body_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1828,7 +1828,7 @@ class Wafv2RuleGroupRuleActionBlockCustomResponse:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleActionBlockCustomResponseResponseHeader"]]]:
         '''response_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#response_header Wafv2RuleGroup#response_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#response_header Wafv2RuleGroup#response_header}
         '''
         result = self._values.get("response_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleActionBlockCustomResponseResponseHeader"]]], result)
@@ -1960,8 +1960,8 @@ class Wafv2RuleGroupRuleActionBlockCustomResponseOutputReference(
 class Wafv2RuleGroupRuleActionBlockCustomResponseResponseHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bd87c9c8dc5bb675924fb72d8cab2e09b906ccf8e723fd650681bd4533037b5)
@@ -1974,14 +1974,14 @@ class Wafv2RuleGroupRuleActionBlockCustomResponseResponseHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2198,9 +2198,9 @@ class Wafv2RuleGroupRuleActionBlockOutputReference(
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2RuleGroupRuleActionBlockCustomResponseResponseHeader, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#response_code Wafv2RuleGroup#response_code}.
-        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response_body_key Wafv2RuleGroup#custom_response_body_key}.
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#response_header Wafv2RuleGroup#response_header}
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#response_code Wafv2RuleGroup#response_code}.
+        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response_body_key Wafv2RuleGroup#custom_response_body_key}.
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#response_header Wafv2RuleGroup#response_header}
         '''
         value = Wafv2RuleGroupRuleActionBlockCustomResponse(
             response_code=response_code,
@@ -2256,7 +2256,7 @@ class Wafv2RuleGroupRuleActionCaptcha:
         custom_request_handling: typing.Optional[typing.Union["Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling(**custom_request_handling)
@@ -2273,7 +2273,7 @@ class Wafv2RuleGroupRuleActionCaptcha:
     ) -> typing.Optional["Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling"], result)
@@ -2302,7 +2302,7 @@ class Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2RuleGroupRuleActionCaptchaCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a1038837a39d5cf31d3e19d50c3bfba1e084406f83aed9e179193f6c87044a7)
@@ -2317,7 +2317,7 @@ class Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleActionCaptchaCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -2343,8 +2343,8 @@ class Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling:
 class Wafv2RuleGroupRuleActionCaptchaCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54353664050bfeb3b6f959d713709a896b6b1ef37afec754f093e4ca6e198601)
@@ -2357,14 +2357,14 @@ class Wafv2RuleGroupRuleActionCaptchaCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2644,7 +2644,7 @@ class Wafv2RuleGroupRuleActionCaptchaOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2RuleGroupRuleActionCaptchaCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         value = Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling(
             insert_header=insert_header
@@ -2698,7 +2698,7 @@ class Wafv2RuleGroupRuleActionChallenge:
         custom_request_handling: typing.Optional[typing.Union["Wafv2RuleGroupRuleActionChallengeCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2RuleGroupRuleActionChallengeCustomRequestHandling(**custom_request_handling)
@@ -2715,7 +2715,7 @@ class Wafv2RuleGroupRuleActionChallenge:
     ) -> typing.Optional["Wafv2RuleGroupRuleActionChallengeCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionChallengeCustomRequestHandling"], result)
@@ -2744,7 +2744,7 @@ class Wafv2RuleGroupRuleActionChallengeCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2RuleGroupRuleActionChallengeCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7470847ef685d4be5e3e1694d3ab2a40ccea632c655d72adc34d70fa7d5e6750)
@@ -2759,7 +2759,7 @@ class Wafv2RuleGroupRuleActionChallengeCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleActionChallengeCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -2785,8 +2785,8 @@ class Wafv2RuleGroupRuleActionChallengeCustomRequestHandling:
 class Wafv2RuleGroupRuleActionChallengeCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e776b185b3404f54a4cf1dfe35a522577cf72b3990a3f98c0e574ae59fc2b388)
@@ -2799,14 +2799,14 @@ class Wafv2RuleGroupRuleActionChallengeCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3086,7 +3086,7 @@ class Wafv2RuleGroupRuleActionChallengeOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2RuleGroupRuleActionChallengeCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         value = Wafv2RuleGroupRuleActionChallengeCustomRequestHandling(
             insert_header=insert_header
@@ -3140,7 +3140,7 @@ class Wafv2RuleGroupRuleActionCount:
         custom_request_handling: typing.Optional[typing.Union["Wafv2RuleGroupRuleActionCountCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2RuleGroupRuleActionCountCustomRequestHandling(**custom_request_handling)
@@ -3157,7 +3157,7 @@ class Wafv2RuleGroupRuleActionCount:
     ) -> typing.Optional["Wafv2RuleGroupRuleActionCountCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleActionCountCustomRequestHandling"], result)
@@ -3186,7 +3186,7 @@ class Wafv2RuleGroupRuleActionCountCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2RuleGroupRuleActionCountCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48560a60caf5cb54e50a54642b999ccb91c27648653c9c9038b04fadc81be129)
@@ -3201,7 +3201,7 @@ class Wafv2RuleGroupRuleActionCountCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2RuleGroupRuleActionCountCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -3227,8 +3227,8 @@ class Wafv2RuleGroupRuleActionCountCustomRequestHandling:
 class Wafv2RuleGroupRuleActionCountCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc8bc69cafb680379ba4b3ce2ae2468ab8dc3979ec60601e2e7885b94ed3bf60)
@@ -3241,14 +3241,14 @@ class Wafv2RuleGroupRuleActionCountCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#value Wafv2RuleGroup#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3528,7 +3528,7 @@ class Wafv2RuleGroupRuleActionCountOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2RuleGroupRuleActionCountCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#insert_header Wafv2RuleGroup#insert_header}
         '''
         value = Wafv2RuleGroupRuleActionCountCustomRequestHandling(
             insert_header=insert_header
@@ -3597,7 +3597,7 @@ class Wafv2RuleGroupRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2RuleGroupRuleActionAllowCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         value = Wafv2RuleGroupRuleActionAllow(
             custom_request_handling=custom_request_handling
@@ -3612,7 +3612,7 @@ class Wafv2RuleGroupRuleActionOutputReference(
         custom_response: typing.Optional[typing.Union[Wafv2RuleGroupRuleActionBlockCustomResponse, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_response Wafv2RuleGroup#custom_response}
+        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_response Wafv2RuleGroup#custom_response}
         '''
         value = Wafv2RuleGroupRuleActionBlock(custom_response=custom_response)
 
@@ -3625,7 +3625,7 @@ class Wafv2RuleGroupRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2RuleGroupRuleActionCaptchaCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         value = Wafv2RuleGroupRuleActionCaptcha(
             custom_request_handling=custom_request_handling
@@ -3640,7 +3640,7 @@ class Wafv2RuleGroupRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2RuleGroupRuleActionChallengeCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         value = Wafv2RuleGroupRuleActionChallenge(
             custom_request_handling=custom_request_handling
@@ -3655,7 +3655,7 @@ class Wafv2RuleGroupRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2RuleGroupRuleActionCountCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#custom_request_handling Wafv2RuleGroup#custom_request_handling}
         '''
         value = Wafv2RuleGroupRuleActionCount(
             custom_request_handling=custom_request_handling
@@ -3758,7 +3758,7 @@ class Wafv2RuleGroupRuleCaptchaConfig:
         immunity_time_property: typing.Optional[typing.Union["Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#immunity_time_property Wafv2RuleGroup#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#immunity_time_property Wafv2RuleGroup#immunity_time_property}
         '''
         if isinstance(immunity_time_property, dict):
             immunity_time_property = Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty(**immunity_time_property)
@@ -3775,7 +3775,7 @@ class Wafv2RuleGroupRuleCaptchaConfig:
     ) -> typing.Optional["Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty"]:
         '''immunity_time_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#immunity_time_property Wafv2RuleGroup#immunity_time_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#immunity_time_property Wafv2RuleGroup#immunity_time_property}
         '''
         result = self._values.get("immunity_time_property")
         return typing.cast(typing.Optional["Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty"], result)
@@ -3800,7 +3800,7 @@ class Wafv2RuleGroupRuleCaptchaConfig:
 class Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty:
     def __init__(self, *, immunity_time: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#immunity_time Wafv2RuleGroup#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#immunity_time Wafv2RuleGroup#immunity_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32b911829e5e981167c3764d03fa219f7fce8138d8a7df214676e86f1c61a883)
@@ -3811,7 +3811,7 @@ class Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty:
 
     @builtins.property
     def immunity_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#immunity_time Wafv2RuleGroup#immunity_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#immunity_time Wafv2RuleGroup#immunity_time}.'''
         result = self._values.get("immunity_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3913,7 +3913,7 @@ class Wafv2RuleGroupRuleCaptchaConfigOutputReference(
         immunity_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#immunity_time Wafv2RuleGroup#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#immunity_time Wafv2RuleGroup#immunity_time}.
         '''
         value = Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty(
             immunity_time=immunity_time
@@ -4082,11 +4082,11 @@ class Wafv2RuleGroupRuleOutputReference(
         count: typing.Optional[typing.Union[Wafv2RuleGroupRuleActionCount, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#allow Wafv2RuleGroup#allow}
-        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#block Wafv2RuleGroup#block}
-        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#captcha Wafv2RuleGroup#captcha}
-        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#challenge Wafv2RuleGroup#challenge}
-        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#count Wafv2RuleGroup#count}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#allow Wafv2RuleGroup#allow}
+        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#block Wafv2RuleGroup#block}
+        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#captcha Wafv2RuleGroup#captcha}
+        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#challenge Wafv2RuleGroup#challenge}
+        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#count Wafv2RuleGroup#count}
         '''
         value = Wafv2RuleGroupRuleAction(
             allow=allow, block=block, captcha=captcha, challenge=challenge, count=count
@@ -4101,7 +4101,7 @@ class Wafv2RuleGroupRuleOutputReference(
         immunity_time_property: typing.Optional[typing.Union[Wafv2RuleGroupRuleCaptchaConfigImmunityTimeProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#immunity_time_property Wafv2RuleGroup#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#immunity_time_property Wafv2RuleGroup#immunity_time_property}
         '''
         value = Wafv2RuleGroupRuleCaptchaConfig(
             immunity_time_property=immunity_time_property
@@ -4131,9 +4131,9 @@ class Wafv2RuleGroupRuleOutputReference(
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
         '''
         value = Wafv2RuleGroupRuleVisibilityConfig(
             cloudwatch_metrics_enabled=cloudwatch_metrics_enabled,
@@ -4276,7 +4276,7 @@ class Wafv2RuleGroupRuleOutputReference(
 class Wafv2RuleGroupRuleRuleLabel:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8bb1ce9e912cc830119b1019bb4f14b43cd14758ec31ae115bc0880f239f0d3)
@@ -4287,7 +4287,7 @@ class Wafv2RuleGroupRuleRuleLabel:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#name Wafv2RuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4473,9 +4473,9 @@ class Wafv2RuleGroupRuleVisibilityConfig:
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0d1e067dc69da27cba30d087d360d698183e919fbba5bd754f31a9f95148498)
@@ -4492,14 +4492,14 @@ class Wafv2RuleGroupRuleVisibilityConfig:
     def cloudwatch_metrics_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.'''
         result = self._values.get("cloudwatch_metrics_enabled")
         assert result is not None, "Required property 'cloudwatch_metrics_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4508,7 +4508,7 @@ class Wafv2RuleGroupRuleVisibilityConfig:
     def sampled_requests_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.'''
         result = self._values.get("sampled_requests_enabled")
         assert result is not None, "Required property 'sampled_requests_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -4644,9 +4644,9 @@ class Wafv2RuleGroupVisibilityConfig:
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f73863f6d9787ca380b5a842cc30004816fe2ea516edacdfccba8dadc230d7cf)
@@ -4663,14 +4663,14 @@ class Wafv2RuleGroupVisibilityConfig:
     def cloudwatch_metrics_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#cloudwatch_metrics_enabled Wafv2RuleGroup#cloudwatch_metrics_enabled}.'''
         result = self._values.get("cloudwatch_metrics_enabled")
         assert result is not None, "Required property 'cloudwatch_metrics_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#metric_name Wafv2RuleGroup#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4679,7 +4679,7 @@ class Wafv2RuleGroupVisibilityConfig:
     def sampled_requests_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/wafv2_rule_group#sampled_requests_enabled Wafv2RuleGroup#sampled_requests_enabled}.'''
         result = self._values.get("sampled_requests_enabled")
         assert result is not None, "Required property 'sampled_requests_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)

@@ -58,6 +58,7 @@ class AutoStreaming:
         default_quality: int = 80,
         default_video_chunk_duration: int = 10,
         default_video_format: str = "mp4",
+        simulate_video_file_stream: bool = False,
     ):
         """
         Initialize AutoStreaming with service IDs or streaming gateway IDs.
@@ -74,7 +75,7 @@ class AutoStreaming:
             default_quality: Default quality for camera streams
             default_video_chunk_duration: Default video chunk duration for video input type
             default_video_format: Default video format for video input type
-
+            simulate_video_file_stream: Whether to restream videos
         Note:
             Either service_ids OR streaming_gateway_ids must be provided, not both.
             If service_ids is provided, all gateways for those services will be auto-discovered.
@@ -112,6 +113,7 @@ class AutoStreaming:
             default_quality=default_quality,
             default_video_chunk_duration=default_video_chunk_duration,
             default_video_format=default_video_format,
+            simulate_video_file_stream=simulate_video_file_stream,
         )
 
         # State management

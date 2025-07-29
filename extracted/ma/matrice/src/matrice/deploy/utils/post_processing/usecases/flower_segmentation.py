@@ -23,7 +23,7 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
 @dataclass
 class FlowerConfig(BaseConfig):
-    """Configuration for flower detection use case in flower monitoring."""
+    """Configuration for Flower detection use case in Flower monitoring."""
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
@@ -32,7 +32,7 @@ class FlowerConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
 
     #confidence thresholds
-    confidence_threshold: float = 0.5
+    confidence_threshold: float = 0.6
 
     usecase_categories: List[str] = field(
         default_factory=lambda: ['pelargonium', 'purple_coneflower', 'love_in_the_mist', 'moon_orchid', 
@@ -68,667 +68,25 @@ class FlowerConfig(BaseConfig):
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: 'pelargonium', 
-            1: 'purple_coneflower', 
-            2: 'love_in_the_mist', 
-            3: 'moon_orchid', 
-            4: 'globe_thistle', 
-            5: 'sword_lily', 
-            6: 'fritillary', 
-            7: 'rose', 
-            8: 'petunia', 
-            9: 'lotus', 
-            10: 'tree_poppy', 
-            11: 'giant_white_arum_lily', 
-            12: 'great_masterwort', 
-            13: 'grape_hyacinth', 
-            14: 'trumpet_creeper', 
-            15: 'mallow', 
-            16: 'silverbush', 
-            17: 'passion_flower', 
-            18: 'water_lily', 
-            19: 'pink-yellow_dahlia', 
-            20: 'morning_glory', 
-            21: 'watercress', 
-            22: 'primula', 
-            23: 'globe_flower', 
-            24: 'pink_primrose', 
-            25: 'poinsettia', 
-            26: 'toad_lily', 
-            27: 'sweet_pea', 
-            28: 'tiger_lily', 
-            29: 'yellow_iris', 
-            30: 'magnolia', 
-            31: 'wallflower', 
-            32: 'monkshood', 
-            33: 'spear_thistle', 
-            34: 'peruvian_lily', 
-            35: 'thorn_apple', 
-            36: 'snapdragon', 
-            37: 'spring_crocus', 
-            38: 'geranium', 
-            39: 'gaura', 
-            40: 'windflower', 
-            41: 'ruby-lipped_cattleya', 
-            42: 'king_protea', 
-            43: 'stemless_gentian', 
-            44: 'sunflower', 
-            45: 'pincushion_flower', 
-            46: 'prince_of_wales_feathers', 
-            47: 'wild_pansy', 
-            48: 'siam_tulip', 
-            49: 'gazania', 
-            50: 'hibiscus', 
-            51: 'osteospermum', 
-            52: 'hard-leaved_pocket_orchid', 
-            53: 'lenten_rose', 
-            54: 'red_ginger', 
-            55: 'japanese_anemone', 
-            56: 'tree_mallow', 
-            57: 'garden_phlox', 
-            58: 'sweet_william', 
-            59: 'mexican_petunia', 
-            60: 'hippeastrum', 
-            61: 'orange_dahlia', 
-            62: 'mexican_aster', 
-            63: 'marigold', 
-            64: 'oxeye_daisy'
+            i: cat for i, cat in enumerate([
+                'pelargonium', 'purple_coneflower', 'love_in_the_mist', 'moon_orchid', 
+                'globe_thistle', 'sword_lily', 'fritillary', 'rose', 'petunia', 'lotus',
+                'tree_poppy', 'giant_white_arum_lily', 'great_masterwort', 'grape_hyacinth', 
+                'trumpet_creeper', 'mallow', 'silverbush', 'passion_flower', 'water_lily', 
+                'pink-yellow_dahlia', 'morning_glory', 'watercress', 'primula', 'globe_flower', 
+                'pink_primrose', 'poinsettia', 'toad_lily', 'sweet_pea', 'tiger_lily', 'yellow_iris', 
+                'magnolia', 'wallflower', 'monkshood', 'spear_thistle', 'peruvian_lily', 'thorn_apple', 
+                'snapdragon', 'spring_crocus', 'geranium', 'gaura', 'windflower', 'ruby-lipped_cattleya', 
+                'king_protea', 'stemless_gentian', 'sunflower', 'pincushion_flower', 'prince_of_wales_feathers', 
+                'wild_pansy', 'siam_tulip', 'gazania', 'hibiscus', 'osteospermum', 'hard-leaved_pocket_orchid', 
+                'lenten_rose', 'red_ginger', 'japanese_anemone', 'tree_mallow', 'garden_phlox', 'sweet_william', 
+                'mexican_petunia', 'hippeastrum', 'orange_dahlia', 'mexican_aster', 'marigold', 'oxeye_daisy'
+            ])
         }
     )
 
 
 class FlowerUseCase(BaseProcessor):
-    def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
-        """
-        Get detailed information about track IDs (per frame).
-        """
-        # Collect all track_ids in this frame
-        frame_track_ids = set()
-        for det in detections:
-            tid = det.get('track_id')
-            if tid is not None:
-                frame_track_ids.add(tid)
-        # Use persistent total set for unique counting
-        total_track_ids = set()
-        for s in getattr(self, '_per_category_total_track_ids', {}).values():
-            total_track_ids.update(s)
-        return {
-            "total_count": len(total_track_ids),
-            "current_frame_count": len(frame_track_ids),
-            "total_unique_track_ids": len(total_track_ids),
-            "current_frame_track_ids": list(frame_track_ids),
-            "last_update_time": time.time(),
-            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
-        }
-
-
-
-
-
-    def _update_tracking_state(self, detections: list):
-        """
-        Track unique categories track_ids per category for total count after tracking.
-        Applies canonical ID merging to avoid duplicate counting when the underlying
-        tracker loses an object temporarily and assigns a new ID.
-        """
-        # Lazily initialise storage dicts
-        if not hasattr(self, "_per_category_total_track_ids"):
-            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
-        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
-
-        for det in detections:
-            cat = det.get("category")
-            raw_track_id = det.get("track_id")
-            if cat not in self.target_categories or raw_track_id is None:
-                continue
-            bbox = det.get("bounding_box", det.get("bbox"))
-            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
-            # Propagate canonical ID back to detection so downstream logic uses it
-            det["track_id"] = canonical_id
-
-            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
-            self._current_frame_track_ids[cat].add(canonical_id)
-
-    def get_total_counts(self):
-        """
-        Return total unique track_id count for each category.
-        """
-        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
-
-    def _format_timestamp_for_video(self, timestamp: float) -> str:
-        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
-        hours = int(timestamp // 3600)
-        minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
-
-    def _format_timestamp_for_stream(self, timestamp: float) -> str:
-        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
-        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-        return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted current timestamp based on stream type."""
-        if not stream_info:
-            return "00:00:00.00"
-
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-
-        # if is_video_chunk:
-        #     # For video chunks, use video_timestamp from stream_info
-        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
-        #     return self._format_timestamp_for_video(video_timestamp)
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
-        else:
-            # For streams, use stream_time from stream_info
-            stream_time_str = stream_info.get("stream_time", "")
-            if stream_time_str:
-                # Parse the high precision timestamp string to get timestamp
-                try:
-                    # Remove " UTC" suffix and parse
-                    timestamp_str = stream_time_str.replace(" UTC", "")
-                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-                    return self._format_timestamp_for_stream(timestamp)
-                except:
-                    # Fallback to current time if parsing fails
-                    return self._format_timestamp_for_stream(time.time())
-            else:
-                return self._format_timestamp_for_stream(time.time())
-
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
-        if not stream_info:
-            return "00:00:00"
-
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-
-        if is_video_chunk:
-            # For video chunks, start from 00:00:00
-            return "00:00:00"
-        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, start from 00:00:00
-            return "00:00:00"
-        else:
-            # For streams, use tracking start time or current time with minutes/seconds reset
-            if self._tracking_start_time is None:
-                # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("stream_time", "")
-                if stream_time_str:
-                    try:
-                        # Remove " UTC" suffix and parse
-                        timestamp_str = stream_time_str.replace(" UTC", "")
-                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except:
-                        # Fallback to current time if parsing fails
-                        self._tracking_start_time = time.time()
-                else:
-                    self._tracking_start_time = time.time()
-
-            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
-            dt = dt.replace(minute=0, second=0, microsecond=0)
-            return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-    """ Monitoring use case with smoothing and alerting."""
-
-    def __init__(self):
-        super().__init__("flower_segmentation")
-        self.category = "agriculture"
-
-        # List of  categories to track
-        self.target_categories = ['pelargonium', 'purple_coneflower', 'love_in_the_mist', 'moon_orchid', 
-                                'globe_thistle', 'sword_lily', 'fritillary', 'rose', 'petunia', 'lotus',
-                                'tree_poppy', 'giant_white_arum_lily', 'great_masterwort', 'grape_hyacinth', 
-                                'trumpet_creeper', 'mallow', 'silverbush', 'passion_flower', 'water_lily', 
-                                'pink-yellow_dahlia', 'morning_glory', 'watercress', 'primula', 'globe_flower', 
-                                'pink_primrose', 'poinsettia', 'toad_lily', 'sweet_pea', 'tiger_lily', 'yellow_iris', 
-                                'magnolia', 'wallflower', 'monkshood', 'spear_thistle', 'peruvian_lily', 'thorn_apple', 
-                                'snapdragon', 'spring_crocus', 'geranium', 'gaura', 'windflower', 'ruby-lipped_cattleya', 
-                                'king_protea', 'stemless_gentian', 'sunflower', 'pincushion_flower', 'prince_of_wales_feathers', 
-                                'wild_pansy', 'siam_tulip', 'gazania', 'hibiscus', 'osteospermum', 'hard-leaved_pocket_orchid', 
-                                'lenten_rose', 'red_ginger', 'japanese_anemone', 'tree_mallow', 'garden_phlox', 'sweet_william', 
-                                'mexican_petunia', 'hippeastrum', 'orange_dahlia', 'mexican_aster', 'marigold', 'oxeye_daisy']
-
-
-
-        # Initialize smoothing tracker
-        self.smoothing_tracker = None
-
-        # Initialize advanced tracker (will be created on first use)
-        self.tracker = None
-
-        # Initialize tracking state variables
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-
-        # Track start time for "TOTAL SINCE" calculation
-        self._tracking_start_time = None
-
-        # ------------------------------------------------------------------ #
-        # Canonical tracking aliasing to avoid duplicate counts              #
-        # ------------------------------------------------------------------ #
-        # Maps raw tracker-generated IDs to stable canonical IDs that persist
-        # even if the underlying tracker re-assigns a new ID after a short
-        # interruption. This mirrors the logic used in people_counting to
-        # provide accurate unique counting.
-        self._track_aliases: Dict[Any, Any] = {}
-        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
-        # Tunable parameters – adjust if necessary for specific scenarios
-        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 →
-        self._track_merge_time_window: float = 7.0  # seconds within which to merge
-
-    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
-                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        """
-        Main entry point for post-processing.
-        Applies category mapping, smoothing, counting, alerting, and summary generation.
-        Returns a ProcessingResult with all relevant outputs.
-        """
-        start_time = time.time()
-        # Ensure config is correct type
-        if not isinstance(config, FlowerConfig):
-            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category,
-                                            context=context)
-        if context is None:
-            context = ProcessingContext()
-
-        # Detect input format and store in context
-        input_format = match_results_structure(data)
-        context.input_format = input_format
-        context.confidence_threshold = config.confidence_threshold
-        
-        # Step 1: Confidence filtering
-        if config.confidence_threshold is not None:
-            processed_data = filter_by_confidence(data, config.confidence_threshold)
-        else:
-            processed_data = data
-            self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
-
-        # Step 2: Apply category mapping if provided
-        if config.index_to_category:
-            processed_data = apply_category_mapping(processed_data, config.index_to_category)
-
-        # Step 3: Category filtering
-        if config.target_categories:
-            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
-
-        # Step 4: Apply bbox smoothing if enabled
-        # Deep-copy detections so that we preserve the original masks before any
-        # smoothing/tracking logic potentially removes them.
-        raw_processed_data = [copy.deepcopy(det) for det in processed_data]
-        if config.enable_smoothing:
-            if self.smoothing_tracker is None:
-                smoothing_config = BBoxSmoothingConfig(
-                    smoothing_algorithm=config.smoothing_algorithm,
-                    window_size=config.smoothing_window_size,
-                    cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,
-                    confidence_range_factor=config.smoothing_confidence_range_factor,
-                    enable_smoothing=True
-                )
-                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-        
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            # Restore masks after smoothing
-
-        # Step 5: Advanced tracking (BYTETracker-like)
-        try:
-            from ..advanced_tracker import AdvancedTracker
-            from ..advanced_tracker.config import TrackerConfig
-
-            # Create tracker instance if it doesn't exist (preserves state across frames)
-            if self.tracker is None:
-                tracker_config = TrackerConfig()
-                self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for Monitoring and tracking")
-        
-            processed_data = self.tracker.update(processed_data)
-        except Exception as e:
-            # If advanced tracker fails, fallback to unsmoothed detections
-            self.logger.warning(f"AdvancedTracker failed: {e}")
-
-        # Update tracking state for total count per label
-        self._update_tracking_state(processed_data)
-
-        # ------------------------------------------------------------------ #
-        # Re-attach segmentation masks that were present in the original input
-        # but may have been stripped during smoothing/tracking. We match each
-        # processed detection back to the raw detection with the highest IoU
-        # and copy over its "masks" field (if available).
-        # ------------------------------------------------------------------ #
-        processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
-
-        # Update frame counter
-        self._total_frame_counter += 1
-
-        # Extract frame information from stream_info
-        frame_number = None
-        if stream_info:
-            input_settings = stream_info.get("input_settings", {})
-            start_frame = input_settings.get("start_frame")
-            end_frame = input_settings.get("end_frame")
-            # If start and end frame are the same, it's a single frame
-            if start_frame is not None and end_frame is not None and start_frame == end_frame:
-                frame_number = start_frame
-
-        # Compute summaries and alerts
-        general_counting_summary = calculate_counting_summary(data)
-        counting_summary = self._count_categories(processed_data, config)
-        # Add total unique counts after tracking using only local state
-        total_counts = self.get_total_counts()
-        counting_summary['total_counts'] = total_counts
-
-        insights = self._generate_insights(counting_summary, config)
-        alerts = self._check_alerts(counting_summary, config)
-        predictions = self._extract_predictions(processed_data)
-        summary = self._generate_summary(counting_summary, alerts)
-
-        # Step: Generate structured events and tracking stats with frame-based keys
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,
-                                                            stream_info)
-
-        # Extract frame-based dictionaries from the lists
-        events = events_list[0] if events_list else {}
-        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
-
-        context.mark_completed()
-
-        # Build result object
-        result = self.create_result(
-            data={
-                "counting_summary": counting_summary,
-                "general_counting_summary": general_counting_summary,
-                "alerts": alerts,
-                "total_detections": counting_summary.get("total_count", 0),
-                "events": events,
-                "tracking_stats": tracking_stats,
-            },
-            usecase=self.name,
-            category=self.category,
-            context=context
-        )
-        result.summary = summary
-        result.insights = insights
-        result.predictions = predictions
-        return result
-
-
-
-
-
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: FlowerConfig,
-                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[
-        Dict]:
-        """Generate structured events for the output format with frame-based keys."""
-        from datetime import datetime, timezone
-
-        # Use frame number as key, fallback to 'current_frame' if not available
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = [{frame_key: []}]
-        frame_events = events[0][frame_key]
-        total_detections = counting_summary.get("total_count", 0)
-
-        if total_detections > 0:
-            # Determine event level based on thresholds
-            level = "info"
-            intensity = 5.0
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
-                intensity = min(10.0, (total_detections / threshold) * 10)
-
-                if intensity >= 7:
-                    level = "critical"
-                elif intensity >= 5:
-                    level = "warning"
-                else:
-                    level = "info"
-            else:
-                if total_detections > 25:
-                    level = "critical"
-                    intensity = 9.0
-                elif total_detections > 15:
-                    level = "warning"
-                    intensity = 7.0
-                else:
-                    level = "info"
-                    intensity = min(10.0, total_detections / 3.0)
-
-            # Generate human text in new format
-            human_text_lines = ["EVENTS DETECTED:"]
-            human_text_lines.append(f"    - {total_detections}  detected [INFO]")
-            human_text = "\n".join(human_text_lines)
-
-            event = {
-                "type": "flower_segmentation",
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": level,
-                "intensity": round(intensity, 1),
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "flower segmentation System",
-                "application_version": "1.2",
-                "location_info": None,
-                "human_text": human_text
-            }
-            frame_events.append(event)
-
-        # Add alert events
-        for alert in alerts:
-            total_detections = counting_summary.get("total_count", 0)
-            intensity_message = "ALERT: Low congestion in the scene"
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
-                percentage = (total_detections / threshold) * 100 if threshold > 0 else 0
-                if percentage < 20:
-                    intensity_message = "ALERT: Low congestion in the scene"
-                elif percentage <= 50:
-                    intensity_message = "ALERT: Moderate congestion in the scene"
-                elif percentage <= 70:
-                    intensity_message = "ALERT: Heavy congestion in the scene"
-                else:
-                    intensity_message = "ALERT: Severe congestion in the scene"
-            else:
-                if total_detections > 15:
-                    intensity_message = "ALERT: Heavy congestion in the scene"
-                elif total_detections == 1:
-                    intensity_message = "ALERT: Low congestion in the scene"
-                else:
-                    intensity_message = "ALERT: Moderate congestion in the scene"
-
-            alert_event = {
-                "type": alert.get("type", "congestion_alert"),
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": alert.get("severity", "warning"),
-                "intensity": 8.0,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Congestion Alert System",
-                "application_version": "1.2",
-                "location_info": alert.get("zone"),
-                "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
-            }
-            frame_events.append(alert_event)
-
-        return events
-
-    def _generate_tracking_stats(
-            self,
-            counting_summary: Dict,
-            insights: List[str],
-            summary: str,
-            config: FlowerConfig,
-            frame_number: Optional[int] = None,
-            stream_info: Optional[Dict[str, Any]] = None
-    ) -> List[Dict]:
-        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
-
-        total_detections = counting_summary.get("total_count", 0)
-        total_counts = counting_summary.get("total_counts", {})
-        cumulative_total = sum(total_counts.values()) if total_counts else 0
-        per_category_count = counting_summary.get("per_category_count", {})
-
-        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        start_timestamp = self._get_start_timestamp_str(stream_info)
-
-        human_text_lines = []
-
-        # CURRENT FRAME section
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if total_detections > 0:
-            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
-            if len(category_counts) == 1:
-                detection_text = category_counts[0] + " detected"
-            elif len(category_counts) == 2:
-                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
-            else:
-                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
-            human_text_lines.append(f"\t- {detection_text}")
-        else:
-            human_text_lines.append(f"\t- No detections")
-
-        human_text_lines.append("")  # spacing
-
-        # TOTAL SINCE section
-        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
-        # Add category-wise counts
-        if total_counts:
-            for cat, count in total_counts.items():
-                if count > 0:  # Only include categories with non-zero counts
-                    human_text_lines.append(f"\t- {cat}: {count}")
-
-        human_text = "\n".join(human_text_lines)
-
-        # Include detections with masks from counting_summary
-        detections = [
-            {
-                "category": det.get("category"),
-                "confidence": det.get("confidence"),
-                "bounding_box": det.get("bounding_box"),
-                "track_id": det.get("track_id"),
-                "frame_id": det.get("frame_id"),
-                "masks": det.get("masks", det.get("mask", []))  # Include masks, fallback to empty list
-            }
-            for det in counting_summary.get("detections", [])
-        ]
-
-        tracking_stat = {
-            "type": "flower_segmentation",
-            "category": "agriculture",
-            "count": total_detections,
-            "insights": insights,
-            "summary": summary,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": human_text,
-            "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key,
-            "detections": detections  # Add detections with masks
-        }
-
-        frame_tracking_stats.append(tracking_stat)
-        return tracking_stats
-
-    def _count_categories(self, detections: list, config: FlowerConfig) -> dict:
-        """
-        Count the number of detections per category and return a summary dict.
-        The detections list is expected to have 'track_id' (from tracker), 'category', 'bounding_box', 'masks', etc.
-        Output structure will include 'track_id' and 'masks' for each detection as per AdvancedTracker output.
-        """
-        counts = {}
-        valid_detections = []
-        for det in detections:
-            cat = det.get('category', 'unknown')
-            if not all(k in det for k in ['category', 'confidence', 'bounding_box']):  # Validate required fields
-                self.logger.warning(f"Skipping invalid detection: {det}")
-                continue
-            counts[cat] = counts.get(cat, 0) + 1
-            valid_detections.append({
-                "bounding_box": det.get("bounding_box"),
-                "category": det.get("category"),
-                "confidence": det.get("confidence"),
-                "track_id": det.get("track_id"),
-                "frame_id": det.get("frame_id"),
-                "masks": det.get("masks", det.get("mask", []))  # Include masks, fallback to empty list
-            })
-        self.logger.debug(f"Valid detections after filtering: {len(valid_detections)}")
-        return {
-            "total_count": sum(counts.values()),
-            "per_category_count": counts,
-            "detections": valid_detections
-        }
-
-    # ------------------------------------------------------------------ #
-    # Helper to merge masks back into detections                        #
-    # ------------------------------------------------------------------ #
-    def _attach_masks_to_detections(
-        self,
-        processed_detections: List[Dict[str, Any]],
-        raw_detections: List[Dict[str, Any]],
-        iou_threshold: float = 0.5,
-    ) -> List[Dict[str, Any]]:
-        """
-        Attach segmentation masks from the original `raw_detections` list to the
-        `processed_detections` list returned after smoothing/tracking.
-
-        Matching between detections is performed using Intersection-over-Union
-        (IoU) of the bounding boxes. For each processed detection we select the
-        raw detection with the highest IoU above `iou_threshold` and copy its
-        `masks` (or `mask`) field. If no suitable match is found, the detection
-        keeps an empty list for `masks` to maintain a consistent schema.
-        """
-
-        if not processed_detections or not raw_detections:
-            # Nothing to do – ensure masks key exists for downstream logic.
-            for det in processed_detections:
-                det.setdefault("masks", [])
-            return processed_detections
-
-        # Track which raw detections have already been matched to avoid
-        # assigning the same mask to multiple processed detections.
-        used_raw_indices = set()
-
-        for det in processed_detections:
-            best_iou = 0.0
-            best_idx = None
-
-            for idx, raw_det in enumerate(raw_detections):
-                if idx in used_raw_indices:
-                    continue
-
-                iou = self._compute_iou(det.get("bounding_box"), raw_det.get("bounding_box"))
-                if iou > best_iou:
-                    best_iou = iou
-                    best_idx = idx
-
-            if best_idx is not None and best_iou >= iou_threshold:
-                raw_det = raw_detections[best_idx]
-                masks = raw_det.get("masks", raw_det.get("mask"))
-                if masks is not None:
-                    det["masks"] = masks
-                used_raw_indices.add(best_idx)
-            else:
-                # No adequate match – default to empty list to keep schema consistent.
-                det.setdefault("masks", ["EMPTY"])
-
-        return processed_detections
 
     # Human-friendly display names for  categories
     CATEGORY_DISPLAY = {
@@ -798,78 +156,726 @@ class FlowerUseCase(BaseProcessor):
             'marigold': 'Marigold', 
             'oxeye_daisy': 'Oxeye Daisy',
         }
+    def __init__(self):
+        super().__init__("flower_segmentation")
+        self.category = "agriculture"
 
-    def _generate_insights(self, summary: dict, config: FlowerConfig) -> List[str]:
+        # List of  categories to track
+        self.target_categories = ['pelargonium', 'purple_coneflower', 'love_in_the_mist', 'moon_orchid', 
+                                'globe_thistle', 'sword_lily', 'fritillary', 'rose', 'petunia', 'lotus',
+                                'tree_poppy', 'giant_white_arum_lily', 'great_masterwort', 'grape_hyacinth', 
+                                'trumpet_creeper', 'mallow', 'silverbush', 'passion_flower', 'water_lily', 
+                                'pink-yellow_dahlia', 'morning_glory', 'watercress', 'primula', 'globe_flower', 
+                                'pink_primrose', 'poinsettia', 'toad_lily', 'sweet_pea', 'tiger_lily', 'yellow_iris', 
+                                'magnolia', 'wallflower', 'monkshood', 'spear_thistle', 'peruvian_lily', 'thorn_apple', 
+                                'snapdragon', 'spring_crocus', 'geranium', 'gaura', 'windflower', 'ruby-lipped_cattleya', 
+                                'king_protea', 'stemless_gentian', 'sunflower', 'pincushion_flower', 'prince_of_wales_feathers', 
+                                'wild_pansy', 'siam_tulip', 'gazania', 'hibiscus', 'osteospermum', 'hard-leaved_pocket_orchid', 
+                                'lenten_rose', 'red_ginger', 'japanese_anemone', 'tree_mallow', 'garden_phlox', 'sweet_william', 
+                                'mexican_petunia', 'hippeastrum', 'orange_dahlia', 'mexican_aster', 'marigold', 'oxeye_daisy']
+
+        self.CASE_TYPE: Optional[str] = 'flower_segmentation'
+        self.CASE_VERSION: Optional[str] = '1.3'
+
+        # Initialize smoothing tracker
+        self.smoothing_tracker = None
+
+        # Initialize advanced tracker (will be created on first use)
+        self.tracker = None
+
+        # Initialize tracking state variables
+        self._total_frame_counter = 0
+        self._global_frame_offset = 0
+
+        # Track start time for "TOTAL SINCE" calculation
+        self._tracking_start_time = None
+
+        # ------------------------------------------------------------------ #
+        # Canonical tracking aliasing to avoid duplicate counts              #
+        # ------------------------------------------------------------------ #
+        # Maps raw tracker-generated IDs to stable canonical IDs that persist
+        # even if the underlying tracker re-assigns a new ID after a short
+        # interruption. This mirrors the logic used in people_counting to
+        # provide accurate unique counting.
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        # Tunable parameters – adjust if necessary for specific scenarios
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 →
+        self._track_merge_time_window: float = 7.0  # seconds within which to merge
+
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
+
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
-        Generate human-readable insights for each category.
+        Main entry point for post-processing.
+        Applies category mapping, smoothing, counting, alerting, and summary generation.
+        Returns a ProcessingResult with all relevant outputs.
         """
-        insights = []
-        per_cat = summary.get("per_category_count", {})
-        total_detections = summary.get("total_count", 0)
+        start_time = time.time()
+        # Ensure config is correct type
+        if not isinstance(config, FlowerConfig):
+            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category,
+                                            context=context)
+        if context is None:
+            context = ProcessingContext()
 
-        if total_detections == 0:
-            insights.append("No detections in the scene")
-            return insights
-        insights.append(f"EVENT: Detected {total_detections}  in the scene")
-        # Intensity calculation based on threshold percentage
-        intensity_threshold = None
-        if (config.alert_config and
-                config.alert_config.count_thresholds and
-                "all" in config.alert_config.count_thresholds):
-            intensity_threshold = config.alert_config.count_thresholds["all"]
+        # Detect input format and store in context
+        input_format = match_results_structure(data)
+        context.input_format = input_format
+        context.confidence_threshold = config.confidence_threshold
+        
+        # Step 1: Confidence filtering
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+        else:
+            processed_data = data
+            self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
 
-        if intensity_threshold is not None:
-            # Calculate percentage relative to threshold
-            percentage = (total_detections / intensity_threshold) * 100
+        # Step 2: Apply category mapping if provided
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
 
-            if percentage < 20:
-                insights.append(f"INTENSITY: Low congestion in the scene ({percentage:.1f}% of capacity)")
-            elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate congestion in the scene ({percentage:.1f}% of capacity)")
-            elif percentage <= 70:
-                insights.append(f"INTENSITY:  Heavy congestion in the scene ({percentage:.1f}% of capacity)")
-            else:
-                insights.append(f"INTENSITY: Severe congestion in the scene ({percentage:.1f}% of capacity)")
+        # Step 3: Category filtering
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
 
+        # Step 4: Apply bbox smoothing if enabled
+        # Deep-copy detections so that we preserve the original masks before any
+        # smoothing/tracking logic potentially removes them.
+        raw_processed_data = [copy.deepcopy(det) for det in processed_data]
+        if config.enable_smoothing:
+            if self.smoothing_tracker is None:
+                smoothing_config = BBoxSmoothingConfig(
+                    smoothing_algorithm=config.smoothing_algorithm,
+                    window_size=config.smoothing_window_size,
+                    cooldown_frames=config.smoothing_cooldown_frames,
+                    confidence_threshold=config.confidence_threshold,
+                    confidence_range_factor=config.smoothing_confidence_range_factor,
+                    enable_smoothing=True
+                )
+                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+           
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+            # Restore masks after smoothing
 
-        for cat, count in per_cat.items():
-            display = self.CATEGORY_DISPLAY.get(cat, cat)
-            insights.append(f"{display}:{count}")
-        return insights
+        # Step 5: Advanced tracking (BYTETracker-like)
+        try:
+            from ..advanced_tracker import AdvancedTracker
+            from ..advanced_tracker.config import TrackerConfig
 
-    def _check_alerts(self, summary: dict, config: FlowerConfig) -> List[Dict]:
+            # Create tracker instance if it doesn't exist (preserves state across frames)
+            if self.tracker is None:
+                tracker_config = TrackerConfig()
+                self.tracker = AdvancedTracker(tracker_config)
+                self.logger.info("Initialized AdvancedTracker for Monitoring and tracking")
+           
+            processed_data = self.tracker.update(processed_data)
+        except Exception as e:
+            # If advanced tracker fails, fallback to unsmoothed detections
+            self.logger.warning(f"AdvancedTracker failed: {e}")
+
+        # Update tracking state for total count per label
+        self._update_tracking_state(processed_data)
+
+        # ------------------------------------------------------------------ #
+        # Re-attach segmentation masks that were present in the original input
+        # but may have been stripped during smoothing/tracking. We match each
+        # processed detection back to the raw detection with the highest IoU
+        # and copy over its "masks" field (if available).
+        # ------------------------------------------------------------------ #
+        processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
+
+        # Update frame counter
+        self._total_frame_counter += 1
+
+        # Extract frame information from stream_info
+        frame_number = None
+        if stream_info:
+            input_settings = stream_info.get("input_settings", {})
+            start_frame = input_settings.get("start_frame")
+            end_frame = input_settings.get("end_frame")
+            # If start and end frame are the same, it's a single frame
+            if start_frame is not None and end_frame is not None and start_frame == end_frame:
+                frame_number = start_frame
+
+        # Compute summaries and alerts
+        general_counting_summary = calculate_counting_summary(data)
+        counting_summary = self._count_categories(processed_data, config)
+        # Add total unique counts after tracking using only local state
+        total_counts = self.get_total_counts()
+        counting_summary['total_counts'] = total_counts
+
+        alerts = self._check_alerts(counting_summary, frame_number, config)
+        predictions = self._extract_predictions(processed_data)
+        
+        # Step: Generate structured events and tracking stats with frame-based keys
+        incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number,stream_info)
+        # business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=False)
+        business_analytics_list = []
+        summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
+
+        # Extract frame-based dictionaries from the lists
+        incidents = incidents_list[0] if incidents_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        business_analytics = business_analytics_list[0] if business_analytics_list else {}
+        summary = summary_list[0] if summary_list else {}
+        agg_summary = {str(frame_number): {
+                        "incidents": incidents,
+                        "tracking_stats": tracking_stats,
+                        "business_analytics": business_analytics,
+                        "alerts": alerts,
+                        "human_text": summary}
+                    }
+       
+        context.mark_completed()
+
+        # Build result object following the new pattern
+
+        result = self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
+        
+        return result
+
+    def _check_alerts(self, summary: dict, frame_number:Any, config: FlowerConfig) -> List[Dict]:
         """
         Check if any alert thresholds are exceeded and return alert dicts.
         """
+        def get_trend(data, lookback=900, threshold=0.6):
+            '''
+            Determine if the trend is ascending or descending based on actual value progression.
+            Now works with values 0,1,2,3 (not just binary).
+            '''
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True  # not enough data to determine trend
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            ratio = increasing / total
+            if ratio >= threshold:
+                return True
+            elif ratio <= (1 - threshold):
+                return False
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
         alerts = []
+        total_detections = summary.get("total_count", 0) #CURRENT combined total count of all classes
+        total_counts_dict = summary.get("total_counts", {}) #TOTAL cumulative counts per class
+        cumulative_total = sum(total_counts_dict.values()) if total_counts_dict else 0 #TOTAL combined cumulative count
+        per_category_count = summary.get("per_category_count", {}) #CURRENT count per class
+
         if not config.alert_config:
             return alerts
+
         total = summary.get("total_count", 0)
-        if config.alert_config.count_thresholds:
+        #self._ascending_alert_list
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+
             for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total >= threshold:
-                    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
-                    alert_description = f"detections count ({total}) exceeds threshold ({threshold})"
+                if category == "all" and total > threshold:  
+
                     alerts.append({
-                        "type": "count_threshold",
-                        "severity": "warning",
-                        "message": f"Total detections count ({total}) exceeds threshold ({threshold})",
-                        "category": category,
-                        "current_count": total,
-                        "threshold": threshold
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_'+frame_key,
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
                     })
                 elif category in summary.get("per_category_count", {}):
                     count = summary.get("per_category_count", {})[category]
-                    if count >= threshold:
+                    if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
                         alerts.append({
-                            "type": "count_threshold",
-                            "severity": "warning",
-                            "message": f"{category} count ({count}) exceeds threshold ({threshold})",
-                            "category": category,
-                            "current_count": count,
-                            "threshold": threshold
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                            "alert_id": "alert_"+category+'_'+frame_key,
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }       
                         })
+        else:
+            pass
         return alerts
+
+    def _generate_incidents(self, counting_summary: Dict, alerts: List, config: FlowerConfig,
+                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[
+        Dict]:
+        """Generate structured events for the output format with frame-based keys."""
+
+        # Use frame number as key, fallback to 'current_frame' if not available
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        incidents=[]
+        total_detections = counting_summary.get("total_count", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+
+        if total_detections > 0:
+            # Determine event level based on thresholds
+            level = "low"
+            intensity = 5.0
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            if start_timestamp and self.current_incident_end_timestamp=='N/A':
+                self.current_incident_end_timestamp = 'Incident still active'
+            elif start_timestamp and self.current_incident_end_timestamp=='Incident still active':
+                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5: 
+                    self.current_incident_end_timestamp = current_timestamp
+            elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
+                self.current_incident_end_timestamp = 'N/A'
+                
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                intensity = min(10.0, (total_detections / threshold) * 10)
+
+                if intensity >= 9:
+                    level = "critical"
+                    self._ascending_alert_list.append(3)
+                elif intensity >= 7:
+                    level = "significant"
+                    self._ascending_alert_list.append(2)
+                elif intensity >= 5:
+                    level = "medium"
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    self._ascending_alert_list.append(0)
+            else:
+                if total_detections > 30:
+                    level = "critical"
+                    intensity = 10.0
+                    self._ascending_alert_list.append(3)
+                elif total_detections > 25:
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
+                elif total_detections > 15:
+                    level = "medium"
+                    intensity = 7.0
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    intensity = min(10.0, total_detections / 3.0)
+                    self._ascending_alert_list.append(0)
+
+             # Generate human text in new format
+            human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
+            human_text = "\n".join(human_text_lines)
+
+            alert_settings=[]
+            if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+                alert_settings.append({
+                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                    "ascending": True,
+                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                        getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                }
+                })
+        
+            event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_number), incident_type=self.CASE_TYPE,
+                        severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                        start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                        level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+            incidents.append(event)
+
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+
+        return incidents
+
+    def _generate_tracking_stats(
+            self,
+            counting_summary: Dict,
+            alerts: Any,
+            config: FlowerConfig,
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
+    ) -> List[Dict]:
+        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
+        # frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        # tracking_stats = [{frame_key: []}]
+        # frame_tracking_stats = tracking_stats[0][frame_key]
+        tracking_stats = []
+
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts = counting_summary.get("total_counts", {})
+        cumulative_total = sum(total_counts.values()) if total_counts else 0
+        per_category_count = counting_summary.get("per_category_count", {})
+
+        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
+        
+        # Create high precision timestamps for input_timestamp and reset_timestamp
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        human_text_lines = []
+
+        # CURRENT FRAME section
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+        if total_detections > 0:
+            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
+            if len(category_counts) == 1:
+                detection_text = category_counts[0] + " detected"
+            elif len(category_counts) == 2:
+                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
+            else:
+                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
+            human_text_lines.append(f"\t- {detection_text}")
+        else:
+            human_text_lines.append(f"\t- No detections")
+
+        human_text_lines.append("")  # spacing
+
+        # TOTAL SINCE section
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
+        human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
+        # Add category-wise counts
+        if total_counts:
+            for cat, count in total_counts.items():
+                if count > 0:  # Only include categories with non-zero counts
+                    human_text_lines.append(f"\t- {cat}: {count}")
+        # Build current_counts array in expected format  
+        current_counts = []
+        for cat, count in per_category_count.items():
+            if count > 0 or total_detections > 0:  # Include even if 0 when there are detections
+                current_counts.append({
+                    "category": cat,
+                    "count": count
+                })
+
+        human_text = "\n".join(human_text_lines)
+
+        # Include detections with masks from counting_summary
+        # Prepare detections without confidence scores (as per eg.json)
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "person")
+            # Include segmentation if available (like in eg.json)
+            if detection.get("masks"):
+                segmentation= detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation= detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation= detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
+
+        # Build alert_settings array in expected format
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                            }
+            })
+
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+        else:
+            human_text_lines.append("Alerts: None")
+
+        human_text = "\n".join(human_text_lines)
+        reset_settings = [
+                {
+                    "interval_type": "daily",
+                    "reset_time": {
+                        "value": 9,
+                        "time_unit": "hour"
+                    }
+                }
+            ]
+
+        tracking_stat=self.create_tracking_stats(total_counts=total_counts, current_counts=current_counts,
+                            detections=detections, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            reset_settings=reset_settings, start_time=high_precision_start_timestamp ,
+                            reset_time=high_precision_reset_timestamp)
+
+        tracking_stats.append(tracking_stat)
+        return tracking_stats
+
+    def _generate_business_analytics(self, counting_summary: Dict, zone_analysis: Dict, config: FlowerConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+        """Generate standardized business analytics for the agg_summary structure."""
+        if is_empty:
+            return []
+
+        #-----IF YOUR USECASE NEEDS BUSINESS ANALYTICS, YOU CAN USE THIS FUNCTION------#
+        #camera_info = self.get_camera_info_from_stream(stream_info)
+        # business_analytics = self.create_business_analytics(nalysis_name, statistics,
+        #                          human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+        #                          reset_settings)
+        # return business_analytics
+
+    def _generate_summary(self, summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if len(incidents) > 0:
+            lines["Incidents:"]=f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if len(tracking_stats) > 0:
+            lines["Tracking Statistics:"]=f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if len(business_analytics) > 0:
+            lines["Business Analytics:"]=f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines["Summary"] = "No Summary Data"
+
+        return [lines]
+
+
+    def _count_categories(self, detections: list, config: FlowerConfig) -> dict:
+        """
+        Count the number of detections per category and return a summary dict.
+        The detections list is expected to have 'track_id' (from tracker), 'category', 'bounding_box', 'masks', etc.
+        Output structure will include 'track_id' and 'masks' for each detection as per AdvancedTracker output.
+        """
+        counts = {}
+        valid_detections = []
+        for det in detections:
+            cat = det.get('category', 'unknown')
+            if not all(k in det for k in ['category', 'confidence', 'bounding_box']):  # Validate required fields
+                self.logger.warning(f"Skipping invalid detection: {det}")
+                continue
+            counts[cat] = counts.get(cat, 0) + 1
+            valid_detections.append({
+                "bounding_box": det.get("bounding_box"),
+                "category": det.get("category"),
+                "confidence": det.get("confidence"),
+                "track_id": det.get("track_id"),
+                "frame_id": det.get("frame_id"),
+                "masks": det.get("masks", det.get("mask", []))  # Include masks, fallback to empty list
+            })
+        self.logger.debug(f"Valid detections after filtering: {len(valid_detections)}")
+        return {
+            "total_count": sum(counts.values()),
+            "per_category_count": counts,
+            "detections": valid_detections
+        }
+
+    def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
+        """
+        Get detailed information about track IDs (per frame).
+        """
+        # Collect all track_ids in this frame
+        frame_track_ids = set()
+        for det in detections:
+            tid = det.get('track_id')
+            if tid is not None:
+                frame_track_ids.add(tid)
+        # Use persistent total set for unique counting
+        total_track_ids = set()
+        for s in getattr(self, '_per_category_total_track_ids', {}).values():
+            total_track_ids.update(s)
+        return {
+            "total_count": len(total_track_ids),
+            "current_frame_count": len(frame_track_ids),
+            "total_unique_track_ids": len(total_track_ids),
+            "current_frame_track_ids": list(frame_track_ids),
+            "last_update_time": time.time(),
+            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
+        }
+
+    def _update_tracking_state(self, detections: list):
+        """
+        Track unique categories track_ids per category for total count after tracking.
+        Applies canonical ID merging to avoid duplicate counting when the underlying
+        tracker loses an object temporarily and assigns a new ID.
+        """
+        # Lazily initialise storage dicts
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
+
+        for det in detections:
+            cat = det.get("category")
+            raw_track_id = det.get("track_id")
+            if cat not in self.target_categories or raw_track_id is None:
+                continue
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            # Propagate canonical ID back to detection so downstream logic uses it
+            det["track_id"] = canonical_id
+
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
+
+    def get_total_counts(self):
+        """
+        Return total unique track_id count for each category.
+        """
+        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+
+        if precision:
+            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+                stream_time_str = stream_info.get("video_timestamp", "")
+                return stream_time_str[:8]
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str[:8]
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        if precision:
+            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    # ------------------------------------------------------------------ #
+    # Helper to merge masks back into detections                        #
+    # ------------------------------------------------------------------ #
+    def _attach_masks_to_detections(
+        self,
+        processed_detections: List[Dict[str, Any]],
+        raw_detections: List[Dict[str, Any]],
+        iou_threshold: float = 0.5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Attach segmentation masks from the original `raw_detections` list to the
+        `processed_detections` list returned after smoothing/tracking.
+
+        Matching between detections is performed using Intersection-over-Union
+        (IoU) of the bounding boxes. For each processed detection we select the
+        raw detection with the highest IoU above `iou_threshold` and copy its
+        `masks` (or `mask`) field. If no suitable match is found, the detection
+        keeps an empty list for `masks` to maintain a consistent schema.
+        """
+
+        if not processed_detections or not raw_detections:
+            # Nothing to do – ensure masks key exists for downstream logic.
+            for det in processed_detections:
+                det.setdefault("masks", [])
+            return processed_detections
+
+        # Track which raw detections have already been matched to avoid
+        # assigning the same mask to multiple processed detections.
+        used_raw_indices = set()
+
+        for det in processed_detections:
+            best_iou = 0.0
+            best_idx = None
+
+            for idx, raw_det in enumerate(raw_detections):
+                if idx in used_raw_indices:
+                    continue
+
+                iou = self._compute_iou(det.get("bounding_box"), raw_det.get("bounding_box"))
+                if iou > best_iou:
+                    best_iou = iou
+                    best_idx = idx
+
+            if best_idx is not None and best_iou >= iou_threshold:
+                raw_det = raw_detections[best_idx]
+                masks = raw_det.get("masks", raw_det.get("mask"))
+                if masks is not None:
+                    det["masks"] = masks
+                used_raw_indices.add(best_idx)
+            else:
+                # No adequate match – default to empty list to keep schema consistent.
+                det.setdefault("masks", ["EMPTY"])
+
+        return processed_detections
 
     def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
         """
@@ -885,29 +891,6 @@ class FlowerUseCase(BaseProcessor):
             for det in detections
         ]
 
-    def _generate_summary(self, summary: dict, alerts: List) -> str:
-        """
-        Generate a human_text string for the result, including per-category insights if available.
-        Adds a tab before each  label for better formatting.
-        Also always includes the cumulative count so far.
-        """
-        total = summary.get("total_count", 0)
-        per_cat = summary.get("per_category_count", {})
-        cumulative = summary.get("total_counts", {})
-        cumulative_total = sum(cumulative.values()) if cumulative else 0
-        lines = []
-        if total > 0:
-            lines.append(f"{total} detections")
-            if per_cat:
-                lines.append("detections:")
-                for cat, count in per_cat.items():
-                    lines.append(f"\t{cat}:{count}")
-        else:
-            lines.append("No  detections")
-        lines.append(f"Total detections: {cumulative_total}")
-        if alerts:
-            lines.append(f"{len(alerts)} alert(s)")
-        return "\n".join(lines)
 
     # ------------------------------------------------------------------ #
     # Canonical ID helpers                                               #

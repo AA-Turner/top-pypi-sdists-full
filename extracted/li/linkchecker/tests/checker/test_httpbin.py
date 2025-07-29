@@ -35,7 +35,7 @@ class TestHttpbin(LinkCheckTest):
 
     @need_network
     def test_http_link(self):
-        linkurl = "http://www.example.com"
+        linkurl = "https://linkchecker.github.io"
         nlinkurl = self.norm(linkurl)
         url = get_httpbin_url("/response-headers?Link=<%s>;rel=previous" % linkurl)
         nurl = self.norm(url)
@@ -71,7 +71,7 @@ class TestHttpbin(LinkCheckTest):
 
     @need_network
     def test_http_refresh_header(self):
-        linkurl = "http://www.example.com"
+        linkurl = "https://linkchecker.github.io"
         nlinkurl = self.norm(linkurl)
         url = get_httpbin_url("/response-headers?Refresh=5;url=%s" % linkurl)
         nurl = self.norm(url)
@@ -91,7 +91,7 @@ class TestHttpbin(LinkCheckTest):
 
     @need_network
     def test_http_content_location_header(self):
-        linkurl = "http://www.example.com"
+        linkurl = "https://linkchecker.github.io"
         nlinkurl = self.norm(linkurl)
         url = get_httpbin_url("/response-headers?Content-Location=%s" % linkurl)
         nurl = self.norm(url)

@@ -23,7 +23,7 @@ from starlette.exceptions import HTTPException
 
 from langgraph_api import asyncio as lg_asyncio
 from langgraph_api import config
-from langgraph_api.feature_flags import USE_RUNTIME_API
+from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
 from langgraph_api.js.base import BaseRemotePregel, is_js_path
 from langgraph_api.schema import Config
 from langgraph_api.utils.config import run_in_executor, var_child_runnable_config
@@ -78,6 +78,7 @@ async def register_graph(
                 graph_id=graph_id,
                 metadata={"created_by": "system"},
                 config=config or {},
+                context={},
                 if_exists="do_nothing",
                 name=assistant_name,
                 description=description,
@@ -131,16 +132,19 @@ async def get_graph(
         config = lg_config.ensure_config(config)
 
         if store is not None:
-            if USE_RUNTIME_API:
+            if USE_RUNTIME_CONTEXT_API:
                 from langgraph._internal._constants import CONFIG_KEY_RUNTIME
                 from langgraph.runtime import Runtime
 
-                if (
-                    (runtime := config["configurable"].get(CONFIG_KEY_RUNTIME))
-                    is not None
-                ) and runtime.store is None:
+                runtime = config["configurable"].get(CONFIG_KEY_RUNTIME)
+                if runtime is None:
+                    patched_runtime = Runtime(store=store)
+                elif runtime.store is None:
                     patched_runtime = cast(Runtime, runtime).override(store=store)
-                    config["configurable"][CONFIG_KEY_RUNTIME] = patched_runtime
+                else:
+                    patched_runtime = runtime
+
+                config["configurable"][CONFIG_KEY_RUNTIME] = patched_runtime
             else:
                 from langgraph.constants import CONFIG_KEY_STORE
 
@@ -412,6 +416,8 @@ def _handle_exception(task: asyncio.Task) -> None:
         task.result()
     except asyncio.CancelledError:
         pass
+    except Exception as e:
+        logger.exception("Task failed", exc_info=e)
     finally:
         # if the task died either with exception or not, we should exit
         sys.exit(1)

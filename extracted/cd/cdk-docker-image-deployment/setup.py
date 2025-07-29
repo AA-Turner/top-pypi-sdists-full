@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-docker-image-deployment",
-    "version": "0.0.867",
+    "version": "0.0.868",
     "description": "This module allows you to copy docker image assets to a repository you control. This can be necessary if you want to build a Docker image in one CDK app and consume it in a different app or outside the CDK.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-docker-image-deployment#readme",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_docker_image_deployment._jsii": [
-            "cdk-docker-image-deployment@0.0.867.jsii.tgz"
+            "cdk-docker-image-deployment@0.0.868.jsii.tgz"
         ],
         "cdk_docker_image_deployment": [
             "py.typed"

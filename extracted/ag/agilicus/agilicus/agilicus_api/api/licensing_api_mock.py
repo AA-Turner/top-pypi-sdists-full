@@ -11,6 +11,7 @@ class LicensingApiMock:
         self.mock_get_license = MagicMock()
         self.mock_get_product_table_version = MagicMock()
         self.mock_list_license_details = MagicMock()
+        self.mock_list_license_evaluation_contexts = MagicMock()
         self.mock_list_licenses = MagicMock()
         self.mock_list_product_table_versions = MagicMock()
         self.mock_replace_license = MagicMock()
@@ -63,6 +64,12 @@ class LicensingApiMock:
         This method mocks the original api LicensingApi.list_license_details with MagicMock.
         """
         return self.mock_list_license_details(self, *args, **kwargs)
+
+    def list_license_evaluation_contexts(self, *args, **kwargs):
+        """
+        This method mocks the original api LicensingApi.list_license_evaluation_contexts with MagicMock.
+        """
+        return self.mock_list_license_evaluation_contexts(self, *args, **kwargs)
 
     def list_licenses(self, *args, **kwargs):
         """

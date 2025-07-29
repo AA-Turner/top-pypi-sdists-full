@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogluon.timeseries
-Version: 1.3.1
+Version: 1.4.0
 Summary: Fast and Accurate ML in 3 Lines of Code
 Home-page: https://github.com/autogluon/autogluon
 Author: AutoGluon Community
@@ -35,8 +35,6 @@ Classifier: Topic :: Scientific/Engineering :: Image Recognition
 Requires-Python: >=3.9, <3.13
 Description-Content-Type: text/markdown
 Provides-Extra: tests
-Provides-Extra: chronos-openvino
-Provides-Extra: chronos-onnx
 Provides-Extra: all
 License-File: ../LICENSE
 License-File: ../NOTICE
@@ -83,7 +81,7 @@ Build accurate end-to-end ML models in just 3 lines of code!
 
 ```python
 from autogluon.tabular import TabularPredictor
-predictor = TabularPredictor(label="class").fit("train.csv")
+predictor = TabularPredictor(label="class").fit("train.csv", presets="best")
 predictions = predictor.predict("test.csv")
 ```
 

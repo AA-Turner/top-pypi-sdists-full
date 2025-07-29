@@ -25,7 +25,7 @@ from langchain_core.runnables.schema import (
 )
 from langgraph.checkpoint.serde.base import SerializerProtocol
 from langgraph.store.base import GetOp, Item, ListNamespacesOp, PutOp, SearchOp
-from langgraph.types import Command, Interrupt, PregelTask, Send, StateSnapshot
+from langgraph.types import Command, PregelTask, Send, StateSnapshot
 from langgraph_sdk import Auth
 from pydantic import BaseModel
 from starlette import types
@@ -42,8 +42,8 @@ from starlette.routing import Route
 
 from langgraph_api import store as api_store
 from langgraph_api.auth.custom import DotDict, ProxyUser
-from langgraph_api.config import LANGGRAPH_AUTH_TYPE
-from langgraph_api.js.base import BaseRemotePregel
+from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
+from langgraph_api.js.base import BaseRemotePregel, RemoteInterrupt
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.js.sse import SSEDecoder, aiter_lines_raw
 from langgraph_api.route import ApiResponse
@@ -226,6 +226,10 @@ class RemotePregel(BaseRemotePregel):
                 if state and isinstance(state, dict) and "config" in state:
                     state = self._convert_state_snapshot(state)
 
+                interrupts: list[RemoteInterrupt] = []
+                if task_interrupts := task.get("interrupts"):
+                    interrupts = [RemoteInterrupt(raw=i) for i in task_interrupts]
+
                 result.append(
                     PregelTask(
                         task["id"],
@@ -233,19 +237,7 @@ class RemotePregel(BaseRemotePregel):
                         tuple(task["path"]) if task.get("path") else tuple(),
                         # TODO: figure out how to properly deserialise errors
                         task.get("error"),
-                        (
-                            tuple(
-                                Interrupt(
-                                    value=interrupt["value"],
-                                    when=interrupt["when"],
-                                    resumable=interrupt.get("resumable", True),
-                                    ns=interrupt.get("ns"),
-                                )
-                                for interrupt in task.get("interrupts")
-                            )
-                            if task.get("interrupts")
-                            else []
-                        ),
+                        tuple(interrupts),
                         state,
                     )
                 )
@@ -339,6 +331,9 @@ class RemotePregel(BaseRemotePregel):
     def config_schema(self) -> type[BaseModel]:
         raise NotImplementedError()
 
+    def get_context_jsonschema(self) -> dict:
+        raise NotImplementedError()
+
     async def invoke(self, input: Any, config: RunnableConfig | None = None):
         raise NotImplementedError()
 
@@ -374,7 +369,7 @@ async def run_js_process(paths_str: str, watch: bool = False):
                 client_file,
                 "--skip-schema-cache",
             )
-            if watch
+            if False
             else ("tsx", "--import", client_preload_file, client_file)
         )
         try:
@@ -388,6 +383,7 @@ async def run_js_process(paths_str: str, watch: bool = False):
                     **os.environ,
                 },
             )
+            logger.info("Started JS graphs process [%d]", process.pid)
             code = await process.wait()
             raise Exception(f"JS process exited with code {code}")
         except asyncio.CancelledError:
@@ -448,6 +444,7 @@ async def run_js_http_process(paths_str: str, http_config: dict, watch: bool = F
             raise
         except Exception:
             if attempt >= 3:
+                logger.exception("JS HTTP process failed")
                 raise
             else:
                 logger.warning(f"Retrying JS HTTP process {3 - attempt} more times...")
@@ -843,11 +840,26 @@ class CustomJsAuthBackend(AuthenticationBackend):
     ls_auth: AuthenticationBackend | None
 
     def __init__(self, disable_studio_auth: bool = False):
+        from langgraph_api.utils.cache import LRUCache
+
         self.ls_auth = None
         if not disable_studio_auth and LANGGRAPH_AUTH_TYPE == "langsmith":
             from langgraph_api.auth.langsmith.backend import LangsmithAuthBackend
 
             self.ls_auth = LangsmithAuthBackend()
+        self.ttl_cache: LRUCache | None = None
+        self.cache_keys: list[str] | None = None
+        if cache := LANGGRAPH_AUTH.get("cache"):
+            keys = cache.get("cache_keys", [])
+            if not isinstance(keys, list):
+                raise ValueError(
+                    f"LANGGRAPH_AUTH.cache.cache_keys must be a list. Got: {keys}"
+                )
+            self.cache_keys = keys
+            self.ttl_cache = LRUCache(
+                max_size=cache.get("max_size", 1000),
+                ttl=cache.get("ttl_seconds", 60),
+            )
 
     async def authenticate(
         self, conn: HTTPConnection
@@ -863,6 +875,16 @@ class CustomJsAuthBackend(AuthenticationBackend):
         headers.pop("content-length", None)
         headers["x-langgraph-auth-url"] = str(conn.url)
         headers["x-langgraph-auth-method"] = conn.scope.get("method")
+        cache_key = None
+        if self.cache_keys:
+            cache_key = tuple(
+                (k, headers.get(k)) for k in self.cache_keys if headers.get(k)
+            )
+            if cache_key:
+                if self.ttl_cache is not None:
+                    cached = self.ttl_cache.get(cache_key)
+                    if cached:
+                        return cached
 
         res = await _client.post("/auth/authenticate", headers=headers)
         data = res.json()
@@ -873,8 +895,11 @@ class CustomJsAuthBackend(AuthenticationBackend):
             message = data.get("message") or "Unauthorized"
 
             raise HTTPException(status_code=status, detail=message, headers=headers)
+        result = AuthCredentials(data["scopes"]), ProxyUser(DotDict(data["user"]))
+        if cache_key:
+            self.ttl_cache.set(cache_key, result)
 
-        return AuthCredentials(data["scopes"]), ProxyUser(DotDict(data["user"]))
+        return result
 
 
 async def handle_js_auth_event(

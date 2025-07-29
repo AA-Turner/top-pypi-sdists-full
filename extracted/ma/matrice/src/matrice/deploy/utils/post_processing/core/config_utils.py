@@ -18,8 +18,7 @@ from .config import (
     config_manager
 )
 
-# Import the new config class
-from ..usecases.basic_counting_tracking import BasicCountingTrackingConfig
+# Note: BasicCountingTrackingConfig import moved to function level to avoid circular imports
 
 
 def create_people_counting_config(
@@ -253,7 +252,7 @@ def create_basic_counting_tracking_config(
     alert_cooldown: float = 60.0,
     enable_unique_counting: bool = True,
     **kwargs
-) -> BasicCountingTrackingConfig:
+):
     """
     Create a basic counting with tracking configuration.
     
@@ -306,6 +305,9 @@ def create_basic_counting_tracking_config(
             enable_unique_counting=False
         )
     """
+    # Import here to avoid circular imports
+    from ..usecases.basic_counting_tracking import BasicCountingTrackingConfig
+    
     return BasicCountingTrackingConfig(
         category="general",
         usecase="basic_counting_tracking",
@@ -403,7 +405,7 @@ def create_config_from_template(
     usecase: str,
     template_file: Optional[Union[str, Path]] = None,
     **overrides
-) -> Union[PeopleCountingConfig, CustomerServiceConfig, BasicCountingTrackingConfig]:
+):
     """
     Create configuration from a template file or default template.
     

@@ -647,6 +647,7 @@ class CreateInterconnectRequestTypeDef(TypedDict):
     lagId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     providerName: NotRequired[str]
+    requestMACSec: NotRequired[bool]
 
 
 class CreateLagRequestTypeDef(TypedDict):
@@ -669,43 +670,6 @@ class DirectConnectGatewayTypeDef(TypedDict):
     directConnectGatewayState: NotRequired[DirectConnectGatewayStateType]
     stateChangeError: NotRequired[str]
     tags: NotRequired[List[TagTypeDef]]
-
-
-class InterconnectResponseTypeDef(TypedDict):
-    interconnectId: str
-    interconnectName: str
-    interconnectState: InterconnectStateType
-    region: str
-    location: str
-    bandwidth: str
-    loaIssueTime: datetime
-    lagId: str
-    awsDevice: str
-    jumboFrameCapable: bool
-    awsDeviceV2: str
-    awsLogicalDeviceId: str
-    hasLogicalRedundancy: HasLogicalRedundancyType
-    tags: List[TagTypeDef]
-    providerName: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class InterconnectTypeDef(TypedDict):
-    interconnectId: NotRequired[str]
-    interconnectName: NotRequired[str]
-    interconnectState: NotRequired[InterconnectStateType]
-    region: NotRequired[str]
-    location: NotRequired[str]
-    bandwidth: NotRequired[str]
-    loaIssueTime: NotRequired[datetime]
-    lagId: NotRequired[str]
-    awsDevice: NotRequired[str]
-    jumboFrameCapable: NotRequired[bool]
-    awsDeviceV2: NotRequired[str]
-    awsLogicalDeviceId: NotRequired[str]
-    hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
-    tags: NotRequired[List[TagTypeDef]]
-    providerName: NotRequired[str]
 
 
 class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
@@ -824,6 +788,7 @@ class ConnectionResponseTypeDef(TypedDict):
     portEncryptionStatus: str
     encryptionMode: str
     macSecKeys: List[MacSecKeyTypeDef]
+    partnerInterconnectMacSecCapable: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -850,12 +815,58 @@ class ConnectionTypeDef(TypedDict):
     portEncryptionStatus: NotRequired[str]
     encryptionMode: NotRequired[str]
     macSecKeys: NotRequired[List[MacSecKeyTypeDef]]
+    partnerInterconnectMacSecCapable: NotRequired[bool]
 
 
 class DisassociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
     macSecKeys: List[MacSecKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InterconnectResponseTypeDef(TypedDict):
+    interconnectId: str
+    interconnectName: str
+    interconnectState: InterconnectStateType
+    region: str
+    location: str
+    bandwidth: str
+    loaIssueTime: datetime
+    lagId: str
+    awsDevice: str
+    jumboFrameCapable: bool
+    awsDeviceV2: str
+    awsLogicalDeviceId: str
+    hasLogicalRedundancy: HasLogicalRedundancyType
+    tags: List[TagTypeDef]
+    providerName: str
+    macSecCapable: bool
+    portEncryptionStatus: str
+    encryptionMode: str
+    macSecKeys: List[MacSecKeyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InterconnectTypeDef(TypedDict):
+    interconnectId: NotRequired[str]
+    interconnectName: NotRequired[str]
+    interconnectState: NotRequired[InterconnectStateType]
+    region: NotRequired[str]
+    location: NotRequired[str]
+    bandwidth: NotRequired[str]
+    loaIssueTime: NotRequired[datetime]
+    lagId: NotRequired[str]
+    awsDevice: NotRequired[str]
+    jumboFrameCapable: NotRequired[bool]
+    awsDeviceV2: NotRequired[str]
+    awsLogicalDeviceId: NotRequired[str]
+    hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
+    tags: NotRequired[List[TagTypeDef]]
+    providerName: NotRequired[str]
+    macSecCapable: NotRequired[bool]
+    portEncryptionStatus: NotRequired[str]
+    encryptionMode: NotRequired[str]
+    macSecKeys: NotRequired[List[MacSecKeyTypeDef]]
 
 
 class DirectConnectGatewayAssociationProposalTypeDef(TypedDict):
@@ -1042,11 +1053,6 @@ class UpdateDirectConnectGatewayResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class InterconnectsTypeDef(TypedDict):
-    interconnects: List[InterconnectTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class AllocatePrivateVirtualInterfaceRequestTypeDef(TypedDict):
     connectionId: str
     ownerAccount: str
@@ -1137,6 +1143,11 @@ class LagTypeDef(TypedDict):
     macSecCapable: NotRequired[bool]
     encryptionMode: NotRequired[str]
     macSecKeys: NotRequired[List[MacSecKeyTypeDef]]
+
+
+class InterconnectsTypeDef(TypedDict):
+    interconnects: List[InterconnectTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateDirectConnectGatewayAssociationProposalResultTypeDef(TypedDict):

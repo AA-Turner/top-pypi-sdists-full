@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: target-hotglue
-Version: 0.1.2
+Version: 0.1.3
 Summary: `target-hotglue` is an SDK for building Singer Targets for hotglue.
 License: Apache 2.0
 Keywords: hotglue,target sdk

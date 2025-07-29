@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.11.19
+Version: 0.11.20
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>
@@ -22,6 +22,7 @@ Requires-Dist: numpy
 Requires-Dist: pyyaml
 Requires-Dist: tensorstore >= 0.1.71
 Requires-Dist: nest_asyncio
+Requires-Dist: aiofiles
 Requires-Dist: protobuf
 Requires-Dist: humanize
 Requires-Dist: simplejson >= 3.16.0
@@ -31,6 +32,7 @@ Requires-Dist: grain ; extra == "docs"
 Requires-Dist: aiofiles ; extra == "docs"
 Requires-Dist: tensorflow_datasets ; extra == "docs"
 Requires-Dist: opencv-python ; extra == "docs"
+Requires-Dist: safetensors ; extra == "docs"
 Requires-Dist: google-cloud-logging ; extra == "testing"
 Requires-Dist: mock ; extra == "testing"
 Requires-Dist: flax ; extra == "testing"
@@ -38,6 +40,7 @@ Requires-Dist: pytest ; extra == "testing"
 Requires-Dist: pytest-xdist ; extra == "testing"
 Requires-Dist: chex ; extra == "testing"
 Requires-Dist: aiofiles ; extra == "testing"
+Requires-Dist: safetensors ; extra == "testing"
 Project-URL: homepage, http://github.com/google/orbax
 Project-URL: repository, http://github.com/google/orbax
 Provides-Extra: docs

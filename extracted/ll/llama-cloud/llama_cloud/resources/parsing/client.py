@@ -118,6 +118,7 @@ class ParsingClient:
         output_s_3_region: str,
         target_pages: str,
         webhook_url: str,
+        webhook_configurations: str,
         job_timeout_in_seconds: float,
         job_timeout_extra_time_per_page_in_seconds: float,
     ) -> ParsingJob:
@@ -151,6 +152,8 @@ class ParsingClient:
 
             - webhook_url: str.
 
+            - webhook_configurations: str.
+
             - job_timeout_in_seconds: float.
 
             - job_timeout_extra_time_per_page_in_seconds: float.
@@ -166,6 +169,7 @@ class ParsingClient:
             "output_s3_region": output_s_3_region,
             "target_pages": target_pages,
             "webhook_url": webhook_url,
+            "webhook_configurations": webhook_configurations,
             "job_timeout_in_seconds": job_timeout_in_seconds,
             "job_timeout_extra_time_per_page_in_seconds": job_timeout_extra_time_per_page_in_seconds,
         }
@@ -242,6 +246,7 @@ class ParsingClient:
         page_separator: str,
         page_suffix: str,
         preserve_layout_alignment_across_pages: bool,
+        preserve_very_small_text: bool,
         skip_diagonal_text: bool,
         spreadsheet_extract_sub_tables: bool,
         structured_output: bool,
@@ -253,6 +258,7 @@ class ParsingClient:
         vendor_multimodal_model_name: str,
         model: str,
         webhook_url: str,
+        webhook_configurations: str,
         preset: str,
         parse_mode: typing.Optional[ParsingMode] = OMIT,
         page_error_tolerance: float,
@@ -389,6 +395,8 @@ class ParsingClient:
 
             - preserve_layout_alignment_across_pages: bool.
 
+            - preserve_very_small_text: bool.
+
             - skip_diagonal_text: bool.
 
             - spreadsheet_extract_sub_tables: bool.
@@ -410,6 +418,8 @@ class ParsingClient:
             - model: str.
 
             - webhook_url: str.
+
+            - webhook_configurations: str.
 
             - preset: str.
 
@@ -530,6 +540,7 @@ class ParsingClient:
             "page_separator": page_separator,
             "page_suffix": page_suffix,
             "preserve_layout_alignment_across_pages": preserve_layout_alignment_across_pages,
+            "preserve_very_small_text": preserve_very_small_text,
             "skip_diagonal_text": skip_diagonal_text,
             "spreadsheet_extract_sub_tables": spreadsheet_extract_sub_tables,
             "structured_output": structured_output,
@@ -541,6 +552,7 @@ class ParsingClient:
             "vendor_multimodal_model_name": vendor_multimodal_model_name,
             "model": model,
             "webhook_url": webhook_url,
+            "webhook_configurations": webhook_configurations,
             "preset": preset,
             "page_error_tolerance": page_error_tolerance,
             "replace_failed_page_with_error_message_prefix": replace_failed_page_with_error_message_prefix,
@@ -1278,6 +1290,7 @@ class AsyncParsingClient:
         output_s_3_region: str,
         target_pages: str,
         webhook_url: str,
+        webhook_configurations: str,
         job_timeout_in_seconds: float,
         job_timeout_extra_time_per_page_in_seconds: float,
     ) -> ParsingJob:
@@ -1311,6 +1324,8 @@ class AsyncParsingClient:
 
             - webhook_url: str.
 
+            - webhook_configurations: str.
+
             - job_timeout_in_seconds: float.
 
             - job_timeout_extra_time_per_page_in_seconds: float.
@@ -1326,6 +1341,7 @@ class AsyncParsingClient:
             "output_s3_region": output_s_3_region,
             "target_pages": target_pages,
             "webhook_url": webhook_url,
+            "webhook_configurations": webhook_configurations,
             "job_timeout_in_seconds": job_timeout_in_seconds,
             "job_timeout_extra_time_per_page_in_seconds": job_timeout_extra_time_per_page_in_seconds,
         }
@@ -1402,6 +1418,7 @@ class AsyncParsingClient:
         page_separator: str,
         page_suffix: str,
         preserve_layout_alignment_across_pages: bool,
+        preserve_very_small_text: bool,
         skip_diagonal_text: bool,
         spreadsheet_extract_sub_tables: bool,
         structured_output: bool,
@@ -1413,6 +1430,7 @@ class AsyncParsingClient:
         vendor_multimodal_model_name: str,
         model: str,
         webhook_url: str,
+        webhook_configurations: str,
         preset: str,
         parse_mode: typing.Optional[ParsingMode] = OMIT,
         page_error_tolerance: float,
@@ -1549,6 +1567,8 @@ class AsyncParsingClient:
 
             - preserve_layout_alignment_across_pages: bool.
 
+            - preserve_very_small_text: bool.
+
             - skip_diagonal_text: bool.
 
             - spreadsheet_extract_sub_tables: bool.
@@ -1570,6 +1590,8 @@ class AsyncParsingClient:
             - model: str.
 
             - webhook_url: str.
+
+            - webhook_configurations: str.
 
             - preset: str.
 
@@ -1690,6 +1712,7 @@ class AsyncParsingClient:
             "page_separator": page_separator,
             "page_suffix": page_suffix,
             "preserve_layout_alignment_across_pages": preserve_layout_alignment_across_pages,
+            "preserve_very_small_text": preserve_very_small_text,
             "skip_diagonal_text": skip_diagonal_text,
             "spreadsheet_extract_sub_tables": spreadsheet_extract_sub_tables,
             "structured_output": structured_output,
@@ -1701,6 +1724,7 @@ class AsyncParsingClient:
             "vendor_multimodal_model_name": vendor_multimodal_model_name,
             "model": model,
             "webhook_url": webhook_url,
+            "webhook_configurations": webhook_configurations,
             "preset": preset,
             "page_error_tolerance": page_error_tolerance,
             "replace_failed_page_with_error_message_prefix": replace_failed_page_with_error_message_prefix,

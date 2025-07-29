@@ -221,13 +221,44 @@ async def check_token_for_volc(api_key, threshold: float = 1, purpose: Optional[
         base_url = os.getenv("VOLC_BASE_URL") or "https://ark.cn-beijing.volces.com/api/v3"
         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
-        if purpose:
-            response = client.images.generate(
+        if purpose == "seedance":
+            url = "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks"
+
+            payload = {
+                "model": "doubao-seedance-1-0-pro-250528",
+                # "model":"doubao-seedance-1-0-lite-i2v-250428",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验  --resolution 480p  --duration 5 --camerafixed false"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_i2v.png"
+                        }
+                    }
+                ]
+            }
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Content-Type': 'application/json'
+            }
+
+            response = requests.request("POST", url, headers=headers, json=payload)
+            logger.debug(response.json())
+            response.raise_for_status()
+        elif purpose:
+            response = await client.images.generate(
                 model="doubao-seedream-3-0-t2i-250415",
                 prompt="鱼眼镜头，一只猫咪的头部，画面呈现出猫咪的五官因为拍摄方式扭曲的效果。",
                 size="1024x1024",
                 response_format="url"
             )
+            logger.debug(response.json())
+            response.raise_for_status()
+
         else:
 
             response = await client.chat.completions.create(
@@ -235,6 +266,7 @@ async def check_token_for_volc(api_key, threshold: float = 1, purpose: Optional[
                 messages=[{"role": "user", "content": "hi"}],
                 max_tokens=1
             )
+
         return True
     except TimeoutException as e:
         raise
@@ -368,7 +400,7 @@ if __name__ == '__main__':
 
     # arun(check_token_for_ppinfra("sk_F0kgPyCMTzmOH_-VCEJucOK8HIrbnLGYm_IWxBToHZQ"))
 
-    # arun(check_token_for_volc("f1f394db-59e9-4cdd-9d12-b11d50173efc"))
+    arun(check_token_for_volc("58a5f216-4ce7-4f43-9fba-8a60412c085c", purpose='seedance'))
     # arun(check_token_for_volc("279749bd-ba5e-4962-9c65-eb6604b65594"))
 
     # arun(check_token_for_ppinfra("sk_mCb5sRGTi6GXkSRp5F679Rbs0V_Hfee3p85lccGXCOo"))
@@ -382,4 +414,4 @@ if __name__ == '__main__':
 
     # arun(check_token_for_gitee("NWVXUPI38OQVXZGOEL3D23I9YUQWZPV23GVVBW1X"))
 
-    arun(get_valid_token_for_fal())
+    # arun(get_valid_token_for_fal())

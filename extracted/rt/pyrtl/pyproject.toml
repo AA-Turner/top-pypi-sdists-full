@@ -23,7 +23,7 @@ authors = [
 description = "RTL-level Hardware Design and Simulation Toolkit"
 readme = "README.md"
 license = {file = "LICENSE.md"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -52,3 +52,63 @@ Changelog = "https://github.com/UCSBarchlab/PyRTL/blob/development/CHANGELOG.md"
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.ruff]
+exclude = ["ipynb-examples"]
+
+[tool.ruff.lint]
+# See https://docs.astral.sh/ruff/rules/
+select = [
+    # pycodestyle
+    "E", "W",
+    # Pyflakes
+    "F",
+     # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-comprehensions
+    "C4",
+    # flake8-errmsg
+    "EM",
+    # flake8-future-annotations
+    "FA",
+    # flake8-return
+    "RET",
+    # flake8-simplify
+    "SIM",
+    # flake8-unused-arguments
+    "ARG",
+    # flynt
+    "FLY",
+    # isort
+    "I",
+    # pylint
+    "PLE", "PLW", "PLC",
+    # refurb
+    "FURB",
+    # ruff-specific checks
+    "RUF"
+]
+ignore = [
+    # Use ternary operator:
+    # Resulting code is harder to read.
+    "SIM108",
+    # Use a single `with` statement with multiple contexts instead of nested
+    # `with` statements:
+    # conditional_assignment is harder to read when combined.
+    "SIM117",
+    # Using the global statement to update ___ is discouraged:
+    # PyRTL uses many globals.
+    "PLW0603",
+    # `for` loop variable ___ overwritten by assignment target:
+    # Fixing this introduces more variables, which is harder to read.
+    "PLW2901",
+    # `import` should be at the top-level of a file:
+    # PyRTL uses many function-level imports to avoid circular dependencies.
+    "PLC0415",
+    # String/docstring/comment contains ambiguous <unicode>
+    "RUF001", "RUF002", "RUF003",
+    # `__all__` is not sorted
+    "RUF022",
+]

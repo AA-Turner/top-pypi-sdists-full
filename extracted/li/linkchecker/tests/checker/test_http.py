@@ -16,6 +16,7 @@
 """
 Test http checking.
 """
+import sys
 
 from tests import need_network
 from .httpserver import HttpServerTest, CookieRedirectHttpRequestHandler
@@ -34,7 +35,11 @@ class TestHttp(HttpServerTest):
         self.file_test("http.html", confargs=confargs)
         self.file_test("http_lowercase.html", confargs=confargs)
         self.file_test("http_quotes.html", confargs=confargs)
-        self.file_test("http_slash.html", confargs=confargs)
+        if sys.version_info < (3, 12, 6):
+            http_slash_html = "http_slash-old-urlunsplit.html"
+        else:
+            http_slash_html = "http_slash.html"
+        self.file_test(http_slash_html, confargs=confargs)
         self.file_test("http_url_quote.html", confargs=confargs)
 
     def test_html(self):

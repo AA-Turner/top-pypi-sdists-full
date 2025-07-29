@@ -263,7 +263,8 @@ class LoggingTestCase(TracerTestCase):
                     ) == lines[0]
 
     def test_log_strformat_style_dollar_sign(self):
-        # FIXME: This test that verifies that the logging integration doesnt work with dollar sign style format strings.
+        # FIXME: This test that verifies that the logging integration
+        # doesn't work with dollar sign style format strings.
         def func():
             with self.tracer.trace("test.logging") as span:
                 logger.info("Hello!")
@@ -302,7 +303,7 @@ class LoggingTestCase(TracerTestCase):
                 assert getattr(record, LOG_ATTR_SPAN_ID) == str(span.span_id)
 
 
-@pytest.mark.parametrize("dd_logs_enabled", ["true", "false", "structured"])
+@pytest.mark.parametrize("dd_logs_enabled", ["true", "structured"])
 def test_manual_log_formatter_injection(dd_logs_enabled: str, run_python_code_in_subprocess):
     code = """
 import ddtrace.auto
@@ -320,7 +321,7 @@ log.info("Hello!")
     """
 
     env = os.environ.copy()
-    env["DD_LOGS_ENABLED"] = dd_logs_enabled
+    env["DD_LOGS_INJECTION"] = dd_logs_enabled
     stdout, stderr, status, _ = run_python_code_in_subprocess(code, env=env)
     assert status == 0, stderr
 

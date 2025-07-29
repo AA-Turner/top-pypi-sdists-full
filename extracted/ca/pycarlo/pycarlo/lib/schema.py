@@ -723,6 +723,18 @@ class AuthorizationGroupSource(sgqlc.types.Enum):
     __choices__ = ("AUTHORIZATION_PROVIDER", "BUILT_IN", "CUSTOM")
 
 
+class AutoOperator(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AUTO`None
+    * `AUTO_HIGH`None
+    * `AUTO_LOW`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AUTO", "AUTO_HIGH", "AUTO_LOW")
+
+
 class BiContainerModelType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -12934,12 +12946,18 @@ class AssignmentWithProperties(sgqlc.types.Type):
     """Domain Assignment configuration"""
 
     __schema__ = schema
-    __field_names__ = ("mcon", "display_name")
+    __field_names__ = ("mcon", "display_name", "resource_type", "object_type")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """MCON of the object assigned to a domain"""
 
     display_name = sgqlc.types.Field(String, graphql_name="displayName")
     """Display name of the object assigned to a domain"""
+
+    resource_type = sgqlc.types.Field(String, graphql_name="resourceType")
+    """Resource type of the object assigned to a domain"""
+
+    object_type = sgqlc.types.Field(String, graphql_name="objectType")
+    """Type of object assigned to a domain"""
 
 
 class AudienceMonitorConnection(sgqlc.types.relay.Connection):
@@ -18407,9 +18425,11 @@ class DomainOutput(sgqlc.types.Type):
         "description",
         "created_by_email",
         "assignments",
+        "excluded_assignments",
         "tags",
         "excluded_tags",
         "assignments_with_properties",
+        "excluded_assignments_with_properties",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """Domain UUID"""
@@ -18426,6 +18446,11 @@ class DomainOutput(sgqlc.types.Type):
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
     """Objects assigned to domain (as MCONs)"""
 
+    excluded_assignments = sgqlc.types.Field(
+        sgqlc.types.list_of(String), graphql_name="excludedAssignments"
+    )
+    """Objects excluded from domain (as MCONs)"""
+
     tags = sgqlc.types.Field(sgqlc.types.list_of("TagKeyValuePairOutput"), graphql_name="tags")
     """Filter by tag key/value pairs for tables."""
 
@@ -18438,6 +18463,12 @@ class DomainOutput(sgqlc.types.Type):
         sgqlc.types.list_of(AssignmentWithProperties), graphql_name="assignmentsWithProperties"
     )
     """Objects assigned to domains and their properties"""
+
+    excluded_assignments_with_properties = sgqlc.types.Field(
+        sgqlc.types.list_of(AssignmentWithProperties),
+        graphql_name="excludedAssignmentsWithProperties",
+    )
+    """Objects excluded from domains and their properties"""
 
 
 class DomainRestrictionConnection(sgqlc.types.relay.Connection):
@@ -19579,6 +19610,7 @@ class FHEvent(sgqlc.types.Type):
         "upper_threshold",
         "threshold_type",
         "comparison_operator",
+        "auto_operator",
         "custom_metric_display_name",
         "custom_metric_sql_expression",
         "historical_mean",
@@ -19619,6 +19651,9 @@ class FHEvent(sgqlc.types.Type):
         CustomRuleComparisonOperator, graphql_name="comparisonOperator"
     )
     """Threshold comparison operator"""
+
+    auto_operator = sgqlc.types.Field(AutoOperator, graphql_name="autoOperator")
+    """Operator used (when using automatic operators)"""
 
     custom_metric_display_name = sgqlc.types.Field(String, graphql_name="customMetricDisplayName")
     """Display name of the custom metric"""
@@ -34974,6 +35009,14 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 (
+                    "excluded_assignments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="excludedAssignments",
+                        default=None,
+                    ),
+                ),
+                (
                     "excluded_tags",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(TagKeyValuePairInput),
@@ -35004,6 +35047,8 @@ class Mutation(sgqlc.types.Type):
     * `assignments` (`[String]`): Objects assigned to domain (as
       MCONs)
     * `description` (`String`): Description of the domain
+    * `excluded_assignments` (`[String]`): Objects excluded from
+      domain (as MCONs)
     * `excluded_tags` (`[TagKeyValuePairInput]`): Filter out by tag
       key/value pairs for tables.
     * `name` (`String!`): Domain name
@@ -60573,16 +60618,6 @@ class TableMetadataType(sgqlc.types.Type):
     )
 
 
-class TableMetricExistence(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("metric_name", "exist")
-    metric_name = sgqlc.types.Field(String, graphql_name="metricName")
-    """metric name, to see if the metric exists on a table or not"""
-
-    exist = sgqlc.types.Field(Boolean, graphql_name="exist")
-    """indicates whether the metric exists for table or not"""
-
-
 class TableMetricV2(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -72859,7 +72894,6 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "write_throughput",
         "objects_deleted",
         "maintenance_windows",
-        "check_table_metrics_existence",
         "freshness_collection_status",
         "volume_collection_status",
         "is_muted",
@@ -73505,31 +73539,6 @@ class WarehouseTable(sgqlc.types.Type, Node):
     * `end_time` (`DateTime!`): End time of maintenance period
     * `mcon` (`String!`): MC object identifier
     * `metric_type` (`DataMaintenanceMetric!`)None
-    """
-
-    check_table_metrics_existence = sgqlc.types.Field(
-        sgqlc.types.list_of(TableMetricExistence),
-        graphql_name="checkTableMetricsExistence",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "metric_names",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="metricNames", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of metric name and whether they
-    exist or not on a table
-
-    Arguments:
-
-    * `metric_names` (`[String]`): list of metric names to check
-      whether they exist or not. If not specified, we will check
-      total_byte_count, total_row_count, write_throughput and
-      objects_deleted for now.
     """
 
     freshness_collection_status = sgqlc.types.Field(

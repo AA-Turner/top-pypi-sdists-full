@@ -380,6 +380,7 @@ from agilicus_api.model.license_constraint_expression import LicenseConstraintEx
 from agilicus_api.model.license_constraint_name import LicenseConstraintName
 from agilicus_api.model.license_constraint_variables import LicenseConstraintVariables
 from agilicus_api.model.license_details import LicenseDetails
+from agilicus_api.model.license_evaluation_context import LicenseEvaluationContext
 from agilicus_api.model.license_evaluation_input import LicenseEvaluationInput
 from agilicus_api.model.license_spec import LicenseSpec
 from agilicus_api.model.licensed_feature import LicensedFeature
@@ -447,6 +448,7 @@ from agilicus_api.model.list_labelled_objects_response import ListLabelledObject
 from agilicus_api.model.list_labels_response import ListLabelsResponse
 from agilicus_api.model.list_launchers_response import ListLaunchersResponse
 from agilicus_api.model.list_license_details_response import ListLicenseDetailsResponse
+from agilicus_api.model.list_license_evaluation_contexts_response import ListLicenseEvaluationContextsResponse
 from agilicus_api.model.list_licenses_response import ListLicensesResponse
 from agilicus_api.model.list_logs_response import ListLogsResponse
 from agilicus_api.model.list_mfa_challenge_methods import ListMFAChallengeMethods

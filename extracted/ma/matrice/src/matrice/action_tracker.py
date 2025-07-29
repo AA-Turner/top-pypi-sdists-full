@@ -189,6 +189,7 @@ class ActionTracker:
         self.action_id = action_id
         self.action_id_str = str(self.action_id)
         self.num_inference_samples = 0
+        self.index_to_category = None
         os.environ["MATRICE_ACTION_ID"] = self.action_id_str
 
     @log_errors(raise_exception=True, log_error=False)
@@ -982,6 +983,8 @@ class ActionTracker:
         >>> print(exported_mapping)
         {0: 'cat', 1: 'dog'}
         """
+        if self.index_to_category:
+            return self.index_to_category
         if self.action_details.get("class_index_map"):
             self.index_to_category = self.action_details.get("class_index_map")
             return self.index_to_category
@@ -1358,24 +1361,69 @@ class ActionTracker:
                 print(f"Error uploading image to {presigned_url}: {e}")
 
     def update_prediction_results(self, predictions):
-        if not self.action_details.get("class_index_map"):
-            return predictions
-        if not self.action_details.get("modelType") == "pretrained":
-            return predictions
+        """Update prediction results by converting category indices to category names.
         
+        Handles various prediction formats:
+        - Classification: single prediction dict or list of prediction dicts
+        - Detection: list of detection results (each containing list of detections)
+        - Frame-based: dict with frame keys and detection lists as values
+        """
         try:
-            index_to_category = self.action_details.get("class_index_map")
-            if self.project_type == "classification":
-                predictions["category"] = index_to_category.get(
-                    str(predictions["category"]),
-                    predictions["category"],
-                )
-            else:
-                for prediction in predictions:
-                    prediction["category"] = index_to_category.get(
-                        str(prediction["category"]),
-                        prediction["category"],
+            index_to_category = self.get_index_to_category(self.is_exported)
+            
+            def update_category_in_item(item):
+                """Recursively update category in a single item (dict)."""
+                if isinstance(item, dict) and "category" in item:
+                    item["category"] = index_to_category.get(
+                        str(item["category"]),
+                        item["category"],
                     )
+                return item
+
+            def process_detection_list(detection_list):
+                """Process a list of detection dictionaries."""
+                if not isinstance(detection_list, list):
+                    return detection_list
+                
+                for detection in detection_list:
+                    update_category_in_item(detection)
+                return detection_list
+
+            # Handle different prediction formats
+            if isinstance(predictions, dict):
+                # Check if it's a single classification result
+                if "category" in predictions:
+                    # Single classification prediction
+                    return update_category_in_item(predictions)
+                else:
+                    # Frame-based format: {frame_key: [detections]}
+                    for frame_key, frame_value in predictions.items():
+                        if isinstance(frame_value, list):
+                            predictions[frame_key] = process_detection_list(frame_value)
+                        elif isinstance(frame_value, dict) and "category" in frame_value:
+                            predictions[frame_key] = update_category_in_item(frame_value)
+                    return predictions
+                    
+            elif isinstance(predictions, list):
+                # Handle list of predictions
+                for i, prediction in enumerate(predictions):
+                    if isinstance(prediction, dict):
+                        if "category" in prediction:
+                            # List of classification predictions
+                            predictions[i] = update_category_in_item(prediction)
+                        else:
+                            # Potentially nested structure, process recursively
+                            for key, value in prediction.items():
+                                if isinstance(value, list):
+                                    prediction[key] = process_detection_list(value)
+                    elif isinstance(prediction, list):
+                        # List of detection lists (batch of detections)
+                        predictions[i] = process_detection_list(prediction)
+                return predictions
+            
+            # Return unchanged if not a dict or list
+            return predictions
+                    
         except Exception:
-            pass
-        return predictions
+            # Silently handle any unexpected data structures
+            return predictions

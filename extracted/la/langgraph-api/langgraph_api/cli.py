@@ -83,6 +83,12 @@ class SecurityConfig(TypedDict, total=False):
     paths: dict[str, dict[str, list]]
 
 
+class CacheConfig(TypedDict, total=False):
+    cache_keys: list[str]
+    ttl_seconds: int
+    max_size: int
+
+
 class AuthConfig(TypedDict, total=False):
     path: str
     """Path to the authentication function in a Python file."""
@@ -112,6 +118,7 @@ class AuthConfig(TypedDict, total=False):
             ]
         }
     """
+    cache: CacheConfig | None
 
 
 def _check_newer_version(pkg: str, timeout: float = 0.2) -> None:

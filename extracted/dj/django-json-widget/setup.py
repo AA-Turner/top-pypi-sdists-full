@@ -42,11 +42,11 @@ if sys.argv[-1] == 'tag':
     sys.exit()
 
 readme = open('README.rst').read()
-history = open('HISTORY.rst').read().replace('.. :changelog:', '')
+history = open('CHANGELOG.rst').read().replace('.. :changelog:', '')
 
 setup(
     name='django-json-widget',
-    version='2.0.1',
+    version='2.0.3',
     description="""Django json widget is an alternative widget that makes it easy to edit the jsonfield field of django.""",
     long_description=readme + '\n\n' + history,
     author='José Manuel Rivas',

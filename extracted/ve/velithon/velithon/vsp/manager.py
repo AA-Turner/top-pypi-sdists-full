@@ -1,3 +1,9 @@
+"""VSP (Velithon Service Protocol) manager implementation.
+
+This module provides service management functionality for VSP including
+service lifecycle management, coordination, and cluster operations.
+"""
+
 import asyncio
 import inspect
 import logging
@@ -18,11 +24,18 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerType(IntEnum):
+    """Enumeration of worker types for VSP manager."""
+
     ASYNCIO = 1
     MULTICORE = 2
 
 
 class VSPManager:
+    """Manager for Velithon Service Protocol (VSP).
+
+    Manages service endpoints, client connections, and worker coordination.
+    """
+
     def __init__(
         self,
         name: str,
@@ -33,6 +46,19 @@ class VSPManager:
         max_transports: int = 10,
         batch_size: int = 10,
     ):
+        """
+        Initialize the VSPManager.
+
+        Args:
+            name (str): The name of the service.
+            service_mesh (ServiceMesh | None): Optional service mesh instance.
+            num_workers (int): Number of worker tasks to spawn.
+            worker_type (WorkerType): Type of worker (ASYNCIO or MULTICORE).
+            max_queue_size (int): Maximum size of the message queue.
+            max_transports (int): Maximum number of transport connections.
+            batch_size (int): Number of messages to process per batch.
+
+        """
         assert isinstance(
             worker_type, WorkerType
         ), 'worker_type must be an instance of WorkerType'
@@ -78,7 +104,7 @@ class VSPManager:
         self.connection_pool = None
 
     def vsp_service(self, endpoint: str) -> Callable:
-        """Register a service endpoint with caching optimization"""
+        """Register a service endpoint with caching optimization."""
 
         def decorator(func: Callable[..., dict[str, Any]]) -> Callable:
             # Cache function signature for faster dispatch
@@ -91,6 +117,8 @@ class VSPManager:
         return decorator
 
     def vsp_call(self, service_name: str, endpoint: str) -> Callable:
+        """Call a VSP service endpoint with automatic serialization."""
+
         def decorator(func: Callable) -> Callable:
             async def wrapper(**kwargs) -> dict[str, Any]:
                 logger.debug(f'Calling {service_name}.{endpoint} with {kwargs}')
@@ -131,7 +159,7 @@ class VSPManager:
 
         async with server:
             logger.info(
-                f'VSP server started on {host}:{port} with {self.num_workers} workers (reuse_port={reuse_port})'
+                f'VSP server started on {host}:{port} with {self.num_workers} workers (reuse_port={reuse_port})'  # noqa: E501
             )
             __serving_forever_fut = loop.create_future()
             try:
@@ -145,7 +173,7 @@ class VSPManager:
                     raise
 
     async def enqueue_message(self, message: VSPMessage, protocol: VSPProtocol) -> None:
-        """Message enqueuing with priority handling"""
+        """Message enqueuing with priority handling."""
         # Handle priority messages separately
         if message.header['is_response'] or message.header['endpoint'] == 'health':
             self.priority_queue.append((message, protocol))
@@ -161,7 +189,7 @@ class VSPManager:
             await self.message_queue.put((message, protocol))
             self.stats['messages_queued'] += 1
             logger.debug(f'Enqueued message {message.header["request_id"]}')
-        except asyncio.QueueFull:
+        except asyncio.QueueFull as e:
             self.stats['queue_full_errors'] += 1
             logger.error(
                 f'Message queue full, dropping message {message.header["request_id"]}'
@@ -174,12 +202,12 @@ class VSPManager:
                 is_response=True,
             )
             protocol.send_message(error_msg)
-            raise VSPError('Message queue full')
+            raise VSPError('Message queue full') from e
 
     async def optimized_worker(self, worker_id: int) -> None:
-        """Worker with batch processing and priority handling"""
+        """Worker with batch processing and priority handling."""
         logger.info(
-            f'Worker {worker_id} ({self.worker_type.name.lower()}) started for {self.name}'
+            f'Worker {worker_id} ({self.worker_type.name.lower()}) started for {self.name}'  # noqa: E501
         )
 
         batch = []
@@ -227,7 +255,7 @@ class VSPManager:
     async def _process_priority_message(
         self, message: VSPMessage, protocol: VSPProtocol
     ) -> None:
-        """Process high-priority messages (responses and health checks) immediately"""
+        """Process high-priority messages (responses and health checks) immediately."""
         if message.header['is_response']:
             await self.handle_response(message)
         elif message.header['endpoint'] == 'health':
@@ -243,7 +271,7 @@ class VSPManager:
     async def _process_batch(
         self, batch: list[tuple[VSPMessage, VSPProtocol]], worker_id: int
     ):
-        """Process a batch of messages efficiently"""
+        """Process a batch of messages efficiently."""
         if not batch:
             return
 
@@ -286,7 +314,7 @@ class VSPManager:
     async def _process_async_batch(
         self, messages: list[tuple[VSPMessage, VSPProtocol]], handler: Callable
     ):
-        """Process batch of messages asynchronously"""
+        """Process batch of messages asynchronously."""
         tasks = []
         for message, protocol in messages:
             task = self._handle_single_message_async(message, protocol, handler)
@@ -298,7 +326,7 @@ class VSPManager:
     async def _handle_single_message_async(
         self, message: VSPMessage, protocol: VSPProtocol, handler: Callable
     ):
-        """Handle a single message asynchronously"""
+        """Handle a single message asynchronously."""
         try:
             response = handler(**message.body)
             if inspect.isawaitable(response):
@@ -328,7 +356,7 @@ class VSPManager:
     async def _process_multicore_batch(
         self, messages: list[tuple[VSPMessage, VSPProtocol]], handler: Callable
     ):
-        """Process batch using multicore processing"""
+        """Process batch using multicore processing."""
         loop = asyncio.get_event_loop()
 
         # Prepare batch for multicore processing
@@ -378,9 +406,9 @@ class VSPManager:
     def _process_batch_sync(
         message_data: list[tuple[dict, dict]], handler: Callable
     ) -> list[Any]:
-        """Synchronously process a batch of messages"""
+        """Process a batch of messages synchronously."""
         results = []
-        for header, body in message_data:
+        for _header, body in message_data:
             try:
                 result = handler(**body)
                 results.append(result)
@@ -389,7 +417,7 @@ class VSPManager:
         return results
 
     async def _background_cleanup(self):
-        """Background task for periodic cleanup"""
+        """Background task for periodic cleanup."""
         while True:
             try:
                 await asyncio.sleep(30)  # Run every 30 seconds
@@ -408,7 +436,7 @@ class VSPManager:
                 logger.error(f'Background cleanup error: {e}')
 
     async def _update_stats(self):
-        """Update performance statistics"""
+        """Update performance statistics."""
         current_size = self.message_queue.qsize()
         self.stats['average_queue_size'] = (
             self.stats['average_queue_size'] * 0.9 + current_size * 0.1
@@ -416,7 +444,7 @@ class VSPManager:
         self._last_stats_update = time.time()
 
     def get_performance_stats(self) -> dict[str, Any]:
-        """Get comprehensive performance statistics"""
+        """Get comprehensive performance statistics."""
         connection_stats = {}
         if self.connection_pool:
             connection_stats = self.connection_pool.get_stats()
@@ -430,13 +458,13 @@ class VSPManager:
         }
 
     async def handle_response(self, message: VSPMessage) -> None:
-        """Handle response messages"""
+        """Handle response messages."""
         await self.client.handle_response(message)
 
     async def handle_vsp_endpoint(
         self, endpoint: str, body: dict[str, Any]
     ) -> dict[str, Any]:
-        """Handle VSP endpoint"""
+        """Handle VSP endpoint."""
         handler = self.endpoints.get(endpoint)
         if not handler:
             logger.error(f'Endpoint {endpoint} not found')
@@ -448,10 +476,10 @@ class VSPManager:
             return response
         except Exception as e:
             logger.error(f'Error handling endpoint {endpoint}: {e}')
-            raise VSPError(f'Endpoint execution failed: {e}')
+            raise VSPError(f'Endpoint execution failed: {e}') from e
 
     def close(self) -> None:
-        """Close manager and clean up resources"""
+        """Close manager and clean up resources."""
         logger.info(f'Closing OptimizedVSPManager {self.name}')
 
         # Cancel workers

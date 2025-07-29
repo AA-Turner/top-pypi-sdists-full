@@ -254,6 +254,7 @@ class UpdatePipelineRequestTypeDef(TypedDict):
     LogPublishingOptions: NotRequired[LogPublishingOptionsTypeDef]
     BufferOptions: NotRequired[BufferOptionsTypeDef]
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
+    PipelineRoleArn: NotRequired[str]
 
 class ListPipelinesResponseTypeDef(TypedDict):
     Pipelines: List[PipelineSummaryTypeDef]
@@ -286,6 +287,7 @@ class PipelineTypeDef(TypedDict):
     ServiceVpcEndpoints: NotRequired[List[ServiceVpcEndpointTypeDef]]
     Destinations: NotRequired[List[PipelineDestinationTypeDef]]
     Tags: NotRequired[List[TagTypeDef]]
+    PipelineRoleArn: NotRequired[str]
 
 class CreatePipelineRequestTypeDef(TypedDict):
     PipelineName: str
@@ -297,6 +299,7 @@ class CreatePipelineRequestTypeDef(TypedDict):
     BufferOptions: NotRequired[BufferOptionsTypeDef]
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    PipelineRoleArn: NotRequired[str]
 
 class CreatePipelineResponseTypeDef(TypedDict):
     Pipeline: PipelineTypeDef

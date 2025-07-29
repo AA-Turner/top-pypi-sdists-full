@@ -719,9 +719,7 @@ class SparkExpectationsWriter:
             self._context.print_dataframe_with_debugger(df)
 
             # get env from user config
-            dq_env = (
-                None if "env" not in self._context.get_dq_rules_params else self._context.get_dq_rules_params["env"]
-            )
+            dq_env = "" if "env" not in self._context.get_dq_rules_params else self._context.get_dq_rules_params["env"]
 
             df = (
                 df.withColumn("output_percentage", sql_round(df.output_percentage, 2))
@@ -843,8 +841,9 @@ class SparkExpectationsWriter:
                 .withColumn("description", col("row_dq_res")["description"])
                 .withColumn("tag", col("row_dq_res")["tag"])
                 .withColumn("action_if_failed", col("row_dq_res")["action_if_failed"])
-                .select("rule_type", "rule", "description", "tag", "action_if_failed")
-                .groupBy("rule_type", "rule", "description", "tag", "action_if_failed")
+                .withColumn("column_name", col("row_dq_res")["column_name"])
+                .select("rule_type", "rule", "column_name", "description", "tag", "action_if_failed")
+                .groupBy("rule_type", "rule", "column_name", "description", "tag", "action_if_failed")
                 .count()
                 .withColumnRenamed("count", "failed_row_count")
             )
@@ -852,6 +851,7 @@ class SparkExpectationsWriter:
                 {
                     "rule_type": row.rule_type,
                     "rule": row.rule,
+                    "column_name": row.column_name,
                     "description": row.description,
                     "tag": row.tag,
                     "action_if_failed": row.action_if_failed,
@@ -860,6 +860,7 @@ class SparkExpectationsWriter:
                 for row in df_res.select(
                     "rule_type",
                     "rule",
+                    "column_name",
                     "description",
                     "tag",
                     "action_if_failed",
@@ -884,6 +885,7 @@ class SparkExpectationsWriter:
                                     "rule": each_rule["rule"],
                                     "action_if_failed": each_rule["action_if_failed"],
                                     "rule_type": each_rule["rule_type"],
+                                    "column_name": each_rule["column_name"],
                                     "failed_row_count": 0,
                                 }
                             )
@@ -917,7 +919,6 @@ class SparkExpectationsWriter:
                 #         or rule["rule"] not in rules_failed_row_count.keys()
                 # ):
                 #     continue  # pragma: no cover
-
                 rule_name = rule["rule"]
                 rule_action = rule["action_if_failed"]
                 if rule_name in rules_failed_row_count.keys():
@@ -930,6 +931,7 @@ class SparkExpectationsWriter:
                     error_threshold_list.append(
                         {
                             "rule_name": rule_name,
+                            "column_name": rule["column_name"],
                             "action_if_failed": rule_action,
                             "description": rule["description"],
                             "rule_type": rule["rule_type"],

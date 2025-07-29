@@ -80,11 +80,16 @@ class ChannelInfo(BaseModel):
     other_info: str = ''
     channel_ratio: int = 1
     error_return_429: int = 0
-    setting: str = ''
+    setting: Union[str, dict] = ''
+    # "setting": "{\"force_format\":true,\"thinking_to_content\":false,\"proxy\":\"\",\"pass_through_body_enabled\":true,\"system_prompt\":\"\"}",
 
     """参数覆盖"""
-    param_override: str = ''  # json
+    param_override: Union[str, dict] = ''  # json
     is_tools: bool = False
+
+    # new
+    max_input_tokens: int = 0
+    multi_key_mode: str = "random"
 
     def __init__(self, /, **data: Any):
         super().__init__(**data)
@@ -97,11 +102,19 @@ class ChannelInfo(BaseModel):
 
         self.setting = self.setting or ""
         self.param_override = self.param_override or ""
+        self.model_mapping = self.model_mapping or ""
+        self.status_code_mapping = self.status_code_mapping or ""
         if isinstance(self.model_mapping, dict):
             self.model_mapping = json.dumps(self.model_mapping)
 
         if isinstance(self.status_code_mapping, dict):
             self.status_code_mapping = json.dumps(self.status_code_mapping)
+
+        if isinstance(self.param_override, dict):
+            self.param_override = json.dumps(self.param_override)
+
+        if isinstance(self.setting, dict):
+            self.setting = json.dumps(self.setting)
 
         if self.used_quota < 10000:
             self.used_quota = int(self.used_quota * 500000)

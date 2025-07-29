@@ -135,9 +135,12 @@ def run_flynt_cli(arglist: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "-a",
         "--aggressive",
-        action="store_true",
-        default=False,
-        help="Include conversions with potentially changed behavior.",
+        action="count",
+        default=0,
+        help=(
+            "Include conversions with potentially changed behavior. "
+            "Use -aa to omit int() wrapping for %%d conversions."
+        ),
     )
 
     parser.add_argument(
@@ -146,6 +149,14 @@ def run_flynt_cli(arglist: Optional[List[str]] = None) -> int:
         action="store",
         nargs="+",
         help="ignore files with given strings in it's absolute path.",
+    )
+
+    parser.add_argument(
+        "-nb",
+        "--notebook",
+        action="store_true",
+        default=False,
+        help="Also search and transform Jupyter notebooks (.ipynb files). Warning: feature in alpha and was not thoroughly tested.",
     )
 
     parser.add_argument(
@@ -163,6 +174,12 @@ def run_flynt_cli(arglist: Optional[List[str]] = None) -> int:
         action="store_true",
         default=False,
         help="Print the current version number and exit.",
+    )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        default=False,
+        help="Show detailed conversion report",
     )
     args = parser.parse_args(arglist)
     if args.stdout and args.verbose:
@@ -262,4 +279,6 @@ def state_from_args(args) -> State:
         transform_format=args.transform_format,
         transform_join=args.transform_joins,
         transform_percent=args.transform_percent,
+        report=args.report,
+        process_notebooks=args.notebook,
     )

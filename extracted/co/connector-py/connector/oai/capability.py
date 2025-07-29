@@ -54,6 +54,8 @@ from connector_sdk_types.generated import (
     ListExpensesResponse,
     ListResourcesRequest,
     ListResourcesResponse,
+    ListUpdatedAccountsRequest,
+    ListUpdatedAccountsResponse,
     OAuth1Credential,
     OAuthClientCredential,
     OAuthCredential,
@@ -543,6 +545,12 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
     StandardCapabilityName.LIST_ACCOUNTS: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=ListAccountsRequest, is_request=True),
         output_payload=_payload_type_data(envelope_type=ListAccountsResponse, is_request=False),
+    ),
+    StandardCapabilityName.LIST_UPDATED_ACCOUNTS: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=ListUpdatedAccountsRequest, is_request=True),
+        output_payload=_payload_type_data(
+            envelope_type=ListUpdatedAccountsResponse, is_request=False
+        ),
     ),
     StandardCapabilityName.LIST_ACTIVITY_RECORDS: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=ListActivityRecordsRequest, is_request=True),

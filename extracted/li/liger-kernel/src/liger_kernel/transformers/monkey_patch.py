@@ -29,6 +29,7 @@ from liger_kernel.transformers.model.phi3 import lce_forward as phi3_lce_forward
 from liger_kernel.transformers.model.phi3 import lce_forward_deprecated as phi3_lce_forward_deprecated
 from liger_kernel.transformers.model.qwen2 import lce_forward as qwen2_lce_forward
 from liger_kernel.transformers.model.qwen2 import lce_forward_deprecated as qwen2_lce_forward_deprecated
+from liger_kernel.transformers.model.smollm3 import lce_forward as smollm3_lce_forward
 from liger_kernel.transformers.qwen2vl_mrope import liger_multimodal_rotary_pos_emb
 from liger_kernel.transformers.rms_norm import LigerRMSNorm
 from liger_kernel.transformers.rope import liger_rotary_pos_emb
@@ -77,8 +78,8 @@ def _patch_rms_norm_module(module, offset=0.0, eps=1e-6, casting_mode="llama", i
         _bind_method_to_module(module.modules_to_save.default, "extra_repr", LigerRMSNorm.extra_repr)
         _bind_method_to_module(module.original_module, "forward", LigerRMSNorm.forward)
         _bind_method_to_module(module.original_module, "extra_repr", LigerRMSNorm.extra_repr)
-        module.modules_to_save.default.__class__.__name__ = LigerRMSNorm.__name__
-        module.original_module.__class__.__name__ = LigerRMSNorm.__name__
+        _bind_method_to_module(module.modules_to_save.default, "_get_name", lambda self: LigerRMSNorm.__name__)
+        _bind_method_to_module(module.original_module, "_get_name", lambda self: LigerRMSNorm.__name__)
     else:
         module.offset = offset
         module.casting_mode = casting_mode
@@ -87,7 +88,7 @@ def _patch_rms_norm_module(module, offset=0.0, eps=1e-6, casting_mode="llama", i
         module.row_mode = row_mode
         _bind_method_to_module(module, "forward", LigerRMSNorm.forward)
         _bind_method_to_module(module, "extra_repr", LigerRMSNorm.extra_repr)
-        module.__class__.__name__ = LigerRMSNorm.__name__
+        _bind_method_to_module(module, "_get_name", lambda self: LigerRMSNorm.__name__)
 
 
 def _patch_layer_norm_module(module, eps=1e-6):
@@ -109,28 +110,28 @@ def _patch_layer_norm_module(module, eps=1e-6):
         module.original_module.hidden_size = getattr(module, "hidden_size", None) or getattr(
             module, "normalized_shape", None
         )
-        _bind_method_to_module(module.modules_to_save.default, "forward", LigerRMSNorm.forward)
-        _bind_method_to_module(module.modules_to_save.default, "extra_repr", LigerRMSNorm.extra_repr)
-        _bind_method_to_module(module.original_module, "forward", LigerRMSNorm.forward)
-        _bind_method_to_module(module.original_module, "extra_repr", LigerRMSNorm.extra_repr)
-        module.modules_to_save.default.__class__.__name__ = LigerLayerNorm.__name__
-        module.original_module.__class__.__name__ = LigerLayerNorm.__name__
+        _bind_method_to_module(module.modules_to_save.default, "forward", LigerLayerNorm.forward)
+        _bind_method_to_module(module.modules_to_save.default, "extra_repr", LigerLayerNorm.extra_repr)
+        _bind_method_to_module(module.original_module, "forward", LigerLayerNorm.forward)
+        _bind_method_to_module(module.original_module, "extra_repr", LigerLayerNorm.extra_repr)
+        _bind_method_to_module(module.modules_to_save.default, "_get_name", lambda self: LigerLayerNorm.__name__)
+        _bind_method_to_module(module.original_module, "_get_name", lambda self: LigerLayerNorm.__name__)
     else:
         module.variance_epsilon = getattr(module, "variance_epsilon", None) or getattr(module, "eps", None) or eps
         module.hidden_size = getattr(module, "hidden_size", None) or getattr(module, "normalized_shape", None)
         _bind_method_to_module(module, "forward", LigerLayerNorm.forward)
         _bind_method_to_module(module, "extra_repr", LigerLayerNorm.extra_repr)
-        module.__class__.__name__ = LigerLayerNorm.__name__
+        _bind_method_to_module(module, "_get_name", lambda self: LigerLayerNorm.__name__)
 
 
 def _patch_swiglu_module(module, liger_module):
     _bind_method_to_module(module, "forward", liger_module.forward)
-    module.__class__.__name__ = liger_module.__name__
+    _bind_method_to_module(module, "_get_name", lambda self: liger_module.__name__)
 
 
 def _patch_geglu_module(module):
     _bind_method_to_module(module, "forward", LigerGEGLUMLP.forward)
-    module.__class__.__name__ = LigerGEGLUMLP.__name__
+    _bind_method_to_module(module, "_get_name", lambda self: LigerGEGLUMLP.__name__)
 
 
 def apply_liger_kernel_to_granite(
@@ -278,6 +279,77 @@ def apply_liger_kernel_to_llama(
 
         # get the base model from the model instance
         base_model: LlamaModel = getattr(model, model.base_model_prefix, model)
+
+        if rms_norm:
+            _patch_rms_norm_module(base_model.norm)
+
+        for decoder_layer in base_model.layers:
+            if swiglu:
+                _patch_swiglu_module(decoder_layer.mlp, LigerSwiGLUMLP)
+            if rms_norm:
+                _patch_rms_norm_module(decoder_layer.input_layernorm)
+                _patch_rms_norm_module(decoder_layer.post_attention_layernorm)
+
+
+def apply_liger_kernel_to_smollm3(
+    rope: bool = True,
+    cross_entropy: bool = False,
+    fused_linear_cross_entropy: bool = True,
+    rms_norm: bool = True,
+    swiglu: bool = True,
+    model: PreTrainedModel = None,
+) -> None:
+    """
+    Apply Liger kernels to replace original implementation in HuggingFace SmolLM3 model
+
+    Args:
+        rope (bool): Whether to apply Liger's rotary position embedding. Default is True.
+        cross_entropy (bool): Whether to apply Liger's cross entropy loss. Default is False.
+        fused_linear_cross_entropy (bool):
+            Whether to apply Liger's fused linear cross entropy loss. Default is True.
+            `cross_entropy` and `fused_linear_cross_entropy` cannot both be True.
+            If `fused_linear_cross_entropy` is True, the logits will not be materialized but more memory efficient.
+        rms_norm (bool): Whether to apply Liger's RMSNorm. Default is True.
+        swiglu (bool): Whether to apply Liger's SwiGLU MLP. Default is True.
+        model (PreTrainedModel): The model instance to apply Liger kernels to, if the model has already been
+        loaded. Default is None.
+    """
+
+    assert not (cross_entropy and fused_linear_cross_entropy), (
+        "cross_entropy and fused_linear_cross_entropy cannot both be True."
+    )
+
+    from transformers.models.smollm3 import modeling_smollm3
+    from transformers.models.smollm3.modeling_smollm3 import SmolLM3Model
+
+    if rope:
+        modeling_smollm3.apply_rotary_pos_emb = liger_rotary_pos_emb
+    if rms_norm:
+        modeling_smollm3.SmolLM3RMSNorm = LigerRMSNorm
+    if swiglu:
+        modeling_smollm3.SmolLM3MLP = LigerSwiGLUMLP
+
+    if cross_entropy:
+        if transformer_version >= version.parse(SUPPORTED_TRANSFORMER_VERSION):
+            from transformers.loss.loss_utils import nn
+
+            nn.functional.cross_entropy = liger_cross_entropy
+        else:
+            logger.warning(TRANSFORMER_DEPRECATION_WARNING)
+            modeling_smollm3.CrossEntropyLoss = LigerCrossEntropyLoss
+
+    if fused_linear_cross_entropy:
+        if model is not None:
+            model.forward = MethodType(smollm3_lce_forward, model)
+        else:
+            modeling_smollm3.SmolLM3ForCausalLM.forward = smollm3_lce_forward
+
+    if model is not None:
+        # The model instance already exists, so we need to additionally patch the
+        # instance variables that reference already-instantiated modules (e.g. SmolLM3RMSNorm or SmolLM3MLP)
+
+        # get the base model from the model instance
+        base_model: SmolLM3Model = getattr(model, model.base_model_prefix, model)
 
         if rms_norm:
             _patch_rms_norm_module(base_model.norm)
@@ -1801,6 +1873,7 @@ MODEL_TYPE_TO_APPLY_LIGER_FN = {
     "qwen2_vl_text": apply_liger_kernel_to_qwen2_vl,
     "qwen2_5_vl": apply_liger_kernel_to_qwen2_5_vl,
     "qwen2_5_vl_text": apply_liger_kernel_to_qwen2_5_vl,
+    "smollm3": apply_liger_kernel_to_smollm3,
     "phi3": apply_liger_kernel_to_phi3,
     "paligemma": apply_liger_kernel_to_paligemma,
 }

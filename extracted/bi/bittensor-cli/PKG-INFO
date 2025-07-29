@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor-cli
-Version: 9.8.7
+Version: 9.9.0
 Summary: Bittensor CLI
 Author: bittensor.com
 Project-URL: homepage, https://github.com/opentensor/btcli
@@ -8,7 +8,7 @@ Project-URL: Repository, https://github.com/opentensor/btcli
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: wheel
-Requires-Dist: async-substrate-interface>=1.1.0
+Requires-Dist: async-substrate-interface>=1.4.2
 Requires-Dist: aiohttp~=3.10.2
 Requires-Dist: backoff~=2.2.1
 Requires-Dist: click<8.2.0

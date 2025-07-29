@@ -31,6 +31,7 @@ dependencies = [
     'pyyaml',
     'tensorstore >= 0.1.71',
     'nest_asyncio',
+    'aiofiles',
     'protobuf',
     'humanize',
     'simplejson >= 3.16.0',
@@ -52,7 +53,8 @@ docs = [
   'grain',
   'aiofiles',
   'tensorflow_datasets',
-  'opencv-python'
+  'opencv-python',
+  'safetensors',
 ]
 testing = [
     'google-cloud-logging',
@@ -62,6 +64,7 @@ testing = [
     'pytest-xdist',
     'chex',
     'aiofiles',
+    'safetensors',
 ]
 
 [tool.flit.sdist]

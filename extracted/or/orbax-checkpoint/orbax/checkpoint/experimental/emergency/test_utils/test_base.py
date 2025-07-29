@@ -37,6 +37,8 @@ from orbax.checkpoint._src.multihost import multislice
 from orbax.checkpoint.experimental.emergency import checkpoint_manager
 from orbax.checkpoint.experimental.emergency import mesh_consistency
 from orbax.checkpoint.experimental.emergency import process_metadata_checkpoint_handler
+from orbax.checkpoint.experimental.emergency.test_utils import dataset_iterator_checkpoint_handler
+
 
 PyTree = Any
 PyTreeCheckpointHandler = pytree_checkpoint_handler.PyTreeCheckpointHandler
@@ -52,6 +54,7 @@ barrier_compatible_test = test_utils.barrier_compatible_test
 assert_tree_equal = test_utils.assert_tree_equal
 get_fake_global_mesh_for_slices = test_utils.get_fake_global_mesh_for_slices
 _STATE_ITEM_NAME = 'state'
+_DATASET_ITEM_NAME = 'dataset'
 
 
 def swap_slices_in_mesh(
@@ -60,10 +63,10 @@ def swap_slices_in_mesh(
   """Reverses the ordering of devices such that slices swap IDs."""
   devices = []
   for slice_id in range(
-      multislice.slice_count(mesh, replica_axis_index=replica_axis_index)
+      multislice.replica_count(mesh, replica_axis_index=replica_axis_index)
   ):
     devices.append(
-        multislice.slice_devices(
+        multislice.replica_devices(
             mesh, replica_id=slice_id, replica_axis_index=replica_axis_index
         )
     )
@@ -922,9 +925,18 @@ class CheckpointManagerTestBase:
           epath.Path(self._get_tempdir_path_test())
           / 'persistent_checkpointing_test'
       )
+      self.persistent_non_replicated_directory = (
+          epath.Path(self._get_tempdir_path_test())
+          / 'non_replicated_persistent_checkpointing_test'
+      )
       if multihost.is_primary_host(primary_host=0):
         self.persistent_directory = epath.Path(
             self.create_tempdir(name='persistent_checkpointing_test').full_path
+        )
+        self.persistent_non_replicated_directory = epath.Path(
+            self.create_tempdir(
+                name='non_replicated_persistent_checkpointing_test'
+            ).full_path
         )
       logging.info(
           'self.local_directory=%s, self.persistent_directory=%s',
@@ -1275,7 +1287,11 @@ class CheckpointManagerTestBase:
 
         if multihost.process_index() == 0:
           test_utils.empty_directory(self.persistent_directory)
-        restored = manager.restore(2)
+        num_replicas = global_mesh.devices.shape[replica_axis_index]
+        with mock.patch.object(
+            multislice, 'slice_count', return_value=num_replicas
+        ):
+          restored = manager.restore(2)
         test_utils.assert_tree_equal(self, pytree_double, restored)
         pcm_restore.assert_not_called()
 
@@ -1309,7 +1325,7 @@ class CheckpointManagerTestBase:
             manager._checkpoint_manager._persistent_primary_host, 0
         )
         self.assertEqual(manager._checkpoint_manager._local_primary_host, 2)
-        slice_id = multislice.process_slice_id(
+        slice_id = multislice.process_replica_id(
             multihost.process_index(),
             global_mesh,
             replica_axis_index=replica_axis_index,
@@ -1330,25 +1346,25 @@ class CheckpointManagerTestBase:
 
       self.assertEqual(jax.process_count(), 4)
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               0, global_mesh, replica_axis_index=replica_axis_index
           ),
           0,
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               1, global_mesh, replica_axis_index=replica_axis_index
           ),
           0,
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               2, global_mesh, replica_axis_index=replica_axis_index
           ),
           1,
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               3, global_mesh, replica_axis_index=replica_axis_index
           ),
           1,
@@ -1357,25 +1373,25 @@ class CheckpointManagerTestBase:
           global_mesh, replica_axis_index=replica_axis_index
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               0, new_global_mesh, replica_axis_index=replica_axis_index
           ),
           1,
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               1, new_global_mesh, replica_axis_index=replica_axis_index
           ),
           1,
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               2, new_global_mesh, replica_axis_index=replica_axis_index
           ),
           0,
       )
       self.assertEqual(
-          multislice.process_slice_id(
+          multislice.process_replica_id(
               3, new_global_mesh, replica_axis_index=replica_axis_index
           ),
           0,
@@ -1410,7 +1426,7 @@ class CheckpointManagerTestBase:
             manager._checkpoint_manager._persistent_primary_host, 0
         )
         self.assertEqual(manager._checkpoint_manager._local_primary_host, 2)
-        slice_id = multislice.process_slice_id(
+        slice_id = multislice.process_replica_id(
             multihost.process_index(),
             global_mesh,
             replica_axis_index=replica_axis_index,
@@ -1467,7 +1483,7 @@ class CheckpointManagerTestBase:
             manager._checkpoint_manager._persistent_primary_host, 2
         )
         self.assertEqual(manager._checkpoint_manager._local_primary_host, 0)
-        slice_id = multislice.process_slice_id(
+        slice_id = multislice.process_replica_id(
             multihost.process_index(),
             new_global_mesh,
             replica_axis_index=replica_axis_index,
@@ -1552,8 +1568,11 @@ class CheckpointManagerTestBase:
             args=get_composite_save_args(pytree_double),
         )  # local
         manager.wait_until_finished()
-
-        restored = manager.restore(5)
+        num_replicas = global_mesh.devices.shape[replica_axis_index]
+        with mock.patch.object(
+            multislice, 'slice_count', return_value=num_replicas
+        ):
+          restored = manager.restore(5)
         test_utils.assert_tree_equal(self, pytree_double, restored)
 
     @parameterized.parameters(
@@ -1607,6 +1626,57 @@ class CheckpointManagerTestBase:
             **{_STATE_ITEM_NAME: PyTreeRestoreArgs()}
             ))
         test_utils.assert_tree_equal(self, pytree_double, restored)
+
+    @parameterized.parameters(
+        (True, 0),
+    )
+    def test_persistent_checkpoint_restore_dataset_iterator(
+        self, enable_async_checkpointing: bool, replica_axis_index: int
+    ):
+      """Test case."""
+      global_mesh, pytree = self.setup_pytree(
+          self.make_global_mesh(replica_axis_index)
+      )
+      abstract_state = jax.tree.map(utils.to_shape_dtype_struct, pytree)
+      options = CheckpointManagerOptions(
+          local=LocalCheckpointOptions(save_interval_steps=1, max_to_keep=2),
+          persistent=PersistentCheckpointOptions(
+              save_interval_steps=2, max_to_keep=2
+          ),
+          enable_async_checkpointing=enable_async_checkpointing,
+          replica_axis_index=replica_axis_index,
+      )
+
+      dummy_dataset = [
+          ('hello', 'hola'),
+          ('world', 'mundo'),
+          ('test', 'prueba'),
+      ]
+      dummy_iterator = dataset_iterator_checkpoint_handler.DatasetIteratorCheckpointHandler.DummyIterator(
+          dummy_dataset
+      )
+
+      with CheckpointManager(
+          local_directory=self.local_directory,
+          persistent_directory=self.persistent_directory,
+          global_mesh=global_mesh,
+          abstract_state=abstract_state,
+          options=options,
+          persistent_non_replicated_directory=self.persistent_non_replicated_directory,
+      ) as manager:
+        manager.save(
+            0,
+            args=args_lib.Composite(
+                state=PyTreeSaveArgs(pytree),
+                dataset=dataset_iterator_checkpoint_handler.DatasetIteratorCheckpointSave(
+                    dummy_iterator
+                ),
+            ),
+        )
+        manager.wait_until_finished()
+
+        # remove all the local directories
+        test_utils.empty_directory(self.local_directory)
 
     def test_process_index_metadata(self):
       """Test case."""

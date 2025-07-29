@@ -334,19 +334,24 @@ def get_integration_secret_fields(integration: Integration) -> list[str]:
     return all_secret_fields
 
 
-def redact_json_obj(json_obj: dict[str, Any], secret_fields: list[str]) -> None:
+def redact_json_obj(json_obj: Any, secret_fields: list[str]) -> None:
     # redacts keys in the json object that are in the REDACTED_KEYS set
     # acts on the object in place
-    redacted_keys = {
-        k.lower()
-        for k in BASE_REDACTED_LOG_KEYS + config.additional_redacted_log_keys + secret_fields
-    }
-    for key, value in json_obj.items():
-        if isinstance(value, dict):
-            redact_json_obj(value, secret_fields)
-        elif isinstance(value, list):
-            for item in value:
-                redact_json_obj(item, secret_fields)
-        elif isinstance(value, str):
-            if key.lower() in redacted_keys:
-                json_obj[key] = "REDACTED"
+    if isinstance(json_obj, dict):
+        redacted_keys = {
+            k.lower()
+            for k in BASE_REDACTED_LOG_KEYS + config.additional_redacted_log_keys + secret_fields
+        }
+        for key, value in json_obj.items():
+            if isinstance(value, dict):
+                redact_json_obj(value, secret_fields)
+            elif isinstance(value, list):
+                for item in value:
+                    redact_json_obj(item, secret_fields)
+            elif isinstance(value, str):
+                if key.lower() in redacted_keys:
+                    json_obj[key] = "REDACTED"
+
+    elif isinstance(json_obj, list):
+        for item in json_obj:
+            redact_json_obj(item, secret_fields)

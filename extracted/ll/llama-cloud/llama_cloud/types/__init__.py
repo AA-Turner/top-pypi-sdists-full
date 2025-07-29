@@ -79,6 +79,7 @@ from .data_source_create_component import DataSourceCreateComponent
 from .data_source_create_custom_metadata_value import DataSourceCreateCustomMetadataValue
 from .data_source_custom_metadata_value import DataSourceCustomMetadataValue
 from .data_source_reader_version_metadata import DataSourceReaderVersionMetadata
+from .data_source_reader_version_metadata_reader_version import DataSourceReaderVersionMetadataReaderVersion
 from .data_source_update_dispatcher_config import DataSourceUpdateDispatcherConfig
 from .delete_params import DeleteParams
 from .document_block import DocumentBlock
@@ -140,6 +141,7 @@ from .extract_target import ExtractTarget
 from .fail_page_mode import FailPageMode
 from .file import File
 from .file_count_by_status_response import FileCountByStatusResponse
+from .file_data import FileData
 from .file_id_presigned_url import FileIdPresignedUrl
 from .file_parse_public import FileParsePublic
 from .file_permission_info_value import FilePermissionInfoValue
@@ -199,12 +201,15 @@ from .llm_parameters import LlmParameters
 from .load_files_job_config import LoadFilesJobConfig
 from .managed_ingestion_status import ManagedIngestionStatus
 from .managed_ingestion_status_response import ManagedIngestionStatusResponse
+from .managed_open_ai_embedding import ManagedOpenAiEmbedding
+from .managed_open_ai_embedding_config import ManagedOpenAiEmbeddingConfig
 from .message_annotation import MessageAnnotation
 from .message_role import MessageRole
 from .metadata_filter import MetadataFilter
 from .metadata_filter_value import MetadataFilterValue
 from .metadata_filters import MetadataFilters
 from .metadata_filters_filters_item import MetadataFiltersFiltersItem
+from .multimodal_parse_resolution import MultimodalParseResolution
 from .node_relationship import NodeRelationship
 from .none_chunking_config import NoneChunkingConfig
 from .none_segmentation_config import NoneSegmentationConfig
@@ -225,6 +230,7 @@ from .paginated_list_pipeline_files_response import PaginatedListPipelineFilesRe
 from .paginated_report_response import PaginatedReportResponse
 from .paginated_response_agent_data import PaginatedResponseAgentData
 from .paginated_response_aggregate_group import PaginatedResponseAggregateGroup
+from .paginated_response_quota_configuration import PaginatedResponseQuotaConfiguration
 from .parse_job_config import ParseJobConfig
 from .parse_job_config_priority import ParseJobConfigPriority
 from .parse_plan_level import ParsePlanLevel
@@ -268,6 +274,7 @@ from .pipeline_embedding_config import (
     PipelineEmbeddingConfig_CohereEmbedding,
     PipelineEmbeddingConfig_GeminiEmbedding,
     PipelineEmbeddingConfig_HuggingfaceApiEmbedding,
+    PipelineEmbeddingConfig_ManagedOpenaiEmbedding,
     PipelineEmbeddingConfig_OpenaiEmbedding,
     PipelineEmbeddingConfig_VertexaiEmbedding,
 )
@@ -304,6 +311,11 @@ from .progress_event_status import ProgressEventStatus
 from .project import Project
 from .project_create import ProjectCreate
 from .prompt_conf import PromptConf
+from .quota_configuration import QuotaConfiguration
+from .quota_configuration_configuration_type import QuotaConfigurationConfigurationType
+from .quota_configuration_status import QuotaConfigurationStatus
+from .quota_rate_limit_configuration_value import QuotaRateLimitConfigurationValue
+from .quota_rate_limit_configuration_value_denominator_units import QuotaRateLimitConfigurationValueDenominatorUnits
 from .re_rank_config import ReRankConfig
 from .re_ranker_type import ReRankerType
 from .recurring_credit_grant import RecurringCreditGrant
@@ -349,6 +361,7 @@ from .text_node import TextNode
 from .text_node_relationships_value import TextNodeRelationshipsValue
 from .text_node_with_score import TextNodeWithScore
 from .token_chunking_config import TokenChunkingConfig
+from .update_user_response import UpdateUserResponse
 from .usage_and_plan import UsageAndPlan
 from .usage_metric_response import UsageMetricResponse
 from .usage_response import UsageResponse
@@ -358,6 +371,7 @@ from .user_organization import UserOrganization
 from .user_organization_create import UserOrganizationCreate
 from .user_organization_delete import UserOrganizationDelete
 from .user_organization_role import UserOrganizationRole
+from .user_summary import UserSummary
 from .validation_error import ValidationError
 from .validation_error_loc_item import ValidationErrorLocItem
 from .vertex_ai_embedding_config import VertexAiEmbeddingConfig
@@ -442,6 +456,7 @@ __all__ = [
     "DataSourceCreateCustomMetadataValue",
     "DataSourceCustomMetadataValue",
     "DataSourceReaderVersionMetadata",
+    "DataSourceReaderVersionMetadataReaderVersion",
     "DataSourceUpdateDispatcherConfig",
     "DeleteParams",
     "DocumentBlock",
@@ -499,6 +514,7 @@ __all__ = [
     "FailPageMode",
     "File",
     "FileCountByStatusResponse",
+    "FileData",
     "FileIdPresignedUrl",
     "FileParsePublic",
     "FilePermissionInfoValue",
@@ -554,12 +570,15 @@ __all__ = [
     "LoadFilesJobConfig",
     "ManagedIngestionStatus",
     "ManagedIngestionStatusResponse",
+    "ManagedOpenAiEmbedding",
+    "ManagedOpenAiEmbeddingConfig",
     "MessageAnnotation",
     "MessageRole",
     "MetadataFilter",
     "MetadataFilterValue",
     "MetadataFilters",
     "MetadataFiltersFiltersItem",
+    "MultimodalParseResolution",
     "NodeRelationship",
     "NoneChunkingConfig",
     "NoneSegmentationConfig",
@@ -580,6 +599,7 @@ __all__ = [
     "PaginatedReportResponse",
     "PaginatedResponseAgentData",
     "PaginatedResponseAggregateGroup",
+    "PaginatedResponseQuotaConfiguration",
     "ParseJobConfig",
     "ParseJobConfigPriority",
     "ParsePlanLevel",
@@ -620,6 +640,7 @@ __all__ = [
     "PipelineEmbeddingConfig_CohereEmbedding",
     "PipelineEmbeddingConfig_GeminiEmbedding",
     "PipelineEmbeddingConfig_HuggingfaceApiEmbedding",
+    "PipelineEmbeddingConfig_ManagedOpenaiEmbedding",
     "PipelineEmbeddingConfig_OpenaiEmbedding",
     "PipelineEmbeddingConfig_VertexaiEmbedding",
     "PipelineFile",
@@ -651,6 +672,11 @@ __all__ = [
     "Project",
     "ProjectCreate",
     "PromptConf",
+    "QuotaConfiguration",
+    "QuotaConfigurationConfigurationType",
+    "QuotaConfigurationStatus",
+    "QuotaRateLimitConfigurationValue",
+    "QuotaRateLimitConfigurationValueDenominatorUnits",
     "ReRankConfig",
     "ReRankerType",
     "RecurringCreditGrant",
@@ -694,6 +720,7 @@ __all__ = [
     "TextNodeRelationshipsValue",
     "TextNodeWithScore",
     "TokenChunkingConfig",
+    "UpdateUserResponse",
     "UsageAndPlan",
     "UsageMetricResponse",
     "UsageResponse",
@@ -703,6 +730,7 @@ __all__ = [
     "UserOrganizationCreate",
     "UserOrganizationDelete",
     "UserOrganizationRole",
+    "UserSummary",
     "ValidationError",
     "ValidationErrorLocItem",
     "VertexAiEmbeddingConfig",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+from typing import Annotated
+from typing import Any
 
 import pytest
 from pycountry import countries  # type: ignore
@@ -233,7 +235,7 @@ def test_iban_properties_it() -> None:
     assert iban.national_checksum_digits == "X"
     assert iban.country == countries.get(alpha_2="IT")
     assert iban.bic == "BLOPIT22"
-    assert iban.bank_name == "BANCA POPOLARE DI BERGAMO S.P.A."
+    assert iban.bank_name == "Unione Di Banche Italiane SpA"
     assert iban.in_sepa_zone is True
 
 
@@ -399,6 +401,9 @@ def test_pydantic_protocol() -> None:
     class Model(BaseModel):
         iban: IBAN
 
+    model = Model(iban=IBAN("GL89 6471 0001 0002 06"))
+    assert model.model_dump() == {"iban": model.iban}
+
     model = Model(iban="GL89 6471 0001 0002 06")  # type: ignore[arg-type]
     assert isinstance(model.iban, IBAN)
     assert model.model_dump() == {"iban": model.iban}
@@ -419,6 +424,33 @@ def test_pydantic_protocol() -> None:
 
     loaded = Model.model_validate_json(dumped)
     assert loaded == model
+
+
+def test_pydantic_invalid_iban() -> None:
+    from pydantic import BaseModel
+    from pydantic import Field
+
+    class Model(BaseModel):
+        iban: Annotated[IBAN, Field(strict=False)]
+
+    model = Model(iban="GB00 HLFX 1101 6111 4553 65")  # type: ignore[arg-type]
+    assert isinstance(model.iban, IBAN)
+    assert model.iban.is_valid is False
+
+
+def test_pydantic_union_type() -> None:
+    from pydantic import BaseModel
+
+    class Model(BaseModel):
+        iban_or_dict: IBAN | dict[str, Any]
+
+    model = Model(iban_or_dict="GL89 6471 0001 0002 06")  # type: ignore[arg-type]
+    assert isinstance(model.iban_or_dict, IBAN)
+    assert model.iban_or_dict.is_valid is True
+
+    model = Model(iban_or_dict={"foo": 1})
+    assert isinstance(model.iban_or_dict, dict)
+    assert model.iban_or_dict["foo"] == 1
 
 
 @pytest.mark.parametrize(

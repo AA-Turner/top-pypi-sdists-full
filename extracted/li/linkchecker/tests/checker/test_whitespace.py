@@ -28,7 +28,7 @@ class TestWhitespace(LinkCheckTest):
     @need_network
     def test_leading_whitespace(self):
         # Leading whitespace
-        url = " http://www.example.org/"
+        url = " https://linkchecker.github.io/"
         attrs = self.get_attrs(url=url)
         attrs["surl"] = url.strip()
         resultlines = [
@@ -39,7 +39,7 @@ class TestWhitespace(LinkCheckTest):
             "valid",
         ]
         self.direct(url, resultlines)
-        url = "\nhttp://www.example.org/"
+        url = "\nhttps://linkchecker.github.io/"
         attrs = self.get_attrs(url=url)
         attrs["surl"] = url.strip()
         resultlines = [
@@ -54,7 +54,7 @@ class TestWhitespace(LinkCheckTest):
     @need_network
     def test_trailing_whitespace(self):
         # Trailing whitespace
-        url = "http://www.example.org/ "
+        url = "https://linkchecker.github.io/ "
         resultlines = [
             "url %s" % url.strip(),
             "cache key %s" % url.strip(),
@@ -63,7 +63,7 @@ class TestWhitespace(LinkCheckTest):
             "valid",
         ]
         self.direct(url, resultlines)
-        url = "http://www.example.org/\n"
+        url = "https://linkchecker.github.io/\n"
         resultlines = [
             "url %s" % url.strip(),
             "cache key %s" % url.strip(),

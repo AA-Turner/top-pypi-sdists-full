@@ -332,9 +332,9 @@ class BaseProcessor(ABC):
         
         return {
             frame_key: {
-                "incidents": incidents or [],
-                "tracking_stats": tracking_stats or [],
-                "business_analytics": business_analytics or [],
+                "incidents": incidents or {},
+                "tracking_stats": tracking_stats or {},
+                "business_analytics": business_analytics or {},
                 "alerts": alerts or [],
                 "human_text": human_text
             }
@@ -459,9 +459,9 @@ class BaseProcessor(ABC):
         
         for frame_id in all_frame_ids:
             agg_summary[str(frame_id)] = {
-                "incidents": frame_incidents.get(frame_id, []),
-                "tracking_stats": frame_tracking_stats.get(frame_id, []),
-                "business_analytics": frame_business_analytics.get(frame_id, []),
+                "incidents": frame_incidents.get(frame_id, {}),
+                "tracking_stats": frame_tracking_stats.get(frame_id, {}),
+                "business_analytics": frame_business_analytics.get(frame_id, {}),
                 "alerts": frame_alerts.get(frame_id, []) if frame_alerts else [],
                 "human_text": frame_human_text.get(frame_id, "") if frame_human_text else ""
             }

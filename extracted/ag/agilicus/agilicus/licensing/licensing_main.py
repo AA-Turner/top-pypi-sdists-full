@@ -168,5 +168,21 @@ def list_license_details(ctx, license_id, **kwargs):
     print(table)
 
 
+@cmd.command(name="list-license-evaluation-contexts")
+@click.option("--org-id", default=None)
+@click.option("--license-id", multiple=True, default=None)
+@click.option("--page-at-id", default=None)
+@click.option("--limit", default=500)
+@click.pass_context
+def list_license_evaluation_contexts(ctx, license_id, **kwargs):
+    if not license_id:
+        license_id = None
+    result = licenses.list_license_evaluation_contexts(
+        ctx, license_ids=license_id, **kwargs
+    )
+    table = licenses.format_license_evaluation_contexts(ctx, result)
+    print(table)
+
+
 def add_commands(cli):
     cmd.add_to_cli(cli)

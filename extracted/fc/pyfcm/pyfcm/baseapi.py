@@ -3,6 +3,7 @@
 import json
 import time
 import threading
+from typing import Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -28,11 +29,11 @@ class BaseAPI(object):
 
     def __init__(
         self,
-        service_account_file: str = None,
-        project_id: str = None,
-        credentials: Credentials = None,
-        proxy_dict=None,
-        env=None,
+        service_account_file: Optional[str] = None,
+        project_id: Optional[str] = None,
+        credentials: Optional[Credentials] = None,
+        proxy_dict: Optional[dict] = None,
+        env: Optional[str] = None,
         json_encoder=None,
         adapter=None,
     ):
@@ -52,25 +53,10 @@ class BaseAPI(object):
                 "Please provide a service account file path or credentials in the constructor"
             )
 
-        if credentials is not None:
-            self.credentials = credentials
-        else:
-            self.credentials = service_account.Credentials.from_service_account_file(
-                service_account_file,
-                scopes=["https://www.googleapis.com/auth/firebase.messaging"],
-            )
-
-        # prefer the project ID scoped to the supplied credentials.
-        # If, for some reason, the credentials do not specify a project id,
-        # we'll check for an explicitly supplied one, and raise an error otherwise
-        project_id = getattr(self.credentials, "project_id", None) or project_id
-
-        if not project_id:
-            raise AuthenticationError(
-                "Please provide a project_id either explicitly or through Google credentials."
-            )
-
-        self.fcm_end_point = self.FCM_END_POINT_BASE + f"/{project_id}/messages:send"
+        self._service_account_file = service_account_file
+        self._fcm_end_point = None
+        self._project_id = project_id
+        self.credentials = credentials
         self.custom_adapter = adapter
         self.thread_local = threading.local()
 
@@ -90,6 +76,23 @@ class BaseAPI(object):
                 pass
 
         self.json_encoder = json_encoder
+
+    @property
+    def fcm_end_point(self) -> str:
+        if self._fcm_end_point is not None:
+            return self._fcm_end_point
+        if self.credentials is None:
+            self._initialize_credentials()
+        # prefer the project ID scoped to the supplied credentials.
+        # If, for some reason, the credentials do not specify a project id,
+        # we'll check for an explicitly supplied one, and raise an error otherwise
+        project_id = getattr(self.credentials, "project_id", None) or self._project_id
+        if not project_id:
+            raise AuthenticationError(
+                "Please provide a project_id either explicitly or through Google credentials."
+            )
+        self._fcm_end_point = self.FCM_END_POINT_BASE + f"/{project_id}/messages:send"
+        return self._fcm_end_point
 
     @property
     def requests_session(self):
@@ -122,6 +125,11 @@ class BaseAPI(object):
             sleep_time = int(response.headers["Retry-After"])
             time.sleep(sleep_time)
             return self.send_request(payload, timeout)
+
+        if self._is_access_token_expired(response):
+            self.thread_local.token_expiry = 0
+            return self.send_request(payload, timeout)
+
         return response
 
     def send_async_request(self, params_list, timeout):
@@ -140,6 +148,41 @@ class BaseAPI(object):
 
         return responses
 
+    def _is_access_token_expired(self, response):
+        """
+        Check if the response indicates an expired access token
+
+        Args:
+            response: HTTP response object
+
+        Returns:
+            bool: True if access token is expired, False otherwise
+        """
+        if response.status_code != 401:
+            return False
+
+        try:
+            error_response = response.json()
+            error_details = error_response.get("error", {}).get("details", [])
+            for detail in error_details:
+                if detail.get("reason") == "ACCESS_TOKEN_EXPIRED":
+                    return True
+        except (ValueError, AttributeError):
+            pass
+
+        return False
+
+    def _initialize_credentials(self):
+        """
+        Initialize credentials and FCM endpoint if not already initialized.
+        """
+        if self.credentials is None:
+            self.credentials = service_account.Credentials.from_service_account_file(
+                self._service_account_file,
+                scopes=["https://www.googleapis.com/auth/firebase.messaging"],
+            )
+            self._service_account_file = None
+
     def _get_access_token(self):
         """
         Generates access token from credentials.
@@ -147,6 +190,9 @@ class BaseAPI(object):
         Returns:
              str: Access token
         """
+        if self.credentials is None:
+            self._initialize_credentials()
+
         # get OAuth 2.0 access token
         try:
             request = google.auth.transport.requests.Request()
@@ -224,10 +270,11 @@ class BaseAPI(object):
             raise FCMNotRegisteredError("Token not registered")
         else:
             raise FCMServerError(
-                f"FCM server error: Unexpected status code {response.status_code}. The server might be temporarily unavailable."
+                f"FCM server error: Unexpected status code {response.status_code}. "
+                "The server might be temporarily unavailable."
             )
 
-    def parse_payload(
+    def parse_payload(  # noqa: C901
         self,
         fcm_token=None,
         notification_title=None,
@@ -286,9 +333,7 @@ class BaseAPI(object):
             else:
                 raise InvalidDataError("Provided fcm_options is in the wrong format")
 
-        fcm_payload[
-            "notification"
-        ] = (
+        fcm_payload["notification"] = (
             {}
         )  # - https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#notification
         # If title is present, use it

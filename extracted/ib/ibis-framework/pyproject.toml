@@ -1,6 +1,6 @@
 [project]
 name = "ibis-framework"
-version = "10.7.0"
+version = "10.8.0"
 requires-python = ">=3.9"
 description = "The portable Python dataframe library"
 readme = "README.md"
@@ -261,7 +261,6 @@ dev = [
   "pre-commit>=4,<5",
   "pyinstrument>=4.5.1,<6",
   "tqdm>=4.66.1,<5",
-  "dunamai>=1.22.0",
   "aws-sso-util>=4.33,<5",
   "pystack>=1.4.1; platform_system == 'Linux'",
   "pytest-pystack>=1.0.2; platform_system == 'Linux'",

@@ -3,6 +3,7 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any, cast, Iterable
 
 import regex
@@ -16,7 +17,9 @@ from arelle.ValidateXbrlCalcs import insignificantDigits
 from arelle.XbrlConst import qnXbrlScenario, qnXbrldiExplicitMember, xhtmlBaseIdentifier, xmlBaseIdentifier
 from arelle.XmlValidate import VALID
 from arelle.typing import TypeGetText
+from arelle.utils.Contexts import getDuplicateContextGroups
 from arelle.utils.PluginHooks import ValidationHook
+from arelle.utils.Units import getDuplicateUnitGroups
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Validation import Validation
 from arelle.utils.validate.ValidationUtil import etreeIterWithDepth
@@ -212,6 +215,100 @@ def rule_gfm_1_2_5(
             modelObject = contextsWithDisallowedScenarioChildren
         )
 
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_7(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.7] An instance must not contain duplicate xbrli:context elements.
+    """
+    for contexts in getDuplicateContextGroups(val.modelXbrl):
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.7',
+            msg=_('Duplicate context. Remove the duplicate.'),
+            modelObject = contexts
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_8(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.8] Every xbrli:context element must appear in at least one
+    contextRef attribute in the same instance.
+    """
+    unused_contexts = list(set(val.modelXbrl.contexts.values()) - set(val.modelXbrl.contextsInUse))
+    unused_contexts.sort(key=lambda x: x.id)
+    for context in unused_contexts:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.8',
+            msg=_('If you are not using a context, delete it if it is not needed.'),
+            modelObject = context
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_9(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.9] The same date must not appear as the content of both an xbrli:startDate and
+    an xbrli:endDate in an instance.
+    """
+    invalidDurationContexts = []
+    for contexts in val.modelXbrl.contextsByDocument().values():
+        for context in contexts:
+            if not context.isInstantPeriod:
+                if context.endDatetime and context.startDatetime and context.startDatetime == context.endDatetime - timedelta(days=1):
+                    invalidDurationContexts.append(context)
+    if len(invalidDurationContexts) > 0:
+        for context in invalidDurationContexts:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.2.9',
+                msg=_("Set the context's startDate and endDate elements to different dates."),
+                modelObject=context
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_10(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.10] Element xbrli:xbrl must not have duplicate child xbrli:unit elements.
+    """
+    for duplicateUnits in getDuplicateUnitGroups(val.modelXbrl):
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.10',
+            msg=_('The unit element contains duplicate content. Please remove the duplicates.'),
+            modelObject = duplicateUnits
+        )
 
 
 @validation(

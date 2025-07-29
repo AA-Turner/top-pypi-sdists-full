@@ -75,7 +75,7 @@ class Scaling:
             "Could not fetch the Downscaled ids info",
         )
 
-    @log_errors(log_error=True)
+    @log_errors(default_return=(None, "API call failed", "Failed to stop instance"), log_error=True)
     def stop_instance(self):
         """Stop the compute instance.
 

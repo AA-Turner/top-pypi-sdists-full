@@ -30,8 +30,8 @@ base_url = "https://api.chatfire.cn/flux/v1"
 # base_url = "https://openai-dev.chatfire.cn/usage/async/flux/v1"
 
 async def billing_for_async_task(
-        model: str = "usage-async",
-        task_id: str = "123456",
+        model: str = "async-task",
+        task_id: str = "sync",
         n: float = 1,
         api_key: Optional[str] = None
 ):
@@ -237,8 +237,8 @@ if __name__ == '__main__':
     usage = {
         "prompt_tokens": 1000, "completion_tokens": 100,  # "total_tokens": 2000,
     }
-    arun(billing_for_tokens(model="tokens", usage=usage, task_id='xx'))
-    arun(billing_for_tokens(model="fal", usage=usage, task_id='xx'))
+    # arun(billing_for_tokens(model="tokens", usage=usage, task_id='xx'))
+    # arun(billing_for_tokens(model="fal", usage=usage, task_id='xx'))
 
     # arun(create_usage_for_async_task(task_id="task_id", n=1))
 
@@ -249,6 +249,7 @@ if __name__ == '__main__':
     model = "Wan-AI/Wan2.1-T2V-14B"
 
     # arun(billing_for_async_task(model, task_id=task_id, n=3))
+    arun(billing_for_async_task(task_id='fal-ai-sync'))
 
     # data = {
     #     "model": "doubao-seedance-1-0-pro-250528",

@@ -4,11 +4,11 @@
 {
     "distutils": {
         "depends": [
-            "/tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/_core/include/numpy/ufuncobject.h",
+            "/tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/_core/include/numpy/ufuncobject.h",
             "src_cpp/bp.hpp"
         ],
         "extra_compile_args": [
@@ -16,7 +16,7 @@
             "-O3"
         ],
         "include_dirs": [
-            "/tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/_core/include",
+            "/tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/_core/include",
             "src_cpp",
             "include/robin_map",
             "include/ldpc/src_cpp"
@@ -1405,7 +1405,7 @@ static const char *__pyx_filename;
 
 static const char* const __pyx_f[] = {
   "src_python/ldpc/bp_decoder/_bp_decoder.pyx",
-  "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd",
+  "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd",
   "<stringsource>",
   "cpython/type.pxd",
 };
@@ -1606,7 +1606,7 @@ typedef struct {
 
 /* #### Code section: numeric_typedefs ### */
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":743
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":743
  * # in Cython to enable them only on the right systems.
  * 
  * ctypedef npy_int8       int8_t             # <<<<<<<<<<<<<<
@@ -1615,7 +1615,7 @@ typedef struct {
 */
 typedef npy_int8 __pyx_t_5numpy_int8_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":744
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":744
  * 
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t             # <<<<<<<<<<<<<<
@@ -1624,7 +1624,7 @@ typedef npy_int8 __pyx_t_5numpy_int8_t;
 */
 typedef npy_int16 __pyx_t_5numpy_int16_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":745
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":745
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t             # <<<<<<<<<<<<<<
@@ -1633,7 +1633,7 @@ typedef npy_int16 __pyx_t_5numpy_int16_t;
 */
 typedef npy_int32 __pyx_t_5numpy_int32_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":746
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":746
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t
  * ctypedef npy_int64      int64_t             # <<<<<<<<<<<<<<
@@ -1642,7 +1642,7 @@ typedef npy_int32 __pyx_t_5numpy_int32_t;
 */
 typedef npy_int64 __pyx_t_5numpy_int64_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":748
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":748
  * ctypedef npy_int64      int64_t
  * 
  * ctypedef npy_uint8      uint8_t             # <<<<<<<<<<<<<<
@@ -1651,7 +1651,7 @@ typedef npy_int64 __pyx_t_5numpy_int64_t;
 */
 typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":749
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":749
  * 
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t             # <<<<<<<<<<<<<<
@@ -1660,7 +1660,7 @@ typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 */
 typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":750
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":750
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t             # <<<<<<<<<<<<<<
@@ -1669,7 +1669,7 @@ typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 */
 typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":751
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":751
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t
  * ctypedef npy_uint64     uint64_t             # <<<<<<<<<<<<<<
@@ -1678,7 +1678,7 @@ typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 */
 typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":753
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":753
  * ctypedef npy_uint64     uint64_t
  * 
  * ctypedef npy_float32    float32_t             # <<<<<<<<<<<<<<
@@ -1687,7 +1687,7 @@ typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 */
 typedef npy_float32 __pyx_t_5numpy_float32_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":754
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":754
  * 
  * ctypedef npy_float32    float32_t
  * ctypedef npy_float64    float64_t             # <<<<<<<<<<<<<<
@@ -1696,7 +1696,7 @@ typedef npy_float32 __pyx_t_5numpy_float32_t;
 */
 typedef npy_float64 __pyx_t_5numpy_float64_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":761
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":761
  * ctypedef double complex complex128_t
  * 
  * ctypedef npy_longlong   longlong_t             # <<<<<<<<<<<<<<
@@ -1705,7 +1705,7 @@ typedef npy_float64 __pyx_t_5numpy_float64_t;
 */
 typedef npy_longlong __pyx_t_5numpy_longlong_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":762
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":762
  * 
  * ctypedef npy_longlong   longlong_t
  * ctypedef npy_ulonglong  ulonglong_t             # <<<<<<<<<<<<<<
@@ -1714,7 +1714,7 @@ typedef npy_longlong __pyx_t_5numpy_longlong_t;
 */
 typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":764
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":764
  * ctypedef npy_ulonglong  ulonglong_t
  * 
  * ctypedef npy_intp       intp_t             # <<<<<<<<<<<<<<
@@ -1723,7 +1723,7 @@ typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 */
 typedef npy_intp __pyx_t_5numpy_intp_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":765
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":765
  * 
  * ctypedef npy_intp       intp_t
  * ctypedef npy_uintp      uintp_t             # <<<<<<<<<<<<<<
@@ -1732,7 +1732,7 @@ typedef npy_intp __pyx_t_5numpy_intp_t;
 */
 typedef npy_uintp __pyx_t_5numpy_uintp_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":767
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":767
  * ctypedef npy_uintp      uintp_t
  * 
  * ctypedef npy_double     float_t             # <<<<<<<<<<<<<<
@@ -1741,7 +1741,7 @@ typedef npy_uintp __pyx_t_5numpy_uintp_t;
 */
 typedef npy_double __pyx_t_5numpy_float_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":768
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":768
  * 
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t             # <<<<<<<<<<<<<<
@@ -1750,7 +1750,7 @@ typedef npy_double __pyx_t_5numpy_float_t;
 */
 typedef npy_double __pyx_t_5numpy_double_t;
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":769
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":769
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t
  * ctypedef npy_longdouble longdouble_t             # <<<<<<<<<<<<<<
@@ -1811,8 +1811,8 @@ struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase;
 struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder;
 struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder;
 
-/* "ldpc/bp_decoder/_bp_decoder.pxd":84
- *             BpInputType bp_input_type
+/* "ldpc/bp_decoder/_bp_decoder.pxd":85
+ *             void set_random_schedule_seed(int seed)
  * 
  * cdef class BpDecoderBase:             # <<<<<<<<<<<<<<
  *     cdef BpSparse *pcm
@@ -1832,7 +1832,7 @@ struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase {
 };
 
 
-/* "ldpc/bp_decoder/_bp_decoder.pxd":95
+/* "ldpc/bp_decoder/_bp_decoder.pxd":96
  *     # cdef int random_schedule_seed
  * 
  * cdef class BpDecoder(BpDecoderBase):             # <<<<<<<<<<<<<<
@@ -1845,7 +1845,7 @@ struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder {
 };
 
 
-/* "ldpc/bp_decoder/_bp_decoder.pxd":99
+/* "ldpc/bp_decoder/_bp_decoder.pxd":100
  *     pass
  * 
  * cdef class SoftInfoBpDecoder(BpDecoderBase):             # <<<<<<<<<<<<<<
@@ -3212,6 +3212,7 @@ static const char __pyx_k_update_channel_probs[] = "update_channel_probs";
 static const char __pyx_k_The_input_vector_type[] = "The input vector type '";
 static const char __pyx_k_serial_schedule_order[] = "serial_schedule_order";
 static const char __pyx_k_The_BP_schedule_method[] = "The BP schedule method '";
+static const char __pyx_k_random_serial_schedule[] = "random_serial_schedule";
 static const char __pyx_k_serial_schedule_order_2[] = "serial_schedule_order[";
 static const char __pyx_k_SoftInfoBpDecoder_decode[] = "SoftInfoBpDecoder.decode";
 static const char __pyx_k_convert_to_binary_sparse[] = "convert_to_binary_sparse";
@@ -3290,10 +3291,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
 static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_thread_count_2__set__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_schedule_seed___get__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self); /* proto */
 static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_schedule_seed_2__set__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule___get__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self); /* proto */
+static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_2__set__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self, bool __pyx_v_value); /* proto */
 static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_6__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
-static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, PyObject *__pyx_v_input_vector_type, PyObject *__pyx_v_kwargs); /* proto */
-static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, CYTHON_UNUSED PyObject *__pyx_v_input_vector_type, CYTHON_UNUSED PyObject *__pyx_v_kwargs); /* proto */
+static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, PyObject *__pyx_v_input_vector_type, CYTHON_UNUSED bool __pyx_v_random_serial_schedule, PyObject *__pyx_v_kwargs); /* proto */
+static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, CYTHON_UNUSED PyObject *__pyx_v_input_vector_type, CYTHON_UNUSED bool __pyx_v_random_serial_schedule, CYTHON_UNUSED PyObject *__pyx_v_kwargs); /* proto */
 static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4decode(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, PyArrayObject *__pyx_v_input_vector); /* proto */
 static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding___get__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_6__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self); /* proto */
@@ -3373,7 +3376,7 @@ typedef struct {
   PyObject *__pyx_k__2;
   PyObject *__pyx_tuple[2];
   PyObject *__pyx_codeobj_tab[10];
-  PyObject *__pyx_string_tab[180];
+  PyObject *__pyx_string_tab[181];
   PyObject *__pyx_float_1_0;
   PyObject *__pyx_int_0;
   PyObject *__pyx_int_1;
@@ -3555,46 +3558,47 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_qualname __pyx_string_tab[137]
 #define __pyx_n_u_r __pyx_string_tab[138]
 #define __pyx_n_u_random_schedule_seed __pyx_string_tab[139]
-#define __pyx_n_u_range __pyx_string_tab[140]
-#define __pyx_n_u_received_vector __pyx_string_tab[141]
-#define __pyx_n_u_reduce __pyx_string_tab[142]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[143]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[144]
-#define __pyx_n_u_return __pyx_string_tab[145]
-#define __pyx_n_u_s __pyx_string_tab[146]
-#define __pyx_n_u_schedule __pyx_string_tab[147]
-#define __pyx_n_u_scipy __pyx_string_tab[148]
-#define __pyx_n_u_scipy_helpers __pyx_string_tab[149]
-#define __pyx_n_u_scipy_sparse __pyx_string_tab[150]
-#define __pyx_n_u_self __pyx_string_tab[151]
-#define __pyx_n_u_serial __pyx_string_tab[152]
-#define __pyx_n_u_serial_relative __pyx_string_tab[153]
-#define __pyx_n_u_serial_schedule_order __pyx_string_tab[154]
-#define __pyx_kp_u_serial_schedule_order_2 __pyx_string_tab[155]
-#define __pyx_n_u_set_name __pyx_string_tab[156]
-#define __pyx_n_u_setstate __pyx_string_tab[157]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[158]
-#define __pyx_n_u_shape __pyx_string_tab[159]
-#define __pyx_n_u_sigma __pyx_string_tab[160]
-#define __pyx_n_u_soft_info_syndrome __pyx_string_tab[161]
-#define __pyx_n_u_soft_syndrome __pyx_string_tab[162]
-#define __pyx_n_u_sparse __pyx_string_tab[163]
-#define __pyx_n_u_spec __pyx_string_tab[164]
-#define __pyx_n_u_spmatrix __pyx_string_tab[165]
-#define __pyx_n_u_sr __pyx_string_tab[166]
-#define __pyx_kp_u_src_python_ldpc_bp_decoder__bp_d __pyx_string_tab[167]
-#define __pyx_kp_u_stringsource __pyx_string_tab[168]
-#define __pyx_n_u_sum __pyx_string_tab[169]
-#define __pyx_n_u_syndrome __pyx_string_tab[170]
-#define __pyx_n_u_test __pyx_string_tab[171]
-#define __pyx_n_u_typing __pyx_string_tab[172]
-#define __pyx_n_u_uint8 __pyx_string_tab[173]
-#define __pyx_n_u_update_channel_probs __pyx_string_tab[174]
-#define __pyx_n_u_value __pyx_string_tab[175]
-#define __pyx_n_u_warn __pyx_string_tab[176]
-#define __pyx_n_u_warnings __pyx_string_tab[177]
-#define __pyx_n_u_zero_input_vector __pyx_string_tab[178]
-#define __pyx_n_u_zeros __pyx_string_tab[179]
+#define __pyx_n_u_random_serial_schedule __pyx_string_tab[140]
+#define __pyx_n_u_range __pyx_string_tab[141]
+#define __pyx_n_u_received_vector __pyx_string_tab[142]
+#define __pyx_n_u_reduce __pyx_string_tab[143]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[144]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[145]
+#define __pyx_n_u_return __pyx_string_tab[146]
+#define __pyx_n_u_s __pyx_string_tab[147]
+#define __pyx_n_u_schedule __pyx_string_tab[148]
+#define __pyx_n_u_scipy __pyx_string_tab[149]
+#define __pyx_n_u_scipy_helpers __pyx_string_tab[150]
+#define __pyx_n_u_scipy_sparse __pyx_string_tab[151]
+#define __pyx_n_u_self __pyx_string_tab[152]
+#define __pyx_n_u_serial __pyx_string_tab[153]
+#define __pyx_n_u_serial_relative __pyx_string_tab[154]
+#define __pyx_n_u_serial_schedule_order __pyx_string_tab[155]
+#define __pyx_kp_u_serial_schedule_order_2 __pyx_string_tab[156]
+#define __pyx_n_u_set_name __pyx_string_tab[157]
+#define __pyx_n_u_setstate __pyx_string_tab[158]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[159]
+#define __pyx_n_u_shape __pyx_string_tab[160]
+#define __pyx_n_u_sigma __pyx_string_tab[161]
+#define __pyx_n_u_soft_info_syndrome __pyx_string_tab[162]
+#define __pyx_n_u_soft_syndrome __pyx_string_tab[163]
+#define __pyx_n_u_sparse __pyx_string_tab[164]
+#define __pyx_n_u_spec __pyx_string_tab[165]
+#define __pyx_n_u_spmatrix __pyx_string_tab[166]
+#define __pyx_n_u_sr __pyx_string_tab[167]
+#define __pyx_kp_u_src_python_ldpc_bp_decoder__bp_d __pyx_string_tab[168]
+#define __pyx_kp_u_stringsource __pyx_string_tab[169]
+#define __pyx_n_u_sum __pyx_string_tab[170]
+#define __pyx_n_u_syndrome __pyx_string_tab[171]
+#define __pyx_n_u_test __pyx_string_tab[172]
+#define __pyx_n_u_typing __pyx_string_tab[173]
+#define __pyx_n_u_uint8 __pyx_string_tab[174]
+#define __pyx_n_u_update_channel_probs __pyx_string_tab[175]
+#define __pyx_n_u_value __pyx_string_tab[176]
+#define __pyx_n_u_warn __pyx_string_tab[177]
+#define __pyx_n_u_warnings __pyx_string_tab[178]
+#define __pyx_n_u_zero_input_vector __pyx_string_tab[179]
+#define __pyx_n_u_zeros __pyx_string_tab[180]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3640,7 +3644,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_k__2);
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<10; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<180; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<181; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_float_1_0);
   Py_CLEAR(clear_module_state->__pyx_int_0);
   Py_CLEAR(clear_module_state->__pyx_int_1);
@@ -3690,7 +3694,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_k__2);
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<10; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<180; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<181; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_float_1_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_1);
@@ -3700,7 +3704,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
 #endif
 /* #### Code section: module_code ### */
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":242
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":242
  *         cdef int type_num
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3711,7 +3715,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":244
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":244
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:
  *             return PyDataType_ELSIZE(self)             # <<<<<<<<<<<<<<
@@ -3721,7 +3725,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   __pyx_r = PyDataType_ELSIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":242
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":242
  *         cdef int type_num
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3734,7 +3738,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":246
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":246
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3745,7 +3749,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":248
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":248
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:
  *             return PyDataType_ALIGNMENT(self)             # <<<<<<<<<<<<<<
@@ -3755,7 +3759,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   __pyx_r = PyDataType_ALIGNMENT(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":246
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":246
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3768,7 +3772,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":252
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":252
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -3782,7 +3786,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("fields", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":254
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":254
  *         @property
  *         cdef inline object fields(self):
  *             return <object>PyDataType_FIELDS(self)             # <<<<<<<<<<<<<<
@@ -3795,7 +3799,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   __pyx_r = ((PyObject *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":252
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":252
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -3810,7 +3814,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":256
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":256
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3824,7 +3828,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("names", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":258
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":258
  *         @property
  *         cdef inline tuple names(self):
  *             return <tuple>PyDataType_NAMES(self)             # <<<<<<<<<<<<<<
@@ -3837,7 +3841,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   __pyx_r = ((PyObject*)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":256
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":256
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3852,7 +3856,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":263
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":263
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -3863,7 +3867,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
 static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarray(PyArray_Descr *__pyx_v_self) {
   PyArray_ArrayDescr *__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:
  *             return PyDataType_SUBARRAY(self)             # <<<<<<<<<<<<<<
@@ -3873,7 +3877,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   __pyx_r = PyDataType_SUBARRAY(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":263
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":263
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -3886,7 +3890,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":267
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":267
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3897,7 +3901,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
 static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr *__pyx_v_self) {
   npy_uint64 __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":270
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":270
  *         cdef inline npy_uint64 flags(self) noexcept nogil:
  *             """The data types flags."""
  *             return PyDataType_FLAGS(self)             # <<<<<<<<<<<<<<
@@ -3907,7 +3911,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   __pyx_r = PyDataType_FLAGS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":267
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":267
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3920,7 +3924,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":279
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":279
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3931,7 +3935,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":282
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":282
  *         cdef inline int numiter(self) noexcept nogil:
  *             """The number of arrays that need to be broadcast to the same shape."""
  *             return PyArray_MultiIter_NUMITER(self)             # <<<<<<<<<<<<<<
@@ -3941,7 +3945,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   __pyx_r = PyArray_MultiIter_NUMITER(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":279
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":279
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3954,7 +3958,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":284
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":284
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3965,7 +3969,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":287
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":287
  *         cdef inline npy_intp size(self) noexcept nogil:
  *             """The total broadcasted size."""
  *             return PyArray_MultiIter_SIZE(self)             # <<<<<<<<<<<<<<
@@ -3975,7 +3979,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":284
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":284
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3988,7 +3992,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":289
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":289
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -3999,7 +4003,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
  *         cdef inline npy_intp index(self) noexcept nogil:
  *             """The current (1-d) index into the broadcasted result."""
  *             return PyArray_MultiIter_INDEX(self)             # <<<<<<<<<<<<<<
@@ -4009,7 +4013,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   __pyx_r = PyArray_MultiIter_INDEX(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":289
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":289
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4022,7 +4026,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":294
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":294
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4033,7 +4037,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
  *         cdef inline int nd(self) noexcept nogil:
  *             """The number of dimensions in the broadcasted result."""
  *             return PyArray_MultiIter_NDIM(self)             # <<<<<<<<<<<<<<
@@ -4043,7 +4047,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   __pyx_r = PyArray_MultiIter_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":294
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":294
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4056,7 +4060,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":299
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":299
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4067,7 +4071,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:
  *             """The shape of the broadcasted result."""
  *             return PyArray_MultiIter_DIMS(self)             # <<<<<<<<<<<<<<
@@ -4077,7 +4081,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   __pyx_r = PyArray_MultiIter_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":299
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":299
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4090,7 +4094,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":304
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":304
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4101,7 +4105,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
 static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiIterObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":308
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":308
  *             """An array of iterator objects that holds the iterators for the arrays to be broadcast together.
  *             On return, the iterators are adjusted for broadcasting."""
  *             return PyArray_MultiIter_ITERS(self)             # <<<<<<<<<<<<<<
@@ -4111,7 +4115,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_ITERS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":304
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":304
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4124,7 +4128,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":322
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":322
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4135,7 +4139,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":326
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":326
  *             """Returns a borrowed reference to the object owning the data/memory.
  *             """
  *             return PyArray_BASE(self)             # <<<<<<<<<<<<<<
@@ -4145,7 +4149,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   __pyx_r = PyArray_BASE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":322
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":322
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4158,7 +4162,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":328
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":328
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4172,7 +4176,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   PyArray_Descr *__pyx_t_1;
   __Pyx_RefNannySetupContext("descr", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":332
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":332
  *             """Returns an owned reference to the dtype of the array.
  *             """
  *             return <dtype>PyArray_DESCR(self)             # <<<<<<<<<<<<<<
@@ -4185,7 +4189,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   __pyx_r = ((PyArray_Descr *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":328
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":328
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4200,7 +4204,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":334
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":334
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4211,7 +4215,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
 static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":338
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":338
  *             """Returns the number of dimensions in the array.
  *             """
  *             return PyArray_NDIM(self)             # <<<<<<<<<<<<<<
@@ -4221,7 +4225,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   __pyx_r = PyArray_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":334
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":334
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4234,7 +4238,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":340
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":340
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4245,7 +4249,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":346
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":346
  *             Can return NULL for 0-dimensional arrays.
  *             """
  *             return PyArray_DIMS(self)             # <<<<<<<<<<<<<<
@@ -4255,7 +4259,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   __pyx_r = PyArray_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":340
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":340
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4268,7 +4272,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":348
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":348
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4279,7 +4283,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
  *             The number of elements matches the number of dimensions of the array (ndim).
  *             """
  *             return PyArray_STRIDES(self)             # <<<<<<<<<<<<<<
@@ -4289,7 +4293,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   __pyx_r = PyArray_STRIDES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":348
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":348
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4302,7 +4306,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":355
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":355
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4313,7 +4317,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":359
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":359
  *             """Returns the total size (in number of elements) of the array.
  *             """
  *             return PyArray_SIZE(self)             # <<<<<<<<<<<<<<
@@ -4323,7 +4327,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   __pyx_r = PyArray_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":355
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":355
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4336,7 +4340,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4347,7 +4351,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
 static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__pyx_v_self) {
   char *__pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
  *             of `PyArray_DATA()` instead, which returns a 'void*'.
  *             """
  *             return PyArray_BYTES(self)             # <<<<<<<<<<<<<<
@@ -4357,7 +4361,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   __pyx_r = PyArray_BYTES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4370,7 +4374,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -4387,7 +4391,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew1", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":777
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":777
  * 
  * cdef inline object PyArray_MultiIterNew1(a):
  *     return PyArray_MultiIterNew(1, <void*>a)             # <<<<<<<<<<<<<<
@@ -4401,7 +4405,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":776
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -4420,7 +4424,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -4437,7 +4441,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew2", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":780
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":780
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)             # <<<<<<<<<<<<<<
@@ -4451,7 +4455,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -4470,7 +4474,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -4487,7 +4491,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew3", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":783
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":783
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)             # <<<<<<<<<<<<<<
@@ -4501,7 +4505,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -4520,7 +4524,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -4537,7 +4541,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew4", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":786
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":786
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)             # <<<<<<<<<<<<<<
@@ -4551,7 +4555,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -4570,7 +4574,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -4587,7 +4591,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew5", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":789
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":789
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)             # <<<<<<<<<<<<<<
@@ -4601,7 +4605,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":788
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -4620,7 +4624,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -4635,7 +4639,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   PyObject *__pyx_t_2;
   __Pyx_RefNannySetupContext("PyDataType_SHAPE", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -4645,7 +4649,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   __pyx_t_1 = PyDataType_HASSUBARRAY(__pyx_v_d);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":793
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":793
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):
  *         return <tuple>d.subarray.shape             # <<<<<<<<<<<<<<
@@ -4658,7 +4662,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     __pyx_r = ((PyObject*)__pyx_t_2);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":792
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -4667,7 +4671,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 */
   }
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":795
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":795
  *         return <tuple>d.subarray.shape
  *     else:
  *         return ()             # <<<<<<<<<<<<<<
@@ -4681,7 +4685,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     goto __pyx_L0;
   }
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":791
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -4696,7 +4700,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -4710,7 +4714,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":995
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":995
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!             # <<<<<<<<<<<<<<
@@ -4719,7 +4723,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   Py_INCREF(__pyx_v_base);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":996
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":996
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!
  *     PyArray_SetBaseObject(arr, base)             # <<<<<<<<<<<<<<
@@ -4728,7 +4732,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   __pyx_t_1 = PyArray_SetBaseObject(__pyx_v_arr, __pyx_v_base); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 996, __pyx_L1_error)
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":994
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -4743,7 +4747,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   __pyx_L0:;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -4758,7 +4762,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("get_array_base", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":999
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":999
  * 
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)             # <<<<<<<<<<<<<<
@@ -4767,7 +4771,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   __pyx_v_base = PyArray_BASE(__pyx_v_arr);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -4777,7 +4781,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_t_1 = (__pyx_v_base == NULL);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1001
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1001
  *     base = PyArray_BASE(arr)
  *     if base is NULL:
  *         return None             # <<<<<<<<<<<<<<
@@ -4788,7 +4792,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1000
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -4797,7 +4801,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   }
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1002
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1002
  *     if base is NULL:
  *         return None
  *     return <object>base             # <<<<<<<<<<<<<<
@@ -4809,7 +4813,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_r = ((PyObject *)__pyx_v_base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":998
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -4824,7 +4828,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -4851,7 +4855,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_array", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -4867,7 +4871,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1008
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1008
  * cdef inline int import_array() except -1:
  *     try:
  *         __pyx_import_array()             # <<<<<<<<<<<<<<
@@ -4876,7 +4880,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
 */
       __pyx_t_4 = _import_array(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 1008, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -4890,7 +4894,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1009
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1009
  *     try:
  *         __pyx_import_array()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -4905,7 +4909,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1010
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1010
  *         __pyx_import_array()
  *     except Exception:
  *         raise ImportError("numpy._core.multiarray failed to import")             # <<<<<<<<<<<<<<
@@ -4930,7 +4934,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -4946,7 +4950,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1006
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -4971,7 +4975,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -4998,7 +5002,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_umath", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -5014,7 +5018,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1014
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1014
  * cdef inline int import_umath() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -5023,7 +5027,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
 */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 1014, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -5037,7 +5041,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1015
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1015
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -5052,7 +5056,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1016
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1016
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -5077,7 +5081,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1013
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -5093,7 +5097,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1012
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -5118,7 +5122,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -5145,7 +5149,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_ufunc", 0);
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -5161,7 +5165,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1020
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1020
  * cdef inline int import_ufunc() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -5170,7 +5174,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 1020, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -5184,7 +5188,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1021
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1021
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -5199,7 +5203,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1022
+      /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1022
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -5224,7 +5228,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
+    /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1019
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -5240,7 +5244,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1018
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -5265,7 +5269,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -5276,7 +5280,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1037
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1037
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyTimedeltaArrType_Type)             # <<<<<<<<<<<<<<
@@ -5286,7 +5290,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyTimedeltaArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1025
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -5299,7 +5303,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -5310,7 +5314,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
 static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1052
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1052
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyDatetimeArrType_Type)             # <<<<<<<<<<<<<<
@@ -5320,7 +5324,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyDatetimeArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1040
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -5333,7 +5337,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -5344,7 +5348,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
 static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *__pyx_v_obj) {
   npy_datetime __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1062
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1062
  *     also needed.  That can be found using `get_datetime64_unit`.
  *     """
  *     return (<PyDatetimeScalarObject*>obj).obval             # <<<<<<<<<<<<<<
@@ -5354,7 +5358,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   __pyx_r = ((PyDatetimeScalarObject *)__pyx_v_obj)->obval;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1055
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -5367,7 +5371,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -5378,7 +5382,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
 static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject *__pyx_v_obj) {
   npy_timedelta __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
  *     returns the int64 value underlying scalar numpy timedelta64 object
  *     """
  *     return (<PyTimedeltaScalarObject*>obj).obval             # <<<<<<<<<<<<<<
@@ -5388,7 +5392,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   __pyx_r = ((PyTimedeltaScalarObject *)__pyx_v_obj)->obval;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -5401,7 +5405,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
+/* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -5412,7 +5416,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
 static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObject *__pyx_v_obj) {
   NPY_DATETIMEUNIT __pyx_r;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1076
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1076
  *     returns the unit part of the dtype for a numpy datetime64 object.
  *     """
  *     return <NPY_DATETIMEUNIT>(<PyDatetimeScalarObject*>obj).obmeta.base             # <<<<<<<<<<<<<<
@@ -5422,7 +5426,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   __pyx_r = ((NPY_DATETIMEUNIT)((PyDatetimeScalarObject *)__pyx_v_obj)->obmeta.base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-0mjucutp/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
+  /* "../../../../../tmp/build-env-v620xpeo/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6745,6 +6749,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   PyObject *__pyx_v_ms_scaling_factor = NULL;
   PyObject *__pyx_v_schedule = NULL;
   PyObject *__pyx_v_omp_thread_count = NULL;
+  PyObject *__pyx_v_random_serial_schedule = NULL;
   PyObject *__pyx_v_random_schedule_seed = NULL;
   PyObject *__pyx_v_serial_schedule_order = NULL;
   PyObject *__pyx_v_channel_probs = NULL;
@@ -6833,7 +6838,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
  *         ms_scaling_factor=kwargs.get("ms_scaling_factor",1.0)
  *         schedule=kwargs.get("schedule", 0)             # <<<<<<<<<<<<<<
  *         omp_thread_count = kwargs.get("omp_thread_count", 1)
- *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)
+ *         random_serial_schedule = kwargs.get("random_serial_schedule", False)
 */
   __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_schedule, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6844,8 +6849,8 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
  *         ms_scaling_factor=kwargs.get("ms_scaling_factor",1.0)
  *         schedule=kwargs.get("schedule", 0)
  *         omp_thread_count = kwargs.get("omp_thread_count", 1)             # <<<<<<<<<<<<<<
+ *         random_serial_schedule = kwargs.get("random_serial_schedule", False)
  *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)
- *         serial_schedule_order = kwargs.get("serial_schedule_order", None)
 */
   __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_omp_thread_count, __pyx_mstate_global->__pyx_int_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6855,46 +6860,58 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   /* "ldpc/bp_decoder/_bp_decoder.pyx":97
  *         schedule=kwargs.get("schedule", 0)
  *         omp_thread_count = kwargs.get("omp_thread_count", 1)
- *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)             # <<<<<<<<<<<<<<
+ *         random_serial_schedule = kwargs.get("random_serial_schedule", False)             # <<<<<<<<<<<<<<
+ *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)
  *         serial_schedule_order = kwargs.get("serial_schedule_order", None)
- *         channel_probs = kwargs.get("channel_probs", [None])
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_random_schedule_seed, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_random_serial_schedule, Py_False); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_v_random_schedule_seed = __pyx_t_1;
+  __pyx_v_random_serial_schedule = __pyx_t_1;
   __pyx_t_1 = 0;
 
   /* "ldpc/bp_decoder/_bp_decoder.pyx":98
  *         omp_thread_count = kwargs.get("omp_thread_count", 1)
+ *         random_serial_schedule = kwargs.get("random_serial_schedule", False)
+ *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)             # <<<<<<<<<<<<<<
+ *         serial_schedule_order = kwargs.get("serial_schedule_order", None)
+ *         channel_probs = kwargs.get("channel_probs", [None])
+*/
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_random_schedule_seed, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_random_schedule_seed = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":99
+ *         random_serial_schedule = kwargs.get("random_serial_schedule", False)
  *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)
  *         serial_schedule_order = kwargs.get("serial_schedule_order", None)             # <<<<<<<<<<<<<<
  *         channel_probs = kwargs.get("channel_probs", [None])
  * 
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_serial_schedule_order, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_serial_schedule_order, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_serial_schedule_order = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":99
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":100
  *         random_schedule_seed = kwargs.get("random_schedule_seed", 0)
  *         serial_schedule_order = kwargs.get("serial_schedule_order", None)
  *         channel_probs = kwargs.get("channel_probs", [None])             # <<<<<<<<<<<<<<
  * 
  *         # input_vector_type = kwargs.get("input_vector_type", "auto")
 */
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 99, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_channel_probs, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 100, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_channel_probs, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_channel_probs = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":110
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":111
  * 
  *         cdef int i, j, nonzero_count
  *         self.MEMORY_ALLOCATED=False             # <<<<<<<<<<<<<<
@@ -6903,7 +6920,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
 */
   __pyx_v_self->MEMORY_ALLOCATED = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":113
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":114
  * 
  *         # Matrix memory allocation
  *         if isinstance(pcm, np.ndarray) or isinstance(pcm, scipy.sparse.spmatrix):             # <<<<<<<<<<<<<<
@@ -6916,15 +6933,15 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     __pyx_t_3 = __pyx_t_4;
     goto __pyx_L4_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_scipy); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_scipy); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_sparse); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_sparse); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_spmatrix); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_spmatrix); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = PyObject_IsInstance(__pyx_v_pcm, __pyx_t_2); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 113, __pyx_L1_error)
+  __pyx_t_4 = PyObject_IsInstance(__pyx_v_pcm, __pyx_t_2); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_3 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
@@ -6932,7 +6949,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":116
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":117
  *             pass
  *         else:
  *             raise TypeError(f"The input matrix is of an invalid type. Please input\             # <<<<<<<<<<<<<<
@@ -6943,9 +6960,9 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     __pyx_t_1 = NULL;
     __Pyx_INCREF(__pyx_builtin_TypeError);
     __pyx_t_5 = __pyx_builtin_TypeError; 
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_pcm)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_pcm)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_The_input_matrix_is_of_an_invali_2, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_The_input_matrix_is_of_an_invali_2, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_8 = 1;
@@ -6955,50 +6972,50 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 116, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 117, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 116, __pyx_L1_error)
+    __PYX_ERR(0, 117, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":118
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":119
  *             raise TypeError(f"The input matrix is of an invalid type. Please input\
  *             a np.ndarray or scipy.sparse.spmatrix object, not {type(pcm)}")
  *         self.pcm = Py2BpSparse(pcm)             # <<<<<<<<<<<<<<
  * 
  *         # get the parity check dimensions
 */
-  __pyx_t_9 = __pyx_f_4ldpc_10bp_decoder_11_bp_decoder_Py2BpSparse(__pyx_v_pcm); if (unlikely(__pyx_t_9 == ((ldpc::bp::BpSparse *)0) && PyErr_Occurred())) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_t_9 = __pyx_f_4ldpc_10bp_decoder_11_bp_decoder_Py2BpSparse(__pyx_v_pcm); if (unlikely(__pyx_t_9 == ((ldpc::bp::BpSparse *)0) && PyErr_Occurred())) __PYX_ERR(0, 119, __pyx_L1_error)
   __pyx_v_self->pcm = __pyx_t_9;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":121
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":122
  * 
  *         # get the parity check dimensions
  *         self.m, self.n = pcm.shape[0], pcm.shape[1]             # <<<<<<<<<<<<<<
  * 
  *         # allocate vectors for decoder input
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_pcm, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_pcm, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_pcm, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_pcm, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_5, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_5, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_11 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_self->m = __pyx_t_10;
   __pyx_v_self->n = __pyx_t_11;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":124
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":125
  * 
  *         # allocate vectors for decoder input
  *         self._error_channel.resize(self.n) #C++ vector for the error channel             # <<<<<<<<<<<<<<
@@ -7009,10 +7026,10 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     __pyx_v_self->_error_channel.resize(__pyx_v_self->n);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 124, __pyx_L1_error)
+    __PYX_ERR(0, 125, __pyx_L1_error)
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":125
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":126
  *         # allocate vectors for decoder input
  *         self._error_channel.resize(self.n) #C++ vector for the error channel
  *         self._syndrome.resize(self.m) #C++ vector for the syndrome             # <<<<<<<<<<<<<<
@@ -7023,10 +7040,10 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     __pyx_v_self->_syndrome.resize(__pyx_v_self->m);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 125, __pyx_L1_error)
+    __PYX_ERR(0, 126, __pyx_L1_error)
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":126
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":127
  *         self._error_channel.resize(self.n) #C++ vector for the error channel
  *         self._syndrome.resize(self.m) #C++ vector for the syndrome
  *         self._serial_schedule_order = NULL_INT_VECTOR             # <<<<<<<<<<<<<<
@@ -7035,85 +7052,94 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
 */
   __pyx_v_self->_serial_schedule_order = ldpc::bp::NULL_INT_VECTOR;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":131
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":132
  * 
  *         ## initialise the decoder with default values
- *         self.bpd = new BpDecoderCpp(self.pcm[0],self._error_channel,0,PRODUCT_SUM,PARALLEL,1.0,1,self._serial_schedule_order,0,True,SYNDROME)             # <<<<<<<<<<<<<<
+ *         self.bpd = new BpDecoderCpp(self.pcm[0],self._error_channel,0,PRODUCT_SUM,PARALLEL,1.0,1,self._serial_schedule_order,0,False,SYNDROME)             # <<<<<<<<<<<<<<
  * 
  *         ## set the decoder parameters
 */
   try {
-    __pyx_t_12 = new ldpc::bp::BpDecoder((__pyx_v_self->pcm[0]), __pyx_v_self->_error_channel, 0, ldpc::bp::PRODUCT_SUM, ldpc::bp::PARALLEL, 1.0, 1, __pyx_v_self->_serial_schedule_order, 0, 1, ldpc::bp::SYNDROME);
+    __pyx_t_12 = new ldpc::bp::BpDecoder((__pyx_v_self->pcm[0]), __pyx_v_self->_error_channel, 0, ldpc::bp::PRODUCT_SUM, ldpc::bp::PARALLEL, 1.0, 1, __pyx_v_self->_serial_schedule_order, 0, 0, ldpc::bp::SYNDROME);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 131, __pyx_L1_error)
+    __PYX_ERR(0, 132, __pyx_L1_error)
   }
   __pyx_v_self->bpd = __pyx_t_12;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":134
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":135
  * 
  *         ## set the decoder parameters
  *         self.bp_method = bp_method             # <<<<<<<<<<<<<<
  *         self.max_iter = max_iter
  *         self.ms_scaling_factor = ms_scaling_factor
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bp_method, __pyx_v_bp_method) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bp_method, __pyx_v_bp_method) < 0) __PYX_ERR(0, 135, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":135
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":136
  *         ## set the decoder parameters
  *         self.bp_method = bp_method
  *         self.max_iter = max_iter             # <<<<<<<<<<<<<<
  *         self.ms_scaling_factor = ms_scaling_factor
  *         self.schedule = schedule
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_max_iter, __pyx_v_max_iter) < 0) __PYX_ERR(0, 135, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_max_iter, __pyx_v_max_iter) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":136
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":137
  *         self.bp_method = bp_method
  *         self.max_iter = max_iter
  *         self.ms_scaling_factor = ms_scaling_factor             # <<<<<<<<<<<<<<
  *         self.schedule = schedule
  *         self.serial_schedule_order = serial_schedule_order
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_ms_scaling_factor, __pyx_v_ms_scaling_factor) < 0) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_ms_scaling_factor, __pyx_v_ms_scaling_factor) < 0) __PYX_ERR(0, 137, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":137
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":138
  *         self.max_iter = max_iter
  *         self.ms_scaling_factor = ms_scaling_factor
  *         self.schedule = schedule             # <<<<<<<<<<<<<<
  *         self.serial_schedule_order = serial_schedule_order
  *         self.random_schedule_seed = random_schedule_seed
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_schedule, __pyx_v_schedule) < 0) __PYX_ERR(0, 137, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_schedule, __pyx_v_schedule) < 0) __PYX_ERR(0, 138, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":138
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":139
  *         self.ms_scaling_factor = ms_scaling_factor
  *         self.schedule = schedule
  *         self.serial_schedule_order = serial_schedule_order             # <<<<<<<<<<<<<<
  *         self.random_schedule_seed = random_schedule_seed
  *         self.omp_thread_count = omp_thread_count
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_serial_schedule_order, __pyx_v_serial_schedule_order) < 0) __PYX_ERR(0, 138, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_serial_schedule_order, __pyx_v_serial_schedule_order) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":139
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":140
  *         self.schedule = schedule
  *         self.serial_schedule_order = serial_schedule_order
  *         self.random_schedule_seed = random_schedule_seed             # <<<<<<<<<<<<<<
  *         self.omp_thread_count = omp_thread_count
- * 
+ *         self.random_serial_schedule = random_serial_schedule
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_random_schedule_seed, __pyx_v_random_schedule_seed) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_random_schedule_seed, __pyx_v_random_schedule_seed) < 0) __PYX_ERR(0, 140, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":140
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":141
  *         self.serial_schedule_order = serial_schedule_order
  *         self.random_schedule_seed = random_schedule_seed
  *         self.omp_thread_count = omp_thread_count             # <<<<<<<<<<<<<<
+ *         self.random_serial_schedule = random_serial_schedule
+ * 
+*/
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_omp_thread_count, __pyx_v_omp_thread_count) < 0) __PYX_ERR(0, 141, __pyx_L1_error)
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":142
+ *         self.random_schedule_seed = random_schedule_seed
+ *         self.omp_thread_count = omp_thread_count
+ *         self.random_serial_schedule = random_serial_schedule             # <<<<<<<<<<<<<<
  * 
  *         ## the ldpc_v1 backwards compatibility
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_omp_thread_count, __pyx_v_omp_thread_count) < 0) __PYX_ERR(0, 140, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_random_serial_schedule, __pyx_v_random_serial_schedule) < 0) __PYX_ERR(0, 142, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":143
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":145
  * 
  *         ## the ldpc_v1 backwards compatibility
  *         if isinstance(channel_probs, list) or isinstance(channel_probs, np.ndarray):             # <<<<<<<<<<<<<<
@@ -7131,21 +7157,21 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_3) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":144
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":146
  *         ## the ldpc_v1 backwards compatibility
  *         if isinstance(channel_probs, list) or isinstance(channel_probs, np.ndarray):
  *             if(len(channel_probs)>0) and (channel_probs[0] is not None):             # <<<<<<<<<<<<<<
  *                 error_channel = channel_probs
  * 
 */
-    __pyx_t_13 = PyObject_Length(__pyx_v_channel_probs); if (unlikely(__pyx_t_13 == ((Py_ssize_t)-1))) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_13 = PyObject_Length(__pyx_v_channel_probs); if (unlikely(__pyx_t_13 == ((Py_ssize_t)-1))) __PYX_ERR(0, 146, __pyx_L1_error)
     __pyx_t_4 = (__pyx_t_13 > 0);
     if (__pyx_t_4) {
     } else {
       __pyx_t_3 = __pyx_t_4;
       goto __pyx_L10_bool_binop_done;
     }
-    __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_channel_probs, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_channel_probs, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_4 = (__pyx_t_2 != Py_None);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -7153,7 +7179,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     __pyx_L10_bool_binop_done:;
     if (__pyx_t_3) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":145
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":147
  *         if isinstance(channel_probs, list) or isinstance(channel_probs, np.ndarray):
  *             if(len(channel_probs)>0) and (channel_probs[0] is not None):
  *                 error_channel = channel_probs             # <<<<<<<<<<<<<<
@@ -7163,7 +7189,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
       __Pyx_INCREF(__pyx_v_channel_probs);
       __Pyx_DECREF_SET(__pyx_v_error_channel, __pyx_v_channel_probs);
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":144
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":146
  *         ## the ldpc_v1 backwards compatibility
  *         if isinstance(channel_probs, list) or isinstance(channel_probs, np.ndarray):
  *             if(len(channel_probs)>0) and (channel_probs[0] is not None):             # <<<<<<<<<<<<<<
@@ -7172,7 +7198,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":143
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":145
  * 
  *         ## the ldpc_v1 backwards compatibility
  *         if isinstance(channel_probs, list) or isinstance(channel_probs, np.ndarray):             # <<<<<<<<<<<<<<
@@ -7181,7 +7207,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":147
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":149
  *                 error_channel = channel_probs
  * 
  *         if error_channel is not None:             # <<<<<<<<<<<<<<
@@ -7191,16 +7217,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   __pyx_t_3 = (__pyx_v_error_channel != Py_None);
   if (__pyx_t_3) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":148
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":150
  * 
  *         if error_channel is not None:
  *             self.error_channel = error_channel             # <<<<<<<<<<<<<<
  *         elif error_rate is not None:
  *             self.error_rate = error_rate
 */
-    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_error_channel, __pyx_v_error_channel) < 0) __PYX_ERR(0, 148, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_error_channel, __pyx_v_error_channel) < 0) __PYX_ERR(0, 150, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":147
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":149
  *                 error_channel = channel_probs
  * 
  *         if error_channel is not None:             # <<<<<<<<<<<<<<
@@ -7210,7 +7236,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     goto __pyx_L12;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":149
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":151
  *         if error_channel is not None:
  *             self.error_channel = error_channel
  *         elif error_rate is not None:             # <<<<<<<<<<<<<<
@@ -7220,16 +7246,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   __pyx_t_3 = (__pyx_v_error_rate != Py_None);
   if (likely(__pyx_t_3)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":150
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":152
  *             self.error_channel = error_channel
  *         elif error_rate is not None:
  *             self.error_rate = error_rate             # <<<<<<<<<<<<<<
  *         else:
  *             raise ValueError("Please specify the error channel. Either: 1) error_rate: float or 2) error_channel:\
 */
-    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_error_rate, __pyx_v_error_rate) < 0) __PYX_ERR(0, 150, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_error_rate, __pyx_v_error_rate) < 0) __PYX_ERR(0, 152, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":149
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":151
  *         if error_channel is not None:
  *             self.error_channel = error_channel
  *         elif error_rate is not None:             # <<<<<<<<<<<<<<
@@ -7239,7 +7265,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
     goto __pyx_L12;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":152
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":154
  *             self.error_rate = error_rate
  *         else:
  *             raise ValueError("Please specify the error channel. Either: 1) error_rate: float or 2) error_channel:\             # <<<<<<<<<<<<<<
@@ -7256,16 +7282,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 152, __pyx_L1_error)
+    __PYX_ERR(0, 154, __pyx_L1_error)
   }
   __pyx_L12:;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":158
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":160
  * 
  * 
  *         self.MEMORY_ALLOCATED=True             # <<<<<<<<<<<<<<
@@ -7301,6 +7327,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   __Pyx_XDECREF(__pyx_v_ms_scaling_factor);
   __Pyx_XDECREF(__pyx_v_schedule);
   __Pyx_XDECREF(__pyx_v_omp_thread_count);
+  __Pyx_XDECREF(__pyx_v_random_serial_schedule);
   __Pyx_XDECREF(__pyx_v_random_schedule_seed);
   __Pyx_XDECREF(__pyx_v_serial_schedule_order);
   __Pyx_XDECREF(__pyx_v_channel_probs);
@@ -7308,7 +7335,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase___cinit__(s
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":160
+/* "ldpc/bp_decoder/_bp_decoder.pyx":162
  *         self.MEMORY_ALLOCATED=True
  * 
  *     def __del__(self):             # <<<<<<<<<<<<<<
@@ -7332,7 +7359,7 @@ static void __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_3__del__(P
 static void __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_2__del__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self) {
   int __pyx_t_1;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":161
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":163
  * 
  *     def __del__(self):
  *         if self.MEMORY_ALLOCATED:             # <<<<<<<<<<<<<<
@@ -7342,7 +7369,7 @@ static void __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_2__del__(s
   __pyx_t_1 = (__pyx_v_self->MEMORY_ALLOCATED != 0);
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":162
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":164
  *     def __del__(self):
  *         if self.MEMORY_ALLOCATED:
  *             del self.bpd             # <<<<<<<<<<<<<<
@@ -7351,7 +7378,7 @@ static void __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_2__del__(s
 */
     delete __pyx_v_self->bpd;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":163
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":165
  *         if self.MEMORY_ALLOCATED:
  *             del self.bpd
  *             del self.pcm             # <<<<<<<<<<<<<<
@@ -7360,7 +7387,7 @@ static void __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_2__del__(s
 */
     delete __pyx_v_self->pcm;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":161
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":163
  * 
  *     def __del__(self):
  *         if self.MEMORY_ALLOCATED:             # <<<<<<<<<<<<<<
@@ -7369,7 +7396,7 @@ static void __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_2__del__(s
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":160
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":162
  *         self.MEMORY_ALLOCATED=True
  * 
  *     def __del__(self):             # <<<<<<<<<<<<<<
@@ -7380,7 +7407,7 @@ static void __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_2__del__(s
   /* function exit code */
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":165
+/* "ldpc/bp_decoder/_bp_decoder.pyx":167
  *             del self.pcm
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7423,7 +7450,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":173
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":175
  *             np.ndarray: A numpy array containing the current error rate vector.
  *         """
  *         out = np.zeros(self.n).astype(float)             # <<<<<<<<<<<<<<
@@ -7431,12 +7458,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
  *             out[i] = self.bpd.channel_probabilities[i]
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -7456,7 +7483,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -7467,13 +7494,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":174
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":176
  *         """
  *         out = np.zeros(self.n).astype(float)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -7485,20 +7512,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_i = __pyx_t_10;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":175
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":177
  *         out = np.zeros(self.n).astype(float)
  *         for i in range(self.n):
  *             out[i] = self.bpd.channel_probabilities[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->channel_probabilities[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->channel_probabilities[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 175, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":176
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":178
  *         for i in range(self.n):
  *             out[i] = self.bpd.channel_probabilities[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -7510,7 +7537,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":165
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":167
  *             del self.pcm
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7535,7 +7562,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10err
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":178
+/* "ldpc/bp_decoder/_bp_decoder.pyx":180
  *         return out
  * 
  *     @error_rate.setter             # <<<<<<<<<<<<<<
@@ -7554,7 +7581,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyFloat_Type), 1, "value", 2))) __PYX_ERR(0, 179, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyFloat_Type), 1, "value", 2))) __PYX_ERR(0, 181, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rate_2__set__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -7587,7 +7614,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":186
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":188
  *             value (Optional[float]): The error rate value to be set. Must be a single float value.
  *         """
  *         if value is not None:             # <<<<<<<<<<<<<<
@@ -7597,7 +7624,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
   __pyx_t_1 = (__pyx_v_value != ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":187
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":189
  *         """
  *         if value is not None:
  *             if not isinstance(value, float):             # <<<<<<<<<<<<<<
@@ -7608,7 +7635,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
     __pyx_t_2 = (!__pyx_t_1);
     if (unlikely(__pyx_t_2)) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":188
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":190
  *         if value is not None:
  *             if not isinstance(value, float):
  *                 raise ValueError("The `error_rate` parameter must be specified as a single float value.")             # <<<<<<<<<<<<<<
@@ -7624,14 +7651,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
         __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 188, __pyx_L1_error)
+      __PYX_ERR(0, 190, __pyx_L1_error)
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":187
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":189
  *         """
  *         if value is not None:
  *             if not isinstance(value, float):             # <<<<<<<<<<<<<<
@@ -7640,7 +7667,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":189
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":191
  *             if not isinstance(value, float):
  *                 raise ValueError("The `error_rate` parameter must be specified as a single float value.")
  *             for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -7652,18 +7679,18 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
     for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
       __pyx_v_i = __pyx_t_9;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":190
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":192
  *                 raise ValueError("The `error_rate` parameter must be specified as a single float value.")
  *             for i in range(self.n):
  *                 self.bpd.channel_probabilities[i] = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-      __pyx_t_10 = __Pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_10 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 190, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_10 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 192, __pyx_L1_error)
       (__pyx_v_self->bpd->channel_probabilities[__pyx_v_i]) = __pyx_t_10;
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":186
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":188
  *             value (Optional[float]): The error rate value to be set. Must be a single float value.
  *         """
  *         if value is not None:             # <<<<<<<<<<<<<<
@@ -7672,7 +7699,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":178
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":180
  *         return out
  * 
  *     @error_rate.setter             # <<<<<<<<<<<<<<
@@ -7694,7 +7721,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_10error_rat
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":192
+/* "ldpc/bp_decoder/_bp_decoder.pyx":194
  *                 self.bpd.channel_probabilities[i] = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7737,7 +7764,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":200
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":202
  *             np.ndarray: A numpy array containing the current error channel vector.
  *         """
  *         out = np.zeros(self.n).astype(float)             # <<<<<<<<<<<<<<
@@ -7745,12 +7772,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
  *             out[i] = self.bpd.channel_probabilities[i]
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -7770,7 +7797,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 200, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 202, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -7781,13 +7808,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 200, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 202, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":201
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":203
  *         """
  *         out = np.zeros(self.n).astype(float)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -7799,20 +7826,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_i = __pyx_t_10;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":202
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":204
  *         out = np.zeros(self.n).astype(float)
  *         for i in range(self.n):
  *             out[i] = self.bpd.channel_probabilities[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->channel_probabilities[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 202, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->channel_probabilities[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 202, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":203
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":205
  *         for i in range(self.n):
  *             out[i] = self.bpd.channel_probabilities[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -7824,7 +7851,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":192
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":194
  *                 self.bpd.channel_probabilities[i] = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7849,7 +7876,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13err
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":205
+/* "ldpc/bp_decoder/_bp_decoder.pyx":207
  *         return out
  * 
  *     @error_channel.setter             # <<<<<<<<<<<<<<
@@ -7895,7 +7922,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":214
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":216
  *             length of the code `self.n`.
  *         """
  *         if value is not None:             # <<<<<<<<<<<<<<
@@ -7905,18 +7932,18 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
   __pyx_t_1 = (__pyx_v_value != Py_None);
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":215
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":217
  *         """
  *         if value is not None:
  *             if len(value) != self.n:             # <<<<<<<<<<<<<<
  *                 raise ValueError(f"The error channel vector must have length {self.n}, not {len(value)}.")
  *             for i in range(self.n):
 */
-    __pyx_t_2 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_2 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 217, __pyx_L1_error)
     __pyx_t_1 = (__pyx_t_2 != __pyx_v_self->n);
     if (unlikely(__pyx_t_1)) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":216
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":218
  *         if value is not None:
  *             if len(value) != self.n:
  *                 raise ValueError(f"The error channel vector must have length {self.n}, not {len(value)}.")             # <<<<<<<<<<<<<<
@@ -7926,10 +7953,10 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
       __pyx_t_4 = NULL;
       __Pyx_INCREF(__pyx_builtin_ValueError);
       __pyx_t_5 = __pyx_builtin_ValueError; 
-      __pyx_t_6 = __Pyx_PyUnicode_From_int(__pyx_v_self->n, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 216, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_From_int(__pyx_v_self->n, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 218, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_2 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 216, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_2, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 216, __pyx_L1_error)
+      __pyx_t_2 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 218, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_2, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 218, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_The_error_channel_vector_must_ha;
       __pyx_t_8[1] = __pyx_t_6;
@@ -7937,7 +7964,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
       __pyx_t_8[3] = __pyx_t_7;
       __pyx_t_8[4] = __pyx_mstate_global->__pyx_kp_u_;
       __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 5, 42 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 1, 127);
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 216, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 218, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -7948,14 +7975,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 216, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 218, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 216, __pyx_L1_error)
+      __PYX_ERR(0, 218, __pyx_L1_error)
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":215
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":217
  *         """
  *         if value is not None:
  *             if len(value) != self.n:             # <<<<<<<<<<<<<<
@@ -7964,7 +7991,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":217
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":219
  *             if len(value) != self.n:
  *                 raise ValueError(f"The error channel vector must have length {self.n}, not {len(value)}.")
  *             for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -7976,21 +8003,21 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
     for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
       __pyx_v_i = __pyx_t_13;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":218
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":220
  *                 raise ValueError(f"The error channel vector must have length {self.n}, not {len(value)}.")
  *             for i in range(self.n):
  *                 self.bpd.channel_probabilities[i] = value[i]             # <<<<<<<<<<<<<<
  * 
  *     def update_channel_probs(self, value: Union[List[float],np.ndarray]) -> None:
 */
-      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 218, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 220, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_14 = __Pyx_PyFloat_AsDouble(__pyx_t_3); if (unlikely((__pyx_t_14 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 218, __pyx_L1_error)
+      __pyx_t_14 = __Pyx_PyFloat_AsDouble(__pyx_t_3); if (unlikely((__pyx_t_14 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 220, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       (__pyx_v_self->bpd->channel_probabilities[__pyx_v_i]) = __pyx_t_14;
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":214
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":216
  *             length of the code `self.n`.
  *         """
  *         if value is not None:             # <<<<<<<<<<<<<<
@@ -7999,7 +8026,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":205
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":207
  *         return out
  * 
  *     @error_channel.setter             # <<<<<<<<<<<<<<
@@ -8024,7 +8051,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13error_cha
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":220
+/* "ldpc/bp_decoder/_bp_decoder.pyx":222
  *                 self.bpd.channel_probabilities[i] = value[i]
  * 
  *     def update_channel_probs(self, value: Union[List[float],np.ndarray]) -> None:             # <<<<<<<<<<<<<<
@@ -8072,32 +8099,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 220, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 222, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 220, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 222, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "update_channel_probs", 0) < 0) __PYX_ERR(0, 220, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "update_channel_probs", 0) < 0) __PYX_ERR(0, 222, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("update_channel_probs", 1, 1, 1, i); __PYX_ERR(0, 220, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("update_channel_probs", 1, 1, 1, i); __PYX_ERR(0, 222, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 220, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 222, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("update_channel_probs", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 220, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("update_channel_probs", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 222, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8126,16 +8153,16 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_4upda
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("update_channel_probs", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":221
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":223
  * 
  *     def update_channel_probs(self, value: Union[List[float],np.ndarray]) -> None:
  *         self.error_channel = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_error_channel, __pyx_v_value) < 0) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_error_channel, __pyx_v_value) < 0) __PYX_ERR(0, 223, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":220
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":222
  *                 self.bpd.channel_probabilities[i] = value[i]
  * 
  *     def update_channel_probs(self, value: Union[List[float],np.ndarray]) -> None:             # <<<<<<<<<<<<<<
@@ -8155,7 +8182,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_4upda
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":223
+/* "ldpc/bp_decoder/_bp_decoder.pyx":225
  *         self.error_channel = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8198,7 +8225,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":225
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":227
  *     @property
  *     def channel_probs(self) -> np.ndarray:
  *         out = np.zeros(self.n).astype(float)             # <<<<<<<<<<<<<<
@@ -8206,12 +8233,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
  *             out[i] = self.bpd.channel_probabilities[i]
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -8231,7 +8258,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -8242,13 +8269,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":226
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":228
  *     def channel_probs(self) -> np.ndarray:
  *         out = np.zeros(self.n).astype(float)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -8260,20 +8287,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_i = __pyx_t_10;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":227
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":229
  *         out = np.zeros(self.n).astype(float)
  *         for i in range(self.n):
  *             out[i] = self.bpd.channel_probabilities[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->channel_probabilities[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->channel_probabilities[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 227, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":228
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":230
  *         for i in range(self.n):
  *             out[i] = self.bpd.channel_probabilities[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -8285,7 +8312,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":223
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":225
  *         self.error_channel = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8310,7 +8337,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_13cha
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":231
+/* "ldpc/bp_decoder/_bp_decoder.pyx":233
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8345,7 +8372,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":239
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":241
  *             str: The current input vector type.
  *         """
  *         if self.bpd.bp_input_type == SYNDROME:             # <<<<<<<<<<<<<<
@@ -8355,7 +8382,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
   switch (__pyx_v_self->bpd->bp_input_type) {
     case ldpc::bp::SYNDROME:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":240
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":242
  *         """
  *         if self.bpd.bp_input_type == SYNDROME:
  *             return 'syndrome'             # <<<<<<<<<<<<<<
@@ -8367,7 +8394,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
     __pyx_r = __pyx_mstate_global->__pyx_n_u_syndrome;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":239
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":241
  *             str: The current input vector type.
  *         """
  *         if self.bpd.bp_input_type == SYNDROME:             # <<<<<<<<<<<<<<
@@ -8377,7 +8404,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
     break;
     case ldpc::bp::RECEIVED_VECTOR:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":242
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":244
  *             return 'syndrome'
  *         elif self.bpd.bp_input_type == RECEIVED_VECTOR:
  *             return 'received_vector'             # <<<<<<<<<<<<<<
@@ -8389,7 +8416,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
     __pyx_r = __pyx_mstate_global->__pyx_n_u_received_vector;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":241
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":243
  *         if self.bpd.bp_input_type == SYNDROME:
  *             return 'syndrome'
  *         elif self.bpd.bp_input_type == RECEIVED_VECTOR:             # <<<<<<<<<<<<<<
@@ -8399,7 +8426,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
     break;
     case ldpc::bp::AUTO:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":244
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":246
  *             return 'received_vector'
  *         elif self.bpd.bp_input_type == AUTO:
  *             return 'auto'             # <<<<<<<<<<<<<<
@@ -8411,7 +8438,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
     __pyx_r = __pyx_mstate_global->__pyx_n_u_auto;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":243
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":245
  *         elif self.bpd.bp_input_type == RECEIVED_VECTOR:
  *             return 'received_vector'
  *         elif self.bpd.bp_input_type == AUTO:             # <<<<<<<<<<<<<<
@@ -8421,7 +8448,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
     break;
     default:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":246
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":248
  *             return 'auto'
  *         else:
  *             raise ValueError(f"The input vector type is invalid. \             # <<<<<<<<<<<<<<
@@ -8437,16 +8464,16 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 246, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 248, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 246, __pyx_L1_error)
+    __PYX_ERR(0, 248, __pyx_L1_error)
     break;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":231
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":233
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8467,7 +8494,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17inp
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":251
+/* "ldpc/bp_decoder/_bp_decoder.pyx":253
  * 
  * 
  *     @input_vector_type.setter             # <<<<<<<<<<<<<<
@@ -8486,7 +8513,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_type), (&PyUnicode_Type), 0, "input_type", 2))) __PYX_ERR(0, 252, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_type), (&PyUnicode_Type), 0, "input_type", 2))) __PYX_ERR(0, 254, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vector_type_2__set__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self), ((PyObject*)__pyx_v_input_type));
 
   /* function exit code */
@@ -8516,35 +8543,35 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":259
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":261
  *             input_type (str): The input vector type to be set. Must be either 'syndrome' or 'received_vector'.
  *         """
  *         if input_type.lower() in ['auto', 'a', '2']:             # <<<<<<<<<<<<<<
  *             if self.m == self.n:
  *                 raise ValueError("Please specify the input vector type. Either: 1) input_vector_type: 'syndrome' or 2) input_vector_type:\
 */
-  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__lower, __pyx_v_input_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__lower, __pyx_v_input_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_auto, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_auto, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_a, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_a, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":260
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":262
  *         """
  *         if input_type.lower() in ['auto', 'a', '2']:
  *             if self.m == self.n:             # <<<<<<<<<<<<<<
@@ -8554,7 +8581,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
     __pyx_t_3 = (__pyx_v_self->m == __pyx_v_self->n);
     if (unlikely(__pyx_t_3)) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":261
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":263
  *         if input_type.lower() in ['auto', 'a', '2']:
  *             if self.m == self.n:
  *                 raise ValueError("Please specify the input vector type. Either: 1) input_vector_type: 'syndrome' or 2) input_vector_type:\             # <<<<<<<<<<<<<<
@@ -8570,14 +8597,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 263, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 261, __pyx_L1_error)
+      __PYX_ERR(0, 263, __pyx_L1_error)
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":260
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":262
  *         """
  *         if input_type.lower() in ['auto', 'a', '2']:
  *             if self.m == self.n:             # <<<<<<<<<<<<<<
@@ -8586,7 +8613,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":264
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":266
  *                 'received_vector'.")
  *             else:
  *                 self.bpd.bp_input_type = AUTO             # <<<<<<<<<<<<<<
@@ -8597,7 +8624,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
       __pyx_v_self->bpd->bp_input_type = ldpc::bp::AUTO;
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":259
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":261
  *             input_type (str): The input vector type to be set. Must be either 'syndrome' or 'received_vector'.
  *         """
  *         if input_type.lower() in ['auto', 'a', '2']:             # <<<<<<<<<<<<<<
@@ -8607,35 +8634,35 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":266
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":268
  *                 self.bpd.bp_input_type = AUTO
  * 
  *         elif input_type.lower() in ['syndrome', 's', '0']:             # <<<<<<<<<<<<<<
  *             self.bpd.bp_input_type = SYNDROME
  *         elif input_type.lower() in ['received_vector', 'r', '1']:
 */
-  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__lower, __pyx_v_input_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__lower, __pyx_v_input_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 268, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_syndrome, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_syndrome, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __pyx_t_3 = __pyx_t_2;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_s, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_s, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __pyx_t_3 = __pyx_t_2;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
   __pyx_t_3 = __pyx_t_2;
   __pyx_L8_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_2 = __pyx_t_3;
   if (__pyx_t_2) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":267
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":269
  * 
  *         elif input_type.lower() in ['syndrome', 's', '0']:
  *             self.bpd.bp_input_type = SYNDROME             # <<<<<<<<<<<<<<
@@ -8644,7 +8671,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
 */
     __pyx_v_self->bpd->bp_input_type = ldpc::bp::SYNDROME;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":266
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":268
  *                 self.bpd.bp_input_type = AUTO
  * 
  *         elif input_type.lower() in ['syndrome', 's', '0']:             # <<<<<<<<<<<<<<
@@ -8654,35 +8681,35 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":268
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":270
  *         elif input_type.lower() in ['syndrome', 's', '0']:
  *             self.bpd.bp_input_type = SYNDROME
  *         elif input_type.lower() in ['received_vector', 'r', '1']:             # <<<<<<<<<<<<<<
  *             self.bpd.bp_input_type = RECEIVED_VECTOR
  *         else:
 */
-  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__lower, __pyx_v_input_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__lower, __pyx_v_input_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_received_vector, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_received_vector, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 270, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L11_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_r, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_r, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 270, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L11_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 270, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L11_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = __pyx_t_2;
   if (likely(__pyx_t_3)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":269
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":271
  *             self.bpd.bp_input_type = SYNDROME
  *         elif input_type.lower() in ['received_vector', 'r', '1']:
  *             self.bpd.bp_input_type = RECEIVED_VECTOR             # <<<<<<<<<<<<<<
@@ -8691,7 +8718,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
 */
     __pyx_v_self->bpd->bp_input_type = ldpc::bp::RECEIVED_VECTOR;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":268
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":270
  *         elif input_type.lower() in ['syndrome', 's', '0']:
  *             self.bpd.bp_input_type = SYNDROME
  *         elif input_type.lower() in ['received_vector', 'r', '1']:             # <<<<<<<<<<<<<<
@@ -8701,7 +8728,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":271
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":273
  *             self.bpd.bp_input_type = RECEIVED_VECTOR
  *         else:
  *             raise ValueError(f"The input vector type '{input_type}' is invalid. \             # <<<<<<<<<<<<<<
@@ -8716,7 +8743,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
     __pyx_t_7[1] = __pyx_v_input_type;
     __pyx_t_7[2] = __pyx_mstate_global->__pyx_kp_u_is_invalid_Please_choose_from_t;
     __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_7, 3, 23 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_input_type) + 165, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_input_type));
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 271, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 273, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_6 = 1;
     {
@@ -8725,16 +8752,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 271, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 273, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 271, __pyx_L1_error)
+    __PYX_ERR(0, 273, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":251
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":253
  * 
  * 
  *     @input_vector_type.setter             # <<<<<<<<<<<<<<
@@ -8757,7 +8784,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17input_vec
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":276
+/* "ldpc/bp_decoder/_bp_decoder.pyx":278
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8798,7 +8825,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_15log
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":284
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":286
  *             np.ndarray: A numpy array containing the current log probability ratio vector.
  *         """
  *         out = np.zeros(self.n)             # <<<<<<<<<<<<<<
@@ -8806,12 +8833,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_15log
  *             out[i] = self.bpd.log_prob_ratios[i]
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -8831,13 +8858,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_15log
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 286, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":285
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":287
  *         """
  *         out = np.zeros(self.n)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -8849,20 +8876,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_15log
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_i = __pyx_t_8;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":286
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":288
  *         out = np.zeros(self.n)
  *         for i in range(self.n):
  *             out[i] = self.bpd.log_prob_ratios[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->log_prob_ratios[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 286, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->bpd->log_prob_ratios[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 286, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 288, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":287
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":289
  *         for i in range(self.n):
  *             out[i] = self.bpd.log_prob_ratios[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -8874,7 +8901,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_15log
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":276
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":278
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8897,7 +8924,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_15log
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":289
+/* "ldpc/bp_decoder/_bp_decoder.pyx":291
  *         return out
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8929,7 +8956,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8conv
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":297
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":299
  *             bool: True if the decoder has converged, False otherwise.
  *         """
  *         return self.bpd.converge             # <<<<<<<<<<<<<<
@@ -8937,13 +8964,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8conv
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->bpd->converge); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->bpd->converge); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":289
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":291
  *         return out
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8962,7 +8989,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8conv
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":299
+/* "ldpc/bp_decoder/_bp_decoder.pyx":301
  *         return self.bpd.converge
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8994,7 +9021,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_4iter
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":307
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":309
  *             int: The number of iterations performed by the decoder.
  *         """
  *         return self.bpd.iterations             # <<<<<<<<<<<<<<
@@ -9002,13 +9029,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_4iter
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->iterations); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->iterations); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":299
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":301
  *         return self.bpd.converge
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9027,7 +9054,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_4iter
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":310
+/* "ldpc/bp_decoder/_bp_decoder.pyx":312
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9059,7 +9086,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_11che
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":318
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":320
  *             int: The number of rows of the parity check matrix.
  *         """
  *         return self.bpd.pcm.m             # <<<<<<<<<<<<<<
@@ -9067,13 +9094,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_11che
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->pcm.m); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 318, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->pcm.m); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":310
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":312
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9092,7 +9119,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_11che
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":320
+/* "ldpc/bp_decoder/_bp_decoder.pyx":322
  *         return self.bpd.pcm.m
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9124,7 +9151,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bit_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":328
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":330
  *             int: The number of columns of the parity check matrix.
  *         """
  *         return self.bpd.pcm.n             # <<<<<<<<<<<<<<
@@ -9132,13 +9159,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bit_
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->pcm.n); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->pcm.n); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":320
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":322
  *         return self.bpd.pcm.m
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9157,7 +9184,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bit_
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":330
+/* "ldpc/bp_decoder/_bp_decoder.pyx":332
  *         return self.bpd.pcm.n
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9189,7 +9216,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":338
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":340
  *             int: The maximum number of iterations allowed by the decoder.
  *         """
  *         return self.bpd.maximum_iterations             # <<<<<<<<<<<<<<
@@ -9197,13 +9224,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_
  *     @max_iter.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->maximum_iterations); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->maximum_iterations); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 340, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":330
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":332
  *         return self.bpd.pcm.n
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9222,7 +9249,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":340
+/* "ldpc/bp_decoder/_bp_decoder.pyx":342
  *         return self.bpd.maximum_iterations
  * 
  *     @max_iter.setter             # <<<<<<<<<<<<<<
@@ -9241,7 +9268,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_3
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 341, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 343, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2__set__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -9274,7 +9301,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":351
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":353
  *             ValueError: If value is not a positive integer.
  *         """
  *         if not isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -9285,7 +9312,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
   __pyx_t_2 = (!__pyx_t_1);
   if (unlikely(__pyx_t_2)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":352
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":354
  *         """
  *         if not isinstance(value, int):
  *             raise ValueError("max_iter input parameter is invalid. This must be specified as a positive int.")             # <<<<<<<<<<<<<<
@@ -9301,14 +9328,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 352, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 354, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 352, __pyx_L1_error)
+    __PYX_ERR(0, 354, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":351
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":353
  *             ValueError: If value is not a positive integer.
  *         """
  *         if not isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -9317,19 +9344,19 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":353
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":355
  *         if not isinstance(value, int):
  *             raise ValueError("max_iter input parameter is invalid. This must be specified as a positive int.")
  *         if value < 0:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"max_iter input parameter must be a positive int. Not {value}.")
  *         self.bpd.maximum_iterations = value if value != 0 else self.n
 */
-  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, Py_LT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 353, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 353, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, Py_LT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (unlikely(__pyx_t_2)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":354
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":356
  *             raise ValueError("max_iter input parameter is invalid. This must be specified as a positive int.")
  *         if value < 0:
  *             raise ValueError(f"max_iter input parameter must be a positive int. Not {value}.")             # <<<<<<<<<<<<<<
@@ -9339,13 +9366,13 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
     __pyx_t_5 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_4 = __pyx_builtin_ValueError; 
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 354, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 356, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_max_iter_input_parameter_must_be;
     __pyx_t_8[1] = __pyx_t_7;
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, 53 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7));
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 354, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 356, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_6 = 1;
@@ -9355,14 +9382,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 354, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 356, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 354, __pyx_L1_error)
+    __PYX_ERR(0, 356, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":353
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":355
  *         if not isinstance(value, int):
  *             raise ValueError("max_iter input parameter is invalid. This must be specified as a positive int.")
  *         if value < 0:             # <<<<<<<<<<<<<<
@@ -9371,23 +9398,23 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":355
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":357
  *         if value < 0:
  *             raise ValueError(f"max_iter input parameter must be a positive int. Not {value}.")
  *         self.bpd.maximum_iterations = value if value != 0 else self.n             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 355, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 357, __pyx_L1_error)
   if (__pyx_t_2) {
-    __pyx_t_11 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 355, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 357, __pyx_L1_error)
     __pyx_t_10 = __pyx_t_11;
   } else {
     __pyx_t_10 = __pyx_v_self->n;
   }
   __pyx_v_self->bpd->maximum_iterations = __pyx_t_10;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":340
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":342
  *         return self.bpd.maximum_iterations
  * 
  *     @max_iter.setter             # <<<<<<<<<<<<<<
@@ -9411,7 +9438,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8max_iter_2
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":357
+/* "ldpc/bp_decoder/_bp_decoder.pyx":359
  *         self.bpd.maximum_iterations = value if value != 0 else self.n
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9446,7 +9473,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":365
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":367
  *             str: The belief propagation method used. Possible values are 'product_sum' or 'minimum_sum'.
  *         """
  *         if self.bpd.bp_method == PRODUCT_SUM:             # <<<<<<<<<<<<<<
@@ -9456,7 +9483,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
   switch (__pyx_v_self->bpd->bp_method) {
     case ldpc::bp::PRODUCT_SUM:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":366
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":368
  *         """
  *         if self.bpd.bp_method == PRODUCT_SUM:
  *             return 'product_sum'             # <<<<<<<<<<<<<<
@@ -9468,7 +9495,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
     __pyx_r = __pyx_mstate_global->__pyx_n_u_product_sum;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":365
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":367
  *             str: The belief propagation method used. Possible values are 'product_sum' or 'minimum_sum'.
  *         """
  *         if self.bpd.bp_method == PRODUCT_SUM:             # <<<<<<<<<<<<<<
@@ -9478,7 +9505,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
     break;
     case ldpc::bp::MINIMUM_SUM:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":368
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":370
  *             return 'product_sum'
  *         elif self.bpd.bp_method == MINIMUM_SUM:
  *             return 'minimum_sum'             # <<<<<<<<<<<<<<
@@ -9490,7 +9517,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
     __pyx_r = __pyx_mstate_global->__pyx_n_u_minimum_sum;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":367
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":369
  *         if self.bpd.bp_method == PRODUCT_SUM:
  *             return 'product_sum'
  *         elif self.bpd.bp_method == MINIMUM_SUM:             # <<<<<<<<<<<<<<
@@ -9500,7 +9527,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
     break;
     default:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":370
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":372
  *             return 'minimum_sum'
  *         else:
  *             raise ValueError(f"BP method is invalid. \             # <<<<<<<<<<<<<<
@@ -9516,16 +9543,16 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 370, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 372, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 370, __pyx_L1_error)
+    __PYX_ERR(0, 372, __pyx_L1_error)
     break;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":357
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":359
  *         self.bpd.maximum_iterations = value if value != 0 else self.n
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9546,7 +9573,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_m
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":374
+/* "ldpc/bp_decoder/_bp_decoder.pyx":376
  *                     'product_sum', 'minimum_sum'")
  * 
  *     @bp_method.setter             # <<<<<<<<<<<<<<
@@ -9586,14 +9613,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":385
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":387
  *             ValueError: If value is not a valid option.
  *         """
  *         if str(value).lower() in ['prod_sum', 'product_sum', 'ps', '0', 'prod sum']:             # <<<<<<<<<<<<<<
  *             self.bpd.bp_method = PRODUCT_SUM
  *         elif str(value).lower() in ['min_sum', 'minimum_sum', 'ms', '1', 'minimum sum', 'min sum']:
 */
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 387, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -9603,41 +9630,41 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 385, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 387, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_prod_sum, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_prod_sum, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_product_sum, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_product_sum, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ps, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ps, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_prod_sum_2, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_prod_sum_2, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = __pyx_t_5;
   if (__pyx_t_6) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":386
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":388
  *         """
  *         if str(value).lower() in ['prod_sum', 'product_sum', 'ps', '0', 'prod sum']:
  *             self.bpd.bp_method = PRODUCT_SUM             # <<<<<<<<<<<<<<
@@ -9646,7 +9673,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
 */
     __pyx_v_self->bpd->bp_method = ldpc::bp::PRODUCT_SUM;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":385
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":387
  *             ValueError: If value is not a valid option.
  *         """
  *         if str(value).lower() in ['prod_sum', 'product_sum', 'ps', '0', 'prod sum']:             # <<<<<<<<<<<<<<
@@ -9656,14 +9683,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":387
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":389
  *         if str(value).lower() in ['prod_sum', 'product_sum', 'ps', '0', 'prod sum']:
  *             self.bpd.bp_method = PRODUCT_SUM
  *         elif str(value).lower() in ['min_sum', 'minimum_sum', 'ms', '1', 'minimum sum', 'min sum']:             # <<<<<<<<<<<<<<
  *             self.bpd.bp_method = MINIMUM_SUM
  *         else:
 */
-  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = __pyx_t_2;
   __Pyx_INCREF(__pyx_t_3);
@@ -9673,47 +9700,47 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 387, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 389, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_min_sum, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_min_sum, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_minimum_sum, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_minimum_sum, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ms, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ms, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_minimum_sum_2, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_minimum_sum_2, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_min_sum_2, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_min_sum_2, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
   __pyx_t_6 = __pyx_t_5;
   __pyx_L9_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_5 = __pyx_t_6;
   if (likely(__pyx_t_5)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":388
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":390
  *             self.bpd.bp_method = PRODUCT_SUM
  *         elif str(value).lower() in ['min_sum', 'minimum_sum', 'ms', '1', 'minimum sum', 'min sum']:
  *             self.bpd.bp_method = MINIMUM_SUM             # <<<<<<<<<<<<<<
@@ -9722,7 +9749,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
 */
     __pyx_v_self->bpd->bp_method = ldpc::bp::MINIMUM_SUM;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":387
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":389
  *         if str(value).lower() in ['prod_sum', 'product_sum', 'ps', '0', 'prod sum']:
  *             self.bpd.bp_method = PRODUCT_SUM
  *         elif str(value).lower() in ['min_sum', 'minimum_sum', 'ms', '1', 'minimum sum', 'min sum']:             # <<<<<<<<<<<<<<
@@ -9732,7 +9759,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":390
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":392
  *             self.bpd.bp_method = MINIMUM_SUM
  *         else:
  *             raise ValueError(f"BP method '{value}' is invalid. \             # <<<<<<<<<<<<<<
@@ -9743,13 +9770,13 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
     __pyx_t_2 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_3 = __pyx_builtin_ValueError; 
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 390, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 392, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_BP_method;
     __pyx_t_8[1] = __pyx_t_7;
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_is_invalid_Please_choose_from_t_2;
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, 11 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 128, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7));
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 390, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 392, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_4 = 1;
@@ -9759,16 +9786,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 390, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 392, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 390, __pyx_L1_error)
+    __PYX_ERR(0, 392, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":374
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":376
  *                     'product_sum', 'minimum_sum'")
  * 
  *     @bp_method.setter             # <<<<<<<<<<<<<<
@@ -9792,7 +9819,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_9bp_method_
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":394
+/* "ldpc/bp_decoder/_bp_decoder.pyx":396
  *                     'product_sum', 'minimum_sum'")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9827,7 +9854,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":402
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":404
  *             str: The scheduling method used. Possible values are 'parallel' or 'serial'.
  *         """
  *         if self.bpd.schedule == PARALLEL:             # <<<<<<<<<<<<<<
@@ -9837,7 +9864,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
   switch (__pyx_v_self->bpd->schedule) {
     case ldpc::bp::PARALLEL:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":403
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":405
  *         """
  *         if self.bpd.schedule == PARALLEL:
  *             return 'parallel'             # <<<<<<<<<<<<<<
@@ -9849,7 +9876,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
     __pyx_r = __pyx_mstate_global->__pyx_n_u_parallel;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":402
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":404
  *             str: The scheduling method used. Possible values are 'parallel' or 'serial'.
  *         """
  *         if self.bpd.schedule == PARALLEL:             # <<<<<<<<<<<<<<
@@ -9859,7 +9886,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
     break;
     case ldpc::bp::SERIAL:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":405
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":407
  *             return 'parallel'
  *         elif self.bpd.schedule == SERIAL:
  *             return 'serial'             # <<<<<<<<<<<<<<
@@ -9871,7 +9898,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
     __pyx_r = __pyx_mstate_global->__pyx_n_u_serial;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":404
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":406
  *         if self.bpd.schedule == PARALLEL:
  *             return 'parallel'
  *         elif self.bpd.schedule == SERIAL:             # <<<<<<<<<<<<<<
@@ -9881,7 +9908,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
     break;
     case ldpc::bp::SERIAL_RELATIVE:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":407
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":409
  *             return 'serial'
  *         elif self.bpd.schedule == SERIAL_RELATIVE:
  *             return 'serial_relative'             # <<<<<<<<<<<<<<
@@ -9893,7 +9920,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
     __pyx_r = __pyx_mstate_global->__pyx_n_u_serial_relative;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":406
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":408
  *         elif self.bpd.schedule == SERIAL:
  *             return 'serial'
  *         elif self.bpd.schedule == SERIAL_RELATIVE:             # <<<<<<<<<<<<<<
@@ -9903,7 +9930,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
     break;
     default:
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":409
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":411
  *             return 'serial_relative'
  *         else:
  *             raise ValueError(f"The BP schedule method is invalid. \             # <<<<<<<<<<<<<<
@@ -9919,16 +9946,16 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 409, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 411, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 409, __pyx_L1_error)
+    __PYX_ERR(0, 411, __pyx_L1_error)
     break;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":394
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":396
  *                     'product_sum', 'minimum_sum'")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9949,7 +9976,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8sche
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":413
+/* "ldpc/bp_decoder/_bp_decoder.pyx":415
  *                     'schedule=parallel', 'schedule=serial', 'schedule=serial_relative'")
  * 
  *     @schedule.setter             # <<<<<<<<<<<<<<
@@ -9989,14 +10016,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":424
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":426
  *             ValueError: If value is not a valid option.
  *         """
  *         if str(value).lower() in ['parallel','p','0']:             # <<<<<<<<<<<<<<
  *             self.bpd.schedule = PARALLEL
  *         elif str(value).lower() in ['serial','s','1']:
 */
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 426, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -10006,29 +10033,29 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 424, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_parallel, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_parallel, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_p, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_p, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = __pyx_t_5;
   if (__pyx_t_6) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":425
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":427
  *         """
  *         if str(value).lower() in ['parallel','p','0']:
  *             self.bpd.schedule = PARALLEL             # <<<<<<<<<<<<<<
@@ -10037,7 +10064,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
 */
     __pyx_v_self->bpd->schedule = ldpc::bp::PARALLEL;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":424
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":426
  *             ValueError: If value is not a valid option.
  *         """
  *         if str(value).lower() in ['parallel','p','0']:             # <<<<<<<<<<<<<<
@@ -10047,14 +10074,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":426
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":428
  *         if str(value).lower() in ['parallel','p','0']:
  *             self.bpd.schedule = PARALLEL
  *         elif str(value).lower() in ['serial','s','1']:             # <<<<<<<<<<<<<<
  *             self.bpd.schedule = SERIAL
  *         elif str(value).lower() in ['serial_relative', 'sr', '2']:
 */
-  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 428, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = __pyx_t_2;
   __Pyx_INCREF(__pyx_t_3);
@@ -10064,29 +10091,29 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 428, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_serial, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_serial, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_s, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_s, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_6 = __pyx_t_5;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
   __pyx_t_6 = __pyx_t_5;
   __pyx_L7_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_5 = __pyx_t_6;
   if (__pyx_t_5) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":427
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":429
  *             self.bpd.schedule = PARALLEL
  *         elif str(value).lower() in ['serial','s','1']:
  *             self.bpd.schedule = SERIAL             # <<<<<<<<<<<<<<
@@ -10095,7 +10122,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
 */
     __pyx_v_self->bpd->schedule = ldpc::bp::SERIAL;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":426
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":428
  *         if str(value).lower() in ['parallel','p','0']:
  *             self.bpd.schedule = PARALLEL
  *         elif str(value).lower() in ['serial','s','1']:             # <<<<<<<<<<<<<<
@@ -10105,14 +10132,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":428
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":430
  *         elif str(value).lower() in ['serial','s','1']:
  *             self.bpd.schedule = SERIAL
  *         elif str(value).lower() in ['serial_relative', 'sr', '2']:             # <<<<<<<<<<<<<<
  *             self.bpd.schedule = SERIAL_RELATIVE
  *         else:
 */
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 428, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -10122,29 +10149,29 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 428, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 430, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_serial_relative, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_serial_relative, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 430, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sr, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sr, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 430, __pyx_L1_error)
   if (!__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 428, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 430, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_6;
   __pyx_L10_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = __pyx_t_5;
   if (likely(__pyx_t_6)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":429
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":431
  *             self.bpd.schedule = SERIAL
  *         elif str(value).lower() in ['serial_relative', 'sr', '2']:
  *             self.bpd.schedule = SERIAL_RELATIVE             # <<<<<<<<<<<<<<
@@ -10153,7 +10180,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
 */
     __pyx_v_self->bpd->schedule = ldpc::bp::SERIAL_RELATIVE;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":428
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":430
  *         elif str(value).lower() in ['serial','s','1']:
  *             self.bpd.schedule = SERIAL
  *         elif str(value).lower() in ['serial_relative', 'sr', '2']:             # <<<<<<<<<<<<<<
@@ -10163,7 +10190,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     goto __pyx_L3;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":431
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":433
  *             self.bpd.schedule = SERIAL_RELATIVE
  *         else:
  *             raise ValueError(f"The BP schedule method '{value}' is invalid. \             # <<<<<<<<<<<<<<
@@ -10174,13 +10201,13 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
     __pyx_t_3 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_2 = __pyx_builtin_ValueError; 
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 431, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 433, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_The_BP_schedule_method;
     __pyx_t_8[1] = __pyx_t_7;
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_is_invalid_Please_choose_from_t_3;
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, 24 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 166, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7));
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 431, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 433, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_4 = 1;
@@ -10190,16 +10217,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 431, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 431, __pyx_L1_error)
+    __PYX_ERR(0, 433, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":413
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":415
  *                     'schedule=parallel', 'schedule=serial', 'schedule=serial_relative'")
  * 
  *     @schedule.setter             # <<<<<<<<<<<<<<
@@ -10223,7 +10250,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8schedule_2
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":435
+/* "ldpc/bp_decoder/_bp_decoder.pyx":437
  *                     'schedule=parallel', 'schedule=serial', 'schedule=serial_relative'")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -10267,7 +10294,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":443
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":445
  *             Union[None, np.ndarray]: The serial schedule order as a numpy array, or None if no schedule has been set.
  *         """
  *         if self.bpd.serial_schedule_order.size() == 0:             # <<<<<<<<<<<<<<
@@ -10277,7 +10304,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
   __pyx_t_1 = (__pyx_v_self->bpd->serial_schedule_order.size() == 0);
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":444
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":446
  *         """
  *         if self.bpd.serial_schedule_order.size() == 0:
  *             return None             # <<<<<<<<<<<<<<
@@ -10288,7 +10315,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":443
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":445
  *             Union[None, np.ndarray]: The serial schedule order as a numpy array, or None if no schedule has been set.
  *         """
  *         if self.bpd.serial_schedule_order.size() == 0:             # <<<<<<<<<<<<<<
@@ -10297,7 +10324,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":446
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":448
  *             return None
  * 
  *         out = np.zeros(self.n).astype(int)             # <<<<<<<<<<<<<<
@@ -10305,12 +10332,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
  *             out[i] = self.bpd.serial_schedule_order[i]
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_8 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -10330,7 +10357,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 446, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 448, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_3 = __pyx_t_4;
@@ -10341,13 +10368,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 448, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_out = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":447
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":449
  * 
  *         out = np.zeros(self.n).astype(int)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -10359,20 +10386,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
   for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
     __pyx_v_i = __pyx_t_11;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":448
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":450
  *         out = np.zeros(self.n).astype(int)
  *         for i in range(self.n):
  *             out[i] = self.bpd.serial_schedule_order[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_2 = __Pyx_PyLong_From_int((__pyx_v_self->bpd->serial_schedule_order[__pyx_v_i])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 448, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_From_int((__pyx_v_self->bpd->serial_schedule_order[__pyx_v_i])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_2, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 448, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_2, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":449
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":451
  *         for i in range(self.n):
  *             out[i] = self.bpd.serial_schedule_order[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -10384,7 +10411,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":435
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":437
  *                     'schedule=parallel', 'schedule=serial', 'schedule=serial_relative'")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -10409,7 +10436,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21ser
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":451
+/* "ldpc/bp_decoder/_bp_decoder.pyx":453
  *         return out
  * 
  *     @serial_schedule_order.setter             # <<<<<<<<<<<<<<
@@ -10458,7 +10485,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":464
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":466
  *             ValueError: If value contains an invalid integer value.
  *         """
  *         if value is None:             # <<<<<<<<<<<<<<
@@ -10468,7 +10495,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
   __pyx_t_1 = (__pyx_v_value == Py_None);
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":465
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":467
  *         """
  *         if value is None:
  *             self._serial_schedule_order = NULL_INT_VECTOR             # <<<<<<<<<<<<<<
@@ -10477,7 +10504,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
 */
     __pyx_v_self->_serial_schedule_order = ldpc::bp::NULL_INT_VECTOR;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":466
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":468
  *         if value is None:
  *             self._serial_schedule_order = NULL_INT_VECTOR
  *             return             # <<<<<<<<<<<<<<
@@ -10487,7 +10514,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":464
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":466
  *             ValueError: If value contains an invalid integer value.
  *         """
  *         if value is None:             # <<<<<<<<<<<<<<
@@ -10496,18 +10523,18 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":467
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":469
  *             self._serial_schedule_order = NULL_INT_VECTOR
  *             return
  *         if not len(value) == self.n:             # <<<<<<<<<<<<<<
  *             raise Exception("Input error. The `serial_schedule_order` input parameter must have length equal to the length of the code.")
  *         for i in range(self.n):
 */
-  __pyx_t_2 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 467, __pyx_L1_error)
+  __pyx_t_2 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 469, __pyx_L1_error)
   __pyx_t_1 = (!(__pyx_t_2 == __pyx_v_self->n));
   if (unlikely(__pyx_t_1)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":468
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":470
  *             return
  *         if not len(value) == self.n:
  *             raise Exception("Input error. The `serial_schedule_order` input parameter must have length equal to the length of the code.")             # <<<<<<<<<<<<<<
@@ -10523,14 +10550,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 468, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 468, __pyx_L1_error)
+    __PYX_ERR(0, 470, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":467
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":469
  *             self._serial_schedule_order = NULL_INT_VECTOR
  *             return
  *         if not len(value) == self.n:             # <<<<<<<<<<<<<<
@@ -10539,7 +10566,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":469
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":471
  *         if not len(value) == self.n:
  *             raise Exception("Input error. The `serial_schedule_order` input parameter must have length equal to the length of the code.")
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -10551,23 +10578,23 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_i = __pyx_t_9;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":470
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":472
  *             raise Exception("Input error. The `serial_schedule_order` input parameter must have length equal to the length of the code.")
  *         for i in range(self.n):
  *             if not isinstance(value[i], (int, np.int64, np.int32)) or value[i] < 0 or value[i] >= self.n:             # <<<<<<<<<<<<<<
  *                 print(type(value[i]),"Value:", value[i], "i:", i, "n:", self.n)
  *                 raise ValueError(f"serial_schedule_order[{i}] is invalid. It must be a non-negative integer less than {self.n}.")
 */
-    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_int64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_int64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_int32); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_int32); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_12 = PyLong_Check(__pyx_t_3); 
@@ -10594,31 +10621,31 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
       __pyx_t_1 = __pyx_t_12;
       goto __pyx_L8_bool_binop_done;
     }
-    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_mstate_global->__pyx_int_0, Py_LT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_mstate_global->__pyx_int_0, Py_LT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (!__pyx_t_12) {
     } else {
       __pyx_t_1 = __pyx_t_12;
       goto __pyx_L8_bool_binop_done;
     }
-    __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_10 = PyObject_RichCompare(__pyx_t_4, __pyx_t_3, Py_GE); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_10 = PyObject_RichCompare(__pyx_t_4, __pyx_t_3, Py_GE); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 470, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_1 = __pyx_t_12;
     __pyx_L8_bool_binop_done:;
     if (unlikely(__pyx_t_1)) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":471
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":473
  *         for i in range(self.n):
  *             if not isinstance(value[i], (int, np.int64, np.int32)) or value[i] < 0 or value[i] >= self.n:
  *                 print(type(value[i]),"Value:", value[i], "i:", i, "n:", self.n)             # <<<<<<<<<<<<<<
@@ -10628,13 +10655,13 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
       __pyx_t_3 = NULL;
       __Pyx_INCREF(__pyx_builtin_print);
       __pyx_t_4 = __pyx_builtin_print; 
-      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 471, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 473, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_13 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 471, __pyx_L1_error)
+      __pyx_t_13 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 473, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
-      __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_v_i); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 471, __pyx_L1_error)
+      __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_v_i); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 473, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_14);
-      __pyx_t_15 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 471, __pyx_L1_error)
+      __pyx_t_15 = __Pyx_PyLong_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 473, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
       __pyx_t_6 = 1;
       {
@@ -10646,24 +10673,24 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 471, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 473, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":472
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":474
  *             if not isinstance(value[i], (int, np.int64, np.int32)) or value[i] < 0 or value[i] >= self.n:
  *                 print(type(value[i]),"Value:", value[i], "i:", i, "n:", self.n)
  *                 raise ValueError(f"serial_schedule_order[{i}] is invalid. It must be a non-negative integer less than {self.n}.")             # <<<<<<<<<<<<<<
  *             self.bpd.serial_schedule_order[i] = value[i]
- * 
+ *         self.random_serial_schedule = False
 */
       __pyx_t_4 = NULL;
       __Pyx_INCREF(__pyx_builtin_ValueError);
       __pyx_t_15 = __pyx_builtin_ValueError; 
-      __pyx_t_14 = __Pyx_PyUnicode_From_int(__pyx_v_i, 0, ' ', 'd'); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 472, __pyx_L1_error)
+      __pyx_t_14 = __Pyx_PyUnicode_From_int(__pyx_v_i, 0, ' ', 'd'); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 474, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_14);
-      __pyx_t_13 = __Pyx_PyUnicode_From_int(__pyx_v_self->n, 0, ' ', 'd'); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 472, __pyx_L1_error)
+      __pyx_t_13 = __Pyx_PyUnicode_From_int(__pyx_v_self->n, 0, ' ', 'd'); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 474, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
       __pyx_t_16[0] = __pyx_mstate_global->__pyx_kp_u_serial_schedule_order_2;
       __pyx_t_16[1] = __pyx_t_14;
@@ -10671,7 +10698,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
       __pyx_t_16[3] = __pyx_t_13;
       __pyx_t_16[4] = __pyx_mstate_global->__pyx_kp_u_;
       __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_16, 5, 22 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14) + 58 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_13) + 1, 127);
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 472, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 474, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
@@ -10682,14 +10709,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 472, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 474, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __Pyx_Raise(__pyx_t_10, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __PYX_ERR(0, 472, __pyx_L1_error)
+      __PYX_ERR(0, 474, __pyx_L1_error)
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":470
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":472
  *             raise Exception("Input error. The `serial_schedule_order` input parameter must have length equal to the length of the code.")
  *         for i in range(self.n):
  *             if not isinstance(value[i], (int, np.int64, np.int32)) or value[i] < 0 or value[i] >= self.n:             # <<<<<<<<<<<<<<
@@ -10698,21 +10725,30 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":473
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":475
  *                 print(type(value[i]),"Value:", value[i], "i:", i, "n:", self.n)
  *                 raise ValueError(f"serial_schedule_order[{i}] is invalid. It must be a non-negative integer less than {self.n}.")
  *             self.bpd.serial_schedule_order[i] = value[i]             # <<<<<<<<<<<<<<
+ *         self.random_serial_schedule = False
  * 
- *     @property
 */
-    __pyx_t_10 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 473, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_GetItemInt(__pyx_v_value, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 475, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_17 = __Pyx_PyLong_As_int(__pyx_t_10); if (unlikely((__pyx_t_17 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 473, __pyx_L1_error)
+    __pyx_t_17 = __Pyx_PyLong_As_int(__pyx_t_10); if (unlikely((__pyx_t_17 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 475, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     (__pyx_v_self->bpd->serial_schedule_order[__pyx_v_i]) = __pyx_t_17;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":451
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":476
+ *                 raise ValueError(f"serial_schedule_order[{i}] is invalid. It must be a non-negative integer less than {self.n}.")
+ *             self.bpd.serial_schedule_order[i] = value[i]
+ *         self.random_serial_schedule = False             # <<<<<<<<<<<<<<
+ * 
+ *     @property
+*/
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_random_serial_schedule, Py_False) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":453
  *         return out
  * 
  *     @serial_schedule_order.setter             # <<<<<<<<<<<<<<
@@ -10738,8 +10774,8 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_21serial_sc
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":475
- *             self.bpd.serial_schedule_order[i] = value[i]
+/* "ldpc/bp_decoder/_bp_decoder.pyx":478
+ *         self.random_serial_schedule = False
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def ms_scaling_factor(self) -> float:
@@ -10770,7 +10806,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":482
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":485
  *             float: The current scaling factor.
  *         """
  *         return self.bpd.ms_scaling_factor             # <<<<<<<<<<<<<<
@@ -10778,14 +10814,14 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_
  *     @ms_scaling_factor.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->bpd->ms_scaling_factor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->bpd->ms_scaling_factor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 485, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":475
- *             self.bpd.serial_schedule_order[i] = value[i]
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":478
+ *         self.random_serial_schedule = False
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def ms_scaling_factor(self) -> float:
@@ -10803,7 +10839,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":484
+/* "ldpc/bp_decoder/_bp_decoder.pyx":487
  *         return self.bpd.ms_scaling_factor
  * 
  *     @ms_scaling_factor.setter             # <<<<<<<<<<<<<<
@@ -10824,7 +10860,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
   assert(__pyx_arg_value); {
-    __pyx_v_value = __Pyx_PyFloat_AsDouble(__pyx_arg_value); if (unlikely((__pyx_v_value == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 485, __pyx_L3_error)
+    __pyx_v_value = __Pyx_PyFloat_AsDouble(__pyx_arg_value); if (unlikely((__pyx_v_value == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 488, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10853,14 +10889,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":494
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":497
  *             TypeError: If the input value is not a float.
  *         """
  *         if not isinstance(value, (float,int)):             # <<<<<<<<<<<<<<
  *             raise TypeError("The ms_scaling factor must be specified as a float")
  *         self.bpd.ms_scaling_factor = value
 */
-  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = PyFloat_Check(__pyx_t_2); 
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -10869,7 +10905,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
     __pyx_t_1 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = PyLong_Check(__pyx_t_2); 
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -10878,7 +10914,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
   __pyx_t_3 = (!__pyx_t_1);
   if (unlikely(__pyx_t_3)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":495
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":498
  *         """
  *         if not isinstance(value, (float,int)):
  *             raise TypeError("The ms_scaling factor must be specified as a float")             # <<<<<<<<<<<<<<
@@ -10894,14 +10930,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 495, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 498, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 495, __pyx_L1_error)
+    __PYX_ERR(0, 498, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":494
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":497
  *             TypeError: If the input value is not a float.
  *         """
  *         if not isinstance(value, (float,int)):             # <<<<<<<<<<<<<<
@@ -10910,7 +10946,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":496
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":499
  *         if not isinstance(value, (float,int)):
  *             raise TypeError("The ms_scaling factor must be specified as a float")
  *         self.bpd.ms_scaling_factor = value             # <<<<<<<<<<<<<<
@@ -10919,7 +10955,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
 */
   __pyx_v_self->bpd->ms_scaling_factor = __pyx_v_value;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":484
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":487
  *         return self.bpd.ms_scaling_factor
  * 
  *     @ms_scaling_factor.setter             # <<<<<<<<<<<<<<
@@ -10941,7 +10977,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_17ms_scalin
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":498
+/* "ldpc/bp_decoder/_bp_decoder.pyx":501
  *         self.bpd.ms_scaling_factor = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -10978,7 +11014,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":505
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":508
  *             int: The number of threads used.
  *         """
  *         if self.bpd.omp_thread_count != 1:             # <<<<<<<<<<<<<<
@@ -10988,7 +11024,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
   __pyx_t_1 = (__pyx_v_self->bpd->omp_thread_count != 1);
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":506
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":509
  *         """
  *         if self.bpd.omp_thread_count != 1:
  *             warnings.warn("The OpenMP functionality is not yet implemented")             # <<<<<<<<<<<<<<
@@ -10996,9 +11032,9 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
  * 
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 509, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 509, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6 = 1;
@@ -11018,12 +11054,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 506, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 509, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":505
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":508
  *             int: The number of threads used.
  *         """
  *         if self.bpd.omp_thread_count != 1:             # <<<<<<<<<<<<<<
@@ -11032,7 +11068,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":507
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":510
  *         if self.bpd.omp_thread_count != 1:
  *             warnings.warn("The OpenMP functionality is not yet implemented")
  *         return self.bpd.omp_thread_count             # <<<<<<<<<<<<<<
@@ -11040,13 +11076,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
  *     @omp_thread_count.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->omp_thread_count); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 507, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->omp_thread_count); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 510, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":498
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":501
  *         self.bpd.ms_scaling_factor = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -11068,7 +11104,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":509
+/* "ldpc/bp_decoder/_bp_decoder.pyx":512
  *         return self.bpd.omp_thread_count
  * 
  *     @omp_thread_count.setter             # <<<<<<<<<<<<<<
@@ -11087,7 +11123,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 510, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 513, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_thread_count_2__set__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -11118,7 +11154,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":519
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":522
  *             TypeError: If the input value is not an integer or is less than 1.
  *         """
  *         if not isinstance(value, int) or value < 1:             # <<<<<<<<<<<<<<
@@ -11132,14 +11168,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
     __pyx_t_1 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_1, Py_LT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 519, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 519, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_1, Py_LT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 522, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_1 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":520
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":523
  *         """
  *         if not isinstance(value, int) or value < 1:
  *             raise TypeError("The omp_thread_count must be specified as a\             # <<<<<<<<<<<<<<
@@ -11155,14 +11191,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 520, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 523, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 520, __pyx_L1_error)
+    __PYX_ERR(0, 523, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":519
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":522
  *             TypeError: If the input value is not an integer or is less than 1.
  *         """
  *         if not isinstance(value, int) or value < 1:             # <<<<<<<<<<<<<<
@@ -11171,17 +11207,17 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":522
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":525
  *             raise TypeError("The omp_thread_count must be specified as a\
  *             positive integer.")
  *         self.bpd.set_omp_thread_count(value)             # <<<<<<<<<<<<<<
  *         if self.bpd.omp_thread_count != 1:
  *             warnings.warn("The OpenMP functionality is not yet implemented")
 */
-  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 522, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 525, __pyx_L1_error)
   __pyx_v_self->bpd->set_omp_thread_count(__pyx_t_8);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":523
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":526
  *             positive integer.")
  *         self.bpd.set_omp_thread_count(value)
  *         if self.bpd.omp_thread_count != 1:             # <<<<<<<<<<<<<<
@@ -11191,7 +11227,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
   __pyx_t_1 = (__pyx_v_self->bpd->omp_thread_count != 1);
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":524
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":527
  *         self.bpd.set_omp_thread_count(value)
  *         if self.bpd.omp_thread_count != 1:
  *             warnings.warn("The OpenMP functionality is not yet implemented")             # <<<<<<<<<<<<<<
@@ -11199,9 +11235,9 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
  *     @property
 */
     __pyx_t_6 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 524, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 527, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 524, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 527, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7 = 1;
@@ -11221,12 +11257,12 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 524, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 527, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":523
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":526
  *             positive integer.")
  *         self.bpd.set_omp_thread_count(value)
  *         if self.bpd.omp_thread_count != 1:             # <<<<<<<<<<<<<<
@@ -11235,7 +11271,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":509
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":512
  *         return self.bpd.omp_thread_count
  * 
  *     @omp_thread_count.setter             # <<<<<<<<<<<<<<
@@ -11258,7 +11294,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_16omp_threa
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":526
+/* "ldpc/bp_decoder/_bp_decoder.pyx":529
  *             warnings.warn("The OpenMP functionality is not yet implemented")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -11290,7 +11326,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20ran
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":533
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":536
  *             int: The current value of random_schedule_seed.
  *         """
  *         return self.bpd.random_schedule_seed             # <<<<<<<<<<<<<<
@@ -11298,13 +11334,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20ran
  *     @random_schedule_seed.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->random_schedule_seed); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 533, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->bpd->random_schedule_seed); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 536, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":526
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":529
  *             warnings.warn("The OpenMP functionality is not yet implemented")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -11323,7 +11359,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20ran
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":535
+/* "ldpc/bp_decoder/_bp_decoder.pyx":538
  *         return self.bpd.random_schedule_seed
  * 
  *     @random_schedule_seed.setter             # <<<<<<<<<<<<<<
@@ -11342,7 +11378,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_sc
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 536, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 539, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_schedule_seed_2__set__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -11372,7 +11408,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_sc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":545
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":548
  *             ValueError: If the input value is not a postive integer.
  *         """
  *         if not isinstance(value, int) or value < -2:             # <<<<<<<<<<<<<<
@@ -11386,14 +11422,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_sc
     __pyx_t_1 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_neg_2, Py_LT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 545, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 545, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_neg_2, Py_LT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 548, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 548, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_1 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":546
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":549
  *         """
  *         if not isinstance(value, int) or value < -2:
  *             raise ValueError("The value of random_schedule_seed must\             # <<<<<<<<<<<<<<
@@ -11409,14 +11445,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_sc
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 546, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 549, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 546, __pyx_L1_error)
+    __PYX_ERR(0, 549, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":545
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":548
  *             ValueError: If the input value is not a postive integer.
  *         """
  *         if not isinstance(value, int) or value < -2:             # <<<<<<<<<<<<<<
@@ -11425,17 +11461,26 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_sc
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":550
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":553
  *             schedule. Set as 0 to use the system clock.")
  * 
- *         self.bpd.random_schedule_seed = value             # <<<<<<<<<<<<<<
+ *         self.bpd.random_serial_schedule = True             # <<<<<<<<<<<<<<
+ *         self.bpd.set_random_schedule_seed(value)
  * 
- * cdef class BpDecoder(BpDecoderBase):
 */
-  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 550, __pyx_L1_error)
-  __pyx_v_self->bpd->random_schedule_seed = __pyx_t_8;
+  __pyx_v_self->bpd->random_serial_schedule = 1;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":535
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":554
+ * 
+ *         self.bpd.random_serial_schedule = True
+ *         self.bpd.set_random_schedule_seed(value)             # <<<<<<<<<<<<<<
+ * 
+ *     @property
+*/
+  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_v_self->bpd->set_random_schedule_seed(__pyx_t_8);
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":538
  *         return self.bpd.random_schedule_seed
  * 
  *     @random_schedule_seed.setter             # <<<<<<<<<<<<<<
@@ -11454,6 +11499,132 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_20random_sc
   __pyx_r = -1;
   __pyx_L0:;
   __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "ldpc/bp_decoder/_bp_decoder.pyx":556
+ *         self.bpd.set_random_schedule_seed(value)
+ * 
+ *     @property             # <<<<<<<<<<<<<<
+ *     def random_serial_schedule(self) -> bool:
+ *         """
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_1__get__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_1__get__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__get__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule___get__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule___get__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__get__", 0);
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":564
+ *             bool: True if random serial schedule is enabled, False otherwise.
+ *         """
+ *         return self.bpd.random_serial_schedule             # <<<<<<<<<<<<<<
+ * 
+ *     @random_serial_schedule.setter
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->bpd->random_serial_schedule); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 564, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":556
+ *         self.bpd.set_random_schedule_seed(value)
+ * 
+ *     @property             # <<<<<<<<<<<<<<
+ *     def random_serial_schedule(self) -> bool:
+ *         """
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("ldpc.bp_decoder._bp_decoder.BpDecoderBase.random_serial_schedule.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "ldpc/bp_decoder/_bp_decoder.pyx":566
+ *         return self.bpd.random_serial_schedule
+ * 
+ *     @random_serial_schedule.setter             # <<<<<<<<<<<<<<
+ *     def random_serial_schedule(self, value: bool) -> None:
+ *         """
+*/
+
+/* Python wrapper */
+static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_arg_value); /*proto*/
+static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_3__set__(PyObject *__pyx_v_self, PyObject *__pyx_arg_value) {
+  bool __pyx_v_value;
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  assert(__pyx_arg_value); {
+    __pyx_v_value = __Pyx_PyObject_IsTrue(__pyx_arg_value); if (unlikely((__pyx_v_value == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 567, __pyx_L3_error)
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("ldpc.bp_decoder._bp_decoder.BpDecoderBase.random_serial_schedule.__set__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return -1;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_2__set__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *)__pyx_v_self), ((bool)__pyx_v_value));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_2__set__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase *__pyx_v_self, bool __pyx_v_value) {
+  int __pyx_r;
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":579
+ *         # if not isinstance(value, bool):
+ *         #     raise ValueError("The random_serial_schedule must be a boolean value.")
+ *         self.bpd.random_serial_schedule = value             # <<<<<<<<<<<<<<
+ * 
+ * cdef class BpDecoder(BpDecoderBase):
+*/
+  __pyx_v_self->bpd->random_serial_schedule = __pyx_v_value;
+
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":566
+ *         return self.bpd.random_serial_schedule
+ * 
+ *     @random_serial_schedule.setter             # <<<<<<<<<<<<<<
+ *     def random_serial_schedule(self, value: bool) -> None:
+ *         """
+*/
+
+  /* function exit code */
+  __pyx_r = 0;
   return __pyx_r;
 }
 
@@ -11663,7 +11834,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_8__se
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":588
+/* "ldpc/bp_decoder/_bp_decoder.pyx":620
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -11685,10 +11856,11 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
   CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed = 0;
   CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order = 0;
   PyObject *__pyx_v_input_vector_type = 0;
+  CYTHON_UNUSED bool __pyx_v_random_serial_schedule;
   PyObject *__pyx_v_kwargs = 0;
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[11] = {0,0,0,0,0,0,0,0,0,0,0};
+  PyObject* values[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -11704,68 +11876,72 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
   __pyx_v_kwargs = PyDict_New(); if (unlikely(!__pyx_v_kwargs)) return -1;
   __Pyx_GOTREF(__pyx_v_kwargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_pcm,&__pyx_mstate_global->__pyx_n_u_error_rate,&__pyx_mstate_global->__pyx_n_u_error_channel,&__pyx_mstate_global->__pyx_n_u_max_iter,&__pyx_mstate_global->__pyx_n_u_bp_method,&__pyx_mstate_global->__pyx_n_u_ms_scaling_factor,&__pyx_mstate_global->__pyx_n_u_schedule,&__pyx_mstate_global->__pyx_n_u_omp_thread_count,&__pyx_mstate_global->__pyx_n_u_random_schedule_seed,&__pyx_mstate_global->__pyx_n_u_serial_schedule_order,&__pyx_mstate_global->__pyx_n_u_input_vector_type,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_pcm,&__pyx_mstate_global->__pyx_n_u_error_rate,&__pyx_mstate_global->__pyx_n_u_error_channel,&__pyx_mstate_global->__pyx_n_u_max_iter,&__pyx_mstate_global->__pyx_n_u_bp_method,&__pyx_mstate_global->__pyx_n_u_ms_scaling_factor,&__pyx_mstate_global->__pyx_n_u_schedule,&__pyx_mstate_global->__pyx_n_u_omp_thread_count,&__pyx_mstate_global->__pyx_n_u_random_schedule_seed,&__pyx_mstate_global->__pyx_n_u_serial_schedule_order,&__pyx_mstate_global->__pyx_n_u_input_vector_type,&__pyx_mstate_global->__pyx_n_u_random_serial_schedule,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 588, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 620, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case 12:
+        values[11] = __Pyx_ArgRef_VARARGS(__pyx_args, 11);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 620, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case 11:
         values[10] = __Pyx_ArgRef_VARARGS(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_VARARGS(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_VARARGS(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_VARARGS(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 1) < 0) __PYX_ERR(0, 588, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 1) < 0) __PYX_ERR(0, 620, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":589
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":621
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',             # <<<<<<<<<<<<<<
  *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
- *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", **kwargs):
+ *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
@@ -11775,68 +11951,72 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
       if (!values[7]) values[7] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_1));
       if (!values[8]) values[8] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":591
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":623
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',
  *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
- *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", **kwargs):             # <<<<<<<<<<<<<<
+ *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):             # <<<<<<<<<<<<<<
  * 
  *         for key in kwargs.keys():
 */
       if (!values[9]) values[9] = __Pyx_NewRef(((PyObject*)Py_None));
       if (!values[10]) values[10] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_n_u_auto));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 11, i); __PYX_ERR(0, 588, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 12, i); __PYX_ERR(0, 620, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
+        case 12:
+        values[11] = __Pyx_ArgRef_VARARGS(__pyx_args, 11);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 620, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case 11:
         values[10] = __Pyx_ArgRef_VARARGS(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_VARARGS(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_VARARGS(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_VARARGS(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 620, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 588, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 620, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":588
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":620
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -11845,12 +12025,12 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":589
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":621
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',             # <<<<<<<<<<<<<<
  *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
- *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", **kwargs):
+ *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
@@ -11860,10 +12040,10 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
       if (!values[7]) values[7] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_1));
       if (!values[8]) values[8] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":591
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":623
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',
  *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
- *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", **kwargs):             # <<<<<<<<<<<<<<
+ *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):             # <<<<<<<<<<<<<<
  * 
  *         for key in kwargs.keys():
 */
@@ -11881,10 +12061,15 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
     __pyx_v_random_schedule_seed = ((PyObject*)values[8]);
     __pyx_v_serial_schedule_order = ((PyObject*)values[9]);
     __pyx_v_input_vector_type = ((PyObject*)values[10]);
+    if (values[11]) {
+      __pyx_v_random_serial_schedule = __Pyx_PyObject_IsTrue(values[11]); if (unlikely((__pyx_v_random_serial_schedule == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 623, __pyx_L3_error)
+    } else {
+      __pyx_v_random_serial_schedule = ((bool)0);
+    }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 11, __pyx_nargs); __PYX_ERR(0, 588, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 12, __pyx_nargs); __PYX_ERR(0, 620, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11896,17 +12081,17 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_rate), (&PyFloat_Type), 1, "error_rate", 2))) __PYX_ERR(0, 588, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_iter), (&PyLong_Type), 1, "max_iter", 2))) __PYX_ERR(0, 589, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_bp_method), (&PyUnicode_Type), 1, "bp_method", 2))) __PYX_ERR(0, 589, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_schedule), (&PyUnicode_Type), 1, "schedule", 2))) __PYX_ERR(0, 590, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_omp_thread_count), (&PyLong_Type), 1, "omp_thread_count", 2))) __PYX_ERR(0, 590, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_random_schedule_seed), (&PyLong_Type), 1, "random_schedule_seed", 2))) __PYX_ERR(0, 591, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_serial_schedule_order), (&PyList_Type), 1, "serial_schedule_order", 2))) __PYX_ERR(0, 591, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_vector_type), (&PyUnicode_Type), 0, "input_vector_type", 2))) __PYX_ERR(0, 591, __pyx_L1_error)
-  __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *)__pyx_v_self), __pyx_v_pcm, __pyx_v_error_rate, __pyx_v_error_channel, __pyx_v_max_iter, __pyx_v_bp_method, __pyx_v_ms_scaling_factor, __pyx_v_schedule, __pyx_v_omp_thread_count, __pyx_v_random_schedule_seed, __pyx_v_serial_schedule_order, __pyx_v_input_vector_type, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_rate), (&PyFloat_Type), 1, "error_rate", 2))) __PYX_ERR(0, 620, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_iter), (&PyLong_Type), 1, "max_iter", 2))) __PYX_ERR(0, 621, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_bp_method), (&PyUnicode_Type), 1, "bp_method", 2))) __PYX_ERR(0, 621, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_schedule), (&PyUnicode_Type), 1, "schedule", 2))) __PYX_ERR(0, 622, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_omp_thread_count), (&PyLong_Type), 1, "omp_thread_count", 2))) __PYX_ERR(0, 622, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_random_schedule_seed), (&PyLong_Type), 1, "random_schedule_seed", 2))) __PYX_ERR(0, 623, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_serial_schedule_order), (&PyList_Type), 1, "serial_schedule_order", 2))) __PYX_ERR(0, 623, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_vector_type), (&PyUnicode_Type), 0, "input_vector_type", 2))) __PYX_ERR(0, 623, __pyx_L1_error)
+  __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *)__pyx_v_self), __pyx_v_pcm, __pyx_v_error_rate, __pyx_v_error_channel, __pyx_v_max_iter, __pyx_v_bp_method, __pyx_v_ms_scaling_factor, __pyx_v_schedule, __pyx_v_omp_thread_count, __pyx_v_random_schedule_seed, __pyx_v_serial_schedule_order, __pyx_v_input_vector_type, __pyx_v_random_serial_schedule, __pyx_v_kwargs);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":588
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":620
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -11932,7 +12117,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_1__cinit__(PyObj
   return __pyx_r;
 }
 
-static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, PyObject *__pyx_v_input_vector_type, PyObject *__pyx_v_kwargs) {
+static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, PyObject *__pyx_v_input_vector_type, CYTHON_UNUSED bool __pyx_v_random_serial_schedule, PyObject *__pyx_v_kwargs) {
   PyObject *__pyx_v_key = NULL;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
@@ -11955,15 +12140,15 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":593
- *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", **kwargs):
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":625
+ *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):
  * 
  *         for key in kwargs.keys():             # <<<<<<<<<<<<<<
  *             if key not in ["channel_probs"]:
  *                 raise ValueError(f"Unknown parameter '{key}' passed to the BpDecoder constructor.")
 */
   __pyx_t_2 = 0;
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_keys, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_keys, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 625, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -11971,12 +12156,12 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
   while (1) {
     __pyx_t_6 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, NULL, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_6 == 0)) break;
-    if (unlikely(__pyx_t_6 == -1)) __PYX_ERR(0, 593, __pyx_L1_error)
+    if (unlikely(__pyx_t_6 == -1)) __PYX_ERR(0, 625, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":594
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":626
  * 
  *         for key in kwargs.keys():
  *             if key not in ["channel_probs"]:             # <<<<<<<<<<<<<<
@@ -11985,12 +12170,12 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
 */
     __Pyx_INCREF(__pyx_v_key);
     __pyx_t_5 = __pyx_v_key;
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_channel_probs, Py_NE)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 594, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_channel_probs, Py_NE)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 626, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_8 = __pyx_t_7;
     if (unlikely(__pyx_t_8)) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":595
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":627
  *         for key in kwargs.keys():
  *             if key not in ["channel_probs"]:
  *                 raise ValueError(f"Unknown parameter '{key}' passed to the BpDecoder constructor.")             # <<<<<<<<<<<<<<
@@ -12000,13 +12185,13 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
       __pyx_t_9 = NULL;
       __Pyx_INCREF(__pyx_builtin_ValueError);
       __pyx_t_10 = __pyx_builtin_ValueError; 
-      __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 595, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 627, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_t_12[0] = __pyx_mstate_global->__pyx_kp_u_Unknown_parameter;
       __pyx_t_12[1] = __pyx_t_11;
       __pyx_t_12[2] = __pyx_mstate_global->__pyx_kp_u_passed_to_the_BpDecoder_constru;
       __pyx_t_13 = __Pyx_PyUnicode_Join(__pyx_t_12, 3, 19 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_11) + 38, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11));
-      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 595, __pyx_L1_error)
+      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 627, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_14 = 1;
@@ -12016,14 +12201,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 595, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 627, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
       __Pyx_Raise(__pyx_t_5, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __PYX_ERR(0, 595, __pyx_L1_error)
+      __PYX_ERR(0, 627, __pyx_L1_error)
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":594
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":626
  * 
  *         for key in kwargs.keys():
  *             if key not in ["channel_probs"]:             # <<<<<<<<<<<<<<
@@ -12034,16 +12219,16 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":597
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":629
  *                 raise ValueError(f"Unknown parameter '{key}' passed to the BpDecoder constructor.")
  * 
  *         self.input_vector_type = input_vector_type             # <<<<<<<<<<<<<<
  *         self._received_vector.resize(self.n) #C++ vector for the received vector
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_input_vector_type, __pyx_v_input_vector_type) < 0) __PYX_ERR(0, 597, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_input_vector_type, __pyx_v_input_vector_type) < 0) __PYX_ERR(0, 629, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":598
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":630
  * 
  *         self.input_vector_type = input_vector_type
  *         self._received_vector.resize(self.n) #C++ vector for the received vector             # <<<<<<<<<<<<<<
@@ -12054,10 +12239,10 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
     __pyx_v_self->_received_vector.resize(__pyx_v_self->__pyx_base.n);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 598, __pyx_L1_error)
+    __PYX_ERR(0, 630, __pyx_L1_error)
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":588
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":620
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -12083,7 +12268,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder___cinit__(struct
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":602
+/* "ldpc/bp_decoder/_bp_decoder.pyx":634
  *         pass
  * 
  *     def __init__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -12105,10 +12290,11 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
   CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed = 0;
   CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order = 0;
   CYTHON_UNUSED PyObject *__pyx_v_input_vector_type = 0;
+  CYTHON_UNUSED bool __pyx_v_random_serial_schedule;
   CYTHON_UNUSED PyObject *__pyx_v_kwargs = 0;
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[11] = {0,0,0,0,0,0,0,0,0,0,0};
+  PyObject* values[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -12122,63 +12308,67 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
   #endif
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_pcm,&__pyx_mstate_global->__pyx_n_u_error_rate,&__pyx_mstate_global->__pyx_n_u_error_channel,&__pyx_mstate_global->__pyx_n_u_max_iter,&__pyx_mstate_global->__pyx_n_u_bp_method,&__pyx_mstate_global->__pyx_n_u_ms_scaling_factor,&__pyx_mstate_global->__pyx_n_u_schedule,&__pyx_mstate_global->__pyx_n_u_omp_thread_count,&__pyx_mstate_global->__pyx_n_u_random_schedule_seed,&__pyx_mstate_global->__pyx_n_u_serial_schedule_order,&__pyx_mstate_global->__pyx_n_u_input_vector_type,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_pcm,&__pyx_mstate_global->__pyx_n_u_error_rate,&__pyx_mstate_global->__pyx_n_u_error_channel,&__pyx_mstate_global->__pyx_n_u_max_iter,&__pyx_mstate_global->__pyx_n_u_bp_method,&__pyx_mstate_global->__pyx_n_u_ms_scaling_factor,&__pyx_mstate_global->__pyx_n_u_schedule,&__pyx_mstate_global->__pyx_n_u_omp_thread_count,&__pyx_mstate_global->__pyx_n_u_random_schedule_seed,&__pyx_mstate_global->__pyx_n_u_serial_schedule_order,&__pyx_mstate_global->__pyx_n_u_input_vector_type,&__pyx_mstate_global->__pyx_n_u_random_serial_schedule,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 602, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 634, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case 12:
+        values[11] = __Pyx_ArgRef_VARARGS(__pyx_args, 11);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 634, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case 11:
         values[10] = __Pyx_ArgRef_VARARGS(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_VARARGS(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_VARARGS(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_VARARGS(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 602, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "__init__", 1) < 0) __PYX_ERR(0, 634, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":603
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":635
  * 
  *     def __init__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',             # <<<<<<<<<<<<<<
@@ -12193,68 +12383,72 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
       if (!values[7]) values[7] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_1));
       if (!values[8]) values[8] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":605
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":637
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',
  *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
  *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None,             # <<<<<<<<<<<<<<
- *                  input_vector_type: str = "auto", **kwargs):
+ *                  input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):
  * 
 */
       if (!values[9]) values[9] = __Pyx_NewRef(((PyObject*)Py_None));
       if (!values[10]) values[10] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_n_u_auto));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 11, i); __PYX_ERR(0, 602, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 12, i); __PYX_ERR(0, 634, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
+        case 12:
+        values[11] = __Pyx_ArgRef_VARARGS(__pyx_args, 11);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 634, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case 11:
         values[10] = __Pyx_ArgRef_VARARGS(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_VARARGS(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_VARARGS(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_VARARGS(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 634, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 602, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 634, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":602
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":634
  *         pass
  * 
  *     def __init__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -12263,7 +12457,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":603
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":635
  * 
  *     def __init__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',             # <<<<<<<<<<<<<<
@@ -12278,11 +12472,11 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
       if (!values[7]) values[7] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_1));
       if (!values[8]) values[8] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":605
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":637
  *                  error_channel: Optional[Union[np.ndarray,List[float]]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',
  *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
  *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None,             # <<<<<<<<<<<<<<
- *                  input_vector_type: str = "auto", **kwargs):
+ *                  input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):
  * 
 */
       if (!values[9]) values[9] = __Pyx_NewRef(((PyObject*)Py_None));
@@ -12299,10 +12493,23 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
     __pyx_v_random_schedule_seed = ((PyObject*)values[8]);
     __pyx_v_serial_schedule_order = ((PyObject*)values[9]);
     __pyx_v_input_vector_type = ((PyObject*)values[10]);
+    if (values[11]) {
+      __pyx_v_random_serial_schedule = __Pyx_PyObject_IsTrue(values[11]); if (unlikely((__pyx_v_random_serial_schedule == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 638, __pyx_L3_error)
+    } else {
+
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":638
+ *                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
+ *                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None,
+ *                  input_vector_type: str = "auto", random_serial_schedule: bool = False, **kwargs):             # <<<<<<<<<<<<<<
+ * 
+ *         pass
+*/
+      __pyx_v_random_serial_schedule = ((bool)0);
+    }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 11, __pyx_nargs); __PYX_ERR(0, 602, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 12, __pyx_nargs); __PYX_ERR(0, 634, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12314,17 +12521,17 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_rate), (&PyFloat_Type), 1, "error_rate", 2))) __PYX_ERR(0, 602, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_iter), (&PyLong_Type), 1, "max_iter", 2))) __PYX_ERR(0, 603, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_bp_method), (&PyUnicode_Type), 1, "bp_method", 2))) __PYX_ERR(0, 603, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_schedule), (&PyUnicode_Type), 1, "schedule", 2))) __PYX_ERR(0, 604, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_omp_thread_count), (&PyLong_Type), 1, "omp_thread_count", 2))) __PYX_ERR(0, 604, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_random_schedule_seed), (&PyLong_Type), 1, "random_schedule_seed", 2))) __PYX_ERR(0, 605, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_serial_schedule_order), (&PyList_Type), 1, "serial_schedule_order", 2))) __PYX_ERR(0, 605, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_vector_type), (&PyUnicode_Type), 0, "input_vector_type", 2))) __PYX_ERR(0, 606, __pyx_L1_error)
-  __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *)__pyx_v_self), __pyx_v_pcm, __pyx_v_error_rate, __pyx_v_error_channel, __pyx_v_max_iter, __pyx_v_bp_method, __pyx_v_ms_scaling_factor, __pyx_v_schedule, __pyx_v_omp_thread_count, __pyx_v_random_schedule_seed, __pyx_v_serial_schedule_order, __pyx_v_input_vector_type, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_rate), (&PyFloat_Type), 1, "error_rate", 2))) __PYX_ERR(0, 634, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_iter), (&PyLong_Type), 1, "max_iter", 2))) __PYX_ERR(0, 635, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_bp_method), (&PyUnicode_Type), 1, "bp_method", 2))) __PYX_ERR(0, 635, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_schedule), (&PyUnicode_Type), 1, "schedule", 2))) __PYX_ERR(0, 636, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_omp_thread_count), (&PyLong_Type), 1, "omp_thread_count", 2))) __PYX_ERR(0, 636, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_random_schedule_seed), (&PyLong_Type), 1, "random_schedule_seed", 2))) __PYX_ERR(0, 637, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_serial_schedule_order), (&PyList_Type), 1, "serial_schedule_order", 2))) __PYX_ERR(0, 637, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_vector_type), (&PyUnicode_Type), 0, "input_vector_type", 2))) __PYX_ERR(0, 638, __pyx_L1_error)
+  __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *)__pyx_v_self), __pyx_v_pcm, __pyx_v_error_rate, __pyx_v_error_channel, __pyx_v_max_iter, __pyx_v_bp_method, __pyx_v_ms_scaling_factor, __pyx_v_schedule, __pyx_v_omp_thread_count, __pyx_v_random_schedule_seed, __pyx_v_serial_schedule_order, __pyx_v_input_vector_type, __pyx_v_random_serial_schedule, __pyx_v_kwargs);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":602
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":634
  *         pass
  * 
  *     def __init__(self, pcm: Union[np.ndarray, scipy.sparse.spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -12350,7 +12557,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__(PyObje
   return __pyx_r;
 }
 
-static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, CYTHON_UNUSED PyObject *__pyx_v_input_vector_type, CYTHON_UNUSED PyObject *__pyx_v_kwargs) {
+static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(CYTHON_UNUSED struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_pcm, CYTHON_UNUSED PyObject *__pyx_v_error_rate, CYTHON_UNUSED PyObject *__pyx_v_error_channel, CYTHON_UNUSED PyObject *__pyx_v_max_iter, CYTHON_UNUSED PyObject *__pyx_v_bp_method, CYTHON_UNUSED PyObject *__pyx_v_ms_scaling_factor, CYTHON_UNUSED PyObject *__pyx_v_schedule, CYTHON_UNUSED PyObject *__pyx_v_omp_thread_count, CYTHON_UNUSED PyObject *__pyx_v_random_schedule_seed, CYTHON_UNUSED PyObject *__pyx_v_serial_schedule_order, CYTHON_UNUSED PyObject *__pyx_v_input_vector_type, CYTHON_UNUSED bool __pyx_v_random_serial_schedule, CYTHON_UNUSED PyObject *__pyx_v_kwargs) {
   int __pyx_r;
 
   /* function exit code */
@@ -12358,7 +12565,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_2__init__(CYTHON
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":610
+/* "ldpc/bp_decoder/_bp_decoder.pyx":642
  *         pass
  * 
  *     def decode(self, input_vector: np.ndarray) -> np.ndarray:             # <<<<<<<<<<<<<<
@@ -12406,32 +12613,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_input_vector,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 610, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 642, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 610, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 642, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode", 0) < 0) __PYX_ERR(0, 610, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode", 0) < 0) __PYX_ERR(0, 642, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, i); __PYX_ERR(0, 610, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, i); __PYX_ERR(0, 642, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 610, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 642, __pyx_L3_error)
     }
     __pyx_v_input_vector = ((PyArrayObject *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 610, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 642, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12442,7 +12649,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_vector), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 0, "input_vector", 0))) __PYX_ERR(0, 610, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_vector), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 0, "input_vector", 0))) __PYX_ERR(0, 642, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4decode(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder *)__pyx_v_self), __pyx_v_input_vector);
 
   /* function exit code */
@@ -12493,7 +12700,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":630
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":662
  *         """
  * 
  *         if(self.bpd.bp_input_type == SYNDROME and not len(input_vector)==self.m):             # <<<<<<<<<<<<<<
@@ -12506,13 +12713,13 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 630, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 662, __pyx_L1_error)
   __pyx_t_2 = (!(__pyx_t_3 == __pyx_v_self->__pyx_base.m));
   __pyx_t_1 = __pyx_t_2;
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":631
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":663
  * 
  *         if(self.bpd.bp_input_type == SYNDROME and not len(input_vector)==self.m):
  *             raise ValueError(f"The input_vector must have length {self.m} (for syndrome decoding). Not length {len(input_vector)}.")             # <<<<<<<<<<<<<<
@@ -12522,10 +12729,10 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_5 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_6 = __pyx_builtin_ValueError; 
-    __pyx_t_7 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.m, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 631, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.m, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 663, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 631, __pyx_L1_error)
-    __pyx_t_8 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 631, __pyx_L1_error)
+    __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 663, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 663, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_The_input_vector_must_have_lengt;
     __pyx_t_9[1] = __pyx_t_7;
@@ -12533,7 +12740,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_9[3] = __pyx_t_8;
     __pyx_t_9[4] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_9, 5, 34 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 37 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 1, 127);
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 631, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 663, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -12544,14 +12751,14 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 631, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 663, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 631, __pyx_L1_error)
+    __PYX_ERR(0, 663, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":630
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":662
  *         """
  * 
  *         if(self.bpd.bp_input_type == SYNDROME and not len(input_vector)==self.m):             # <<<<<<<<<<<<<<
@@ -12560,7 +12767,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":632
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":664
  *         if(self.bpd.bp_input_type == SYNDROME and not len(input_vector)==self.m):
  *             raise ValueError(f"The input_vector must have length {self.m} (for syndrome decoding). Not length {len(input_vector)}.")
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR and not len(input_vector)==self.n):             # <<<<<<<<<<<<<<
@@ -12573,13 +12780,13 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 632, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 664, __pyx_L1_error)
   __pyx_t_2 = (!(__pyx_t_3 == __pyx_v_self->__pyx_base.n));
   __pyx_t_1 = __pyx_t_2;
   __pyx_L6_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":633
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":665
  *             raise ValueError(f"The input_vector must have length {self.m} (for syndrome decoding). Not length {len(input_vector)}.")
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR and not len(input_vector)==self.n):
  *             raise ValueError(f"The input_vector must have length {self.n} (for received vector decoding). Not length {len(input_vector)}.")             # <<<<<<<<<<<<<<
@@ -12589,10 +12796,10 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_6 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_10 = __pyx_builtin_ValueError; 
-    __pyx_t_5 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.n, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 633, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.n, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 665, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 633, __pyx_L1_error)
-    __pyx_t_8 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 633, __pyx_L1_error)
+    __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 665, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 665, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_The_input_vector_must_have_lengt;
     __pyx_t_9[1] = __pyx_t_5;
@@ -12600,7 +12807,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_9[3] = __pyx_t_8;
     __pyx_t_9[4] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_9, 5, 34 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 44 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 1, 127);
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 633, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 665, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -12611,14 +12818,14 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 633, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 665, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 633, __pyx_L1_error)
+    __PYX_ERR(0, 665, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":632
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":664
  *         if(self.bpd.bp_input_type == SYNDROME and not len(input_vector)==self.m):
  *             raise ValueError(f"The input_vector must have length {self.m} (for syndrome decoding). Not length {len(input_vector)}.")
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR and not len(input_vector)==self.n):             # <<<<<<<<<<<<<<
@@ -12627,7 +12834,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":634
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":666
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR and not len(input_vector)==self.n):
  *             raise ValueError(f"The input_vector must have length {self.n} (for received vector decoding). Not length {len(input_vector)}.")
  *         elif(self.bpd.bp_input_type == AUTO and not (len(input_vector)==self.m or len(input_vector)==self.n)):             # <<<<<<<<<<<<<<
@@ -12640,14 +12847,14 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 634, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 666, __pyx_L1_error)
   __pyx_t_12 = (__pyx_t_3 == __pyx_v_self->__pyx_base.m);
   if (!__pyx_t_12) {
   } else {
     __pyx_t_2 = __pyx_t_12;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 634, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 666, __pyx_L1_error)
   __pyx_t_12 = (__pyx_t_3 == __pyx_v_self->__pyx_base.n);
   __pyx_t_2 = __pyx_t_12;
   __pyx_L10_bool_binop_done:;
@@ -12656,7 +12863,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
   __pyx_L8_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":635
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":667
  *             raise ValueError(f"The input_vector must have length {self.n} (for received vector decoding). Not length {len(input_vector)}.")
  *         elif(self.bpd.bp_input_type == AUTO and not (len(input_vector)==self.m or len(input_vector)==self.n)):
  *             raise ValueError(f"The input_vector must have length {self.m} (for syndrome decoding) or length {self.n} (for received vector decoding). Not length {len(input_vector)}.")             # <<<<<<<<<<<<<<
@@ -12666,12 +12873,12 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_10 = NULL;
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_7 = __pyx_builtin_ValueError; 
-    __pyx_t_6 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.m, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 635, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.m, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 667, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_8 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.n, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 635, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_int(__pyx_v_self->__pyx_base.n, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 667, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 635, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 635, __pyx_L1_error)
+    __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 667, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 667, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_13[0] = __pyx_mstate_global->__pyx_kp_u_The_input_vector_must_have_lengt;
     __pyx_t_13[1] = __pyx_t_6;
@@ -12681,7 +12888,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_13[5] = __pyx_t_5;
     __pyx_t_13[6] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_13, 7, 34 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 35 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 44 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 1, 127);
-    if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 635, __pyx_L1_error)
+    if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 667, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_14);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -12693,14 +12900,14 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 635, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 667, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 635, __pyx_L1_error)
+    __PYX_ERR(0, 667, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":634
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":666
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR and not len(input_vector)==self.n):
  *             raise ValueError(f"The input_vector must have length {self.n} (for received vector decoding). Not length {len(input_vector)}.")
  *         elif(self.bpd.bp_input_type == AUTO and not (len(input_vector)==self.m or len(input_vector)==self.n)):             # <<<<<<<<<<<<<<
@@ -12709,7 +12916,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":638
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":670
  * 
  *         cdef int i
  *         cdef bool zero_input_vector = True             # <<<<<<<<<<<<<<
@@ -12718,29 +12925,29 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
   __pyx_v_zero_input_vector = 1;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":639
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":671
  *         cdef int i
  *         cdef bool zero_input_vector = True
  *         DTYPE = input_vector.dtype             # <<<<<<<<<<<<<<
  * 
  *         cdef int len_input_vector = len(input_vector)
 */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_input_vector), __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 639, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_input_vector), __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 671, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_DTYPE = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":641
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":673
  *         DTYPE = input_vector.dtype
  * 
  *         cdef int len_input_vector = len(input_vector)             # <<<<<<<<<<<<<<
  * 
  *         if(self.bpd.bp_input_type == SYNDROME or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.m)):
 */
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 641, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 673, __pyx_L1_error)
   __pyx_v_len_input_vector = __pyx_t_3;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":643
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":675
  *         cdef int len_input_vector = len(input_vector)
  * 
  *         if(self.bpd.bp_input_type == SYNDROME or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.m)):             # <<<<<<<<<<<<<<
@@ -12759,13 +12966,13 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = __pyx_t_12;
     goto __pyx_L13_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 643, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 675, __pyx_L1_error)
   __pyx_t_12 = (__pyx_t_3 == __pyx_v_self->__pyx_base.m);
   __pyx_t_1 = __pyx_t_12;
   __pyx_L13_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":644
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":676
  * 
  *         if(self.bpd.bp_input_type == SYNDROME or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.m)):
  *             for i in range(len_input_vector):             # <<<<<<<<<<<<<<
@@ -12777,20 +12984,20 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     for (__pyx_t_17 = 0; __pyx_t_17 < __pyx_t_16; __pyx_t_17+=1) {
       __pyx_v_i = __pyx_t_17;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":645
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":677
  *         if(self.bpd.bp_input_type == SYNDROME or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.m)):
  *             for i in range(len_input_vector):
  *                 self._syndrome[i] = input_vector[i]             # <<<<<<<<<<<<<<
  *                 if self._syndrome[i]: zero_input_vector = False
  *             if zero_input_vector:
 */
-      __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_v_input_vector), __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 645, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_v_input_vector), __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 677, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_18 = __Pyx_PyLong_As_npy_uint8(__pyx_t_4); if (unlikely((__pyx_t_18 == ((npy_uint8)-1)) && PyErr_Occurred())) __PYX_ERR(0, 645, __pyx_L1_error)
+      __pyx_t_18 = __Pyx_PyLong_As_npy_uint8(__pyx_t_4); if (unlikely((__pyx_t_18 == ((npy_uint8)-1)) && PyErr_Occurred())) __PYX_ERR(0, 677, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       (__pyx_v_self->__pyx_base._syndrome[__pyx_v_i]) = __pyx_t_18;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":646
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":678
  *             for i in range(len_input_vector):
  *                 self._syndrome[i] = input_vector[i]
  *                 if self._syndrome[i]: zero_input_vector = False             # <<<<<<<<<<<<<<
@@ -12803,7 +13010,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       }
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":647
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":679
  *                 self._syndrome[i] = input_vector[i]
  *                 if self._syndrome[i]: zero_input_vector = False
  *             if zero_input_vector:             # <<<<<<<<<<<<<<
@@ -12813,7 +13020,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = (__pyx_v_zero_input_vector != 0);
     if (__pyx_t_1) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":648
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":680
  *                 if self._syndrome[i]: zero_input_vector = False
  *             if zero_input_vector:
  *                 self.bpd.converge = True             # <<<<<<<<<<<<<<
@@ -12822,7 +13029,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
       __pyx_v_self->__pyx_base.bpd->converge = 1;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":649
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":681
  *             if zero_input_vector:
  *                 self.bpd.converge = True
  *                 return np.zeros(self.bit_count,dtype=DTYPE)             # <<<<<<<<<<<<<<
@@ -12831,12 +13038,12 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
       __Pyx_XDECREF((PyObject *)__pyx_r);
       __pyx_t_7 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 681, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_14);
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 649, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 681, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bit_count); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 649, __pyx_L1_error)
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bit_count); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 681, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_14);
       __pyx_t_11 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -12852,23 +13059,23 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       #endif
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, __pyx_t_14};
-        __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 649, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 681, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_DTYPE, __pyx_t_5, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_DTYPE, __pyx_t_5, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 681, __pyx_L1_error)
         __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_10, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 649, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 681, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 649, __pyx_L1_error)
+      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 681, __pyx_L1_error)
       __pyx_r = ((PyArrayObject *)__pyx_t_4);
       __pyx_t_4 = 0;
       goto __pyx_L0;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":647
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":679
  *                 self._syndrome[i] = input_vector[i]
  *                 if self._syndrome[i]: zero_input_vector = False
  *             if zero_input_vector:             # <<<<<<<<<<<<<<
@@ -12877,7 +13084,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":650
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":682
  *                 self.bpd.converge = True
  *                 return np.zeros(self.bit_count,dtype=DTYPE)
  *             self.bpd.decode(self._syndrome)             # <<<<<<<<<<<<<<
@@ -12886,7 +13093,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
     (void)(__pyx_v_self->__pyx_base.bpd->decode(__pyx_v_self->__pyx_base._syndrome));
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":643
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":675
  *         cdef int len_input_vector = len(input_vector)
  * 
  *         if(self.bpd.bp_input_type == SYNDROME or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.m)):             # <<<<<<<<<<<<<<
@@ -12896,7 +13103,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     goto __pyx_L12;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":652
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":684
  *             self.bpd.decode(self._syndrome)
  * 
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.n)):             # <<<<<<<<<<<<<<
@@ -12915,13 +13122,13 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = __pyx_t_12;
     goto __pyx_L20_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 652, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(((PyObject *)__pyx_v_input_vector)); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 684, __pyx_L1_error)
   __pyx_t_12 = (__pyx_t_3 == __pyx_v_self->__pyx_base.n);
   __pyx_t_1 = __pyx_t_12;
   __pyx_L20_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":653
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":685
  * 
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.n)):
  *             for i in range(len_input_vector):             # <<<<<<<<<<<<<<
@@ -12933,20 +13140,20 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     for (__pyx_t_17 = 0; __pyx_t_17 < __pyx_t_16; __pyx_t_17+=1) {
       __pyx_v_i = __pyx_t_17;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":654
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":686
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.n)):
  *             for i in range(len_input_vector):
  *                 self._received_vector[i] = input_vector[i]             # <<<<<<<<<<<<<<
  *                 if self._received_vector[i]: zero_input_vector = False
  *             if zero_input_vector:
 */
-      __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_v_input_vector), __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 654, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_v_input_vector), __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 686, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_18 = __Pyx_PyLong_As_npy_uint8(__pyx_t_4); if (unlikely((__pyx_t_18 == ((npy_uint8)-1)) && PyErr_Occurred())) __PYX_ERR(0, 654, __pyx_L1_error)
+      __pyx_t_18 = __Pyx_PyLong_As_npy_uint8(__pyx_t_4); if (unlikely((__pyx_t_18 == ((npy_uint8)-1)) && PyErr_Occurred())) __PYX_ERR(0, 686, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       (__pyx_v_self->_received_vector[__pyx_v_i]) = __pyx_t_18;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":655
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":687
  *             for i in range(len_input_vector):
  *                 self._received_vector[i] = input_vector[i]
  *                 if self._received_vector[i]: zero_input_vector = False             # <<<<<<<<<<<<<<
@@ -12959,7 +13166,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       }
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":656
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":688
  *                 self._received_vector[i] = input_vector[i]
  *                 if self._received_vector[i]: zero_input_vector = False
  *             if zero_input_vector:             # <<<<<<<<<<<<<<
@@ -12969,7 +13176,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
     __pyx_t_1 = (__pyx_v_zero_input_vector != 0);
     if (__pyx_t_1) {
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":657
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":689
  *                 if self._received_vector[i]: zero_input_vector = False
  *             if zero_input_vector:
  *                 self.bpd.converge = True             # <<<<<<<<<<<<<<
@@ -12978,7 +13185,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
       __pyx_v_self->__pyx_base.bpd->converge = 1;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":658
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":690
  *             if zero_input_vector:
  *                 self.bpd.converge = True
  *                 return np.zeros(self.bit_count,dtype=DTYPE)             # <<<<<<<<<<<<<<
@@ -12987,12 +13194,12 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
       __Pyx_XDECREF((PyObject *)__pyx_r);
       __pyx_t_10 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 658, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 690, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 658, __pyx_L1_error)
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 690, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_14);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bit_count); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 658, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bit_count); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 690, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_11 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -13008,23 +13215,23 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
       #endif
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_10, __pyx_t_5};
-        __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 658, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 690, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_DTYPE, __pyx_t_7, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 658, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_DTYPE, __pyx_t_7, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 690, __pyx_L1_error)
         __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_14, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 658, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 690, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 658, __pyx_L1_error)
+      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 690, __pyx_L1_error)
       __pyx_r = ((PyArrayObject *)__pyx_t_4);
       __pyx_t_4 = 0;
       goto __pyx_L0;
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":656
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":688
  *                 self._received_vector[i] = input_vector[i]
  *                 if self._received_vector[i]: zero_input_vector = False
  *             if zero_input_vector:             # <<<<<<<<<<<<<<
@@ -13033,7 +13240,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
     }
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":659
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":691
  *                 self.bpd.converge = True
  *                 return np.zeros(self.bit_count,dtype=DTYPE)
  *             self.bpd.decode(self._received_vector)             # <<<<<<<<<<<<<<
@@ -13042,7 +13249,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
 */
     (void)(__pyx_v_self->__pyx_base.bpd->decode(__pyx_v_self->_received_vector));
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":652
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":684
  *             self.bpd.decode(self._syndrome)
  * 
  *         elif(self.bpd.bp_input_type == RECEIVED_VECTOR or (self.bpd.bp_input_type == AUTO and len(input_vector)==self.n)):             # <<<<<<<<<<<<<<
@@ -13052,7 +13259,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
   }
   __pyx_L12:;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":661
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":693
  *             self.bpd.decode(self._received_vector)
  * 
  *         out = np.zeros(self.n,dtype=DTYPE)             # <<<<<<<<<<<<<<
@@ -13060,12 +13267,12 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
  *         return out
 */
   __pyx_t_14 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 661, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 693, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 661, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 693, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 661, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 693, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_11 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -13081,21 +13288,21 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_14, __pyx_t_7};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 661, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 693, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_DTYPE, __pyx_t_10, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 661, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_DTYPE, __pyx_t_10, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 693, __pyx_L1_error)
     __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_5, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 661, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 693, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_out = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":662
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":694
  * 
  *         out = np.zeros(self.n,dtype=DTYPE)
  *         for i in range(self.n): out[i] = self.bpd.decoding[i]             # <<<<<<<<<<<<<<
@@ -13106,13 +13313,13 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
   __pyx_t_16 = __pyx_t_15;
   for (__pyx_t_17 = 0; __pyx_t_17 < __pyx_t_16; __pyx_t_17+=1) {
     __pyx_v_i = __pyx_t_17;
-    __pyx_t_4 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 662, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 694, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_4, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 662, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_4, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 694, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":663
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":695
  *         out = np.zeros(self.n,dtype=DTYPE)
  *         for i in range(self.n): out[i] = self.bpd.decoding[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -13120,12 +13327,12 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
  * 
 */
   __Pyx_XDECREF((PyObject *)__pyx_r);
-  if (!(likely(((__pyx_v_out) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_out, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 663, __pyx_L1_error)
+  if (!(likely(((__pyx_v_out) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_out, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 695, __pyx_L1_error)
   __Pyx_INCREF(__pyx_v_out);
   __pyx_r = ((PyArrayObject *)__pyx_v_out);
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":610
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":642
  *         pass
  * 
  *     def decode(self, input_vector: np.ndarray) -> np.ndarray:             # <<<<<<<<<<<<<<
@@ -13152,7 +13359,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_4deco
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":666
+/* "ldpc/bp_decoder/_bp_decoder.pyx":698
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -13195,7 +13402,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":674
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":706
  *             np.ndarray: A numpy array containing the current decoded output.
  *         """
  *         out = np.zeros(self.n).astype(int)             # <<<<<<<<<<<<<<
@@ -13203,12 +13410,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding_
  *             out[i] = self.bpd.decoding[i]
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 674, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 674, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 674, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -13228,7 +13435,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding_
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 674, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 706, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -13239,13 +13446,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding_
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 674, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 706, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":675
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":707
  *         """
  *         out = np.zeros(self.n).astype(int)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -13257,20 +13464,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding_
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_i = __pyx_t_10;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":676
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":708
  *         out = np.zeros(self.n).astype(int)
  *         for i in range(self.n):
  *             out[i] = self.bpd.decoding[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 676, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 708, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 676, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 708, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":677
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":709
  *         for i in range(self.n):
  *             out[i] = self.bpd.decoding[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -13282,7 +13489,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8decoding_
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":666
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":698
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -13513,7 +13720,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_8__setstat
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":708
+/* "ldpc/bp_decoder/_bp_decoder.pyx":743
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -13551,49 +13758,49 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1__cini
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_pcm,&__pyx_mstate_global->__pyx_n_u_error_rate,&__pyx_mstate_global->__pyx_n_u_error_channel,&__pyx_mstate_global->__pyx_n_u_max_iter,&__pyx_mstate_global->__pyx_n_u_bp_method,&__pyx_mstate_global->__pyx_n_u_ms_scaling_factor,&__pyx_mstate_global->__pyx_n_u_cutoff,&__pyx_mstate_global->__pyx_n_u_sigma,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 708, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 743, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  8:
         values[7] = __Pyx_ArgRef_VARARGS(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 1) < 0) __PYX_ERR(0, 708, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 1) < 0) __PYX_ERR(0, 743, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":709
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":744
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[List[float]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',             # <<<<<<<<<<<<<<
@@ -13606,46 +13813,46 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1__cini
       if (!values[5]) values[5] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_float_1_0));
       if (!values[6]) values[6] = __Pyx_NewRef(__pyx_mstate_global->__pyx_k__2);
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 8, i); __PYX_ERR(0, 708, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 8, i); __PYX_ERR(0, 743, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  8:
         values[7] = __Pyx_ArgRef_VARARGS(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 743, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 708, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 743, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":708
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":743
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -13654,7 +13861,7 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1__cini
 */
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "ldpc/bp_decoder/_bp_decoder.pyx":709
+      /* "ldpc/bp_decoder/_bp_decoder.pyx":744
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[List[float]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',             # <<<<<<<<<<<<<<
@@ -13675,14 +13882,14 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1__cini
     __pyx_v_ms_scaling_factor = ((PyObject*)values[5]);
     __pyx_v_cutoff = ((PyObject*)values[6]);
     if (values[7]) {
-      __pyx_v_sigma = __Pyx_PyFloat_AsDouble(values[7]); if (unlikely((__pyx_v_sigma == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 710, __pyx_L3_error)
+      __pyx_v_sigma = __Pyx_PyFloat_AsDouble(values[7]); if (unlikely((__pyx_v_sigma == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 745, __pyx_L3_error)
     } else {
       __pyx_v_sigma = ((double)2.0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 8, __pyx_nargs); __PYX_ERR(0, 708, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 8, __pyx_nargs); __PYX_ERR(0, 743, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13694,15 +13901,15 @@ static int __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1__cini
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_rate), (&PyFloat_Type), 1, "error_rate", 2))) __PYX_ERR(0, 708, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_channel), (&PyList_Type), 1, "error_channel", 2))) __PYX_ERR(0, 709, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_iter), (&PyLong_Type), 1, "max_iter", 2))) __PYX_ERR(0, 709, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_bp_method), (&PyUnicode_Type), 1, "bp_method", 2))) __PYX_ERR(0, 709, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_ms_scaling_factor), (&PyFloat_Type), 1, "ms_scaling_factor", 2))) __PYX_ERR(0, 710, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_cutoff), (&PyFloat_Type), 1, "cutoff", 2))) __PYX_ERR(0, 710, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_rate), (&PyFloat_Type), 1, "error_rate", 2))) __PYX_ERR(0, 743, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_error_channel), (&PyList_Type), 1, "error_channel", 2))) __PYX_ERR(0, 744, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_iter), (&PyLong_Type), 1, "max_iter", 2))) __PYX_ERR(0, 744, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_bp_method), (&PyUnicode_Type), 1, "bp_method", 2))) __PYX_ERR(0, 744, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_ms_scaling_factor), (&PyFloat_Type), 1, "ms_scaling_factor", 2))) __PYX_ERR(0, 745, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_cutoff), (&PyFloat_Type), 1, "cutoff", 2))) __PYX_ERR(0, 745, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit__(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder *)__pyx_v_self), __pyx_v_pcm, __pyx_v_error_rate, __pyx_v_error_channel, __pyx_v_max_iter, __pyx_v_bp_method, __pyx_v_ms_scaling_factor, __pyx_v_cutoff, __pyx_v_sigma, __pyx_v_kwargs);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":708
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":743
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -13744,24 +13951,24 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":712
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":747
  *                  ms_scaling_factor: Optional[float] = 1.0, cutoff: Optional[float] = np.inf, sigma: float = 2.0, **kwargs):
  * 
  *         self.cutoff = cutoff             # <<<<<<<<<<<<<<
  *         if not isinstance(sigma,float) or sigma <= 0:
  *             raise ValueError("The sigma value must be a float greater than 0.")
 */
-  __pyx_t_1 = __Pyx_PyFloat_AsDouble(__pyx_v_cutoff); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 712, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyFloat_AsDouble(__pyx_v_cutoff); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 747, __pyx_L1_error)
   __pyx_v_self->cutoff = __pyx_t_1;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":713
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":748
  * 
  *         self.cutoff = cutoff
  *         if not isinstance(sigma,float) or sigma <= 0:             # <<<<<<<<<<<<<<
  *             raise ValueError("The sigma value must be a float greater than 0.")
  *         self.sigma = sigma
 */
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_sigma); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 713, __pyx_L1_error)
+  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_sigma); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 748, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = PyFloat_Check(__pyx_t_3); 
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -13776,7 +13983,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_2)) {
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":714
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":749
  *         self.cutoff = cutoff
  *         if not isinstance(sigma,float) or sigma <= 0:
  *             raise ValueError("The sigma value must be a float greater than 0.")             # <<<<<<<<<<<<<<
@@ -13792,14 +13999,14 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 714, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 749, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 714, __pyx_L1_error)
+    __PYX_ERR(0, 749, __pyx_L1_error)
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":713
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":748
  * 
  *         self.cutoff = cutoff
  *         if not isinstance(sigma,float) or sigma <= 0:             # <<<<<<<<<<<<<<
@@ -13808,7 +14015,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit
 */
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":715
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":750
  *         if not isinstance(sigma,float) or sigma <= 0:
  *             raise ValueError("The sigma value must be a float greater than 0.")
  *         self.sigma = sigma             # <<<<<<<<<<<<<<
@@ -13817,34 +14024,34 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit
 */
   __pyx_v_self->sigma = __pyx_v_sigma;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":716
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":751
  *             raise ValueError("The sigma value must be a float greater than 0.")
  *         self.sigma = sigma
  *         self.schedule = "serial"             # <<<<<<<<<<<<<<
  *         self.bp_method = "minimum_sum"
  *         self.input_vector_type = "syndrome"
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_schedule, __pyx_mstate_global->__pyx_n_u_serial) < 0) __PYX_ERR(0, 716, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_schedule, __pyx_mstate_global->__pyx_n_u_serial) < 0) __PYX_ERR(0, 751, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":717
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":752
  *         self.sigma = sigma
  *         self.schedule = "serial"
  *         self.bp_method = "minimum_sum"             # <<<<<<<<<<<<<<
  *         self.input_vector_type = "syndrome"
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bp_method, __pyx_mstate_global->__pyx_n_u_minimum_sum) < 0) __PYX_ERR(0, 717, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_bp_method, __pyx_mstate_global->__pyx_n_u_minimum_sum) < 0) __PYX_ERR(0, 752, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":718
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":753
  *         self.schedule = "serial"
  *         self.bp_method = "minimum_sum"
  *         self.input_vector_type = "syndrome"             # <<<<<<<<<<<<<<
  * 
  *     # def __init__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_input_vector_type, __pyx_mstate_global->__pyx_n_u_syndrome) < 0) __PYX_ERR(0, 718, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_input_vector_type, __pyx_mstate_global->__pyx_n_u_syndrome) < 0) __PYX_ERR(0, 753, __pyx_L1_error)
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":708
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":743
  *     """
  * 
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,             # <<<<<<<<<<<<<<
@@ -13866,7 +14073,7 @@ static int __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder___cinit
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":726
+/* "ldpc/bp_decoder/_bp_decoder.pyx":761
  *     #     pass
  * 
  *     def decode(self, soft_info_syndrome: np.ndarray) -> np.ndarray:             # <<<<<<<<<<<<<<
@@ -13914,32 +14121,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_soft_info_syndrome,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 726, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 761, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 726, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 761, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode", 0) < 0) __PYX_ERR(0, 726, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode", 0) < 0) __PYX_ERR(0, 761, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, i); __PYX_ERR(0, 726, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, i); __PYX_ERR(0, 761, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 726, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 761, __pyx_L3_error)
     }
     __pyx_v_soft_info_syndrome = ((PyArrayObject *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 726, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decode", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 761, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13950,7 +14157,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_soft_info_syndrome), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 0, "soft_info_syndrome", 0))) __PYX_ERR(0, 726, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_soft_info_syndrome), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 0, "soft_info_syndrome", 0))) __PYX_ERR(0, 761, __pyx_L1_error)
   __pyx_r = __pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_2decode(((struct __pyx_obj_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder *)__pyx_v_self), __pyx_v_soft_info_syndrome);
 
   /* function exit code */
@@ -13992,7 +14199,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":742
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":777
  * 
  *         cdef vector[np.float64_t] soft_syndrome
  *         soft_syndrome.resize(self.m)             # <<<<<<<<<<<<<<
@@ -14003,10 +14210,10 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
     __pyx_v_soft_syndrome.resize(__pyx_v_self->__pyx_base.m);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 742, __pyx_L1_error)
+    __PYX_ERR(0, 777, __pyx_L1_error)
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":743
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":778
  *         cdef vector[np.float64_t] soft_syndrome
  *         soft_syndrome.resize(self.m)
  *         for i in range(self.m):             # <<<<<<<<<<<<<<
@@ -14018,21 +14225,21 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":744
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":779
  *         soft_syndrome.resize(self.m)
  *         for i in range(self.m):
  *             soft_syndrome[i] = soft_info_syndrome[i]             # <<<<<<<<<<<<<<
  * 
  *         self.bpd.soft_info_decode_serial(soft_syndrome,self.cutoff, self.sigma)
 */
-    __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_v_soft_info_syndrome), __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 744, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_v_soft_info_syndrome), __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyFloat_AsDouble(__pyx_t_4); if (unlikely((__pyx_t_5 == ((npy_float64)-1)) && PyErr_Occurred())) __PYX_ERR(0, 744, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyFloat_AsDouble(__pyx_t_4); if (unlikely((__pyx_t_5 == ((npy_float64)-1)) && PyErr_Occurred())) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     (__pyx_v_soft_syndrome[__pyx_v_i]) = __pyx_t_5;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":746
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":781
  *             soft_syndrome[i] = soft_info_syndrome[i]
  * 
  *         self.bpd.soft_info_decode_serial(soft_syndrome,self.cutoff, self.sigma)             # <<<<<<<<<<<<<<
@@ -14041,7 +14248,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
 */
   (void)(__pyx_v_self->__pyx_base.bpd->soft_info_decode_serial(__pyx_v_soft_syndrome, __pyx_v_self->cutoff, __pyx_v_self->sigma));
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":748
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":783
  *         self.bpd.soft_info_decode_serial(soft_syndrome,self.cutoff, self.sigma)
  * 
  *         out = np.zeros(self.n,dtype=np.uint8)             # <<<<<<<<<<<<<<
@@ -14049,16 +14256,16 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
  *         return out
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 748, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 783, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 748, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 783, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 748, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 783, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 748, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 783, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 748, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 783, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __pyx_t_11 = 1;
@@ -14075,22 +14282,22 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_t_7};
-    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 748, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 783, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_10, __pyx_t_9, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 748, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_10, __pyx_t_9, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 783, __pyx_L1_error)
     __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_8, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 748, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 783, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_out = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":749
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":784
  * 
  *         out = np.zeros(self.n,dtype=np.uint8)
  *         for i in range(self.n): out[i] = self.bpd.decoding[i]             # <<<<<<<<<<<<<<
@@ -14101,13 +14308,13 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
   __pyx_t_2 = __pyx_t_1;
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
-    __pyx_t_4 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 749, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 784, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_4, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 749, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_4, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 784, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":750
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":785
  *         out = np.zeros(self.n,dtype=np.uint8)
  *         for i in range(self.n): out[i] = self.bpd.decoding[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -14115,12 +14322,12 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
  *     @property
 */
   __Pyx_XDECREF((PyObject *)__pyx_r);
-  if (!(likely(((__pyx_v_out) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_out, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 750, __pyx_L1_error)
+  if (!(likely(((__pyx_v_out) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_out, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 785, __pyx_L1_error)
   __Pyx_INCREF(__pyx_v_out);
   __pyx_r = ((PyArrayObject *)__pyx_v_out);
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":726
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":761
  *     #     pass
  * 
  *     def decode(self, soft_info_syndrome: np.ndarray) -> np.ndarray:             # <<<<<<<<<<<<<<
@@ -14145,7 +14352,7 @@ static PyArrayObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDeco
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":752
+/* "ldpc/bp_decoder/_bp_decoder.pyx":787
  *         return out
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -14186,7 +14393,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":760
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":795
  *             np.ndarray: A numpy array containing the current soft syndrome.
  *         """
  *         out = np.zeros(self.m)             # <<<<<<<<<<<<<<
@@ -14194,12 +14401,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1
  *             out[i] = self.bpd.soft_syndrome[i]
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 760, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 760, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.m); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 760, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.m); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -14219,13 +14426,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 760, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 795, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":761
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":796
  *         """
  *         out = np.zeros(self.m)
  *         for i in range(self.m):             # <<<<<<<<<<<<<<
@@ -14237,20 +14444,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_i = __pyx_t_8;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":762
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":797
  *         out = np.zeros(self.m)
  *         for i in range(self.m):
  *             out[i] = self.bpd.soft_syndrome[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->__pyx_base.bpd->soft_syndrome[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 762, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->__pyx_base.bpd->soft_syndrome[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 762, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 797, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":763
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":798
  *         for i in range(self.m):
  *             out[i] = self.bpd.soft_syndrome[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -14262,7 +14469,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":752
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":787
  *         return out
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -14285,7 +14492,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_1
   return __pyx_r;
 }
 
-/* "ldpc/bp_decoder/_bp_decoder.pyx":766
+/* "ldpc/bp_decoder/_bp_decoder.pyx":801
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -14328,7 +14535,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_8
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":774
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":809
  *             np.ndarray: A numpy array containing the current decoded output.
  *         """
  *         out = np.zeros(self.n).astype(int)             # <<<<<<<<<<<<<<
@@ -14336,12 +14543,12 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_8
  *             out[i] = self.bpd.decoding[i]
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 774, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 809, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 774, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 809, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 774, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.n); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 809, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -14361,7 +14568,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_8
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 774, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 809, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -14372,13 +14579,13 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_8
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 774, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 809, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_out = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":775
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":810
  *         """
  *         out = np.zeros(self.n).astype(int)
  *         for i in range(self.n):             # <<<<<<<<<<<<<<
@@ -14390,20 +14597,20 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_8
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_i = __pyx_t_10;
 
-    /* "ldpc/bp_decoder/_bp_decoder.pyx":776
+    /* "ldpc/bp_decoder/_bp_decoder.pyx":811
  *         out = np.zeros(self.n).astype(int)
  *         for i in range(self.n):
  *             out[i] = self.bpd.decoding[i]             # <<<<<<<<<<<<<<
  *         return out
  * 
 */
-    __pyx_t_1 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 776, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_From_npy_uint8((__pyx_v_self->__pyx_base.bpd->decoding[__pyx_v_i])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 811, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 776, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_out, __pyx_v_i, __pyx_t_1, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1) < 0))) __PYX_ERR(0, 811, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":777
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":812
  *         for i in range(self.n):
  *             out[i] = self.bpd.decoding[i]
  *         return out             # <<<<<<<<<<<<<<
@@ -14415,7 +14622,7 @@ static PyObject *__pyx_pf_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_8
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":766
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":801
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -14870,6 +15077,20 @@ static int __pyx_setprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random
   }
 }
 
+static PyObject *__pyx_getprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random_serial_schedule(PyObject *o, CYTHON_UNUSED void *x) {
+  return __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_1__get__(o);
+}
+
+static int __pyx_setprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random_serial_schedule(PyObject *o, PyObject *v, CYTHON_UNUSED void *x) {
+  if (v) {
+    return __pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_22random_serial_schedule_3__set__(o, v);
+  }
+  else {
+    PyErr_SetString(PyExc_NotImplementedError, "__del__");
+    return -1;
+  }
+}
+
 static PyMethodDef __pyx_methods_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase[] = {
   {"update_channel_probs", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_5update_channel_probs, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_4update_channel_probs},
   {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_7__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_6__reduce_cython__},
@@ -14894,6 +15115,7 @@ static struct PyGetSetDef __pyx_getsets_4ldpc_10bp_decoder_11_bp_decoder_BpDecod
   {"ms_scaling_factor", __pyx_getprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_ms_scaling_factor, __pyx_setprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_ms_scaling_factor, PyDoc_STR("BpDecoderBase.ms_scaling_factor: float\n\nGet the scaling factor for minimum sum method.\n\nReturns:\n    float: The current scaling factor."), 0},
   {"omp_thread_count", __pyx_getprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_omp_thread_count, __pyx_setprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_omp_thread_count, PyDoc_STR("BpDecoderBase.omp_thread_count: int\n\nGet the number of OpenMP threads.\n\nReturns:\n    int: The number of threads used."), 0},
   {"random_schedule_seed", __pyx_getprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random_schedule_seed, __pyx_setprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random_schedule_seed, PyDoc_STR("BpDecoderBase.random_schedule_seed: int\n\nGet the value of random_schedule_seed.\n\nReturns:\n    int: The current value of random_schedule_seed."), 0},
+  {"random_serial_schedule", __pyx_getprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random_serial_schedule, __pyx_setprop_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_random_serial_schedule, PyDoc_STR("BpDecoderBase.random_serial_schedule: bool\n\nReturns whether the random serial schedule is enabled.\n\nReturns:\n    bool: True if random serial schedule is enabled, False otherwise."), 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
@@ -15039,7 +15261,7 @@ static struct PyGetSetDef __pyx_getsets_4ldpc_10bp_decoder_11_bp_decoder_BpDecod
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder},
-  {Py_tp_doc, (void *)PyDoc_STR("BpDecoder(pcm: Union[np.ndarray, scipy.sparse.spmatrix], float error_rate: Optional[float] = None, error_channel: Optional[Union[np.ndarray, List[float]]] = None, int max_iter: Optional[int] = 0, str bp_method: Optional[str] = 'minimum_sum', ms_scaling_factor: Optional[Union[float, int]] = 1.0, str schedule: Optional[str] = 'parallel', int omp_thread_count: Optional[int] = 1, int random_schedule_seed: Optional[int] = 0, list serial_schedule_order: Optional[List[int]] = None, str input_vector_type: str = 'auto', **kwargs)\n\nBelief propagation decoder for binary linear codes.\n\nThis class provides an implementation of belief propagation decoding for binary linear codes. The decoder uses a sparse\nparity check matrix to decode received codewords. The decoding algorithm can be configured using various parameters,\nsuch as the belief propagation method used, the scheduling method used, and the maximum number of iterations.\n\nParameters\n----------\npcm : Union[np.ndarray, spmatrix]\n    The parity check matrix of the binary linear code, represented as a NumPy array or a SciPy sparse matrix.\nerror_rate : Optional[float], optional\n    The initial error rate for the decoder, by default None.\nerror_channel : Optional[List[float]], optional\n    The initial error channel probabilities for the decoder, by default None.\nmax_iter : Optional[int], optional\n    The maximum number of iterations allowed for decoding, by default 0 (adaptive).\nbp_method : Optional[str], optional\n    The belief propagation method to use: 'product_sum' or 'minimum_sum', by default 'minimum_sum'.\nms_scaling_factor : Optional[float], optional\n    The scaling factor for the minimum sum method, by default 1.0.\nschedule : Optional[str], optional\n    The scheduling method for belief propagation: 'parallel', 'serial', or 'serial_relative'. By default 'parallel'.\nomp_thread_count : Optional[int], optional\n    The number of OpenMP threads to use, by default 1.\nrandom_schedule_seed : Optional[int""], optional\n    The seed for the random serial schedule, by default 0. If set to 0, the seed is set according the system clock.\nserial_schedule_order : Optional[List[int]], optional\n    The custom order for serial scheduling, by default None.\ninput_vector_type: str, optional\n    Use this paramter to specify the input type. Choose either: 1) 'syndrome' or 2) 'received_vector' or 3) 'auto'.\n    Note, it is only necessary to specify this value when the parity check matrix is square. When the\n    parity matrix is non-square the input vector type is inferred automatically from its length.")},
+  {Py_tp_doc, (void *)PyDoc_STR("BpDecoder(pcm: Union[np.ndarray, scipy.sparse.spmatrix], float error_rate: Optional[float] = None, error_channel: Optional[Union[np.ndarray, List[float]]] = None, int max_iter: Optional[int] = 0, str bp_method: Optional[str] = 'minimum_sum', ms_scaling_factor: Optional[Union[float, int]] = 1.0, str schedule: Optional[str] = 'parallel', int omp_thread_count: Optional[int] = 1, int random_schedule_seed: Optional[int] = 0, list serial_schedule_order: Optional[List[int]] = None, str input_vector_type: str = 'auto', bool random_serial_schedule: bool = False, **kwargs)\n\nBelief propagation decoder for binary linear codes.\n\nThis class provides an implementation of belief propagation decoding for binary linear codes. The decoder uses a sparse\nparity check matrix to decode received codewords. The decoding algorithm can be configured using various parameters,\nsuch as the belief propagation method used, the scheduling method used, and the maximum number of iterations.\n\nParameters\n----------\npcm : Union[np.ndarray, spmatrix]\n    The parity check matrix of the binary linear code, represented as a NumPy array or a SciPy sparse matrix.\nerror_rate : Optional[float], optional\n    The initial error rate for the decoder, by default None.\nerror_channel : Optional[List[float]], optional\n    The initial error channel probabilities for the decoder, by default None.\nmax_iter : Optional[int], optional\n    The maximum number of iterations allowed for decoding, by default 0 (adaptive).\nbp_method : Optional[str], optional\n    The belief propagation method to use: 'product_sum' or 'minimum_sum', by default 'minimum_sum'.\nms_scaling_factor : Optional[float], optional\n    The scaling factor for the minimum sum method, by default 1.0.\nschedule : Optional[str], optional\n    The scheduling method for belief propagation: 'parallel', 'serial', or 'serial_relative'. By default 'parallel'.\nomp_thread_count : Optional[int], optional\n    The number of OpenMP threads to use, by defa""ult 1.\nrandom_schedule_seed : Optional[int], optional\n    The seed for the random serial schedule, by default 0. If set to 0, the seed is set according to the system clock.\nserial_schedule_order : Optional[List[int]], optional\n    The custom order for serial scheduling, by default None.\nrandom_serial_schedule : bool, optional\n    Whether to enable random serial scheduling. If True, the serial schedule order is randomized in each iteration.\n    By default False.\ninput_vector_type: str, optional\n    Use this parameter to specify the input type. Choose either: 1) 'syndrome' or 2) 'received_vector' or 3) 'auto'.\n    Note, it is only necessary to specify this value when the parity check matrix is square. When the\n    parity matrix is non-square, the input vector type is inferred automatically from its length.")},
   {Py_tp_methods, (void *)__pyx_methods_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder},
   {Py_tp_getset, (void *)__pyx_getsets_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder},
   {Py_tp_init, (void *)__pyx_pw_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_3__init__},
@@ -15081,7 +15303,7 @@ static PyTypeObject __pyx_type_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_FINALIZE, /*tp_flags*/
-  PyDoc_STR("BpDecoder(pcm: Union[np.ndarray, scipy.sparse.spmatrix], float error_rate: Optional[float] = None, error_channel: Optional[Union[np.ndarray, List[float]]] = None, int max_iter: Optional[int] = 0, str bp_method: Optional[str] = 'minimum_sum', ms_scaling_factor: Optional[Union[float, int]] = 1.0, str schedule: Optional[str] = 'parallel', int omp_thread_count: Optional[int] = 1, int random_schedule_seed: Optional[int] = 0, list serial_schedule_order: Optional[List[int]] = None, str input_vector_type: str = 'auto', **kwargs)\n\nBelief propagation decoder for binary linear codes.\n\nThis class provides an implementation of belief propagation decoding for binary linear codes. The decoder uses a sparse\nparity check matrix to decode received codewords. The decoding algorithm can be configured using various parameters,\nsuch as the belief propagation method used, the scheduling method used, and the maximum number of iterations.\n\nParameters\n----------\npcm : Union[np.ndarray, spmatrix]\n    The parity check matrix of the binary linear code, represented as a NumPy array or a SciPy sparse matrix.\nerror_rate : Optional[float], optional\n    The initial error rate for the decoder, by default None.\nerror_channel : Optional[List[float]], optional\n    The initial error channel probabilities for the decoder, by default None.\nmax_iter : Optional[int], optional\n    The maximum number of iterations allowed for decoding, by default 0 (adaptive).\nbp_method : Optional[str], optional\n    The belief propagation method to use: 'product_sum' or 'minimum_sum', by default 'minimum_sum'.\nms_scaling_factor : Optional[float], optional\n    The scaling factor for the minimum sum method, by default 1.0.\nschedule : Optional[str], optional\n    The scheduling method for belief propagation: 'parallel', 'serial', or 'serial_relative'. By default 'parallel'.\nomp_thread_count : Optional[int], optional\n    The number of OpenMP threads to use, by default 1.\nrandom_schedule_seed : Optional[int""], optional\n    The seed for the random serial schedule, by default 0. If set to 0, the seed is set according the system clock.\nserial_schedule_order : Optional[List[int]], optional\n    The custom order for serial scheduling, by default None.\ninput_vector_type: str, optional\n    Use this paramter to specify the input type. Choose either: 1) 'syndrome' or 2) 'received_vector' or 3) 'auto'.\n    Note, it is only necessary to specify this value when the parity check matrix is square. When the\n    parity matrix is non-square the input vector type is inferred automatically from its length."), /*tp_doc*/
+  PyDoc_STR("BpDecoder(pcm: Union[np.ndarray, scipy.sparse.spmatrix], float error_rate: Optional[float] = None, error_channel: Optional[Union[np.ndarray, List[float]]] = None, int max_iter: Optional[int] = 0, str bp_method: Optional[str] = 'minimum_sum', ms_scaling_factor: Optional[Union[float, int]] = 1.0, str schedule: Optional[str] = 'parallel', int omp_thread_count: Optional[int] = 1, int random_schedule_seed: Optional[int] = 0, list serial_schedule_order: Optional[List[int]] = None, str input_vector_type: str = 'auto', bool random_serial_schedule: bool = False, **kwargs)\n\nBelief propagation decoder for binary linear codes.\n\nThis class provides an implementation of belief propagation decoding for binary linear codes. The decoder uses a sparse\nparity check matrix to decode received codewords. The decoding algorithm can be configured using various parameters,\nsuch as the belief propagation method used, the scheduling method used, and the maximum number of iterations.\n\nParameters\n----------\npcm : Union[np.ndarray, spmatrix]\n    The parity check matrix of the binary linear code, represented as a NumPy array or a SciPy sparse matrix.\nerror_rate : Optional[float], optional\n    The initial error rate for the decoder, by default None.\nerror_channel : Optional[List[float]], optional\n    The initial error channel probabilities for the decoder, by default None.\nmax_iter : Optional[int], optional\n    The maximum number of iterations allowed for decoding, by default 0 (adaptive).\nbp_method : Optional[str], optional\n    The belief propagation method to use: 'product_sum' or 'minimum_sum', by default 'minimum_sum'.\nms_scaling_factor : Optional[float], optional\n    The scaling factor for the minimum sum method, by default 1.0.\nschedule : Optional[str], optional\n    The scheduling method for belief propagation: 'parallel', 'serial', or 'serial_relative'. By default 'parallel'.\nomp_thread_count : Optional[int], optional\n    The number of OpenMP threads to use, by defa""ult 1.\nrandom_schedule_seed : Optional[int], optional\n    The seed for the random serial schedule, by default 0. If set to 0, the seed is set according to the system clock.\nserial_schedule_order : Optional[List[int]], optional\n    The custom order for serial scheduling, by default None.\nrandom_serial_schedule : bool, optional\n    Whether to enable random serial scheduling. If True, the serial schedule order is randomized in each iteration.\n    By default False.\ninput_vector_type: str, optional\n    Use this parameter to specify the input type. Choose either: 1) 'syndrome' or 2) 'received_vector' or 3) 'auto'.\n    Note, it is only necessary to specify this value when the parity check matrix is square. When the\n    parity matrix is non-square, the input vector type is inferred automatically from its length."), /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -15165,7 +15387,7 @@ static struct PyGetSetDef __pyx_getsets_4ldpc_10bp_decoder_11_bp_decoder_SoftInf
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder_slots[] = {
-  {Py_tp_doc, (void *)PyDoc_STR("\n    A decoder that uses soft information belief propagation algorithm for decoding binary linear codes.\n\n    This class implements a modified version of the belief propagation decoding algorithm that accounts for\n    uncertainty in the syndrome readout using a serial belief propagation schedule. The decoder uses a minimum\n    sum method as the belief propagation variant. For more information on the algorithm, please see the original\n    research paper at https://arxiv.org/abs/2205.02341.\n\n    Parameters\n    ----------\n    pcm : Union[np.ndarray, spmatrix]\n        The parity check matrix for the code.\n    error_rate : Optional[float]\n        The probability of a bit being flipped in the received codeword.\n    error_channel : Optional[List[float]]\n        A list of probabilities that specify the probability of each bit being flipped in the received codeword.\n        Must be of length equal to the block length of the code.\n    max_iter : Optional[int]\n        The maximum number of iterations for the decoding algorithm.\n    bp_method : Optional[str]\n        The variant of belief propagation method to be used. The default value is 'minimum_sum'.\n    ms_scaling_factor : Optional[float]\n        The scaling factor used in the minimum sum method. The default value is 1.0.\n    cutoff : Optional[float]\n        The threshold value below which syndrome soft information is used.\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("\n    A decoder that uses soft information belief propagation algorithm for decoding binary linear codes.\n\n    This class implements a modified version of the belief propagation decoding algorithm that accounts for\n    uncertainty in the syndrome readout using a serial belief propagation schedule. The decoder uses a minimum\n    sum method as the belief propagation variant. For more information on the algorithm, please see the original\n    research paper at https://arxiv.org/abs/2205.02341.\n\n    Parameters\n    ----------\n    pcm : Union[np.ndarray, spmatrix]\n        The parity check matrix for the code.\n    error_rate : Optional[float]\n        The probability of a bit being flipped in the received codeword.\n    error_channel : Optional[List[float]]\n        A list of probabilities that specify the probability of each bit being flipped in the received codeword.\n        Must be of length equal to the block length of the code.\n    max_iter : Optional[int]\n        The maximum number of iterations for the decoding algorithm.\n    bp_method : Optional[str]\n        The variant of belief propagation method to be used. The default value is 'minimum_sum'.\n    ms_scaling_factor : Optional[float]\n        The scaling factor used in the minimum sum method. The default value is 1.0.\n    cutoff : Optional[float]\n        The threshold value below which syndrome soft information is used.\n    random_serial_schedule : bool, optional\n        Whether to enable random serial scheduling. If True, the serial schedule order is randomized in each iteration.\n        By default False.\n    ")},
   {Py_tp_methods, (void *)__pyx_methods_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder},
   {Py_tp_getset, (void *)__pyx_getsets_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder},
   {Py_tp_new, (void *)__pyx_tp_new_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder},
@@ -15206,7 +15428,7 @@ static PyTypeObject __pyx_type_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecode
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_FINALIZE, /*tp_flags*/
-  PyDoc_STR("\n    A decoder that uses soft information belief propagation algorithm for decoding binary linear codes.\n\n    This class implements a modified version of the belief propagation decoding algorithm that accounts for\n    uncertainty in the syndrome readout using a serial belief propagation schedule. The decoder uses a minimum\n    sum method as the belief propagation variant. For more information on the algorithm, please see the original\n    research paper at https://arxiv.org/abs/2205.02341.\n\n    Parameters\n    ----------\n    pcm : Union[np.ndarray, spmatrix]\n        The parity check matrix for the code.\n    error_rate : Optional[float]\n        The probability of a bit being flipped in the received codeword.\n    error_channel : Optional[List[float]]\n        A list of probabilities that specify the probability of each bit being flipped in the received codeword.\n        Must be of length equal to the block length of the code.\n    max_iter : Optional[int]\n        The maximum number of iterations for the decoding algorithm.\n    bp_method : Optional[str]\n        The variant of belief propagation method to be used. The default value is 'minimum_sum'.\n    ms_scaling_factor : Optional[float]\n        The scaling factor used in the minimum sum method. The default value is 1.0.\n    cutoff : Optional[float]\n        The threshold value below which syndrome soft information is used.\n    "), /*tp_doc*/
+  PyDoc_STR("\n    A decoder that uses soft information belief propagation algorithm for decoding binary linear codes.\n\n    This class implements a modified version of the belief propagation decoding algorithm that accounts for\n    uncertainty in the syndrome readout using a serial belief propagation schedule. The decoder uses a minimum\n    sum method as the belief propagation variant. For more information on the algorithm, please see the original\n    research paper at https://arxiv.org/abs/2205.02341.\n\n    Parameters\n    ----------\n    pcm : Union[np.ndarray, spmatrix]\n        The parity check matrix for the code.\n    error_rate : Optional[float]\n        The probability of a bit being flipped in the received codeword.\n    error_channel : Optional[List[float]]\n        A list of probabilities that specify the probability of each bit being flipped in the received codeword.\n        Must be of length equal to the block length of the code.\n    max_iter : Optional[int]\n        The maximum number of iterations for the decoding algorithm.\n    bp_method : Optional[str]\n        The variant of belief propagation method to be used. The default value is 'minimum_sum'.\n    ms_scaling_factor : Optional[float]\n        The scaling factor used in the minimum sum method. The default value is 1.0.\n    cutoff : Optional[float]\n        The threshold value below which syndrome soft information is used.\n    random_serial_schedule : bool, optional\n        Whether to enable random serial scheduling. If True, the serial schedule order is randomized in each iteration.\n        By default False.\n    "), /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -15331,12 +15553,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BpDecoderBase, (PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase) < 0) __PYX_ERR(0, 82, __pyx_L1_error)
   if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase) < 0) __PYX_ERR(0, 82, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 552, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 581, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder)) __PYX_ERR(0, 552, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder_spec, __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 552, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder)) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder_spec, __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder = &__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder;
   #endif
@@ -15344,22 +15566,22 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder->tp_base = __pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 552, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder->tp_dictoffset && __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BpDecoder, (PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 552, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 552, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BpDecoder, (PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 680, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 712, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder)) __PYX_ERR(0, 680, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder_spec, __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 680, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder)) __PYX_ERR(0, 712, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder_spec, __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 712, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder = &__pyx_type_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder;
   #endif
@@ -15367,15 +15589,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder->tp_base = __pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 680, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 712, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder->tp_dictoffset && __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SoftInfoBpDecoder, (PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 680, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 680, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SoftInfoBpDecoder, (PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 712, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder) < 0) __PYX_ERR(0, 712, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -15943,22 +16165,22 @@ __Pyx_RefNannySetupContext("PyInit__bp_decoder", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_io_test, __pyx_t_2) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":220
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":222
  *                 self.bpd.channel_probabilities[i] = value[i]
  * 
  *     def update_channel_probs(self, value: Union[List[float],np.ndarray]) -> None:             # <<<<<<<<<<<<<<
  *         self.error_channel = value
  * 
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_kp_u_Union_List_float_np_ndarray) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_5update_channel_probs, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BpDecoderBase_update_channel_pro, NULL, __pyx_mstate_global->__pyx_n_u_ldpc_bp_decoder__bp_decoder, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 220, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_kp_u_Union_List_float_np_ndarray) < 0) __PYX_ERR(0, 222, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < 0) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_4ldpc_10bp_decoder_11_bp_decoder_13BpDecoderBase_5update_channel_probs, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BpDecoderBase_update_channel_pro, NULL, __pyx_mstate_global->__pyx_n_u_ldpc_bp_decoder__bp_decoder, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase, __pyx_mstate_global->__pyx_n_u_update_channel_probs, __pyx_t_3) < 0) __PYX_ERR(0, 220, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoderBase, __pyx_mstate_global->__pyx_n_u_update_channel_probs, __pyx_t_3) < 0) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":1
@@ -15982,22 +16204,22 @@ __Pyx_RefNannySetupContext("PyInit__bp_decoder", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":610
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":642
  *         pass
  * 
  *     def decode(self, input_vector: np.ndarray) -> np.ndarray:             # <<<<<<<<<<<<<<
  *         """
  *         Decode the input input_vector using belief propagation decoding algorithm.
 */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 610, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 642, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_input_vector, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 610, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 610, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_5decode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BpDecoder_decode, NULL, __pyx_mstate_global->__pyx_n_u_ldpc_bp_decoder__bp_decoder, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 610, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_input_vector, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 642, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 642, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4ldpc_10bp_decoder_11_bp_decoder_9BpDecoder_5decode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BpDecoder_decode, NULL, __pyx_mstate_global->__pyx_n_u_ldpc_bp_decoder__bp_decoder, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 642, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder, __pyx_mstate_global->__pyx_n_u_decode, __pyx_t_2) < 0) __PYX_ERR(0, 610, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_BpDecoder, __pyx_mstate_global->__pyx_n_u_decode, __pyx_t_2) < 0) __PYX_ERR(0, 642, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":1
@@ -16021,39 +16243,39 @@ __Pyx_RefNannySetupContext("PyInit__bp_decoder", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":710
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":745
  *     def __cinit__(self, pcm: Union[np.ndarray, spmatrix], error_rate: Optional[float] = None,
  *                  error_channel: Optional[List[float]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',
  *                  ms_scaling_factor: Optional[float] = 1.0, cutoff: Optional[float] = np.inf, sigma: float = 2.0, **kwargs):             # <<<<<<<<<<<<<<
  * 
  *         self.cutoff = cutoff
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 710, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 745, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_inf); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 710, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_inf); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 745, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (!(likely(PyFloat_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("float", __pyx_t_3))) __PYX_ERR(0, 710, __pyx_L1_error)
+  if (!(likely(PyFloat_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("float", __pyx_t_3))) __PYX_ERR(0, 745, __pyx_L1_error)
   __pyx_mstate_global->__pyx_k__2 = ((PyObject*)__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "ldpc/bp_decoder/_bp_decoder.pyx":726
+  /* "ldpc/bp_decoder/_bp_decoder.pyx":761
  *     #     pass
  * 
  *     def decode(self, soft_info_syndrome: np.ndarray) -> np.ndarray:             # <<<<<<<<<<<<<<
  *         """
  *         Decode the input syndrome using the soft information belief propagation decoding algorithm.
 */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 726, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 761, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_soft_info_syndrome, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 726, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 726, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_3decode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_SoftInfoBpDecoder_decode, NULL, __pyx_mstate_global->__pyx_n_u_ldpc_bp_decoder__bp_decoder, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 726, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_soft_info_syndrome, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 761, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_np_ndarray) < 0) __PYX_ERR(0, 761, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_4ldpc_10bp_decoder_11_bp_decoder_17SoftInfoBpDecoder_3decode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_SoftInfoBpDecoder_decode, NULL, __pyx_mstate_global->__pyx_n_u_ldpc_bp_decoder__bp_decoder, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 761, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder, __pyx_mstate_global->__pyx_n_u_decode, __pyx_t_2) < 0) __PYX_ERR(0, 726, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4ldpc_10bp_decoder_11_bp_decoder_SoftInfoBpDecoder, __pyx_mstate_global->__pyx_n_u_decode, __pyx_t_2) < 0) __PYX_ERR(0, 761, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":1
@@ -16286,6 +16508,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_qualname, sizeof(__pyx_k_qualname), 0, 1, 1}, /* PyObject cname: __pyx_n_u_qualname */
   {__pyx_k_r, sizeof(__pyx_k_r), 0, 1, 1}, /* PyObject cname: __pyx_n_u_r */
   {__pyx_k_random_schedule_seed, sizeof(__pyx_k_random_schedule_seed), 0, 1, 1}, /* PyObject cname: __pyx_n_u_random_schedule_seed */
+  {__pyx_k_random_serial_schedule, sizeof(__pyx_k_random_serial_schedule), 0, 1, 1}, /* PyObject cname: __pyx_n_u_random_serial_schedule */
   {__pyx_k_range, sizeof(__pyx_k_range), 0, 1, 1}, /* PyObject cname: __pyx_n_u_range */
   {__pyx_k_received_vector, sizeof(__pyx_k_received_vector), 0, 1, 1}, /* PyObject cname: __pyx_n_u_received_vector */
   {__pyx_k_reduce, sizeof(__pyx_k_reduce), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reduce */
@@ -16337,8 +16560,8 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 19, __pyx_L1_error)
   __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(0, 40, __pyx_L1_error)
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 152, __pyx_L1_error)
-  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_print); if (!__pyx_builtin_print) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_print); if (!__pyx_builtin_print) __PYX_ERR(0, 473, __pyx_L1_error)
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(1, 1010, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
@@ -16428,7 +16651,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_python_ldpc_bp_decoder__bp_d, __pyx_mstate->__pyx_n_u_io_test, __pyx_k_Qa_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 220, 16};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 222, 16};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_python_ldpc_bp_decoder__bp_d, __pyx_mstate->__pyx_n_u_update_channel_probs, __pyx_k_LA_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
@@ -16443,7 +16666,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 610, 557};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 642, 557};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_input_vector, __pyx_mstate->__pyx_n_u_i_2, __pyx_mstate->__pyx_n_u_zero_input_vector, __pyx_mstate->__pyx_n_u_DTYPE, __pyx_mstate->__pyx_n_u_len_input_vector, __pyx_mstate->__pyx_n_u_out};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_python_ldpc_bp_decoder__bp_d, __pyx_mstate->__pyx_n_u_decode, __pyx_k_4t_Yd_c_r_Q_AR_ETIrruuvvw__C_7t, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
@@ -16458,7 +16681,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 726, 120};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 761, 120};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_soft_info_syndrome, __pyx_mstate->__pyx_n_u_soft_syndrome, __pyx_mstate->__pyx_n_u_i_2, __pyx_mstate->__pyx_n_u_out};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_python_ldpc_bp_decoder__bp_d, __pyx_mstate->__pyx_n_u_decode, __pyx_k_WAT_E_at1_1_D_t9D_b_at3fBa_E_at, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }

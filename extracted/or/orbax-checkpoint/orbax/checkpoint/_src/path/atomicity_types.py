@@ -21,7 +21,7 @@ paths, which allow other implementations.
 from __future__ import annotations
 
 import typing
-from typing import Optional, Protocol
+from typing import Protocol
 
 from etils import epath
 from orbax.checkpoint import options as options_lib
@@ -39,8 +39,9 @@ class TemporaryPath(Protocol):
   is primarily constructed from this path. The class contains logic to create
   the temporary path, and to finalize it into the final path.
 
-  NOTE: All methods are intended to be called across all active processes,
-  except for `finalize`, which is only called on the primary host.
+  `from_final` should be called from all hosts to construct the temporary path
+  instance from the given final path.
+  `create` and `finalize` must be called only on the primary host.
   """
 
   @classmethod
@@ -48,20 +49,12 @@ class TemporaryPath(Protocol):
       cls,
       final_path: epath.Path,
       *,
-      checkpoint_metadata_store: Optional[
-          checkpoint_metadata.MetadataStore
-      ] = None,
-      file_options: Optional[options_lib.FileOptions] = None,
-      multiprocessing_options: Optional[
-          options_lib.MultiprocessingOptions
-      ] = None,
+      checkpoint_metadata_store: (
+          checkpoint_metadata.MetadataStore | None
+      ) = None,
+      file_options: options_lib.FileOptions | None = None,
   ) -> TemporaryPath:
     """Creates a TemporaryPath from a final path."""
-    ...
-
-  @classmethod
-  def match(cls, temporary_path: epath.Path, final_path: epath.Path) -> bool:
-    """Determines if `temporary_path` could correspond to `final_path`."""
     ...
 
   def get(self) -> epath.Path:
@@ -72,12 +65,14 @@ class TemporaryPath(Protocol):
     """Returns the final path without creating it."""
     ...
 
-  async def create(
-      self,
-      *,
-      file_options: options_lib.FileOptions = options_lib.FileOptions(),
-  ) -> epath.Path:
-    """Creates the temporary path on disk."""
+  async def create(self) -> epath.Path:
+    """Creates the temporary path on disk.
+
+    NOTE: This method should be only called on the primary host.
+
+    Returns:
+      The created temporary path.
+    """
     ...
 
   def finalize(
@@ -85,9 +80,7 @@ class TemporaryPath(Protocol):
   ):
     """Finalizes the temporary path into the final path.
 
-    NOTE: This method is only called on the primary host. This is in contrast
-    with all other methods in this class, which are called across all active
-    processes.
+    NOTE: This method should be only called on the primary host.
 
     This function is called from a background thread.
 

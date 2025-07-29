@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepspeed
-Version: 0.17.2
+Version: 0.17.3
 Summary: DeepSpeed library
 Home-page: http://deepspeed.ai
 Author: DeepSpeed Team
@@ -89,52 +89,52 @@ Requires-Dist: triton==2.1.0; extra == "triton"
 Provides-Extra: deepcompile
 Requires-Dist: scipy; extra == "deepcompile"
 Provides-Extra: all
-Requires-Dist: sphinx; extra == "all"
-Requires-Dist: tabulate; extra == "all"
-Requires-Dist: importlib-metadata>=4; extra == "all"
-Requires-Dist: transformers>=4.51.3; extra == "all"
-Requires-Dist: triton==2.1.0; extra == "all"
 Requires-Dist: hjson; extra == "all"
-Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
-Requires-Dist: recommonmark; extra == "all"
-Requires-Dist: pytest-forked; extra == "all"
-Requires-Dist: wandb; extra == "all"
-Requires-Dist: pytest-randomly; extra == "all"
-Requires-Dist: neural-compressor==2.1.0; extra == "all"
-Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
-Requires-Dist: accelerate; extra == "all"
-Requires-Dist: scipy; extra == "all"
-Requires-Dist: mup; extra == "all"
-Requires-Dist: sentencepiece; extra == "all"
-Requires-Dist: transformers>=4.32.1; extra == "all"
 Requires-Dist: google; extra == "all"
-Requires-Dist: lm-eval==0.3.0; extra == "all"
-Requires-Dist: sphinx_rtd_theme; extra == "all"
-Requires-Dist: future; extra == "all"
-Requires-Dist: pydantic>=2.0.0; extra == "all"
-Requires-Dist: xgboost; extra == "all"
-Requires-Dist: packaging; extra == "all"
-Requires-Dist: torchvision; extra == "all"
-Requires-Dist: torch; extra == "all"
+Requires-Dist: recommonmark; extra == "all"
 Requires-Dist: tensorboard; extra == "all"
-Requires-Dist: pytest-xdist; extra == "all"
-Requires-Dist: qtorch; extra == "all"
-Requires-Dist: safetensors; extra == "all"
-Requires-Dist: clang-format==18.1.3; extra == "all"
-Requires-Dist: pre-commit>=3.2.0; extra == "all"
-Requires-Dist: qtorch==0.3.0; extra == "all"
-Requires-Dist: py-cpuinfo; extra == "all"
-Requires-Dist: triton>=2.1.0; extra == "all"
-Requires-Dist: sphinx-rtd-theme; extra == "all"
-Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
-Requires-Dist: psutil; extra == "all"
 Requires-Dist: tqdm; extra == "all"
-Requires-Dist: triton==1.0.0; extra == "all"
-Requires-Dist: mpi4py; extra == "all"
-Requires-Dist: protobuf; extra == "all"
+Requires-Dist: future; extra == "all"
+Requires-Dist: qtorch; extra == "all"
+Requires-Dist: scipy; extra == "all"
+Requires-Dist: qtorch==0.3.0; extra == "all"
 Requires-Dist: diffusers>=0.25.0; extra == "all"
+Requires-Dist: tabulate; extra == "all"
+Requires-Dist: neural-compressor==2.1.0; extra == "all"
+Requires-Dist: transformers>=4.32.1; extra == "all"
+Requires-Dist: triton>=2.1.0; extra == "all"
+Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
+Requires-Dist: torch; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
+Requires-Dist: sentencepiece; extra == "all"
+Requires-Dist: protobuf; extra == "all"
+Requires-Dist: pydantic>=2.0.0; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: torchvision; extra == "all"
 Requires-Dist: comet_ml>=3.41.0; extra == "all"
+Requires-Dist: sphinx; extra == "all"
+Requires-Dist: importlib-metadata>=4; extra == "all"
+Requires-Dist: wandb; extra == "all"
+Requires-Dist: sphinx-rtd-theme; extra == "all"
+Requires-Dist: psutil; extra == "all"
+Requires-Dist: mup; extra == "all"
+Requires-Dist: xgboost; extra == "all"
+Requires-Dist: transformers>=4.51.3; extra == "all"
+Requires-Dist: pytest-randomly; extra == "all"
+Requires-Dist: clang-format==18.1.3; extra == "all"
+Requires-Dist: py-cpuinfo; extra == "all"
+Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
 Requires-Dist: docutils<0.18; extra == "all"
+Requires-Dist: pre-commit>=3.2.0; extra == "all"
+Requires-Dist: triton==2.1.0; extra == "all"
+Requires-Dist: triton==1.0.0; extra == "all"
+Requires-Dist: accelerate; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
+Requires-Dist: safetensors; extra == "all"
+Requires-Dist: sphinx_rtd_theme; extra == "all"
+Requires-Dist: mpi4py; extra == "all"
+Requires-Dist: lm-eval==0.3.0; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -276,9 +276,9 @@ DeepSpeed has been integrated with several different popular open-source DL fram
 
 | Description | Status |
 | ----------- | ------ |
-| NVIDIA | [![nv-torch110-p40](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch110-p40.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch110-p40.yml) [![nv-torch110-v100](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch110-v100.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch110-v100.yml) [![nv-torch-latest-v100](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch-latest-v100.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch-latest-v100.yml) [![nv-h100](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-h100.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-h100.yml) [![nv-inference](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-inference.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-inference.yml) [![nv-nightly](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-nightly.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-nightly.yml) |
+| NVIDIA | [![nv-torch-latest-v100](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch-latest-v100.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch-latest-v100.yml)  [![nv-inference](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-inference.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-inference.yml) [![nv-nightly](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-nightly.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-nightly.yml) |
 | AMD | [![amd-mi200](https://github.com/deepspeedai/DeepSpeed/actions/workflows/amd-mi200.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/amd-mi200.yml) |
-| CPU | [![torch-latest-cpu](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-torch-latest.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-torch-latest.yml) [![cpu-inference](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-inference.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-inference.yml) |
+| CPU | [![torch-latest-cpu](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-torch-latest.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/cpu-torch-latest.yml) |
 | Intel Gaudi | [![hpu-gaudi2](https://github.com/deepspeedai/DeepSpeed/actions/workflows/hpu-gaudi2.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/hpu-gaudi2.yml) |
 | Intel XPU | [![xpu-max1100](https://github.com/deepspeedai/DeepSpeed/actions/workflows/xpu-max1100.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/xpu-max1100.yml) |
 | PyTorch Nightly | [![nv-torch-nightly-v100](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch-nightly-v100.yml/badge.svg?branch=master)](https://github.com/deepspeedai/DeepSpeed/actions/workflows/nv-torch-nightly-v100.yml) |

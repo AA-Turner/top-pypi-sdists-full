@@ -30,31 +30,33 @@ PyTree = Any
 MEMORY_FACTOR = 3
 
 
-def process_slice_id(
+def process_replica_id(
     process_index: int,
     global_mesh: jax.sharding.Mesh,
     *,
     replica_axis_index: int = 0,
 ) -> int:
   """Returns the slice id that the process_index belongs to."""
-  for slice_id in range(
-      slice_count(global_mesh, replica_axis_index=replica_axis_index)
+  for replica_id in range(
+      replica_count(global_mesh, replica_axis_index=replica_axis_index)
   ):
-    device_slice = slice_devices(
-        global_mesh, replica_id=slice_id, replica_axis_index=replica_axis_index
+    device_slice = replica_devices(
+        global_mesh,
+        replica_id=replica_id,
+        replica_axis_index=replica_axis_index,
     )
     if process_index in multihost.unique_processes_from_devices(device_slice):
-      return slice_id
+      return replica_id
   return -1
 
 
-def _process_in_device_slice(
+def _process_in_device_replica(
     process_index: int, device_slice: np.ndarray
 ) -> bool:
   return process_index in multihost.unique_processes_from_devices(device_slice)
 
 
-def slice_devices(
+def replica_devices(
     global_mesh: jax.sharding.Mesh,
     *,
     replica_id: int = 0,
@@ -67,7 +69,7 @@ def slice_devices(
   )
 
 
-def slice_count(
+def replica_count(
     global_mesh: jax.sharding.Mesh, *, replica_axis_index: int = 0
 ) -> int:
   """Number of slices implied by the mesh's replica dimension."""
@@ -76,20 +78,20 @@ def slice_count(
   return global_mesh.devices.shape[replica_axis_index]
 
 
-def local_slice_devices(
+def local_replica_devices(
     global_mesh: jax.sharding.Mesh, *, replica_axis_index: int = 0
 ) -> np.ndarray:
   """Get devices in the host-local slice."""
   for replica_id in range(
-      slice_count(global_mesh, replica_axis_index=replica_axis_index)
+      replica_count(global_mesh, replica_axis_index=replica_axis_index)
   ):
-    if in_slice(
+    if in_replica(
         multihost.process_index(),
         global_mesh,
         replica_id=replica_id,
         replica_axis_index=replica_axis_index,
     ):
-      return slice_devices(
+      return replica_devices(
           global_mesh,
           replica_id=replica_id,
           replica_axis_index=replica_axis_index,
@@ -100,23 +102,23 @@ def local_slice_devices(
   )
 
 
-def primary_process_in_slice(
+def primary_process_in_replica(
     global_mesh: jax.sharding.Mesh,
     *,
     replica_id: int = 0,
     replica_axis_index: int = 0,
 ) -> int:
   """Returns an arbitrary process in the requested slice to serve as primary."""
-  device_slice = slice_devices(
+  device_replica = replica_devices(
       global_mesh,
       replica_axis_index=replica_axis_index,
       replica_id=replica_id,
   )
-  processes = multihost.unique_processes_from_devices(device_slice)
+  processes = multihost.unique_processes_from_devices(device_replica)
   return next(iter(processes))
 
 
-def in_slice(
+def in_replica(
     process_index: int,
     global_mesh: jax.sharding.Mesh,
     *,
@@ -124,9 +126,9 @@ def in_slice(
     replica_axis_index: int = 0,
 ) -> bool:
   """Returns if the process belongs to the indicated slice ID."""
-  return _process_in_device_slice(
+  return _process_in_device_replica(
       process_index,
-      slice_devices(
+      replica_devices(
           global_mesh,
           replica_id=replica_id,
           replica_axis_index=replica_axis_index,
@@ -199,6 +201,16 @@ def get_available_memory(
   return int(available_memory * scaling_factor / MEMORY_FACTOR)
 
 
+def slice_count() -> int:
+  """Returns the number of slices."""
+  return (
+      len(
+          set(d.slice_index for d in jax.devices() if hasattr(d, 'slice_index'))
+      )
+      or 1
+  )
+
+
 def broadcast_one_replica_to_all(
     in_tree: Tuple[PyTree, ...],
     global_mesh: jax.sharding.Mesh,
@@ -242,12 +254,32 @@ def broadcast_one_replica_to_all(
     if not is_source:
       inp = fake_zero_data(sharding, inp)
     inp = jnp.expand_dims(inp, axis=0)
-    in_spec = jax.sharding.PartitionSpec(
-        replica_axis_name,
-        *sharding.spec,
-    )
-    global_shape = (num_replicas,) + inp.shape[1:]
-    global_sharding = jax.sharding.NamedSharding(global_mesh, in_spec)
+
+    num_slices = slice_count()
+    if num_slices != num_replicas:
+      in_spec = jax.sharding.PartitionSpec(
+          'replication',
+          *sharding.spec,
+      )
+      global_shape = (num_slices,) + inp.shape[1:]
+      slice_global_mesh = jax.sharding.Mesh(
+          global_mesh.devices.reshape((
+              num_slices,
+              *(
+                  -1 if i == replica_axis_index else n
+                  for i, n in enumerate(global_mesh.devices.shape)
+              ),
+          )),
+          ('replication', *global_mesh.axis_names),
+      )
+      global_sharding = jax.sharding.NamedSharding(slice_global_mesh, in_spec)
+    else:
+      in_spec = jax.sharding.PartitionSpec(
+          replica_axis_name,
+          *sharding.spec,
+      )
+      global_shape = (num_replicas,) + inp.shape[1:]
+      global_sharding = jax.sharding.NamedSharding(global_mesh, in_spec)
     return jax.make_array_from_single_device_arrays(
         global_shape, global_sharding, [s.data for s in inp.addressable_shards]
     )
@@ -308,11 +340,11 @@ def get_primary_replica_ids_and_pids(
     primary_replica_id: int,
 ) -> Tuple[Set[int], Set[int]]:
   """Returns the primary replica ids and process ids."""
-  replica_devices = slice_devices(
+  devices = replica_devices(
       mesh,
       replica_id=primary_replica_id,
       replica_axis_index=replica_axis_idx,
   ).flatten()
-  ids = set([d.id for d in replica_devices])
-  pids = set([d.process_index for d in replica_devices])
+  ids = set([d.id for d in devices])
+  pids = set([d.process_index for d in devices])
   return ids, pids

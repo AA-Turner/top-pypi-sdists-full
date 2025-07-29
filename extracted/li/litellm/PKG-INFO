@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.74.8
+Version: 1.74.9.post1
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: caching
 Provides-Extra: extra-proxy
 Provides-Extra: proxy
+Provides-Extra: semantic-router
 Provides-Extra: utils
 Requires-Dist: PyJWT (>=2.8.0,<3.0.0) ; extra == "proxy"
 Requires-Dist: aiohttp (>=3.10)
@@ -35,8 +36,8 @@ Requires-Dist: httpx (>=0.23.0)
 Requires-Dist: importlib-metadata (>=6.8.0)
 Requires-Dist: jinja2 (>=3.1.2,<4.0.0)
 Requires-Dist: jsonschema (>=4.22.0,<5.0.0)
-Requires-Dist: litellm-enterprise (==0.1.15) ; extra == "proxy"
-Requires-Dist: litellm-proxy-extras (==0.2.11) ; extra == "proxy"
+Requires-Dist: litellm-enterprise (==0.1.16) ; extra == "proxy"
+Requires-Dist: litellm-proxy-extras (==0.2.12) ; extra == "proxy"
 Requires-Dist: mcp (==1.10.0) ; (python_version >= "3.10") and (extra == "proxy")
 Requires-Dist: numpydoc ; extra == "utils"
 Requires-Dist: openai (>=1.68.2)
@@ -52,6 +53,7 @@ Requires-Dist: redisvl (>=0.4.1,<0.5.0) ; (python_version >= "3.9" and python_ve
 Requires-Dist: resend (>=0.8.0,<0.9.0) ; extra == "extra-proxy"
 Requires-Dist: rich (==13.7.1) ; extra == "proxy"
 Requires-Dist: rq ; extra == "proxy"
+Requires-Dist: semantic-router ; (python_version >= "3.9") and (extra == "semantic-router")
 Requires-Dist: tiktoken (>=0.7.0)
 Requires-Dist: tokenizers
 Requires-Dist: uvicorn (>=0.29.0,<0.30.0) ; extra == "proxy"

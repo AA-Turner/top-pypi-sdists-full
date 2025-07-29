@@ -43,6 +43,7 @@ from pytorch_optimizer.optimizer.came import CAME
 from pytorch_optimizer.optimizer.dadapt import DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptLion, DAdaptSGD
 from pytorch_optimizer.optimizer.demo import DeMo
 from pytorch_optimizer.optimizer.diffgrad import DiffGrad
+from pytorch_optimizer.optimizer.emonavi import EmoFact, EmoLynx, EmoNavi
 from pytorch_optimizer.optimizer.exadam import EXAdam
 from pytorch_optimizer.optimizer.experimental.ranger25 import Ranger25
 from pytorch_optimizer.optimizer.fadam import FAdam
@@ -66,7 +67,7 @@ from pytorch_optimizer.optimizer.lookahead import Lookahead
 from pytorch_optimizer.optimizer.madgrad import MADGRAD
 from pytorch_optimizer.optimizer.mars import MARS
 from pytorch_optimizer.optimizer.msvag import MSVAG
-from pytorch_optimizer.optimizer.muon import Muon
+from pytorch_optimizer.optimizer.muon import AdaMuon, Muon
 from pytorch_optimizer.optimizer.nero import Nero
 from pytorch_optimizer.optimizer.novograd import NovoGrad
 from pytorch_optimizer.optimizer.orthograd import OrthoGrad
@@ -98,6 +99,7 @@ from pytorch_optimizer.optimizer.snsm import AdamWSN
 from pytorch_optimizer.optimizer.soap import SOAP
 from pytorch_optimizer.optimizer.sophia import SophiaH
 from pytorch_optimizer.optimizer.spam import SPAM, StableSPAM
+from pytorch_optimizer.optimizer.splus import SPlus
 from pytorch_optimizer.optimizer.srmm import SRMM
 from pytorch_optimizer.optimizer.swats import SWATS
 from pytorch_optimizer.optimizer.tam import TAM, AdaTAM
@@ -322,6 +324,11 @@ OPTIMIZER_LIST: List[OPTIMIZER] = [
     RACS,
     Alice,
     VSGD,
+    AdaMuon,
+    SPlus,
+    EmoFact,
+    EmoLynx,
+    EmoNavi,
 ]
 OPTIMIZERS: Dict[str, OPTIMIZER] = {str(optimizer.__name__).lower(): optimizer for optimizer in OPTIMIZER_LIST}
 

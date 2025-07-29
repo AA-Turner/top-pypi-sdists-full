@@ -1020,6 +1020,28 @@ class ScaleBranchResponse(_message.Message):
     state: BranchScalingState
     def __init__(self, state: _Optional[_Union[BranchScalingState, str]] = ...) -> None: ...
 
+class GetBranchProfileRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBranchProfileResponse(_message.Message):
+    __slots__ = ("environment_id", "deployment_id", "base_image_sha", "supports_remote_graph_validation")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BASE_IMAGE_SHA_FIELD_NUMBER: _ClassVar[int]
+    SUPPORTS_REMOTE_GRAPH_VALIDATION_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    deployment_id: str
+    base_image_sha: str
+    supports_remote_graph_validation: bool
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        base_image_sha: _Optional[str] = ...,
+        supports_remote_graph_validation: bool = ...,
+    ) -> None: ...
+
 class KafkaTopic(_message.Message):
     __slots__ = ("name", "partitions", "replication", "retention_ms")
     NAME_FIELD_NUMBER: _ClassVar[int]

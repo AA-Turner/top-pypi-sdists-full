@@ -6,46 +6,51 @@ from typing import (
     Any,
     AnyStr,
     Final,
+    Union,
 )
 
 from eth_typing import (
     HexStr,
 )
-
-from .types import (
-    is_string,
-    is_text,
+from typing_extensions import (
+    TypeGuard,
 )
 
-_HEX_REGEXP: Final = re.compile("(0[xX])?[0-9a-fA-F]*")
+_HEX_REGEXP_MATCH: Final = re.compile("(0[xX])?[0-9a-fA-F]*").fullmatch
+
+hexlify: Final = binascii.hexlify
+unhexlify: Final = binascii.unhexlify
+
 
 
 def decode_hex(value: str) -> bytes:
-    if not is_text(value):
+    if not isinstance(value, str):
         raise TypeError("Value must be an instance of str")
     non_prefixed = remove_0x_prefix(HexStr(value))
     # unhexlify will only accept bytes type someday
     ascii_hex = non_prefixed.encode("ascii")
-    return binascii.unhexlify(ascii_hex)
+    return unhexlify(ascii_hex)
 
 
 def encode_hex(value: AnyStr) -> HexStr:
-    if not is_string(value):
-        raise TypeError("Value must be an instance of str or unicode")
-    elif isinstance(value, (bytes, bytearray)):
+    ascii_bytes: Union[bytes, bytearray]
+    if isinstance(value, (bytes, bytearray)):
         ascii_bytes = value
-    else:
+    elif isinstance(value, str):
         ascii_bytes = value.encode("ascii")
+    else:
+        raise TypeError("Value must be an instance of str or unicode")
 
-    binary_hex = binascii.hexlify(ascii_bytes)
+    binary_hex = hexlify(ascii_bytes)
     return add_0x_prefix(HexStr(binary_hex.decode("ascii")))
 
 
 def is_0x_prefixed(value: str) -> bool:
-    if not is_text(value):
-        raise TypeError(
-            f"is_0x_prefixed requires text typed arguments. Got: {repr(value)}"
-        )
+    # this check is not needed in the compiled version
+    # if not isinstance(value, str):
+    #     raise TypeError(
+    #         f"is_0x_prefixed requires text typed arguments. Got: {repr(value)}"
+    #     )
     return value.startswith(("0x", "0X"))
 
 
@@ -61,15 +66,15 @@ def add_0x_prefix(value: HexStr) -> HexStr:
     return HexStr("0x" + value)
 
 
-def is_hexstr(value: Any) -> bool:
-    if not is_text(value) or not value:
+def is_hexstr(value: Any) -> TypeGuard[HexStr]:
+    if not isinstance(value, str) or not value:
         return False
-    return _HEX_REGEXP.fullmatch(value) is not None
+    return _HEX_REGEXP_MATCH(value) is not None
 
 
-def is_hex(value: Any) -> bool:
-    if not is_text(value):
+def is_hex(value: Any) -> TypeGuard[HexStr]:
+    if not isinstance(value, str):
         raise TypeError(f"is_hex requires text typed arguments. Got: {repr(value)}")
     if not value:
         return False
-    return _HEX_REGEXP.fullmatch(value) is not None
+    return _HEX_REGEXP_MATCH(value) is not None

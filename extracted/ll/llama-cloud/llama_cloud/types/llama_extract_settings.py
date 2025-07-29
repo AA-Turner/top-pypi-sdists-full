@@ -6,6 +6,7 @@ import typing
 from ..core.datetime_utils import serialize_datetime
 from .chunk_mode import ChunkMode
 from .llama_parse_parameters import LlamaParseParameters
+from .multimodal_parse_resolution import MultimodalParseResolution
 from .struct_parse_conf import StructParseConf
 
 try:
@@ -47,6 +48,9 @@ class LlamaExtractSettings(pydantic.BaseModel):
     )
     llama_parse_params: typing.Optional[LlamaParseParameters] = pydantic.Field(
         description="LlamaParse related settings."
+    )
+    multimodal_parse_resolution: typing.Optional[MultimodalParseResolution] = pydantic.Field(
+        description="The resolution to use for multimodal parsing."
     )
 
     def json(self, **kwargs: typing.Any) -> str:

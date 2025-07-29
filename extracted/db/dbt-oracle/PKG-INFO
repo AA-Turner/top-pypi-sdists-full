@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-oracle
-Version: 1.9.2
+Version: 1.9.3
 Summary: dbt (data build tool) adapter for Oracle Autonomous Database
 Home-page: https://github.com/oracle/dbt-oracle
 Author: Oracle
@@ -27,7 +27,7 @@ License-File: NOTICE.txt
 Requires-Dist: dbt-common<2.0,>=1.1.0
 Requires-Dist: dbt-adapters<2.0,>=1.2.1
 Requires-Dist: dbt-core<1.10,~=1.9
-Requires-Dist: oracledb==3.1.1
+Requires-Dist: oracledb==3.2.0
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-re2
-Version: 1.1.20240702
+Version: 1.1.20250722
 Summary: RE2 Python bindings
 Home-page: https://github.com/google/re2
 Author: The RE2 Authors
@@ -13,6 +13,15 @@ Classifier: Programming Language :: Python :: 3.8
 Requires-Python: ~=3.8
 Description-Content-Type: text/plain
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 A drop-in replacement for the re module.
 
