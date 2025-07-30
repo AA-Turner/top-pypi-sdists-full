@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.4.9.post5
+Version: 0.4.9.post6
 Summary: SGLang is yet another fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -269,6 +269,7 @@ Requires-Dist: torchvision==0.22.1; extra == "blackwell"
 Requires-Dist: cuda-python; extra == "blackwell"
 Requires-Dist: einops; extra == "blackwell"
 Requires-Dist: flashinfer_python==0.2.9rc2; extra == "blackwell"
+Requires-Dist: tiktoken; extra == "blackwell"
 Provides-Extra: srt-hip
 Requires-Dist: sglang[runtime_common]; extra == "srt-hip"
 Requires-Dist: torch; extra == "srt-hip"

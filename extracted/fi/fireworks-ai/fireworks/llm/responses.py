@@ -62,8 +62,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         stream: Optional[Literal[False]] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
@@ -91,8 +90,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
         text: ResponseTextConfigParam | NotGiven = NOT_GIVEN,
@@ -117,8 +115,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         stream: Optional[bool] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
@@ -131,8 +128,11 @@ class Responses(BaseCompletion):
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAIResponse, Stream[ResponseStreamEvent]]:
-        skip_setup = kwargs.pop("skip_setup", False)
-        model_id = self._create_setup(skip_setup=skip_setup)
+        if "model" in kwargs:
+            raise ValueError(
+                "Pass model as a parameter to the constructor of LLM instead of passing it as a parameter to the create method"
+            )
+        model_id = self._llm.model_id()
         params = self._build_request_params(
             model_id,
             input,
@@ -171,8 +171,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         stream: Optional[Literal[False]] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
@@ -200,8 +199,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
         text: ResponseTextConfigParam | NotGiven = NOT_GIVEN,
@@ -226,8 +224,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         stream: Optional[bool] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
@@ -240,8 +237,11 @@ class Responses(BaseCompletion):
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAIResponse, AsyncStream[ResponseStreamEvent]]:
-        skip_setup = kwargs.pop("skip_setup", False)
-        model_id = self._create_setup(skip_setup=skip_setup)
+        if "model" in kwargs:
+            raise ValueError(
+                "Pass model as a parameter to the constructor of LLM instead of passing it as a parameter to the create method"
+            )
+        model_id = self._llm.model_id()
         params = self._build_request_params(
             model_id,
             input,
@@ -298,8 +298,7 @@ class Responses(BaseCompletion):
         parallel_tool_calls: Optional[bool] | NotGiven = NOT_GIVEN,
         previous_response_id: Optional[str] | NotGiven = NOT_GIVEN,
         reasoning: Optional[Reasoning] | NotGiven = NOT_GIVEN,
-        service_tier: Optional[Literal["auto", "default", "flex"]]
-        | NotGiven = NOT_GIVEN,
+        service_tier: Optional[Literal["auto", "default", "flex"]] | NotGiven = NOT_GIVEN,
         store: Optional[bool] | NotGiven = NOT_GIVEN,
         temperature: Optional[float] | NotGiven = NOT_GIVEN,
         text: ResponseTextConfigParam | NotGiven = NOT_GIVEN,

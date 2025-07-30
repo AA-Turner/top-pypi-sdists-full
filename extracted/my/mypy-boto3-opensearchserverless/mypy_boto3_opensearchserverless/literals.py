@@ -48,7 +48,7 @@ IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]
 LifecyclePolicyTypeType = Literal["retention"]
 ResourceTypeType = Literal["index"]
-SecurityConfigTypeType = Literal["iamidentitycenter", "saml"]
+SecurityConfigTypeType = Literal["iamfederation", "iamidentitycenter", "saml"]
 SecurityPolicyTypeType = Literal["encryption", "network"]
 StandbyReplicasType = Literal["DISABLED", "ENABLED"]
 VpcEndpointStatusType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING"]
@@ -96,6 +96,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -328,6 +330,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -388,6 +391,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

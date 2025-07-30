@@ -65,6 +65,8 @@ class ScanStorage:
             # update of the scan segments, we can also accept to write after the scan is finished
             _ready_to_write = self.scan_finished and (self.num_points == len(self.scan_segments))
             if not _ready_to_write:
+                if self.status_msg is None or self.status_msg.readout_priority is None:
+                    return False
                 monitored_devices = self.status_msg.readout_priority.get("monitored")
                 if not monitored_devices:
                     logger.info(
@@ -90,7 +92,7 @@ class FileWriterManager(BECService):
         self.callbacks.register(
             event_type=EventType.DEVICE_UPDATE, callback=self._update_available_devices
         )
-        self.file_writer_config = self._service_config.service_config.get("file_writer")
+        self.file_writer_config = self._service_config.config.get("file_writer")
         self._start_device_manager()
         self.device_configuration = {}
         self.connector.register(

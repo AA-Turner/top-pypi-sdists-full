@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: knowit
-Version: 0.5.10
+Version: 0.5.11
 Summary: Know better your media files
 License: MIT
 Keywords: video,mkv,mp4,mediainfo,metadata,movie,episode,tv,shows,series
@@ -40,6 +40,8 @@ Version](https://img.shields.io/pypi/v/knowit.svg)](https://pypi.python.org/pypi
 [![tests](https://github.com/ratoaq2/knowit/actions/workflows/test.yml/badge.svg)](https://github.com/ratoaq2/knowit/actions/workflows/test.yml)
 
 [![License](https://img.shields.io/github/license/ratoaq2/knowit.svg)](https://github.com/ratoaq2/knowit/blob/master/LICENSE)
+
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/knowit)
 
   - Project page  
     <https://github.com/ratoaq2/knowit>

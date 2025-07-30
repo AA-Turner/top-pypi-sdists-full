@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:15.004021                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:44.095695                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ if typing.TYPE_CHECKING:
     import metaflow.exception
 
 from ...exception import MetaflowException as MetaflowException
+from ..._vendor import yaml as yaml
 from .kube_utils import qos_requests_and_limits as qos_requests_and_limits
 
 KUBERNETES_JOBSET_GROUP: str

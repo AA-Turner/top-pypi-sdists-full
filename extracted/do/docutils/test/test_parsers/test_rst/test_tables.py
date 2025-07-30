@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_tables.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_tables.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -43,7 +43,7 @@ class ParserTestCase(unittest.TestCase):
 
 
 mydir = os.path.join(TEST_ROOT, 'test_parsers/test_rst')
-include2 = os.path.join(mydir, 'test_directives/include2.txt')
+include2 = os.path.join(mydir, 'test_directives/include2.rst')
 
 totest = {}
 
@@ -607,7 +607,7 @@ No blank line after table.
                             Here are some paragraphs
                             that can appear at any level.
                         <paragraph>
-                            This file (include2.txt) is used by
+                            This file (include2.rst) is used by
                             <literal>
                                 test_include.py
                             .
@@ -644,7 +644,7 @@ And more.
                             Here are some paragraphs
                             that can appear at any level.
                         <paragraph>
-                            This file (include2.txt) is used by
+                            This file (include2.rst) is used by
                             <literal>
                                 test_include.py
                             .
@@ -1314,7 +1314,7 @@ Note       The first row of this table may expand
                             Here are some paragraphs
                             that can appear at any level.
                         <paragraph>
-                            This file (include2.txt) is used by
+                            This file (include2.rst) is used by
                             <literal>
                                 test_include.py
                             .

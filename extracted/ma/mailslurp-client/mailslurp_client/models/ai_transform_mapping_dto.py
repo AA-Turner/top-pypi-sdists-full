@@ -39,7 +39,8 @@ class AITransformMappingDto(object):
         'user_id': 'str',
         'name': 'str',
         'entity_id': 'str',
-        'entity_type': 'str'
+        'entity_type': 'str',
+        'created_at': 'datetime'
     }
 
     attribute_map = {
@@ -48,10 +49,11 @@ class AITransformMappingDto(object):
         'user_id': 'userId',
         'name': 'name',
         'entity_id': 'entityId',
-        'entity_type': 'entityType'
+        'entity_type': 'entityType',
+        'created_at': 'createdAt'
     }
 
-    def __init__(self, id=None, ai_transform_id=None, user_id=None, name=None, entity_id=None, entity_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, ai_transform_id=None, user_id=None, name=None, entity_id=None, entity_type=None, created_at=None, local_vars_configuration=None):  # noqa: E501
         """AITransformMappingDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -63,6 +65,7 @@ class AITransformMappingDto(object):
         self._name = None
         self._entity_id = None
         self._entity_type = None
+        self._created_at = None
         self.discriminator = None
 
         self.id = id
@@ -70,8 +73,10 @@ class AITransformMappingDto(object):
         self.user_id = user_id
         if name is not None:
             self.name = name
-        self.entity_id = entity_id
+        if entity_id is not None:
+            self.entity_id = entity_id
         self.entity_type = entity_type
+        self.created_at = created_at
 
     @property
     def id(self):
@@ -181,8 +186,6 @@ class AITransformMappingDto(object):
         :param entity_id: The entity_id of this AITransformMappingDto.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and entity_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `entity_id`, must not be `None`")  # noqa: E501
 
         self._entity_id = entity_id
 
@@ -214,6 +217,29 @@ class AITransformMappingDto(object):
             )
 
         self._entity_type = entity_type
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this AITransformMappingDto.  # noqa: E501
+
+
+        :return: The created_at of this AITransformMappingDto.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this AITransformMappingDto.
+
+
+        :param created_at: The created_at of this AITransformMappingDto.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     def to_dict(self):
         """Returns the model properties as a dict"""

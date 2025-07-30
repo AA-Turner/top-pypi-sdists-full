@@ -173,7 +173,7 @@ def append(x1, x2, axis=None):
     return np.append(x1, x2, axis=axis)
 
 
-def arange(start, stop=None, step=None, dtype=None):
+def arange(start, stop=None, step=1, dtype=None):
     if dtype is None:
         dtypes_to_resolve = [
             getattr(start, "dtype", type(start)),
@@ -315,6 +315,29 @@ def hamming(x):
     return np.hamming(x).astype(config.floatx())
 
 
+def hanning(x):
+    x = convert_to_tensor(x)
+    return np.hanning(x).astype(config.floatx())
+
+
+def heaviside(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+
+    dtype = dtypes.result_type(x1.dtype, x2.dtype)
+    if dtype in ["int8", "int16", "int32", "uint8", "uint16", "uint32"]:
+        dtype = config.floatx()
+    elif dtype in ["int64"]:
+        dtype = "float64"
+
+    return np.heaviside(x1, x2).astype(dtype)
+
+
+def kaiser(x, beta):
+    x = convert_to_tensor(x)
+    return np.kaiser(x, beta).astype(config.floatx())
+
+
 def bincount(x, weights=None, minlength=0, sparse=False):
     if sparse:
         raise ValueError("Unsupported value `sparse=True` with numpy backend")
@@ -402,6 +425,18 @@ def blackman(x):
 
 def broadcast_to(x, shape):
     return np.broadcast_to(x, shape)
+
+
+def cbrt(x):
+    x = convert_to_tensor(x)
+
+    dtype = standardize_dtype(x.dtype)
+    if dtype in ["bool", "int8", "int16", "int32", "uint8", "uint16", "uint32"]:
+        dtype = config.floatx()
+    elif dtype == "int64":
+        dtype = "float64"
+
+    return np.cbrt(x).astype(dtype)
 
 
 def ceil(x):
@@ -505,6 +540,19 @@ def cumsum(x, axis=None, dtype=None):
     return np.cumsum(x, axis=axis, dtype=dtype)
 
 
+def deg2rad(x):
+    x = convert_to_tensor(x)
+
+    if x.dtype in ["int64", "float64"]:
+        dtype = "float64"
+    elif x.dtype in ["bfloat16", "float16"]:
+        dtype = x.dtype
+    else:
+        dtype = config.floatx()
+
+    return np.deg2rad(x).astype(dtype)
+
+
 def diag(x, k=0):
     return np.diag(x, k=k)
 
@@ -527,13 +575,13 @@ def digitize(x, bins):
     return np.digitize(x, bins).astype(np.int32)
 
 
-def dot(x, y):
-    x = convert_to_tensor(x)
-    y = convert_to_tensor(y)
-    dtype = dtypes.result_type(x.dtype, y.dtype)
-    x = x.astype(dtype)
-    y = y.astype(dtype)
-    return np.dot(x, y)
+def dot(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    dtype = dtypes.result_type(x1.dtype, x2.dtype)
+    x1 = x1.astype(dtype)
+    x2 = x2.astype(dtype)
+    return np.dot(x1, x2)
 
 
 def empty(shape, dtype=None):
@@ -888,10 +936,10 @@ def ravel(x):
     return np.ravel(x)
 
 
-def unravel_index(x, shape):
-    dtype = dtypes.result_type(x.dtype)
+def unravel_index(indices, shape):
+    dtype = dtypes.result_type(indices.dtype)
     return tuple(
-        indices.astype(dtype) for indices in np.unravel_index(x, shape)
+        indices.astype(dtype) for indices in np.unravel_index(indices, shape)
     )
 
 
@@ -1104,7 +1152,7 @@ def vectorize(pyfunc, *, excluded=None, signature=None):
     return np.vectorize(pyfunc, excluded=excluded, signature=signature)
 
 
-def where(condition, x1, x2):
+def where(condition, x1=None, x2=None):
     if x1 is not None and x2 is not None:
         if not isinstance(x1, (int, float)):
             x1 = convert_to_tensor(x1)
@@ -1246,6 +1294,19 @@ def logical_xor(x1, x2):
     return np.logical_xor(x1, x2)
 
 
+def corrcoef(x):
+    if x.dtype in ["int64", "float64"]:
+        dtype = "float64"
+    elif x.dtype in ["bfloat16", "float16"]:
+        dtype = x.dtype
+    else:
+        dtype = config.floatx()
+
+    x = convert_to_tensor(x)
+
+    return np.corrcoef(x).astype(dtype)
+
+
 def correlate(x1, x2, mode="valid"):
     dtype = dtypes.result_type(
         getattr(x1, "dtype", type(x1)),
@@ -1273,5 +1334,5 @@ def argpartition(x, kth, axis=-1):
     return np.argpartition(x, kth, axis).astype("int32")
 
 
-def histogram(x, bins, range):
+def histogram(x, bins=10, range=None):
     return np.histogram(x, bins=bins, range=range)

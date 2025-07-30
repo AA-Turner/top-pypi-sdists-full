@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mp-api
-Version: 0.45.7
+Version: 0.45.8
 Summary: API Client for the Materials Project
 Author-email: The Materials Project <feedback@materialsproject.org>
 License: modified BSD
@@ -40,6 +40,8 @@ Requires-Dist: mypy-extensions; extra == "test"
 Requires-Dist: typing-extensions; extra == "test"
 Requires-Dist: types-setuptools; extra == "test"
 Requires-Dist: types-requests; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
 Dynamic: license-file
 
 # The Materials Project API

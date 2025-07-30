@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: test_settings.py 9507 2024-01-07 10:21:21Z milde $
+# $Id: test_settings.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -33,14 +33,14 @@ def fixpath(path):
 
 class ConfigFileTests(unittest.TestCase):
 
-    config_files = {'old': fixpath('config_old.txt'),
-                    'one': fixpath('config_1.txt'),
-                    'two': fixpath('config_2.txt'),
-                    'list': fixpath('config_list.txt'),
-                    'list2': fixpath('config_list_2.txt'),
-                    'error': fixpath('config_encoding.txt'),
-                    'error2': fixpath('config_encoding_2.txt'),
-                    'syntax_error': fixpath('config_syntax_error.txt'),
+    config_files = {'old': fixpath('config_old.rst'),
+                    'one': fixpath('config_1.rst'),
+                    'two': fixpath('config_2.rst'),
+                    'list': fixpath('config_list.rst'),
+                    'list2': fixpath('config_list_2.rst'),
+                    'error': fixpath('config_encoding.rst'),
+                    'error2': fixpath('config_encoding_2.rst'),
+                    'syntax_error': fixpath('config_syntax_error.rst'),
                     }
 
     # expected settings after parsing the equally named config_file:
@@ -157,7 +157,7 @@ class ConfigFileTests(unittest.TestCase):
     def test_syntax_error(self):
         with self.assertRaisesRegex(
                  ValueError,
-                 'Error in config file ".*config_syntax_error.txt", '
+                 'Error in config file ".*config_syntax_error.rst", '
                  r'section "\[general\]"'):
             self.files_settings('syntax_error')
 
@@ -174,7 +174,7 @@ class ConfigFileTests(unittest.TestCase):
         self.option_parser = frontend.OptionParser(
             components=(html5_polyglot.Writer, rst.Parser),
             read_config_files=None)
-        # generator setting not changed by "config_2.txt":
+        # generator setting not changed by "config_2.rst":
         self.compare_output(self.files_settings('one', 'two'),
                             self.expected_settings('two (html5)'))
 
@@ -332,12 +332,12 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertEqual(frontend.validate_comma_separated_list(v), result)
 
     def test_validate_math_output(self):
-        tests = (('', []),
-                 ('LaTeX ', ['latex', '']),
-                 ('MathML', ['mathml', '']),
-                 ('MathML  PanDoc', ['mathml', 'pandoc']),
-                 ('HTML  math.css, X.css', ['html', 'math.css, X.css']),
-                 ('MathJax  /MathJax.js', ['mathjax', '/MathJax.js']),
+        tests = (('', ()),
+                 ('LaTeX ', ('latex', '')),
+                 ('MathML', ('mathml', '')),
+                 ('MathML  PanDoc', ('mathml', 'pandoc')),
+                 ('HTML  math.css, X.css', ('html', 'math.css, X.css')),
+                 ('MathJax  /MathJax.js', ('mathjax', '/MathJax.js')),
                  )
         for v, result in tests:
             self.assertEqual(frontend.validate_math_output(v), result)
@@ -372,12 +372,6 @@ class HelperFunctionsTests(unittest.TestCase):
             )
         for v, result in tests:
             self.assertEqual(frontend.validate_smartquotes_locales(v), result)
-
-    def test_set_conditions_deprecation_warning(self):
-        reporter = utils.Reporter('test', 1, 4)
-        with self.assertWarnsRegex(DeprecationWarning,
-                                   'Set attributes via configuration '):
-            reporter.set_conditions('foo', 1, 4)  # trigger warning
 
 
 if __name__ == '__main__':

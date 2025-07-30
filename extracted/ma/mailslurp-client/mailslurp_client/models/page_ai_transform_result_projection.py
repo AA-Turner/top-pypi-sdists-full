@@ -34,7 +34,7 @@ class PageAITransformResultProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'content': 'list[AITransformResultProjection]',
+        'content': 'list[AITransformResultProjectionDto]',
         'pageable': 'PageableObject',
         'total_elements': 'int',
         'total_pages': 'int',
@@ -107,7 +107,7 @@ class PageAITransformResultProjection(object):
 
 
         :return: The content of this PageAITransformResultProjection.  # noqa: E501
-        :rtype: list[AITransformResultProjection]
+        :rtype: list[AITransformResultProjectionDto]
         """
         return self._content
 
@@ -117,7 +117,7 @@ class PageAITransformResultProjection(object):
 
 
         :param content: The content of this PageAITransformResultProjection.  # noqa: E501
-        :type: list[AITransformResultProjection]
+        :type: list[AITransformResultProjectionDto]
         """
 
         self._content = content

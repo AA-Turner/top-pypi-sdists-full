@@ -2808,404 +2808,241 @@ l_ai_request = {
 
 # region FereyBotBot
 l_bot_btn1 = {
-    'ru': "👩🏽‍💻 Приложения",
-    'en': "👩🏽‍💻 Boots",
-    'es': "👩🏽‍💻 Botas",
-    'fr': "👩🏽‍💻 Bottes",
-    'zh': "👩🏽‍💻 靴子",
-    'ar': "👩🏽‍💻حذاء",
+    "ru": "👩🏽‍💻 Приложения",
+    "en": "👩🏽‍💻 Applications",
+    "es": "👩🏽‍💻 Aplicaciones",
+    "fr": "👩🏽‍💻 Applications",
+    "zh": "👩🏽‍💻 应用",
+    "ar": "👩🏽‍💻 التطبيقات",
 }
 l_bot_btn2 = {
-    'ru': "💨 Подписка",
-    'en': "💨 Subscription",
-    'es': "💨 Suscripción",
-    'fr': "💨 Abonnement",
-    'zh': "💨 订阅",
-    'ar': "💨 الاشتراك",
+    "ru": "💨 Подписка",
+    "en": "💨 Subscription",
+    "es": "💨 Suscripción",
+    "fr": "💨 Abonnement",
+    "zh": "💨 订阅",
+    "ar": "💨 الاشتراك",
 }
 l_bot_welcome = {
     "ru": "🌱 <b>{0}</b>, добро пожаловать в #нейро-конструктор <b>@tg</b>-приложений:\n\n<blockquote>▪️монетизация и интеграции\n▪️авто-перевод/оповещения\n▪️маркетплейс и геймификация\n▪️нейро-генерация приложений\n▪️веб-мини/нейро-постинг</blockquote>",
     "en": "🌱 <b>{0}</b>, welcome to the #neuro-constructor of <b>@tg</b> applications:\n\n<blockquote>▪️monetization and integrations\n▪️auto-translation/alerts\n▪️marketplace and gamification\n▪️neuro-generation of applications\n▪️web-mini/neuro-posting</blockquote>",
     "es": "🌱 <b>{0}</b>, bienvenido al #neuro-constructor de aplicaciones <b>@tg</b>:\n\n<blockquote>▪️monetización e integraciones\n▪️auto-traducción/alertas\n▪️mercado y gamificación\n▪️neuro-generación de aplicaciones\n▪️web-mini/neuro-posting</blockquote>",
-    "fr": "🌱 <b>{0}</b>, bienvenue dans le #neuro-constructeur des applications <b>@tg</b> :\n\n<blockquote>▪️monétisation et intégrations\n▪️auto-traduction/alertes\n▪️marketplace et gamification\n▪️neuro-génération d'applications\n▪️web-mini/neuro-posting</blockquote>",
+    "fr": "🌱 <b>{0}</b>, bienvenue dans le #neuro-constructor des applications <b>@tg</b> :\n\n<blockquote>▪️monétisation et intégrations\n▪️auto-traduction/alertes\n▪️marketplace et gamification\n▪️neuro-génération d’applications\n▪️web-mini/neuro-posting</blockquote>",
     "zh": "🌱 <b>{0}</b>，欢迎来到 <b>@tg</b> 应用的 #神经构造器：\n\n<blockquote>▪️变现和集成\n▪️自动翻译/提醒\n▪️市场和游戏化\n▪️神经应用生成\n▪️网页迷你/神经发布</blockquote>",
-    "ar": "🌱 <b>{0}</b>، مرحبًا بك في #المنشئ_العصبي لتطبيقات <b>@tg</b>:\n\n<blockquote>▪️التحقيق والتكامل\n▪️الترجمة التلقائية/التنبيهات\n▪️السوق واللعب\n▪️التوليد العصبي للتطبيقات\n▪️الويب-ميني/النشر العصبي</blockquote>",
+    "ar": "🌱 <b>{0}</b>، مرحبًا بك في #المنشئ_العصبي لتطبيقات <b>@tg</b>:\n\n<blockquote>▪️تحقيق الدخل والتكاملات\n▪️الترجمة التلقائية/التنبيهات\n▪️السوق والتلعيب\n▪️التوليد العصبي للتطبيقات\n▪️الويب-ميني/النشر العصبي</blockquote>",
 }
 l_subscribe_isfree = {
-    'ru': "👩🏽‍💻 <b>Расширенный</b> период использования @{0}-бота завершился\n\n👩🏽‍💻 <b>Оформи</b> <a href='{1}'>💨Подписку</a>, чтобы продолжить использование",
-    'en': "👩🏽‍💻 <b>Extended</b> period of use of @{0}-bot has ended\n\n👩🏽‍💻 <b>Subscribe</b> <a href='{1}'>💨Subscribe< /a> to continue using",
-    'es': "👩🏽‍💻 El período <b>extendido</b> de uso de @{0}-bot ha finalizado\n\n👩🏽‍💻 <b>Suscríbete</b> <a href='{1}'> 💨Suscríbete< /a> para seguir usando",
-    'fr': "👩🏽‍💻 <b>La période prolongée</b> d'utilisation de @{0}-bot est terminée\n\n👩🏽‍💻 <b>Abonnez-vous</b> <a href='{1}'> 💨Abonnez-vous< /a> pour continuer à utiliser",
-    'zh': "👩🏽‍💻 <b>@{0}-bot 的延长</b>使用期已结束\n\n👩🏽‍💻 <b>订阅</b> <a href='{1}'> 💨订阅</a>以继续使用",
-    'ar': "👩🏽‍💻 انتهت فترة <b>الممتدة</b> من استخدام @{0}-bot\n\n👩🏽‍💻 <b>الاشتراك</b> <a href='{1}'> 💨اشترك< /a> لمواصلة الاستخدام",
-}
-l_cmd_txt_bot = {
-    'ru': "👩🏽‍💻 <b>Жми</b> [➕ Добавить бота]",
-    'en': "👩🏽‍💻 <b>Click</b> [➕ Add bot]",
-    'es': "👩🏽‍💻 <b>Haga clic</b> [➕ Agregar bot]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter un bot]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加机器人]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة روبوت]",
+    "ru": "👩🏽‍💻 <b>Расширенный</b> период использования @{0}-бота завершился\n\n👩🏽‍💻 <b>Оформи</b> <a href='{1}'>💨Подписку</a>, чтобы продолжить использование",
+    "en": "👩🏽‍💻 <b>Extended</b> period of use of @{0}-bot has ended\n\n👩🏽‍💻 <b>Subscribe</b> <a href='{1}'>💨Subscription</a> to continue using",
+    "es": "👩🏽‍💻 El período <b>extendido</b> de uso de @{0}-bot ha finalizado\n\n👩🏽‍💻 <b>Suscríbete</b> <a href='{1}'>💨Suscripción</a> para continuar usando",
+    "fr": "👩🏽‍💻 La période <b>prolongée</b> d’utilisation de @{0}-bot est terminée\n\n👩🏽‍💻 <b>Abonnez-vous</b> <a href='{1}'>💨Abonnement</a> pour continuer à l’utiliser",
+    "zh": "👩🏽‍💻 <b>延长</b> 的 @{0}-bot 使用期已结束\n\n👩🏽‍💻 <b>订阅</b> <a href='{1}'>💨订阅</a> 以继续使用",
+    "ar": "👩🏽‍💻 انتهت فترة <b>الممتدة</b> من استخدام @{0}-bot\n\n👩🏽‍💻 <b>اشترك</b> <a href='{1}'>💨اشتراك</a> لمواصلة الاستخدام",
 }
 
 l_add_bot_button = {
-    'ru': "➕ Добавить бота",
-    'en': "➕ Add a bot",
-    'es': "➕ Agregar un robot",
-    'fr': "➕ Ajouter un robot",
-    'zh': "➕ 添加机器人",
-    'ar': "➕ إضافة بوت",
+    "ru": "➕ Добавить бота",
+    "en": "➕ Add a bot",
+    "es": "➕ Agregar un bot",
+    "fr": "➕ Ajouter un bot",
+    "zh": "➕ 添加机器人",
+    "ar": "➕ إضافة بوت",
 }
 l_add_bot_call = {
-    'ru': "➕ Оформи 💨Подписку для >1 бота или открепи активного бота, чтобы добавить нового",
-    'en': "➕ Subscribe 💨for >1 bot or unpin an active bot to add a new one",
-    'es': "➕ Suscríbete 💨para obtener >1 bot o desancla un bot activo para agregar uno nuevo",
-    'fr': "➕ Abonnez-vous 💨pour >1 bot ou désépinglez un bot actif pour en ajouter un nouveau",
-    'zh': "➕ 订阅 💨>1 个机器人或取消固定活动机器人以添加新机器人",
-    'ar': "➕ اشترك 💨 مقابل أكثر من روبوت واحد أو قم بإزالة تثبيت روبوت نشط لإضافة روبوت جديد",
+    "ru": "➕ Оформи 💨Подписку для >1 бота или открепи активного бота, чтобы добавить нового",
+    "en": "➕ Subscribe 💨for >1 bot or unpin an active bot to add a new one",
+    "es": "➕ Suscríbete 💨para >1 bot o desancla un bot activo para agregar uno nuevo",
+    "fr": "➕ Abonnez-vous 💨pour >1 bot ou désépinglez un bot actif pour en ajouter un nouveau",
+    "zh": "➕ 订阅 💨>1 个机器人或取消固定活动机器人以添加新机器人",
+    "ar": "➕ اشترك 💨لأكثر من بوت واحد أو قم بإلغاء تثبيت بوت نشط لإضافة بوت جديد",
 }
 l_test_bot_desc = {
-    'ru': "🫥 Описание @{0}-бота:\n\n▪️телеграф-блог\n▪️авто-перевод\n(в том числе текста кнопок)\n▪️оповещения и utm-рефералы\n▪️нейросети: графика и текст бота\n▪️интеграции и платежи",
-    'en': "🫥 Description of @{0}-bot:\n\n▪️telegraph blog\n▪️auto-translation\n(including button text)\n▪️alerts and utm-referrals\n▪️neural networks: graphics and text of the bot\n▪️integrations and payments",
-    'es': "🫥 Descripción de @{0}-bot:\n\n▪️blog de telégrafo\n▪️traducción automática\n(incluido el texto del botón)\n▪️alertas y referencias utm\n▪️redes neuronales: gráficos y texto del bot\n▪️integraciones y pagos",
-    'fr': "🫥 Description de @{0}-bot :\n\nnoyerblog télégraphique\nnoyertraduction automatique\n(y compris le texte du bouton)\nnoyer️alertes et références utm\nnoyerréseaux neuronaux : graphiques et texte du bot\n▪️intégrations et paiements",
-    'zh': "🫥 @{0}-bot 的描述：\n\n▪️telegraph 博客\n▪️自动翻译\n（包括按钮文本）\n▪️警报和 utm-referrals\n▪️神经网络：机器人的图形和文本\n▪️集成和支付",
-    'ar': "🫥 وصف @{0}-bot:\n\n▪️مدونة التلغراف\n▪️الترجمة التلقائية\n(بما في ذلك نص الزر)\n▪️التنبيهات وإحالات utm\n▪️الشبكات العصبية: رسومات ونص الروبوت\n▪️عمليات التكامل والمدفوعات",
+    "ru": "🫥 Описание @{0}-бота:\n\n▪️телеграф-блог\n▪️авто-перевод\n(в том числе текста кнопок)\n▪️оповещения и utm-рефералы\n▪️нейросети: графика и текст бота\n▪️интеграции и платежи",
+    "en": "🫥 Description of @{0}-bot:\n\n▪️telegraph blog\n▪️auto-translation\n(including button text)\n▪️alerts and utm-referrals\n▪️neural networks: graphics and text of the bot\n▪️integrations and payments",
+    "es": "🫥 Descripción de @{0}-bot:\n\n▪️blog de telegraph\n▪️traducción automática\n(incluyendo texto de los botones)\n▪️alertas y referencias utm\n▪️redes neuronales: gráficos y texto del bot\n▪️integraciones y pagos",
+    "fr": "🫥 Description de @{0}-bot :\n\n▪️blog Telegraph\n▪️traduction automatique\n(incluant le texte des boutons)\n▪️alertes et références utm\n▪️réseaux neuronaux : graphiques et texte du bot\n▪️intégrations et paiements",
+    "zh": "🫥 @{0}-bot 的描述：\n\n▪️telegraph 博客\n▪️自动翻译\n(包括按钮文本)\n▪️警报和 utm-referrals\n▪️神经网络：机器人的图形和文本\n▪️集成和支付",
+    "ar": "🫥 وصف @{0}-بوت:\n\n▪️مدونة Telegraph\n▪️الترجمة التلقائية\n(بما في ذلك نص الأزرار)\n▪️التنبيهات وإحالات utm\n▪️الشبكات العصبية: رسومات ونص البوت\n▪️التكاملات والمدفوعات",
 }
+
 l_clone_bot_button = {
-    'ru': "©️ Клонировать бота",
-    'en': "©️ Clone bot",
-    'es': "©️ Clonar robot",
-    'fr': "©️ Cloner le robot",
-    'zh': "©️ 克隆机器人",
-    'ar': "©️ استنساخ بوت",
+    "ru": "©️ Клонировать бота",
+    "en": "©️ Clone bot",
+    "es": "©️ Clonar bot",
+    "fr": "©️ Cloner le bot",
+    "zh": "©️ 克隆机器人",
+    "ar": "©️ استنساخ بوت",
 }
 l_clone_bot_call = {
-    'ru': "©️ Оформи 💨Подписку, чтобы склонировать бота конкурента",
-    'en': "©️ Subscribe 💨 to clone your competitor's bot",
-    'es': "©️ Suscríbete 💨 para clonar el bot de tu competidor",
-    'fr': "©️ Abonnez-vous 💨 pour cloner le bot de votre concurrent",
-    'zh': "©️ 订阅 💨 克隆竞争对手的机器人",
-    'ar': "©️ اشترك 💨 لاستنساخ بوت منافسك",
+    "ru": "©️ Оформи 💨Подписку, чтобы склонировать бота конкурента",
+    "en": "©️ Subscribe 💨 to clone a competitor's bot",
+    "es": "©️ Suscríbete 💨 para clonar el bot de tu competidor",
+    "fr": "©️ Abonnez-vous 💨 pour cloner le bot d’un concurrent",
+    "zh": "©️ 订阅 💨以克隆竞争对手的机器人",
+    "ar": "©️ اشترك 💨 لاستنساخ بوت منافسك",
 }
 l_clone_bot_text = {
-    'ru': "©️ <b>Вставь</b> корректную ссылку на бота, чтобы склонировать его",
-    'en': "©️ <b>Insert</b> the correct link to the bot to clone it",
-    'es': "©️ <b>Inserta</b> el enlace correcto al bot para clonarlo",
-    'fr': "©️ <b>Insérer</b> le lien correct vers le bot pour le cloner",
-    'zh': "©️ <b>插入</b>机器人的正确链接以克隆它",
-    'ar': "©️ <b>أدخل</b> الرابط الصحيح للبوت لاستنساخه",
+    "ru": "©️ <b>Вставь</b> корректную ссылку на бота, чтобы склонировать его",
+    "en": "©️ <b>Insert</b> the correct link to the bot to clone it",
+    "es": "©️ <b>Inserta</b> el enlace correcto del bot para clonarlo",
+    "fr": "©️ <b>Insère</b> le lien correct du bot pour le cloner",
+    "zh": "©️ <b>插入</b>正确的机器人链接以克隆它",
+    "ar": "©️ <b>أدخل</b> الرابط الصحيح للبوت لاستنساخه",
 }
 l_clone_bot_wait = {
-    'ru': "©️ <b>Клонирование</b> бота\n#длительность 1мин",
-    'en': "©️ <b>Cloning</b> bot\n\n#duration 1 min",
-    'es': "©️ <b>Clonación</b> bot\n\n#duración 1 min",
-    'fr': "©️ Bot de <b>Clonage</b>\n\n#durée 1 min",
-    'zh': "©️ <b>克隆</b>机器人\n\n#duration 1 分钟",
-    'ar': "©️ <b>الاستنساخ</b> الروبوت\n\n#duration 1 دقيقة",
+    "ru": "©️ <b>Клонирование</b> бота\n#длительность 1мин",
+    "en": "©️ <b>Cloning</b> bot\n#duration 1 min",
+    "es": "©️ <b>Clonación</b> del bot\n#duración 1 min",
+    "fr": "©️ <b>Clonage</b> du bot\n#durée 1 min",
+    "zh": "©️ <b>克隆</b>机器人\n#duration 1 分钟",
+    "ar": "©️ <b>جاري الاستنساخ</b> البوت\n#المدة 1 دقيقة",
 }
 l_clone_bot_blocks = {
-    'ru': "©️ <b>Начинаем</b> клонирование блоков..",
-    'en': "©️ <b>Cloning</b> bot\n\n#duration 1 min",
-    'es': "©️ <b>Clonación</b> bot\n\n#duración 1 min",
-    'fr': "©️ Bot de <b>Clonage</b>\n\n#durée 1 min",
-    'zh': "©️ <b>克隆</b>机器人\n\n#duration 1 分钟",
-    'ar': "©️ <b>الاستنساخ</b> الروبوت\n\n#duration 1 دقيقة",
+    "ru": "©️ <b>Начинаем</b> клонирование блоков..",
+    "en": "©️ <b>Starting</b> cloning blocks..",
+    "es": "©️ <b>Iniciando</b> clonación de bloques..",
+    "fr": "©️ <b>Démarrage</b> du clonage des blocs..",
+    "zh": "©️ <b>开始</b>克隆模块..",
+    "ar": "©️ <b>بدء</b> استنساخ الكتل..",
 }
 l_clone_bot_cmds = {
-    'ru': "👩🏽‍💻 <b>Команды:</b>",
-    'en': "©️ <b>Cloning</b> bot\n\n#duration 1 min",
-    'es': "©️ <b>Clonación</b> bot\n\n#duración 1 min",
-    'fr': "©️ Bot de <b>Clonage</b>\n\n#durée 1 min",
-    'zh': "©️ <b>克隆</b>机器人\n\n#duration 1 分钟",
-    'ar': "©️ <b>الاستنساخ</b> الروبوت\n\n#duration 1 دقيقة",
+    "ru": "👩🏽‍💻 <b>Команды:</b>",
+    "en": "👩🏽‍💻 <b>Commands:</b>",
+    "es": "👩🏽‍💻 <b>Comandos:</b>",
+    "fr": "👩🏽‍💻 <b>Commandes :</b>",
+    "zh": "👩🏽‍💻 <b>命令：</b>",
+    "ar": "👩🏽‍💻 <b>الأوامر:</b>",
 }
 
 l_addbot_handler = {
-    'ru': "➕ <b>Отправь</b> корректный <b>ТОКЕН</b> @tg-бота, полученный с помощью @botFather-бота\n\n<blockquote>👩🏽‍💻 <b>Например</b>, 117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
-    'en': "➕ <b>Received</b> the correct <b>TOKEN</b> Telegram bot, received using @botFather-bot\n\n👩🏽‍💻 For example, 117783159:BBAD2Kz2h8AQtHYiVtuyyASdMN",
-    'es': "➕ <b>Recibió</b> el bot de Telegram <b>TOKEN</b> correcto, recibido usando @botFather-bot\n\n👩🏽‍💻 Por ejemplo, 117783159:BBAD2Kz2h8AQtHYiVtuyyASdMN",
-    'fr': "➕ <b>Reçu</b> le bon <b>TOKEN</b> Bot Telegram, reçu en utilisant @botFather-bot\n\n👩🏽‍💻 Par exemple, 117783159:BBAD2Kz2h8AQtHYiVtuyyASdMN",
-    'zh': "➕<b>收到</b>正确的<b>TOKEN</b>电报机器人，使用@botFather-bot\n\n👩🏽‍💻接收，例如，117783159:BBAD2Kz2h8AQtHYiVtuyyASdMN",
-    'ar': "➕ <b>تم استلام</b> بوت Telegram <b>TOKEN</b> الصحيح، والذي تم استلامه باستخدام @botFather-bot\n\n👩🏽‍💻 على سبيل المثال، 117783159:BBAD2Kz2h8AQtHYiVtuyyASdMN",
+    "ru": "➕ <b>Отправь</b> корректный <b>ТОКЕН</b> @tg-бота, полученный с помощью @botFather-бота\n\n<blockquote>👩🏽‍💻 <b>Например</b>, 117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
+    "en": "➕ <b>Send</b> the correct <b>TOKEN</b> of the @tg-bot obtained via the @botFather-bot\n\n<blockquote>👩🏽‍💻 <b>For example</b>, 117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
+    "es": "➕ <b>Envía</b> el <b>TOKEN</b> correcto del bot de Telegram obtenido mediante @botFather-bot\n\n<blockquote>👩🏽‍💻 <b>Por ejemplo</b>, 117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
+    "fr": "➕ <b>Envoyez</b> le <b>TOKEN</b> correct du bot Telegram obtenu via @botFather-bot\n\n<blockquote>👩🏽‍💻 <b>Par exemple</b>, 117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
+    "zh": "➕ <b>发送</b>通过@botFather-机器人获取的@tg-机器人的<b>TOKEN</b>\n\n<blockquote>👩🏽‍💻 <b>例如</b>，117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
+    "ar": "➕ <b>أرسل</b> <b>TOKEN</b> @tg-bot الصحيح الذي تم الحصول عليه باستخدام بوت @botFather\n\n<blockquote>👩🏽‍💻 <b>على سبيل المثال</b>، 117783159:BBADKz2h8AQtHYiVtuyyASdMN</blockquote>",
 }
 l_wait_for_translate_bot = {
-    'ru': "👩🏽‍💻 <b>Перевод</b> {0}-бота на <i>{1}</i>-язык\n\n#длительность 0мин",
-    'en': "👩🏽‍💻 <b>Translation</b> {0}-bot into <i>{1}</i>-language\n\n#duration 0 min",
-    'es': "👩🏽‍💻 <b>Traducción</b> {0}-bot al <i>{1}</i>-idioma\n\n#duration 0 min",
-    'fr': "👩🏽‍💻 <b>Traduction</b> {0}-bot en <i>{1}</i>-langue\n\n#durée 0 min",
-    'zh': "👩🏽‍💻 <b>翻译</b> {0}-bot 为 <i>{1}</i>-语言\n\n#duration 0 分钟",
-    'ar': "👩🏽‍💻 <b>الترجمة</b> {0}-bot إلى <i>{1}</i>-language\n\n#duration 0 min",
+    "ru": "👩🏽‍💻 <b>Перевод</b> {0}-бота на <i>{1}</i>-язык\n\n#длительность 0мин",
+    "en": "👩🏽‍💻 <b>Translation</b> of {0}-bot into <i>{1}</i>-language\n\n#duration 0min",
+    "es": "👩🏽‍💻 <b>Traducción</b> de {0}-bot al <i>{1}</i>-idioma\n\n#duración 0min",
+    "fr": "👩🏽‍💻 <b>Traduction</b> de {0}-bot en <i>{1}</i>-langue\n\n#durée 0min",
+    "zh": "👩🏽‍💻 <b>翻译</b> {0}-机器人为<i>{1}</i>-语言\n\n#时长 0分钟",
+    "ar": "👩🏽‍💻 <b>الترجمة</b> {0}-بوت إلى <i>{1}</i>-اللغة\n\n#المدة 0دقيقة",
 }
 l_template_is_ready = {
-    'ru': "👩🏽‍💻 <b>Шаблон</b> для @{0} готов!",
-    'en': "👩🏽‍💻 <b>Template</b> for @{0} is ready!",
-    'es': "👩🏽‍💻 ¡La <b>plantilla</b> para @{0} está lista!",
-    'fr': "👩🏽‍💻 Le <b>Modèle</b> pour @{0} est prêt !",
-    'zh': "@{0} 的👩🏽‍💻<b>模板</b>已准备就绪！",
-    'ar': "👩🏽‍💻 <b>القالب</b> لـ @{0} جاهز!",
+    "ru": "👩🏽‍💻 <b>Шаблон</b> для @{0} готов!",
+    "en": "👩🏽‍💻 <b>Template</b> for @{0} is ready!",
+    "es": "👩🏽‍💻 <b>Plantilla</b> para @{0} está lista!",
+    "fr": "👩🏽‍💻 <b>Modèle</b> pour @{0} est prêt !",
+    "zh": "👩🏽‍💻 <b>模板</b> @{0} 已准备就绪！",
+    "ar": "👩🏽‍💻 <b>القالب</b> لـ @{0} جاهز!",
 }
 l_payment_successful = {
-    'ru': "👩🏽‍💻 <b>Пользователь</b> {0} 💰Внес оплату в размере {1} {2}",
-    'en': "👩🏽‍💻 <b>User</b> {0} 💰Paid a payment of {1} {2}",
-    'es': "👩🏽‍💻 <b>Usuario</b> {0} 💰Pagó un pago de {1} {2}",
-    'fr': "👩🏽‍💻 <b>Utilisateur</b> {0} 💰A payé un paiement de {1} {2}",
-    'zh': "👩🏽‍💻 <b>用户</b> {0} 💰支付了 {1} {2} 的付款",
-    'ar': "👩🏽‍💻 <b>مستخدم</b> {0} 💰تم دفع مبلغ قدره {1} {2}",
+    "ru": "👩🏽‍💻 <b>Пользователь</b> {0} 💰Внес оплату в размере {1} {2}",
+    "en": "👩🏽‍💻 <b>User</b> {0} 💰made a payment of {1} {2}",
+    "es": "👩🏽‍💻 <b>Usuario</b> {0} 💰realizó un pago de {1} {2}",
+    "fr": "👩🏽‍💻 <b>Utilisateur</b> {0} 💰a effectué un paiement de {1} {2}",
+    "zh": "👩🏽‍💻 <b>用户</b> {0} 💰支付了 {1} {2}",
+    "ar": "👩🏽‍💻 <b>المستخدم</b> {0} 💰قام بدفع مبلغ {1} {2}",
 }
 l_promocode_activated = {
-    'ru': "👩🏽‍💻 *Промокод*: `{txt}` активирован",
-    'en': "👩🏽‍💻 *Promotional code*: `{txt}` activated",
-    'es': "👩🏽‍💻 *Código promocional*: `{txt}` activado",
-    'fr': "👩🏽‍💻 *Code promotionnel* : `{txt}` activé",
-    'zh': "👩🏽‍💻 *促销代码*：`{txt}`已激活",
-    'ar': "👩🏽‍💻 *الرمز الترويجي*: `{txt}` مفعل",
+    "ru": "👩🏽‍💻 *Промокод*: `{txt}` активирован",
+    "en": "👩🏽‍💻 *Promo code*: `{txt}` activated",
+    "es": "👩🏽‍💻 *Código promocional*: `{txt}` activado",
+    "fr": "👩🏽‍💻 *Code promo*: `{txt}` activé",
+    "zh": "👩🏽‍💻 *促销代码*: `{txt}`已激活",
+    "ar": "👩🏽‍💻 *الرمز الترويجي*: `{txt}` مفعل",
 }
+
 l_create_view_web = {
-    'ru': "👩🏽‍💻 <b>Скрытая</b> ссылка на веб-страницу: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>На весь экран</b>: <a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>Подлинная</b> телеграм-ссылка: <code>{0}</code>",
-    'en': "👩🏽‍💻 <b>Hidden</b> link to web page: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3}/web</a>\n\n👩🏽‍💻 <b>Genuine</b> telegram link: <code> https://t.me/{0}/web?startapp={1} _{2} </code>",
-    'es': "👩🏽‍💻 Enlace <b>oculto</b> a la página web: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Enlace de Telegram <b>genuino</b>: <code> https://t.me/{0}/web?startapp={1} _ 2} </código>",
-    'fr': "👩🏽‍💻 Lien <b>caché</b> vers la page Web : <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Lien télégramme <b>authentique</b> : <code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'zh': "👩🏽‍💻 <b>隐藏</b>网页链接： <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 <b>正版</b>电报链接：<code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'ar': "👩🏽‍💻 الرابط <b>المخفي</b> لصفحة الويب: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 رابط التليجرام <b>الحقيقي</b>: <code> https://t.me/{0}/web?startapp={1} _{ 2} </كود>",
+    "ru": "👩🏽‍💻 <b>Скрытая</b> ссылка на веб-страницу: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>На весь экран</b>: <a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>Подлинная</b> телеграм-ссылка: <code>{0}</code>",
+    "en": "👩🏽‍💻 <b>Hidden</b> link to the web page: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Fullscreen</b>: <a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>Genuine</b> Telegram link: <code>{0}</code>",
+    "es": "👩🏽‍💻 <b>Oculto</b> enlace a la página web: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Pantalla completa</b>: <a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>Enlace legítimo</b> de Telegram: <code>{0}</code>",
+    "fr": "👩🏽‍💻 <b>Lien caché</b> vers la page Web : <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>Plein écran</b> : <a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>Lien Telegram authentique</b> : <code>{0}</code>",
+    "zh": "👩🏽‍💻 <b>隐藏</b>的网页链接：<a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>全屏</b>：<a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>真实</b>的Telegram链接：<code>{0}</code>",
+    "ar": "👩🏽‍💻 <b>الرابط المخفي</b> لصفحة الويب: <a href='{0}'>@{1}/web</a>\n\n👩🏽‍💻 <b>ملء الشاشة</b>: <a href='{0}&mode=fullscreen'>@{1}/web</a>\n\n👩🏽‍💻 <b>رابط</b> Telegram <b>الأصلي</b>: <code>{0}</code>",
 }
 l_admin_answer = {
-    'ru': "👩🏽‍💻 <b>Администратор</b>: {0} to {1}:\n\n{2}",
-    'en': "👩🏽‍💻 <b>Admin</b>: {0} to {1}:\n\n{2}",
-    'es': "👩🏽‍💻 Enlace <b>oculto</b> a la página web: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Enlace de Telegram <b>genuino</b>: <code> https://t.me/{0}/web?startapp={1} _ 2} </código>",
-    'fr': "👩🏽‍💻 Lien <b>caché</b> vers la page Web : <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Lien télégramme <b>authentique</b> : <code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'zh': "👩🏽‍💻 <b>隐藏</b>网页链接： <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 <b>正版</b>电报链接：<code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'ar': "👩🏽‍💻 الرابط <b>المخفي</b> لصفحة الويب: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 رابط التليجرام <b>الحقيقي</b>: <code> https://t.me/{0}/web?startapp={1} _{ 2} </كود>",
+    "ru": "👩🏽‍💻 <b>Администратор</b>: {0} to {1}:\n\n{2}",
+    "en": "👩🏽‍💻 <b>Administrator</b>: {0} to {1}:\n\n{2}",
+    "es": "👩🏽‍💻 <b>Administrador</b>: {0} a {1}:\n\n{2}",
+    "fr": "👩🏽‍💻 <b>Administrateur</b> : {0} à {1} :\n\n{2}",
+    "zh": "👩🏽‍💻 <b>管理员</b>：{0} 到 {1}：\n\n{2}",
+    "ar": "👩🏽‍💻 <b>المسؤول</b>: {0} إلى {1}:\n\n{2}",
 }
 l_bot_need_start = {
-    'ru': "👩🏽‍💻 <b>Необходимо</b>: /start-запустить @{0}-бота перед началом работы",
-    'en': "👩🏽‍💻 <b>Admin</b>: {0} to {1}:\n\n{2}",
-    'es': "👩🏽‍💻 Enlace <b>oculto</b> a la página web: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Enlace de Telegram <b>genuino</b>: <code> https://t.me/{0}/web?startapp={1} _ 2} </código>",
-    'fr': "👩🏽‍💻 Lien <b>caché</b> vers la page Web : <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Lien télégramme <b>authentique</b> : <code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'zh': "👩🏽‍💻 <b>隐藏</b>网页链接： <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 <b>正版</b>电报链接：<code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'ar': "👩🏽‍💻 الرابط <b>المخفي</b> لصفحة الويب: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 رابط التليجرام <b>الحقيقي</b>: <code> https://t.me/{0}/web?startapp={1} _{ 2} </كود>",
+    "ru": "👩🏽‍💻 <b>Необходимо</b>: /start-запустить @{0}-бота перед началом работы",
+    "en": "👩🏽‍💻 <b>Required</b>: /start to launch the @{0} bot before starting work",
+    "es": "👩🏽‍💻 <b>Requerido</b>: /start para iniciar el bot @{0} antes de comenzar",
+    "fr": "👩🏽‍💻 <b>Requis</b> : /start pour lancer le bot @{0} avant de commencer",
+    "zh": "👩🏽‍💻 <b>必需</b>：/start 在开始工作前启动 @{0} 机器人",
+    "ar": "👩🏽‍💻 <b>مطلوب</b> : /start لتشغيل بوت @{0} قبل البدء",
 }
 l_bot_need_start_add = {
-    'ru': "👩🏽‍💻 <b>Необходимо</b>: /start-запустить @{0}-бота, токен которого был добавлен, а также добавить бота в канал как администратора",
-    'en': "👩🏽‍💻 <b>Admin</b>: {0} to {1}:\n\n{2}",
-    'es': "👩🏽‍💻 Enlace <b>oculto</b> a la página web: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Enlace de Telegram <b>genuino</b>: <code> https://t.me/{0}/web?startapp={1} _ 2} </código>",
-    'fr': "👩🏽‍💻 Lien <b>caché</b> vers la page Web : <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Lien télégramme <b>authentique</b> : <code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'zh': "👩🏽‍💻 <b>隐藏</b>网页链接： <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 <b>正版</b>电报链接：<code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'ar': "👩🏽‍💻 الرابط <b>المخفي</b> لصفحة الويب: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 رابط التليجرام <b>الحقيقي</b>: <code> https://t.me/{0}/web?startapp={1} _{ 2} </كود>",
+    "ru": "👩🏽‍💻 <b>Необходимо</b>: /start-запустить @{0}-бота, токен которого был добавлен, а также добавить бота в канал как администратора",
+    "en": "👩🏽‍💻 <b>Required</b>: /start to launch the @{0} bot whose token was added, and also add the bot to the channel as an administrator",
+    "es": "👩🏽‍💻 <b>Requerido</b>: /start para iniciar el bot @{0} cuyo token fue añadido, y también agregar el bot al canal como administrador",
+    "fr": "👩🏽‍💻 <b>Requis</b> : /start pour lancer le bot @{0} dont le jeton a été ajouté, et également ajouter le bot au canal en tant qu'administrateur",
+    "zh": "👩🏽‍💻 <b>必需</b>：/start 在已添加令牌的 @{0} 机器人上运行，并将机器人作为管理员添加到频道",
+    "ar": "👩🏽‍💻 <b>مطلوب</b> : /start لتشغيل بوت @{0} الذي تمت إضافة رمزه، وأيضًا إضافة البوت إلى القناة كمسؤول",
 }
 l_bot_need_restart_extra_bot = {
-    'ru': "👩🏽‍💻 <b>Необходимо</b>: /start-запустить @{0}-бота (токен которого был добавлен) для принятия оплат",
-    'en': "👩🏽‍💻 <b>Admin</b>: {0} to {1}:\n\n{2}",
-    'es': "👩🏽‍💻 Enlace <b>oculto</b> a la página web: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Enlace de Telegram <b>genuino</b>: <code> https://t.me/{0}/web?startapp={1} _ 2} </código>",
-    'fr': "👩🏽‍💻 Lien <b>caché</b> vers la page Web : <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Lien télégramme <b>authentique</b> : <code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'zh': "👩🏽‍💻 <b>隐藏</b>网页链接： <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 <b>正版</b>电报链接：<code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'ar': "👩🏽‍💻 الرابط <b>المخفي</b> لصفحة الويب: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 رابط التليجرام <b>الحقيقي</b>: <code> https://t.me/{0}/web?startapp={1} _{ 2} </كود>",
+    "ru": "👩🏽‍💻 <b>Необходимо</b>: /start-запустить @{0}-бота (токен которого был добавлен) для принятия оплат",
+    "en": "👩🏽‍💻 <b>Required</b>: /start to launch the @{0} bot (whose token was added) to accept payments",
+    "es": "👩🏽‍💻 <b>Requerido</b>: /start para iniciar el bot @{0} (cuyo token fue añadido) para aceptar pagos",
+    "fr": "👩🏽‍💻 <b>Requis</b> : /start pour lancer le bot @{0} (dont le jeton a été ajouté) pour accepter les paiements",
+    "zh": "👩🏽‍💻 <b>必需</b>：/start 运行已添加令牌的 @{0} 机器人以接受付款",
+    "ar": "👩🏽‍💻 <b>مطلوب</b> : /start لتشغيل بوت @{0} (الذي تمت إضافة رمزه) لقبول المدفوعات",
 }
 l_bot_user_balls = {
-    'ru': "👩🏽‍💻 <b>Баллы:</b> {0}",
-    'en': "👩🏽‍💻 <b>Admin</b>: {0} to {1}:\n\n{2}",
-    'es': "👩🏽‍💻 Enlace <b>oculto</b> a la página web: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Enlace de Telegram <b>genuino</b>: <code> https://t.me/{0}/web?startapp={1} _ 2} </código>",
-    'fr': "👩🏽‍💻 Lien <b>caché</b> vers la page Web : <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 Lien télégramme <b>authentique</b> : <code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'zh': "👩🏽‍💻 <b>隐藏</b>网页链接： <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 <b>正版</b>电报链接：<code> https://t.me/{0}/web?startapp={1} _{ 2} </code>",
-    'ar': "👩🏽‍💻 الرابط <b>المخفي</b> لصفحة الويب: <a href=' https://t.me/{0}/web?startapp={1}_{2} '> @{ 3 }/web</a>\n\n👩🏽‍💻 رابط التليجرام <b>الحقيقي</b>: <code> https://t.me/{0}/web?startapp={1} _{ 2} </كود>",
+    "ru": "👩🏽‍💻 <b>Баллы:</b> {0}",
+    "en": "👩🏽‍💻 <b>Points:</b> {0}",
+    "es": "👩🏽‍💻 <b>Puntos:</b> {0}",
+    "fr": "👩🏽‍💻 <b>Points :</b> {0}",
+    "zh": "👩🏽‍💻 <b>积分：</b> {0}",
+    "ar": "👩🏽‍💻 <b>نقاط:</b> {0}",
 }
 l_bot_in_chn_added = {
-    'ru': "👩🏽‍💻 <b>@{0}</b> успешно добавлен в канал <b>{1}</b> [id=<code>{2}</code>] и видит его подписчиков",
-    'en': "👩🏽‍💻 <b>Click</b> [➕ Add bot]",
-    'es': "👩🏽‍💻 <b>Haga clic</b> [➕ Agregar bot]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter un bot]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加机器人]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة روبوت]",
+    "ru": "👩🏽‍💻 <b>@{0}</b> успешно добавлен в канал <b>{1}</b> [id=<code>{2}</code>] и видит его подписчиков",
+    "en": "👩🏽‍💻 <b>@{0}</b> was successfully added to channel <b>{1}</b> [id=<code>{2}</code>] and sees its subscribers",
+    "es": "👩🏽‍💻 <b>@{0}</b> se añadió correctamente al canal <b>{1}</b> [id=<code>{2}</code>] y ve sus suscriptores",
+    "fr": "👩🏽‍💻 <b>@{0}</b> a été ajouté avec succès au canal <b>{1}</b> [id=<code>{2}</code>] et voit ses abonnés",
+    "zh": "👩🏽‍💻 <b>@{0}</b> 已成功添加到频道 <b>{1}</b> [id=<code>{2}</code>] 并查看其订阅者",
+    "ar": "👩🏽‍💻 <b>@{0}</b> تم إضافته بنجاح إلى القناة <b>{1}</b> [id=<code>{2}</code>] ويرى المشتركين بها",
 }
 l_bot_in_grp_added = {
-    'ru': "👩🏽‍💻 <b>@{0}</b> успешно добавлен в группу: <b>{1}</b> [id=<code>{2}</code>] и видит ее участников",
-    'en': "👩🏽‍💻 <b>Click</b> [➕ Add bot]",
-    'es': "👩🏽‍💻 <b>Haga clic</b> [➕ Agregar bot]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter un bot]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加机器人]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة روبوت]",
+    "ru": "👩🏽‍💻 <b>@{0}</b> успешно добавлен в группу: <b>{1}</b> [id=<code>{2}</code>] и видит ее участников",
+    "en": "👩🏽‍💻 <b>@{0}</b> was successfully added to the group <b>{1}</b> [id=<code>{2}</code>] and sees its members",
+    "es": "👩🏽‍💻 <b>@{0}</b> se añadió correctamente al grupo <b>{1}</b> [id=<code>{2}</code>] y ve sus miembros",
+    "fr": "👩🏽‍💻 <b>@{0}</b> a été ajouté avec succès au groupe <b>{1}</b> [id=<code>{2}</code>] et voit ses membres",
+    "zh": "👩🏽‍💻 <b>@{0}</b> 已成功添加到群组 <b>{1}</b> [id=<code>{2}</code>] 并查看其成员",
+    "ar": "👩🏽‍💻 <b>@{0}</b> تم إضافته بنجاح إلى المجموعة <b>{1}</b> [id=<code>{2}</code>] ويرى أعضائها",
 }
 l_bot_pub_with_payment = {
-    'ru': "★ Оплата публикации",
-    'en': "★ Оплата сообщения",
-    'es': "👩🏽‍💻 <b>Haga clic</b> [➕ Agregar bot]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter un bot]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加机器人]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة روبوت]",
+    "ru": "★ Оплата публикации",
+    "en": "★ Payment for publication",
+    "es": "★ Pago de publicación",
+    "fr": "★ Paiement de publication",
+    "zh": "★ 发布付费",
+    "ar": "★ الدفع للنشر",
 }
 l_bot_sub_with_payment = {
-    'ru': "★ Оплата подписки",
-    'en': "★ Оплата сообщения",
-    'es': "👩🏽‍💻 <b>Haga clic</b> [➕ Agregar bot]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter un bot]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加机器人]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة روبوت]",
+    "ru": "★ Оплата подписки",
+    "en": "★ Payment for subscription",
+    "es": "★ Pago de suscripción",
+    "fr": "★ Paiement d'abonnement",
+    "zh": "★ 订阅付费",
+    "ar": "★ الدفع للاشتراك",
 }
 l_bot_msg_open = {
-    'ru': "ᯅ Публикация",
-    'en': "★ Оплата сообщения",
-    'es': "👩🏽‍💻 <b>Haga clic</b> [➕ Agregar bot]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter un bot]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加机器人]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة روبوت]",
+    "ru": "ᯅ Публикация",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
 }
-
-# region commands
-l_bot_commands_handler = {
-    'ru': "⚙️ <b>Команды</b> /cmd для <b>@{0}</b> [<code>{1}</code>]\n\n<blockquote>/info информация о боте\n/stat статистика\n/status статус\n/on включение\n<code>/off</code> выключение\n<code>/restart</code> перезагрузка\n\n/parse [premium|promo|utm|old|POST_ID]\n/promo промокод\n/short описание профиля¹²⁰\n/desc описание бота⁵¹²\n/admin администраторы\n/ban [id/@username] список\n/unban разбан\n/transfer передача ADMIN-прав</blockquote>\n\n💨 <b>Подписка</b>: <i>{2}</i>",
-    'en': "⚙️ <b>Commands</b> /cmd for <b>@{0}</b>\n\n/info <i>bot information</i>\n/stat <i>statistics</i >\n/status <i>status</i>\n/on <i>on</i>\n<code>/off</code> <i>off</i>\n<code>/ restart</code> <i>restart</i>\n\n/parse [premium|promo|utm|old|POST_ID]\n/promo <i>promo code</i>\n/admin <i>administrators </i>\n/ban [id/ @username] <i>list</i>\n/unban <i>unban</i>\n/transfer <i>transfer of admin rights</i>\n\n💨 <b>Subscription</b>: <i>{1}</i>",
-    'es': "⚙️ <b>Comandos</b> /cmd para <b>@{0}</b>\n\n/info <i>información del bot</i>\n/stat <i>estadísticas</i >\n/status <i>estado</i>\n/on <i>on</i>\n<code>/off</code> <i>off</i>\n<code>/reiniciar </code> <i>reiniciar</i>\n\n/parse [premium|promo|utm|old|POST_ID]\n/promo <i>código de promoción</i>\n/admin <i>administradores </i>\n/ban [id/ @username] <i>list</i>\n/unban <i>unban</i>\n/transfer <i>transferencia de derechos de administrador</i>\n\n💨 <b>Suscripción</b>: <i>{1}</i>",
-    'fr': "⚙️ <b>Commandes</b> /cmd pour <b>@{0}</b>\n\n/info <i>informations sur le robot</i>\n/stat <i>statistiques</i >\n/statut <i>statut</i>\n/on <i>on</i>\n<code>/off</code> <i>off</i>\n<code>/ redémarrage </code> <i>redémarrer</i>\n\n/parse [premium|promo|utm|old|POST_ID]\n/promo <i>code promo</i>\n/admin <i>administrateurs </i>\n/ban [id/ @username] <i>list</i>\n/unban <i>unban</i>\n/transfer <i>transfert des droits d'administrateur</i>\n\n💨 <b>Abonnement</b> : <i>{1}</i>",
-    'zh': "⚙️ <b>命令</b> /cmd for <b>@{0}</b>\n\n/info <i>机器人信息</i>\n/stat <i>统计</i>\n/status <i>状态</i>\n/on <i>开</i>\n<code>/off</code> <i>关</i>\n<code>/重启</code> <i>重新启动</i>\n\n/parse [premium|promo|utm|old|POST_ID]\n/promo <i>促销代码</i>\n/admin <i>管理员</i>\n/ban [id/ @username] <i>列表</i>\n/unban <i>解禁</i>\n/transfer <i>转让管理权限</i>\n\n💨 <b>订阅</b>：<i>{1}</i>",
-    'ar': "⚙️ <b>الأوامر</b> /cmd لـ <b>@{0}</b>\n\n/info <i>معلومات الروبوت</i>\n/stat <i>الإحصائيات</i >\n/status <i>status</i>\n/on <i>on</i>\n<code>/off</code> <i>off</i>\n<code>/ Restart </code> <i>إعادة التشغيل</i>\n\n/parse [premium|promo|utm|old|POST_ID]\n/promo <i>الرمز الترويجي</i>\n/admin <i>المسؤولين </i>\n/ban [id/ @username] <i>list</i>\n/unban <i>unban</i>\n/transfer <i>نقل حقوق المسؤول</i>\n\n💨 <b>الاشتراك</b>: <i>{1}</i>",
-}
-l_bot_info_handler = {
-    'ru': "👩🏽‍💻 <b>@{0}</b>,{1} {2} [id=<code>{3}</code>, dt=<code>{4}</code>, tz=<code>{5}</code>, lz=<code>{6}</code>]\n\n<b>Токен бота:</b> <code>{7}</code>\n<b>Токен <a href='{8}'>tgph</a>:</b> <code>{9}</code>\n<b>Крипто адрес:</b> <code>{10}</code>\n<b>Токен оплаты:</b> <code>{11}</code>\n<b>База данных:</b> {12}\n<b>Инлайн-режим:</b> {13}\n<b>Канал:</b> {14}\n<b>Группа:</b> {15}\n\n<b>/status</b> {16}\n<b>/parse</b> {17}\n<b>/promo</b> {18}\n{19}\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>@{0}</b>,{1} {2} [id=<code>{3}</code>, dt=<code>{4}</code>, tz =<code>{5}</code>, lz=<code>{6}</code>]\n\n<b>Bot token:</b> <code>{7}</code>\n<b>Token <a href='{8}'>tgph</a>:</b> <code>{9}</code>\n<b>Payment token:</b> <code> {10}</code>\n<b>Base:</b> {11}\n<b>Inline:</b> {12}\n<b>Channel:</b> {13}\n<b>Group:</b> {14}\n\n<b>/status</b> {15}\n<b>/parse</b> {16}\n<b>/promo </b> {17}\n{18}\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>@{0}</b>,{1} {2} [id=<código>{3}</código>, dt=<código>{4}</código>, tz =<code>{5}</code>, lz=<code>{6}</code>]\n\n<b>Token de robot:</b> <code>{7}</code>\n<b>Token <a href='{8}'>tgph</a>:</b> <code>{9}</code>\n<b>Token de pago:</b> <code> {10}</code>\n<b>Base:</b> {11}\n<b>En línea:</b> {12}\n<b>Canal:</b> {13}\n<b>Grupo:</b> {14}\n\n<b>/status</b> {15}\n<b>/parse</b> {16}\n<b>/promoción </b> {17}\n{18}\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>@{0}</b>,{1} {2} [id=<code>{3}</code>, dt=<code>{4}</code>, tz =<code>{5}</code>, lz=<code>{6}</code>]\n\n<b>Jeton de robot :</b> <code>{7}</code>\n<b>Jeton <a href='{8}'>tgph</a> :</b> <code>{9}</code>\n<b>Jeton de paiement :</b> <code> {10}</code>\n<b>Base :</b> {11}\n<b>Inline :</b> {12}\n<b>Canal :</b> {13}\n<b>Groupe :</b> {14}\n\n<b>/status</b> {15}\n<b>/parse</b> {16}\n<b>/promo </b> {17}\n{18}\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>@{0}</b>,{1} {2} [id=<code>{3}</code>, dt=<code>{4}</code>, tz =<code>{5}</code>, lz=<code>{6}</code>]\n\n<b>机器人令牌：</b> <code>{7}</code>\n<b>令牌<a href='{8}'>tgph</a>：</b> <code>{9}</code>\n<b>付款令牌：</b> <code> {10}</code>\n<b>基础：</b> {11}\n<b>内嵌：</b> {12}\n<b>频道：</b> {13}\n<b>组：</b> {14}\n\n<b>/status</b> {15}\n<b>/parse</b> {16}\n<b>/promo </b> {17}\n{18}\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>@{0}</b>,{1} {2} [id=<code>{3}</code>, dt=<code>{4}</code>, tz =<code>{5}</code>, lz=<code>{6}</code>]\n\n<b>الرمز المميز للبوت:</b> <code>{7}</code>\n<b>الرمز المميز <a href='{8}'>tgph</a>:</b> <code>{9}</code>\n<b>الرمز المميز للدفع:</b> <code> {10}</code>\n<b>الأساسية:</b> {11}\n<b>مضمنة:</b> {12}\n<b>القناة:</b> {13}\n<b>المجموعة:</b> {14}\n\n<b>/status</b> {15}\n<b>/parse</b> {16}\n<b>/promo </b> {17}\n{18}\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_bot_stat_handler = {
-    'ru': "👩🏽‍💻 <b>@{0}</b>, {1} [id=<code>{2}</code>, dt=<code>{3}</code>, tz=<code>{4}</code>, lz=<code>{5}</code>]\n\n<blockquote><b>Конверсия</b>\nТриггеры: <code>{6}</code> [{7}%]\nДействия: <code>{8}</code> [{9}%]\nСообщения: <code>{10}</code> [{11}%]\nЯзыки: <code>{12}</code> [{13}%]\nКнопки: <code>{14}</code>\nМедиа: <code>{15}</code>\n\nПользователи: <code>{16}</code>\nАдмины: <code>{17}</code>\nПромо: <code>{18}</code>\nUTM-метки: <code>{19}</code>\nПремиум: <code>{20}</code>\nБан: <code>{21}</code>\n\nАвто-перевод: {22}\nНейро-ответ: {23}\nАвто-постинг: {24} ({25})</blockquote>\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>@{0}</b>, {1} [id=<code>{2}</code>, dt=<code>{3}</code>, tz=<code >{4}</code>, lz=<code>{5}</code>]\n\n<i>Triggers:</i> <code>{6}</code> [{7}%]\n<i>Actions:</i> <code>{8}</code> [{9}%]\n<i>Messages:</i> <code>{10}</code> [{11}%]\n<i>Languages:</i> <code>{12}</code> [{13}%]\n<i>Buttons:</i> <code>{14}< /code>\n<i>Media:</i> <code>{15}</code>\n\n<i>Users:</i> <code>{16}</code>\n<i>Admins:</i> <code>{17}</code>\n<i>Promo:</i> <code>{18}</code>\n<i>UTM tags:</ i> <code>{19}</code>\n<i>Premium:</i> <code>{20}</code>\n<i>Ban:</i> <code>{21} </code>\n\n<i>Auto-translation:</i> {22}\n<i>Neuro-response:</i> {23}\n<i>Auto-posting:</i > {24} ({25})\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>@{0}</b>, {1} [id=<código>{2}</código>, dt=<código>{3}</código>, tz=<código >{4}</code>, lz=<code>{5}</code>]\n\n<i>Activadores:</i> <code>{6}</code> [{7}%]\n<i>Acciones:</i> <code>{8}</code> [{9}%]\n<i>Mensajes:</i> <code>{10}</code> [{11}%]\n<i>Idiomas:</i> <code>{12}</code> [{13}%]\n<i>Botones:</i> <code>{14}< /code>\n<i>Medios:</i> <code>{15}</code>\n\n<i>Usuarios:</i> <code>{16}</code>\n<i>Administradores:</i> <code>{17}</code>\n<i>Promoción:</i> <code>{18}</code>\n<i>Etiquetas UTM:</ i > <code>{19}</code>\n<i>Premium:</i> <code>{20}</code>\n<i>Prohibición:</i> <code>{21} < /code>\n\n<i>Traducción automática:</i> {22}\n<i>Neurorespuesta:</i> {23}\n<i>Publicación automática:</i > {24} ({25})\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>@{0}</b>, {1} [id=<code>{2}</code>, dt=<code>{3}</code>, tz=<code >{4}</code>, lz=<code>{5}</code>]\n\n<i>Déclencheurs :</i> <code>{6}</code> [{7}%]\n<i>Actions :</i> <code>{8}</code> [{9}%]\n<i>Messages :</i> <code>{10}</code> [{11}%]\n<i>Langues :</i> <code>{12}</code> [{13}%]\n<i>Boutons :</i> <code>{14}< /code>\n<i>Média :</i> <code>{15}</code>\n\n<i>Utilisateurs :</i> <code>{16}</code>\n<i>Administrateurs :</i> <code>{17}</code>\n<i>Promo :</i> <code>{18}</code>\n<i>Balises UTM :</ i > <code>{19}</code>\n<i>Premium :</i> <code>{20}</code>\n<i>Ban :</i> <code>{21} < /code>\n\n<i>Traduction automatique :</i> {22}\n<i>Réponse neurologique :</i> {23}\n<i>Publication automatique :</i > {24} ({25})\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>@{0}</b>, {1} [id=<code>{2}</code>, dt=<code>{3}</code>, tz=<code >{4}</code>, lz=<code>{5}</code>]\n\n<i>触发器：</i> <code>{6}</code> [{7}%]\n<i>操作：</i> <code>{8}</code> [{9}%]\n<i>消息：</i> <code>{10}</code> [{11}%]\n<i>语言：</i> <code>{12}</code> [{13}%]\n<i>按钮：</i> <code>{14}< /code>\n<i>媒体：</i> <code>{15}</code>\n\n<i>用户：</i> <code>{16}</code>\n<i>管理员：</i> <code>{17}</code>\n<i>促销：</i> <code>{18}</code>\n<i>UTM 标签：</i > <code>{19}</code>\n<i>高级：</i> <code>{20}</code>\n<i>禁止：</i> <code>{21} < /code>\n\n<i>自动翻译：</i> {22}\n<i>神经反应：</i> {23}\n<i>自动发布：</i> {24} ({25})\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>@{0}</b>, {1} [id=<code>{2}</code>, dt=<code>{3}</code>, tz=<code> >{4}</code>, lz=<code>{5}</code>]\n\n<i>المشغلات:</i> <code>{6}</code> [{7}%]\n<i>الإجراءات:</i> <code>{8}</code> [{9}%]\n<i>الرسائل:</i> <code>{10}</code> [{11}%]\n<i>اللغات:</i> <code>{12}</code> [{13}%]\n<i>الأزرار:</i> <code>{14}< /code>\n<i>الوسائط:</i> <code>{15}</code>\n\n<i>المستخدمون:</i> <code>{16}</code>\n<<i>المسؤولون:</i> <code>{17}</code>\n<i>العرض الترويجي:</i> <code>{18}</code>\n<i>علامات UTM:</ i > <code>{19}</code>\n<i>بريميوم:</i> <code>{20}</code>\n<i>الحظر:</i> <code>{21} < /code>\n\n<i>الترجمة التلقائية:</i> {22}\n<i>الاستجابة العصبية:</i> {23}\n<i>النشر التلقائي:</i > {24} ({25})\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_bot_status_handler = {
-    'ru': "👩🏽‍💻 <b>Статус</b> @{0}-@tg-приложения: {1}",
-    'en': "👩🏽‍💻 <b>Status</b> @{0}-bot: {1}",
-    'es': "👩🏽‍💻 <b>Estado</b> @{0}-bot: {1}",
-    'fr': "👩🏽‍💻 <b>Statut</b> @{0}-bot : {1}",
-    'zh': "👩🏽‍💻 <b>状态</b> @{0}-bot：{1}",
-    'ar': "👩🏽‍💻 <b>الحالة</b> @{0}-bot: {1}",
-}
-l_bot_on_handler = {
-    'ru': "👩🏽‍💻 <b>Запуск</b> @{0}-@tg-приложения..\n#длительность 0мин",
-    'en': "👩🏽‍💻 <b>Launch</b> @{0}-bot..\n#duration 0 min",
-    'es': "👩🏽‍💻 <b>Lanzar</b> @{0}-bot..\n#duration 0 min",
-    'fr': "👩🏽‍💻 <b>Lancement</b> @{0}-bot..\n#durée 0 min",
-    'zh': "👩🏽‍💻 <b>启动</b> @{0}-bot..\n#duration 0 分钟",
-    'ar': "👩🏽‍💻 <b>الإطلاق</b> @{0}-bot..\n#duration 0 دقيقة",
-}
-l_bot_on_handler_done = {
-    'ru': "👩🏽‍💻 <b>@{0}</b>-@tg-приложение запущено",
-    'en': "👩🏽‍💻 <b>@{0}</b>-bot launched",
-    'es': "👩🏽‍💻 <b>@{0}</b>-bot lanzado",
-    'fr': "👩🏽‍💻 <b>@{0}</b>-bot lancé",
-    'zh': "👩🏽‍💻 <b>@{0}</b>-机器人已启动",
-    'ar': "👩🏽‍💻 <b>@{0}</b>-تم إطلاق الروبوت",
-}
-l_bot_on_handler_already = {
-    'ru': "👩🏽‍💻 <b>@{0}</b>-@tg-приложение уже запущено",
-    'en': "👩🏽‍💻 <b>@{0}</b>-bot is already running",
-    'es': "👩🏽‍💻 <b>@{0}</b>-bot ya se está ejecutando",
-    'fr': "👩🏽‍💻 <b>@{0}</b>-bot est déjà en cours d'exécution",
-    'zh': "👩🏽‍💻 <b>@{0}</b>-机器人已在运行",
-    'ar': "👩🏽‍💻 <b>@{0}</b>-البوت قيد التشغيل بالفعل",
-}
-l_bot_off_handler = {
-    'ru': "👩🏽‍💻 <b>Остановка</b> @{0}-@tg-приложения..\n#длительность 0мин",
-    'en': "👩🏽‍💻 <b>Stop</b> @{0}-bot..\n#duration 0 min",
-    'es': "👩🏽‍💻 <b>Detener</b> @{0}-bot..\n#duration 0 min",
-    'fr': "👩🏽‍💻 <b>Arrêter</b> @{0}-bot..\n#durée 0 min",
-    'zh': "👩🏽‍💻 <b>停止</b> @{0}-bot..\n#duration 0 分钟",
-    'ar': "👩🏽‍💻 <b>توقف</b> @{0}-bot..\n#duration 0 min",
-}
-l_bot_off_handler_already = {
-    'ru': "👩🏽‍💻 <b>@{0}</b>-@tg-приложение уже выключено",
-    'en': "👩🏽‍💻 <b>@{0}</b>-bot is already turned off",
-    'es': "👩🏽‍💻 <b>@{0}</b>-bot ya está desactivado",
-    'fr': "👩🏽‍💻 <b>@{0}</b>-bot est déjà désactivé",
-    'zh': "👩🏽‍💻 <b>@{0}</b>-机器人已关闭",
-    'ar': "👩🏽‍💻 <b>@{0}</b>-تم إيقاف تشغيل الروبوت بالفعل",
-}
-l_bot_off_handler_done = {
-    'ru': "👩🏽‍💻 <b>@{0}</b>-@tg-приложение выключено",
-    'en': "👩🏽‍💻 <b>@{0}</b>-bot is turned off",
-    'es': "👩🏽‍💻 <b>@{0}</b>-bot está desactivado",
-    'fr': "👩🏽‍💻 <b>@{0}</b>-bot est désactivé",
-    'zh': "👩🏽‍💻 <b>@{0}</b>-机器人已关闭",
-    'ar': "👩🏽‍💻 <b>@{0}</b>-تم إيقاف تشغيل الروبوت",
-}
-l_bot_restart_handler = {
-    'ru': "👩🏽‍💻 <b>Перезапуск</b> @{0}-@tg-приложения..\n#длительность 0мин",
-    'en': "👩🏽‍💻 <b>Restart</b> @{0}-bot..\n#duration 0 min",
-    'es': "👩🏽‍💻 <b>Reiniciar</b> @{0}-bot..\n#duration 0 min",
-    'fr': "👩🏽‍💻 <b>Redémarrer</b> @{0}-bot..\n#durée 0 min",
-    'zh': "👩🏽‍💻 <b>重新启动</b> @{0}-bot..\n#duration 0 分钟",
-    'ar': "👩🏽‍💻 <b>إعادة التشغيل</b> @{0}-bot..\n#duration 0 min",
-}
-l_bot_update_users = {
-    'ru': "👩🏽‍💻 <b>Загружено</b> пользователей в @{0}-бота: <u>{1}</u>\n\n<blockquote>👩🏽‍💻 <b>Корректность</b> данных о пользователях обновляется: <i>автоматически, периодически и непрерывно</i></blockquote>",
-    'en': "👩🏽‍💻 <b>Loaded</b> users into @{0}-bot: <u>{1}</u>\n\n👩🏽‍💻 <b>Correctness</b> of user data is being updated : <i>automatically, periodically and continuously</i>",
-    'es': "👩🏽‍💻 Usuarios <b>cargados</b> en {0}-bot: <u>{1}</u>\n\n👩🏽‍💻 La <b>corrección</b> de los datos del usuario es siendo actualizado: <i>automática, periódicamente y continuamente</i>",
-    'fr': "👩🏽‍💻 <b>Utilisateurs chargés</b> dans {0}-bot : <u>{1}</u>\n\n👩🏽‍💻 <b>L'exactitude</b> des données utilisateur est en cours de mise à jour : <i>automatiquement, périodiquement et continuellement</i>",
-    'zh': "👩🏽‍💻 <b>已将</b>个用户加载到 {0}-bot 中：<u>{1}</u>\n\n👩🏽‍💻 用户数据的<b>正确性</b>为正在更新：<i>自动、定期、持续</i>",
-    'ar': "👩🏽‍💻 <b>تم تحميل</b> المستخدمين إلى {0}-bot: <u>{1}</u>\n\n👩🏽‍💻 <b>صحة</b> بيانات المستخدم هي يتم تحديثه: <i>تلقائيًا ودوريًا ومستمرًا</i>",
-}
-l_bot_transfer_to = {
-    'ru': "👩🏽‍💻 @{0}-@tg-приложение - успешно передано пользователю: <code>{1}</code>",
-    'en': "👩🏽‍💻 @{0}-successfully transferred to the user: <code>{1}</code>",
-    'es': "👩🏽‍💻 @{0}-transferido exitosamente al usuario: <code>{1}</code>",
-    'fr': "👩🏽‍💻 @{0}-transféré avec succès à l'utilisateur : <code>{1}</code>",
-    'zh': "👩🏽‍💻 @{0}-已成功转移给用户：<code>{1}</code>",
-    'ar': "👩🏽‍💻 @{0}-تم النقل بنجاح إلى المستخدم: <code>{1}</code>",
-}
-l_bot_transfer_from = {
-    'ru': "👩🏽‍💻 @{0}-@tg-приложение - успешно получено от пользователя: <code>{1}</code>",
-    'en': "👩🏽‍💻 @{0}-successfully received from user: <code>{1}</code>",
-    'es': "👩🏽‍💻 @{0}-recibido exitosamente del usuario: <code>{1}</code>",
-    'fr': "👩🏽‍💻 @{0}-reçu avec succès de l'utilisateur : <code>{1}</code>",
-    'zh': "👩🏽‍💻 @{0}-成功收到来自用户的消息：<code>{1}</code>",
-    'ar': "👩🏽‍💻 @{0}-تم الاستلام بنجاح من المستخدم: <code>{1}</code>",
-}
-l_bot_transfer_text = {
-    'ru': "👩🏽‍💻 <b>Для</b> передачи admin-прав в @{0}-боте используй команду:\n/transfer ID-ПОЛЬЗОВАТЕЛЯ, где пользователь: участник @{0}-бота и участник @{1}-бота (/id)\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>To</b> transfer admin rights to the @{0}-bot, use the command:\n/transfer USER-ID, where the user is: @{0}-bot member and @{1} member-bot (/id)\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador al @{0}-bot, utilice el comando:\n/transfer USER-ID, donde el usuario es: @{0}-bot member y @ {1} miembro-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur au @{0}-bot, utilisez la commande :\n/transfer USER-ID, où l'utilisateur est : @{0}-membre du bot et @ {1} membre-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>要将管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户是：@{0}-bot 成员和 @ {1} member-bot (/id)\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق المسؤول إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث يكون المستخدم: @{0}-bot member و@ {1} عضو-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-
-l_bot_short_error = {
-    'ru': "👩🏽‍💻 <b>Введи</b> текст <i>описания</i> (до 120 символов) профиля @{0}-бота c помощью команды: <code>/short TEXT</code>",
-    'en': "👩🏽‍💻 <b>To</b> transfer admin rights to the @{0}-bot, use the command:\n/transfer USER-ID, where the user is: @{0}-bot member and @{1} member-bot (/id)\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador al @{0}-bot, utilice el comando:\n/transfer USER-ID, donde el usuario es: @{0}-bot member y @ {1} miembro-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur au @{0}-bot, utilisez la commande :\n/transfer USER-ID, où l'utilisateur est : @{0}-membre du bot et @ {1} membre-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>要将管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户是：@{0}-bot 成员和 @ {1} member-bot (/id)\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق المسؤول إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث يكون المستخدم: @{0}-bot member و@ {1} عضو-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_bot_short_success = {
-    'ru': "👩🏽‍💻 <b>Текст описания</b> профиля @{0}-бота установлен:\n\n<code>{1}</code>",
-    'en': "👩🏽‍💻 <b>To</b> transfer admin rights to the @{0}-bot, use the command:\n/transfer USER-ID, where the user is: @{0}-bot member and @{1} member-bot (/id)\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador al @{0}-bot, utilice el comando:\n/transfer USER-ID, donde el usuario es: @{0}-bot member y @ {1} miembro-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur au @{0}-bot, utilisez la commande :\n/transfer USER-ID, où l'utilisateur est : @{0}-membre du bot et @ {1} membre-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>要将管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户是：@{0}-bot 成员和 @ {1} member-bot (/id)\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق المسؤول إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث يكون المستخدم: @{0}-bot member و@ {1} عضو-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_bot_desc_error = {
-    'ru': "👩🏽‍💻 <b>Введи</b> текст <i>описания</i> (до 512 символов) @{0}-бота перед /start-запуском c помощью команды: <code>/desc TEXT</code>",
-    'en': "👩🏽‍💻 <b>To</b> transfer admin rights to the @{0}-bot, use the command:\n/transfer USER-ID, where the user is: @{0}-bot member and @{1} member-bot (/id)\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador al @{0}-bot, utilice el comando:\n/transfer USER-ID, donde el usuario es: @{0}-bot member y @ {1} miembro-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur au @{0}-bot, utilisez la commande :\n/transfer USER-ID, où l'utilisateur est : @{0}-membre du bot et @ {1} membre-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>要将管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户是：@{0}-bot 成员和 @ {1} member-bot (/id)\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق المسؤول إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث يكون المستخدم: @{0}-bot member و@ {1} عضو-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_bot_desc_success = {
-    'ru': "👩🏽‍💻 <b>Текст описания</b> @{0}-бота перед /start-запуском установлен:\n\n<code>{1}</code>",
-    'en': "👩🏽‍💻 <b>To</b> transfer admin rights to the @{0}-bot, use the command:\n/transfer USER-ID, where the user is: @{0}-bot member and @{1} member-bot (/id)\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador al @{0}-bot, utilice el comando:\n/transfer USER-ID, donde el usuario es: @{0}-bot member y @ {1} miembro-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur au @{0}-bot, utilisez la commande :\n/transfer USER-ID, où l'utilisateur est : @{0}-membre du bot et @ {1} membre-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>要将管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户是：@{0}-bot 成员和 @ {1} member-bot (/id)\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق المسؤول إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث يكون المستخدم: @{0}-bot member و@ {1} عضو-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-# endregion
-
 
 # region bot
 l_bot_config = {
@@ -3373,576 +3210,31 @@ l_transfer_success = {
     'zh': "👩🏽‍💻 <b>@{0}-bot 的所有权</b>已成功转移至@{1}-账户！\n\n👩🏽‍💻 现在您可以使用@botfather-bot 进行转移权限/设置",
     'ar': "👩🏽‍💻 <b>حقوق الملكية</b> لـ @{0}-bot تم نقلها بنجاح إلى @{1}-account!\n\n👩🏽‍💻 الآن يمكنك استخدام @botfather-bot للنقل الحقوق/الإعداد",
 }
-# endregion
 
-
-# region config
-# region cpost_
-l_pstsound = {
-    'ru': "🔈 <b>Жми</b> на ✅/🔘, чтобы <b>Вкл/Выкл</b> режим отправки со звуком <i>по умолчанию</i>/<i>тихий режим</i> без звука/<i>закреп-пин</i>\n\n<blockquote>[✅ Закреп] оповещает пользователя при отключенных уведомлениях</blockquote>",
-    'en': "🔈 <b>Press</b> on ✅/🔘 to <b>On/Off</b> sending mode with sound <i>default</i>/<i>quiet mode</i> without sound/ <i>pinned-pin</i>\n\n📍 <b>Mode</b> [✅ Pinned]-allows you to notify the user even when notifications are turned off",
-    'es': "🔈 <b>Presione</b> en ✅/🔘 para <b>Activar/Desactivar</b> modo de envío con sonido <i>predeterminado</i>/<i>modo silencioso</i> sin sonido/ <i>pinned-pin</i>\n\n📍 <b>Modo</b> [✅ Fijado]-le permite notificar al usuario incluso cuando las notificaciones están desactivadas",
-    'fr': "🔈 <b>Appuyez</b> sur ✅/🔘 pour <b>On/Off</b> mode d'envoi avec son <i>par défaut</i>/<i>mode silencieux</i> sans son/ <i>épinglé-épinglé</i>\n\n📍 <b>Mode</b> [✅ Épinglé]-vous permet d'avertir l'utilisateur même lorsque les notifications sont désactivées",
-    'zh': "🔈 <b>按</b> ✅/🔘 可以<b>开/关</b>有声音发送模式<i>默认</i>/<i>安静模式</i>无声音/<i>pinned-pin</i>\n\n📍<b>模式</b> [✅ Pinned]-即使通知关闭，您也可以通知用户",
-    'ar': "🔈 <b>اضغط</b> على ✅/🔘 لـ <b>تشغيل/إيقاف</b> وضع الإرسال مع الصوت <i>الافتراضي</i>/<i>الوضع الهادئ</i> بدون صوت/ <<i>pinned-pin</i>\n\n📍 <b>Mode</b> [✅ Pinned]-يسمح لك بإعلام المستخدم حتى عند إيقاف تشغيل الإشعارات",
+l_bot_transfer_to = {
+    'ru': "👩🏽‍💻 @{0}-@tg-приложение - успешно передано пользователю: <code>{1}</code>",
+    'en': "👩🏽‍💻 @{0}-successfully transferred to the user: <code>{1}</code>",
+    'es': "👩🏽‍💻 @{0}-transferido exitosamente al usuario: <code>{1}</code>",
+    'fr': "👩🏽‍💻 @{0}-transféré avec succès à l'utilisateur : <code>{1}</code>",
+    'zh': "👩🏽‍💻 @{0}-已成功转移给用户：<code>{1}</code>",
+    'ar': "👩🏽‍💻 @{0}-تم النقل بنجاح إلى المستخدم: <code>{1}</code>",
+}
+l_bot_transfer_from = {
+    'ru': "👩🏽‍💻 @{0}-@tg-приложение - успешно получено от пользователя: <code>{1}</code>",
+    'en': "👩🏽‍💻 @{0}-successfully received from user: <code>{1}</code>",
+    'es': "👩🏽‍💻 @{0}-recibido exitosamente del usuario: <code>{1}</code>",
+    'fr': "👩🏽‍💻 @{0}-reçu avec succès de l'utilisateur : <code>{1}</code>",
+    'zh': "👩🏽‍💻 @{0}-成功收到来自用户的消息：<code>{1}</code>",
+    'ar': "👩🏽‍💻 @{0}-تم الاستلام بنجاح من المستخدم: <code>{1}</code>",
+}
+l_bot_transfer_text = {
+    'ru': "👩🏽‍💻 <b>Для</b> передачи admin-прав в @{0}-боте используй команду:\n/transfer ID-ПОЛЬЗОВАТЕЛЯ, где пользователь: участник @{0}-бота и участник @{1}-бота (/id)\n\n⚙️ <b>Команды</b> /cmd",
+    'en': "👩🏽‍💻 <b>To</b> transfer admin rights to the @{0}-bot, use the command:\n/transfer USER-ID, where the user is: @{0}-bot member and @{1} member-bot (/id)\n\n⚙️ <b>Commands</b> /cmd",
+    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador al @{0}-bot, utilice el comando:\n/transfer USER-ID, donde el usuario es: @{0}-bot member y @ {1} miembro-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
+    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur au @{0}-bot, utilisez la commande :\n/transfer USER-ID, où l'utilisateur est : @{0}-membre du bot et @ {1} membre-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
+    'zh': "👩🏽‍💻 <b>要将管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户是：@{0}-bot 成员和 @ {1} member-bot (/id)\n\n⚙️ <b>命令</b> /cmd",
+    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق المسؤول إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث يكون المستخدم: @{0}-bot member و@ {1} عضو-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd",
 }
-l_pstmedia_bot = {
-    'ru': "👩🏽‍💻 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b>: <i>превью-предпросмотр</i>/<i>спойлер-скрытый</i>/<i>галерея</i>/<i>формат</i>/<i>реакция</i>\n\n<blockquote>[<b>✅ превью</b>] помещает медиа-контент под текстом\n[<b>✅ формат</b>] рандомные стили текста\n[<b>✅ реакция</b>] рандомная реакция\n[<b>✅ эффект</b>] рандомный эффект</blockquote>",
-    'en': "👩🏽‍💻 <b>Press</b> on ✅/☑️ to <b>On/Off</b> post viewing mode: <i>preview</i>/<i>spoiler-hidden</ i>/<i>gallery</i>/<i>format</i>/<i>podcast</i>\n\n[✅ preview]-mode places media content <i>(jpg/gif /mp4 up to 5 MB)</i>under the text\n[✅ format]-mode applies random styles to the post",
-    'es': "👩🏽‍💻 <b>Presiona</b> en ✅/☑️ para <b>Activar/Desactivar</b> el modo de visualización de publicaciones: <i>vista previa</i>/<i>spoiler oculto</ i> /<i>galería</i>/<i>formato</i>/<i>podcast</i>\n\n[✅ vista previa]: el modo coloca el contenido multimedia <i>(jpg/gif /mp4 arriba a 5 MB)</i>bajo el modo texto\n[✅ formato] aplica estilos aleatorios a la publicación",
-    'fr': "👩🏽‍💻 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> le mode de visualisation des publications : <i>aperçu</i>/<i>spoiler caché</ i> /<i>galerie</i>/<i>format</i>/<i>podcast</i>\n\n[✅ aperçu]-le mode place le contenu multimédia <i>(jpg/gif /mp4 vers le haut à 5 Mo)</i>sous le mode texte\n[✅ format] applique des styles aléatoires à la publication",
-    'zh': "👩🏽‍💻 <b>按</b> ✅/☑️ 可以<b>开启/关闭</b>帖子查看模式：<i>预览</i>/<i>剧透隐藏</ i> /<i>图库</i>/<i>格​​式</i>/<i>播客</i>\n\n[✅ 预览]-模式放置媒体内容<i>(jpg/gif /mp4到 5 MB）</i>在文本下\n[✅ 格式]-模式对帖子应用随机样式",
-    'ar': "👩🏽‍💻 <b>اضغط</b> على ✅/☑️ لـ <b>تشغيل/إيقاف</b> وضع عرض المنشور: <i>معاينة</i>/<i>سبويلر مخفي</<i> /<i>المعرض</i>/<i>التنسيق</i>/<i>بودكاست</i>\n\n[✅ معاينة]-وضع وضع محتوى الوسائط <i>(jpg/gif /mp4 up إلى 5 ميغابايت)</i>تحت النص\n[✅ format]-يطبق الوضع أنماطًا عشوائية على المنشور",
-}
-l_pstmedia = {
-    'ru': "👩🏽‍💻 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b>: <i>превью-предпросмотр</i>/<i>спойлер-скрытый</i>/<i>галерея</i>/<i>формат</i>/<i>@tag</i>/<i>реакция</i>/<i>подкаст</i>\n\n<blockquote>[<b>✅ превью</b>] помещает медиа-контент под текстом\n[<b>✅ формат</b>] рандомные стили текста\n[<b>✅ @tag</b>] рандомное @упоминание\n[<b>✅ реакция</b>] рандомная реакция\n[<b>✅ эффект</b>] рандомный эффект\n[<b>✅ подкаст</b>] запуск подкаста с публикацией</blockquote>",
-    'en': "👩🏽‍💻 <b>Press</b> on ✅/☑️ to <b>On/Off</b> post viewing mode: <i>preview</i>/<i>spoiler-hidden</ i>/<i>gallery</i>/<i>format</i>/<i>podcast</i>\n\n[✅ preview]-mode places media content <i>(jpg/gif /mp4 up to 5 MB)</i>under the text\n[✅ format]-mode applies random styles to the post",
-    'es': "👩🏽‍💻 <b>Presiona</b> en ✅/☑️ para <b>Activar/Desactivar</b> el modo de visualización de publicaciones: <i>vista previa</i>/<i>spoiler oculto</ i> /<i>galería</i>/<i>formato</i>/<i>podcast</i>\n\n[✅ vista previa]: el modo coloca el contenido multimedia <i>(jpg/gif /mp4 arriba a 5 MB)</i>bajo el modo texto\n[✅ formato] aplica estilos aleatorios a la publicación",
-    'fr': "👩🏽‍💻 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> le mode de visualisation des publications : <i>aperçu</i>/<i>spoiler caché</ i> /<i>galerie</i>/<i>format</i>/<i>podcast</i>\n\n[✅ aperçu]-le mode place le contenu multimédia <i>(jpg/gif /mp4 vers le haut à 5 Mo)</i>sous le mode texte\n[✅ format] applique des styles aléatoires à la publication",
-    'zh': "👩🏽‍💻 <b>按</b> ✅/☑️ 可以<b>开启/关闭</b>帖子查看模式：<i>预览</i>/<i>剧透隐藏</ i> /<i>图库</i>/<i>格​​式</i>/<i>播客</i>\n\n[✅ 预览]-模式放置媒体内容<i>(jpg/gif /mp4到 5 MB）</i>在文本下\n[✅ 格式]-模式对帖子应用随机样式",
-    'ar': "👩🏽‍💻 <b>اضغط</b> على ✅/☑️ لـ <b>تشغيل/إيقاف</b> وضع عرض المنشور: <i>معاينة</i>/<i>سبويلر مخفي</<i> /<i>المعرض</i>/<i>التنسيق</i>/<i>بودكاست</i>\n\n[✅ معاينة]-وضع وضع محتوى الوسائط <i>(jpg/gif /mp4 up إلى 5 ميغابايت)</i>تحت النص\n[✅ format]-يطبق الوضع أنماطًا عشوائية على المنشور",
-}
-l_mode_spoiler = {
-    'ru': "👩🏽‍💻 Режим [✅ спойлер] доступен для фото/гиф/видео-форматов",
-    'en': "👩🏽‍💻 [✅ spoiler] mode is available for photo/GIF/video formats",
-    'es': "👩🏽‍💻 El modo [✅ spoiler] está disponible para formatos de foto/GIF/vídeo",
-    'fr': "👩🏽‍💻 Le mode [✅ spoiler] est disponible pour les formats photo/GIF/vidéo",
-    'zh': "👩🏽‍💻【✅剧透】模式适用于照片/GIF/视频格式",
-    'ar': "👩🏽‍💻 وضع ​​[✅ المفسد] متاح لتنسيقات الصور / GIF / الفيديو",
-}
-l_mode_album = {
-    'ru': "👩🏽‍💻 Режим [✅ альбом] доступен для фото/видео/аудио/документов",
-    'en': "👩🏽‍💻 [✅ album] mode available for photos/videos/audio/documents",
-    'es': "👩🏽‍💻 Modo [✅ álbum] disponible para fotos/videos/audio/documentos",
-    'fr': "👩🏽‍💻 Mode [✅ album] disponible pour les photos/vidéos/audio/documents",
-    'zh': "👩🏽‍💻【✅相册】模式可用于照片/视频/音频/文档",
-    'ar': "👩🏽‍💻 وضع ​​[✅ الألبوم] متاح للصور/مقاطع الفيديو/الصوت/المستندات",
-}
-l_mode_gallery = {
-    'ru': "👩🏽‍💻 Режим [✅ галерея] доступен для фото/видео/аудио/документов",
-    'en': "👩🏽‍💻 [✅ gallery] mode available for photos/videos/audio/documents",
-    'es': "👩🏽‍💻 Modo [✅ galería] disponible para fotos/videos/audio/documentos",
-    'fr': "👩🏽‍💻 Mode [✅ galerie] disponible pour les photos/vidéos/audio/documents",
-    'zh': "👩🏽‍💻 [✅ 图库] 模式可用于照片/视频/音频/文档",
-    'ar': "👩🏽‍💻 وضع ​​[✔ المعرض] متاح للصور/مقاطع الفيديو/الصوت/المستندات",
-}
-# endregion
-
-
-# region ctranslate_
-l_ctranslate_text = {
-    'ru': "文 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> авто-перевод для <i>исходящих</i> сообщений бота на язык пользователя при /start-запуске бота\n(<i>в том числе текста кнопок</i>)",
-    'en': "文 <b>Press</b> on ✅/☑️ to <b>On/Off</b> automatic translation for <i>outgoing</i> bot messages into the user’s language when /starting the bot\n(<i>including button text</i>)",
-    'es': "文 <b>Presione</b> en ✅/☑️ para <b>activar/desactivar</b> la traducción automática de los mensajes del bot <i>salientes</i> al idioma del usuario al iniciar el bot\n(<i>incluido el texto del botón</i>)",
-    'fr': "文 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> la traduction automatique des messages <i>sortants</i> du bot dans la langue de l'utilisateur lors du /démarrage du bot\n(<i>y compris le texte du bouton</i>)",
-    'zh': "文<b>按</b> ✅/☑️ 可以<b>开启/关闭</b>在/启动机器人时将<i>传出</i>机器人消息自动翻译为用户的语言\n(<i>包括按钮文本</i>)",
-    'ar': "文 <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> الترجمة التلقائية لرسائل الروبوت <i>الصادرة</i> إلى لغة المستخدم عند /بدء تشغيل الروبوت\n(< أنا>بما في ذلك نص الزر</i>)",
-}
-l_ctranslate_in_on = {
-    'ru': "✅☑Вкл перевод входящих",
-    'en': "✅☑On inbox translation",
-    'es': "✅☑En la traducción de la bandeja de entrada",
-    'fr': "✅☑Sur la traduction de la boîte de réception",
-    'zh': "✅☑关于收件箱翻译",
-    'ar': "✅☑في ترجمة البريد الوارد",
-}
-l_ctranslate_in_off = {
-    'ru': "☑️☐Выкл перевод входящих",
-    'en': "☑️☐Disable inbox transfer",
-    'es': "☑️☐Desactivar transferencia de bandeja de entrada",
-    'fr': "☑️☐Désactiver le transfert de la boîte de réception",
-    'zh': "☑️️禁用收件箱传输",
-    'ar': "☑️☐تعطيل نقل البريد الوارد",
-}
-l_ctranslate_out_on = {
-    'ru': "✅☑Вкл перевод исходящих",
-    'en': "✅☑On outgoing transfer",
-    'es': "✅☑En transferencia saliente",
-    'fr': "✅☑Sur virement sortant",
-    'zh': "✅☑关于汇出转账",
-    'ar': "✅☑عند التحويل الصادر",
-}
-l_ctranslate_out_off = {
-    'ru': "☑️☐Выкл перевод исходящих",
-    'en': "☑️☐Disable outgoing transfer",
-    'es': "☑️☐Desactivar transferencia saliente",
-    'fr': "☑️☐Désactiver le transfert sortant",
-    'zh': "☑️️禁用传出转账",
-    'ar': "☑️☐تعطيل النقل الصادر",
-}
-# endregion
-
-
-# region canswer_
-l_canswer_text = {
-    'ru': "💭 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> режим #нейро-ответа на сообщения пользователя в @{0} с помощью нейросети\n\n<blockquote>на основе описания/постов/контента всех блоков</blockquote>",
-    'en': "💭 <b>Press</b> on ✅/☑️ to <b>On/Off</b> neuro-response mode to user messages in @{0} using a neural network (based on the description/posts/content of all blocks)",
-    'es': "💭 <b>Presione</b> en ✅/☑️ para <b>Activar/Desactivar</b> el modo de neurorespuesta a los mensajes de usuario en @{0} usando una red neuronal (según la descripción/publicaciones/contenido de todos los bloques)",
-    'fr': "💭 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> le mode de neuro-réponse aux messages des utilisateurs dans @{0} en utilisant un réseau neuronal (en fonction de la description/des publications/du contenu de tous les blocs)",
-    'zh': "💭 <b>按</b> ✅/☑️ 以<b>开/关</b>神经响应模式使用神经网络对 @{0} 中的用户消息（基于描述/帖子/内容）所有块）",
-    'ar': "💭 <b>اضغط</b> على ✅/☑️ لـ <b>تشغيل/إيقاف</b> وضع الاستجابة العصبية لرسائل المستخدم في @{0} باستخدام الشبكة العصبية (استنادًا إلى الوصف/المشاركات/محتوى جميع الكتل)",
-}
-l_canswer_user_text = {
-    'ru': "💭 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> режим #нейро-ответа на сообщения пользователя с помощью нейросети\n\n<blockquote>на основе описания/постов/контента всех блоков</blockquote>",
-    'en': "💭 <b>Press</b> on ✅/☑️ to <b>On/Off</b> neuro-response mode to user messages using a neural network (based on the description/posts/content of all blocks)",
-    'es': "💭 <b>Presione</b> en ✅/☑️ para <b>Activar/Desactivar</b> el modo de neurorespuesta a los mensajes de los usuarios usando una red neuronal (basado en la descripción/publicaciones/contenido de todos los bloques)",
-    'fr': "💭 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> le mode neuro-réponse aux messages des utilisateurs utilisant un réseau neuronal (en fonction de la description/des publications/du contenu de tous les blocs)",
-    'zh': "💭 <b>按</b> ✅/☑️ 可以<b>开/关</b>使用神经网络对用户消息进行神经响应模式（基于所有块的描述/帖子/内容）",
-    'ar': "💭 <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> وضع الاستجابة العصبية لرسائل المستخدم باستخدام الشبكة العصبية (استنادًا إلى الوصف/المشاركات/محتوى جميع الكتل)",
-}
-# endregion
-
-
-# region cneuro_
-l_cneuro_text = {
-    'ru': "🦾 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> #нейро-постинг. Генерация текста/медиа на основе постов/описания/контента: <b>{0}</b>",
-    'en': "🦾 <b>Press</b> on ✅/☑️ to <b>On/Off</b> neuro-posting. Generate photo/text based on posts/descriptions/content: <b>{0}</b>",
-    'es': "🦾 <b>Presione</b> en ✅/☑️ para <b>activar/desactivar</b> la neuropublicación. Generar foto/texto basado en publicaciones/descripciones/contenido: <b>{0}</b>",
-    'fr': "🦾 <b>Appuyez</b> sur ✅/☑️ pour <b>On/Off</b> le neuro-posting. Générez une photo/un texte basé sur des publications/descriptions/contenu : <b>{0}</b>",
-    'zh': "🦾 <b>按</b> ✅/☑️ 可<b>开/关</b>神经发布。根据帖子/描述/内容生成照片/文本：<b>{0}</b>",
-    'ar': "🦾 <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> النشر العصبي. أنشئ صورة/نصًا استنادًا إلى المشاركات/الأوصاف/المحتوى: <b>{0}</b>",
-}
-l_cneuro_media = {
-    'ru': "🦾 1. <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> генерацию медиа на основе постов/описания/контента в <b>{0}</b>\n\n👩🏽‍💻 <b>Напиши</b> экстра-промпт, если необходимо\n\n<blockquote>жми «➡️️/Next», чтобы перейти к следующему шагу</blockquote>",
-    'en': "🦾 1. <b>Press</b> on ✅/☑️ to <b>On/Off</b> <u>photo</u> generation based on posts/descriptions/content in <b>{0}</b>\n\n👩🏽‍💻 <b>Write</b> an extra prompt if necessary\n\n(<i>click “➡️️/Next” to go to the next step</i>)",
-    'es': "🦾 1. <b>Presiona</b> en ✅/☑️ para <b>Activar/Desactivar</b> la generación de <u>foto</u> basada en publicaciones/descripciones/contenido en <b>{0}</b>\n\n👩🏽‍💻 <b>Escribe</b> un mensaje adicional si es necesario\n\n(<i>haz clic en “➡️️/Siguiente” para ir al siguiente paso</i>)",
-    'fr': "🦾 1. <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> la génération de <u>photo</u> en fonction des publications/descriptions/contenus dans <b>{0}</b>\n\n👩🏽‍💻 <b>Écrivez</b> une invite supplémentaire si nécessaire\n\n(<i>cliquez sur « ➡️️/Suivant » pour passer à l'étape suivante</i>)",
-    'zh': "🦾 1. <b>按</b> ✅/☑️ 可<b>开启/关闭</b><u>照片</u>根据<b>{0}<中的帖子/描述/内容生成/b>\n\n👩🏽‍💻<b>如有必要请编写</b>额外提示\n\n（<i>点击“➡️️/下一步”进入下一步</i>）",
-    'ar': "🦾 1. <b>اضغط</b> على ✅/☑️ لتشغيل <b>تشغيل/إيقاف</b> <u>صورة</u> بناءً على المنشورات/الأوصاف/المحتوى في <b>{0}</b>\n\n👩🏽‍💻 <b>اكتب</b> مطالبة إضافية إذا لزم الأمر\n\n(<i>انقر فوق '➡️️/التالي' للانتقال إلى الخطوة التالية</i>)",
-}
-l_cneuro_process = {
-    'ru': "🦾 <b>Генерация</b> <i>{0}</i>..\n#длительность 0мин",
-    'en': "🦾 <b>Generation</b> <i>{0}</i>..\n#duration 0 min",
-    'es': "🦾 <b>Generación</b> <i>{0}</i>..\n#duración 0 min",
-    'fr': "🦾 <b>Génération</b> <i>{0}</i>..\n#durée 0 min",
-    'zh': "🦾 <b>一代</b> <i>{0}</i>..\n#duration 0 分钟",
-    'ar': "🦾 <b>الجيل</b> <i>{0}</i>..\n#duration 0 min",
-}
-l_cneuro_error = {
-    'ru': "🦾 <b>Ошибка</b> генерации: попробуй еще раз или повтори позже",
-    'en': "🦾 <b>Error</b> generation: try again or try again later",
-    'es': "🦾 Generación de <b>Error</b>: inténtalo de nuevo o inténtalo más tarde",
-    'fr': "🦾 Génération de <b>Erreur</b> : réessayez ou réessayez plus tard",
-    'zh': "🦾<b>错误</b>生成：重试或稍后重试",
-    'ar': "🦾 جيل <b>الخطأ</b>: حاول مرة أخرى أو حاول مرة أخرى لاحقًا",
-}
-l_cneuro_caption = {
-    'ru': "🦾 2. <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> генерацию <u>текста</u> на основе описания/контента в <b>{0}</b>\n\n👩🏽‍💻 <b>Напиши</b> экстра-промпт, если необходимо\n\n<blockquote>жми «➡️️/Next», чтобы перейти к следующему шагу</blockquote>",
-    'en': "🦾 2. <b>Press</b> on ✅/☑️ to <b>On/Off</b> generation of <u>text</u> based on the description and content of the account <b>{0}</b >\n\n👩🏽‍💻 <b>Write</b> an extra prompt, if necessary\n\n(<i>click “➡️️/Next” to go to the next step</i>)",
-    'es': "🦾 2. <b>Presiona</b> en ✅/☑️ para <b>activar/desactivar</b> la generación de <u>texto</u> según la descripción y el contenido de la cuenta <b>{0 }</b >\n\n👩🏽‍💻 <b>Escribe</b> un mensaje adicional, si es necesario\n\n(<i>haz clic en “➡️️/Siguiente” para ir al siguiente paso</ yo>)",
-    'fr': "🦾 2. <b>Appuyez</b> sur ✅/☑️ pour <b>On/Off</b> la génération de <u>texte</u> en fonction de la description et du contenu du compte <b>{0 </b>\n\n👩🏽‍💻 <b>Écrivez</b> une invite supplémentaire, si nécessaire\n\n(<i>cliquez sur « ➡️️/Suivant » pour passer à l'étape suivante</ je>)",
-    'zh': "🦾 2. <b>按</b> ✅/☑️ 可根据帐户的描述和内容<b>打开/关闭</b>生成<u>文本</u><b>{0 }</b >\n\n👩🏽‍💻 <b>编写</b>额外的提示（如有必要）\n\n（<i>点击“➡️️/下一步”进入下一步</我>)",
-    'ar': "🦾 2. <b>اضغط</b> على ✅/☑️ لتشغيل <b>تشغيل/إيقاف</b> إنشاء <u>نص</u> بناءً على وصف الحساب ومحتواه <b>{0 }</b >\n\n👩🏽‍💻 <b>اكتب</b> مطالبة إضافية، إذا لزم الأمر\n\n(<i>انقر فوق '➡️️/التالي' للانتقال إلى الخطوة التالية</ أنا>)",
-}
-l_cneuro_isnotpaid = {
-    'ru': "🦾 Без подписки доступна генерация:\nтекст/аудио/голосовое",
-    'en': "🦾 <b>Error</b> generation: try again or try again later",
-    'es': "🦾 Generación de <b>Error</b>: inténtalo de nuevo o inténtalo más tarde",
-    'fr': "🦾 Génération de <b>Erreur</b> : réessayez ou réessayez plus tard",
-    'zh': "🦾<b>错误</b>生成：重试或稍后重试",
-    'ar': "🦾 جيل <b>الخطأ</b>: حاول مرة أخرى أو حاول مرة أخرى لاحقًا",
-}
-# endregion
-
-
-# region cpayment_
-l_cpayment_alert_crypto = {
-    'ru': "💎️ Жми на [💎 Крипто], чтобы настроить крипто-адрес",
-    'en': "💳️ You need to ⚙️Set up at least one payment token",
-    'es': "💳️ Debes ⚙️Configurar al menos un token de pago",
-    'fr': "💳️ Vous devez ⚙️Configurer au moins un jeton de paiement",
-    'zh': "💳️您需要⚙️设置至少一个支付令牌",
-    'ar': "💳️ تحتاج إلى ⚙️ إعداد رمز دفع واحد على الأقل",
-}
-l_cpayment_alert_token = {
-    'ru': "💳️ Жми на [💳️ Карта банка], чтобы настроить платежный токен",
-    'en': "💳️ You need to ⚙️Set up at least one payment token",
-    'es': "💳️ Debes ⚙️Configurar al menos un token de pago",
-    'fr': "💳️ Vous devez ⚙️Configurer au moins un jeton de paiement",
-    'zh': "💳️您需要⚙️设置至少一个支付令牌",
-    'ar': "💳️ تحتاج إلى ⚙️ إعداد رمز دفع واحد على الأقل",
-}
-l_cpayment_text = {
-    'ru': "💳️ <b>Жми</b> на [💎 Крипто-кошелек]/[💳 Карта банка], чтобы настроить платежи в @{0}-боте {3}\n\n<blockquote>💎 <b>Текущий</b> крипто-адрес:\n<code>{1}</code></blockquote>\n\n<blockquote>💳 <b>Текущий</b> платежный токен:\n<code>{2}</code></blockquote>",
-    'en': "💳️ <b>Click</b> on ✅/☑️ to <b>On/Off</b> payments in @{0}-bot\n\n👩🏽‍💻 <b>Current</b> payment token :\n{1}",
-    'es': "💳️ <b>Haga clic</b> en ✅/☑️ para <b>activar/desactivar</b> pagos en @{0}-bot\n\n👩🏽‍💻 Token de pago <b>actual</b> :\n{1}",
-    'fr': "💳️ <b>Cliquez<l_cpayment_text_landing/b> sur ✅/☑️ pour <b>Activer/Désactiver</b> les paiements dans @{0}-bot\n\n👩🏽‍💻 Jeton de paiement <b>Actuel</b> :\n{1}",
-    'zh': "💳️ <b>点击</b> ✅/☑️ 在 @{0}-bot 中<b>开启/关闭</b>付款\n\n👩🏽‍💻 <b>当前</b>付款令牌:\n{1}",
-    'ar': "💳️ <b>انقر</b> على ✅/☑️ <b>تشغيل/إيقاف</b> الدفعات في رمز الدفع @{0}-bot\n\n👩🏽‍💻 <b>الحالي</b> :\n{1}",
-}
-l_cpayment_text_landing = {
-    'ru': "\n\n<blockquote><a href='https://t.me/FereyBotBot/web?startapp={0}_donations'>💎 Ссылка на веб3ᵀᴼᴺ-донаты</a></blockquote>",
-    'en': "💳️ <b>Click</b> on ✅/☑️ to <b>On/Off</b> payments in @{0}-bot\n\n👩🏽‍💻 <b>Current</b> payment token :\n{1}",
-    'es': "💳️ <b>Haga clic</b> en ✅/☑️ para <b>activar/desactivar</b> pagos en @{0}-bot\n\n👩🏽‍💻 Token de pago <b>actual</b> :\n{1}",
-    'fr': "💳️ <b>Cliquez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> les paiements dans @{0}-bot\n\n👩🏽‍💻 Jeton de paiement <b>Actuel</b> :\n{1}",
-    'zh': "💳️ <b>点击</b> ✅/☑️ 在 @{0}-bot 中<b>开启/关闭</b>付款\n\n👩🏽‍💻 <b>当前</b>付款令牌:\n{1}",
-    'ar': "💳️ <b>انقر</b> على ✅/☑️ <b>تشغيل/إيقاف</b> الدفعات في رمز الدفع @{0}-bot\n\n👩🏽‍💻 <b>الحالي</b> :\n{1}",
-}
-l_cpayment_btn_crypto = {
-    'ru': "💎 Крипто-кошелек",
-    'en': "💳️ You need to ⚙️Set up at least one payment token",
-    'es': "💳️ Debes ⚙️Configurar al menos un token de pago",
-    'fr': "💳️ Vous devez ⚙️Configurer au moins un jeton de paiement",
-    'zh': "💳️您需要⚙️设置至少一个支付令牌",
-    'ar': "💳️ تحتاج إلى ⚙️ إعداد رمز دفع واحد على الأقل",
-}
-l_cpayment_btn_card = {
-    'ru': "💳 Карта банка",
-    'en': "💳️ You need to ⚙️Set up at least one payment token",
-    'es': "💳️ Debes ⚙️Configurar al menos un token de pago",
-    'fr': "💳️ Vous devez ⚙️Configurer au moins un jeton de paiement",
-    'zh': "💳️您需要⚙️设置至少一个支付令牌",
-    'ar': "💳️ تحتاج إلى ⚙️ إعداد رمز دفع واحد على الأقل",
-}
-l_cpayment_crypto = {
-    'ru': "💎 <b>Вставь</b> адрес TON-кошелька\n\n<blockquote>👩🏽‍💻 <b>Например</b>\n<code>UQeG...KnNM</code>\n\n👩🏽‍💻 <b>Текущий</b> крипто-адрес:\n<code>{0}</code></blockquote>",
-    'en': "💳️ <b>Insert</b> payment token received from @BotFather-bot\n\n👩🏽‍💻 <b>For example</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >Current</b>token:\n{0}",
-    'es': "💳️ <b>Insertar</b> token de pago recibido de @BotFather-bot\n\n👩🏽‍💻 <b>Por ejemplo</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >Token</b>actual:\n{0}",
-    'fr': "💳️ <b>Insérer</b> le jeton de paiement reçu de @BotFather-bot\n\n👩🏽‍💻 <b>Par exemple</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >Jeton</b>actuel :\n{0}",
-    'zh': "💳️ <b>插入</b>从@BotFather-bot\n\n👩🏽‍💻 <b>例如</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >当前</b>令牌：\n{0}",
-    'ar': "💳️ <b>أدخل</b> رمز الدفع المستلم من @BotFather-bot\n\n👩🏽‍💻 <b>على سبيل المثال</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >الرمز</b>الحالي:\n{0}",
-}
-l_cpayment_token = {
-    'ru': "💳️ <b>Вставь</b> платежный токен, полученный из @BotFather-бота\n\n<blockquote>👩🏽‍💻 <b>Например</b>\n<code>401643678:7049d0b3-f0267096c4a1</code>\n\n👩🏽‍💻 <b>Текущий</b> токен:\n<code>{0}</code></blockquote>",
-    'en': "💳️ <b>Insert</b> payment token received from @BotFather-bot\n\n👩🏽‍💻 <b>For example</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >Current</b>token:\n{0}",
-    'es': "💳️ <b>Insertar</b> token de pago recibido de @BotFather-bot\n\n👩🏽‍💻 <b>Por ejemplo</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >Token</b>actual:\n{0}",
-    'fr': "💳️ <b>Insérer</b> le jeton de paiement reçu de @BotFather-bot\n\n👩🏽‍💻 <b>Par exemple</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >Jeton</b>actuel :\n{0}",
-    'zh': "💳️ <b>插入</b>从@BotFather-bot\n\n👩🏽‍💻 <b>例如</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >当前</b>令牌：\n{0}",
-    'ar': "💳️ <b>أدخل</b> رمز الدفع المستلم من @BotFather-bot\n\n👩🏽‍💻 <b>على سبيل المثال</b>\n401643678:7049d0b3-f0267096c4a1\n\n👩🏽‍💻 <b >الرمز</b>الحالي:\n{0}",
-}
-l_cpayment_crypto_done = {
-    'ru': "💎 <b>Готово!</b>\n\n👩🏽‍💻 <b>Текущий</b> крипто-адрес для @{0}-бота:\n\n<code>{1}</code>",
-    'en': "💳️ <b>Done!</b>\n\n👩🏽‍💻 <b>Current</b> payment token for @{0}-bot:\n\n{1}",
-    'es': "💳️ <b>¡Listo!</b>\n\n👩🏽‍💻 Token de pago <b>actual</b> para @{0}-bot:\n\n{1}",
-    'fr': "💳️ <b>Terminé !</b>\n\n👩🏽‍💻 <b>Jeton de paiement actuel</b> pour @{0}-bot :\n\n{1}",
-    'zh': "💳️ <b>完成！</b>\n\n👩🏽‍💻 @{0}-bot 的<b>当前</b>付款令牌：\n\n{1}",
-    'ar': "💳️ <b>تم!</b>\n\n👩🏽‍💻 رمز الدفع <b>الحالي</b> لـ @{0}-bot:\n\n{1}",
-}
-l_cpayment_token_done = {
-    'ru': "💳️ <b>Готово!</b>\n\n👩🏽‍💻 <b>Текущий</b> платежный токен для @{0}-бота:\n\n<code>{1}</code>",
-    'en': "💳️ <b>Done!</b>\n\n👩🏽‍💻 <b>Current</b> payment token for @{0}-bot:\n\n{1}",
-    'es': "💳️ <b>¡Listo!</b>\n\n👩🏽‍💻 Token de pago <b>actual</b> para @{0}-bot:\n\n{1}",
-    'fr': "💳️ <b>Terminé !</b>\n\n👩🏽‍💻 <b>Jeton de paiement actuel</b> pour @{0}-bot :\n\n{1}",
-    'zh': "💳️ <b>完成！</b>\n\n👩🏽‍💻 @{0}-bot 的<b>当前</b>付款令牌：\n\n{1}",
-    'ar': "💳️ <b>تم!</b>\n\n👩🏽‍💻 رمز الدفع <b>الحالي</b> لـ @{0}-bot:\n\n{1}",
-}
-# endregion
-
-
-# region cintegration_
-l_cintegration_alert = {
-    'ru': "🗝️ Нужно ⚙️Настроить ССЫЛКУ доступа",
-    'en': "🗝️ You need to ⚙️Set up an access LINK",
-    'es': "🗝️ Necesitas ⚙️Configurar un ENLACE de acceso",
-    'fr': "🗝️ Vous devez ⚙️Mettre en place un LIEN d'accès",
-    'zh': "🗝️您需要⚙️设置访问LINK",
-    'ar': "🗝️ أنت بحاجة إلى ⚙️ إعداد رابط الوصول",
-}
-l_cintegration_text = {
-    'ru': "🗝️ <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> crm-интеграцию базы пользователей с <i><b>google</b></i>\n\n<blockquote>[<b>{0}</b>] интеграция базы пользователей с <i>google-crm</i></blockquote>",
-    'en': "🗝️ <b>Press</b> on ✅/☑️ to <b>On/Off</b> crm-integration of the user base with <i><b>google</b>/<b>airtable</b> </i>\n\n👩🏽‍💻 For example, the [<b>{0}</b>] option means the ability to integrate the user database with <i>google-crm</i>",
-    'es': "🗝️ <b>Presione</b> en ✅/☑️ para <b>Activar/Desactivar</b> integración crm de la base de usuarios con <i><b>google</b>/<b>airtable</ b> </i>\n\n👩🏽‍💻 Por ejemplo, la opción [<b>{0}</b>] significa la capacidad de integrar la base de datos de usuarios con <i>google-crm</i>",
-    'fr': "🗝️ <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> l'intégration CRM de la base d'utilisateurs avec <i><b>google</b>/<b>airtable</ b> </i>\n\n👩🏽‍💻 Par exemple, l'option [<b>{0}</b>] signifie la possibilité d'intégrer la base de données des utilisateurs avec <i>google-crm</i>",
-    'zh': "🗝️ <b>按</b> ✅/☑️ <b>开启/关闭</b>用户群与 <i><b>google</b>/<b>airtable</b> 的 crm 集成b> </i>\n\n👩🏽‍💻 例如，[<b>{0}</b>] 选项表示能够将用户数据库与 <i>google-crm</i> 集成",
-    'ar': "🗝️ <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> تكامل crm لقاعدة المستخدمين مع <i><b>google</b>/<b>airtable</ b> </i>\n\n👩🏽‍💻 على سبيل المثال، الخيار [<b>{0}</b>] يعني القدرة على دمج قاعدة بيانات المستخدم مع <i>google-crm</i>",
-}
-
-l_cintegration_google_on = {
-    'ru': "✅☑Вкл google-crm",
-    'en': "✅☑Includes google-crm",
-    'es': "✅☑Incluye google crm",
-    'fr': "✅☑Comprend google-crm",
-    'zh': "✅☑包括 google-crm",
-    'ar': "✅☑يتضمن google-crm",
-}
-l_cintegration_google_off = {
-    'ru': "☑️☐Выкл google-crm",
-    'en': "☑️☐Выкл google-crm",
-    'es': "☑️☐Выкл google crm",
-    'fr': "☑️☐Выкл google-crm",
-    'zh': "☑️ Выкл 谷歌-crm",
-    'ar': "☑️☐Выкл google-crm",
-}
-l_cintegration_airtable_on = {
-    'ru': "✅☑Вкл airtable-crm",
-    'en': "✅☑Includes airtable-crm",
-    'es': "✅☑Incluye airtable-crm",
-    'fr': "✅☑Comprend airtable-crm",
-    'zh': "✅☑包括airtable-crm",
-    'ar': "✅☑يتضمن طاولة هوائية crm",
-}
-l_cintegration_airtable_off = {
-    'ru': "☑️☐Выкл airtable-crm",
-    'en': "☑️☐Выкл airtable-crm",
-    'es': "☑️☐Выкл airtable-crm",
-    'fr': "☑️☐Выкл airtable-crm",
-    'zh': "☑️ Выкл Airtable-crm",
-    'ar': "☑️☐Выкл airtable-crm",
-}
-
-l_cintegration_google = {
-    'ru': "🗝️ <b>Вставь ссылку</b> на пустую google-таблицу (<i>с открытым доступом для редактирования</i>) для интеграции с базой пользователей @{0}-бота\n\n<blockquote>👩🏽‍💻 <b>Например</b>, https://docs.google.com/spreadsheets/d/1aWGYLL0WWZP/edit?usp=sharing\n\n👩🏽‍💻 <b>Текущая</b> ссылка:\n{1}</blockquote>",
-    'en': "🗝️ <b>Insert a link</b> into an empty Google spreadsheet (<i>with open access for editing</i>) to integrate with the @{0}-bot user base\n\n👩🏽‍💻 <b >For example</b>, https://docs.google.com/spreadsheets/d/1aWGYLL0WWZP/edit?usp=sharing\n\n👩🏽‍💻 <b>Current</b> link:\n{1 }",
-    'es': "🗝️ <b>Inserte un enlace</b> en una hoja de cálculo de Google vacía (<i>con acceso abierto para editar</i>) para integrarlo con la base de usuarios del @{0}-bot\n\n👩🏽‍💻 <b >Por ejemplo</b>, https://docs.google.com/spreadsheets/d/1aWGYLL0WWZP/edit?usp=sharing\n\n👩🏽‍💻 Enlace <b>Actual</b>:\norte{1}",
-    'fr': "🗝️ <b>Insérez un lien</b> dans une feuille de calcul Google vide (<i>avec accès ouvert pour l'édition</i>) pour l'intégrer à la base d'utilisateurs @{0}-bot\n\n👩🏽‍💻 <b >Par exemple</b>, https://docs.google.com/spreadsheets/d/1aWGYLL0WWZP/edit?usp=sharing\n\n👩🏽‍💻 Lien <b>actuel</b> :\n{1 }",
-    'zh': "🗝️ <b>插入链接</b>到空的 Google 电子表格（<i>具有开放编辑权限</i>），以与 @{0}-bot 用户群集成\n\n👩🏽‍💻 <b>例如</b>， https://docs.google.com/spreadsheets/d/1aWGYLL0WWZP/edit ?usp=sharing\n\n👩🏽‍💻<b>当前</b>链接：\n{1}",
-    'ar': "🗝️ <b>أدخل رابطًا</b> في جدول بيانات Google فارغًا (<i>مع إمكانية الوصول المفتوح للتحرير</i>) للتكامل مع قاعدة مستخدمي @{0}-bot\n\n👩🏽‍💻 <b >على سبيل المثال</b>، https://docs.google.com/spreadsheets/d/1aWGYLL0WWZP/edit?usp=sharing\n\n👩🏽‍💻 الرابط <b>الحالي</b>: ن{1}",
-}
-l_cintegration_airtable = {
-    'ru': "🗝️ <b>Вставь ссылку</b> на пустую airtable-таблицу (<i>с открытым доступом для редактирования и любого e-mail</i>) для интеграции с базой пользователей @{0}-бота\n\n👩🏽‍💻 <b>Например</b>, https://airtable.com/invite/l?inviteId=inv4VGM&inviteToken=f1d31f9aba6b&utm_medium=email\n\n👩🏽‍💻 <b>Текущая</b> ссылка:\n{1}",
-    'en': "🗝️ <b>Insert a link</b> into an empty airtable table (<i>with open access for editing and any e-mail</i>) for integration with the @{0}-bot user base\n\n👩 🏽‍💻 <b>For example</b>, https://airtable.com/invite/l?inviteId=inv4VGM&inviteToken=f1d31f9aba6b&utm_medium=email\n\n👩🏽‍💻 <b>Current</b> link:\n{1}",
-    'es': "🗝️ <b>Inserte un enlace</b> en una tabla airtable vacía (<i>con acceso abierto para edición y cualquier correo electrónico</i>) para la integración con la base de usuarios @{0}-bot\n\n👩 🏽‍💻 <b>Por ejemplo</b>, https://airtable.com/invite/l?inviteId=inv4VGM&inviteToken=f1d31f9aba6b&utm_medium=email\n\n👩🏽‍💻 <b>Actual</b> enlace:\n{1}",
-    'fr': "🗝️ <b>Insérez un lien</b> dans une table airtable vide (<i>avec accès ouvert pour l'édition et tout e-mail</i>) pour l'intégration avec la base d'utilisateurs @{0}-bot\n\n👩 🏽‍💻 <b>Par exemple</b>, https://airtable.com/invite/l?inviteId=inv4VGM&inviteToken=f1d31f9aba6b&utm_medium=email\n\n👩🏽‍💻 <b>Actuel</b> lien :\n{1}",
-    'zh': "🗝️ <b>插入链接</b>到空的airtable表格中（<i>具有开放的编辑权限和任何电子邮件</i>），以便与@{0}-bot用户群集成\n\n👩 🏽‍💻 <b>例如</b>， https://airtable.com/invite/l? inviteId=inv4VGM&inviteToken=f1d31f9aba6b&utm_medium=email\n\n👩🏽‍💻<b>当前</b>链接：\n{1}",
-    'ar': "🗝️ <b>أدخل رابطًا</b> في جدول هوائي فارغ (<i>مع إمكانية الوصول المفتوح للتحرير وأي بريد إلكتروني</i>) للتكامل مع قاعدة مستخدمي @{0}-bot\n\n👩 🏽‍💻 <b>على سبيل المثال</b>، https://airtable.com/invite/l?inviteId=inv4VGM&inviteToken=f1d31f9aba6b&utm_medium=email\n\n👩🏽‍💻 <b>الحالي</b> الرابط: ن{1}",
-}
-l_cintegration_done = {
-    'ru': "🗝️ <b>Готово!</b>\n\n👩🏽‍💻 <b>Текущая</b> ссылка:\n{0}",
-    'en': "🗝️ <b>Done!</b>\n\n👩🏽‍💻 <b>Current</b> link:\n{0}",
-    'es': "🗝️ <b>¡Listo!</b>\n\n👩🏽‍💻 Enlace <b>Actual</b>:\n{0}",
-    'fr': "🗝️ <b>Terminé !</b>\n\n👩🏽‍💻 Lien <b>actuel</b> :\n{0}",
-    'zh': "🗝️ <b>完成！</b>\n\n👩🏽‍💻<b>当前</b>链接：\n{0}",
-    'ar': "🗝️ <b>تم!</b>\n\n👩🏽‍💻 الرابط <b>الحالي</b>:\n{0}",
-}
-# endregion
-
-
-# region cnotification_
-l_cnotification_text = {
-    'ru': "💬 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> оповещения о <i><b>/start-stop</b> запуске/блокировке бота пользователем и попадании пользователя в <b>/ban</b>-список/<b>нажатии</b> на кнопки пользователем/<b>диалоге</b> с администраторами/<b>всех</b> действиях пользователя</i>\n\n<blockquote>[<b>{0}</b>] пересылка сообщения пользователя администраторам бота (/admin) с возможностью <i>реплай-ответа</i></blockquote>",
-    'en': "💬 <b>Press</b> on ✅/☑️ to <b>On/Off</b> notifications about <i><b>/start-stop</b> the user starts/blocks the bot and the user gets into <b>/ban</b>-list/<b>clicking</b> buttons by the user/<b>dialog</b> with administrators/<b>all</b> user actions</i>\n\n👩🏽‍💻 [<b>{0}</b>] means displaying messages from the user to bot administrators (/admin) with the ability to <i>replay-reply</i> to messages",
-    'es': "💬 <b>Presione</b> en ✅/☑️ para <b>Activar/Desactivar</b> notificaciones sobre <i><b>/start-stop</b> el usuario inicia/bloquea el bot y el usuario entra en <b>/ban</b>-lista/<b>haciendo clic</b> en los botones del usuario/<b>diálogo</b> con los administradores/<b>todas</b> las acciones del usuario</ i>\n\n👩🏽‍💻 [<b>{0}</b>] significa mostrar mensajes del usuario a los administradores del bot (/admin) con la capacidad de <i>reproducir-responder</i> a mensajes",
-    'fr': "💬 <b>Appuyez</b> sur ✅/☑️ pour <b>On/Off</b> les notifications concernant <i><b>/start-stop</b> l'utilisateur démarre/bloque le bot et l'utilisateur entre dans la <b>/ban</b>-list/<b>clic</b> sur les boutons par l'utilisateur/<b>dialogue</b> avec les administrateurs/<b>toutes</b> les actions de l'utilisateur</ i>\n\n👩🏽‍💻 [<b>{0}</b>] signifie afficher les messages de l'utilisateur aux administrateurs de robots (/admin) avec la possibilité de <i>rejouer-répondre</i> à messages",
-    'zh': "💬 <b>按</b> ✅/☑️ 可<b>开/关</b>有关<i><b>/start-stop</b>用户启动/阻止机器人和用户的通知进入<b>/ban</b>-列表/<b>单击</b>用户按钮/<b>与管理员对话</b>/<b>所有</b>用户操作</ i>\n\n👩🏽‍💻 [<b>{0}</b>] 表示将用户发送给机器人管理员 (/admin) 的消息显示为能够<i>重播回复</i>消息",
-    'ar': "💬 <b>اضغط</b> على ✅/☑️ لـ <b>تشغيل/إيقاف</b> إشعارات حول <i><b>/start-stop</b> يقوم المستخدم بتشغيل/حظر الروبوت والمستخدم الدخول إلى <b>/ban</b>-list/<b>النقر</b> على الأزرار بواسطة المستخدم/<b>مربع الحوار</b> مع المسؤولين/<b>جميع</b> إجراءات المستخدم</<i>\n\n👩🏽‍💻 [<b>{0}</b>] يعني عرض الرسائل من المستخدم إلى مسؤولي الروبوت (/admin) مع إمكانية <i>إعادة التشغيل والرد</i> على رسائل",
-}
-l_cnotification_start_on = {
-    'ru': "✅☑Вкл /start-stop-/ban",
-    'en': "✅☑On /start-stop-/ban",
-    'es': "✅☑Activado /start-stop-/ban",
-    'fr': "✅☑On/start-stop-/ban",
-    'zh': "✅☑开启/开始-停止-/禁止",
-    'ar': "✅☑تشغيل/بدء-إيقاف-/حظر",
-}
-l_cnotification_start_off = {
-    'ru': "☑️☐Выкл /start-stop-/ban",
-    'en': "☑️☐Выкл /start-stop-/ban",
-    'es': "☑️☐Выкл /start-stop-/ban",
-    'fr': "☑️☐Выкл /start-stop-/ban",
-    'zh': "☑️ Выкл /开始-停止-/禁止",
-    'ar': "☑️☐Выкл /start-stop-/ban",
-}
-l_cnotification_push_on = {
-    'ru': "✅☑Вкл нажатие на кнопки",
-    'en': "✅☑Turn on by pressing buttons",
-    'es': "✅☑Enciende presionando botones",
-    'fr': "✅☑Allumez en appuyant sur les boutons",
-    'zh': "✅☑按下按钮即可开启",
-    'ar': "✅☑يتم التشغيل عن طريق الضغط على الأزرار",
-}
-l_cnotification_push_off = {
-    'ru': "☑️☐Выкл нажатие на кнопки",
-    'en': "☑️☐Off pressing buttons",
-    'es': "☑️☐Apagado presionando botones",
-    'fr': "☑️☐Arrêt d'appuyer sur les boutons",
-    'zh': "☑️️关闭按钮",
-    'ar': "☑️☐إيقاف الضغط على الأزرار",
-}
-
-l_cnotification_dialog_on = {
-    'ru': "✅☑Вкл диалог",
-    'en': "✅☑Dialogue included",
-    'es': "✅☑Diálogo incluido",
-    'fr': "✅☑Dialogue inclus",
-    'zh': "✅☑包含对话",
-    'ar': "✅☑الحوار متضمن",
-}
-l_cnotification_dialog_off = {
-    'ru': "☑️☐Выкл диалог",
-    'en': "☑️☐Disable dialogue",
-    'es': "☑️☐Desactivar diálogo",
-    'fr': "☑️☐Désactiver les dialogues",
-    'zh': "☑️️禁用对话",
-    'ar': "☑️☐تعطيل الحوار",
-}
-l_cnotification_all_on = {
-    'ru': "✅☑Вкл все действия",
-    'en': "✅☑Including all actions",
-    'es': "✅☑Incluyendo todas las acciones",
-    'fr': "✅☑Y compris toutes les actions",
-    'zh': "✅☑包括所有行动",
-    'ar': "✅☑شامل جميع الإجراءات",
-}
-l_cnotification_all_off = {
-    'ru': "☑️☐Выкл все действия",
-    'en': "☑️☐Turn off all actions",
-    'es': "☑️☐Desactiva todas las acciones",
-    'fr': "☑️☐Désactivez toutes les actions",
-    'zh': "☑️️关闭所有操作",
-    'ar': "☑️☐ قم بإيقاف جميع الإجراءات",
-}
-
-l_cnotification_dialog = {
-    'ru': "💬 <b>Пользователь</b>: {0} [<b>id</b>={1}] написал в @{2}-боте:",
-    'en': "💬 <b>User</b>: {0} [<b>id</b>={1}] wrote in @{2}-bot:",
-    'es': "💬 <b>Usuario</b>: {0} [<b>id</b>={1}] escribió en @{2}-bot:",
-    'fr': "💬 <b>Utilisateur</b> : {0} [<b>id</b>={1}] a écrit dans @{2}-bot :",
-    'zh': "💬 <b>用户</b>：{0} [<b>id</b>={1}] 在@{2}-bot 中写道：",
-    'ar': "💬 <b>المستخدم</b>: {0} [<b>id</b>={1}] كتب في @{2}-bot:",
-}
-# endregion
-
-
-# region cuser_
-l_cuser_text2 = {
-    'ru': "👥 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> <i>авто-замену голосовых/телескопов на <b>audio/video</b> (*рекомендуется, если premium-пользователи установили такой запрет)/сервисные <b>статусы</b> бота (печатает..записывает видео..)/ведение списка <b>/utm-рефералов</b></i>\n\n<blockquote>👩🏽‍💻 <b>Команды</b>:\n/cmd - все команды\n/parse - вывести всех пользователей\n/utm - вывести utm-рефералов</blockquote>",
-    'en': "👥 <b>Press</b> on ✅/☑️ to <b>On/Off</b> <i>auto-replacement of voice/telescopes with <b>audio/video</b> (*recommended if premium-users have set such a ban)/service <b>statuses</b> of the bot (types..records video..)/maintaining a list of <b>/utm-referrals</b></i>\n\n👩🏽 ‍💻 <b>Commands</b>:\n/cmd-all commands\n/parse-display all users\n/utm-display utm referrals\n/link-create a referral /utm link",
-    'es': "👥 <b>Presione</b> en ✅/☑️ para <b>Activar/Desactivar</b> <i>reemplazo automático de voz/telescopios con <b>audio/vídeo</b> (*recomendado si es premium-los usuarios han establecido dicha prohibición)/servicio <b>estados</b> del bot (tipos... graba vídeo...)/mantenimiento de una lista de <b>/utm-referrals</b></i>\n\n👩🏽 ‍💻 <b>Comandos</b>:\n/cmd-todos los comandos\n/parse-mostrar todos los usuarios\n/utm-mostrar referencias utm\n/link-crear una referencia /utm enlace",
-    'fr': "👥 <b>Appuyez</b> sur ✅/☑️ pour <b>On/Off</b> <i>remplacement automatique de la voix/télescopes par <b>audio/vidéo</b> (*recommandé si premium-les utilisateurs ont défini une telle interdiction)/service <b>statuts</b> du bot (types..enregistre la vidéo..)/maintien d'une liste de <b>/références utm</b></i>\n\n👩🏽 ‍💻 <b>Commandes</b> :\n/cmd-toutes les commandes\n/parse-afficher tous les utilisateurs\n/utm-afficher les références utm\n/lien-créer une référence /utm lien",
-    'zh': "👥 <b>按</b> ✅/☑️ <b>开/关</b> <i>用<b>音频/视频</b>自动替换语音/望远镜（*推荐如果高级-用户已设置此类禁令）/机器人的服务<b>状态</b>（类型..记录视频..）/维护<b>/utm-referrals</b></i>列表\n\n👩🏽 ‍💻 <b>命令</b>：\n/cmd-所有命令\n/parse-显示所有用户\n/utm-显示 utm 引用\n/link-创建引用 /utm关联",
-    'ar': "👥 <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> <i>الاستبدال التلقائي للصوت/التلسكوبات بـ <b>الصوت/الفيديو</b> (*يوصى به إذا كان الإصدار المميز-لقد وضع المستخدمون مثل هذا الحظر)/<b>حالات</b> خدمة الروبوت (الأنواع..تسجيلات الفيديو..)/الاحتفاظ بقائمة <b>/utm-referrals</b></i>\n\n👩🏽 ‍💻 <b>الأوامر</b>:\n/cmd-كافة الأوامر\n/parse-عرض كافة المستخدمين\n/utm-عرض إحالات utm\n/link-إنشاء إحالة /utm وصلة",
-}
-l_cuser_restricted_on = {
-    'ru': "✅☑Вкл audio/video замена",
-    'en': "✅☑Includes audio/video replacement",
-    'es': "✅☑Incluye reemplazo de audio/video",
-    'fr': "✅☑Comprend le remplacement audio/vidéo",
-    'zh': "✅☑包括音频/视频替换",
-    'ar': "✅☑يتضمن استبدال الصوت/الفيديو",
-}
-l_cuser_restricted_off = {
-    'ru': "☑️☐Выкл audio/video замена",
-    'en': "☑️☐Off audio/video replacement",
-    'es': "☑️☐Desactivado reemplazo de audio/vídeo",
-    'fr': "☑️☐Hors remplacement audio/vidéo",
-    'zh': "☑️☐关闭音频/视频替换",
-    'ar': "☑️☐إيقاف تشغيل استبدال الصوت/الفيديو",
-}
-l_cuser_status_on = {
-    'ru': "✅☑Вкл сервисные статусы",
-    'en': "✅☑On service statuses",
-    'es': "✅☑Sobre estados de servicio",
-    'fr': "✅☑Sur les statuts de service",
-    'zh': "✅☑关于服务状态",
-    'ar': "✅☑في حالات الخدمة",
-}
-l_cuser_status_off = {
-    'ru': "☑️☐Выкл сервисные статусы",
-    'en': "☑️☐Off service statuses",
-    'es': "☑️☐Estados fuera de servicio",
-    'fr': "☑️☐Statuts hors service",
-    'zh': "☑️️关闭服务状态",
-    'ar': "☑️☐حالات خارج الخدمة",
-}
-l_cuser_utm_on = {
-    'ru': "✅☑Вкл utm-рефералы",
-    'en': "✅☑On utm referrals",
-    'es': "✅☑En referencias utm",
-    'fr': "✅☑Sur les référencements utm",
-    'zh': "✅☑关于 utm 推荐",
-    'ar': "✅☑في إحالات UTM",
-}
-l_cuser_utm_off = {
-    'ru': "☑️☐Выкл utm-рефералы",
-    'en': "☑️☐Off utm referrals",
-    'es': "☑️☐Referencias fuera de utm",
-    'fr': "☑️☐Hors référencements utm",
-    'zh': "☑️️Off utm 推荐",
-    'ar': "☑️☐ خارج الإحالات",
-}
-l_bot_is_off = {
-    'ru': "👩🏽‍💻 <b>@{0}-@tg-приложение</b> выключено\n\n/on - включить @tg-приложение",
-    'en': "👩🏽‍💻 <b>@{0}-bot</b> disabled\n\n/on-enable bot",
-    'es': "👩🏽‍💻 <b>@{0}-bot</b> deshabilitado\n\n/on-habilitar bot",
-    'fr': "👩🏽‍💻 <b>@{0}-bot</b> désactivé\n\n/activé-activer le bot",
-    'zh': "👩🏽‍💻 <b>@{0}-bot</b> 已禁用\n\n/on-启用机器人",
-    'ar': "👩🏽‍💻 <b>@{0}-bot</b> معطل\n\n/on-تمكين الروبوت",
-}
-l_cuser_utm = {
-    'ru': "👥 <b>Готово!</b> <b>/utm-список</b> реферальных пользователей @{0}-бота\n\n👩🏽‍💻 <b>Вывести</b> рефералов конкретного пользователя можно командой:\n/utm id или /utm @username\n\n👩🏽‍💻 <b>Текущее</b> число utm-рефералов: <u>{1}</u>",
-    'en': "👥 <b>Done!</b> <b>/utm-list</b> of @{0}-bot referral users\n\n👩🏽‍💻 <b>You can display</b> referrals of a specific user using the command :\n/utm id or /utm @username\n\n👩🏽‍💻 <b>Current</b> number of utm referrals: <u>{1}</u>",
-    'es': "👥 <b>¡Listo!</b> <b>/utm-list</b> de usuarios de referencia de @{0}-bot\n\n👩🏽‍💻 <b>Puedes mostrar</b> referencias de un usuario específico usando el comando :\n/utm id o /utm @username\n\n👩🏽‍💻 Número <b>actual</b> de referencias utm: <u>{1}</u>",
-    'fr': "👥 <b>Terminé !</b> <b>/utm-list</b> des utilisateurs référents de @{0}-bot\n\n👩🏽‍💻 <b>Vous pouvez afficher</b> les références de un utilisateur spécifique utilisant la commande :\n/utm id ou /utm @username\n\n👩🏽‍💻 <b>Nombre actuel</b> de références utm : <u>{1}</u>",
-    'zh': "👥 <b>完成！</b> <b>/utm-list</b> @{0}-bot 推荐用户\n\n👩🏽‍💻 <b>您可以显示</b> 的推荐使用命令的特定用户：\n/utm id 或 /utm @username\n\n👩🏽‍💻 <b>当前</b> utm 推荐数量：<u>{1}</u>",
-    'ar': "👥 <b>تم!</b> <b>/utm-list</b> لمستخدمي إحالة @{0}-bot\n\n👩🏽‍💻 <b>يمكنك عرض</b> إحالات مستخدم محدد يستخدم الأمر :\n/utm id أو /utm @username\n\n👩🏽‍💻 <b>العدد الحالي</b> لإحالات utm: <u>{1}</u>",
-}
-l_cuser_link_done = {
-    'ru': "👥 <b>Готово!</b> Реферальная /utm ссылка на @{0}-бота (размести ее на любой площадке, чтобы понимать, что пользователи перешли в бота с этой площадки):\n\n{1}",
-    'en': "👥 <b>Done!</b> Referral /utm link to @{0}-bot (place it on any site to understand that users switched to the bot from this site):\n\n{1}",
-    'es': "👥 <b>¡Listo!</b> Enlace de referencia /utm a @{0}-bot (colóquelo en cualquier sitio para comprender que los usuarios cambiaron al bot desde este sitio):\n\n{1}",
-    'fr': "👥 <b>Terminé !</b> Lien de référence/utm vers @{0}-bot (placez-le sur n'importe quel site pour comprendre que les utilisateurs sont passés au bot depuis ce site) :\n\n{1}",
-    'zh': "👥 <b>完成！</b> 指向 @{0}-bot 的推荐 /utm 链接（将其放置在任何网站上以了解用户从该网站切换到机器人）：\n\n{1}",
-    'ar': "👥 <b>تم!</b> رابط الإحالة /utm إلى @{0}-bot (ضعه على أي موقع لتفهم أن المستخدمين تحولوا إلى الروبوت من هذا الموقع):\n\n{1}",
-}
-l_cuser_link_start = {
-    'ru': "👥 <b>Придумай</b> название для /utm ссылки (*после ?start= может быть <u>любое</u> имя источника из цифр и/или латинских букв)\n\n<blockquote>👩🏽‍💻 <b>Например</b>, ссылки /utm-рефералов для отслеживания:\nhttps://t.me/{0}?start={1} - <i>реферальных пользователей</i> {1}-<i>пользователя</i>\nhttps://t.me/{0}?start=instagram - <i>пользователей из instagram</i></blockquote>",
-    'en': "👥 <b>Come up with</b> a name for the /utm link (*after ?start= there can be <u>any</u> source name from numbers and/or Latin letters)\n\n👩🏽‍💻 <b >For example</b>, /utm-referral links for tracking:\nhttps://t.me/{0}?start={1}-<i>referral users</i> {1}-<i> user</i>\nhttps://t.me/{0}?start=instagram-<i>users from instagram</i>",
-    'es': "👥 <b>Crea</b> un nombre para el enlace /utm (*después de ?start= puede haber <u>cualquier</u> nombre de fuente formado por números y/o letras latinas)\n\n👩 🏽‍💻 <b >Por ejemplo</b>, enlaces /utm-referral para seguimiento:\nhttps://t.me/{0}?start={1}-<i>usuarios recomendados</i> { 1}-<i> usuario</i>\nhttps://t.me/{0}?start=instagram-<i>usuarios de instagram</i>",
-    'fr': "👥 <b>Trouvez</b> un nom pour le lien /utm (*après ?start= il peut y avoir <u>n'importe quel</u> nom de source à partir de chiffres et/ou de lettres latines)\n\n👩 🏽‍💻 <b >Par exemple</b>, liens de référence /utm pour le suivi :\nhttps://t.me/{0}?start={1}-<i>utilisateurs référents</i> { 1}-<i>utilisateur</i>\nhttps://t.me/{0}?start=instagram-<i>utilisateurs d'Instagram</i>",
-    'zh': "👥 <b>为 /utm 链接起一个名称</b>（*在 ?start= 之后可以有<u>任何</u>来自数字和/或拉丁字母的源名称）\n\n👩 🏽‍💻 <b >例如</b>，用于跟踪的 /utm-referral 链接：\nhttps://t.me/{0}?start={1}-<i>推荐用户</i> { 1}-<i> 用户</i>\nhttps://t.me/{0}?start=instagram-<i>来自 Instagram 的用户</i>",
-    'ar': "👥 <b>ابتكر</b> اسمًا للرابط /utm (*بعد ?start= يمكن أن يكون هناك <u>أي</u> اسم مصدر من أرقام و/أو أحرف لاتينية)\n\n👩 🏽‍💻 <b >على سبيل المثال</b>، روابط /utm-referral للتتبع:\nhttps://t.me/{0}?start={1}-<i>مستخدمو الإحالة</i> { 1}-<i> مستخدم</i>\nhttps://t.me/{0}?start=instagram-<i>مستخدمون من instagram</i>",
-}
-l_promo_done = {
-    'ru': "👩🏽‍💻 <b>Готово!</b> <i>Текущий /promo-код</i>:\n<code>{0}</code>\n👩🏽‍💻 <i>Удалить /promo-код</i>: <code>/promo 0</code>\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>Done!</b> <i>Current /promo code</i>:\n{0}\n👩🏽‍💻 <i>Delete /promo code</i>: <code>/promo 0</code>\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>¡Listo!</b> <i>Código promocional/actual</i>:\n{0}\n👩🏽‍💻 <i>Eliminar/código promocional</i>: <código >/promo 0</code>\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Terminé !</b> <i>Code promo/actuel</i> :\n{0}\n👩🏽‍💻 <i>Supprimer/code promo</i> : <code >/promo 0</code>\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>完成！</b> <i>当前/促销代码</i>：\n{0}\n👩🏽‍💻 <i>删除/促销代码</i>：<code >/promo 0</code>\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>تم!</b> <i>الرمز الترويجي الحالي</i>:\n{0}\n👩🏽‍💻 <i>حذف /الرمز الترويجي</i>: <code >/promo 0</code>\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_promo_start = {
-    'ru': "👩🏽‍💻 <b>Введи</b> /promo-код для @{0}-бота:\n\n👩🏽‍💻 <i>Текущий /promo-код</i>:\n{1}\n👩🏽‍💻 <i>Удалить /promo-код</i>:\n<code>/promo 0</code>\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>Enter</b> /promo code for @{0}-bot:\n\n👩🏽‍💻 <i>Current /promo code</i>:\n{1}\n👩🏽‍💻 <i>Delete /promo code</i>:\n<code>/promo 0</code>\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Ingrese</b> /código promocional para @{0}-bot:\n\n👩🏽‍💻 <i>Código promocional/actual</i>:\n{1}\n👩🏽‍💻 <i>Eliminar /código promocional</i>:\n<code>/promo 0</code>\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Entrez</b> le code promotionnel pour @{0}-bot :\n\n👩🏽‍💻 <i>Code promotionnel actuel</i> :\n{1}\n👩🏽‍💻 <i>Supprimer /code promo</i> :\n<code>/promo 0</code>\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>输入</b> @{0}-bot 的/促销代码：\n\n👩🏽‍💻 <i>当前/促销代码</i>：\n{1}\n👩🏽‍💻 <i>删除/促销代码</i>：\n<code>/promo 0</code>\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>أدخل</b> /الرمز الترويجي لـ @{0}-bot:\n\n👩🏽‍💻 <i>الرمز الترويجي /الحالي</i>:\n{1}\n👩🏽‍💻 <i>حذف /الرمز الترويجي</i>:\n<code>/promo 0</code>\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-# endregion
-
-
-# region cadmin_
-l_cadmin_text2 = {
-    'ru': "👮🏽 <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> <i>доступ добавленных администраторов к функционалу <b>[💬 Оповещения]</b></i>\n\n<blockquote>👩🏽‍💻 <b>Команды</b>:\n/cmd - все команды\n/admin - добавить/удалить администратора\n/parse - вывести всех пользователей</blockquote>",
-    'en': "👮🏽 <b>Press</b> on ✅/☑️ to <b>On/Off</b> <i>access of added administrators to the <b>[💬 Notifications] functionality</b></i>\n\n👩🏽‍💻 <b>Commands</b>:\n/cmd-all commands\n/admin-add/remove administrator\n/parse-display all users",
-    'es': "👮🏽 <b>Presione</b> en ✅/☑️ para <b>activar/desactivar</b> <i>acceso de administradores agregados a la funcionalidad <b>[💬 Notificaciones]</b></i>\n\n👩🏽‍💻 <b>Comandos</b>:\n/cmd-todos los comandos\n/admin-agregar/eliminar administrador\n/parse-mostrar todos los usuarios",
-    'fr': "👮🏽 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> <i>l'accès des administrateurs ajoutés à la fonctionnalité <b>[💬 Notifications]</b></i>\n\n👩🏽‍💻 <b>Commandes</b> :\n/cmd-toutes les commandes\n/admin-ajouter/supprimer un administrateur\n/parse-afficher tous les utilisateurs",
-    'zh': "👮🏽 <b>按</b> ✅/☑️ <b>开启/关闭</b> <i>添加的管理员对<b>[💬通知]功能的访问</b></i>\n\n👩🏽‍💻 <b>命令</b>:\n/cmd-所有命令\n/admin-添加/删除管理员\n/parse-显示所有用户",
-    'ar': "👮🏽 <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> <i>وصول المسؤولين المضافين إلى وظيفة <b>[💬 الإشعارات]</b></i>\n\n👩🏽‍💻 <b>الأوامر</b>:\n/cmd-كافة الأوامر\n/admin-إضافة/إزالة المسؤول\n/parse-عرض كافة المستخدمين",
-}
-l_cadmin_done = {
-    'ru': "👮🏽 <b>Готово!</b> /admin-список @{0}-бота:\n\n{1}\n\n👩🏽‍💻 <b>Команды</b>:\n/cmd - все команды\n/admin - добавить/удалить администратора\n/parse - вывести всех пользователей\n\n👩🏽‍💻 <b>Текущее</b> число администраторов: <u>{2}/10</u>",
-    'en': "👮🏽 <b>Ready!</b> /admin-list @{0}-bot:\n\n{1}\n\n👩🏽‍💻 <b>Commands</b>:\n/cmd-all commands\n/admin-add/remove administrator\n/parse-display all users\n\n👩🏽‍💻 <b>Current</b> number of administrators: <u>{2}/10</u >",
-    'es': "👮🏽 <b>¡Listo!</b> /admin-list @{0}-bot:\n\n{1}\n\n👩🏽‍💻 <b>Comandos</b>:\n/cmd-todos los comandos\n/admin-agregar/eliminar administrador\n/parse-mostrar todos los usuarios\n\n👩🏽‍💻 Número <b>actual</b> de administradores: <u>{2}/10</ tu >",
-    'fr': "👮🏽 <b>Prêt !</b> /admin-list @{0}-bot :\n\n{1}\n\n👩🏽‍💻 <b>Commandes</b> :\n/cmd-toutes les commandes\n/admin-ajouter/supprimer un administrateur\n/analyser-afficher tous les utilisateurs\n\n👩🏽‍💻 <b>Nombre actuel</b> d'administrateurs : <u>{2}/10</ toi >",
-    'zh': "👮🏽 <b>准备好！</b> /admin-list @{0}-bot:\n\n{1}\n\n👩🏽‍💻 <b>命令</b>:\n/cmd-所有命令\n/admin-添加/删除管理员\n/parse-显示所有用户\n\n👩🏽‍💻 <b>当前</b>管理员数量：<u>{2}/10</你>",
-    'ar': "👮🏽 <b>جاهز!</b> /admin-list @{0}-bot:\n\n{1}\n\n👩🏽‍💻 <b>الأوامر</b>:\n/cmd-جميع الأوامر\n/admin-إضافة/إزالة المسؤول\n/parse-عرض جميع المستخدمين\n\n👩🏽‍💻 العدد <b>الحالي</b> للمسؤولين: <u>{2}/10</ ش>",
-}
-l_cadmin_add = {
-    'ru': "👮🏽 <b>Введи</b> до 10 id-пользователей через <i>пробелы/раздели</i> символы, чтобы добавить их в /admin-список\n\n👩🏽‍💻 <b>Текущее</b> число администраторов: <u>{0}</u>",
-    'en': "👮🏽 <b>Enter</b> up to 10 user IDs separated by <i>spaces/separate</i> characters to add them to the /admin list\n\n👩🏽‍💻 <b>Current</ b> number of administrators: <u>{0}</u>",
-    'es': "👮🏽 <b>Ingrese</b> hasta 10 ID de usuario separados por <i>espacios/caracteres separados</i> para agregarlos a la lista /admin\n\n👩🏽‍💻 <b>Actual</ b> número de administradores: <u>{0}</u>",
-    'fr': "👮🏽 <b>Entrez</b> jusqu'à 10 identifiants d'utilisateur séparés par des <i>espaces/caractères séparés</i> pour les ajouter à la liste /admin\n\n👩🏽‍💻 <b>Actuel</ b> nombre d'administrateurs : <u>{0}</u>",
-    'zh': "👮🏽 <b>输入</b>最多 10 个用<i>空格/单独</i>字符分隔的用户 ID，将其添加到 /admin 列表\n\n👩🏽‍💻 <b>当前</ b> 管理员人数：<u>{0}</u>",
-    'ar': "👮🏽 <b>أدخل</b> ما يصل إلى 10 معرفات مستخدمين مفصولة بأحرف <i>مسافات/منفصلة</i> لإضافتها إلى قائمة /admin\n\n👩🏽‍💻 <b>الحالية</ ب> عدد المسؤولين: <u>{0}</u>",
-}
-l_cadmin_remove = {
-    'ru': "👮🏽 <b>Введи</b> id пользователей через <i>пробелы/раздели</i>, чтобы удалить их из /admin-список\n\n<blockquote>👩🏽‍💻 <b>Текущее</b> число администраторов: <u>{0}</u></blockquote>",
-    'en': "👮🏽 <b>Enter</b> user ids separated by <i>spaces/separate</i> to remove them from the /admin list\n\n👩🏽‍💻 <b>Current</b> number of administrators : <u>{0}</u>",
-    'es': "👮🏽 <b>Ingrese</b> ID de usuario separados por <i>espacios/separate</i> para eliminarlos de la lista /admin\n\n👩🏽‍💻 Número <b>actual</b> de administradores: <u>{0}</u>",
-    'fr': "👮🏽 <b>Entrez</b> les identifiants des utilisateurs séparés par des <i>espaces/séparés</i> pour les supprimer de la liste /admin\n\n👩🏽‍💻 <b>Nombre actuel</b> de administrateurs : <u>{0}</u>",
-    'zh': "👮🏽<b>输入</b>用户ID，用<i>空格/分隔</i>分隔，将其从/admin列表中删除\n\n👩🏽‍💻<b>当前</b>个数管理员：<u>{0}</u>",
-    'ar': "👮🏽 <b>أدخل</b> معرفات المستخدمين مفصولة <i>مسافات/منفصلة</i> لإزالتهم من قائمة /admin\n\n👩🏽‍💻 <b>الرقم الحالي</b> من المسؤولون: <u>{0}</u>",
-}
-l_parse_text = {
-    'ru': "👩🏽‍💻 <b>Готово!</b> Парсинг пользователей (<u>{0}</u>) @{1}-бота\n\n<blockquote>👩🏽‍💻 <b>Команды</b>:\n/cmd - все команды\n/parse     <i>все пользователи бота</i>\n<code>/parse utm</code>   <i>utm-рефералы</i>\n<code>/parse ban</code>    <i>ban-пользователи</i>\n<code>/parse old</code>    <i>старые id-пользователи</i>\n<code>/parse admin</code>    <i>admin-пользователи</i>\n<code>/parse promo</code>    <i>promo-пользователи</i>\n<code>/parse premium</code>    <i>premium-пользователи</i>\n<code>/parse 1</code>    <i>кто лайкнул пост #1</i></blockquote>",
-    'en': "👩🏽‍💻 <b>Done!</b> Parsing users (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>Commands</b>:\n/cmd-all commands\n/parse <i>all bot users</i>\n<code>/parse utm</code> <i>utm referrals</i>\n<code>/parse ban</code> <i>ban-users</i>\n<code>/parse old</code> <i>old id-users</i>\n<code>/parse admin</code> <i>admin-users</i>\n<code>/parse promo</code> <i>promo-users</i>\n<code>/parse premium</code> <i>premium-users </i>\n<code>/parse 1</code> <i>who liked post #1</i>",
-    'es': "👩🏽‍💻 <b>¡Listo!</b> Analizando usuarios (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>Comandos</b>:\n/cmd-todos los comandos\n/parse <i>todos los usuarios del bot</i>\n<code>/parse utm</code> <i>referencias utm</i>\n<code>/parse ban </code> <i>prohibir usuarios</i>\n<code>/parse old</code> <i>antiguos usuarios de id</i>\n<code>/parse admin</code> <i>usuarios-admin</i>\n<code>/parse promo</code> <i>usuarios-promo</i>\n<code>/parse premium</code> <i>usuarios premium </i>\n<code>/parse 1</code> <i>a quién le gustó la publicación n.° 1</i>",
-    'fr': "👩🏽‍💻 <b>Terminé !</b> Analyse des utilisateurs (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>Commandes</b> :\n/cmd-toutes les commandes\n/parse <i>tous les utilisateurs du bot</i>\n<code>/parse utm</code> <i>références utm</i>\n<code>/parse ban </code> <i>ban-users</i>\n<code>/analyser les anciens</code> <i>anciens identifiants d'utilisateurs</i>\n<code>/analyser l'administrateur</code> <i>utilisateurs-admin</i>\n<code>/parse promo</code> <i>utilisateurs-promo</i>\n<code>/parse premium</code> <i>utilisateurs premium </i>\n<code>/parse 1</code> <i>qui a aimé le post n°1</i>",
-    'zh': "👩🏽‍💻 <b>完成！</b> 解析用户 (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>命令</b>：\n/cmd-所有命令\n/parse <i>所有机器人用户</i>\n<code>/parse utm</code> <i>utm 推荐</i>\n<code>/parse ban </code> <i>禁止用户</i>\n<code>/parse old</code> <i>旧id-users</i>\n<code>/parse admin</code> <i>admin-users</i>\n<code>/parse promo</code> <i>promo-users</i>\n<code>/parse premium</code> <i>premium-users </i>\n<code>/parse 1</code> <i>谁喜欢帖子 #1</i>",
-    'ar': "👩🏽‍💻 <b>تم!</b> تحليل المستخدمين (<u>{0}</u>) @{1}-bot\n\n👩🏽‍💻 <b>الأوامر</b>:\n/cmd-جميع الأوامر\n/parse <i>جميع مستخدمي الروبوت</i>\n<code>/parse utm</code> <i>إحالات utm</i>\n<code>/parseban </code> <i>حظر المستخدمين</i>\n<code>/parse old</code> <i>مستخدمو المعرفات القديمة</i>\n<code>/parse admin</code> <<i>المستخدمون الإداريون</i>\n<code>/parse promo</code> <i>المستخدمون الترويجيون</i>\n<code>/parse premium</code> <i>المستخدمون المميزون </i>\n<code>/parse 1</code> <i>من أبدى إعجابه بالمشاركة رقم 1</i>",
-}
-# endregion
 # endregion
 
 
@@ -4134,812 +3426,585 @@ l_auto_post = {
 
 
 # region html
-l_burger_save = {
-    'ru': "Сохранить",
-    'en': "Save",
-    'es': "Ahorrar",
-    'fr': "Sauvegarder",
-    'zh': "节省",
-    'ar': "يحفظ",
-}
-l_burger_ai = {
-    'ru': "Нейро-бот ᴺᴱᵂ",
-    'en': "Neuro-bot ᴺᴱᵂ",
-    'es': "Neuro-bot ᴺᴱᵂ",
-    'fr': "Neuro-bot ᴺᴱᵂ",
-    'zh': "神经机器人ᴺᴱᵂ",
-    'ar': "الروبوت العصبي ᴺᴱᵂ",
-}
-l_burger_template = {
-    'ru': "Шаблон бота",
-    'en': "Template bot",
-    'es': "Robot de plantilla",
-    'fr': "Bot modèle",
-    'zh': "模板机器人",
-    'ar': "بوت القالب",
-}
-l_burger_import = {
-    'ru': "Импортировать .bot",
-    'en': "Import .bot",
-    'es': "Importar .bot",
-    'fr': "Importer .bot",
-    'zh': "导入.bot",
-    'ar': "استيراد بوت",
-}
-l_burger_export = {
-    'ru': "Экспортировать как >",
-    'en': "Export as >",
-    'es': "Exportar como >",
-    'fr': "Exporter sous >",
-    'zh': "导出为>",
-    'ar': "تصدير كـ >",
-}
-l_burger_clear = {
-    'ru': "Очистить",
-    'en': "Clear",
-    'es': "Claro",
-    'fr': "Clair",
-    'zh': "清除",
-    'ar': "واضح",
-}
-l_burger_gen_alert = {
-    'ru': "Создать нового бота?",
-    'en': "Create a new bot?",
-    'es': "¿Crear un nuevo robot?",
-    'fr': "Créer un nouveau bot ?",
-    'zh': "创建一个新的机器人？",
-    'ar': "إنشاء بوت جديد؟",
-}
-l_burger_import_alert = {
-    'ru': "Загрузка..",
-    'en': "Loading..",
-    'es': "Cargando..",
-    'fr': "Chargement..",
-    'zh': "加载中..",
-    'ar': "تحميل..",
-}
-l_burger_clear_alert = {
-    'ru': "Очистить сцену?",
-    'en': "Clear the stage?",
-    'es': "¿Despejar el escenario?",
-    'fr': "Vider la scène ?",
-    'zh': "清理舞台？",
-    'ar': "مسح المسرح؟",
-}
-
-l_ent_close = {
-    'ru': "Закрыть",
-    'en': "Close",
-    'es': "Cerca",
-    'fr': "Fermer",
-    'zh': "关闭",
-    'ar': "يغلق",
-}
-l_ent_save = {
-    'ru': "Сохранить",
-    'en': "Save",
-    'es': "Ahorrar",
-    'fr': "Sauvegarder",
-    'zh': "节省",
-    'ar': "يحفظ",
-}
-l_ent_delete = {
-    'ru': "Удалить",
-    'en': "Delete",
-    'es': "Borrar",
-    'fr': "Supprimer",
-    'zh': "删除",
-    'ar': "يمسح",
-}
-l_copied = {
-    'ru': "Скопировано",
-    'en': "Copied",
-    'es': "Copiado",
-    'fr': "Copié",
-    'zh': "已复制",
-    'ar': "نسخ",
-}
-
-l_neuro_gen = {
-    'ru': "Сгенерировать",
-    'en': "Generate",
-    'es': "Generar",
-    'fr': "Générer",
-    'zh': "产生",
-    'ar': "يولد",
-}
-l_neuro_count = {
-    'ru': "Количество Сообщений-блоков",
-    'en': "Number of Message Blocks",
-    'es': "Número de bloques de mensajes",
-    'fr': "Nombre de blocs de messages",
-    'zh': "消息块数量",
-    'ar': "عدد كتل الرسائل",
-}
-l_neuro_continue = {
-    'ru': "Продолжить цепочки блоков",
-    'en': "Continue the block chain",
-    'es': "Continuar la cadena de bloques",
-    'fr': "Continuer la chaîne de blocs",
-    'zh': "延续区块链",
-    'ar': "مواصلة سلسلة الكتلة",
-}
-l_neuro_text = {
-    'ru': ": текст",
-    'en': ": text",
-    'es': ": texto",
-    'fr': ": texte",
-    'zh': "： 文本",
-    'ar': ": نص",
-}
-l_neuro_media = {
-    'ru': ": медиа",
-    'en': ": media",
-    'es': ": medios de comunicación",
-    'fr': ": médias",
-    'zh': "： 媒体",
-    'ar': ": وسائط",
-}
-
-l_web_gen_txt = {
-    'ru': "Сгенерировать Текст",
-    'en': "Generate Text",
-    'es': "Generar texto",
-    'fr': "Générer du texte",
-    'zh': "生成文本",
-    'ar': "إنشاء نص",
-}
-l_web_gen_img = {
-    'ru': "Сгенерировать Образ",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_gif = {
-    'ru': "Сгенерировать Гиф",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_video = {
-    'ru': "Сгенерировать Видео",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_telescope = {
-    'ru': "Сгенерировать Телескоп",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_audio = {
-    'ru': "Сгенерировать Аудио",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_voice = {
-    'ru': "Сгенерировать Голос",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_sticker = {
-    'ru': "Сгенерировать Стикер",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_doc = {
-    'ru': "Сгенерировать Док",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-l_web_gen_web = {
-    'ru': "Сгенерировать Веб",
-    'en': "Generate Image",
-    'es': "Generar imagen",
-    'fr': "Générer une image",
-    'zh': "生成图像",
-    'ar': "توليد الصورة",
-}
-
 l_all_trg = {
-    'ru': ": все триггеры",
-    'en': ": all triggers",
-    'es': ": todos los desencadenantes",
-    'fr': " : tous les déclencheurs",
-    'zh': "：所有触发器",
-    'ar': ": جميع المشغلات",
+    "ru": ": все триггеры",
+    "en": ": all triggers",
+    "es": ": todos los desencadenantes",
+    "fr": ": tous les déclencheurs",
+    "zh": "：所有触发器",
+    "ar": ": جميع المشغلات",
 }
 l_one_trg = {
-    'ru': ": 1 триггер",
-    'en': ": 1 trigger",
-    'es': ": 1 gatillo",
-    'fr': ": 1 déclencheur",
-    'zh': "：1个触发器",
-    'ar': ": 1 الزناد",
+    "ru": ": 1 триггер",
+    "en": ": 1 trigger",
+    "es": ": 1 gatillo",
+    "fr": ": 1 déclencheur",
+    "zh": "：1个触发器",
+    "ar": ": 1 الزناد",
 }
 
 l_order_act = {
-    'ru': ": по порядку",
-    'en': ": in order",
-    'es': ": in order",
-    'fr': ": in order",
-    'zh': ": in order",
-    'ar': ": in order",
+    "ru": ": по порядку",
+    "en": ": in order",
+    "es": ": en orden",
+    "fr": ": dans l'ordre",
+    "zh": ": 按顺序",
+    "ar": ": بالترتيب",
 }
 l_rand_act = {
-    'ru': ": вразброс",
-    'en': ": randomly",
-    'es': ": randomly",
-    'fr': ": randomly",
-    'zh': ": randomly",
-    'ar': ": randomly",
+    "ru": ": вразброс",
+    "en": ": randomly",
+    "es": ": al azar",
+    "fr": ": au hasard",
+    "zh": ": 随机",
+    "ar": ": عشوائياً",
 }
 l_trigger = {
-    'ru': "Триггер",
-    'en': "Trigger",
-    'es': "Desencadenar",
-    'fr': "Déclenchement",
-    'zh': "扳机",
-    'ar': "مشغل",
+    "ru": "Триггер",
+    "en": "Trigger",
+    "es": "Gatillo",
+    "fr": "Déclencheur",
+    "zh": "触发器",
+    "ar": "مشغل",
 }
 l_action = {
-    'ru': "Действие",
-    'en': "Action",
-    'es': "Acción",
-    'fr': "Action",
-    'zh': "行动",
-    'ar': "فعل",
+    "ru": "Действие",
+    "en": "Action",
+    "es": "Acción",
+    "fr": "Action",
+    "zh": "操作",
+    "ar": "إجراء",
 }
 l_message = {
-    'ru': "Сообщение",
-    'en': "Message",
-    'es': "Mensaje",
-    'fr': "Message",
-    'zh': "信息",
-    'ar': "رسالة",
+    "ru": "Сообщение",
+    "en": "Message",
+    "es": "Mensaje",
+    "fr": "Message",
+    "zh": "消息",
+    "ar": "رسالة",
 }
 
 l_trg_add = {
-    'ru': "+ Добавить Триггер",
-    'en': "+ Add Trigger",
-    'es': "+ Agregar disparador",
-    'fr': "+ Ajouter un déclencheur",
-    'zh': "+ 添加触发器",
-    'ar': "+ إضافة الزناد",
+    "ru": "+ Добавить Триггер",
+    "en": "+ Add Trigger",
+    "es": "+ Agregar disparador",
+    "fr": "+ Ajouter un déclencheur",
+    "zh": "+ 添加触发器",
+    "ar": "+ إضافة مشغل",
 }
 l_trg_cmd = {
-    'ru': "+ команда",
-    'en': "+ team",
-    'es': "+ equipo",
-    'fr': "+ équipe",
-    'zh': "+ 团队",
-    'ar': "+ فريق",
+    "ru": "+ команда",
+    "en": "+ command",
+    "es": "+ comando",
+    "fr": "+ commande",
+    "zh": "+ 命令",
+    "ar": "+ أمر",
 }
 l_trg_txt = {
-    'ru': "+ сообщение",
-    'en': "+ message",
-    'es': "+ texto",
-    'fr': "+ texte",
-    'zh': "+ 文字",
-    'ar': "+ نص",
+    "ru": "+ сообщение",
+    "en": "+ message",
+    "es": "+ mensaje",
+    "fr": "+ message",
+    "zh": "+ 消息",
+    "ar": "+ رسالة",
 }
 l_trg_bpm = {
-    'ru': "+ бизнес лс",
-    'en': "+ business pm",
-    'es': "+ texto",
-    'fr': "+ texte",
-    'zh': "+ 文字",
-    'ar': "+ نص",
+    "ru": "+ бизнес лс",
+    "en": "+ business pm",
+    "es": "+ mensaje empresarial",
+    "fr": "+ message d'entreprise",
+    "zh": "+ 商务私信",
+    "ar": "+ رسالة عمل",
 }
 l_trg_btn = {
-    'ru': "+ кнопка",
-    'en': "+ button",
-    'es': "Botón +",
-    'fr': "+ bouton",
-    'zh': "+ 按钮",
-    'ar': "+ زر",
+    "ru": "+ кнопка",
+    "en": "+ button",
+    "es": "+ botón",
+    "fr": "+ bouton",
+    "zh": "+ 按钮",
+    "ar": "+ زر",
 }
 l_trg_rct = {
-    'ru': "+ реакция",
-    'en': "+ button",
-    'es': "Botón +",
-    'fr': "+ bouton",
-    'zh': "+ 按钮",
-    'ar': "+ زر",
+    "ru": "+ реакция",
+    "en": "+ reaction",
+    "es": "+ reacción",
+    "fr": "+ réaction",
+    "zh": "+ 反应",
+    "ar": "+ رد فعل",
 }
 l_trg_var = {
-    'ru': "+ переменная",
-    'en': "+ variable",
-    'es': "+ variable",
-    'fr': "+ variable",
-    'zh': "+ 变量",
-    'ar': "+ متغير",
+    "ru": "+ переменная",
+    "en": "+ variable",
+    "es": "+ variable",
+    "fr": "+ variable",
+    "zh": "+ 变量",
+    "ar": "+ متغير",
 }
 l_trg_lst = {
-    'ru': "+ список",
-    'en': "+ list",
-    'es': "+ lista",
-    'fr': "+ liste",
-    'zh': "+ 列表",
-    'ar': "+ قائمة",
+    "ru": "+ список",
+    "en": "+ list",
+    "es": "+ lista",
+    "fr": "+ liste",
+    "zh": "+ 列表",
+    "ar": "+ قائمة",
 }
 
 l_act_add = {
-    'ru': "+ Добавить Действие",
-    'en': "+ Add Action",
-    'es': "+ Agregar acción",
-    'fr': "+ Ajouter une action",
-    'zh': "+ 添加动作",
-    'ar': "+ إضافة إجراء",
+    "ru": "+ Добавить Действие",
+    "en": "+ Add Action",
+    "es": "+ Agregar acción",
+    "fr": "+ Ajouter une action",
+    "zh": "+ 添加动作",
+    "ar": "+ إضافة إجراء"
 }
 l_act_dly = {
-    'ru': "+ задержка",
-    'en': "+ delay",
-    'es': "+ retraso",
-    'fr': "+ retard",
-    'zh': "+ 延迟",
-    'ar': "+ تأخير",
+    "ru": "+ задержка",
+    "en": "+ delay",
+    "es": "+ retraso",
+    "fr": "+ retard",
+    "zh": "+ 延迟",
+    "ar": "+ تأخير"
 }
 l_act_wait = {
-    'ru': "+ ожидание",
-    'en': "+ waiting",
-    'es': "+ esperando",
-    'fr': "+ attendre",
-    'zh': "+ 等待",
-    'ar': "+ الانتظار",
+    "ru": "+ ожидание",
+    "en": "+ waiting",
+    "es": "+ espera",
+    "fr": "+ attente",
+    "zh": "+ 等待",
+    "ar": "+ الانتظار"
 }
 l_act_wait_title = {
-    'ru': "Ожидание",
-    'en': "Expectation",
-    'es': "Expectativa",
-    'fr': "Attente",
-    'zh': "期待",
-    'ar': "توقع",
+    "ru": "Ожидание",
+    "en": "Waiting",
+    "es": "Espera",
+    "fr": "Attente",
+    "zh": "等待",
+    "ar": "انتظار"
 }
 l_act_req = {
-    'ru': "+ запрос",
-    'en': "+ request",
-    'es': "+ solicitud",
-    'fr': "+ demande",
-    'zh': "+ 请求",
-    'ar': "+ طلب",
+    "ru": "+ запрос",
+    "en": "+ request",
+    "es": "+ solicitud",
+    "fr": "+ demande",
+    "zh": "+ 请求",
+    "ar": "+ طلب"
 }
 l_act_unpin = {
-    'ru': "+ открепить все",
-    'en': "+ request",
-    'es': "+ solicitud",
-    'fr': "+ demande",
-    'zh': "+ 请求",
-    'ar': "+ طلب",
+    "ru": "+ открепить все",
+    "en": "+ unpin all",
+    "es": "+ desanclar todo",
+    "fr": "+ détacher tout",
+    "zh": "+ 取消固定所有",
+    "ar": "+ إلغاء تثبيت الكل"
 }
 l_act_unpin_title = {
-    'ru': "Открепить все сообщения",
-    'en': "Expectation",
-    'es': "Expectativa",
-    'fr': "Attente",
-    'zh': "期待",
-    'ar': "توقع",
+    "ru": "Открепить все сообщения",
+    "en": "Unpin all messages",
+    "es": "Desanclar todos los mensajes",
+    "fr": "Détacher tous les messages",
+    "zh": "取消固定所有消息",
+    "ar": "إلغاء تثبيت جميع الرسائل"
 }
 l_act_delkb = {
-    'ru': "+ удалить нижнюю клавиатуру",
-    'en': "+ request",
-    'es': "+ solicitud",
-    'fr': "+ demande",
-    'zh': "+ 请求",
-    'ar': "+ طلب",
+    "ru": "+ удалить нижнюю клавиатуру",
+    "en": "+ remove bottom keyboard",
+    "es": "+ eliminar teclado inferior",
+    "fr": "+ supprimer le clavier inférieur",
+    "zh": "+ 删除底部键盘",
+    "ar": "+ إزالة لوحة المفاتيح السفلية"
 }
 l_act_delkb_title = {
-    'ru': "Удалить нижнюю клавиатуру↓",
-    'en': "Expectation",
-    'es': "Expectativa",
-    'fr': "Attente",
-    'zh': "期待",
-    'ar': "توقع",
+    "ru": "Удалить нижнюю клавиатуру↓",
+    "en": "Remove bottom keyboard↓",
+    "es": "Eliminar teclado inferior↓",
+    "fr": "Supprimer le clavier inférieur↓",
+    "zh": "删除底部键盘↓",
+    "ar": "إزالة لوحة المفاتيح السفلية↓"
 }
 
 l_msg_text = {
-    'ru': ": текст",
-    'en': ": text",
-    'es': ": texto",
-    'fr': ": texte",
-    'zh': "： 文本",
-    'ar': ": نص",
+    "ru": ": текст",
+    "en": ": text",
+    "es": ": texto",
+    "fr": ": texte",
+    "zh": "：文本",
+    "ar": ": نص"
 }
 l_msg_photo = {
-    'ru': ": фото",
-    'en': ": photo",
-    'es': ": foto",
-    'fr': ": photo",
-    'zh': "： 照片",
-    'ar': ": صورة",
+    "ru": ": фото",
+    "en": ": photo",
+    "es": ": foto",
+    "fr": ": photo",
+    "zh": "：照片",
+    "ar": ": صورة"
 }
 l_msg_gif = {
-    'ru': ": гиф",
-    'en': ": gif",
-    'es': ": gif",
-    'fr': ": gif",
-    'zh': "： 动图",
-    'ar': ": جيف",
+    "ru": ": гиф",
+    "en": ": gif",
+    "es": ": gif",
+    "fr": ": gif",
+    "zh": "：动图",
+    "ar": ": جيف"
 }
 l_msg_video = {
-    'ru': ": видео",
-    'en': ": video",
-    'es': ": video",
-    'fr': ": vidéo",
-    'zh': "： 视频",
-    'ar': ": فيديو",
+    "ru": ": видео",
+    "en": ": video",
+    "es": ": video",
+    "fr": ": vidéo",
+    "zh": "：视频",
+    "ar": ": فيديو"
 }
 l_msg_video_note = {
-    'ru': ": телескоп",
-    'en': ": telescope",
-    'es': ": telescopio",
-    'fr': ": télescope",
-    'zh': "：望远镜",
-    'ar': ": تلسكوب",
+    "ru": ": телескоп",
+    "en": ": telescope",
+    "es": ": telescopio",
+    "fr": ": télescope",
+    "zh": "：望远镜",
+    "ar": ": تلسكوب"
 }
 l_msg_audio = {
-    'ru': ": аудио",
-    'en': ": audio",
-    'es': ": sonido",
-    'fr': ": l'audio",
-    'zh': "： 声音的",
-    'ar': ": صوتي",
+    "ru": ": аудио",
+    "en": ": audio",
+    "es": ": audio",
+    "fr": ": audio",
+    "zh": "：音频",
+    "ar": ": صوتي"
 }
 l_msg_voice = {
-    'ru': ": голосовое",
-    'en': ": voice",
-    'es': ": voz",
-    'fr': ": voix",
-    'zh': "： 嗓音",
-    'ar': ": صوت",
+    "ru": ": голосовое",
+    "en": ": voice",
+    "es": ": voz",
+    "fr": ": voix",
+    "zh": "：语音",
+    "ar": ": صوت"
 }
 l_msg_document = {
-    'ru': ": документ",
-    'en': ": document",
-    'es': ": documento",
-    'fr': ": document",
-    'zh': "： 文档",
-    'ar': ": وثيقة",
+    "ru": ": документ",
+    "en": ": document",
+    "es": ": documento",
+    "fr": ": document",
+    "zh": "：文档",
+    "ar": ": وثيقة"
 }
 l_msg_sticker = {
-    'ru': ": стикер",
-    'en': ": sticker",
-    'es': ": pegatina",
-    'fr': ": autocollant",
-    'zh': "： 贴纸",
-    'ar': ": ملصق",
+    "ru": ": стикер",
+    "en": ": sticker",
+    "es": ": adhesivo",
+    "fr": ": autocollant",
+    "zh": "：贴纸",
+    "ar": ": ملصق"
 }
 l_msg_quiz = {
-    'ru': ": опрос",
-    'en': ": survey",
-    'es': ": encuesta",
-    'fr': ": enquête",
-    'zh': "： 民意调查",
-    'ar': ": استطلاع",
+    "ru": ": опрос",
+    "en": ": poll",
+    "es": ": encuesta",
+    "fr": ": sondage",
+    "zh": "：投票",
+    "ar": ": استطلاع"
 }
 l_msg_dice = {
-    'ru': ": игра",
-    'en': ": game",
-    'es': ": juego",
-    'fr': ": jeu",
-    'zh': "： 游戏",
-    'ar': ": لعبة",
+    "ru": ": игра",
+    "en": ": game",
+    "es": ": juego",
+    "fr": ": jeu",
+    "zh": "：游戏",
+    "ar": ": لعبة"
 }
 l_msg_web = {
-    'ru': ": веб",
-    'en': ": web",
-    'es': ": web",
-    'fr': ": la toile",
-    'zh': "：网络",
-    'ar': ": الويب",
+    "ru": ": веб",
+    "en": ": web",
+    "es": ": web",
+    "fr": ": web",
+    "zh": "：网页",
+    "ar": ": الويب"
 }
 
 l_btn_button_in = {
-    'ru': "✅ Кнопка ↑",
-    'en': "✅ Button ↑",
-    'es': "✅ Botón ↑",
-    'fr': "✅ Bouton ↑",
-    'zh': "✅ 按钮 ↑",
-    'ar': "✅ الزر ↑",
+    "ru": "✅ Кнопка ↑",
+    "en": "✅ Button ↑",
+    "es": "✅ Botón ↑",
+    "fr": "✅ Bouton ↑",
+    "zh": "✅ 按钮 ↑",
+    "ar": "✅ زر ↑"
 }
 l_btn_link = {
-    'ru': "🔗 Ссылка",
-    'en': "🔗 Link",
-    'es': "🔗 Enlace",
-    'fr': "🔗 Lien",
-    'zh': "🔗 链接",
-    'ar': "🔗 الرابط",
+    "ru": "🔗 Ссылка",
+    "en": "🔗 Link",
+    "es": "🔗 Enlace",
+    "fr": "🔗 Lien",
+    "zh": "🔗 链接",
+    "ar": "🔗 رابط"
 }
 l_btn_pay = {
-    'ru': "💳 Оплата",
-    'en': "💳 Payment",
-    'es': "💳 Pago",
-    'fr': "💳 Paiement",
-    'zh': "💳 付款",
-    'ar': "💳 الدفع",
+    "ru": "💳 Оплата",
+    "en": "💳 Payment",
+    "es": "💳 Pago",
+    "fr": "💳 Paiement",
+    "zh": "💳 付款",
+    "ar": "💳 دفع"
 }
 l_btn_search = {
-    'ru': "🔎 Поиск",
-    'en': "🔎Search",
-    'es': "🔎Buscar",
-    'fr': "🔎Recherche",
-    'zh': "🔎搜索",
-    'ar': "🔎بحث",
+    "ru": "🔎 Поиск",
+    "en": "🔎 Search",
+    "es": "🔎 Buscar",
+    "fr": "🔎 Recherche",
+    "zh": "🔎 搜索",
+    "ar": "🔎 بحث"
 }
 l_btn_like = {
-    'ru': "❤️ Лайк",
-    'en': "❤️ Like",
-    'es': "❤️ Me gusta",
-    'fr': "❤️ J'aime",
-    'zh': "❤️ 喜欢",
-    'ar': "❤️ اعجبني",
+    "ru": "❤️ Лайк",
+    "en": "❤️ Like",
+    "es": "❤️ Me gusta",
+    "fr": "❤️ J'aime",
+    "zh": "❤️ 喜欢",
+    "ar": "❤️ إعجاب"
 }
 l_btn_web = {
-    'ru': "🌐 Веб",
-    'en': "🌐 Web",
-    'es': "🌐 Web",
-    'fr': "🌐Web",
-    'zh': "🌐 网络",
-    'ar': "🌐 الويب",
+    "ru": "🌐 Веб",
+    "en": "🌐 Web",
+    "es": "🌐 Web",
+    "fr": "🌐 Web",
+    "zh": "🌐 网络",
+    "ar": "🌐 ويب"
 }
 l_btn_button_kb = {
-    'ru': "✅ Кнопка ↓",
-    'en': "✅ Button ↓",
-    'es': "✅ Botón ↓",
-    'fr': "✅ Bouton ↓",
-    'zh': "✅ 按钮 ↓",
-    'ar': "✅ زر ↓",
+    "ru": "✅ Кнопка ↓",
+    "en": "✅ Button ↓",
+    "es": "✅ Botón ↓",
+    "fr": "✅ Bouton ↓",
+    "zh": "✅ 按钮 ↓",
+    "ar": "✅ زر ↓"
 }
 l_btn_contact = {
-    'ru': "📞 Сотовый",
-    'en': "📞 Cellular",
-    'es': "📞 Celular",
-    'fr': "📞 Cellulaire",
-    'zh': "📞 蜂窝网络",
-    'ar': "📞 خلوي",
+    "ru": "📞 Сотовый",
+    "en": "📞 Mobile",
+    "es": "📞 Móvil",
+    "fr": "📞 Mobile",
+    "zh": "📞 手机",
+    "ar": "📞 جوال"
 }
 l_btn_geo = {
-    'ru': "📍 Гео",
-    'en': "📍 Geo",
-    'es': "📍 Geo",
-    'fr': "📍 Géo",
-    'zh': "📍 地理",
-    'ar': "📍جيو",
+    "ru": "📍 Гео",
+    "en": "📍 Geo",
+    "es": "📍 Geo",
+    "fr": "📍 Géo",
+    "zh": "📍 地理",
+    "ar": "📍 الموقع"
 }
 l_btn_blog = {
-    'ru': "📰 Блог",
-    'en': "📰 Blog",
-    'es': "📰 Blog",
-    'fr': "📰Blogue",
-    'zh': "📰 博客",
-    'ar': "📰 المدونة",
+    "ru": "📰 Блог",
+    "en": "📰 Blog",
+    "es": "📰 Blog",
+    "fr": "📰 Blog",
+    "zh": "📰 博客",
+    "ar": "📰 مدونة"
 }
 l_btn_name = {
-    'ru': "Имя:",
-    'en': "Name:",
-    'es': "Nombre:",
-    'fr': "Nom:",
-    'zh': "姓名：",
-    'ar': "اسم:",
+    "ru": "Имя:",
+    "en": "Name:",
+    "es": "Nombre:",
+    "fr": "Nom:",
+    "zh": "姓名：",
+    "ar": "الاسم:"
 }
 l_btn_type = {
-    'ru': "Тип:",
-    'en': "Type:",
-    'es': "Tipo:",
-    'fr': "Taper:",
-    'zh': "类型：",
-    'ar': "يكتب:",
+    "ru": "Тип:",
+    "en": "Type:",
+    "es": "Tipo:",
+    "fr": "Type:",
+    "zh": "类型：",
+    "ar": "النوع:"
 }
 
 l_check_box_pin_message = {
-    'ru': "Закреп сообщения",
-    'en': "Pinned messages",
-    'es': "Mensajes fijados",
-    'fr': "Messages épinglés",
-    'zh': "固定消息",
-    'ar': "الرسائل المثبتة",
+    "ru": "Закреп сообщения",
+    "en": "Pin message",
+    "es": "Fijar mensaje",
+    "fr": "Épingler le message",
+    "zh": "固定消息",
+    "ar": "تثبيت الرسالة"
 }
 l_check_box_protect_message = {
-    'ru': "Защита сообщения",
-    'en': "Message protection",
-    'es': "Protección de mensajes",
-    'fr': "Protection des messages",
-    'zh': "消息保护",
-    'ar': "حماية الرسالة",
+    "ru": "Защита сообщения",
+    "en": "Message protection",
+    "es": "Protección del mensaje",
+    "fr": "Protection du message",
+    "zh": "消息保护",
+    "ar": "حماية الرسالة"
 }
 l_check_box_edit_message = {
-    'ru': "Замена текущего сообщения",
-    'en': "Replacing the current message",
-    'es': "Reemplazo del mensaje actual",
-    'fr': "Remplacer le message actuel",
-    'zh': "替换当前消息",
-    'ar': "استبدال الرسالة الحالية",
+    "ru": "Замена текущего сообщения",
+    "en": "Replace current message",
+    "es": "Reemplazar el mensaje actual",
+    "fr": "Remplacer le message actuel",
+    "zh": "替换当前消息",
+    "ar": "استبدال الرسالة الحالية"
 }
 l_check_box_auto_format = {
-    'ru': "Формат сообщения",
-    'en': "Message Format",
-    'es': "Formato de mensaje",
-    'fr': "Format des messages",
-    'zh': "消息格式",
-    'ar': "تنسيق الرسالة",
+    "ru": "Формат сообщения",
+    "en": "Message format",
+    "es": "Formato del mensaje",
+    "fr": "Format du message",
+    "zh": "消息格式",
+    "ar": "تنسيق الرسالة"
 }
 l_check_box_auto_typing = {
-    'ru': "Печатание сообщения ¹²⁸",
-    'en': "Printing message ¹²⁸",
-    'es': "Mensaje de impresión ¹²⁸",
-    'fr': "Impression du message ¹²⁸",
-    'zh': "打印消息 12⁸",
-    'ar': "رسالة الطباعة ¹²⁸",
+    "ru": "Печатание сообщения ¹²⁸",
+    "en": "Typing message ¹²⁸",
+    "es": "Escribiendo mensaje ¹²⁸",
+    "fr": "Saisie du message ¹²⁸",
+    "zh": "输入消息 ¹²⁸",
+    "ar": "كتابة الرسالة ¹²⁸"
 }
 l_check_box_preview = {
-    'ru': "Превью контент",
-    'en': "Preview content",
-    'es': "Vista previa del contenido",
-    'fr': "Aperçu du contenu",
-    'zh': "预览内容",
-    'ar': "معاينة المحتوى",
+    "ru": "Превью контент",
+    "en": "Preview content",
+    "es": "Vista previa del contenido",
+    "fr": "Aperçu du contenu",
+    "zh": "预览内容",
+    "ar": "معاينة المحتوى"
 }
 l_check_box_spoiler = {
-    'ru': "Гиф/фото/видео спойлер",
-    'en': "GIF/photo/video spoiler",
-    'es': "Spoiler de GIF/foto/vídeo",
-    'fr': "Spoiler GIF/photo/vidéo",
-    'zh': "GIF/照片/视频剧透",
-    'ar': "GIF/صورة/فيديو المفسد",
+    "ru": "Гиф/фото/видео спойлер",
+    "en": "GIF/photo/video spoiler",
+    "es": "Spoiler de GIF/foto/video",
+    "fr": "Spoiler GIF/photo/vidéo",
+    "zh": "GIF/照片/视频剧透",
+    "ar": "مفسد GIF/صورة/فيديو"
 }
 l_check_box_silence = {
-    'ru': "Тихое сообщение",
-    'en': "Quiet message",
-    'es': "Mensaje tranquilo",
-    'fr': "Message silencieux",
-    'zh': "安静的消息",
-    'ar': "رسالة هادئة",
+    "ru": "Тихое сообщение",
+    "en": "Silent message",
+    "es": "Mensaje silencioso",
+    "fr": "Message silencieux",
+    "zh": "静音消息",
+    "ar": "رسالة صامتة"
 }
 l_check_box_cryptopay = {
-    'ru': "Подключить веб3ᵀᴼᴺ-донаты",
-    'en': "Сonnect web3ᵀᴼᴺ-donations",
-    'es': "Mensaje tranquilo",
-    'fr': "Message silencieux",
-    'zh': "安静的消息",
-    'ar': "رسالة هادئة",
+    "ru": "Подключить веб3ᵀᴼᴺ-донаты",
+    "en": "Connect web3ᵀᴼᴺ donations",
+    "es": "Conectar donaciones web3ᵀᴼᴺ",
+    "fr": "Connecter les dons web3ᵀᴼᴺ",
+    "zh": "连接 web3ᵀᴼᴺ 捐赠",
+    "ar": "ربط تبرعات web3ᵀᴼᴺ"
 }
 l_check_box_destruct = {
-    'ru': "Самоуничтожение фото/видео/голосовое/телескоп",
-    'en': "Self-destruct photo/video",
-    'es': "Foto/video de autodestrucción",
-    'fr': "Photo/vidéo d'autodestruction",
-    'zh': "自毁照片/视频",
-    'ar': "صورة/فيديو التدمير الذاتي",
+    "ru": "Самоуничтожение фото/видео/голосовое/телескоп",
+    "en": "Self-destruct photo/video/voice/video note",
+    "es": "Autodestrucción de foto/video/nota de voz/video",
+    "fr": "Autodestruction photo/vidéo/voix/vidéo note",
+    "zh": "自毁照片/视频/语音/视频消息",
+    "ar": "تدمير ذاتي لصورة/فيديو/صوت/رسالة فيديو"
 }
 l_check_box_shade = {
-    'ru': "Оттенок цвета",
-    'en': "Сonnect web3ᵀᴼᴺ-donations",
-    'es': "Mensaje tranquilo",
-    'fr': "Message silencieux",
-    'zh': "安静的消息",
-    'ar': "رسالة هادئة",
+    "ru": "Оттенок цвета",
+    "en": "Color shade",
+    "es": "Tono de color",
+    "fr": "Nuance de couleur",
+    "zh": "颜色阴影",
+    "ar": "درجة اللون"
 }
 l_check_box_menu = {
-    'ru': "Замена кнопки меню",
-    'en': "Сonnect web3ᵀᴼᴺ-donations",
-    'es': "Mensaje tranquilo",
-    'fr': "Message silencieux",
-    'zh': "安静的消息",
-    'ar': "رسالة هادئة",
+    "ru": "Замена кнопки меню",
+    "en": "Replace menu button",
+    "es": "Reemplazar botón del menú",
+    "fr": "Remplacer le bouton du menu",
+    "zh": "替换菜单按钮",
+    "ar": "استبدال زر القائمة"
 }
+
 # endregion
 
 
 # region json
 l_all_json = {
-    'ru': ": *",
-    'en': ": *",
-    'es': ": *",
-    'fr': ": *",
-    'zh': ": *",
-    'ar': ": جميع المشغلات",
+    "ru": ": *",
+    "en": ": *",
+    "es": ": *",
+    "fr": ": *",
+    "zh": ": *",
+    "ar": ": *",
 }
 l_one_json = {
-    'ru': ": 1",
-    'en': ": 1",
-    'es': ": 1",
-    'fr': ": 1",
-    'zh': ": 1",
-    'ar': ": 1 الزناد",
+    "ru": ": 1",
+    "en": ": 1",
+    "es": ": 1",
+    "fr": ": 1",
+    "zh": ": 1",
+    "ar": ": 1",
 }
 l_add_trg_json = {
-    'ru': "+ Триггер",
-    'en': "+ Триггер",
-    'es': ": 1",
-    'fr': ": 1",
-    'zh': ": 1",
-    'ar': ": 1 الزناد",
+    "ru": "+ Триггер",
+    "en": "+ Trigger",
+    "es": "+ Disparador",
+    "fr": "+ Déclencheur",
+    "zh": "+ 触发器",
+    "ar": "+ مشغل",
 }
 l_add_act_json = {
-    'ru': "+ Действие",
-    'en': "+ Действие",
-    'es': ": 1",
-    'fr': ": 1",
-    'zh': ": 1",
-    'ar': ": 1 الزناد",
+    "ru": "+ Действие",
+    "en": "+ Action",
+    "es": "+ Acción",
+    "fr": "+ Action",
+    "zh": "+ 操作",
+    "ar": "+ إجراء",
 }
 l_add_msg_json = {
-    'ru': "+ Сообщение",
-    'en': "+ Сообщение",
-    'es': ": 1",
-    'fr': ": 1",
-    'zh': ": 1",
-    'ar': ": 1 الزناد",
+    "ru": "+ Сообщение",
+    "en": "+ Message",
+    "es": "+ Mensaje",
+    "fr": "+ Message",
+    "zh": "+ 消息",
+    "ar": "+ رسالة",
 }
 # endregion
 
 
-# region ton
+# region sbt-ton
 l_bot_collection_name = {
-    'ru': "SBT-коллекция @{0}",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
+    "ru": "SBT-коллекция @{0}",
+    "en": "SBT collection @{0}",
+    "es": "Colección SBT @{0}",
+    "fr": "Collection SBT @{0}",
+    "zh": "SBT 收藏 @{0}",
+    "ar": "مجموعة SBT @{0}",
 }
 l_bot_collection_desc = {
-    'ru': "Уникальные sbt-награды за выдающиеся достижения в исследовании @tg-приложения",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
+    "ru": "Уникальные sbt-награды за выдающиеся достижения в исследовании @tg-приложения",
+    "en": "Unique sbt rewards for outstanding achievements in researching the @tg-application",
+    "es": "Recompensas sbt únicas por logros destacados en la investigación de la aplicación @tg",
+    "fr": "Récompenses sbt uniques pour des réalisations exceptionnelles dans l'étude de l'application @tg",
+    "zh": "独特的 sbt 奖励，以表彰在研究 @tg 应用方面的杰出成就",
+    "ar": "مكافآت sbt فريدة عن إنجازات بارزة في بحث تطبيق @tg",
 }
 l_bot_collection_address = {
-    'ru': "👩🏽‍💻 <b>Адрес</b> коллекции:",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
+    "ru": "👩🏽‍💻 <b>Адрес</b> коллекции:",
+    "en": "👩🏽‍💻 <b>Collection</b> address:",
+    "es": "👩🏽‍💻 <b>Dirección</b> de la colección:",
+    "fr": "👩🏽‍💻 <b>Adresse</b> de la collection :",
+    "zh": "👩🏽‍💻 <b>集合</b> 地址：",
+    "ar": "👩🏽‍💻 <b>عنوان</b> المجموعة:",
 }
 l_bot_sbt_desc = {
-    'ru': "SBT верифицирован в @{0}: @tg-приложение изучено на {1}%",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
+    "ru": "SBT верифицирован в @{0}: @tg-приложение изучено на {1}%",
+    "en": "SBT verified at @{0}: @tg application studied by {1}%",
+    "es": "SBT verificado en @{0}: aplicación @tg estudiada en {1}%",
+    "fr": "SBT vérifié sur @{0} : application @tg étudiée à {1}%",
+    "zh": "SBT 已在 @{0} 验证：@tg 应用已研究 {1}%",
+    "ar": "تم التحقق من SBT في @{0}: تم دراسة تطبيق @tg بنسبة {1}%",
 }
 l_bot_detach = {
-    'ru': "👩🏽‍💻 Открепить nft от",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
+    "ru": "👩🏽‍💻 Открепить nft от",
+    "en": "👩🏽‍💻 Detach nft from",
+    "es": "👩🏽‍💻 Desanclar nft de",
+    "fr": "👩🏽‍💻 Détacher nft de",
+    "zh": "👩🏽‍💻 从…分离 nft",
+    "ar": "👩🏽‍💻 فصل nft من",
 }
 # endregion
 
 
-# region menu
+# region menu films
 l_bot_ya_legenda = {
     "ru": "Я легенда",
     "en": "I Am Legend",

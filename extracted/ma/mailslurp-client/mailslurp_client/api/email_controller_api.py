@@ -3789,6 +3789,7 @@ class EmailControllerApi(object):
         :param bool favourited: Optional filter emails that are favourited
         :param bool sync_connectors: Sync connectors
         :param str plus_address_id: Optional plus address ID filter
+        :param list[str] include: Optional list of IDs to include in result
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3824,6 +3825,7 @@ class EmailControllerApi(object):
         :param bool favourited: Optional filter emails that are favourited
         :param bool sync_connectors: Sync connectors
         :param str plus_address_id: Optional plus address ID filter
+        :param list[str] include: Optional list of IDs to include in result
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3851,7 +3853,8 @@ class EmailControllerApi(object):
             'before',
             'favourited',
             'sync_connectors',
-            'plus_address_id'
+            'plus_address_id',
+            'include'
         ]
         all_params.extend(
             [
@@ -3901,6 +3904,9 @@ class EmailControllerApi(object):
             query_params.append(('syncConnectors', local_var_params['sync_connectors']))  # noqa: E501
         if 'plus_address_id' in local_var_params and local_var_params['plus_address_id'] is not None:  # noqa: E501
             query_params.append(('plusAddressId', local_var_params['plus_address_id']))  # noqa: E501
+        if 'include' in local_var_params and local_var_params['include'] is not None:  # noqa: E501
+            query_params.append(('include', local_var_params['include']))  # noqa: E501
+            collection_formats['include'] = 'multi'  # noqa: E501
 
         header_params = {}
 

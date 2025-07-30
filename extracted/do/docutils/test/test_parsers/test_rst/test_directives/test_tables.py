@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_tables.py 9414 2023-06-27 20:04:16Z milde $
+# $Id: test_tables.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -48,7 +48,7 @@ class ParserTestCase(unittest.TestCase):
 
 mydir = os.path.join(TEST_ROOT, 'test_parsers/test_rst/test_directives')
 utf_16_csv = os.path.join(mydir, 'utf-16.csv')
-empty_txt = os.path.join(mydir, 'empty.txt')
+empty_txt = os.path.join(mydir, 'empty.rst')
 
 try:
     chr(0x9999999999999)
@@ -67,8 +67,7 @@ csv_unknown_url = "'bogus.csv'"
 
 
 try:
-    with open(utf_16_csv, 'rb') as f:
-        csv_data = f.read()
+    csv_data = Path(utf_16_csv).read_bytes()
     csv_data = str(csv_data, 'latin1').splitlines()
     reader = csv.reader([line + '\n' for line in csv_data])
     next(reader)
@@ -1149,64 +1148,6 @@ bad_encoding_result
     <table>
         <title>
             good encoding
-        <tgroup cols="3">
-            <colspec colwidth="33">
-            <colspec colwidth="33">
-            <colspec colwidth="33">
-            <thead>
-                <row>
-                    <entry>
-                        <paragraph>
-                            Treat
-                    <entry>
-                        <paragraph>
-                            Quantity
-                    <entry>
-                        <paragraph>
-                            Description
-            <tbody>
-                <row>
-                    <entry>
-                        <paragraph>
-                            Albatr\u00b0\u00df
-                    <entry>
-                        <paragraph>
-                            2.99
-                    <entry>
-                        <paragraph>
-                            \u00a1On a \u03c3\u03c4\u03b9\u03ba!
-                <row>
-                    <entry>
-                        <paragraph>
-                            Crunchy Frog
-                    <entry>
-                        <paragraph>
-                            1.49
-                    <entry>
-                        <paragraph>
-                            If we took the b\u00f6nes out, it wouldn\u2019t be
-                            crunchy, now would it?
-                <row>
-                    <entry>
-                        <paragraph>
-                            Gannet Ripple
-                    <entry>
-                        <paragraph>
-                            1.99
-                    <entry>
-                        <paragraph>
-                            \u00bfOn a \u03c3\u03c4\u03b9\u03ba?
-"""],
-["""\
-.. csv-table:: auto encoding
-   :file: %s
-   :header-rows: 1
-""" % utf_16_csv,
-"""\
-<document source="test data">
-    <table>
-        <title>
-            auto encoding
         <tgroup cols="3">
             <colspec colwidth="33">
             <colspec colwidth="33">

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.13.76
+Version: 0.13.78
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues

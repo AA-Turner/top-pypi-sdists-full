@@ -5245,6 +5245,7 @@ class CfnPatchBaseline(
             approved_patches=["approvedPatches"],
             approved_patches_compliance_level="approvedPatchesComplianceLevel",
             approved_patches_enable_non_security=False,
+            available_security_updates_compliance_status="availableSecurityUpdatesComplianceStatus",
             default_baseline=False,
             description="description",
             global_filters=ssm.CfnPatchBaseline.PatchFilterGroupProperty(
@@ -5279,6 +5280,7 @@ class CfnPatchBaseline(
         approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
         approved_patches_compliance_level: typing.Optional[builtins.str] = None,
         approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
         default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         description: typing.Optional[builtins.str] = None,
         global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5297,6 +5299,7 @@ class CfnPatchBaseline(
         :param approved_patches: A list of explicitly approved patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
         :param approved_patches_compliance_level: Defines the compliance level for approved patches. When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` . Default: - "UNSPECIFIED"
         :param approved_patches_enable_non_security: Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
+        :param available_security_updates_compliance_status: The compliance status for vendor recommended security updates that are not approved by this patch baseline.
         :param default_baseline: Indicates whether this is the default baseline. AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system. Default: - false
         :param description: A description of the patch baseline.
         :param global_filters: A set of global filters used to include patches in the baseline. .. epigraph:: The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
@@ -5317,6 +5320,7 @@ class CfnPatchBaseline(
             approved_patches=approved_patches,
             approved_patches_compliance_level=approved_patches_compliance_level,
             approved_patches_enable_non_security=approved_patches_enable_non_security,
+            available_security_updates_compliance_status=available_security_updates_compliance_status,
             default_baseline=default_baseline,
             description=description,
             global_filters=global_filters,
@@ -5460,6 +5464,24 @@ class CfnPatchBaseline(
             type_hints = typing.get_type_hints(_typecheckingstub__596ca4adbe9b66ae96ac84884c609e25720aab40b7f9d665e6ea16808f1a16ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "approvedPatchesEnableNonSecurity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availableSecurityUpdatesComplianceStatus")
+    def available_security_updates_compliance_status(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''The compliance status for vendor recommended security updates that are not approved by this patch baseline.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availableSecurityUpdatesComplianceStatus"))
+
+    @available_security_updates_compliance_status.setter
+    def available_security_updates_compliance_status(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3d22bb7723ec324262f77916922eeca45b414ed52032b18a9facc597e01c7c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availableSecurityUpdatesComplianceStatus", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="defaultBaseline")
@@ -6085,6 +6107,7 @@ class CfnPatchBaseline(
         "approved_patches": "approvedPatches",
         "approved_patches_compliance_level": "approvedPatchesComplianceLevel",
         "approved_patches_enable_non_security": "approvedPatchesEnableNonSecurity",
+        "available_security_updates_compliance_status": "availableSecurityUpdatesComplianceStatus",
         "default_baseline": "defaultBaseline",
         "description": "description",
         "global_filters": "globalFilters",
@@ -6105,6 +6128,7 @@ class CfnPatchBaselineProps:
         approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
         approved_patches_compliance_level: typing.Optional[builtins.str] = None,
         approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
         default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         description: typing.Optional[builtins.str] = None,
         global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6122,6 +6146,7 @@ class CfnPatchBaselineProps:
         :param approved_patches: A list of explicitly approved patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
         :param approved_patches_compliance_level: Defines the compliance level for approved patches. When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` . Default: - "UNSPECIFIED"
         :param approved_patches_enable_non_security: Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
+        :param available_security_updates_compliance_status: The compliance status for vendor recommended security updates that are not approved by this patch baseline.
         :param default_baseline: Indicates whether this is the default baseline. AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system. Default: - false
         :param description: A description of the patch baseline.
         :param global_filters: A set of global filters used to include patches in the baseline. .. epigraph:: The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
@@ -6162,6 +6187,7 @@ class CfnPatchBaselineProps:
                 approved_patches=["approvedPatches"],
                 approved_patches_compliance_level="approvedPatchesComplianceLevel",
                 approved_patches_enable_non_security=False,
+                available_security_updates_compliance_status="availableSecurityUpdatesComplianceStatus",
                 default_baseline=False,
                 description="description",
                 global_filters=ssm.CfnPatchBaseline.PatchFilterGroupProperty(
@@ -6192,6 +6218,7 @@ class CfnPatchBaselineProps:
             check_type(argname="argument approved_patches", value=approved_patches, expected_type=type_hints["approved_patches"])
             check_type(argname="argument approved_patches_compliance_level", value=approved_patches_compliance_level, expected_type=type_hints["approved_patches_compliance_level"])
             check_type(argname="argument approved_patches_enable_non_security", value=approved_patches_enable_non_security, expected_type=type_hints["approved_patches_enable_non_security"])
+            check_type(argname="argument available_security_updates_compliance_status", value=available_security_updates_compliance_status, expected_type=type_hints["available_security_updates_compliance_status"])
             check_type(argname="argument default_baseline", value=default_baseline, expected_type=type_hints["default_baseline"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument global_filters", value=global_filters, expected_type=type_hints["global_filters"])
@@ -6212,6 +6239,8 @@ class CfnPatchBaselineProps:
             self._values["approved_patches_compliance_level"] = approved_patches_compliance_level
         if approved_patches_enable_non_security is not None:
             self._values["approved_patches_enable_non_security"] = approved_patches_enable_non_security
+        if available_security_updates_compliance_status is not None:
+            self._values["available_security_updates_compliance_status"] = available_security_updates_compliance_status
         if default_baseline is not None:
             self._values["default_baseline"] = default_baseline
         if description is not None:
@@ -6290,6 +6319,17 @@ class CfnPatchBaselineProps:
         '''
         result = self._values.get("approved_patches_enable_non_security")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def available_security_updates_compliance_status(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''The compliance status for vendor recommended security updates that are not approved by this patch baseline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-availablesecurityupdatescompliancestatus
+        '''
+        result = self._values.get("available_security_updates_compliance_status")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_baseline(
@@ -10266,6 +10306,7 @@ def _typecheckingstub__5b87565e6649bbe5a503013adf6ae874b3dc918c05cd6b120b99a77e8
     approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
     approved_patches_compliance_level: typing.Optional[builtins.str] = None,
     approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
     default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10317,6 +10358,12 @@ def _typecheckingstub__bff7659e5eeaba10646c1802753fc8aa922feac17eee3bc2e16dadf14
 
 def _typecheckingstub__596ca4adbe9b66ae96ac84884c609e25720aab40b7f9d665e6ea16808f1a16ca(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3d22bb7723ec324262f77916922eeca45b414ed52032b18a9facc597e01c7c3(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10424,6 +10471,7 @@ def _typecheckingstub__ff6666a30d275f2a85d64de631c940fb83198b8b5a376b87a3a684f4a
     approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
     approved_patches_compliance_level: typing.Optional[builtins.str] = None,
     approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
     default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

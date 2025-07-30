@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:14.946615                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:43.986468                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.datastore.content_addressed_store
+    import typing
 
 
 DATASTORE_SYSROOT_S3: None

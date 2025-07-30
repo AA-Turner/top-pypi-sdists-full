@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_citations.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_citations.py 9781 2024-07-28 10:50:23Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -120,11 +120,14 @@ That was an empty citation.
     <citation ids="citation" names="citation">
         <label>
             citation
+        <system_message level="2" line="2" source="test data" type="WARNING">
+            <paragraph>
+                Citation content expected.
     <paragraph>
         That was an empty citation.
 """],
 ["""\
-.. [citation]
+.. [citation] The Source
 No blank line.
 """,
 """\
@@ -132,6 +135,8 @@ No blank line.
     <citation ids="citation" names="citation">
         <label>
             citation
+        <paragraph>
+            The Source
     <system_message level="2" line="2" source="test data" type="WARNING">
         <paragraph>
             Explicit markup ends without a blank line; unexpected unindent.

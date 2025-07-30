@@ -10,7 +10,7 @@ use super::{
     infer_expression_type, infer_unpack_types,
 };
 use crate::semantic_index::definition::{Definition, DefinitionState};
-use crate::semantic_index::place::NodeWithScopeKind;
+use crate::semantic_index::scope::NodeWithScopeKind;
 use crate::semantic_index::{DeclarationWithConstraint, SemanticIndex, attribute_declarations};
 use crate::types::context::InferContext;
 use crate::types::diagnostic::{INVALID_LEGACY_TYPE_VARIABLE, INVALID_TYPE_ALIAS_TYPE};
@@ -36,8 +36,9 @@ use crate::{
     semantic_index::{
         attribute_assignments,
         definition::{DefinitionKind, TargetKind},
-        place::ScopeId,
-        place_table, semantic_index, use_def_map,
+        place_table,
+        scope::ScopeId,
+        semantic_index, use_def_map,
     },
     types::{
         CallArguments, CallError, CallErrorKind, MetaclassCandidate, UnionBuilder, UnionType,
@@ -881,6 +882,23 @@ impl MethodDecorator {
     }
 }
 
+/// Metadata regarding a dataclass field/attribute.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DataclassField<'db> {
+    /// The declared type of the field
+    pub(crate) field_ty: Type<'db>,
+
+    /// The type of the default value for this field
+    pub(crate) default_ty: Option<Type<'db>>,
+
+    /// Whether or not this field is "init-only". If this is true, it only appears in the
+    /// `__init__` signature, but is not accessible as a real field
+    pub(crate) init_only: bool,
+
+    /// Whether or not this field should appear in the signature of `__init__`.
+    pub(crate) init: bool,
+}
+
 /// Representation of a class definition statement in the AST: either a non-generic class, or a
 /// generic class that has not been specialized.
 ///
@@ -1578,12 +1596,27 @@ impl<'db> ClassLiteral<'db> {
 
         let field_policy = CodeGeneratorKind::from_class(db, self)?;
 
-        let signature_from_fields = |mut parameters: Vec<_>| {
+        let instance_ty =
+            Type::instance(db, self.apply_optional_specialization(db, specialization));
+
+        let signature_from_fields = |mut parameters: Vec<_>, return_ty: Option<Type<'db>>| {
             let mut kw_only_field_seen = false;
-            for (name, (mut attr_ty, mut default_ty)) in
-                self.fields(db, specialization, field_policy)
+            for (
+                field_name,
+                DataclassField {
+                    mut field_ty,
+                    mut default_ty,
+                    init_only: _,
+                    init,
+                },
+            ) in self.fields(db, specialization, field_policy)
             {
-                if attr_ty
+                if name == "__init__" && !init {
+                    // Skip fields with `init=False`
+                    continue;
+                }
+
+                if field_ty
                     .into_nominal_instance()
                     .is_some_and(|instance| instance.class.is_known(db, KnownClass::KwOnly))
                 {
@@ -1594,7 +1627,7 @@ impl<'db> ClassLiteral<'db> {
                     continue;
                 }
 
-                let dunder_set = attr_ty.class_member(db, "__set__".into());
+                let dunder_set = field_ty.class_member(db, "__set__".into());
                 if let Place::Type(dunder_set, Boundness::Bound) = dunder_set.place {
                     // The descriptor handling below is guarded by this not-dynamic check, because
                     // dynamic types like `Any` are valid (data) descriptors: since they have all
@@ -1623,7 +1656,7 @@ impl<'db> ClassLiteral<'db> {
                                 }
                             }
                         }
-                        attr_ty = value_types.build();
+                        field_ty = value_types.build();
 
                         // The default value of the attribute is *not* determined by the right hand side
                         // of the class-body assignment. Instead, the runtime invokes `__get__` on the
@@ -1639,21 +1672,26 @@ impl<'db> ClassLiteral<'db> {
                     }
                 }
 
-                let mut parameter = if kw_only_field_seen {
-                    Parameter::keyword_only(name)
+                let mut parameter = if kw_only_field_seen || name == "__replace__" {
+                    Parameter::keyword_only(field_name)
                 } else {
-                    Parameter::positional_or_keyword(name)
+                    Parameter::positional_or_keyword(field_name)
                 }
-                .with_annotated_type(attr_ty);
+                .with_annotated_type(field_ty);
 
-                if let Some(default_ty) = default_ty {
+                if name == "__replace__" {
+                    // When replacing, we know there is a default value for the field
+                    // (the value that is currently assigned to the field)
+                    // assume this to be the declared type of the field
+                    parameter = parameter.with_default_type(field_ty);
+                } else if let Some(default_ty) = default_ty {
                     parameter = parameter.with_default_type(default_ty);
                 }
 
                 parameters.push(parameter);
             }
 
-            let mut signature = Signature::new(Parameters::new(parameters), Some(Type::none(db)));
+            let mut signature = Signature::new(Parameters::new(parameters), return_ty);
             signature.inherited_generic_context = self.generic_context(db);
             Some(CallableType::function_like(db, signature))
         };
@@ -1671,16 +1709,13 @@ impl<'db> ClassLiteral<'db> {
 
                 let self_parameter = Parameter::positional_or_keyword(Name::new_static("self"))
                     // TODO: could be `Self`.
-                    .with_annotated_type(Type::instance(
-                        db,
-                        self.apply_optional_specialization(db, specialization),
-                    ));
-                signature_from_fields(vec![self_parameter])
+                    .with_annotated_type(instance_ty);
+                signature_from_fields(vec![self_parameter], Some(Type::none(db)))
             }
             (CodeGeneratorKind::NamedTuple, "__new__") => {
                 let cls_parameter = Parameter::positional_or_keyword(Name::new_static("cls"))
                     .with_annotated_type(KnownClass::Type.to_instance(db));
-                signature_from_fields(vec![cls_parameter])
+                signature_from_fields(vec![cls_parameter], Some(Type::none(db)))
             }
             (CodeGeneratorKind::DataclassLike, "__lt__" | "__le__" | "__gt__" | "__ge__") => {
                 if !has_dataclass_param(DataclassParams::ORDER) {
@@ -1691,16 +1726,10 @@ impl<'db> ClassLiteral<'db> {
                     Parameters::new([
                         Parameter::positional_or_keyword(Name::new_static("self"))
                             // TODO: could be `Self`.
-                            .with_annotated_type(Type::instance(
-                                db,
-                                self.apply_optional_specialization(db, specialization),
-                            )),
+                            .with_annotated_type(instance_ty),
                         Parameter::positional_or_keyword(Name::new_static("other"))
                             // TODO: could be `Self`.
-                            .with_annotated_type(Type::instance(
-                                db,
-                                self.apply_optional_specialization(db, specialization),
-                            )),
+                            .with_annotated_type(instance_ty),
                     ]),
                     Some(KnownClass::Bool.to_instance(db)),
                 );
@@ -1715,15 +1744,20 @@ impl<'db> ClassLiteral<'db> {
                     .place
                     .ignore_possibly_unbound()
             }
+            (CodeGeneratorKind::DataclassLike, "__replace__")
+                if Program::get(db).python_version(db) >= PythonVersion::PY313 =>
+            {
+                let self_parameter = Parameter::positional_or_keyword(Name::new_static("self"))
+                    .with_annotated_type(instance_ty);
+
+                signature_from_fields(vec![self_parameter], Some(instance_ty))
+            }
             (CodeGeneratorKind::DataclassLike, "__setattr__") => {
                 if has_dataclass_param(DataclassParams::FROZEN) {
                     let signature = Signature::new(
                         Parameters::new([
                             Parameter::positional_or_keyword(Name::new_static("self"))
-                                .with_annotated_type(Type::instance(
-                                    db,
-                                    self.apply_optional_specialization(db, specialization),
-                                )),
+                                .with_annotated_type(instance_ty),
                             Parameter::positional_or_keyword(Name::new_static("name")),
                             Parameter::positional_or_keyword(Name::new_static("value")),
                         ]),
@@ -1746,7 +1780,7 @@ impl<'db> ClassLiteral<'db> {
         db: &'db dyn Db,
         specialization: Option<Specialization<'db>>,
         field_policy: CodeGeneratorKind,
-    ) -> FxOrderMap<Name, (Type<'db>, Option<Type<'db>>)> {
+    ) -> FxOrderMap<Name, DataclassField<'db>> {
         if field_policy == CodeGeneratorKind::NamedTuple {
             // NamedTuples do not allow multiple inheritance, so it is sufficient to enumerate the
             // fields of this class only.
@@ -1793,14 +1827,14 @@ impl<'db> ClassLiteral<'db> {
         self,
         db: &'db dyn Db,
         specialization: Option<Specialization<'db>>,
-    ) -> FxOrderMap<Name, (Type<'db>, Option<Type<'db>>)> {
+    ) -> FxOrderMap<Name, DataclassField<'db>> {
         let mut attributes = FxOrderMap::default();
 
         let class_body_scope = self.body_scope(db);
         let table = place_table(db, class_body_scope);
 
         let use_def = use_def_map(db, class_body_scope);
-        for (place_id, declarations) in use_def.all_end_of_scope_declarations() {
+        for (symbol_id, declarations) in use_def.all_end_of_scope_symbol_declarations() {
             // Here, we exclude all declarations that are not annotated assignments. We need this because
             // things like function definitions and nested classes would otherwise be considered dataclass
             // fields. The check is too broad in the sense that it also excludes (weird) constructs where
@@ -1822,7 +1856,7 @@ impl<'db> ClassLiteral<'db> {
                 continue;
             }
 
-            let place_expr = table.place_expr(place_id);
+            let symbol = table.symbol(symbol_id);
 
             if let Ok(attr) = place_from_declarations(db, declarations) {
                 if attr.is_class_var() {
@@ -1830,16 +1864,27 @@ impl<'db> ClassLiteral<'db> {
                 }
 
                 if let Some(attr_ty) = attr.place.ignore_possibly_unbound() {
-                    let bindings = use_def.end_of_scope_bindings(place_id);
-                    let default_ty = place_from_bindings(db, bindings).ignore_possibly_unbound();
+                    let bindings = use_def.end_of_scope_symbol_bindings(symbol_id);
+                    let mut default_ty =
+                        place_from_bindings(db, bindings).ignore_possibly_unbound();
+
+                    default_ty =
+                        default_ty.map(|ty| ty.apply_optional_specialization(db, specialization));
+
+                    let mut init = true;
+                    if let Some(Type::KnownInstance(KnownInstanceType::Field(field))) = default_ty {
+                        default_ty = Some(field.default_type(db));
+                        init = field.init(db);
+                    }
 
                     attributes.insert(
-                        place_expr.expect_name().clone(),
-                        (
-                            attr_ty.apply_optional_specialization(db, specialization),
-                            default_ty
-                                .map(|ty| ty.apply_optional_specialization(db, specialization)),
-                        ),
+                        symbol.name().clone(),
+                        DataclassField {
+                            field_ty: attr_ty.apply_optional_specialization(db, specialization),
+                            default_ty,
+                            init_only: attr.is_init_var(),
+                            init,
+                        },
                     );
                 }
             }
@@ -2020,9 +2065,9 @@ impl<'db> ClassLiteral<'db> {
             let is_method_reachable =
                 if let Some(method_def) = method_scope.node(db).as_function(&module) {
                     let method = index.expect_single_definition(method_def);
-                    let method_place = class_table.place_id_by_name(&method_def.name).unwrap();
+                    let method_place = class_table.symbol_id(&method_def.name).unwrap();
                     class_map
-                        .all_reachable_bindings(method_place)
+                        .all_reachable_symbol_bindings(method_place)
                         .find_map(|bind| {
                             (bind.binding.is_defined_and(|def| def == method))
                                 .then(|| class_map.is_binding_reachable(db, &bind))
@@ -2237,10 +2282,10 @@ impl<'db> ClassLiteral<'db> {
         let body_scope = self.body_scope(db);
         let table = place_table(db, body_scope);
 
-        if let Some(place_id) = table.place_id_by_name(name) {
+        if let Some(symbol_id) = table.symbol_id(name) {
             let use_def = use_def_map(db, body_scope);
 
-            let declarations = use_def.end_of_scope_declarations(place_id);
+            let declarations = use_def.end_of_scope_symbol_declarations(symbol_id);
             let declared_and_qualifiers = place_from_declarations(db, declarations);
 
             match declared_and_qualifiers {
@@ -2254,9 +2299,20 @@ impl<'db> ClassLiteral<'db> {
                         declared = Place::Unbound;
                     }
 
+                    if qualifiers.contains(TypeQualifiers::INIT_VAR) {
+                        // We ignore `InitVar` declarations on the class body, unless that attribute is overwritten
+                        // by an implicit assignment in a method
+                        if Self::implicit_attribute(db, body_scope, name, MethodDecorator::None)
+                            .place
+                            .is_unbound()
+                        {
+                            return Place::Unbound.into();
+                        }
+                    }
+
                     // The attribute is declared in the class body.
 
-                    let bindings = use_def.end_of_scope_bindings(place_id);
+                    let bindings = use_def.end_of_scope_symbol_bindings(symbol_id);
                     let inferred = place_from_bindings(db, bindings);
                     let has_binding = !inferred.is_unbound();
 
@@ -2592,6 +2648,7 @@ pub enum KnownClass {
     // dataclasses
     Field,
     KwOnly,
+    InitVar,
     // _typeshed._type_checker_internals
     NamedTupleFallback,
 }
@@ -2686,6 +2743,7 @@ impl KnownClass {
             | Self::Deprecated
             | Self::Field
             | Self::KwOnly
+            | Self::InitVar
             | Self::NamedTupleFallback => Truthiness::Ambiguous,
         }
     }
@@ -2744,6 +2802,7 @@ impl KnownClass {
             | Self::EllipsisType
             | Self::NotImplementedType
             | Self::KwOnly
+            | Self::InitVar
             | Self::VersionInfo
             | Self::Bool
             | Self::NoneType => false,
@@ -2843,6 +2902,7 @@ impl KnownClass {
             | KnownClass::NotImplementedType
             | KnownClass::Field
             | KnownClass::KwOnly
+            | KnownClass::InitVar
             | KnownClass::NamedTupleFallback => false,
         }
     }
@@ -2925,6 +2985,7 @@ impl KnownClass {
             | Self::UnionType
             | Self::Field
             | Self::KwOnly
+            | Self::InitVar
             | Self::NamedTupleFallback => false,
         }
     }
@@ -3016,6 +3077,7 @@ impl KnownClass {
             Self::NotImplementedType => "_NotImplementedType",
             Self::Field => "Field",
             Self::KwOnly => "KW_ONLY",
+            Self::InitVar => "InitVar",
             Self::NamedTupleFallback => "NamedTupleFallback",
         }
     }
@@ -3269,8 +3331,7 @@ impl KnownClass {
             | Self::DefaultDict
             | Self::Deque
             | Self::OrderedDict => KnownModule::Collections,
-            Self::Field => KnownModule::Dataclasses,
-            Self::KwOnly => KnownModule::Dataclasses,
+            Self::Field | Self::KwOnly | Self::InitVar => KnownModule::Dataclasses,
             Self::NamedTupleFallback => KnownModule::TypeCheckerInternals,
         }
     }
@@ -3342,6 +3403,7 @@ impl KnownClass {
             | Self::NewType
             | Self::Field
             | Self::KwOnly
+            | Self::InitVar
             | Self::Iterable
             | Self::Iterator
             | Self::NamedTupleFallback => false,
@@ -3417,6 +3479,7 @@ impl KnownClass {
             | Self::NewType
             | Self::Field
             | Self::KwOnly
+            | Self::InitVar
             | Self::Iterable
             | Self::Iterator
             | Self::NamedTupleFallback => false,
@@ -3504,6 +3567,7 @@ impl KnownClass {
             "_NotImplementedType" => Self::NotImplementedType,
             "Field" => Self::Field,
             "KW_ONLY" => Self::KwOnly,
+            "InitVar" => Self::InitVar,
             "NamedTupleFallback" => Self::NamedTupleFallback,
             _ => return None,
         };
@@ -3566,6 +3630,7 @@ impl KnownClass {
             | Self::WrapperDescriptorType
             | Self::Field
             | Self::KwOnly
+            | Self::InitVar
             | Self::NamedTupleFallback => module == self.canonical_module(db),
             Self::NoneType => matches!(module, KnownModule::Typeshed | KnownModule::Types),
             Self::SpecialForm

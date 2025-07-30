@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_inline_markup.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_inline_markup.py 10176 2025-06-18 14:03:25Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -23,6 +23,8 @@ from docutils.utils import new_document
 
 
 class ParserTestCase(unittest.TestCase):
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser()
         settings = get_default_settings(Parser)
@@ -1152,6 +1154,38 @@ Escape other char in URIs:
         <reference name="anonymouscall" refuri="anonymouscall">
             anonymouscall
 """],
+["""\
+Report duplicate refname.
+
+Explicit targets: _`file.txt`, _`file.html`.
+
+Embedded URI: named `<file.txt>`_ and anonymous `<file.html>`__.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Report duplicate refname.
+    <paragraph>
+        Explicit targets: \n\
+        <target ids="file-txt" names="file.txt">
+            file.txt
+        , \n\
+        <target ids="file-html" names="file.html">
+            file.html
+        .
+    <system_message level="1" line="6" source="test data" type="INFO">
+        <paragraph>
+            Duplicate implicit target name: "file.txt".
+    <paragraph>
+        Embedded URI: named \n\
+        <reference name="file.txt" refuri="file.txt">
+            file.txt
+        <target dupnames="file.txt" ids="file-txt-1" refuri="file.txt">
+         and anonymous \n\
+        <reference name="file.html" refuri="file.html">
+            file.html
+        .
+"""],
 ]
 
 totest['embedded_aliases'] = [
@@ -1163,7 +1197,7 @@ totest['embedded_aliases'] = [
     <paragraph>
         <reference name="phrase reference" refname="alias">
             phrase reference
-        <target names="phrase\\ reference" refname="alias">
+        <target ids="phrase-reference" names="phrase\\ reference" refname="alias">
 """],
 ["""\
 `anonymous reference <alias_>`__
@@ -1244,6 +1278,46 @@ long  phrase_>`__
     <paragraph>
         <reference name="anonymous reference" refname="aliaswith\\ escaped :characters">
             anonymous reference
+"""],
+["""\
+Duplicate refnames in references with embedded alias.
+
+Explicit targets: _`tg1` and _`tg2`.
+
+References with embedded alias: `link <tg1_>`_ and `link <tg2_>`_.
+
+No clash with anonymous reference `link <tg1_>`__.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate refnames in references with embedded alias.
+    <paragraph>
+        Explicit targets: \n\
+        <target ids="tg1" names="tg1">
+            tg1
+         and \n\
+        <target ids="tg2" names="tg2">
+            tg2
+        .
+    <system_message backrefs="link-1" level="1" line="6" source="test data" type="INFO">
+        <paragraph>
+            Duplicate implicit target name: "link".
+    <paragraph>
+        References with embedded alias: \n\
+        <reference name="link" refname="tg1">
+            link
+        <target dupnames="link" ids="link" refname="tg1">
+         and \n\
+        <reference name="link" refname="tg2">
+            link
+        <target dupnames="link" ids="link-1" refname="tg2">
+        .
+    <paragraph>
+        No clash with anonymous reference \n\
+        <reference name="link" refname="tg1">
+            link
+        .
 """],
 ]
 

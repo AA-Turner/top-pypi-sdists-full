@@ -21,13 +21,13 @@ limitations under the License.
 
 // Must be included first
 // clang-format off
-#include "_src/numpy.h"
+#include "ml_dtypes/_src/numpy.h"
 // clang-format on
 
 #include "Eigen/Core"
-#include "_src/common.h"  // NOLINT
-#include "_src/ufuncs.h"  // NOLINT
-#include "include/intn.h"
+#include "ml_dtypes/_src/common.h"  // NOLINT
+#include "ml_dtypes/_src/ufuncs.h"  // NOLINT
+#include "ml_dtypes/include/intn.h"
 
 #if NPY_ABI_VERSION < 0x02000000
 #define PyArray_DescrProto PyArray_Descr
@@ -123,14 +123,17 @@ bool CastToIntN(PyObject* arg, T* output) {
     }
     if (std::isnan(d)) {
       PyErr_SetString(PyExc_ValueError, "cannot convert float NaN to integer");
+      return false;
     }
     if (std::isinf(d)) {
       PyErr_SetString(PyExc_OverflowError,
                       "cannot convert float infinity to integer");
+      return false;
     }
     if (d < static_cast<double>(T::lowest()) ||
         d > static_cast<double>(T::highest())) {
       PyErr_SetString(PyExc_OverflowError, kOutOfRange);
+      return false;
     }
     *output = T(d);
     return true;
@@ -221,6 +224,9 @@ PyObject* PyIntN_tp_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
     if (CastToIntN<T>(f, &value)) {
       return PyIntN_FromValue<T>(value).release();
     }
+  }
+  if (PyErr_Occurred()) {
+    return nullptr;
   }
   PyErr_Format(PyExc_TypeError, "expected number, got %s",
                Py_TYPE(arg)->tp_name);
@@ -413,7 +419,7 @@ PyArray_DescrProto GetIntNDescrProto() {
       /*kind=*/TypeDescriptor<T>::kNpyDescrKind,
       /*type=*/TypeDescriptor<T>::kNpyDescrType,
       /*byteorder=*/TypeDescriptor<T>::kNpyDescrByteorder,
-      /*flags=*/NPY_NEEDS_PYAPI | NPY_USE_SETITEM,
+      /*flags=*/NPY_USE_SETITEM,
       /*type_num=*/0,
       /*elsize=*/sizeof(T),
       /*alignment=*/alignof(T),
@@ -440,6 +446,9 @@ template <typename T>
 int NPyIntN_SetItem(PyObject* item, void* data, void* arr) {
   T x;
   if (!CastToIntN<T>(item, &x)) {
+    if (PyErr_Occurred()) {
+      return -1;
+    }
     PyErr_Format(PyExc_TypeError, "expected number, got %s",
                  Py_TYPE(item)->tp_name);
     return -1;
@@ -768,6 +777,9 @@ template <typename T>
 bool RegisterIntNDtype(PyObject* numpy) {
   // bases must be a tuple for Python 3.9 and earlier. Change to just pass
   // the base type directly when dropping Python 3.9 support.
+  // TODO(jakevdp): it would be better to inherit from PyNumberArrType or
+  // PyIntegerArrType, but this breaks some assumptions made by NumPy, because
+  // dtype.kind='V' is then interpreted as a 'void' type in some contexts.
   Safe_PyObjectPtr bases(
       PyTuple_Pack(1, reinterpret_cast<PyObject*>(&PyGenericArrType_Type)));
   PyObject* type =

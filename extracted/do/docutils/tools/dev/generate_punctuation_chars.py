@@ -9,7 +9,7 @@
 #
 # .. _2-Clause BSD license: https://opensource.org/licenses/BSD-2-Clause
 
-# :Id: $Id: generate_punctuation_chars.py 9270 2022-11-24 20:28:03Z milde $
+# :Id: $Id: generate_punctuation_chars.py 10045 2025-03-09 01:02:23Z aa-turner $
 #
 # ::
 
@@ -33,14 +33,20 @@ which may give different results for different Python versions.
       #inline-markup-recognition-rules
 """
 
+from __future__ import annotations
+
 import sys
 import unicodedata
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 # Template for utils.punctuation_chars
 # ------------------------------------
 
-module_template = r'''# :Id: $Id: generate_punctuation_chars.py 9270 2022-11-24 20:28:03Z milde $
+module_template = r'''# :Id: $Id: generate_punctuation_chars.py 10045 2025-03-09 01:02:23Z aa-turner $
 # :Copyright: © 2011, 2017, 2022 Günter Milde.
 # :License: Released under the terms of the `2-Clause BSD license`_, in short:
 #
@@ -79,7 +85,7 @@ module_template = r'''# :Id: $Id: generate_punctuation_chars.py 9270 2022-11-24 
    .. _inline markup recognition rules:
       https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html
       #inline-markup-recognition-rules
-"""
+"""  # noqa: E501
 
 %(openers)s
 %(closers)s
@@ -147,7 +153,10 @@ unicode_punctuation_categories = {
 #
 # ::
 
-def unicode_charlists(categories, cp_min=0, cp_max=sys.maxunicode):
+def unicode_charlists(categories: Iterable[str],
+                      cp_min: int = 0,
+                      cp_max: int = sys.maxunicode,
+                      ) -> dict[str, list[str]]:
     """Return dictionary of Unicode character lists.
 
     For each of the `catagories`, an item contains a list with all Unicode
@@ -168,7 +177,7 @@ def unicode_charlists(categories, cp_min=0, cp_max=sys.maxunicode):
 #
 # ::
 
-def character_category_patterns():
+def character_category_patterns() -> tuple[str, str, str, str]:
 
     """Docutils character category patterns.
 
@@ -247,16 +256,16 @@ def character_category_patterns():
     # non-matching, after markup
     closing_delimiters = [r'\\.,;!?']
 
-    return [''.join(chars) for chars in (openers, closers, delimiters,
-                                         closing_delimiters)]
+    return tuple(''.join(chs)
+                 for chs in (openers, closers, delimiters, closing_delimiters))
 
 
-def mark_intervals(s):
+def mark_intervals(s: str) -> str:
     """Return s with shortcut notation for runs of consecutive characters
 
     Sort string and replace 'cdef' by 'c-f' and similar.
     """
-    lst = []
+    lst: list[list[int]] = []
     s = sorted(ord(ch) for ch in s)
     for n in s:
         try:
@@ -267,7 +276,7 @@ def mark_intervals(s):
         except IndexError:
             lst.append([n])
 
-    lst2 = []
+    lst2: list[str] = []
     for i in lst:
         i = [chr(n) for n in i]
         if len(i) > 2:
@@ -277,7 +286,12 @@ def mark_intervals(s):
     return ''.join(lst2)
 
 
-def wrap_string(s, startstring="(", endstring="    )", wrap=71):
+def wrap_string(
+    s: str,
+    startstring: str = "(",
+    endstring: str = "    )",
+    wrap: int = 71,
+) -> str:
     """Line-wrap a unicode string literal definition."""
     s = s.encode('unicode-escape').decode()
     c = len(startstring)
@@ -295,7 +309,7 @@ def wrap_string(s, startstring="(", endstring="    )", wrap=71):
     return ''.join(lst)
 
 
-def print_differences(old, new, name):
+def print_differences(old: str, new: str, name: str) -> bool:
     """List characters missing in old/new."""
     if old != new:
         print(f'"{name}" changed')
@@ -392,7 +406,7 @@ if __name__ == '__main__':
 
 # Replacements::
 
-    substitutions = {
+    substitutions: dict[str, str] = {
         'python_version': sys.version.split()[0],
         'unidata_version': unicodedata.unidata_version,
         'openers': wrap_string(o, startstring="openers = ("),

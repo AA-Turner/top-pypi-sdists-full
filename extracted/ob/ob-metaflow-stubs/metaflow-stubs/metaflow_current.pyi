@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:15.017746                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:44.108525                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.events
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.plugins.cards.component_serializer
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.plugins.cards.component_serializer
+    import metaflow
     import metaflow.metaflow_current
+    import typing
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.events
 
 
 TYPE_CHECKING: bool
@@ -229,18 +229,6 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
-        """
-        (only in the presence of the @app_deploy decorator)
-        
-        
-        Returns
-        ----------
-        apps
-            The object carrying the Deployer class to deploy apps.
-        """
-        ...
-    @property
     def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
         """
         (only in the presence of the @checkpoint decorator)
@@ -259,6 +247,18 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
+        """
+        (only in the presence of the @app_deploy decorator)
+        
+        
+        Returns
+        ----------
+        apps
+            The object carrying the Deployer class to deploy apps.
+        """
+        ...
+    @property
     def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
         (only in the presence of the @model decorator)
@@ -272,24 +272,6 @@ class Current(object, metaclass=type):
         ----------
         ModelSerializer
             The object used for loading / saving models.
-        """
-        ...
-    @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
         """
         ...
     @property
@@ -322,12 +304,43 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
     def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
         (only in the presence of the @huggingface_hub decorator)
         
         
         The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
+        """
+        ...
+    @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     @property
@@ -395,19 +408,6 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
-        """
-        ...
-    @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
         """
         ...
     ...

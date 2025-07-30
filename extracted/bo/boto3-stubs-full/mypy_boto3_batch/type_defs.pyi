@@ -33,6 +33,8 @@ from .literals import (
     EFSTransitEncryptionType,
     FirelensConfigurationTypeType,
     JobDefinitionTypeType,
+    JobQueueTypeType,
+    JobStateTimeLimitActionsActionType,
     JobStatusType,
     JQStateType,
     JQStatusType,
@@ -41,6 +43,10 @@ from .literals import (
     PlatformCapabilityType,
     ResourceTypeType,
     RetryActionType,
+    ServiceEnvironmentStateType,
+    ServiceEnvironmentStatusType,
+    ServiceJobRetryActionType,
+    ServiceJobStatusType,
     UserdataTypeType,
 )
 
@@ -64,6 +70,7 @@ __all__ = (
     "AttemptEcsTaskDetailsTypeDef",
     "AttemptTaskContainerDetailsTypeDef",
     "CancelJobRequestTypeDef",
+    "CapacityLimitTypeDef",
     "ComputeEnvironmentDetailTypeDef",
     "ComputeEnvironmentOrderTypeDef",
     "ComputeResourceOutputTypeDef",
@@ -89,10 +96,13 @@ __all__ = (
     "CreateJobQueueResponseTypeDef",
     "CreateSchedulingPolicyRequestTypeDef",
     "CreateSchedulingPolicyResponseTypeDef",
+    "CreateServiceEnvironmentRequestTypeDef",
+    "CreateServiceEnvironmentResponseTypeDef",
     "DeleteComputeEnvironmentRequestTypeDef",
     "DeleteConsumableResourceRequestTypeDef",
     "DeleteJobQueueRequestTypeDef",
     "DeleteSchedulingPolicyRequestTypeDef",
+    "DeleteServiceEnvironmentRequestTypeDef",
     "DeregisterJobDefinitionRequestTypeDef",
     "DescribeComputeEnvironmentsRequestPaginateTypeDef",
     "DescribeComputeEnvironmentsRequestTypeDef",
@@ -109,6 +119,11 @@ __all__ = (
     "DescribeJobsResponseTypeDef",
     "DescribeSchedulingPoliciesRequestTypeDef",
     "DescribeSchedulingPoliciesResponseTypeDef",
+    "DescribeServiceEnvironmentsRequestPaginateTypeDef",
+    "DescribeServiceEnvironmentsRequestTypeDef",
+    "DescribeServiceEnvironmentsResponseTypeDef",
+    "DescribeServiceJobRequestTypeDef",
+    "DescribeServiceJobResponseTypeDef",
     "DeviceOutputTypeDef",
     "DeviceTypeDef",
     "EFSAuthorizationConfigTypeDef",
@@ -175,6 +190,7 @@ __all__ = (
     "JobTimeoutTypeDef",
     "KeyValuePairTypeDef",
     "KeyValuesPairTypeDef",
+    "LatestServiceJobAttemptTypeDef",
     "LaunchTemplateSpecificationOutputTypeDef",
     "LaunchTemplateSpecificationOverrideOutputTypeDef",
     "LaunchTemplateSpecificationOverrideTypeDef",
@@ -196,6 +212,9 @@ __all__ = (
     "ListSchedulingPoliciesRequestPaginateTypeDef",
     "ListSchedulingPoliciesRequestTypeDef",
     "ListSchedulingPoliciesResponseTypeDef",
+    "ListServiceJobsRequestPaginateTypeDef",
+    "ListServiceJobsRequestTypeDef",
+    "ListServiceJobsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LogConfigurationOutputTypeDef",
@@ -225,9 +244,21 @@ __all__ = (
     "SchedulingPolicyDetailTypeDef",
     "SchedulingPolicyListingDetailTypeDef",
     "SecretTypeDef",
+    "ServiceEnvironmentDetailTypeDef",
+    "ServiceEnvironmentOrderTypeDef",
+    "ServiceJobAttemptDetailTypeDef",
+    "ServiceJobEvaluateOnExitTypeDef",
+    "ServiceJobRetryStrategyOutputTypeDef",
+    "ServiceJobRetryStrategyTypeDef",
+    "ServiceJobRetryStrategyUnionTypeDef",
+    "ServiceJobSummaryTypeDef",
+    "ServiceJobTimeoutTypeDef",
+    "ServiceResourceIdTypeDef",
     "ShareAttributesTypeDef",
     "SubmitJobRequestTypeDef",
     "SubmitJobResponseTypeDef",
+    "SubmitServiceJobRequestTypeDef",
+    "SubmitServiceJobResponseTypeDef",
     "TagResourceRequestTypeDef",
     "TaskContainerDependencyTypeDef",
     "TaskContainerDetailsTypeDef",
@@ -236,6 +267,7 @@ __all__ = (
     "TaskContainerPropertiesTypeDef",
     "TaskPropertiesOverrideTypeDef",
     "TerminateJobRequestTypeDef",
+    "TerminateServiceJobRequestTypeDef",
     "TmpfsOutputTypeDef",
     "TmpfsTypeDef",
     "UlimitTypeDef",
@@ -248,6 +280,8 @@ __all__ = (
     "UpdateJobQueueResponseTypeDef",
     "UpdatePolicyTypeDef",
     "UpdateSchedulingPolicyRequestTypeDef",
+    "UpdateServiceEnvironmentRequestTypeDef",
+    "UpdateServiceEnvironmentResponseTypeDef",
     "VolumeTypeDef",
 )
 
@@ -271,6 +305,10 @@ class NetworkInterfaceTypeDef(TypedDict):
 class CancelJobRequestTypeDef(TypedDict):
     jobId: str
     reason: str
+
+class CapacityLimitTypeDef(TypedDict):
+    maxCapacity: NotRequired[int]
+    capacityUnit: NotRequired[str]
 
 class EksConfigurationTypeDef(TypedDict):
     eksClusterArn: str
@@ -363,7 +401,11 @@ class JobStateTimeLimitActionTypeDef(TypedDict):
     reason: str
     state: Literal["RUNNABLE"]
     maxTimeSeconds: int
-    action: Literal["CANCEL"]
+    action: JobStateTimeLimitActionsActionType
+
+class ServiceEnvironmentOrderTypeDef(TypedDict):
+    order: int
+    serviceEnvironment: str
 
 class DeleteComputeEnvironmentRequestTypeDef(TypedDict):
     computeEnvironment: str
@@ -376,6 +418,9 @@ class DeleteJobQueueRequestTypeDef(TypedDict):
 
 class DeleteSchedulingPolicyRequestTypeDef(TypedDict):
     arn: str
+
+class DeleteServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironment: str
 
 class DeregisterJobDefinitionRequestTypeDef(TypedDict):
     jobDefinition: str
@@ -410,6 +455,17 @@ class DescribeJobsRequestTypeDef(TypedDict):
 
 class DescribeSchedulingPoliciesRequestTypeDef(TypedDict):
     arns: Sequence[str]
+
+class DescribeServiceEnvironmentsRequestTypeDef(TypedDict):
+    serviceEnvironments: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class DescribeServiceJobRequestTypeDef(TypedDict):
+    jobId: str
+
+class ServiceJobTimeoutTypeDef(TypedDict):
+    attemptDurationSeconds: NotRequired[int]
 
 class DeviceOutputTypeDef(TypedDict):
     hostPath: str
@@ -544,6 +600,10 @@ class KeyValuesPairTypeDef(TypedDict):
     name: NotRequired[str]
     values: NotRequired[Sequence[str]]
 
+class ServiceResourceIdTypeDef(TypedDict):
+    name: Literal["TrainingJobArn"]
+    value: str
+
 class LaunchTemplateSpecificationOverrideOutputTypeDef(TypedDict):
     launchTemplateId: NotRequired[str]
     launchTemplateName: NotRequired[str]
@@ -578,6 +638,10 @@ class SchedulingPolicyListingDetailTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
+class ServiceJobEvaluateOnExitTypeDef(TypedDict):
+    action: NotRequired[ServiceJobRetryActionType]
+    onStatusReason: NotRequired[str]
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -587,6 +651,10 @@ class TaskContainerDependencyTypeDef(TypedDict):
     condition: NotRequired[str]
 
 class TerminateJobRequestTypeDef(TypedDict):
+    jobId: str
+    reason: str
+
+class TerminateServiceJobRequestTypeDef(TypedDict):
     jobId: str
     reason: str
 
@@ -614,6 +682,27 @@ class AttemptTaskContainerDetailsTypeDef(TypedDict):
     reason: NotRequired[str]
     logStreamName: NotRequired[str]
     networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+
+class CreateServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
+    capacityLimits: Sequence[CapacityLimitTypeDef]
+    state: NotRequired[ServiceEnvironmentStateType]
+    tags: NotRequired[Mapping[str, str]]
+
+class ServiceEnvironmentDetailTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
+    capacityLimits: List[CapacityLimitTypeDef]
+    state: NotRequired[ServiceEnvironmentStateType]
+    status: NotRequired[ServiceEnvironmentStatusType]
+    tags: NotRequired[Dict[str, str]]
+
+class UpdateServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironment: str
+    state: NotRequired[ServiceEnvironmentStateType]
+    capacityLimits: NotRequired[Sequence[CapacityLimitTypeDef]]
 
 class ConsumableResourcePropertiesOutputTypeDef(TypedDict):
     consumableResourceList: NotRequired[List[ConsumableResourceRequirementTypeDef]]
@@ -665,6 +754,11 @@ class CreateSchedulingPolicyResponseTypeDef(TypedDict):
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateServiceEnvironmentResponseTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeConsumableResourceResponseTypeDef(TypedDict):
     consumableResourceName: str
     consumableResourceArn: str
@@ -697,6 +791,12 @@ class SubmitJobResponseTypeDef(TypedDict):
     jobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class SubmitServiceJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateComputeEnvironmentResponseTypeDef(TypedDict):
     computeEnvironmentName: str
     computeEnvironmentArn: str
@@ -713,12 +813,19 @@ class UpdateJobQueueResponseTypeDef(TypedDict):
     jobQueueArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateServiceEnvironmentResponseTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateJobQueueRequestTypeDef(TypedDict):
     jobQueueName: str
     priority: int
-    computeEnvironmentOrder: Sequence[ComputeEnvironmentOrderTypeDef]
     state: NotRequired[JQStateType]
     schedulingPolicyArn: NotRequired[str]
+    computeEnvironmentOrder: NotRequired[Sequence[ComputeEnvironmentOrderTypeDef]]
+    serviceEnvironmentOrder: NotRequired[Sequence[ServiceEnvironmentOrderTypeDef]]
+    jobQueueType: NotRequired[JobQueueTypeType]
     tags: NotRequired[Mapping[str, str]]
     jobStateTimeLimitActions: NotRequired[Sequence[JobStateTimeLimitActionTypeDef]]
 
@@ -731,6 +838,8 @@ class JobQueueDetailTypeDef(TypedDict):
     schedulingPolicyArn: NotRequired[str]
     status: NotRequired[JQStatusType]
     statusReason: NotRequired[str]
+    serviceEnvironmentOrder: NotRequired[List[ServiceEnvironmentOrderTypeDef]]
+    jobQueueType: NotRequired[JobQueueTypeType]
     tags: NotRequired[Dict[str, str]]
     jobStateTimeLimitActions: NotRequired[List[JobStateTimeLimitActionTypeDef]]
 
@@ -740,6 +849,7 @@ class UpdateJobQueueRequestTypeDef(TypedDict):
     schedulingPolicyArn: NotRequired[str]
     priority: NotRequired[int]
     computeEnvironmentOrder: NotRequired[Sequence[ComputeEnvironmentOrderTypeDef]]
+    serviceEnvironmentOrder: NotRequired[Sequence[ServiceEnvironmentOrderTypeDef]]
     jobStateTimeLimitActions: NotRequired[Sequence[JobStateTimeLimitActionTypeDef]]
 
 class DescribeComputeEnvironmentsRequestPaginateTypeDef(TypedDict):
@@ -754,6 +864,10 @@ class DescribeJobDefinitionsRequestPaginateTypeDef(TypedDict):
 
 class DescribeJobQueuesRequestPaginateTypeDef(TypedDict):
     jobQueues: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeServiceEnvironmentsRequestPaginateTypeDef(TypedDict):
+    serviceEnvironments: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSchedulingPoliciesRequestPaginateTypeDef(TypedDict):
@@ -898,6 +1012,28 @@ class ListJobsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
 
+class ListServiceJobsRequestPaginateTypeDef(TypedDict):
+    jobQueue: NotRequired[str]
+    jobStatus: NotRequired[ServiceJobStatusType]
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListServiceJobsRequestTypeDef(TypedDict):
+    jobQueue: NotRequired[str]
+    jobStatus: NotRequired[ServiceJobStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+
+class LatestServiceJobAttemptTypeDef(TypedDict):
+    serviceResourceId: NotRequired[ServiceResourceIdTypeDef]
+
+class ServiceJobAttemptDetailTypeDef(TypedDict):
+    serviceResourceId: NotRequired[ServiceResourceIdTypeDef]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    statusReason: NotRequired[str]
+
 class LaunchTemplateSpecificationOutputTypeDef(TypedDict):
     launchTemplateId: NotRequired[str]
     launchTemplateName: NotRequired[str]
@@ -930,10 +1066,23 @@ class ListSchedulingPoliciesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ServiceJobRetryStrategyOutputTypeDef(TypedDict):
+    attempts: int
+    evaluateOnExit: NotRequired[List[ServiceJobEvaluateOnExitTypeDef]]
+
+class ServiceJobRetryStrategyTypeDef(TypedDict):
+    attempts: int
+    evaluateOnExit: NotRequired[Sequence[ServiceJobEvaluateOnExitTypeDef]]
+
 class AttemptEcsTaskDetailsTypeDef(TypedDict):
     containerInstanceArn: NotRequired[str]
     taskArn: NotRequired[str]
     containers: NotRequired[List[AttemptTaskContainerDetailsTypeDef]]
+
+class DescribeServiceEnvironmentsResponseTypeDef(TypedDict):
+    serviceEnvironments: List[ServiceEnvironmentDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListJobsByConsumableResourceSummaryTypeDef(TypedDict):
     jobArn: str
@@ -1027,6 +1176,19 @@ class ListJobsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ServiceJobSummaryTypeDef(TypedDict):
+    jobId: str
+    jobName: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    latestAttempt: NotRequired[LatestServiceJobAttemptTypeDef]
+    createdAt: NotRequired[int]
+    jobArn: NotRequired[str]
+    shareIdentifier: NotRequired[str]
+    status: NotRequired[ServiceJobStatusType]
+    statusReason: NotRequired[str]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+
 ComputeResourceOutputTypeDef = TypedDict(
     "ComputeResourceOutputTypeDef",
     {
@@ -1117,6 +1279,32 @@ class TaskContainerPropertiesTypeDef(TypedDict):
     secrets: NotRequired[Sequence[SecretTypeDef]]
     ulimits: NotRequired[Sequence[UlimitTypeDef]]
     user: NotRequired[str]
+
+class DescribeServiceJobResponseTypeDef(TypedDict):
+    attempts: List[ServiceJobAttemptDetailTypeDef]
+    createdAt: int
+    isTerminated: bool
+    jobArn: str
+    jobId: str
+    jobName: str
+    jobQueue: str
+    latestAttempt: LatestServiceJobAttemptTypeDef
+    retryStrategy: ServiceJobRetryStrategyOutputTypeDef
+    schedulingPriority: int
+    serviceRequestPayload: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    shareIdentifier: str
+    startedAt: int
+    status: ServiceJobStatusType
+    statusReason: str
+    stoppedAt: int
+    tags: Dict[str, str]
+    timeoutConfig: ServiceJobTimeoutTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ServiceJobRetryStrategyUnionTypeDef = Union[
+    ServiceJobRetryStrategyTypeDef, ServiceJobRetryStrategyOutputTypeDef
+]
 
 class AttemptDetailTypeDef(TypedDict):
     container: NotRequired[AttemptContainerDetailTypeDef]
@@ -1244,6 +1432,11 @@ class UpdateSchedulingPolicyRequestTypeDef(TypedDict):
     arn: str
     fairsharePolicy: NotRequired[FairsharePolicyUnionTypeDef]
 
+class ListServiceJobsResponseTypeDef(TypedDict):
+    jobSummaryList: List[ServiceJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 ComputeEnvironmentDetailTypeDef = TypedDict(
     "ComputeEnvironmentDetailTypeDef",
     {
@@ -1331,6 +1524,18 @@ class EcsTaskPropertiesTypeDef(TypedDict):
     runtimePlatform: NotRequired[RuntimePlatformTypeDef]
     volumes: NotRequired[Sequence[VolumeTypeDef]]
     enableExecuteCommand: NotRequired[bool]
+
+class SubmitServiceJobRequestTypeDef(TypedDict):
+    jobName: str
+    jobQueue: str
+    serviceRequestPayload: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    retryStrategy: NotRequired[ServiceJobRetryStrategyUnionTypeDef]
+    schedulingPriority: NotRequired[int]
+    shareIdentifier: NotRequired[str]
+    timeoutConfig: NotRequired[ServiceJobTimeoutTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
 
 ContainerPropertiesUnionTypeDef = Union[
     ContainerPropertiesTypeDef, ContainerPropertiesOutputTypeDef

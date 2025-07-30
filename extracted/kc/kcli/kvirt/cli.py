@@ -1705,7 +1705,7 @@ def create_lb(args):
     domain = overrides.get('domain')
     internal = overrides.get('internal', False)
     vms = overrides.get('vms', [])
-    name = get_random_name().replace('_', '-') if args.name is None else args.name
+    name = args.name or get_random_name().replace('_', '-')
     config = Kconfig(client=args.client, debug=args.debug, region=args.region, zone=args.zone, namespace=args.namespace)
     config.create_loadbalancer(name, ports=ports, checkpath=checkpath, vms=vms, domain=domain, checkport=checkport,
                                internal=internal, ip=ip)
@@ -2473,6 +2473,7 @@ def create_vmdata(args):
     args.serial = None
     args.count = 0
     args.force = False
+    args.keep = False
     create_vm(args)
 
 

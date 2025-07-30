@@ -40,8 +40,8 @@ class TestPageEntityAutomationItems(unittest.TestCase):
                 content = [
                     mailslurp_client.models.entity_automation_item_projection.EntityAutomationItemProjection(
                         inbox_id = '0', 
-                        phone_id = '0', 
                         action = '0', 
+                        phone_id = '0', 
                         automation_type = 'INBOX_FORWARDER', 
                         name = '0', 
                         id = '0', )

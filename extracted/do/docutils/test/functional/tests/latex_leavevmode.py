@@ -1,9 +1,9 @@
 # Source and destination file names
-test_source = "latex_leavevmode.txt"
+test_source = "latex_leavevmode.rst"
 test_destination = "latex_leavevmode.tex"
 
 # Keyword parameters passed to publish_file()
-writer_name = "latex"
+writer = "latex"
 settings_overrides = {
     'smart_quotes': True,
     'legacy_column_widths': True,

@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:14.860189                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:43.900094                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import typing
-    import metaflow._vendor.click.types
     import metaflow.parameters
+    import metaflow._vendor.click.types
+    import typing
 
 from ._vendor import click as click
 from .exception import MetaflowException as MetaflowException

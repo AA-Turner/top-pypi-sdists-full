@@ -37,10 +37,6 @@ class TestEmailProjection(unittest.TestCase):
         # model = mailslurp_client.models.email_projection.EmailProjection()  # noqa: E501
         if include_optional :
             return EmailProjection(
-                sender = mailslurp_client.models.sender.Sender(
-                    raw_value = '0', 
-                    email_address = '0', 
-                    name = '0', ), 
                 recipients = mailslurp_client.models.email_recipients.EmailRecipients(
                     to = [
                         mailslurp_client.models.recipient.Recipient(
@@ -60,6 +56,10 @@ class TestEmailProjection(unittest.TestCase):
                             email_address = '0', 
                             name = '0', )
                         ], ), 
+                sender = mailslurp_client.models.sender.Sender(
+                    raw_value = '0', 
+                    email_address = '0', 
+                    name = '0', ), 
                 attachments = [
                     '0'
                     ], 

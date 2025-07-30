@@ -1,13 +1,13 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: abqpy
-Version: 2025.8
+Version: 2025.9
 Summary: Type hints for Abaqus/Python scripting
 Author-email: WANG Hailin <hailin.wang@connect.polyu.hk>
 Project-URL: Homepage, https://abqpy.com
 Project-URL: GitHub, https://github.com/haiiliin/abqpy
 Project-URL: Bug Tracker, https://github.com/haiiliin/abqpy/issues
-Project-URL: Read the Docs, https://readthedocs.org/projects/abqpy
-Project-URL: Documentation, https://haiiliin.github.io/abqpy/
+Project-URL: Conda, https://anaconda.org/conda-forge/abqpy
+Project-URL: Documentation, https://haiiliin.github.io/abqpy
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -17,7 +17,6 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -30,6 +29,7 @@ Requires-Dist: typing-extensions
 Provides-Extra: jupyter
 Requires-Dist: ipynbname; extra == "jupyter"
 Requires-Dist: nbconvert; extra == "jupyter"
+Dynamic: license-file
 
 # abqpy 2025
 
@@ -52,6 +52,7 @@ Python script, even without opening the Abaqus/CAE.
 
 - GitHub repository: [https://github.com/haiiliin/abqpy](https://github.com/haiiliin/abqpy)
 - PyPI: [https://pypi.org/project/abqpy](https://pypi.org/project/abqpy)
+- Conda: [https://anaconda.org/conda-forge/abqpy](https://anaconda.org/conda-forge/abqpy)
 - Documentation: [https://haiiliin.github.io/abqpy](https://haiiliin.github.io/abqpy)
 
 ## Quick Start

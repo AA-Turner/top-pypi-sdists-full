@@ -37,17 +37,17 @@ class TestCreateTotpDeviceOtpAuthUrlOptions(unittest.TestCase):
         # model = mailslurp_client.models.create_totp_device_otp_auth_url_options.CreateTotpDeviceOtpAuthUrlOptions()  # noqa: E501
         if include_optional :
             return CreateTotpDeviceOtpAuthUrlOptions(
-                otp_auth_url = '0', 
+                otp_auth_url = 'otpauth://totp/your-app:contact%40mailslurp.dev?secret=LJCTOYKGGBAWCMSHJRZGITCVLIXCG4JY&issuer=your-app&algorithm=SHA1&digits=6&period=30', 
                 name = '0', 
                 username = '0', 
                 issuer = '0', 
-                digits = 56, 
+                digits = 0, 
                 period = 56, 
-                algorithm = '0'
+                algorithm = 'SHA1'
             )
         else :
             return CreateTotpDeviceOtpAuthUrlOptions(
-                otp_auth_url = '0',
+                otp_auth_url = 'otpauth://totp/your-app:contact%40mailslurp.dev?secret=LJCTOYKGGBAWCMSHJRZGITCVLIXCG4JY&issuer=your-app&algorithm=SHA1&digits=6&period=30',
         )
 
     def testCreateTotpDeviceOtpAuthUrlOptions(self):

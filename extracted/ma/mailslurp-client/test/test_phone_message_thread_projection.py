@@ -46,9 +46,7 @@ class TestPhoneMessageThreadProjection(unittest.TestCase):
             )
         else :
             return PhoneMessageThreadProjection(
-                phone_number = '0',
                 phone_number_id = '0',
-                other_phone_number = '0',
                 last_message_direction = 'OUTBOUND',
                 last_body = '0',
                 last_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),

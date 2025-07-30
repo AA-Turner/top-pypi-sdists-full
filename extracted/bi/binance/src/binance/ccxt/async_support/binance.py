@@ -506,6 +506,7 @@ class binance(Exchange, ImplicitAPI):
                         'portfolio/balance': 2,
                         'portfolio/negative-balance-exchange-record': 2,
                         'portfolio/pmloan-history': 5,
+                        'portfolio/earn-asset-balance': 150,  # Weight(IP): 1500 => cost = 0.1 * 1500 = 150
                         # staking
                         'staking/productList': 0.1,
                         'staking/position': 0.1,
@@ -664,6 +665,7 @@ class binance(Exchange, ImplicitAPI):
                         'portfolio/repay-futures-negative-balance': 150,  # Weight(IP): 1500 => cost = 0.1 * 1500 = 150
                         'portfolio/mint': 20,
                         'portfolio/redeem': 20,
+                        'portfolio/earn-asset-transfer': 150,  # Weight(IP): 1500 => cost = 0.1 * 1500 = 150
                         'lending/auto-invest/plan/add': 0.1,  # Weight(IP): 1 => cost = 0.1 * 1 = 0.1
                         'lending/auto-invest/plan/edit': 0.1,  # Weight(IP): 1 => cost = 0.1 * 1 = 0.1
                         'lending/auto-invest/plan/edit-status': 0.1,  # Weight(IP): 1 => cost = 0.1 * 1 = 0.1
@@ -852,6 +854,7 @@ class binance(Exchange, ImplicitAPI):
                         'apiTradingStatus': {'cost': 1, 'noSymbol': 10},
                         'lvtKlines': 1,
                         'convert/exchangeInfo': 4,
+                        'insuranceBalance': 1,
                     },
                 },
                 'fapiData': {
@@ -1289,12 +1292,14 @@ class binance(Exchange, ImplicitAPI):
             'options': {
                 'sandboxMode': False,
                 'fetchMargins': True,
-                'fetchMarkets': [
-                    'spot',  # allows CORS in browsers
-                    'linear',  # allows CORS in browsers
-                    'inverse',  # allows CORS in browsers
-                    # 'option',  # does not allow CORS, enable outside of the browser only
-                ],
+                'fetchMarkets': {
+                    'types': [
+                        'spot',  # allows CORS in browsers
+                        'linear',  # allows CORS in browsers
+                        'inverse',  # allows CORS in browsers
+                        # 'option',  # does not allow CORS, enable outside of the browser only
+                    ],
+                },
                 'loadAllOptions': False,
                 'fetchCurrencies': True,  # self is a private call and it requires API keys
                 # 'fetchTradesMethod': 'publicGetAggTrades',  # publicGetTrades, publicGetHistoricalTrades, eapiPublicGetTrades
@@ -3022,7 +3027,14 @@ class binance(Exchange, ImplicitAPI):
         :returns dict[]: an array of objects representing market data
         """
         promisesRaw = []
-        rawFetchMarkets = self.safe_list(self.options, 'fetchMarkets', ['spot', 'linear', 'inverse'])
+        rawFetchMarkets = None
+        defaultTypes = ['spot', 'linear', 'inverse']
+        fetchMarketsOptions = self.safe_dict(self.options, 'fetchMarkets')
+        if fetchMarketsOptions is not None:
+            rawFetchMarkets = self.safe_list(fetchMarketsOptions, 'types', defaultTypes)
+        else:
+            # for backward-compatibility
+            rawFetchMarkets = self.safe_list(self.options, 'fetchMarkets', defaultTypes)
         # handle loadAllOptions option
         loadAllOptions = self.safe_bool(self.options, 'loadAllOptions', False)
         if loadAllOptions:

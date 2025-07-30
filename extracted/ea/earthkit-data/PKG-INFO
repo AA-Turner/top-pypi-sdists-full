@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-data
-Version: 0.15.1
+Version: 0.16.0
 Summary: A format-agnostic Python interface for geospatial data
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
@@ -27,7 +27,7 @@ Requires-Dist: cfgrib>=0.9.10.1
 Requires-Dist: dask
 Requires-Dist: deprecation
 Requires-Dist: earthkit-meteo>=0.0.1
-Requires-Dist: earthkit-utils>=0.0.1
+Requires-Dist: earthkit-utils>=0.1.1
 Requires-Dist: eccodes>=1.7
 Requires-Dist: entrypoints
 Requires-Dist: filelock

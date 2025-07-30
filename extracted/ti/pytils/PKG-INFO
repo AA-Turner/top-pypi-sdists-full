@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pytils
-Version: 0.4.3
+Version: 0.4.4
 Summary: Russian-specific string utils
 Home-page: https://github.com/last-partizan/pytils/
 Author: Yury Yurevich
@@ -31,6 +31,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: summary
 

@@ -164,10 +164,15 @@ def invoke_api_proc_log(link, id_robo, token):
     print(f"\n{responseinsert.json()}")
 
 def login_2fac(driver, certificate, system, token, code_timeout=60):
+
     from . import mostrar_mensagem
-    import time
+    import bcpkgfox as bc
     import requests
+    import time
     import pyautogui
+    import os
+
+    from threading import Thread
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
@@ -251,7 +256,7 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                         time.sleep(5)
                         continue
                     else:
-                        raise('Todas as tentativas falharam!')
+                            raise('Todas as tentativas falharam!')
 
         def invoke_update_status(self, id):
 
@@ -474,20 +479,29 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                 time.sleep(1)
                 if len(self.driver.window_handles) == num_windows:
                     try:
-                        tools.find_element_with_wait(By.XPATH, "//button[text()='Acessar']").click()
+                        tools.find_element_with_wait(By.XPATH, "//button[text()='Acessar']", timeout=1).click()
                     except:
                         break
                 else:
                     break
 
-            time.sleep(5)
             handles = self.driver.window_handles
             self.driver.switch_to.window(handles[-1])
             protection.stop()
-            if len(handles) > 1:
-                self.driver.switch_to.window(handles[0])
+
+            attempt = 0
+            while 'whoom' in self.driver.title.strip().lower() and attempt <= 180:
+                time.sleep(1)
+                attempt += 1
+
+            if attempt >= 180:
+                mostrar_mensagem('Whoom congelou no conectar com site.')
+                raise SystemError('Whoom congelou no conectar com site.')
+
+            if len(self.driver.window_handles) > 1:
+                self.driver.switch_to.window(self.driver.window_handles[0])
                 self.driver.close()
-                self.driver.switch_to.window(handles[-1])
+                self.driver.switch_to.window(self.driver.window_handles[-1])
 
     # Instances
     tools = tool()

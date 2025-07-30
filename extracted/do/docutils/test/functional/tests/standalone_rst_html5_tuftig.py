@@ -1,9 +1,9 @@
 # Source and destination file names
-test_source = "rst_html5_tuftig.txt"
+test_source = "rst_html5_tuftig.rst"
 test_destination = "rst_html5_tuftig.html"
 
 # Keyword parameters passed to publish_file()
-writer_name = "html5"
+writer = "html5"
 settings_overrides = {
     'sectsubtitle_xform': True,
     'smart_quotes': 'yes',

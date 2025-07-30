@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_include.py 9500 2023-12-14 22:38:49Z milde $
+# $Id: test_include.py 10134 2025-05-19 21:12:34Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     # so we import the local `docutils` package.
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from docutils import parsers, utils
+from docutils import core, parsers, utils
 from docutils.frontend import get_default_settings
 from docutils.parsers.rst import Parser
 from docutils.utils import new_document
@@ -25,12 +25,11 @@ from docutils.utils.code_analyzer import with_pygments
 from test.test_parsers.test_rst.test_directives.test_code \
     import PYGMENTS_2_14_PLUS
 
-
-TEST_ROOT = Path(__file__).resolve().parents[3]
-
+FILE_DIR = Path(__file__).resolve().parent
+TEST_ROOT = FILE_DIR.parents[2]
 
 # optional 3rd-party markdown parser
-md_parser_name = 'recommonmark'
+md_parser_name = 'pycmark'
 try:  # check availability
     md_parser_class = parsers.get_parser_class(md_parser_name)
 except ImportError:
@@ -41,23 +40,40 @@ class ParserTestCase(unittest.TestCase):
     maxDiff = None
 
     def test_parser(self):
-        # eventually skip optional parts:
-        if not with_pygments:
-            del totest['include_parsed_code']
-        if not md_parser_class:
-            del totest['include_markdown']
-
         parser = Parser()
         settings = get_default_settings(Parser)
         settings.warning_stream = ''
         settings.halt_level = 5
         for name, cases in totest.items():
+            if name == 'with transforms':
+                continue  # see test_publish() below
             for casenum, (case_input, case_expected) in enumerate(cases):
                 with self.subTest(id=f'totest[{name!r}][{casenum}]'):
+                    # eventually skip optional parts:
+                    if name == 'include_markdown' and not md_parser_class:
+                        self.skipTest('no markdown parser available')
+                    if name == 'include_parsed_code' and not with_pygments:
+                        self.skipTest('syntax highlight requires pygments')
                     document = new_document('test data', settings.copy())
                     parser.parse(case_input, document)
                     output = document.pformat()
                     self.assertEqual(case_expected, output)
+
+    def test_publish(self):
+        # Special case for tests of issue reporting.
+        # To see the system message from the duplicate id, we need transforms.
+        settings = {'_disable_config': True,
+                    'output_encoding': 'unicode',
+                    'warning_stream': '',
+                    }
+        name = 'with transforms'
+        for casenum, (sample, expected) in enumerate(totest[name]):
+            with self.subTest(id=f'totest[{name!r}][{casenum}]'):
+                output = core.publish_string(sample,
+                                             source_path='test data',
+                                             parser=Parser(),
+                                             settings_overrides=settings)
+                self.assertEqual(expected, output)
 
 
 try:
@@ -68,31 +84,31 @@ else:
     unichr_exception = ''
 
 
-# prepend this directory (relative to the test root):
+# prepend this directory (relative to the cwd):
 def mydir(path):
-    return os.path.relpath(
-        os.path.join(TEST_ROOT, 'test_parsers/test_rst/test_directives', path),
-        os.getcwd()).replace('\\', '/')
+    return os.path.relpath(os.path.join(FILE_DIR, path),
+                           os.getcwd()).replace('\\', '/')
 
 
-include1 = mydir('include1.txt')
-include2 = mydir('include2.txt')
-include3 = mydir('include3.txt')
-include5 = mydir('includes/include5.txt')
-include6 = mydir('includes/more/include6.txt')
-include8 = mydir('include8.txt')
-include10 = mydir('include10.txt')
-include11 = mydir('include 11.txt')
-include12 = mydir('include12.txt')
-include13 = mydir('include13.txt')
-include14 = mydir('includes/include14.txt')
-include15 = mydir('includes/include15.txt')
-include16 = mydir('includes/include16.txt')
-include_literal = mydir('include_literal.txt')
+include1 = mydir('include1.rst')
+include2 = mydir('include2.rst')
+include3 = mydir('include3.rst')
+include5 = mydir('includes/include5.rst')
+include6 = mydir('includes/more/include6.rst')
+include8 = mydir('include8.rst')
+include10 = mydir('include10.rst')
+include11 = mydir('include 11.rst')
+include12 = mydir('include12.rst')
+include13 = mydir('include13.rst')
+include14 = mydir('includes/include14.rst')
+include15 = mydir('includes/include15.rst')
+include16 = mydir('includes/include16.rst')
+include_literal = mydir('include_literal.rst')
 include_md = mydir('include.md')
-include = os.path.join(TEST_ROOT, 'data/include.txt')
-latin2 = os.path.join(TEST_ROOT, 'data/latin2.txt')
-utf_16_file = os.path.join(TEST_ROOT, 'data/utf-16-le-sig.txt')
+include_xml = mydir('includes/include.xml')
+include = TEST_ROOT/'data/include.rst'
+latin2 = TEST_ROOT/'data/latin2.rst'
+utf_16_file = TEST_ROOT/'data/utf-16-le-sig.rst'
 utf_16_error_str = ("UnicodeDecodeError: 'ascii' codec can't decode byte 0xff "
                     "in position 0: ordinal not in range(128)")
 rst_states_dir = os.path.dirname(parsers.rst.states.__file__)
@@ -107,14 +123,14 @@ nonexistent = utils.relative_path(
 
 # Different error for path with 8bit chars with locale == C or None:
 try:
-    open('\u043c\u0438\u0440.txt')
+    open('\u043c\u0438\u0440.rst')
 except UnicodeEncodeError:
     errstr_8bit_path = """\
-Cannot encode input file path "\u043c\u0438\u0440.txt" (wrong locale?).\
+Cannot encode input file path "\u043c\u0438\u0440.rst" (wrong locale?).\
 """
 except FileNotFoundError:
     errstr_8bit_path = """\
-InputError: [Errno 2] No such file or directory: '\u043c\u0438\u0440.txt'.\
+InputError: [Errno 2] No such file or directory: '\u043c\u0438\u0440.rst'.\
 """
 
 totest = {}
@@ -279,7 +295,7 @@ The included paragraphs should also be in the block quote.
             Here are some paragraphs
             that can appear at any level.
         <paragraph>
-            This file (include2.txt) is used by
+            This file (include2.rst) is used by
             <literal>
                 test_include.py
             .
@@ -290,7 +306,7 @@ The included paragraphs should also be in the block quote.
 Include Test
 ============
 
-.. include:: nonexistent.txt
+.. include:: nonexistent.rst
 
 A paragraph.
 """,
@@ -302,9 +318,9 @@ A paragraph.
         <system_message level="4" line="4" source="test data" type="SEVERE">
             <paragraph>
                 Problems with "include" directive path:
-                InputError: [Errno 2] No such file or directory: 'nonexistent.txt'.
+                InputError: [Errno 2] No such file or directory: 'nonexistent.rst'.
             <literal_block xml:space="preserve">
-                .. include:: nonexistent.txt
+                .. include:: nonexistent.rst
         <paragraph>
             A paragraph.
 """],
@@ -399,19 +415,19 @@ f"""\
     <paragraph>
         In test data
     <paragraph>
-        In include3.txt
+        In include3.rst
     <paragraph>
-        In includes/include4.txt
+        In includes/include4.rst
     <paragraph>
-        In includes/include5.txt
+        In includes/include5.rst
     <paragraph>
-        In includes/more/include6.txt
+        In includes/more/include6.rst
     <paragraph>
-        In includes/sibling/include7.txt
+        In includes/sibling/include7.rst
     <literal_block source="{include5}" xml:space="preserve">
-        In includes/include5.txt
+        In includes/include5.rst
         \n\
-        .. include:: more/include6.txt
+        .. include:: more/include6.rst
     <table>
         <tgroup cols="2">
             <colspec colwidth="50">
@@ -423,7 +439,7 @@ f"""\
                             In
                     <entry>
                         <paragraph>
-                            includes/sibling/include7.txt
+                            includes/sibling/include7.rst
 """],
 [f"""\
 Recursive inclusion with specified parser.
@@ -440,19 +456,19 @@ f"""\
     <paragraph>
         In test data
     <paragraph>
-        In include3.txt
+        In include3.rst
     <paragraph>
-        In includes/include4.txt
+        In includes/include4.rst
     <paragraph>
-        In includes/include5.txt
+        In includes/include5.rst
     <paragraph>
-        In includes/more/include6.txt
+        In includes/more/include6.rst
     <paragraph>
-        In includes/sibling/include7.txt
+        In includes/sibling/include7.rst
     <literal_block source="{include5}" xml:space="preserve">
-        In includes/include5.txt
+        In includes/include5.rst
         \n\
-        .. include:: more/include6.txt
+        .. include:: more/include6.rst
     <table>
         <tgroup cols="2">
             <colspec colwidth="50">
@@ -464,7 +480,7 @@ f"""\
                             In
                     <entry>
                         <paragraph>
-                            includes/sibling/include7.txt
+                            includes/sibling/include7.rst
 """],
 [f"""\
 In test data
@@ -486,19 +502,19 @@ f"""\
         <paragraph>
             (Section contents in nested parse; slice of input_lines ViewList.)
         <paragraph>
-            In include3.txt
+            In include3.rst
         <paragraph>
-            In includes/include4.txt
+            In includes/include4.rst
         <paragraph>
-            In includes/include5.txt
+            In includes/include5.rst
         <paragraph>
-            In includes/more/include6.txt
+            In includes/more/include6.rst
         <paragraph>
-            In includes/sibling/include7.txt
+            In includes/sibling/include7.rst
         <literal_block source="{include5}" xml:space="preserve">
-            In includes/include5.txt
+            In includes/include5.rst
             \n\
-            .. include:: more/include6.txt
+            .. include:: more/include6.rst
         <table>
             <tgroup cols="2">
                 <colspec colwidth="50">
@@ -510,7 +526,7 @@ f"""\
                                 In
                         <entry>
                             <paragraph>
-                                includes/sibling/include7.txt
+                                includes/sibling/include7.rst
 """],
 [f"""\
 Testing relative includes:
@@ -522,14 +538,14 @@ Testing relative includes:
     <paragraph>
         Testing relative includes:
     <paragraph>
-        In include8.txt
+        In include8.rst
     <paragraph>
-        In ../includes/include9.txt.
+        In ../includes/include9.rst.
     <paragraph>
         Here are some paragraphs
         that can appear at any level.
     <paragraph>
-        This file (include2.txt) is used by
+        This file (include2.rst) is used by
         <literal>
             test_include.py
         .
@@ -546,32 +562,6 @@ Encoding:
         Encoding:
     <paragraph>
         Grüße
-"""],
-[f"""\
-Default encoding: auto-determine (here via BOM).
-
-.. include:: {utf_16_file}
-""",
-"""\
-<document source="test data">
-    <paragraph>
-        Default encoding: auto-determine (here via BOM).
-    <paragraph>
-        Grüße
-"""],
-[f"""\
-Default encoding: auto-determine (via encoding declaration).
-
-.. include:: {latin2}
-""",
-"""\
-<document source="test data">
-    <paragraph>
-        Default encoding: auto-determine (via encoding declaration).
-    <comment xml:space="preserve">
-        -*- encoding: latin2 -*-
-    <paragraph>
-        škoda
 """],
 [f"""\
 Include file is UTF-16-encoded, and is not valid ASCII.
@@ -594,7 +584,7 @@ f"""\
 ["""\
 cyrillic filename:
 
-.. include:: \u043c\u0438\u0440.txt
+.. include:: \u043c\u0438\u0440.rst
 """,
 f"""\
 <document source="test data">
@@ -605,7 +595,7 @@ f"""\
             Problems with "include" directive path:
             {errstr_8bit_path}
         <literal_block xml:space="preserve">
-            .. include:: \u043c\u0438\u0440.txt
+            .. include:: \u043c\u0438\u0440.rst
 """],
 [f"""\
 Testing errors in included file:
@@ -858,6 +848,33 @@ f"""\
                 .. end of inclusion from "{include10}"
 """],
 [f"""\
+Inclusion 1
+===========
+Name clash: The included file uses the same section title.
+
+.. include:: {include1}
+   :parser: rst
+""",
+f"""\
+<document source="test data">
+    <section dupnames="inclusion\\ 1" ids="inclusion-1">
+        <title>
+            Inclusion 1
+        <paragraph>
+            Name clash: The included file uses the same section title.
+        <section dupnames="inclusion\\ 1" ids="inclusion-1-1">
+            <title>
+                Inclusion 1
+            <system_message backrefs="inclusion-1-1" level="1" line="2" source="{include1}" type="INFO">
+                <paragraph>
+                    Duplicate implicit target name: "inclusion 1".
+            <paragraph>
+                This file is used by \n\
+                <literal>
+                    test_include.py
+                .
+"""],
+[f"""\
 Include file with whitespace in the path:
 
 .. include:: {include11}
@@ -918,7 +935,7 @@ Include start-line/end-line Test
     <paragraph>
         Include start-line/end-line Test
     <paragraph>
-        This file (include2.txt) is used by
+        This file (include2.rst) is used by
 """],
 [f"""\
 Include start-line/end-line + start-after Test
@@ -935,7 +952,7 @@ Text search is limited to the specified lines.
     <paragraph>
         Include start-line/end-line + start-after Test
     <paragraph>
-        In include12.txt (after "start here", before "stop here")
+        In include12.rst (after "start here", before "stop here")
     <paragraph>
         Text search is limited to the specified lines.
 """],
@@ -953,7 +970,7 @@ A paragraph.
     <paragraph>
         Include start-after/end-before Test
     <paragraph>
-        In include12.txt (after "start here", before "stop here")
+        In include12.rst (after "start here", before "stop here")
     <paragraph>
         A paragraph.
 """],
@@ -973,9 +990,9 @@ A paragraph.
     <paragraph>
         Include start-after/end-before Test, single option variant
     <paragraph>
-        In include12.txt (but before "start here")
+        In include12.rst (but before "start here")
     <paragraph>
-        In include12.txt (after "stop here")
+        In include12.rst (after "stop here")
     <paragraph>
         A paragraph.
 """],
@@ -1012,7 +1029,7 @@ f"""\
                :end-before: -------
                             -- mork of ork
     <paragraph>
-        In include13.txt (between header and signature)
+        In include13.rst (between header and signature)
     <paragraph>
         A paragraph.
 """],
@@ -1361,18 +1378,18 @@ f"""\
         normalized.
 """],
 [f"""\
-Including includes/include14.txt
+Including includes/include14.rst
 
 .. include:: {include14}
 """,
 f"""\
 <document source="test data">
     <paragraph>
-        Including includes/include14.txt
+        Including includes/include14.rst
     <paragraph>
-        Including more/include6.txt as rst-code from includes/include14.txt:
+        Including more/include6.rst as rst-code from includes/include14.rst:
     <literal_block classes="code rst" source="{include6}" xml:space="preserve">
-        In includes/more/include6.txt
+        In includes/more/include6.rst
         <inline classes="whitespace">
             \n\
             \n\
@@ -1383,15 +1400,15 @@ f"""\
             include
         <inline classes="punctuation">
             ::
-         ../sibling/include7.txt
+         ../sibling/include7.rst
 """ if PYGMENTS_2_14_PLUS else f"""\
 <document source="test data">
     <paragraph>
-        Including includes/include14.txt
+        Including includes/include14.rst
     <paragraph>
-        Including more/include6.txt as rst-code from includes/include14.txt:
+        Including more/include6.rst as rst-code from includes/include14.rst:
     <literal_block classes="code rst" source="{include6}" xml:space="preserve">
-        In includes/more/include6.txt
+        In includes/more/include6.rst
         \n\
         <inline classes="punctuation">
             ..
@@ -1400,7 +1417,7 @@ f"""\
             include
         <inline classes="punctuation">
             ::
-         ../sibling/include7.txt
+         ../sibling/include7.rst
 """],
 [f"""\
 Circular inclusion
@@ -1412,9 +1429,9 @@ f"""\
     <paragraph>
         Circular inclusion
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
     <paragraph>
-        File "include16.txt": example of rekursive inclusion.
+        File "include16.rst": example of rekursive inclusion.
     <system_message level="2" line="3" source="{include16}" type="WARNING">
         <paragraph>
             circular inclusion in "include" directive:
@@ -1423,11 +1440,11 @@ f"""\
             > {include15}
             > test data
         <literal_block xml:space="preserve">
-            .. include:: include15.txt
+            .. include:: include15.rst
     <paragraph>
         No loop when clipping before the "include" directive:
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
 """],
 [f"""\
 Circular inclusion with clipping.
@@ -1440,9 +1457,9 @@ f"""\
     <paragraph>
         Circular inclusion with clipping.
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
     <paragraph>
-        File "include16.txt": example of rekursive inclusion.
+        File "include16.rst": example of rekursive inclusion.
     <system_message level="2" line="3" source="{include16}" type="WARNING">
         <paragraph>
             circular inclusion in "include" directive:
@@ -1452,15 +1469,15 @@ f"""\
             > {include16}
             > test data
         <literal_block xml:space="preserve">
-            .. include:: include15.txt
+            .. include:: include15.rst
     <paragraph>
         No loop when clipping before the "include" directive:
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
     <paragraph>
         No loop when clipping before the "include" directive:
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
 """],
 [f"""\
 Circular inclusion with specified parser.
@@ -1473,22 +1490,21 @@ f"""\
     <paragraph>
         Circular inclusion with specified parser.
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
     <paragraph>
-        File "include16.txt": example of rekursive inclusion.
+        File "include16.rst": example of rekursive inclusion.
     <system_message level="2" line="3" source="{include16}" type="WARNING">
         <paragraph>
             circular inclusion in "include" directive:
             {include15}
             > {include16}
             > {include15}
-            > test data
         <literal_block xml:space="preserve">
-            .. include:: include15.txt
+            .. include:: include15.rst
     <paragraph>
         No loop when clipping before the "include" directive:
     <paragraph>
-        File "include15.txt": example of rekursive inclusion.
+        File "include15.rst": example of rekursive inclusion.
 """],
 [f"""\
 No circular inclusion.
@@ -1531,7 +1547,7 @@ A paragraph.
 <document source="test data">
     <paragraph>
         Include Markdown source.
-    <section ids="title-1" names="title\\ 1">
+    <section depth="1" ids="section-1">
         <title>
             Title 1
         <paragraph>
@@ -1542,11 +1558,85 @@ A paragraph.
                 also emphasis
         <paragraph>
             No whitespace required around a
-            <reference name="phrase reference" refuri="/uri">
+            <reference refuri="/uri">
                 phrase reference
             .
+        <target ids="phrase-reference" names="phrase\\ reference" refuri="/uri">
     <paragraph>
         A paragraph.
+"""],
+]
+
+# Transforms are required for these tests: The system_message about
+# duplicate name/id is appended by the "universal.Messages" transform.
+totest['with transforms'] = [
+[f"""\
+.. _common id:
+
+Include Docutils XML file:
+
+.. include:: {include_xml}
+   :parser: xml
+""",
+f"""\
+<document source="test data">
+    <target refid="common-id">
+    <paragraph ids="common-id" names="common\\ id">
+        Include Docutils XML file:
+    <section>
+        <title names="nice\\ heading">
+            nice heading
+        <paragraph>
+            Text with \n\
+            <strong ids="common-id">
+                strong
+                statement
+             and more text.
+    <section classes="system-messages">
+        <title>
+            Docutils System Messages
+        <system_message level="3" line="3" source="{include_xml}" type="ERROR">
+            <paragraph>
+                Duplicate ID: "common-id" used by <target ids="common-id" names="common\\ id"> and <strong ids="common-id">
+"""],
+[f"""\
+Inclusion 1
+===========
+Name clash: The included file uses the same section title `inclusion 1`_.
+
+.. include:: {include1}
+   :parser: rst
+
+Inclusion 2
+===========
+""",
+"""\
+<document source="test data">
+    <section dupnames="inclusion\\ 1" ids="inclusion-1">
+        <title>
+            Inclusion 1
+        <paragraph>
+            Name clash: The included file uses the same section title \n\
+            <problematic ids="problematic-1" refid="system-message-1">
+                `inclusion 1`_
+            .
+        <section dupnames="inclusion\\ 1" ids="inclusion-1-1">
+            <title>
+                Inclusion 1
+            <paragraph>
+                This file is used by \n\
+                <literal>
+                    test_include.py
+                .
+    <section ids="inclusion-2" names="inclusion\\ 2">
+        <title>
+            Inclusion 2
+    <section classes="system-messages">
+        <title>
+            Docutils System Messages
+        <system_message backrefs="problematic-1" ids="system-message-1" level="3" line="3" source="test data" type="ERROR">
+            <paragraph>
+                Duplicate target name, cannot be used as a unique reference: "inclusion 1".
 """],
 ]
 

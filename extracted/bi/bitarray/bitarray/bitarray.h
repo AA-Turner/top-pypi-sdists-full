@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.5.2"
+#define BITARRAY_VERSION  "3.6.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -222,6 +222,27 @@ swap_bytes(char *p, Py_ssize_t n)
         char t = p[i];
         p[i] = p[j];
         p[j] = t;
+    }
+}
+
+/* write 256 characters into table for given kernel operation */
+static inline void
+setup_table(char *table, char kop)
+{
+    int j, k;
+    for (k = 0; k < 256; k++) {
+        table[k] = 0;
+        for (j = 0; j < 8; j++) {
+            if (k & 1 << j)
+                switch (kop) {
+                case 'a': table[k] += j;        break;
+                case 'A': table[k] += 7 - j;    break;
+                case 'x': table[k] ^= j;        break;
+                case 'X': table[k] ^= 7 - j;    break;
+                case 'r': table[k] |= 128 >> j; break;
+                default: Py_UNREACHABLE();
+                }
+        }
     }
 }
 

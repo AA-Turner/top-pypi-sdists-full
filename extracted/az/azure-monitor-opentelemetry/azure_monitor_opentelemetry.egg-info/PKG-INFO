@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-monitor-opentelemetry
-Version: 1.6.12
+Version: 1.6.13
 Summary: Microsoft Azure Monitor Opentelemetry Distro Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/monitor/azure-monitor-opentelemetry
 Author: Microsoft Corporation
@@ -11,7 +11,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -24,15 +23,15 @@ License-File: NOTICE.txt
 Requires-Dist: azure-core<2.0.0,>=1.28.0
 Requires-Dist: azure-core-tracing-opentelemetry~=1.0.0b11
 Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b40
-Requires-Dist: opentelemetry-instrumentation-django<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-instrumentation-fastapi<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-instrumentation-flask<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-instrumentation-psycopg2<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-instrumentation-requests<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-instrumentation-urllib<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-instrumentation-urllib3<0.53b0,>=0.49b0
-Requires-Dist: opentelemetry-resource-detector-azure~=0.1.4
-Requires-Dist: opentelemetry-sdk<1.32,>=1.28.0
+Requires-Dist: opentelemetry-instrumentation-django~=0.57b0
+Requires-Dist: opentelemetry-instrumentation-fastapi~=0.57b0
+Requires-Dist: opentelemetry-instrumentation-flask~=0.57b0
+Requires-Dist: opentelemetry-instrumentation-psycopg2~=0.57b0
+Requires-Dist: opentelemetry-instrumentation-requests~=0.57b0
+Requires-Dist: opentelemetry-instrumentation-urllib~=0.57b0
+Requires-Dist: opentelemetry-instrumentation-urllib3~=0.57b0
+Requires-Dist: opentelemetry-resource-detector-azure~=0.1.5
+Requires-Dist: opentelemetry-sdk~=1.36.0
 
 # Azure Monitor Opentelemetry Distro client library for Python
 

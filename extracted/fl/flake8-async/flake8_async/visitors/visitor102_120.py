@@ -46,7 +46,7 @@ class Visitor102(Flake8AsyncVisitor):
                 for kw in node.keywords:
                     # Only accepts constant values
                     if kw.arg == "shield" and isinstance(kw.value, ast.Constant):
-                        self.shielded = kw.value.value
+                        self.shielded = bool(kw.value.value)
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
@@ -74,7 +74,8 @@ class Visitor102(Flake8AsyncVisitor):
             # non-critical exception handlers have the statement name set to "except"
             if self._critical_scope.name == "except":
                 self._potential_120.append((node, self._critical_scope))
-            else:
+            # not applicable to asyncio due to different cancellation semantics it uses
+            elif self.library != ("asyncio",):
                 self.error(node, self._critical_scope, error_code="ASYNC102")
 
     def visit_Raise(self, node: ast.Raise):
@@ -84,10 +85,7 @@ class Visitor102(Flake8AsyncVisitor):
 
     def is_safe_aclose_call(self, node: ast.Await) -> bool:
         return (
-            # don't mark calls safe in asyncio-only files
-            # a more defensive option would be `asyncio not in self.library`
-            self.library != ("asyncio",)
-            and isinstance(node.value, ast.Call)
+            isinstance(node.value, ast.Call)
             # only known safe if no arguments
             and not node.value.args
             and not node.value.keywords
@@ -200,7 +198,7 @@ class Visitor102(Flake8AsyncVisitor):
                         )
                     )
                 ):
-                    scope.shielded = node.value.value
+                    scope.shielded = bool(node.value.value)
 
     def visit_FunctionDef(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda

@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_interpreted.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_interpreted.py 10134 2025-05-19 21:12:34Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -25,15 +25,14 @@ from docutils.utils.code_analyzer import with_pygments
 
 class ParserTestCase(unittest.TestCase):
     def test_parser(self):
-        if not with_pygments:
-            del totest['code_parsing']
-
         parser = Parser()
         settings = get_default_settings(Parser)
         settings.warning_stream = ''
         for name, cases in totest.items():
             for casenum, (case_input, case_expected) in enumerate(cases):
                 with self.subTest(id=f'totest[{name!r}][{casenum}]'):
+                    if name == 'code_parsing' and not with_pygments:
+                        self.skipTest('syntax highlight requires pygments')
                     document = new_document('test data', settings.copy())
                     parser.parse(case_input, document)
                     output = document.pformat()

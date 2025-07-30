@@ -42,8 +42,6 @@ class TblPropertiesConfig(DatabricksComponentConfig):
         "spark.internal.pipelines.top_level_entry.user_specified_name",
         "delta.columnMapping.maxColumnId",
         "spark.sql.internal.pipelines.parentTableId",
-        "delta.enableDeletionVectors",
-        "delta.feature.deletionVectors",
     ]
 
     def __eq__(self, __value: Any) -> bool:

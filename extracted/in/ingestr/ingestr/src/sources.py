@@ -428,7 +428,7 @@ class MongoDbSource:
             connection_url=uri,
             database=table_fields.dataset,
             collection=table_fields.table,
-            parallel=True,
+            parallel=False,
             incremental=incremental,
         )
         table_instance.max_table_nesting = 1
@@ -1817,7 +1817,7 @@ class GitHubSource:
             start_date = kwargs.get("interval_start") or pendulum.now().subtract(
                 days=30
             )
-            end_date = kwargs.get("interval_end") or pendulum.now()
+            end_date = kwargs.get("interval_end") or None
 
             if isinstance(start_date, str):
                 start_date = pendulum.parse(start_date)

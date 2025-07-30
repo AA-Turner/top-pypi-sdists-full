@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import collections
 import copy
-import logging
 import os
 import shutil
 
@@ -32,7 +31,7 @@ from typing import TYPE_CHECKING
 
 from ansible_compat.ports import cached_property
 
-from molecule import util
+from molecule import logger, util
 from molecule.exceptions import MoleculeError
 from molecule.provisioner import ansible_playbook, ansible_playbooks, base
 
@@ -43,9 +42,6 @@ if TYPE_CHECKING:
     from molecule.types import Options
 
     Vivify = collections.defaultdict[str, Any | "Vivify"]
-
-
-LOG = logging.getLogger(__name__)
 
 
 class Ansible(base.Base):
@@ -411,6 +407,17 @@ class Ansible(base.Base):
     """
 
     @property
+    def _log(self) -> logger.ScenarioLoggerAdapter:
+        """Get a fresh scenario logger with current context.
+
+        Returns:
+            A scenario logger adapter with current scenario and step context.
+        """
+        # Get step context from the current action being executed
+        step_name = getattr(self._config, "action", "provisioner")
+        return logger.get_scenario_logger(__name__, self._config.scenario.name, step_name)
+
+    @property
     def default_config_options(self) -> dict[str, Any]:
         """Provide default options to construct ansible.cfg.
 
@@ -760,7 +767,7 @@ class Ansible(base.Base):
         elif self.playbooks.verify:
             playbooks = [self.playbooks.verify]
         if not playbooks:
-            LOG.warning("Skipping, verify playbook not configured.")
+            self._log.warning("Skipping, verify playbook not configured.")
             return
         for playbook in playbooks:
             # Get ansible playbooks for `verify` instead of `provision`
@@ -854,13 +861,13 @@ class Ansible(base.Base):
             if os.path.exists(target):  # noqa: PTH110
                 if os.path.realpath(target) == os.path.realpath(source):
                     msg = f"Required symlink {target} to {source} exist, skip creation"
-                    LOG.debug(msg)
+                    self._log.debug(msg)
                     continue
                 msg = f"Required symlink {target} exist with another source"
-                LOG.debug(msg)
+                self._log.debug(msg)
                 os.remove(target)  # noqa: PTH107
             msg = f"Inventory {source} linked to {target}"
-            LOG.debug(msg)
+            self._log.debug(msg)
             os.symlink(source, target)
 
     def _get_ansible_playbook(

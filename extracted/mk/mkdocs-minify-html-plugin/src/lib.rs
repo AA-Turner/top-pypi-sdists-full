@@ -1,3 +1,39 @@
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::restriction,
+    clippy::nursery,
+    clippy::cargo
+)]
+#![allow(
+    clippy::absolute_paths,
+    clippy::allow_attributes_without_reason,
+    clippy::arbitrary_source_item_ordering,
+    clippy::as_conversions,
+    clippy::blanket_clippy_restriction_lints,
+    clippy::cast_precision_loss,
+    clippy::cognitive_complexity,
+    clippy::else_if_without_else,
+    clippy::float_arithmetic,
+    clippy::implicit_return,
+    clippy::iter_over_hash_type,
+    clippy::min_ident_chars,
+    clippy::missing_docs_in_private_items,
+    clippy::mod_module_files,
+    clippy::multiple_crate_versions,
+    clippy::pattern_type_mismatch,
+    clippy::question_mark_used,
+    clippy::separated_literal_suffix,
+    clippy::shadow_reuse,
+    clippy::shadow_unrelated,
+    clippy::single_call_fn,
+    clippy::single_char_lifetime_names,
+    clippy::std_instead_of_alloc,
+    clippy::std_instead_of_core,
+    clippy::too_many_lines,
+    clippy::unwrap_used
+)]
+
 use pyo3::prelude::*;
 
 #[pyfunction]
@@ -21,8 +57,8 @@ use pyo3::prelude::*;
     remove_bangs,
     remove_processing_instructions,
 ))]
-#[allow(clippy::fn_params_excessive_bools)]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::fn_params_excessive_bools)]
+#[expect(clippy::too_many_arguments)]
 fn minify(
     py: Python<'_>,
     code: &str,
@@ -36,7 +72,7 @@ fn minify(
     keep_ssi_comments: bool,
     minify_css: bool,
     minify_doctype: bool,
-    #[allow(unused_variables)] minify_js: bool,
+    #[expect(unused_variables)] minify_js: bool,
     preserve_brace_template_syntax: bool,
     preserve_chevron_percent_template_syntax: bool,
     remove_bangs: bool,

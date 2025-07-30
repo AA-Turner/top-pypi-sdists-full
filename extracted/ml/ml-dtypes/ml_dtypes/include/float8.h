@@ -399,17 +399,8 @@ class float8_e5m2fnuz : public float8_base<float8_e5m2fnuz> {
   using Base::Base;
 
  public:
-  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(const float8_e5m2& f8)
-      : float8_e5m2fnuz(ConvertFrom(f8)) {}
-  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(const float8_e4m3& f8)
-      : float8_e5m2fnuz(ConvertFrom(f8)) {}
-  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(const float8_e3m4& f8)
-      : float8_e5m2fnuz(ConvertFrom(f8)) {}
-  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(const float8_e4m3b11fnuz& f8)
-      : float8_e5m2fnuz(ConvertFrom(f8)) {}
-  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(const float8_e4m3fn& f8)
-      : float8_e5m2fnuz(ConvertFrom(f8)) {}
-  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(const float8_e4m3fnuz& f8)
+  template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
+  explicit EIGEN_DEVICE_FUNC float8_e5m2fnuz(T f8)
       : float8_e5m2fnuz(ConvertFrom(f8)) {}
 
   constexpr float8_e5m2fnuz operator-() const {
@@ -742,7 +733,7 @@ struct numeric_limits_float8_e4m3fn : public numeric_limits_float8_base {
   static constexpr float8_e4m3fn min() {
     return float8_e4m3fn::FromRep(0b0'0001 << kMantissaBits);
   }
-  // -(1 + 0b110 * 2^-3) * 2^(0b1111 - 7) = -1.75 * 2^8 = 448
+  // -(1 + 0b110 * 2^-3) * 2^(0b1111 - 7) = -1.75 * 2^8 = -448
   static constexpr float8_e4m3fn lowest() {
     return float8_e4m3fn::FromRep(0b1'1111'110);
   }
@@ -1644,7 +1635,7 @@ EIGEN_DEVICE_FUNC Derived float8_base<Derived>::ConvertFrom(const From from) {
   // rounding is odd." 17th IMACS World Congress. 2005.
   if constexpr (std::is_floating_point_v<From> &&
                 sizeof(From) > sizeof(double)) {
-    // binary64, float80, binary128, etc. end up here.
+    // float80, binary128, etc. end up here.
     static_assert(std::numeric_limits<From>::digits >=
                   std::numeric_limits<float>::digits + 2);
     static_assert(std::numeric_limits<float>::min_exponent >=

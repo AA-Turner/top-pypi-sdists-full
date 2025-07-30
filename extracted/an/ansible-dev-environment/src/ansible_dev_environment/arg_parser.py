@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 ENVVAR_MAPPING: dict[str, str] = {
     "ansi": "NO_COLOR",
     "ansible_core_version": "ADE_ANSIBLE_CORE_VERSION",
+    "ansible_dev_tools_version": "ADE_ANSIBLE_DEV_TOOLS_VERSION",
     "isolation_mode": "ADE_ISOLATION_MODE",
     "python": "ADE_PYTHON",
     "seed": "ADE_SEED",
@@ -45,11 +46,11 @@ try:
     from ._version import version as __version__  # type: ignore[unused-ignore,import-not-found]
 except ImportError:  # pragma: no cover
     try:
-        import pkg_resources
+        import importlib.metadata
 
-        __version__ = pkg_resources.get_distribution(
+        __version__ = importlib.metadata.version(
             "ansible_dev_environment",
-        ).version
+        )
     except Exception:  # pylint: disable=broad-except # noqa: BLE001
         # this is the fallback SemVer version picked by setuptools_scm when tag
         # information is not available.
@@ -244,6 +245,13 @@ def parse() -> argparse.Namespace:
     )
 
     install.add_argument(
+        "--adtv",
+        "--ansible-dev-tools-version",
+        dest="ansible_dev_tools_version",
+        help="Ansible Dev Tools (ADT) version to use. (e.g. --adtv 25.4.0)",
+    )
+
+    install.add_argument(
         "--im",
         "--isolation-mode",
         dest="isolation_mode",
@@ -252,7 +260,7 @@ def parse() -> argparse.Namespace:
             " cfg: Update or add an ansible.cfg file in the current working directory to isolate the workspace"
             " none: No isolation, not recommended."
         ),
-        default="restrictive",
+        default="cfg",
         choices=["restrictive", "cfg", "none"],
         type=str,
     )

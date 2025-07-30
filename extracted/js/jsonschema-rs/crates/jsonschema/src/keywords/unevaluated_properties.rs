@@ -26,8 +26,7 @@ pub(crate) trait PropertiesFilter: Send + Sync + Sized + 'static {
     fn is_valid(&self, instance: &Value) -> bool {
         self.unevaluated()
             .as_ref()
-            .map(|u| u.is_valid(instance))
-            .unwrap_or(false)
+            .is_some_and(|u| u.is_valid(instance))
     }
 
     fn mark_evaluated_properties<'i>(
@@ -306,9 +305,9 @@ impl PropertiesFilter for Draft2019PropertiesFilter {
 
         Ok(Draft2019PropertiesFilter {
             unevaluated,
+            additional,
             properties,
             dependent,
-            additional,
             pattern_properties,
             ref_,
             recursive_ref,
@@ -339,7 +338,6 @@ impl PropertiesFilter for Draft2019PropertiesFilter {
                 for (p, node) in &self.properties {
                     if property == p && node.is_valid(value) {
                         properties.insert(property);
-                        continue;
                     }
                 }
                 if let Some(additional) = self.additional.as_ref() {
@@ -563,9 +561,9 @@ impl PropertiesFilter for DefaultPropertiesFilter {
 
         Ok(DefaultPropertiesFilter {
             unevaluated,
+            additional,
             properties,
             dependent,
-            additional,
             pattern_properties,
             ref_,
             dynamic_ref,
@@ -594,7 +592,6 @@ impl PropertiesFilter for DefaultPropertiesFilter {
                 for (p, node) in &self.properties {
                     if property == p && node.is_valid(value) {
                         properties.insert(property);
-                        continue;
                     }
                 }
                 if let Some(additional) = self.additional.as_ref() {

@@ -154,9 +154,25 @@ class WindmillMaintenanceUseCase(BaseProcessor):
 
             # Create tracker instance if it doesn't exist (preserves state across frames)
             if self.tracker is None:
-                tracker_config = TrackerConfig()
+                # Configure tracker thresholds based on the use-case confidence threshold so that
+                # low-confidence detections (e.g. < 0.7) can still be initialised as tracks when
+                # the user passes a lower `confidence_threshold` in the post-processing config.
+                if config.confidence_threshold is not None:
+                    tracker_config = TrackerConfig(
+                        track_high_thresh=float(config.confidence_threshold),
+                        # Allow even lower detections to participate in secondary association
+                        track_low_thresh=max(0.05, float(config.confidence_threshold) / 2),
+                        new_track_thresh=float(config.confidence_threshold)
+                    )
+                else:
+                    tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for  Monitoring and tracking")
+                self.logger.info(
+                    "Initialized AdvancedTracker for Monitoring and tracking with thresholds: "
+                    f"high={tracker_config.track_high_thresh}, "
+                    f"low={tracker_config.track_low_thresh}, "
+                    f"new={tracker_config.new_track_thresh}"
+                )
 
             # The tracker expects the data in the same format as input
             # It will add track_id and frame_id to each detection
@@ -195,7 +211,7 @@ class WindmillMaintenanceUseCase(BaseProcessor):
         # Step: Generate structured incidents, tracking stats and business analytics with frame-based keys
         incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
         tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
-        business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=True)
+        business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, stream_info, is_empty=True)
         summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
 
         # Extract frame-based dictionaries from the lists
@@ -496,7 +512,7 @@ class WindmillMaintenanceUseCase(BaseProcessor):
         tracking_stats.append(tracking_stat)
         return tracking_stats
 
-    def _generate_business_analytics(self, counting_summary: Dict, zone_analysis: Dict, config: WindmillMaintenanceConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+    def _generate_business_analytics(self, counting_summary: Dict, alerts:Any, config: WindmillMaintenanceConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
         """Generate standardized business analytics for the agg_summary structure."""
         if is_empty:
             return []
@@ -579,39 +595,46 @@ class WindmillMaintenanceUseCase(BaseProcessor):
         Return total unique track_id count for each category.
         """
         return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
-
-    def _format_timestamp_for_video(self, timestamp: float) -> str:
-        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
-        hours = int(timestamp // 3600)
-        minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+    
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60),2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-
         # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-                stream_time_str = stream_info.get("video_timestamp", "")
-                return stream_time_str[:8]
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
         else:
             # For streams, use stream_time from stream_info
-            stream_time_str = stream_info.get("stream_time", "")
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 # Parse the high precision timestamp string to get timestamp
                 try:
@@ -630,23 +653,20 @@ class WindmillMaintenanceUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 return "00:00:00"
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
             # For streams, use tracking start time or current time with minutes/seconds reset
             if self._tracking_start_time is None:
                 # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("stream_time", "")
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
                         # Remove " UTC" suffix and parse
@@ -663,6 +683,7 @@ class WindmillMaintenanceUseCase(BaseProcessor):
             # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
+
 
     def _count_categories(self, detections: list, config: WindmillMaintenanceConfig) -> dict:
         """

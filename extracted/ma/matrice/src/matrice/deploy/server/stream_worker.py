@@ -221,7 +221,8 @@ class StreamWorker:
                     "start_frame": input_stream.get("start_frame"),
                     "end_frame": input_stream.get("end_frame"),
                     "stream_unit": input_stream.get("stream_unit"),
-                    "input_order": input_stream.get("input_order")
+                    "input_order": input_stream.get("input_order"),
+                    "original_fps": input_stream.get("original_fps",31),
                 }
             }
             

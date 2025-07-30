@@ -37,20 +37,17 @@ class AIControllerApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def create_transformer(self, options, **kwargs):  # noqa: E501
-        """List transformers  # noqa: E501
+    def create_transformer(self, ai_transform_create_options, **kwargs):  # noqa: E501
+        """Create a transformer for reuse in automations  # noqa: E501
 
-        List all AI transforms  # noqa: E501
+        Save an AI transform instructions and schema for use with webhooks and automations  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_transformer(options, async_req=True)
+        >>> thread = api.create_transformer(ai_transform_create_options, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param AITranformCreateOptions options: (required)
-        :param int page:
-        :param int size: Optional page size in SMS list pagination. Maximum size is 100. Use page index and sort to page through larger results
-        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param AITransformCreateOptions ai_transform_create_options: (required)
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -58,27 +55,24 @@ class AIControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: PageAITransformProjection
+        :return: AITransformDto
                  If the method is called asynchronously,
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.create_transformer_with_http_info(options, **kwargs)  # noqa: E501
+        return self.create_transformer_with_http_info(ai_transform_create_options, **kwargs)  # noqa: E501
 
-    def create_transformer_with_http_info(self, options, **kwargs):  # noqa: E501
-        """List transformers  # noqa: E501
+    def create_transformer_with_http_info(self, ai_transform_create_options, **kwargs):  # noqa: E501
+        """Create a transformer for reuse in automations  # noqa: E501
 
-        List all AI transforms  # noqa: E501
+        Save an AI transform instructions and schema for use with webhooks and automations  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_transformer_with_http_info(options, async_req=True)
+        >>> thread = api.create_transformer_with_http_info(ai_transform_create_options, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param AITranformCreateOptions options: (required)
-        :param int page:
-        :param int size: Optional page size in SMS list pagination. Maximum size is 100. Use page index and sort to page through larger results
-        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param AITransformCreateOptions ai_transform_create_options: (required)
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -88,7 +82,7 @@ class AIControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(PageAITransformProjection, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(AITransformDto, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -96,10 +90,7 @@ class AIControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'options',
-            'page',
-            'size',
-            'sort'
+            'ai_transform_create_options'
         ]
         all_params.extend(
             [
@@ -118,132 +109,10 @@ class AIControllerApi(object):
                 )
             local_var_params[key] = val
         del local_var_params['kwargs']
-        # verify the required parameter 'options' is set
-        if self.api_client.client_side_validation and ('options' not in local_var_params or  # noqa: E501
-                                                        local_var_params['options'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `options` when calling `create_transformer`")  # noqa: E501
-
-        if self.api_client.client_side_validation and 'size' in local_var_params and local_var_params['size'] > 100:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `size` when calling `create_transformer`, must be a value less than or equal to `100`")  # noqa: E501
-        collection_formats = {}
-
-        path_params = {}
-
-        query_params = []
-        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
-            query_params.append(('page', local_var_params['page']))  # noqa: E501
-        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
-            query_params.append(('size', local_var_params['size']))  # noqa: E501
-        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
-            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
-        if 'options' in local_var_params and local_var_params['options'] is not None:  # noqa: E501
-            query_params.append(('options', local_var_params['options']))  # noqa: E501
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['*/*'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = ['API_KEY']  # noqa: E501
-
-        return self.api_client.call_api(
-            '/ai/transformer', 'GET',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='PageAITransformProjection',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=local_var_params.get('async_req'),
-            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
-            _preload_content=local_var_params.get('_preload_content', True),
-            _request_timeout=local_var_params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def create_transformer1(self, ai_tranform_create_options, **kwargs):  # noqa: E501
-        """Create a transformer for reuse in automations  # noqa: E501
-
-        Save an AI transform instructions and schema for use with webhooks and automations  # noqa: E501
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_transformer1(ai_tranform_create_options, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool: execute request asynchronously
-        :param AITranformCreateOptions ai_tranform_create_options: (required)
-        :param _preload_content: if False, the urllib3.HTTPResponse object will
-                                 be returned without reading/decoding response
-                                 data. Default is True.
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :return: AITransformDto
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        return self.create_transformer1_with_http_info(ai_tranform_create_options, **kwargs)  # noqa: E501
-
-    def create_transformer1_with_http_info(self, ai_tranform_create_options, **kwargs):  # noqa: E501
-        """Create a transformer for reuse in automations  # noqa: E501
-
-        Save an AI transform instructions and schema for use with webhooks and automations  # noqa: E501
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_transformer1_with_http_info(ai_tranform_create_options, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool: execute request asynchronously
-        :param AITranformCreateOptions ai_tranform_create_options: (required)
-        :param _return_http_data_only: response data without head status code
-                                       and headers
-        :param _preload_content: if False, the urllib3.HTTPResponse object will
-                                 be returned without reading/decoding response
-                                 data. Default is True.
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :return: tuple(AITransformDto, status_code(int), headers(HTTPHeaderDict))
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        local_var_params = locals()
-
-        all_params = [
-            'ai_tranform_create_options'
-        ]
-        all_params.extend(
-            [
-                'async_req',
-                '_return_http_data_only',
-                '_preload_content',
-                '_request_timeout'
-            ]
-        )
-
-        for key, val in six.iteritems(local_var_params['kwargs']):
-            if key not in all_params:
-                raise ApiTypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method create_transformer1" % key
-                )
-            local_var_params[key] = val
-        del local_var_params['kwargs']
-        # verify the required parameter 'ai_tranform_create_options' is set
-        if self.api_client.client_side_validation and ('ai_tranform_create_options' not in local_var_params or  # noqa: E501
-                                                        local_var_params['ai_tranform_create_options'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `ai_tranform_create_options` when calling `create_transformer1`")  # noqa: E501
+        # verify the required parameter 'ai_transform_create_options' is set
+        if self.api_client.client_side_validation and ('ai_transform_create_options' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ai_transform_create_options'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ai_transform_create_options` when calling `create_transformer`")  # noqa: E501
 
         collection_formats = {}
 
@@ -257,8 +126,8 @@ class AIControllerApi(object):
         local_var_files = {}
 
         body_params = None
-        if 'ai_tranform_create_options' in local_var_params:
-            body_params = local_var_params['ai_tranform_create_options']
+        if 'ai_transform_create_options' in local_var_params:
+            body_params = local_var_params['ai_transform_create_options']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
             ['*/*'])  # noqa: E501
@@ -397,6 +266,107 @@ class AIControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='AITransformMappingDto',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def delete_all_transformer_mappings(self, **kwargs):  # noqa: E501
+        """Delete all transformer mapping  # noqa: E501
+
+        Delete all AI transformer mappings  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_all_transformer_mappings(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_all_transformer_mappings_with_http_info(**kwargs)  # noqa: E501
+
+    def delete_all_transformer_mappings_with_http_info(self, **kwargs):  # noqa: E501
+        """Delete all transformer mapping  # noqa: E501
+
+        Delete all AI transformer mappings  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_all_transformer_mappings_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_all_transformer_mappings" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/ai/transformer/mappings', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -1693,6 +1663,252 @@ class AIControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='PageAITransformResultProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_transformers(self, **kwargs):  # noqa: E501
+        """List transformers  # noqa: E501
+
+        List all AI transforms  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_transformers(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page:
+        :param int size: Optional page size in SMS list pagination. Maximum size is 100. Use page index and sort to page through larger results
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param list[str] include: Optional list of IDs to include in result
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageAITransformProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_transformers_with_http_info(**kwargs)  # noqa: E501
+
+    def get_transformers_with_http_info(self, **kwargs):  # noqa: E501
+        """List transformers  # noqa: E501
+
+        List all AI transforms  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_transformers_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page:
+        :param int size: Optional page size in SMS list pagination. Maximum size is 100. Use page index and sort to page through larger results
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param list[str] include: Optional list of IDs to include in result
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageAITransformProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'page',
+            'size',
+            'sort',
+            'include'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_transformers" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'size' in local_var_params and local_var_params['size'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `size` when calling `get_transformers`, must be a value less than or equal to `100`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'include' in local_var_params and local_var_params['include'] is not None:  # noqa: E501
+            query_params.append(('include', local_var_params['include']))  # noqa: E501
+            collection_formats['include'] = 'multi'  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/ai/transformer', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageAITransformProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def invoke_transformer(self, invoke_transformer_options, **kwargs):  # noqa: E501
+        """Invoke a transformer  # noqa: E501
+
+        Execute an AI transformer to generate structured content  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.invoke_transformer(invoke_transformer_options, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param InvokeTransformerOptions invoke_transformer_options: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ConditionalStructuredContentResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.invoke_transformer_with_http_info(invoke_transformer_options, **kwargs)  # noqa: E501
+
+    def invoke_transformer_with_http_info(self, invoke_transformer_options, **kwargs):  # noqa: E501
+        """Invoke a transformer  # noqa: E501
+
+        Execute an AI transformer to generate structured content  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.invoke_transformer_with_http_info(invoke_transformer_options, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param InvokeTransformerOptions invoke_transformer_options: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ConditionalStructuredContentResult, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'invoke_transformer_options'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method invoke_transformer" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'invoke_transformer_options' is set
+        if self.api_client.client_side_validation and ('invoke_transformer_options' not in local_var_params or  # noqa: E501
+                                                        local_var_params['invoke_transformer_options'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `invoke_transformer_options` when calling `invoke_transformer`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'invoke_transformer_options' in local_var_params:
+            body_params = local_var_params['invoke_transformer_options']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/ai/transformer/invoke', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ConditionalStructuredContentResult',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

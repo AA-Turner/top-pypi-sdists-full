@@ -11702,18 +11702,20 @@ class ingest_api_NewVideoIngestDestination(ConjureBeanType):
             'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
             'labels': ConjureFieldDefinition('labels', List[api_Label]),
             'video_file_details': ConjureFieldDefinition('videoFileDetails', OptionalTypeWrapper[ingest_api_VideoFileIngestDetails]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
         }
 
-    __slots__: List[str] = ['_title', '_description', '_properties', '_labels', '_video_file_details', '_workspace']
+    __slots__: List[str] = ['_title', '_description', '_properties', '_labels', '_video_file_details', '_workspace', '_marking_rids']
 
-    def __init__(self, labels: List[str], properties: Dict[str, str], description: Optional[str] = None, title: Optional[str] = None, video_file_details: Optional["ingest_api_VideoFileIngestDetails"] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, labels: List[str], marking_rids: List[str], properties: Dict[str, str], description: Optional[str] = None, title: Optional[str] = None, video_file_details: Optional["ingest_api_VideoFileIngestDetails"] = None, workspace: Optional[str] = None) -> None:
         self._title = title
         self._description = description
         self._properties = properties
         self._labels = labels
         self._video_file_details = video_file_details
         self._workspace = workspace
+        self._marking_rids = marking_rids
 
     @builtins.property
     def title(self) -> Optional[str]:
@@ -11752,6 +11754,13 @@ If not provided, a name is deduced from the ingested file.
 the user's organization, if the default workspace for the organization is configured.
         """
         return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created video.
+If not provided, the video will be visible to all users in the same workspace.
+        """
+        return self._marking_rids
 
 
 ingest_api_NewVideoIngestDestination.__name__ = "NewVideoIngestDestination"
@@ -66785,12 +66794,13 @@ class scout_datasource_connection_api_CreateConnection(ConjureBeanType):
             'scraping': ConjureFieldDefinition('scraping', OptionalTypeWrapper[scout_datasource_connection_api_ScrapingConfig]),
             'should_scrape': ConjureFieldDefinition('shouldScrape', bool),
             'limits': ConjureFieldDefinition('limits', OptionalTypeWrapper[scout_datasource_connection_api_LimitsConfig]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
         }
 
-    __slots__: List[str] = ['_name', '_description', '_connection_details', '_metadata', '_required_tag_names', '_available_tag_values', '_scraping', '_should_scrape', '_limits', '_workspace']
+    __slots__: List[str] = ['_name', '_description', '_connection_details', '_metadata', '_required_tag_names', '_available_tag_values', '_scraping', '_should_scrape', '_limits', '_workspace', '_marking_rids']
 
-    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", metadata: Dict[str, str], name: str, required_tag_names: List[str], should_scrape: bool, available_tag_values: Optional[Dict[str, List[str]]] = None, description: Optional[str] = None, limits: Optional["scout_datasource_connection_api_LimitsConfig"] = None, scraping: Optional["scout_datasource_connection_api_ScrapingConfig"] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, connection_details: "scout_datasource_connection_api_ConnectionDetails", marking_rids: List[str], metadata: Dict[str, str], name: str, required_tag_names: List[str], should_scrape: bool, available_tag_values: Optional[Dict[str, List[str]]] = None, description: Optional[str] = None, limits: Optional["scout_datasource_connection_api_LimitsConfig"] = None, scraping: Optional["scout_datasource_connection_api_ScrapingConfig"] = None, workspace: Optional[str] = None) -> None:
         self._name = name
         self._description = description
         self._connection_details = connection_details
@@ -66801,6 +66811,7 @@ class scout_datasource_connection_api_CreateConnection(ConjureBeanType):
         self._should_scrape = should_scrape
         self._limits = limits
         self._workspace = workspace
+        self._marking_rids = marking_rids
 
     @builtins.property
     def name(self) -> str:
@@ -66852,6 +66863,13 @@ periodically scraped. Tags should only be updated  manually for Visual crossing 
 the user's organization, if the default workspace for the organization is configured.
         """
         return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created connection.
+If not provided, the connection will be visible to all users in the same workspace.
+        """
+        return self._marking_rids
 
 
 scout_datasource_connection_api_CreateConnection.__name__ = "CreateConnection"
@@ -77704,18 +77722,20 @@ class scout_video_api_CreateVideoRequest(ConjureBeanType):
             'labels': ConjureFieldDefinition('labels', List[api_Label]),
             'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
             'origin_metadata': ConjureFieldDefinition('originMetadata', OptionalTypeWrapper[scout_video_api_VideoOriginMetadata]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
         }
 
-    __slots__: List[str] = ['_title', '_description', '_labels', '_properties', '_origin_metadata', '_workspace']
+    __slots__: List[str] = ['_title', '_description', '_labels', '_properties', '_origin_metadata', '_workspace', '_marking_rids']
 
-    def __init__(self, labels: List[str], properties: Dict[str, str], title: str, description: Optional[str] = None, origin_metadata: Optional["scout_video_api_VideoOriginMetadata"] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, labels: List[str], marking_rids: List[str], properties: Dict[str, str], title: str, description: Optional[str] = None, origin_metadata: Optional["scout_video_api_VideoOriginMetadata"] = None, workspace: Optional[str] = None) -> None:
         self._title = title
         self._description = description
         self._labels = labels
         self._properties = properties
         self._origin_metadata = origin_metadata
         self._workspace = workspace
+        self._marking_rids = marking_rids
 
     @builtins.property
     def title(self) -> str:
@@ -77744,6 +77764,13 @@ the default workspace for the user's organization, if the default workspace for 
 organization is configured.
         """
         return self._workspace
+
+    @builtins.property
+    def marking_rids(self) -> List[str]:
+        """The markings to apply to the created video.
+If not provided, the video will be visible to all users in the same workspace.
+        """
+        return self._marking_rids
 
 
 scout_video_api_CreateVideoRequest.__name__ = "CreateVideoRequest"

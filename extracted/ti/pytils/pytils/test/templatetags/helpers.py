@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Helpers for templatetags' unit tests in Django webframework
 """
+
 from django.template import Context, Template
 from django.test import TestCase
 
@@ -10,7 +10,10 @@ class TemplateTagTestCase(TestCase):
     """
     TestCase for testing template tags and filters
     """
-    def check_template_tag(self, template_string: str, context: dict, result_string: str) -> None:
+
+    def check_template_tag(
+        self, template_string: str, context: dict, result_string: str
+    ) -> None:
         """
         Method validates output of template tag or filter
 
@@ -28,4 +31,3 @@ class TemplateTagTestCase(TestCase):
         c = Context(context)
         output = t.render(c)
         self.assertEqual(output, result_string)
-

@@ -42,9 +42,9 @@ class TestPagePhoneMessageThreadItemProjection(unittest.TestCase):
                         body = '0', 
                         phone_number_id = '0', 
                         created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        from_phone_number = '0', 
+                        message_direction = 'OUTBOUND', 
                         to_phone_number = '0', 
-                        message_direction = 'OUTBOUND', )
+                        from_phone_number = '0', )
                     ], 
                 pageable = mailslurp_client.models.pageable_object.PageableObject(
                     page_size = 56, 

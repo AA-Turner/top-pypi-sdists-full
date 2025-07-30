@@ -29,10 +29,12 @@ from .paginator import (
     DescribeComputeEnvironmentsPaginator,
     DescribeJobDefinitionsPaginator,
     DescribeJobQueuesPaginator,
+    DescribeServiceEnvironmentsPaginator,
     ListConsumableResourcesPaginator,
     ListJobsByConsumableResourcePaginator,
     ListJobsPaginator,
     ListSchedulingPoliciesPaginator,
+    ListServiceJobsPaginator,
 )
 from .type_defs import (
     CancelJobRequestTypeDef,
@@ -44,10 +46,13 @@ from .type_defs import (
     CreateJobQueueResponseTypeDef,
     CreateSchedulingPolicyRequestTypeDef,
     CreateSchedulingPolicyResponseTypeDef,
+    CreateServiceEnvironmentRequestTypeDef,
+    CreateServiceEnvironmentResponseTypeDef,
     DeleteComputeEnvironmentRequestTypeDef,
     DeleteConsumableResourceRequestTypeDef,
     DeleteJobQueueRequestTypeDef,
     DeleteSchedulingPolicyRequestTypeDef,
+    DeleteServiceEnvironmentRequestTypeDef,
     DeregisterJobDefinitionRequestTypeDef,
     DescribeComputeEnvironmentsRequestTypeDef,
     DescribeComputeEnvironmentsResponseTypeDef,
@@ -61,6 +66,10 @@ from .type_defs import (
     DescribeJobsResponseTypeDef,
     DescribeSchedulingPoliciesRequestTypeDef,
     DescribeSchedulingPoliciesResponseTypeDef,
+    DescribeServiceEnvironmentsRequestTypeDef,
+    DescribeServiceEnvironmentsResponseTypeDef,
+    DescribeServiceJobRequestTypeDef,
+    DescribeServiceJobResponseTypeDef,
     GetJobQueueSnapshotRequestTypeDef,
     GetJobQueueSnapshotResponseTypeDef,
     ListConsumableResourcesRequestTypeDef,
@@ -71,14 +80,19 @@ from .type_defs import (
     ListJobsResponseTypeDef,
     ListSchedulingPoliciesRequestTypeDef,
     ListSchedulingPoliciesResponseTypeDef,
+    ListServiceJobsRequestTypeDef,
+    ListServiceJobsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     RegisterJobDefinitionRequestTypeDef,
     RegisterJobDefinitionResponseTypeDef,
     SubmitJobRequestTypeDef,
     SubmitJobResponseTypeDef,
+    SubmitServiceJobRequestTypeDef,
+    SubmitServiceJobResponseTypeDef,
     TagResourceRequestTypeDef,
     TerminateJobRequestTypeDef,
+    TerminateServiceJobRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateComputeEnvironmentRequestTypeDef,
     UpdateComputeEnvironmentResponseTypeDef,
@@ -87,6 +101,8 @@ from .type_defs import (
     UpdateJobQueueRequestTypeDef,
     UpdateJobQueueResponseTypeDef,
     UpdateSchedulingPolicyRequestTypeDef,
+    UpdateServiceEnvironmentRequestTypeDef,
+    UpdateServiceEnvironmentResponseTypeDef,
 )
 
 if sys.version_info >= (3, 9):
@@ -193,6 +209,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#create_scheduling_policy)
         """
 
+    def create_service_environment(
+        self, **kwargs: Unpack[CreateServiceEnvironmentRequestTypeDef]
+    ) -> CreateServiceEnvironmentResponseTypeDef:
+        """
+        Creates a service environment for running service jobs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/create_service_environment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#create_service_environment)
+        """
+
     def delete_compute_environment(
         self, **kwargs: Unpack[DeleteComputeEnvironmentRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -229,6 +255,16 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/delete_scheduling_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#delete_scheduling_policy)
+        """
+
+    def delete_service_environment(
+        self, **kwargs: Unpack[DeleteServiceEnvironmentRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes a Service environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/delete_service_environment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#delete_service_environment)
         """
 
     def deregister_job_definition(
@@ -301,6 +337,26 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#describe_scheduling_policies)
         """
 
+    def describe_service_environments(
+        self, **kwargs: Unpack[DescribeServiceEnvironmentsRequestTypeDef]
+    ) -> DescribeServiceEnvironmentsResponseTypeDef:
+        """
+        Describes one or more of your service environments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/describe_service_environments.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#describe_service_environments)
+        """
+
+    def describe_service_job(
+        self, **kwargs: Unpack[DescribeServiceJobRequestTypeDef]
+    ) -> DescribeServiceJobResponseTypeDef:
+        """
+        The details of a service job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/describe_service_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#describe_service_job)
+        """
+
     def get_job_queue_snapshot(
         self, **kwargs: Unpack[GetJobQueueSnapshotRequestTypeDef]
     ) -> GetJobQueueSnapshotResponseTypeDef:
@@ -350,6 +406,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#list_scheduling_policies)
         """
 
+    def list_service_jobs(
+        self, **kwargs: Unpack[ListServiceJobsRequestTypeDef]
+    ) -> ListServiceJobsResponseTypeDef:
+        """
+        Returns a list of service jobs for a specified job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/list_service_jobs.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#list_service_jobs)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -378,6 +444,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#submit_job)
         """
 
+    def submit_service_job(
+        self, **kwargs: Unpack[SubmitServiceJobRequestTypeDef]
+    ) -> SubmitServiceJobResponseTypeDef:
+        """
+        Submits a service job to a specified job queue to run on SageMaker AI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/submit_service_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#submit_service_job)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified
@@ -393,6 +469,16 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#terminate_job)
+        """
+
+    def terminate_service_job(
+        self, **kwargs: Unpack[TerminateServiceJobRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Terminates a service job in a job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_service_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#terminate_service_job)
         """
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
@@ -443,6 +529,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#update_scheduling_policy)
         """
 
+    def update_service_environment(
+        self, **kwargs: Unpack[UpdateServiceEnvironmentRequestTypeDef]
+    ) -> UpdateServiceEnvironmentResponseTypeDef:
+        """
+        Updates a service environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/update_service_environment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#update_service_environment)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_compute_environments"]
@@ -469,6 +565,17 @@ class BatchClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_job_queues"]
     ) -> DescribeJobQueuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_service_environments"]
+    ) -> DescribeServiceEnvironmentsPaginator:
         """
         Create a paginator for an operation.
 
@@ -513,6 +620,17 @@ class BatchClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_scheduling_policies"]
     ) -> ListSchedulingPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_service_jobs"]
+    ) -> ListServiceJobsPaginator:
         """
         Create a paginator for an operation.
 

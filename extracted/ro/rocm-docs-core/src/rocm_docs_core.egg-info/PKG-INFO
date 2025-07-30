@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rocm-docs-core
-Version: 1.21.1
+Version: 1.22.0
 Summary: Core utilities for all ROCm documentation on RTD
 Author-email: Lauren Wrubleski <Lauren.Wrubleski@amd.com>
 Project-URL: repository, https://github.com/ROCm/rocm-docs-core

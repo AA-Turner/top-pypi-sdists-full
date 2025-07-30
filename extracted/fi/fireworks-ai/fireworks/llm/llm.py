@@ -1332,6 +1332,7 @@ class LLM:
             return f"https://app.fireworks.ai/dashboard/deployments/{id}"
         return f"https://app.fireworks.ai/dashboard/deployedModels/{id}"
 
+    @sync_cache
     def model_id(self):
         """
         Returns the model ID, which is the model name plus the deployment name

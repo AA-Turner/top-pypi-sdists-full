@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 3.2.0
+Version: 3.3.0
 Summary: Python interface to Oracle Database
-Home-page: https://oracle.github.io/python-oracledb
-Author: Anthony Tuininga
-Author-email: anthony.tuininga@oracle.com
-License: UPL-1.0 OR Apache-2.0
+Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
+License-Expression: UPL-1.0 OR Apache-2.0
+Project-URL: Homepage, https://oracle.github.io/python-oracledb
 Project-URL: Installation, https://python-oracledb.readthedocs.io/en/latest/user_guide/installation.html
 Project-URL: Samples, https://github.com/oracle/python-oracledb/tree/main/samples
 Project-URL: Documentation, http://python-oracledb.readthedocs.io
@@ -23,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Database
@@ -32,6 +32,10 @@ License-File: LICENSE.txt
 License-File: THIRD_PARTY_LICENSES.txt
 License-File: NOTICE.txt
 Requires-Dist: cryptography>=3.2.1
+Provides-Extra: test
+Requires-Dist: numpy; extra == "test"
+Requires-Dist: pandas; extra == "test"
+Requires-Dist: pyarrow; extra == "test"
 Dynamic: license-file
 
 # python-oracledb
@@ -89,7 +93,7 @@ with oracledb.connect(user=un, password=pw, dsn=cs) as connection:
 
 ## Dependencies and Interoperability
 
-- Python versions 3.9 through 3.13.
+- Python versions 3.9 through 3.14.
 
   Pre-built packages are available on [PyPI][pypi] and other repositories.
 

@@ -1,7 +1,7 @@
 r'''
 # `google_oracle_database_cloud_vm_cluster`
 
-Refer to the Terraform Registry for docs: [`google_oracle_database_cloud_vm_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster).
+Refer to the Terraform Registry for docs: [`google_oracle_database_cloud_vm_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,23 +44,26 @@ class OracleDatabaseCloudVmCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.oracleDatabaseCloudVmCluster.OracleDatabaseCloudVmCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster google_oracle_database_cloud_vm_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster google_oracle_database_cloud_vm_cluster}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        backup_subnet_cidr: builtins.str,
-        cidr: builtins.str,
         cloud_vm_cluster_id: builtins.str,
         exadata_infrastructure: builtins.str,
         location: builtins.str,
-        network: builtins.str,
+        backup_odb_subnet: typing.Optional[builtins.str] = None,
+        backup_subnet_cidr: typing.Optional[builtins.str] = None,
+        cidr: typing.Optional[builtins.str] = None,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         display_name: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        network: typing.Optional[builtins.str] = None,
+        odb_network: typing.Optional[builtins.str] = None,
+        odb_subnet: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
         properties: typing.Optional[typing.Union["OracleDatabaseCloudVmClusterProperties", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["OracleDatabaseCloudVmClusterTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -72,23 +75,26 @@ class OracleDatabaseCloudVmCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster google_oracle_database_cloud_vm_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster google_oracle_database_cloud_vm_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backup_subnet_cidr: CIDR range of the backup subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#backup_subnet_cidr OracleDatabaseCloudVmCluster#backup_subnet_cidr}
-        :param cidr: Network settings. CIDR to use for cluster IP allocation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cidr OracleDatabaseCloudVmCluster#cidr}
-        :param cloud_vm_cluster_id: The ID of the VM Cluster to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cloud_vm_cluster_id OracleDatabaseCloudVmCluster#cloud_vm_cluster_id}
-        :param exadata_infrastructure: The name of the Exadata Infrastructure resource on which VM cluster resource is created, in the following format: projects/{project}/locations/{region}/cloudExadataInfrastuctures/{cloud_extradata_infrastructure}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#exadata_infrastructure OracleDatabaseCloudVmCluster#exadata_infrastructure}
-        :param location: Resource ID segment making up resource 'name'. See documentation for resource type 'oracledatabase.googleapis.com/DbNode'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#location OracleDatabaseCloudVmCluster#location}
-        :param network: The name of the VPC network. Format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#network OracleDatabaseCloudVmCluster#network}
-        :param deletion_protection: Whether Terraform will be prevented from destroying the cluster. Deleting this cluster via terraform destroy or terraform apply will only succeed if this field is false in the Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#deletion_protection OracleDatabaseCloudVmCluster#deletion_protection}
-        :param display_name: User friendly name for this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#display_name OracleDatabaseCloudVmCluster#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels or tags associated with the VM Cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#labels OracleDatabaseCloudVmCluster#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#project OracleDatabaseCloudVmCluster#project}.
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#properties OracleDatabaseCloudVmCluster#properties}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#timeouts OracleDatabaseCloudVmCluster#timeouts}
+        :param cloud_vm_cluster_id: The ID of the VM Cluster to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cloud_vm_cluster_id OracleDatabaseCloudVmCluster#cloud_vm_cluster_id}
+        :param exadata_infrastructure: The name of the Exadata Infrastructure resource on which VM cluster resource is created, in the following format: projects/{project}/locations/{region}/cloudExadataInfrastuctures/{cloud_extradata_infrastructure}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#exadata_infrastructure OracleDatabaseCloudVmCluster#exadata_infrastructure}
+        :param location: Resource ID segment making up resource 'name'. See documentation for resource type 'oracledatabase.googleapis.com/DbNode'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#location OracleDatabaseCloudVmCluster#location}
+        :param backup_odb_subnet: The name of the backup OdbSubnet associated with the VM Cluster. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#backup_odb_subnet OracleDatabaseCloudVmCluster#backup_odb_subnet}
+        :param backup_subnet_cidr: CIDR range of the backup subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#backup_subnet_cidr OracleDatabaseCloudVmCluster#backup_subnet_cidr}
+        :param cidr: Network settings. CIDR to use for cluster IP allocation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cidr OracleDatabaseCloudVmCluster#cidr}
+        :param deletion_protection: Whether Terraform will be prevented from destroying the cluster. Deleting this cluster via terraform destroy or terraform apply will only succeed if this field is false in the Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#deletion_protection OracleDatabaseCloudVmCluster#deletion_protection}
+        :param display_name: User friendly name for this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#display_name OracleDatabaseCloudVmCluster#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels or tags associated with the VM Cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#labels OracleDatabaseCloudVmCluster#labels}
+        :param network: The name of the VPC network. Format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#network OracleDatabaseCloudVmCluster#network}
+        :param odb_network: The name of the OdbNetwork associated with the VM Cluster. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network} It is optional but if specified, this should match the parent ODBNetwork of the odb_subnet and backup_odb_subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#odb_network OracleDatabaseCloudVmCluster#odb_network}
+        :param odb_subnet: The name of the OdbSubnet associated with the VM Cluster for IP allocation. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#odb_subnet OracleDatabaseCloudVmCluster#odb_subnet}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#project OracleDatabaseCloudVmCluster#project}.
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#properties OracleDatabaseCloudVmCluster#properties}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#timeouts OracleDatabaseCloudVmCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -102,16 +108,19 @@ class OracleDatabaseCloudVmCluster(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = OracleDatabaseCloudVmClusterConfig(
-            backup_subnet_cidr=backup_subnet_cidr,
-            cidr=cidr,
             cloud_vm_cluster_id=cloud_vm_cluster_id,
             exadata_infrastructure=exadata_infrastructure,
             location=location,
-            network=network,
+            backup_odb_subnet=backup_odb_subnet,
+            backup_subnet_cidr=backup_subnet_cidr,
+            cidr=cidr,
             deletion_protection=deletion_protection,
             display_name=display_name,
             id=id,
             labels=labels,
+            network=network,
+            odb_network=odb_network,
+            odb_subnet=odb_subnet,
             project=project,
             properties=properties,
             timeouts=timeouts,
@@ -139,7 +148,7 @@ class OracleDatabaseCloudVmCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OracleDatabaseCloudVmCluster to import.
-        :param import_from_id: The id of the existing OracleDatabaseCloudVmCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OracleDatabaseCloudVmCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OracleDatabaseCloudVmCluster to import is found.
         '''
         if __debug__:
@@ -173,23 +182,23 @@ class OracleDatabaseCloudVmCluster(
         time_zone: typing.Optional[typing.Union["OracleDatabaseCloudVmClusterPropertiesTimeZone", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cpu_core_count: Number of enabled CPU cores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cpu_core_count OracleDatabaseCloudVmCluster#cpu_core_count}
-        :param license_type: License type of VM Cluster. Possible values: LICENSE_TYPE_UNSPECIFIED LICENSE_INCLUDED BRING_YOUR_OWN_LICENSE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#license_type OracleDatabaseCloudVmCluster#license_type}
-        :param cluster_name: OCI Cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cluster_name OracleDatabaseCloudVmCluster#cluster_name}
-        :param data_storage_size_tb: The data disk group size to be allocated in TBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#data_storage_size_tb OracleDatabaseCloudVmCluster#data_storage_size_tb}
-        :param db_node_storage_size_gb: Local storage per VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#db_node_storage_size_gb OracleDatabaseCloudVmCluster#db_node_storage_size_gb}
-        :param db_server_ocids: OCID of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#db_server_ocids OracleDatabaseCloudVmCluster#db_server_ocids}
-        :param diagnostics_data_collection_options: diagnostics_data_collection_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_data_collection_options OracleDatabaseCloudVmCluster#diagnostics_data_collection_options}
-        :param disk_redundancy: The type of redundancy. Possible values: DISK_REDUNDANCY_UNSPECIFIED HIGH NORMAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#disk_redundancy OracleDatabaseCloudVmCluster#disk_redundancy}
-        :param gi_version: Grid Infrastructure Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#gi_version OracleDatabaseCloudVmCluster#gi_version}
-        :param hostname_prefix: Prefix for VM cluster host names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#hostname_prefix OracleDatabaseCloudVmCluster#hostname_prefix}
-        :param local_backup_enabled: Use local backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#local_backup_enabled OracleDatabaseCloudVmCluster#local_backup_enabled}
-        :param memory_size_gb: Memory allocated in GBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#memory_size_gb OracleDatabaseCloudVmCluster#memory_size_gb}
-        :param node_count: Number of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#node_count OracleDatabaseCloudVmCluster#node_count}
-        :param ocpu_count: OCPU count per VM. Minimum is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#ocpu_count OracleDatabaseCloudVmCluster#ocpu_count}
-        :param sparse_diskgroup_enabled: Use exadata sparse snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#sparse_diskgroup_enabled OracleDatabaseCloudVmCluster#sparse_diskgroup_enabled}
-        :param ssh_public_keys: SSH public keys to be stored with cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#ssh_public_keys OracleDatabaseCloudVmCluster#ssh_public_keys}
-        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#time_zone OracleDatabaseCloudVmCluster#time_zone}
+        :param cpu_core_count: Number of enabled CPU cores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cpu_core_count OracleDatabaseCloudVmCluster#cpu_core_count}
+        :param license_type: License type of VM Cluster. Possible values: LICENSE_TYPE_UNSPECIFIED LICENSE_INCLUDED BRING_YOUR_OWN_LICENSE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#license_type OracleDatabaseCloudVmCluster#license_type}
+        :param cluster_name: OCI Cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cluster_name OracleDatabaseCloudVmCluster#cluster_name}
+        :param data_storage_size_tb: The data disk group size to be allocated in TBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#data_storage_size_tb OracleDatabaseCloudVmCluster#data_storage_size_tb}
+        :param db_node_storage_size_gb: Local storage per VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#db_node_storage_size_gb OracleDatabaseCloudVmCluster#db_node_storage_size_gb}
+        :param db_server_ocids: OCID of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#db_server_ocids OracleDatabaseCloudVmCluster#db_server_ocids}
+        :param diagnostics_data_collection_options: diagnostics_data_collection_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_data_collection_options OracleDatabaseCloudVmCluster#diagnostics_data_collection_options}
+        :param disk_redundancy: The type of redundancy. Possible values: DISK_REDUNDANCY_UNSPECIFIED HIGH NORMAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#disk_redundancy OracleDatabaseCloudVmCluster#disk_redundancy}
+        :param gi_version: Grid Infrastructure Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#gi_version OracleDatabaseCloudVmCluster#gi_version}
+        :param hostname_prefix: Prefix for VM cluster host names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#hostname_prefix OracleDatabaseCloudVmCluster#hostname_prefix}
+        :param local_backup_enabled: Use local backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#local_backup_enabled OracleDatabaseCloudVmCluster#local_backup_enabled}
+        :param memory_size_gb: Memory allocated in GBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#memory_size_gb OracleDatabaseCloudVmCluster#memory_size_gb}
+        :param node_count: Number of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#node_count OracleDatabaseCloudVmCluster#node_count}
+        :param ocpu_count: OCPU count per VM. Minimum is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#ocpu_count OracleDatabaseCloudVmCluster#ocpu_count}
+        :param sparse_diskgroup_enabled: Use exadata sparse snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#sparse_diskgroup_enabled OracleDatabaseCloudVmCluster#sparse_diskgroup_enabled}
+        :param ssh_public_keys: SSH public keys to be stored with cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#ssh_public_keys OracleDatabaseCloudVmCluster#ssh_public_keys}
+        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#time_zone OracleDatabaseCloudVmCluster#time_zone}
         '''
         value = OracleDatabaseCloudVmClusterProperties(
             cpu_core_count=cpu_core_count,
@@ -222,15 +231,27 @@ class OracleDatabaseCloudVmCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#create OracleDatabaseCloudVmCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#delete OracleDatabaseCloudVmCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#update OracleDatabaseCloudVmCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#create OracleDatabaseCloudVmCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#delete OracleDatabaseCloudVmCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#update OracleDatabaseCloudVmCluster#update}.
         '''
         value = OracleDatabaseCloudVmClusterTimeouts(
             create=create, delete=delete, update=update
         )
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetBackupOdbSubnet")
+    def reset_backup_odb_subnet(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBackupOdbSubnet", []))
+
+    @jsii.member(jsii_name="resetBackupSubnetCidr")
+    def reset_backup_subnet_cidr(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBackupSubnetCidr", []))
+
+    @jsii.member(jsii_name="resetCidr")
+    def reset_cidr(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCidr", []))
 
     @jsii.member(jsii_name="resetDeletionProtection")
     def reset_deletion_protection(self) -> None:
@@ -247,6 +268,18 @@ class OracleDatabaseCloudVmCluster(
     @jsii.member(jsii_name="resetLabels")
     def reset_labels(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLabels", []))
+
+    @jsii.member(jsii_name="resetNetwork")
+    def reset_network(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNetwork", []))
+
+    @jsii.member(jsii_name="resetOdbNetwork")
+    def reset_odb_network(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetOdbNetwork", []))
+
+    @jsii.member(jsii_name="resetOdbSubnet")
+    def reset_odb_subnet(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetOdbSubnet", []))
 
     @jsii.member(jsii_name="resetProject")
     def reset_project(self) -> None:
@@ -309,6 +342,11 @@ class OracleDatabaseCloudVmCluster(
         return typing.cast("OracleDatabaseCloudVmClusterTimeoutsOutputReference", jsii.get(self, "timeouts"))
 
     @builtins.property
+    @jsii.member(jsii_name="backupOdbSubnetInput")
+    def backup_odb_subnet_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupOdbSubnetInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="backupSubnetCidrInput")
     def backup_subnet_cidr_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupSubnetCidrInput"))
@@ -363,6 +401,16 @@ class OracleDatabaseCloudVmCluster(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="odbNetworkInput")
+    def odb_network_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "odbNetworkInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="odbSubnetInput")
+    def odb_subnet_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "odbSubnetInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="projectInput")
     def project_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectInput"))
@@ -380,6 +428,18 @@ class OracleDatabaseCloudVmCluster(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "OracleDatabaseCloudVmClusterTimeouts"]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "OracleDatabaseCloudVmClusterTimeouts"]], jsii.get(self, "timeoutsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupOdbSubnet")
+    def backup_odb_subnet(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "backupOdbSubnet"))
+
+    @backup_odb_subnet.setter
+    def backup_odb_subnet(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff11f9e9b0d33b757cc9bc50f1c4d9de9bb315eafba064925e8a6395706386ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "backupOdbSubnet", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="backupSubnetCidr")
@@ -507,6 +567,30 @@ class OracleDatabaseCloudVmCluster(
         jsii.set(self, "network", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="odbNetwork")
+    def odb_network(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "odbNetwork"))
+
+    @odb_network.setter
+    def odb_network(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee8e39db7ff355c7bef015340051cada97f660dfab520b1816ab171b58a7091f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "odbNetwork", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="odbSubnet")
+    def odb_subnet(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "odbSubnet"))
+
+    @odb_subnet.setter
+    def odb_subnet(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f09f51898ee5f0a9ff8582a00fcb3941582fb359ad7f1270c7c58388977ba9b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "odbSubnet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="project")
     def project(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "project"))
@@ -530,16 +614,19 @@ class OracleDatabaseCloudVmCluster(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "backup_subnet_cidr": "backupSubnetCidr",
-        "cidr": "cidr",
         "cloud_vm_cluster_id": "cloudVmClusterId",
         "exadata_infrastructure": "exadataInfrastructure",
         "location": "location",
-        "network": "network",
+        "backup_odb_subnet": "backupOdbSubnet",
+        "backup_subnet_cidr": "backupSubnetCidr",
+        "cidr": "cidr",
         "deletion_protection": "deletionProtection",
         "display_name": "displayName",
         "id": "id",
         "labels": "labels",
+        "network": "network",
+        "odb_network": "odbNetwork",
+        "odb_subnet": "odbSubnet",
         "project": "project",
         "properties": "properties",
         "timeouts": "timeouts",
@@ -556,16 +643,19 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        backup_subnet_cidr: builtins.str,
-        cidr: builtins.str,
         cloud_vm_cluster_id: builtins.str,
         exadata_infrastructure: builtins.str,
         location: builtins.str,
-        network: builtins.str,
+        backup_odb_subnet: typing.Optional[builtins.str] = None,
+        backup_subnet_cidr: typing.Optional[builtins.str] = None,
+        cidr: typing.Optional[builtins.str] = None,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         display_name: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        network: typing.Optional[builtins.str] = None,
+        odb_network: typing.Optional[builtins.str] = None,
+        odb_subnet: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
         properties: typing.Optional[typing.Union["OracleDatabaseCloudVmClusterProperties", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["OracleDatabaseCloudVmClusterTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -578,19 +668,22 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backup_subnet_cidr: CIDR range of the backup subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#backup_subnet_cidr OracleDatabaseCloudVmCluster#backup_subnet_cidr}
-        :param cidr: Network settings. CIDR to use for cluster IP allocation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cidr OracleDatabaseCloudVmCluster#cidr}
-        :param cloud_vm_cluster_id: The ID of the VM Cluster to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cloud_vm_cluster_id OracleDatabaseCloudVmCluster#cloud_vm_cluster_id}
-        :param exadata_infrastructure: The name of the Exadata Infrastructure resource on which VM cluster resource is created, in the following format: projects/{project}/locations/{region}/cloudExadataInfrastuctures/{cloud_extradata_infrastructure}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#exadata_infrastructure OracleDatabaseCloudVmCluster#exadata_infrastructure}
-        :param location: Resource ID segment making up resource 'name'. See documentation for resource type 'oracledatabase.googleapis.com/DbNode'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#location OracleDatabaseCloudVmCluster#location}
-        :param network: The name of the VPC network. Format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#network OracleDatabaseCloudVmCluster#network}
-        :param deletion_protection: Whether Terraform will be prevented from destroying the cluster. Deleting this cluster via terraform destroy or terraform apply will only succeed if this field is false in the Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#deletion_protection OracleDatabaseCloudVmCluster#deletion_protection}
-        :param display_name: User friendly name for this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#display_name OracleDatabaseCloudVmCluster#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels or tags associated with the VM Cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#labels OracleDatabaseCloudVmCluster#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#project OracleDatabaseCloudVmCluster#project}.
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#properties OracleDatabaseCloudVmCluster#properties}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#timeouts OracleDatabaseCloudVmCluster#timeouts}
+        :param cloud_vm_cluster_id: The ID of the VM Cluster to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cloud_vm_cluster_id OracleDatabaseCloudVmCluster#cloud_vm_cluster_id}
+        :param exadata_infrastructure: The name of the Exadata Infrastructure resource on which VM cluster resource is created, in the following format: projects/{project}/locations/{region}/cloudExadataInfrastuctures/{cloud_extradata_infrastructure}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#exadata_infrastructure OracleDatabaseCloudVmCluster#exadata_infrastructure}
+        :param location: Resource ID segment making up resource 'name'. See documentation for resource type 'oracledatabase.googleapis.com/DbNode'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#location OracleDatabaseCloudVmCluster#location}
+        :param backup_odb_subnet: The name of the backup OdbSubnet associated with the VM Cluster. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#backup_odb_subnet OracleDatabaseCloudVmCluster#backup_odb_subnet}
+        :param backup_subnet_cidr: CIDR range of the backup subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#backup_subnet_cidr OracleDatabaseCloudVmCluster#backup_subnet_cidr}
+        :param cidr: Network settings. CIDR to use for cluster IP allocation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cidr OracleDatabaseCloudVmCluster#cidr}
+        :param deletion_protection: Whether Terraform will be prevented from destroying the cluster. Deleting this cluster via terraform destroy or terraform apply will only succeed if this field is false in the Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#deletion_protection OracleDatabaseCloudVmCluster#deletion_protection}
+        :param display_name: User friendly name for this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#display_name OracleDatabaseCloudVmCluster#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels or tags associated with the VM Cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#labels OracleDatabaseCloudVmCluster#labels}
+        :param network: The name of the VPC network. Format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#network OracleDatabaseCloudVmCluster#network}
+        :param odb_network: The name of the OdbNetwork associated with the VM Cluster. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network} It is optional but if specified, this should match the parent ODBNetwork of the odb_subnet and backup_odb_subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#odb_network OracleDatabaseCloudVmCluster#odb_network}
+        :param odb_subnet: The name of the OdbSubnet associated with the VM Cluster for IP allocation. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#odb_subnet OracleDatabaseCloudVmCluster#odb_subnet}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#project OracleDatabaseCloudVmCluster#project}.
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#properties OracleDatabaseCloudVmCluster#properties}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#timeouts OracleDatabaseCloudVmCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -607,26 +700,26 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument backup_subnet_cidr", value=backup_subnet_cidr, expected_type=type_hints["backup_subnet_cidr"])
-            check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             check_type(argname="argument cloud_vm_cluster_id", value=cloud_vm_cluster_id, expected_type=type_hints["cloud_vm_cluster_id"])
             check_type(argname="argument exadata_infrastructure", value=exadata_infrastructure, expected_type=type_hints["exadata_infrastructure"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-            check_type(argname="argument network", value=network, expected_type=type_hints["network"])
+            check_type(argname="argument backup_odb_subnet", value=backup_odb_subnet, expected_type=type_hints["backup_odb_subnet"])
+            check_type(argname="argument backup_subnet_cidr", value=backup_subnet_cidr, expected_type=type_hints["backup_subnet_cidr"])
+            check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
+            check_type(argname="argument network", value=network, expected_type=type_hints["network"])
+            check_type(argname="argument odb_network", value=odb_network, expected_type=type_hints["odb_network"])
+            check_type(argname="argument odb_subnet", value=odb_subnet, expected_type=type_hints["odb_subnet"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_subnet_cidr": backup_subnet_cidr,
-            "cidr": cidr,
             "cloud_vm_cluster_id": cloud_vm_cluster_id,
             "exadata_infrastructure": exadata_infrastructure,
             "location": location,
-            "network": network,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -642,6 +735,12 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if backup_odb_subnet is not None:
+            self._values["backup_odb_subnet"] = backup_odb_subnet
+        if backup_subnet_cidr is not None:
+            self._values["backup_subnet_cidr"] = backup_subnet_cidr
+        if cidr is not None:
+            self._values["cidr"] = cidr
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if display_name is not None:
@@ -650,6 +749,12 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             self._values["id"] = id
         if labels is not None:
             self._values["labels"] = labels
+        if network is not None:
+            self._values["network"] = network
+        if odb_network is not None:
+            self._values["odb_network"] = odb_network
+        if odb_subnet is not None:
+            self._values["odb_subnet"] = odb_subnet
         if project is not None:
             self._values["project"] = project
         if properties is not None:
@@ -722,26 +827,6 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def backup_subnet_cidr(self) -> builtins.str:
-        '''CIDR range of the backup subnet.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#backup_subnet_cidr OracleDatabaseCloudVmCluster#backup_subnet_cidr}
-        '''
-        result = self._values.get("backup_subnet_cidr")
-        assert result is not None, "Required property 'backup_subnet_cidr' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cidr(self) -> builtins.str:
-        '''Network settings. CIDR to use for cluster IP allocation.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cidr OracleDatabaseCloudVmCluster#cidr}
-        '''
-        result = self._values.get("cidr")
-        assert result is not None, "Required property 'cidr' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def cloud_vm_cluster_id(self) -> builtins.str:
         '''The ID of the VM Cluster to create.
 
@@ -750,7 +835,7 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         characters in length. The value must start with a letter and end with
         a letter or a number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cloud_vm_cluster_id OracleDatabaseCloudVmCluster#cloud_vm_cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cloud_vm_cluster_id OracleDatabaseCloudVmCluster#cloud_vm_cluster_id}
         '''
         result = self._values.get("cloud_vm_cluster_id")
         assert result is not None, "Required property 'cloud_vm_cluster_id' is missing"
@@ -760,7 +845,7 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def exadata_infrastructure(self) -> builtins.str:
         '''The name of the Exadata Infrastructure resource on which VM cluster resource is created, in the following format: projects/{project}/locations/{region}/cloudExadataInfrastuctures/{cloud_extradata_infrastructure}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#exadata_infrastructure OracleDatabaseCloudVmCluster#exadata_infrastructure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#exadata_infrastructure OracleDatabaseCloudVmCluster#exadata_infrastructure}
         '''
         result = self._values.get("exadata_infrastructure")
         assert result is not None, "Required property 'exadata_infrastructure' is missing"
@@ -770,21 +855,38 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. See documentation for resource type 'oracledatabase.googleapis.com/DbNode'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#location OracleDatabaseCloudVmCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#location OracleDatabaseCloudVmCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def network(self) -> builtins.str:
-        '''The name of the VPC network. Format: projects/{project}/global/networks/{network}.
+    def backup_odb_subnet(self) -> typing.Optional[builtins.str]:
+        '''The name of the backup OdbSubnet associated with the VM Cluster. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#network OracleDatabaseCloudVmCluster#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#backup_odb_subnet OracleDatabaseCloudVmCluster#backup_odb_subnet}
         '''
-        result = self._values.get("network")
-        assert result is not None, "Required property 'network' is missing"
-        return typing.cast(builtins.str, result)
+        result = self._values.get("backup_odb_subnet")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def backup_subnet_cidr(self) -> typing.Optional[builtins.str]:
+        '''CIDR range of the backup subnet.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#backup_subnet_cidr OracleDatabaseCloudVmCluster#backup_subnet_cidr}
+        '''
+        result = self._values.get("backup_subnet_cidr")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cidr(self) -> typing.Optional[builtins.str]:
+        '''Network settings. CIDR to use for cluster IP allocation.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cidr OracleDatabaseCloudVmCluster#cidr}
+        '''
+        result = self._values.get("cidr")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def deletion_protection(
@@ -794,7 +896,7 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         Deleting this cluster via terraform destroy or terraform apply will only succeed if this field is false in the Terraform state.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#deletion_protection OracleDatabaseCloudVmCluster#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#deletion_protection OracleDatabaseCloudVmCluster#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -803,14 +905,14 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User friendly name for this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#display_name OracleDatabaseCloudVmCluster#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#display_name OracleDatabaseCloudVmCluster#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -825,14 +927,46 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#labels OracleDatabaseCloudVmCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#labels OracleDatabaseCloudVmCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
+    def network(self) -> typing.Optional[builtins.str]:
+        '''The name of the VPC network. Format: projects/{project}/global/networks/{network}.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#network OracleDatabaseCloudVmCluster#network}
+        '''
+        result = self._values.get("network")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def odb_network(self) -> typing.Optional[builtins.str]:
+        '''The name of the OdbNetwork associated with the VM Cluster.
+
+        Format:
+        projects/{project}/locations/{location}/odbNetworks/{odb_network}
+        It is optional but if specified, this should match the parent ODBNetwork of
+        the odb_subnet and backup_odb_subnet.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#odb_network OracleDatabaseCloudVmCluster#odb_network}
+        '''
+        result = self._values.get("odb_network")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def odb_subnet(self) -> typing.Optional[builtins.str]:
+        '''The name of the OdbSubnet associated with the VM Cluster for IP allocation. Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#odb_subnet OracleDatabaseCloudVmCluster#odb_subnet}
+        '''
+        result = self._values.get("odb_subnet")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#project OracleDatabaseCloudVmCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#project OracleDatabaseCloudVmCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -840,7 +974,7 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def properties(self) -> typing.Optional["OracleDatabaseCloudVmClusterProperties"]:
         '''properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#properties OracleDatabaseCloudVmCluster#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#properties OracleDatabaseCloudVmCluster#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional["OracleDatabaseCloudVmClusterProperties"], result)
@@ -849,7 +983,7 @@ class OracleDatabaseCloudVmClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["OracleDatabaseCloudVmClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#timeouts OracleDatabaseCloudVmCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#timeouts OracleDatabaseCloudVmCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OracleDatabaseCloudVmClusterTimeouts"], result)
@@ -912,23 +1046,23 @@ class OracleDatabaseCloudVmClusterProperties:
         time_zone: typing.Optional[typing.Union["OracleDatabaseCloudVmClusterPropertiesTimeZone", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cpu_core_count: Number of enabled CPU cores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cpu_core_count OracleDatabaseCloudVmCluster#cpu_core_count}
-        :param license_type: License type of VM Cluster. Possible values: LICENSE_TYPE_UNSPECIFIED LICENSE_INCLUDED BRING_YOUR_OWN_LICENSE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#license_type OracleDatabaseCloudVmCluster#license_type}
-        :param cluster_name: OCI Cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cluster_name OracleDatabaseCloudVmCluster#cluster_name}
-        :param data_storage_size_tb: The data disk group size to be allocated in TBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#data_storage_size_tb OracleDatabaseCloudVmCluster#data_storage_size_tb}
-        :param db_node_storage_size_gb: Local storage per VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#db_node_storage_size_gb OracleDatabaseCloudVmCluster#db_node_storage_size_gb}
-        :param db_server_ocids: OCID of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#db_server_ocids OracleDatabaseCloudVmCluster#db_server_ocids}
-        :param diagnostics_data_collection_options: diagnostics_data_collection_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_data_collection_options OracleDatabaseCloudVmCluster#diagnostics_data_collection_options}
-        :param disk_redundancy: The type of redundancy. Possible values: DISK_REDUNDANCY_UNSPECIFIED HIGH NORMAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#disk_redundancy OracleDatabaseCloudVmCluster#disk_redundancy}
-        :param gi_version: Grid Infrastructure Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#gi_version OracleDatabaseCloudVmCluster#gi_version}
-        :param hostname_prefix: Prefix for VM cluster host names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#hostname_prefix OracleDatabaseCloudVmCluster#hostname_prefix}
-        :param local_backup_enabled: Use local backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#local_backup_enabled OracleDatabaseCloudVmCluster#local_backup_enabled}
-        :param memory_size_gb: Memory allocated in GBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#memory_size_gb OracleDatabaseCloudVmCluster#memory_size_gb}
-        :param node_count: Number of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#node_count OracleDatabaseCloudVmCluster#node_count}
-        :param ocpu_count: OCPU count per VM. Minimum is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#ocpu_count OracleDatabaseCloudVmCluster#ocpu_count}
-        :param sparse_diskgroup_enabled: Use exadata sparse snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#sparse_diskgroup_enabled OracleDatabaseCloudVmCluster#sparse_diskgroup_enabled}
-        :param ssh_public_keys: SSH public keys to be stored with cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#ssh_public_keys OracleDatabaseCloudVmCluster#ssh_public_keys}
-        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#time_zone OracleDatabaseCloudVmCluster#time_zone}
+        :param cpu_core_count: Number of enabled CPU cores. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cpu_core_count OracleDatabaseCloudVmCluster#cpu_core_count}
+        :param license_type: License type of VM Cluster. Possible values: LICENSE_TYPE_UNSPECIFIED LICENSE_INCLUDED BRING_YOUR_OWN_LICENSE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#license_type OracleDatabaseCloudVmCluster#license_type}
+        :param cluster_name: OCI Cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cluster_name OracleDatabaseCloudVmCluster#cluster_name}
+        :param data_storage_size_tb: The data disk group size to be allocated in TBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#data_storage_size_tb OracleDatabaseCloudVmCluster#data_storage_size_tb}
+        :param db_node_storage_size_gb: Local storage per VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#db_node_storage_size_gb OracleDatabaseCloudVmCluster#db_node_storage_size_gb}
+        :param db_server_ocids: OCID of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#db_server_ocids OracleDatabaseCloudVmCluster#db_server_ocids}
+        :param diagnostics_data_collection_options: diagnostics_data_collection_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_data_collection_options OracleDatabaseCloudVmCluster#diagnostics_data_collection_options}
+        :param disk_redundancy: The type of redundancy. Possible values: DISK_REDUNDANCY_UNSPECIFIED HIGH NORMAL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#disk_redundancy OracleDatabaseCloudVmCluster#disk_redundancy}
+        :param gi_version: Grid Infrastructure Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#gi_version OracleDatabaseCloudVmCluster#gi_version}
+        :param hostname_prefix: Prefix for VM cluster host names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#hostname_prefix OracleDatabaseCloudVmCluster#hostname_prefix}
+        :param local_backup_enabled: Use local backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#local_backup_enabled OracleDatabaseCloudVmCluster#local_backup_enabled}
+        :param memory_size_gb: Memory allocated in GBs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#memory_size_gb OracleDatabaseCloudVmCluster#memory_size_gb}
+        :param node_count: Number of database servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#node_count OracleDatabaseCloudVmCluster#node_count}
+        :param ocpu_count: OCPU count per VM. Minimum is 0.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#ocpu_count OracleDatabaseCloudVmCluster#ocpu_count}
+        :param sparse_diskgroup_enabled: Use exadata sparse snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#sparse_diskgroup_enabled OracleDatabaseCloudVmCluster#sparse_diskgroup_enabled}
+        :param ssh_public_keys: SSH public keys to be stored with cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#ssh_public_keys OracleDatabaseCloudVmCluster#ssh_public_keys}
+        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#time_zone OracleDatabaseCloudVmCluster#time_zone}
         '''
         if isinstance(diagnostics_data_collection_options, dict):
             diagnostics_data_collection_options = OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions(**diagnostics_data_collection_options)
@@ -992,7 +1126,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def cpu_core_count(self) -> jsii.Number:
         '''Number of enabled CPU cores.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cpu_core_count OracleDatabaseCloudVmCluster#cpu_core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cpu_core_count OracleDatabaseCloudVmCluster#cpu_core_count}
         '''
         result = self._values.get("cpu_core_count")
         assert result is not None, "Required property 'cpu_core_count' is missing"
@@ -1002,7 +1136,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def license_type(self) -> builtins.str:
         '''License type of VM Cluster.   Possible values:  LICENSE_TYPE_UNSPECIFIED LICENSE_INCLUDED BRING_YOUR_OWN_LICENSE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#license_type OracleDatabaseCloudVmCluster#license_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#license_type OracleDatabaseCloudVmCluster#license_type}
         '''
         result = self._values.get("license_type")
         assert result is not None, "Required property 'license_type' is missing"
@@ -1012,7 +1146,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def cluster_name(self) -> typing.Optional[builtins.str]:
         '''OCI Cluster name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#cluster_name OracleDatabaseCloudVmCluster#cluster_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#cluster_name OracleDatabaseCloudVmCluster#cluster_name}
         '''
         result = self._values.get("cluster_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1021,7 +1155,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def data_storage_size_tb(self) -> typing.Optional[jsii.Number]:
         '''The data disk group size to be allocated in TBs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#data_storage_size_tb OracleDatabaseCloudVmCluster#data_storage_size_tb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#data_storage_size_tb OracleDatabaseCloudVmCluster#data_storage_size_tb}
         '''
         result = self._values.get("data_storage_size_tb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1030,7 +1164,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def db_node_storage_size_gb(self) -> typing.Optional[jsii.Number]:
         '''Local storage per VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#db_node_storage_size_gb OracleDatabaseCloudVmCluster#db_node_storage_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#db_node_storage_size_gb OracleDatabaseCloudVmCluster#db_node_storage_size_gb}
         '''
         result = self._values.get("db_node_storage_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1039,7 +1173,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def db_server_ocids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''OCID of database servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#db_server_ocids OracleDatabaseCloudVmCluster#db_server_ocids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#db_server_ocids OracleDatabaseCloudVmCluster#db_server_ocids}
         '''
         result = self._values.get("db_server_ocids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1050,7 +1184,7 @@ class OracleDatabaseCloudVmClusterProperties:
     ) -> typing.Optional["OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions"]:
         '''diagnostics_data_collection_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_data_collection_options OracleDatabaseCloudVmCluster#diagnostics_data_collection_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_data_collection_options OracleDatabaseCloudVmCluster#diagnostics_data_collection_options}
         '''
         result = self._values.get("diagnostics_data_collection_options")
         return typing.cast(typing.Optional["OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions"], result)
@@ -1059,7 +1193,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def disk_redundancy(self) -> typing.Optional[builtins.str]:
         '''The type of redundancy.   Possible values:  DISK_REDUNDANCY_UNSPECIFIED HIGH NORMAL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#disk_redundancy OracleDatabaseCloudVmCluster#disk_redundancy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#disk_redundancy OracleDatabaseCloudVmCluster#disk_redundancy}
         '''
         result = self._values.get("disk_redundancy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1068,7 +1202,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def gi_version(self) -> typing.Optional[builtins.str]:
         '''Grid Infrastructure Version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#gi_version OracleDatabaseCloudVmCluster#gi_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#gi_version OracleDatabaseCloudVmCluster#gi_version}
         '''
         result = self._values.get("gi_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1077,7 +1211,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def hostname_prefix(self) -> typing.Optional[builtins.str]:
         '''Prefix for VM cluster host names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#hostname_prefix OracleDatabaseCloudVmCluster#hostname_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#hostname_prefix OracleDatabaseCloudVmCluster#hostname_prefix}
         '''
         result = self._values.get("hostname_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1088,7 +1222,7 @@ class OracleDatabaseCloudVmClusterProperties:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use local backup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#local_backup_enabled OracleDatabaseCloudVmCluster#local_backup_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#local_backup_enabled OracleDatabaseCloudVmCluster#local_backup_enabled}
         '''
         result = self._values.get("local_backup_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1097,7 +1231,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def memory_size_gb(self) -> typing.Optional[jsii.Number]:
         '''Memory allocated in GBs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#memory_size_gb OracleDatabaseCloudVmCluster#memory_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#memory_size_gb OracleDatabaseCloudVmCluster#memory_size_gb}
         '''
         result = self._values.get("memory_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1106,7 +1240,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def node_count(self) -> typing.Optional[jsii.Number]:
         '''Number of database servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#node_count OracleDatabaseCloudVmCluster#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#node_count OracleDatabaseCloudVmCluster#node_count}
         '''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1115,7 +1249,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def ocpu_count(self) -> typing.Optional[jsii.Number]:
         '''OCPU count per VM. Minimum is 0.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#ocpu_count OracleDatabaseCloudVmCluster#ocpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#ocpu_count OracleDatabaseCloudVmCluster#ocpu_count}
         '''
         result = self._values.get("ocpu_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1126,7 +1260,7 @@ class OracleDatabaseCloudVmClusterProperties:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use exadata sparse snapshots.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#sparse_diskgroup_enabled OracleDatabaseCloudVmCluster#sparse_diskgroup_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#sparse_diskgroup_enabled OracleDatabaseCloudVmCluster#sparse_diskgroup_enabled}
         '''
         result = self._values.get("sparse_diskgroup_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1135,7 +1269,7 @@ class OracleDatabaseCloudVmClusterProperties:
     def ssh_public_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''SSH public keys to be stored with cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#ssh_public_keys OracleDatabaseCloudVmCluster#ssh_public_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#ssh_public_keys OracleDatabaseCloudVmCluster#ssh_public_keys}
         '''
         result = self._values.get("ssh_public_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1146,7 +1280,7 @@ class OracleDatabaseCloudVmClusterProperties:
     ) -> typing.Optional["OracleDatabaseCloudVmClusterPropertiesTimeZone"]:
         '''time_zone block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#time_zone OracleDatabaseCloudVmCluster#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#time_zone OracleDatabaseCloudVmCluster#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional["OracleDatabaseCloudVmClusterPropertiesTimeZone"], result)
@@ -1181,9 +1315,9 @@ class OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions:
         incident_logs_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param diagnostics_events_enabled: Indicates whether diagnostic collection is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_events_enabled OracleDatabaseCloudVmCluster#diagnostics_events_enabled}
-        :param health_monitoring_enabled: Indicates whether health monitoring is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#health_monitoring_enabled OracleDatabaseCloudVmCluster#health_monitoring_enabled}
-        :param incident_logs_enabled: Indicates whether incident logs and trace collection are enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#incident_logs_enabled OracleDatabaseCloudVmCluster#incident_logs_enabled}
+        :param diagnostics_events_enabled: Indicates whether diagnostic collection is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_events_enabled OracleDatabaseCloudVmCluster#diagnostics_events_enabled}
+        :param health_monitoring_enabled: Indicates whether health monitoring is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#health_monitoring_enabled OracleDatabaseCloudVmCluster#health_monitoring_enabled}
+        :param incident_logs_enabled: Indicates whether incident logs and trace collection are enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#incident_logs_enabled OracleDatabaseCloudVmCluster#incident_logs_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f24ac9a1ad7d014347b3e2997ba42a14becbea4f5c4c06e9633c7122c1a93263)
@@ -1204,7 +1338,7 @@ class OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether diagnostic collection is enabled for the VM cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_events_enabled OracleDatabaseCloudVmCluster#diagnostics_events_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_events_enabled OracleDatabaseCloudVmCluster#diagnostics_events_enabled}
         '''
         result = self._values.get("diagnostics_events_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1215,7 +1349,7 @@ class OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether health monitoring is enabled for the VM cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#health_monitoring_enabled OracleDatabaseCloudVmCluster#health_monitoring_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#health_monitoring_enabled OracleDatabaseCloudVmCluster#health_monitoring_enabled}
         '''
         result = self._values.get("health_monitoring_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1226,7 +1360,7 @@ class OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether incident logs and trace collection are enabled for the VM cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#incident_logs_enabled OracleDatabaseCloudVmCluster#incident_logs_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#incident_logs_enabled OracleDatabaseCloudVmCluster#incident_logs_enabled}
         '''
         result = self._values.get("incident_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1394,9 +1528,9 @@ class OracleDatabaseCloudVmClusterPropertiesOutputReference(
         incident_logs_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param diagnostics_events_enabled: Indicates whether diagnostic collection is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_events_enabled OracleDatabaseCloudVmCluster#diagnostics_events_enabled}
-        :param health_monitoring_enabled: Indicates whether health monitoring is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#health_monitoring_enabled OracleDatabaseCloudVmCluster#health_monitoring_enabled}
-        :param incident_logs_enabled: Indicates whether incident logs and trace collection are enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#incident_logs_enabled OracleDatabaseCloudVmCluster#incident_logs_enabled}
+        :param diagnostics_events_enabled: Indicates whether diagnostic collection is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#diagnostics_events_enabled OracleDatabaseCloudVmCluster#diagnostics_events_enabled}
+        :param health_monitoring_enabled: Indicates whether health monitoring is enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#health_monitoring_enabled OracleDatabaseCloudVmCluster#health_monitoring_enabled}
+        :param incident_logs_enabled: Indicates whether incident logs and trace collection are enabled for the VM cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#incident_logs_enabled OracleDatabaseCloudVmCluster#incident_logs_enabled}
         '''
         value = OracleDatabaseCloudVmClusterPropertiesDiagnosticsDataCollectionOptions(
             diagnostics_events_enabled=diagnostics_events_enabled,
@@ -1409,7 +1543,7 @@ class OracleDatabaseCloudVmClusterPropertiesOutputReference(
     @jsii.member(jsii_name="putTimeZone")
     def put_time_zone(self, *, id: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         value = OracleDatabaseCloudVmClusterPropertiesTimeZone(id=id)
 
@@ -1871,7 +2005,7 @@ class OracleDatabaseCloudVmClusterPropertiesOutputReference(
 class OracleDatabaseCloudVmClusterPropertiesTimeZone:
     def __init__(self, *, id: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c60d3dae19c3aba5ccc5b2b1a578df53040c7d457bc6422621197f516fd26c7c)
@@ -1884,7 +2018,7 @@ class OracleDatabaseCloudVmClusterPropertiesTimeZone:
     def id(self) -> typing.Optional[builtins.str]:
         '''IANA Time Zone Database time zone, e.g. "America/New_York".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#id OracleDatabaseCloudVmCluster#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1977,9 +2111,9 @@ class OracleDatabaseCloudVmClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#create OracleDatabaseCloudVmCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#delete OracleDatabaseCloudVmCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#update OracleDatabaseCloudVmCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#create OracleDatabaseCloudVmCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#delete OracleDatabaseCloudVmCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#update OracleDatabaseCloudVmCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed6e76baaf5b6f65b15d749b0ee69753a7cac18be62bc5bb69607c33c2c203d2)
@@ -1996,19 +2130,19 @@ class OracleDatabaseCloudVmClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#create OracleDatabaseCloudVmCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#create OracleDatabaseCloudVmCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#delete OracleDatabaseCloudVmCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#delete OracleDatabaseCloudVmCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/oracle_database_cloud_vm_cluster#update OracleDatabaseCloudVmCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/oracle_database_cloud_vm_cluster#update OracleDatabaseCloudVmCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2144,16 +2278,19 @@ def _typecheckingstub__0067fcad2369a1bec8aa09f8b62f69d52ca29a03f9ab843f62173e182
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    backup_subnet_cidr: builtins.str,
-    cidr: builtins.str,
     cloud_vm_cluster_id: builtins.str,
     exadata_infrastructure: builtins.str,
     location: builtins.str,
-    network: builtins.str,
+    backup_odb_subnet: typing.Optional[builtins.str] = None,
+    backup_subnet_cidr: typing.Optional[builtins.str] = None,
+    cidr: typing.Optional[builtins.str] = None,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    network: typing.Optional[builtins.str] = None,
+    odb_network: typing.Optional[builtins.str] = None,
+    odb_subnet: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
     properties: typing.Optional[typing.Union[OracleDatabaseCloudVmClusterProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[OracleDatabaseCloudVmClusterTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2173,6 +2310,12 @@ def _typecheckingstub__417c74112f80db8a3bd4bb8f87053a354eeb31c10938286281bf933f2
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff11f9e9b0d33b757cc9bc50f1c4d9de9bb315eafba064925e8a6395706386ed(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2237,6 +2380,18 @@ def _typecheckingstub__000d010b143a64fe3daff9b8ce46ac21ce2cc1de315423cb413c1bd5f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ee8e39db7ff355c7bef015340051cada97f660dfab520b1816ab171b58a7091f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f09f51898ee5f0a9ff8582a00fcb3941582fb359ad7f1270c7c58388977ba9b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9d9ab05c148c9d315200a26cac983b1809684bf44761364f76c961c1ee033cf3(
     value: builtins.str,
 ) -> None:
@@ -2252,16 +2407,19 @@ def _typecheckingstub__f2b69324c664c87a31b8f9de3ceee5818ab5d1f28776534bc11c86214
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    backup_subnet_cidr: builtins.str,
-    cidr: builtins.str,
     cloud_vm_cluster_id: builtins.str,
     exadata_infrastructure: builtins.str,
     location: builtins.str,
-    network: builtins.str,
+    backup_odb_subnet: typing.Optional[builtins.str] = None,
+    backup_subnet_cidr: typing.Optional[builtins.str] = None,
+    cidr: typing.Optional[builtins.str] = None,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    network: typing.Optional[builtins.str] = None,
+    odb_network: typing.Optional[builtins.str] = None,
+    odb_subnet: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
     properties: typing.Optional[typing.Union[OracleDatabaseCloudVmClusterProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[OracleDatabaseCloudVmClusterTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

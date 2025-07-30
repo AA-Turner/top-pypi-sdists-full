@@ -78,16 +78,12 @@ async def test_dialect(make_engine):
         select_by_val = tbl.select().where(
             tbl.c.val == bindparam('value')
         )
-        cursor = await conn.execute(
-            select_by_val, {'value': 'some_val_3'}
-        )
+        cursor = await conn.execute(select_by_val, {'value': 'some_val_3'})
         row = await cursor.fetchone()
         assert 'some_val_3' == row.val
         assert 1 == len(cache)
 
-        cursor = await conn.execute(
-            select_by_val, value='some_val_2'
-        )
+        cursor = await conn.execute(select_by_val, {'value': 'some_val_2'})
         row = await cursor.fetchone()
         assert 'some_val_2' == row.val
         assert 1 == len(cache)
@@ -104,10 +100,10 @@ async def test_dialect(make_engine):
 
         # check insert with bound params added to cache
         q = tbl.insert().values(val=bindparam('value'))
-        await conn.execute(q, value='some_val_5')
+        await conn.execute(q, {'value': 'some_val_5'})
         assert 3 == len(cache)
 
-        await conn.execute(q, value='some_val_6')
+        await conn.execute(q, {'value': 'some_val_6'})
         assert 3 == len(cache)
 
         await conn.execute(q, {'value': 'some_val_7'})
@@ -124,9 +120,7 @@ async def test_dialect(make_engine):
         ).values(val='updated_val_1')
         await conn.execute(q)
         assert 3 == len(cache)
-        cursor = await conn.execute(
-            select_by_val, value='updated_val_1'
-        )
+        cursor = await conn.execute(select_by_val, {'value': 'updated_val_1'})
         row = await cursor.fetchone()
         assert 'updated_val_1' == row.val
 
@@ -134,12 +128,8 @@ async def test_dialect(make_engine):
         q = tbl.update().where(
             tbl.c.val == bindparam('value')
         ).values(val=bindparam('update'))
-        await conn.execute(
-            q, value='some_val_2', update='updated_val_2'
-        )
+        await conn.execute(q, {'value': 'some_val_2', 'update': 'updated_val_2'})
         assert 4 == len(cache)
-        cursor = await conn.execute(
-            select_by_val, value='updated_val_2'
-        )
+        cursor = await conn.execute(select_by_val, {'value': 'updated_val_2'})
         row = await cursor.fetchone()
         assert 'updated_val_2' == row.val

@@ -735,7 +735,8 @@ class FlareAnalysisUseCase(BaseProcessor):
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
             category = detection.get("category", "unknown")
-            detection_obj = self.create_detection_object(category, bbox, main_color=detection.get("main_color"))
+            detection_obj = self.create_detection_object(category, bbox)  # Remove main_color parameter
+            detection_obj["main_color"] = detection.get("main_color", "unknown")  # Add main_color afterward
             detections.append(detection_obj)
 
         alert_settings = []

@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:14.980020                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:44.062736                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.runner.deployer
     import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow.runner.deployer
 
 from ...client.core import get_metadata as get_metadata
 from ...exception import MetaflowException as MetaflowException
@@ -159,6 +159,28 @@ class ArgoWorkflowsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         ArgoWorkflowsDeployedFlow
             A `ArgoWorkflowsDeployedFlow` object representing the
             deployed flow on argo workflows.
+        """
+        ...
+    @classmethod
+    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None):
+        """
+        Retrieves a `ArgoWorkflowsTriggeredRun` object from an identifier, a run id and
+        optional metadata.
+        
+        Parameters
+        ----------
+        identifier : str
+            Deployer specific identifier for the workflow to retrieve
+        run_id : str
+            Run ID for the which to fetch the triggered run object
+        metadata : str, optional, default None
+            Optional deployer specific metadata.
+        
+        Returns
+        -------
+        ArgoWorkflowsTriggeredRun
+            A `ArgoWorkflowsTriggeredRun` object representing the
+            triggered run on argo workflows.
         """
         ...
     @property

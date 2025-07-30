@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_TableParser.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_TableParser.py 9842 2024-08-01 22:41:27Z aa-turner $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -23,9 +23,9 @@ from docutils.statemachine import StringList, string2lines
 class GridTableParserTestCase(unittest.TestCase):
     def test_parse_table(self):
         parser = tableparser.GridTableParser()
-        for name, cases in totest.items():
-            for casenum, case in enumerate(cases):
-                case_input, case_table, case_expected = case
+        for cases in totest.values():
+            for case in cases:
+                case_input, case_table, _case_expected = case
                 lines_input = StringList(string2lines(case_input), 'test data')
                 parser.setup(lines_input)
                 try:
@@ -40,7 +40,7 @@ class GridTableParserTestCase(unittest.TestCase):
         parser = tableparser.GridTableParser()
         for name, cases in totest.items():
             for casenum, case in enumerate(cases):
-                case_input, case_table, case_expected = case
+                case_input, _case_table, case_expected = case
                 lines_input = StringList(string2lines(case_input), 'test data')
                 with self.subTest(id=f'totest[{name!r}][{casenum}]'):
                     try:

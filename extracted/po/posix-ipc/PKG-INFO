@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posix_ipc
-Version: 1.2.0
+Version: 1.3.0
 Summary: POSIX IPC primitives (semaphores, shared memory and message queues) for Python
 Author-email: Philip Semanchuk <philip@semanchuk.com>
 License: BSD-3-Clause

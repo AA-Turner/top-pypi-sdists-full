@@ -39,7 +39,7 @@ DEFAULT_KINDS = [
     {"jinja2": "**/*.j2"},  # jinja2 templates are not always parsable as something else
     {"jinja2": "**/*.j2.*"},
     {"yaml": ".github/**/*.{yaml,yml}"},  # github workflows
-    {"text": "**/templates/**/*.*"},  # templates are likely not validable
+    {"text": "**/templates/**/*.*"},  # templates are unlikely to validate
     {"execution-environment": "**/execution-environment.yml"},
     {"ansible-lint-config": "**/.ansible-lint"},
     {"ansible-lint-config": "**/.ansible-lint.{yaml,yml}"},
@@ -53,8 +53,11 @@ DEFAULT_KINDS = [
     {"vars": "**/{host_vars,group_vars,vars,defaults}/**/*.{yaml,yml}"},
     {"tasks": "**/tasks/**/*.{yaml,yml}"},
     {"rulebook": "**/rulebooks/*.{yml,yaml"},
+    {"pattern": "**/extensions/patterns/*/meta/pattern.json"},
+    {"play-argspec": "**/*.meta.{yaml,yml}"},
     {"playbook": "**/playbooks/*.{yml,yaml}"},
     {"playbook": "**/*playbook*.{yml,yaml}"},
+    {"playbook": "**/extensions/patterns/*/playbooks/*.{yml,yaml}"},
     {"role": "**/roles/*/"},
     {"handlers": "**/handlers/*.{yaml,yml}"},
     {"test-meta": "**/tests/integration/targets/*/meta/main.{yaml,yml}"},
@@ -88,7 +91,7 @@ BASE_KINDS = [
         "text/jinja2": "**/*.j2",
     },  # jinja2 templates are not always parsable as something else
     {"text/jinja2": "**/*.j2.*"},
-    {"text": "**/templates/**/*.*"},  # templates are likely not validable
+    {"text": "**/templates/**/*.*"},  # templates are unlikely to validate
     {"text/json": "**/*.json"},  # standardized
     {"text/markdown": "**/*.md"},  # https://tools.ietf.org/html/rfc7763
     {"text/rst": "**/*.rst"},  # https://en.wikipedia.org/wiki/ReStructuredText
@@ -174,6 +177,7 @@ class Options:  # pylint: disable=too-many-instance-attributes
     version: bool = False  # display version command
     list_profiles: bool = False  # display profiles command
     ignore_file: Path | None = None
+    yamllint_file: Path | None = None
     max_tasks: int = 100
     max_block_depth: int = 20
     # Refer to https://docs.ansible.com/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix

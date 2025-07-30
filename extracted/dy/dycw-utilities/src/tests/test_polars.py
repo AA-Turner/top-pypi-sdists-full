@@ -58,7 +58,7 @@ from polars.exceptions import ComputeError
 from polars.schema import Schema
 from polars.testing import assert_frame_equal, assert_series_equal
 from pytest import mark, param, raises
-from whenever import TimeZoneNotFoundError
+from whenever import Time, TimeZoneNotFoundError, ZonedDateTime
 
 import utilities.polars
 from utilities.hypothesis import (
@@ -84,6 +84,7 @@ from utilities.polars import (
     DatetimeUSEastern,
     DatetimeUTC,
     DropNullStructSeriesError,
+    ExprOrSeries,
     FiniteEWMMeanError,
     InsertAfterError,
     InsertBeforeError,
@@ -132,6 +133,10 @@ from utilities.polars import (
     ac_halflife,
     acf,
     adjust_frequencies,
+    all_dataframe_columns,
+    all_series,
+    any_dataframe_columns,
+    any_series,
     append_dataclass,
     are_frames_equal,
     bernoulli,
@@ -173,7 +178,9 @@ from utilities.polars import (
     nan_sum_agg,
     nan_sum_cols,
     normal,
+    offset_datetime,
     order_of_magnitude,
+    period_range,
     read_dataframe,
     read_series,
     reify_exprs,
@@ -203,6 +210,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
     from zoneinfo import ZoneInfo
 
+    from _pytest.mark import ParameterSet
     from polars._typing import IntoExprColumn, PolarsDataType, SchemaDict
     from polars.datatypes import DataTypeClass
 
@@ -277,6 +285,56 @@ class TestAdjustFrequencies:
         y = Series(values=x + noise)
         result = adjust_frequencies(y, filters=lambda f: np.abs(f) <= 0.02)
         assert isinstance(result, Series)
+
+
+class TestAnyAllDataFrameColumnsSeries:
+    cases: ClassVar[list[ParameterSet]] = [
+        param(int_range(end=pl.len()) % 2 == 0),
+        param(int_range(end=4, eager=True) % 2 == 0),
+    ]
+    series: ClassVar[Series] = Series(
+        name="x", values=[True, True, False, False], dtype=Boolean
+    )
+    df: ClassVar[DataFrame] = series.to_frame()
+    exp_all: ClassVar[Series] = Series(
+        name="x", values=[True, False, False, False], dtype=Boolean
+    )
+    exp_any: ClassVar[Series] = Series(
+        name="x", values=[True, True, True, False], dtype=Boolean
+    )
+    exp_empty: ClassVar[Series] = Series(
+        name="x", values=[True, False, True, False], dtype=Boolean
+    )
+
+    @mark.parametrize("column", cases)
+    def test_df_all(self, *, column: ExprOrSeries) -> None:
+        result = all_dataframe_columns(self.df, "x", column)
+        assert_series_equal(result, self.exp_all)
+
+    @mark.parametrize("column", cases)
+    def test_df_any(self, *, column: ExprOrSeries) -> None:
+        result = any_dataframe_columns(self.df, "x", column)
+        assert_series_equal(result, self.exp_any)
+
+    @mark.parametrize("column", cases)
+    def test_df_all_empty(self, *, column: ExprOrSeries) -> None:
+        result = all_dataframe_columns(self.df, column.alias("x"))
+        assert_series_equal(result, self.exp_empty)
+
+    @mark.parametrize("column", cases)
+    def test_df_any_empty(self, *, column: ExprOrSeries) -> None:
+        result = any_dataframe_columns(self.df, column.alias("x"))
+        assert_series_equal(result, self.exp_empty)
+
+    @mark.parametrize("column", cases)
+    def test_series_all(self, *, column: ExprOrSeries) -> None:
+        result = all_series(self.series, column)
+        assert_series_equal(result, self.exp_all)
+
+    @mark.parametrize("column", cases)
+    def test_series_any_any_any(self, *, column: ExprOrSeries) -> None:
+        result = any_series(self.series, column)
+        assert_series_equal(result, self.exp_any)
 
 
 class TestAppendDataClass:
@@ -2205,6 +2263,15 @@ class TestNormal:
         assert series.is_finite().all()
 
 
+class TestOffsetDateTime:
+    @mark.parametrize(("n", "time"), [param(1, Time(13, 30)), param(2, Time(15))])
+    def test_main(self, *, n: int, time: Time) -> None:
+        datetime = ZonedDateTime(2000, 1, 1, 12, tz=UTC.key)
+        result = offset_datetime(datetime, "1h30m", n=n)
+        expected = datetime.replace_time(time)
+        assert result == expected
+
+
 class TestOrderOfMagnitude:
     @given(
         sign=sampled_from([1, -1]),
@@ -2229,6 +2296,19 @@ class TestOrderOfMagnitude:
         assert res_int.dtype == Int64
         assert_series_equal(res_int, Series([exp_int]))
         assert (res_int == exp_int).all()
+
+
+class TestPeriodRange:
+    start: ClassVar[ZonedDateTime] = ZonedDateTime(2000, 1, 1, 12, tz=UTC.key)
+    end: ClassVar[ZonedDateTime] = ZonedDateTime(2000, 1, 1, 15, tz=UTC.key)
+
+    @mark.parametrize("end_or_length", [param(end), param(3)])
+    def test_main(self, *, end_or_length: ZonedDateTime | int) -> None:
+        rng = period_range(self.start, end_or_length, interval="1h", eager=True)
+        assert len(rng) == 3
+        assert rng.dtype == zoned_datetime_period_dtype()
+        assert rng[0]["start"] == self.start.py_datetime()
+        assert rng[-1]["end"] == self.end.py_datetime()
 
 
 class TestReifyExprs:

@@ -138,6 +138,8 @@ class AtlanConnectionCategory(str, Enum):
     SCHEMA_REGISTRY = "schema-registry"
     APP = "app"
     CUSTOM = "custom"
+    AI = "ai"
+    ERP = "erp"
 
 
 class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
@@ -381,6 +383,8 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     CRATEDB = ("cratedb", AtlanConnectionCategory.DATABASE)
     KX = ("kx", AtlanConnectionCategory.DATABASE)
     DOCUMENTDB = ("documentdb", AtlanConnectionCategory.DATABASE)
+    AI = ("ai", AtlanConnectionCategory.AI)
+    SAP_ECC = ("sap-ecc", AtlanConnectionCategory.ERP)
 
 
 class AtlanCustomAttributePrimitiveType(str, Enum):

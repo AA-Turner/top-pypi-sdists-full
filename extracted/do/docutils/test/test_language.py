@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: test_language.py 9277 2022-11-26 23:15:13Z milde $
+# $Id: test_language.py 9829 2024-08-01 20:47:11Z aa-turner $
 # Authors: Engelbert Gruber <grubert@users.sourceforge.net>;
 #          David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
@@ -26,8 +26,8 @@ if __name__ == '__main__':
 
 from docutils import frontend, languages, utils
 from docutils.parsers.rst import languages as rst_languages
-from docutils.parsers.rst.directives import _directive_registry  # NoQA
-from docutils.parsers.rst.roles import _role_registry  # NoQA
+from docutils.parsers.rst.directives import _directive_registry
+from docutils.parsers.rst.roles import _role_registry
 
 LANGUAGE_MODULE_PATTERN = re.compile(r'^([a-z]{2,3}(_[a-z]{2,8})*)\.py$')
 REPORTER = utils.new_reporter('', frontend.get_default_settings())

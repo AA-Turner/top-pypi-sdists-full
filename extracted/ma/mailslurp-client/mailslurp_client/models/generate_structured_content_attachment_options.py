@@ -64,8 +64,7 @@ class GenerateStructuredContentAttachmentOptions(object):
 
         self.attachment_id = attachment_id
         self.instructions = instructions
-        if output_schema is not None:
-            self.output_schema = output_schema
+        self.output_schema = output_schema
         self.transform_id = transform_id
         self.email_id = email_id
 

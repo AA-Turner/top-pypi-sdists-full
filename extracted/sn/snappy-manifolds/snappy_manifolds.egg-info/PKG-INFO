@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: snappy_manifolds
-Version: 1.2.1
+Version: 1.3
 Summary: Database of snappy manifolds
 Author: Malik Obeidin
 Author-email: Marc Culler <snappy-help@computop.org>, "Nathan M. Dunfield" <snappy-help@computop.org>, Matthias Goerner <snappy-help@computop.org>

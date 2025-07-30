@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import uuid
 from dataclasses import dataclass, make_dataclass, field
 from typing import Annotated, Any, Callable, Literal, NamedTuple
@@ -236,19 +237,24 @@ def test_encode_engine_value_none() -> None:
 
 
 def test_roundtrip_basic_types() -> None:
-    validate_full_roundtrip(b"hello world", bytes, (b"hello world", None))
-    validate_full_roundtrip(b"\x00\x01\x02\xff\xfe", bytes)
-    validate_full_roundtrip("hello", str, ("hello", None))
-    validate_full_roundtrip(True, bool, (True, None))
-    validate_full_roundtrip(False, bool, (False, None))
     validate_full_roundtrip(
-        42, cocoindex.Int64, (42, int), (np.int64(42), np.int64), (42, None)
+        b"hello world",
+        bytes,
+        (b"hello world", inspect.Parameter.empty),
+        (b"hello world", Any),
+    )
+    validate_full_roundtrip(b"\x00\x01\x02\xff\xfe", bytes)
+    validate_full_roundtrip("hello", str, ("hello", Any))
+    validate_full_roundtrip(True, bool, (True, Any))
+    validate_full_roundtrip(False, bool, (False, Any))
+    validate_full_roundtrip(
+        42, cocoindex.Int64, (42, int), (np.int64(42), np.int64), (42, Any)
     )
     validate_full_roundtrip(42, int, (42, cocoindex.Int64))
     validate_full_roundtrip(np.int64(42), np.int64, (42, cocoindex.Int64))
 
     validate_full_roundtrip(
-        3.25, Float64, (3.25, float), (np.float64(3.25), np.float64), (3.25, None)
+        3.25, Float64, (3.25, float), (np.float64(3.25), np.float64), (3.25, Any)
     )
     validate_full_roundtrip(3.25, float, (3.25, Float64))
     validate_full_roundtrip(np.float64(3.25), np.float64, (3.25, Float64))
@@ -260,35 +266,35 @@ def test_roundtrip_basic_types() -> None:
         (np.float32(3.25), np.float32),
         (np.float64(3.25), np.float64),
         (3.25, Float64),
-        (3.25, None),
+        (3.25, Any),
     )
     validate_full_roundtrip(np.float32(3.25), np.float32, (3.25, Float32))
 
 
 def test_roundtrip_uuid() -> None:
     uuid_value = uuid.uuid4()
-    validate_full_roundtrip(uuid_value, uuid.UUID, (uuid_value, None))
+    validate_full_roundtrip(uuid_value, uuid.UUID, (uuid_value, Any))
 
 
 def test_roundtrip_range() -> None:
     r1 = (0, 100)
-    validate_full_roundtrip(r1, cocoindex.Range, (r1, None))
+    validate_full_roundtrip(r1, cocoindex.Range, (r1, Any))
     r2 = (50, 50)
-    validate_full_roundtrip(r2, cocoindex.Range, (r2, None))
+    validate_full_roundtrip(r2, cocoindex.Range, (r2, Any))
     r3 = (0, 1_000_000_000)
-    validate_full_roundtrip(r3, cocoindex.Range, (r3, None))
+    validate_full_roundtrip(r3, cocoindex.Range, (r3, Any))
 
 
 def test_roundtrip_time() -> None:
     t1 = datetime.time(10, 30, 50, 123456)
-    validate_full_roundtrip(t1, datetime.time, (t1, None))
+    validate_full_roundtrip(t1, datetime.time, (t1, Any))
     t2 = datetime.time(23, 59, 59)
-    validate_full_roundtrip(t2, datetime.time, (t2, None))
+    validate_full_roundtrip(t2, datetime.time, (t2, Any))
     t3 = datetime.time(0, 0, 0)
-    validate_full_roundtrip(t3, datetime.time, (t3, None))
+    validate_full_roundtrip(t3, datetime.time, (t3, Any))
 
     validate_full_roundtrip(
-        datetime.date(2025, 1, 1), datetime.date, (datetime.date(2025, 1, 1), None)
+        datetime.date(2025, 1, 1), datetime.date, (datetime.date(2025, 1, 1), Any)
     )
 
     validate_full_roundtrip(
@@ -333,11 +339,11 @@ def test_roundtrip_timedelta() -> None:
     td1 = datetime.timedelta(
         days=5, seconds=10, microseconds=123, milliseconds=456, minutes=30, hours=2
     )
-    validate_full_roundtrip(td1, datetime.timedelta, (td1, None))
+    validate_full_roundtrip(td1, datetime.timedelta, (td1, Any))
     td2 = datetime.timedelta(days=-5, hours=-2)
-    validate_full_roundtrip(td2, datetime.timedelta, (td2, None))
+    validate_full_roundtrip(td2, datetime.timedelta, (td2, Any))
     td3 = datetime.timedelta(0)
-    validate_full_roundtrip(td3, datetime.timedelta, (td3, None))
+    validate_full_roundtrip(td3, datetime.timedelta, (td3, Any))
 
 
 def test_roundtrip_json() -> None:
@@ -1160,6 +1166,37 @@ def test_full_roundtrip_scalar_with_python_types() -> None:
     validate_full_roundtrip(instance, MixedStruct)
 
 
+def test_roundtrip_simple_struct_to_dict_binding() -> None:
+    """Test struct -> dict binding with Any annotation."""
+
+    @dataclass
+    class SimpleStruct:
+        first_name: str
+        last_name: str
+
+    instance = SimpleStruct("John", "Doe")
+    expected_dict = {"first_name": "John", "last_name": "Doe"}
+
+    # Test Any annotation
+    validate_full_roundtrip(
+        instance,
+        SimpleStruct,
+        (expected_dict, Any),
+        (expected_dict, dict),
+        (expected_dict, dict[Any, Any]),
+        (expected_dict, dict[str, Any]),
+        # For simple struct, all fields have the same type, so we can directly use the type as the dict value type.
+        (expected_dict, dict[Any, str]),
+        (expected_dict, dict[str, str]),
+    )
+
+    with pytest.raises(ValueError):
+        validate_full_roundtrip(instance, SimpleStruct, (expected_dict, dict[str, int]))
+
+    with pytest.raises(ValueError):
+        validate_full_roundtrip(instance, SimpleStruct, (expected_dict, dict[int, Any]))
+
+
 def test_roundtrip_struct_to_dict_binding() -> None:
     """Test struct -> dict binding with Any annotation."""
 
@@ -1173,7 +1210,20 @@ def test_roundtrip_struct_to_dict_binding() -> None:
     expected_dict = {"name": "test", "value": 42, "price": 3.14}
 
     # Test Any annotation
-    validate_full_roundtrip(instance, SimpleStruct, (expected_dict, Any))
+    validate_full_roundtrip(
+        instance,
+        SimpleStruct,
+        (expected_dict, Any),
+        (expected_dict, dict),
+        (expected_dict, dict[Any, Any]),
+        (expected_dict, dict[str, Any]),
+    )
+
+    with pytest.raises(ValueError):
+        validate_full_roundtrip(instance, SimpleStruct, (expected_dict, dict[str, str]))
+
+    with pytest.raises(ValueError):
+        validate_full_roundtrip(instance, SimpleStruct, (expected_dict, dict[int, Any]))
 
 
 def test_roundtrip_struct_to_dict_explicit() -> None:
@@ -1207,8 +1257,8 @@ def test_roundtrip_struct_to_dict_with_none_annotation() -> None:
     instance = Config("localhost", 8080, True)
     expected_dict = {"host": "localhost", "port": 8080, "debug": True}
 
-    # Test None annotation (should be treated as Any)
-    validate_full_roundtrip(instance, Config, (expected_dict, None))
+    # Test empty annotation (should be treated as Any)
+    validate_full_roundtrip(instance, Config, (expected_dict, inspect.Parameter.empty))
 
 
 def test_roundtrip_struct_to_dict_nested() -> None:
@@ -1289,7 +1339,13 @@ def test_roundtrip_ltable_to_list_dict_binding() -> None:
     ]
 
     # Test Any annotation
-    validate_full_roundtrip(users, list[User], (expected_list_dict, Any))
+    validate_full_roundtrip(
+        users,
+        list[User],
+        (expected_list_dict, Any),
+        (expected_list_dict, list[Any]),
+        (expected_list_dict, list[dict[str, Any]]),
+    )
 
 
 def test_roundtrip_ktable_to_dict_dict_binding() -> None:
@@ -1313,7 +1369,17 @@ def test_roundtrip_ktable_to_dict_dict_binding() -> None:
     }
 
     # Test Any annotation
-    validate_full_roundtrip(products, dict[str, Product], (expected_dict_dict, Any))
+    validate_full_roundtrip(
+        products,
+        dict[str, Product],
+        (expected_dict_dict, Any),
+        (expected_dict_dict, dict),
+        (expected_dict_dict, dict[Any, Any]),
+        (expected_dict_dict, dict[str, Any]),
+        (expected_dict_dict, dict[Any, dict[Any, Any]]),
+        (expected_dict_dict, dict[str, dict[Any, Any]]),
+        (expected_dict_dict, dict[str, dict[str, Any]]),
+    )
 
 
 def test_roundtrip_ktable_with_complex_key() -> None:
@@ -1339,7 +1405,28 @@ def test_roundtrip_ktable_with_complex_key() -> None:
     }
 
     # Test Any annotation
-    validate_full_roundtrip(orders, dict[OrderKey, Order], (expected_dict_dict, Any))
+    validate_full_roundtrip(
+        orders,
+        dict[OrderKey, Order],
+        (expected_dict_dict, Any),
+        (expected_dict_dict, dict),
+        (expected_dict_dict, dict[Any, Any]),
+        (expected_dict_dict, dict[Any, dict[str, Any]]),
+        (
+            {
+                ("shop1", 1): Order("Alice", 100.0),
+                ("shop2", 2): Order("Bob", 200.0),
+            },
+            dict[Any, Order],
+        ),
+        (
+            {
+                OrderKey("shop1", 1): {"customer": "Alice", "total": 100.0},
+                OrderKey("shop2", 2): {"customer": "Bob", "total": 200.0},
+            },
+            dict[OrderKey, Any],
+        ),
+    )
 
 
 def test_roundtrip_ltable_with_nested_structs() -> None:

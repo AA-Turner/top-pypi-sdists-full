@@ -12946,7 +12946,14 @@ class AssignmentWithProperties(sgqlc.types.Type):
     """Domain Assignment configuration"""
 
     __schema__ = schema
-    __field_names__ = ("mcon", "display_name", "resource_type", "object_type")
+    __field_names__ = (
+        "mcon",
+        "display_name",
+        "resource_type",
+        "resource_uuid",
+        "resource_name",
+        "object_type",
+    )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """MCON of the object assigned to a domain"""
 
@@ -12955,6 +12962,12 @@ class AssignmentWithProperties(sgqlc.types.Type):
 
     resource_type = sgqlc.types.Field(String, graphql_name="resourceType")
     """Resource type of the object assigned to a domain"""
+
+    resource_uuid = sgqlc.types.Field(UUID, graphql_name="resourceUuid")
+    """Resource uuid of the object assigned to a domain"""
+
+    resource_name = sgqlc.types.Field(String, graphql_name="resourceName")
+    """Resource name of the object assigned to a domain"""
 
     object_type = sgqlc.types.Field(String, graphql_name="objectType")
     """Type of object assigned to a domain"""

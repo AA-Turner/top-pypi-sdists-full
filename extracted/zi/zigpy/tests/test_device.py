@@ -14,11 +14,11 @@ from zigpy.profiles import zha
 import zigpy.state
 import zigpy.types as t
 import zigpy.util
-from zigpy.zcl import foundation
-from zigpy.zcl.clusters.general import Basic, Ota
+from zigpy.zcl import ClusterType, foundation
+from zigpy.zcl.clusters.general import Basic, Ota, PollControl
 from zigpy.zdo import types as zdo_t
 
-from .async_mock import AsyncMock, MagicMock, int_sentinel, patch, sentinel
+from .async_mock import AsyncMock, MagicMock, patch, sentinel
 
 
 @pytest.fixture
@@ -105,52 +105,13 @@ async def test_initialize_ep_failed(monkeypatch, dev):
     assert dev.application.listener_event.call_args[0][0] == "device_init_failure"
 
 
-async def test_request(dev):
-    seq = int_sentinel.tsn
-
-    async def mock_req(*args, **kwargs):
-        dev._pending[seq].result.set_result(sentinel.result)
-
-    dev.application.send_packet = AsyncMock(side_effect=mock_req)
-    r = await dev.request(1, 2, 3, 3, seq, b"")
-    assert r is sentinel.result
-    assert dev._application.send_packet.call_count == 1
-
-
-async def test_request_without_reply(dev):
-    seq = int_sentinel.tsn
-
-    dev._pending.new = MagicMock()
-    dev.application.send_packet = AsyncMock()
-    r = await dev.request(1, 2, 3, 3, seq, b"", expect_reply=False)
-    assert r is None
-    assert dev._application.send_packet.call_count == 1
-    assert len(dev._pending.new.mock_calls) == 0
-
-
-async def test_request_tsn_error(dev):
-    seq = int_sentinel.tsn
-
-    dev._pending.new = MagicMock(side_effect=zigpy.exceptions.ControllerException())
-    dev.application.request = MagicMock()
-    dev.application.send_packet = AsyncMock()
-
-    # We don't leave a dangling coroutine on error
-    with pytest.raises(zigpy.exceptions.ControllerException):
-        await dev.request(1, 2, 3, 3, seq, b"")
-
-    assert dev._application.send_packet.call_count == 0
-    assert dev._application.request.call_count == 0
-    assert len(dev._pending.new.mock_calls) == 1
-
-
 async def test_failed_request(dev):
     assert dev.last_seen is None
     dev._application.send_packet = AsyncMock(
         side_effect=zigpy.exceptions.DeliveryError("Uh oh")
     )
     with pytest.raises(zigpy.exceptions.DeliveryError):
-        await dev.request(1, 2, 3, 4, 5, b"")
+        await dev.request(1, 2, 3, 4, 5, b"1234")
     assert dev.last_seen is None
 
 
@@ -172,93 +133,6 @@ def test_radio_details(dev):
     dev.radio_details(rssi=4)
     assert dev.lqi == 3
     assert dev.rssi == 4
-
-
-async def test_handle_message_read_report_conf(dev):
-    ep = dev.add_endpoint(3)
-    ep.add_input_cluster(0x702)
-    tsn = 0x56
-    req_mock = MagicMock()
-    dev._pending[tsn] = req_mock
-
-    # Read Report Configuration Success
-    rsp = dev.packet_received(
-        t.ZigbeePacket(
-            profile_id=0x104,
-            cluster_id=0x702,
-            src_ep=3,
-            dst_ep=3,
-            data=t.SerializableBytes(
-                b"\x18\x56\x09\x00\x00\x00\x00\x25\x1e\x00\x84\x03\x01\x02\x03\x04\x05\x06"
-            ),  # message
-            dst=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=0x0000),
-        )
-    )
-    # Returns decoded msg when response is not pending, None otherwise
-    assert rsp is None
-    assert req_mock.result.set_result.call_count == 1
-    cfg_sup1 = req_mock.result.set_result.call_args[0][0].attribute_configs[0]
-    assert isinstance(cfg_sup1, zigpy.zcl.foundation.AttributeReportingConfigWithStatus)
-    assert cfg_sup1.status == zigpy.zcl.foundation.Status.SUCCESS
-    assert cfg_sup1.config.direction == 0
-    assert cfg_sup1.config.attrid == 0
-    assert cfg_sup1.config.datatype == 0x25
-    assert cfg_sup1.config.min_interval == 30
-    assert cfg_sup1.config.max_interval == 900
-    assert cfg_sup1.config.reportable_change == 0x060504030201
-
-    # Unsupported attributes
-    tsn2 = 0x5B
-    req_mock2 = MagicMock()
-    dev._pending[tsn2] = req_mock2
-    rsp2 = dev.packet_received(
-        t.ZigbeePacket(
-            profile_id=0x104,
-            cluster_id=0x702,
-            src_ep=3,
-            dst_ep=3,
-            data=t.SerializableBytes(
-                b"\x18\x5b\x09\x86\x00\x00\x00\x86\x00\x12\x00\x86\x00\x00\x04"
-            ),  # message 3x("Unsupported attribute" response)
-            dst=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=0x0000),
-        )
-    )
-    # Returns decoded msg when response is not pending, None otherwise
-    assert rsp2 is None
-    cfg_unsup1, cfg_unsup2, cfg_unsup3 = req_mock2.result.set_result.call_args[0][
-        0
-    ].attribute_configs
-    assert (
-        cfg_unsup1.status
-        == cfg_unsup2.status
-        == cfg_unsup3.status
-        == zigpy.zcl.foundation.Status.UNSUPPORTED_ATTRIBUTE
-    )
-    assert cfg_unsup1.config.direction == 0x00 and cfg_unsup1.config.attrid == 0x0000
-    assert cfg_unsup2.config.direction == 0x00 and cfg_unsup2.config.attrid == 0x0012
-    assert cfg_unsup3.config.direction == 0x00 and cfg_unsup3.config.attrid == 0x0400
-
-    # One supported, one unsupported
-    tsn3 = 0x5C
-    req_mock3 = MagicMock()
-    dev._pending[tsn3] = req_mock3
-    rsp3 = dev.packet_received(
-        t.ZigbeePacket(
-            profile_id=0x104,
-            cluster_id=0x702,
-            src_ep=3,
-            dst_ep=3,
-            data=t.SerializableBytes(
-                b"\x18\x5c\x09\x86\x00\x00\x00\x00\x00\x00\x00\x25\x1e\x00\x84\x03\x01\x02\x03\x04\x05\x06"
-            ),
-            dst=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=0x0000),
-        )
-    )
-    assert rsp3 is None
-    cfg_unsup4, cfg_sup2 = req_mock3.result.set_result.call_args[0][0].attribute_configs
-    assert cfg_unsup4.status == zigpy.zcl.foundation.Status.UNSUPPORTED_ATTRIBUTE
-    assert cfg_sup2.status == zigpy.zcl.foundation.Status.SUCCESS
-    assert cfg_sup2.serialize() == cfg_sup1.serialize()
 
 
 async def test_handle_message_deserialize_error(dev):
@@ -471,12 +345,12 @@ async def test_ignore_unknown_endpoint(dev, caplog):
 
 async def test_update_device_firmware_no_ota_cluster(dev):
     """Test that device firmware updates fails: no ota cluster."""
-    with pytest.raises(ValueError, match="Device has no OTA cluster"):
+    with pytest.raises(ValueError, match="Cluster 0x0019 not found"):
         await dev.update_firmware(sentinel.firmware_image, sentinel.progress_callback)
 
     dev.add_endpoint(1)
     dev.endpoints[1].output_clusters = MagicMock(side_effect=KeyError)
-    with pytest.raises(ValueError, match="Device has no OTA cluster"):
+    with pytest.raises(ValueError, match="Cluster 0x0019 not found"):
         await dev.update_firmware(sentinel.firmware_image, sentinel.progress_callback)
 
 
@@ -590,8 +464,9 @@ async def test_update_device_firmware(monkeypatch, dev, caplog):
                         field_control=Ota.QueryNextImageCommand.FieldControl.HardwareVersion,
                         manufacturer_code=active_fw_image.firmware.header.manufacturer_id,
                         image_type=active_fw_image.firmware.header.image_type,
-                        current_file_version=active_fw_image.firmware.header.file_version
-                        - 10,
+                        current_file_version=(
+                            active_fw_image.firmware.header.file_version - 10
+                        ),
                         hardware_version=1,
                     )
                 )
@@ -690,7 +565,7 @@ async def test_update_device_firmware(monkeypatch, dev, caplog):
                     ].schema,
                     tsn=hdr.tsn,
                     disable_default_response=True,
-                    direction=foundation.Direction.Server_to_Client,
+                    direction=foundation.Direction.Client_to_Server,
                     args=(),
                     kwargs={
                         "status_records": [
@@ -1070,7 +945,7 @@ async def test_update_legrand_device_firmware(monkeypatch, dev, caplog):
                     ].schema,
                     tsn=hdr.tsn,
                     disable_default_response=True,
-                    direction=foundation.Direction.Server_to_Client,
+                    direction=foundation.Direction.Client_to_Server,
                     args=(),
                     kwargs={
                         "status_records": [
@@ -1452,6 +1327,217 @@ async def test_device_concurrency(dev: device.Device) -> None:
         t.PacketPriority.LOW,  # First one that made it through
         999,  # Super high
         t.PacketPriority.HIGH,
-        t.PacketPriority.NORMAL,
+        None,  # Normal
         t.PacketPriority.LOW,
     ]
+
+
+async def test_duplicate_request_matching(dev: device.Device) -> None:
+    """Test that a device throws an error if requests duplicate."""
+
+    ep = dev.add_endpoint(1)
+    ep.add_input_cluster(Basic.cluster_id)
+
+    async def delayed_receive(*args, **kwargs) -> None:
+        await asyncio.sleep(0.1)
+        raise asyncio.TimeoutError()
+
+    dev._application.request = AsyncMock(side_effect=delayed_receive)
+    dev._concurrent_requests_semaphore.max_value = 100000
+
+    # We send 256 + 1 requests
+    errors = await asyncio.gather(
+        *(dev.endpoints[1].basic.reset_fact_default() for _ in range(256 + 1)),
+        return_exceptions=True,
+    )
+
+    # The 257th will fail to send because it will collide with the first due to TSN
+    # wrapping
+    assert all(isinstance(errors[i], asyncio.TimeoutError) for i in range(256))
+    assert isinstance(errors[256], zigpy.exceptions.ControllerException)
+    assert str(errors[256]).startswith("Duplicate request key: ")
+
+
+@pytest.mark.parametrize("cluster_type", [ClusterType.Server, ClusterType.Client])
+async def test_find_cluster(dev: device.Device, cluster_type: ClusterType) -> None:
+    """Test finding a cluster by ID and type."""
+    ep = dev.add_endpoint(1)
+    in_cluster = ep.add_input_cluster(Basic.cluster_id)
+    out_cluster = ep.add_output_cluster(Basic.cluster_id)
+
+    found_cluster = dev.find_cluster(Basic.cluster_id, cluster_type)
+
+    if cluster_type is ClusterType.Server:
+        assert found_cluster is in_cluster
+    else:
+        assert found_cluster is out_cluster
+
+
+async def test_find_cluster_not_found(dev: device.Device) -> None:
+    """Test finding a cluster that doesn't exist."""
+    dev.add_endpoint(1)
+
+    with pytest.raises(ValueError, match=r"Cluster 0x0000 not found in any endpoint"):
+        dev.find_cluster(Basic.cluster_id, ClusterType.Server)
+
+
+@pytest.mark.parametrize(
+    ("initializing", "semaphore_locked", "expected_fast_poll"),
+    [
+        (True, False, True),  # Fast poll enabled because the device is initializing
+        (False, True, True),  # Fast poll enabled because semaphore is locked
+        (False, False, False),
+    ],
+)
+async def test_poll_control_checkin_callback(
+    dev: device.Device,
+    initializing: bool,
+    semaphore_locked: bool,
+    expected_fast_poll: bool,
+) -> None:
+    """Test PollControl check-in callback with different device states."""
+    ep = dev.add_endpoint(1)
+    poll_control = ep.add_input_cluster(PollControl.cluster_id)
+    poll_control.checkin_response = AsyncMock()
+
+    # Mock device state
+    if initializing:
+        # Create a mock task that isn't done yet
+        mock_task = MagicMock()
+        mock_task.done.return_value = False
+        dev._initialize_task = mock_task
+    else:
+        dev._initialize_task = None
+
+    if semaphore_locked:
+        await dev._concurrent_requests_semaphore.acquire()
+
+    zcl_hdr = foundation.ZCLHeader(
+        frame_control=foundation.FrameControl(
+            frame_type=foundation.FrameType.CLUSTER_COMMAND,
+            is_manufacturer_specific=False,
+            direction=foundation.Direction.Server_to_Client,
+            disable_default_response=1,
+            reserved=0,
+        ),
+        tsn=0x12,
+        command_id=PollControl.ClientCommandDefs.checkin.id,
+    )
+    command = PollControl.ClientCommandDefs.checkin.schema()
+
+    # Test the callback
+    await dev.poll_control_checkin_callback(zcl_hdr, command)
+
+    # Verify the correct response was sent
+    if expected_fast_poll:
+        assert poll_control.checkin_response.mock_calls == [
+            call(
+                start_fast_polling=expected_fast_poll,
+                fast_poll_timeout=int(device.DEFAULT_FAST_POLL_TIMEOUT * 4),
+                tsn=0x12,
+            )
+        ]
+    else:
+        assert poll_control.checkin_response.mock_calls == [
+            call(
+                start_fast_polling=expected_fast_poll,
+                fast_poll_timeout=0,
+                tsn=0x12,
+            )
+        ]
+
+    # Clean up semaphore if we acquired it
+    if semaphore_locked:
+        dev._concurrent_requests_semaphore.release()
+
+
+async def test_begin_fast_polling_with_cluster(dev: device.Device) -> None:
+    """Test beginning fast polling when PollControl cluster exists."""
+    ep = dev.add_endpoint(1)
+    poll_control = ep.add_input_cluster(PollControl.cluster_id)
+    poll_control.bind = AsyncMock()
+    poll_control.write_attributes = AsyncMock()
+
+    timeout = 45.0
+    await dev.begin_fast_polling(timeout)
+
+    # Verify bind was called
+    assert poll_control.bind.mock_calls == [call()]
+
+    # Verify write_attributes was called with correct timeout
+    assert poll_control.write_attributes.mock_calls == [
+        call({PollControl.AttributeDefs.fast_poll_timeout.id: int(timeout * 4)})
+    ]
+
+    # Verify end time was set
+    assert dev._fast_polling_end_time > datetime.now(timezone.utc)
+
+
+async def test_begin_fast_polling_no_cluster(dev: device.Device) -> None:
+    """Test beginning fast polling when PollControl cluster doesn't exist."""
+    dev.add_endpoint(1)  # No PollControl cluster
+
+    # Should return silently without error
+    await dev.begin_fast_polling()
+
+    # End time should remain at minimum
+    assert dev._fast_polling_end_time == datetime.min.replace(tzinfo=timezone.utc)
+
+
+async def test_reset_timers(dev: device.Device) -> None:
+    """Test resetting device timers."""
+    # Set a future end time
+    dev._fast_polling_end_time = datetime.now(timezone.utc)
+
+    # Reset timers
+    dev.reset_timers()
+
+    # Verify end time was reset to minimum
+    assert dev._fast_polling_end_time == datetime.min.replace(tzinfo=timezone.utc)
+
+
+async def test_on_remove_callbacks(dev: device.Device) -> None:
+    """Test that on_remove calls all registered callbacks."""
+    callback1 = MagicMock()
+    callback2 = MagicMock()
+
+    # Add callbacks manually
+    dev._on_remove_callbacks.extend([callback1, callback2])
+
+    # Call on_remove
+    dev.on_remove()
+
+    # Verify callbacks were called
+    callback1.assert_called_once()
+    callback2.assert_called_once()
+
+    # Verify callbacks list was cleared
+    assert not dev._on_remove_callbacks
+
+
+async def test_initialize_fast_polling_failure(dev: device.Device) -> None:
+    """Test that fast polling is attempted during initialization."""
+    ep = dev.add_endpoint(1)
+    ep.add_input_cluster(PollControl.cluster_id)
+
+    dev.begin_fast_polling = AsyncMock(side_effect=[asyncio.TimeoutError(), None])
+
+    async def mockepinit(self, *args, **kwargs):
+        self.status = endpoint.Status.ZDO_INIT
+        self.add_input_cluster(Basic.cluster_id)
+
+    async def mock_ep_get_model_info(self):
+        if self.endpoint_id == 1:
+            return "Model2", "Manufacturer2"
+
+    with patch("zigpy.endpoint.Endpoint.initialize", mockepinit):
+        with patch("zigpy.endpoint.Endpoint.get_model_info", mock_ep_get_model_info):
+            with patch.object(
+                dev.zdo,
+                "Active_EP_req",
+                AsyncMock(return_value=[0, None, [0, 1, 2, 3, 4]]),
+            ):
+                await dev.initialize()
+
+    # Initialization attempted to fast poll but failure didn't stop it
+    assert dev.begin_fast_polling.mock_calls == [call()]

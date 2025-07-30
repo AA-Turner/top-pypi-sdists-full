@@ -231,7 +231,7 @@ def collect_capabilities(integration: Integration, no_print: bool = False) -> Ar
 
         subparser.set_defaults(func=lambda args: capability_executor(integration, args))
 
-    hacking_subparser = subparsers.add_parser("hacking")
+    hacking_subparser = subparsers.add_parser("dev", aliases=["hacking"])
     create_integration_hacking_parser(integration, hacking_subparser)
 
     return parser

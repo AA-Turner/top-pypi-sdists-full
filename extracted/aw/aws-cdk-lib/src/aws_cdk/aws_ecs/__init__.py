@@ -9239,11 +9239,14 @@ class CfnService(
             role_arn: typing.Optional[builtins.str] = None,
             test_listener_rule: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param alternate_target_group_arn: 
-            :param production_listener_rule: 
-            :param role_arn: 
-            :param test_listener_rule: 
+            '''The advanced settings for a load balancer used in blue/green deployments.
+
+            Specify the alternate target group, listener rules, and IAM role required for traffic shifting during blue/green deployments. For more information, see `Required resources for Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-deployment-implementation.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+
+            :param alternate_target_group_arn: The Amazon Resource Name (ARN) of the alternate target group for Amazon ECS blue/green deployments.
+            :param production_listener_rule: The Amazon Resource Name (ARN) that that identifies the production listener rule (in the case of an Application Load Balancer) or listener (in the case for an Network Load Balancer) for routing production traffic.
+            :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call the Elastic Load Balancing APIs for you.
+            :param test_listener_rule: The Amazon Resource Name (ARN) that identifies ) that identifies the test listener rule (in the case of an Application Load Balancer) or listener (in the case for an Network Load Balancer) for routing test traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -9281,7 +9284,8 @@ class CfnService(
 
         @builtins.property
         def alternate_target_group_arn(self) -> builtins.str:
-            '''
+            '''The Amazon Resource Name (ARN) of the alternate target group for Amazon ECS blue/green deployments.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-alternatetargetgrouparn
             '''
             result = self._values.get("alternate_target_group_arn")
@@ -9290,7 +9294,8 @@ class CfnService(
 
         @builtins.property
         def production_listener_rule(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) that that identifies the production listener rule (in the case of an Application Load Balancer) or listener (in the case for an Network Load Balancer) for routing production traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-productionlistenerrule
             '''
             result = self._values.get("production_listener_rule")
@@ -9298,7 +9303,8 @@ class CfnService(
 
         @builtins.property
         def role_arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call the Elastic Load Balancing APIs for you.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-rolearn
             '''
             result = self._values.get("role_arn")
@@ -9306,7 +9312,8 @@ class CfnService(
 
         @builtins.property
         def test_listener_rule(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) that identifies ) that identifies the test listener rule (in the case of an Application Load Balancer) or listener (in the case for an Network Load Balancer) for routing test traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-testlistenerrule
             '''
             result = self._values.get("test_listener_rule")
@@ -9741,12 +9748,12 @@ class CfnService(
             '''Optional deployment parameters that control how many tasks run during a deployment and the ordering of stopping and starting tasks.
 
             :param alarms: Information about the CloudWatch alarms.
-            :param bake_time_in_minutes: 
+            :param bake_time_in_minutes: The duration when both blue and green service revisions are running simultaneously after the production traffic has shifted. The following rules apply when you don't specify a value: - For rolling deployments, the value is set to 3 hours (180 minutes). - When you use an external deployment controller ( ``EXTERNAL`` ), or the CodeDeploy blue/green deployment controller ( ``CODE_DEPLOY`` ), the value is set to 3 hours (180 minutes). - For all other cases, the value is set to 36 hours (2160 minutes).
             :param deployment_circuit_breaker: .. epigraph:: The deployment circuit breaker can only be used for services using the rolling update ( ``ECS`` ) deployment type. The *deployment circuit breaker* determines whether a service deployment will fail if the service can't reach a steady state. If you use the deployment circuit breaker, a service deployment will transition to a failed state and stop launching new tasks. If you use the rollback option, when a service deployment fails, the service is rolled back to the last deployment that completed successfully. For more information, see `Rolling update <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-ecs.html>`_ in the *Amazon Elastic Container Service Developer Guide*
-            :param lifecycle_hooks: 
+            :param lifecycle_hooks: An array of deployment lifecycle hook objects to run custom logic at specific stages of the deployment lifecycle.
             :param maximum_percent: If a service is using the rolling update ( ``ECS`` ) deployment type, the ``maximumPercent`` parameter represents an upper limit on the number of your service's tasks that are allowed in the ``RUNNING`` or ``PENDING`` state during a deployment, as a percentage of the ``desiredCount`` (rounded down to the nearest integer). This parameter enables you to define the deployment batch size. For example, if your service is using the ``REPLICA`` service scheduler and has a ``desiredCount`` of four tasks and a ``maximumPercent`` value of 200%, the scheduler may start four new tasks before stopping the four older tasks (provided that the cluster resources required to do this are available). The default ``maximumPercent`` value for a service using the ``REPLICA`` service scheduler is 200%. The Amazon ECS scheduler uses this parameter to replace unhealthy tasks by starting replacement tasks first and then stopping the unhealthy tasks, as long as cluster resources for starting replacement tasks are available. For more information about how the scheduler replaces unhealthy tasks, see `Amazon ECS services <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html>`_ . If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types, and tasks in the service use the EC2 launch type, the *maximum percent* value is set to the default value. The *maximum percent* value is used to define the upper limit on the number of the tasks in the service that remain in the ``RUNNING`` state while the container instances are in the ``DRAINING`` state. .. epigraph:: You can't specify a custom ``maximumPercent`` value for a service that uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and has tasks that use the EC2 launch type. If the service uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types, and the tasks in the service use the Fargate launch type, the maximum percent value is not used. The value is still returned when describing your service.
             :param minimum_healthy_percent: If a service is using the rolling update ( ``ECS`` ) deployment type, the ``minimumHealthyPercent`` represents a lower limit on the number of your service's tasks that must remain in the ``RUNNING`` state during a deployment, as a percentage of the ``desiredCount`` (rounded up to the nearest integer). This parameter enables you to deploy without using additional cluster capacity. For example, if your service has a ``desiredCount`` of four tasks and a ``minimumHealthyPercent`` of 50%, the service scheduler may stop two existing tasks to free up cluster capacity before starting two new tasks. If any tasks are unhealthy and if ``maximumPercent`` doesn't allow the Amazon ECS scheduler to start replacement tasks, the scheduler stops the unhealthy tasks one-by-one — using the ``minimumHealthyPercent`` as a constraint — to clear up capacity to launch replacement tasks. For more information about how the scheduler replaces unhealthy tasks, see `Amazon ECS services <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html>`_ . For services that *do not* use a load balancer, the following should be noted: - A service is considered healthy if all essential containers within the tasks in the service pass their health checks. - If a task has no essential containers with a health check defined, the service scheduler will wait for 40 seconds after a task reaches a ``RUNNING`` state before the task is counted towards the minimum healthy percent total. - If a task has one or more essential containers with a health check defined, the service scheduler will wait for the task to reach a healthy status before counting it towards the minimum healthy percent total. A task is considered healthy when all essential containers within the task have passed their health checks. The amount of time the service scheduler can wait for is determined by the container health check settings. For services that *do* use a load balancer, the following should be noted: - If a task has no essential containers with a health check defined, the service scheduler will wait for the load balancer target group health check to return a healthy status before counting the task towards the minimum healthy percent total. - If a task has an essential container with a health check defined, the service scheduler will wait for both the task to reach a healthy status and the load balancer target group health check to return a healthy status before counting the task towards the minimum healthy percent total. The default value for a replica service for ``minimumHealthyPercent`` is 100%. The default ``minimumHealthyPercent`` value for a service using the ``DAEMON`` service schedule is 0% for the AWS CLI , the AWS SDKs, and the APIs and 50% for the AWS Management Console. The minimum number of healthy tasks during a deployment is the ``desiredCount`` multiplied by the ``minimumHealthyPercent`` /100, rounded up to the nearest integer value. If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and is running tasks that use the EC2 launch type, the *minimum healthy percent* value is set to the default value. The *minimum healthy percent* value is used to define the lower limit on the number of the tasks in the service that remain in the ``RUNNING`` state while the container instances are in the ``DRAINING`` state. .. epigraph:: You can't specify a custom ``minimumHealthyPercent`` value for a service that uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and has tasks that use the EC2 launch type. If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and is running tasks that use the Fargate launch type, the minimum healthy percent value is not used, although it is returned when describing your service.
-            :param strategy: 
+            :param strategy: The deployment strategy for the service. Choose from these valid values:. - ``ROLLING`` - When you create a service which uses the rolling update ( ``ROLLING`` ) deployment strategy, the Amazon ECS service scheduler replaces the currently running tasks with new tasks. The number of tasks that Amazon ECS adds or removes from the service during a rolling update is controlled by the service deployment configuration. - ``BLUE_GREEN`` - A blue/green deployment strategy ( ``BLUE_GREEN`` ) is a release methodology that reduces downtime and risk by running two identical production environments called blue and green. With Amazon ECS blue/green deployments, you can validate new service revisions before directing production traffic to them. This approach provides a safer way to deploy changes with the ability to quickly roll back if needed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -9816,7 +9823,14 @@ class CfnService(
 
         @builtins.property
         def bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The duration when both blue and green service revisions are running simultaneously after the production traffic has shifted.
+
+            The following rules apply when you don't specify a value:
+
+            - For rolling deployments, the value is set to 3 hours (180 minutes).
+            - When you use an external deployment controller ( ``EXTERNAL`` ), or the CodeDeploy blue/green deployment controller ( ``CODE_DEPLOY`` ), the value is set to 3 hours (180 minutes).
+            - For all other cases, the value is set to 36 hours (2160 minutes).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-baketimeinminutes
             '''
             result = self._values.get("bake_time_in_minutes")
@@ -9841,7 +9855,8 @@ class CfnService(
         def lifecycle_hooks(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.DeploymentLifecycleHookProperty"]]]]:
-            '''
+            '''An array of deployment lifecycle hook objects to run custom logic at specific stages of the deployment lifecycle.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-lifecyclehooks
             '''
             result = self._values.get("lifecycle_hooks")
@@ -9904,7 +9919,11 @@ class CfnService(
 
         @builtins.property
         def strategy(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The deployment strategy for the service. Choose from these valid values:.
+
+            - ``ROLLING`` - When you create a service which uses the rolling update ( ``ROLLING`` ) deployment strategy, the Amazon ECS service scheduler replaces the currently running tasks with new tasks. The number of tasks that Amazon ECS adds or removes from the service during a rolling update is controlled by the service deployment configuration.
+            - ``BLUE_GREEN`` - A blue/green deployment strategy ( ``BLUE_GREEN`` ) is a release methodology that reduces downtime and risk by running two identical production environments called blue and green. With Amazon ECS blue/green deployments, you can validate new service revisions before directing production traffic to them. This approach provides a safer way to deploy changes with the ability to quickly roll back if needed.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-strategy
             '''
             result = self._values.get("strategy")
@@ -10035,10 +10054,15 @@ class CfnService(
             lifecycle_stages: typing.Sequence[builtins.str],
             role_arn: builtins.str,
         ) -> None:
-            '''
-            :param hook_target_arn: 
-            :param lifecycle_stages: 
-            :param role_arn: 
+            '''A deployment lifecycle hook runs custom logic at specific stages of the deployment process.
+
+            Currently, you can use Lambda functions as hook targets.
+
+            For more information, see `Lifecycle hooks for Amazon ECS service deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-lifecycle-hooks.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+
+            :param hook_target_arn: The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported. You must provide this parameter when configuring a deployment lifecycle hook.
+            :param lifecycle_stages: The lifecycle stages at which to run the hook. Choose from these valid values:. - RECONCILE_SERVICE The reconciliation stage that only happens when you start a new service deployment with more than 1 service revision in an ACTIVE state. You can use a lifecycle hook for this stage. - PRE_SCALE_UP The green service revision has not started. The blue service revision is handling 100% of the production traffic. There is no test traffic. You can use a lifecycle hook for this stage. - POST_SCALE_UP The green service revision has started. The blue service revision is handling 100% of the production traffic. There is no test traffic. You can use a lifecycle hook for this stage. - TEST_TRAFFIC_SHIFT The blue and green service revisions are running. The blue service revision handles 100% of the production traffic. The green service revision is migrating from 0% to 100% of test traffic. You can use a lifecycle hook for this stage. - POST_TEST_TRAFFIC_SHIFT The test traffic shift is complete. The green service revision handles 100% of the test traffic. You can use a lifecycle hook for this stage. - PRODUCTION_TRAFFIC_SHIFT Production traffic is shifting to the green service revision. The green service revision is migrating from 0% to 100% of production traffic. You can use a lifecycle hook for this stage. - POST_PRODUCTION_TRAFFIC_SHIFT The production traffic shift is complete. You can use a lifecycle hook for this stage. You must provide this parameter when configuring a deployment lifecycle hook.
+            :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf. For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html
             :exampleMetadata: fixture=_generated
@@ -10068,7 +10092,10 @@ class CfnService(
 
         @builtins.property
         def hook_target_arn(self) -> builtins.str:
-            '''
+            '''The Amazon Resource Name (ARN) of the hook target. Currently, only Lambda function ARNs are supported.
+
+            You must provide this parameter when configuring a deployment lifecycle hook.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-hooktargetarn
             '''
             result = self._values.get("hook_target_arn")
@@ -10077,7 +10104,52 @@ class CfnService(
 
         @builtins.property
         def lifecycle_stages(self) -> typing.List[builtins.str]:
-            '''
+            '''The lifecycle stages at which to run the hook. Choose from these valid values:.
+
+            - RECONCILE_SERVICE
+
+            The reconciliation stage that only happens when you start a new service deployment with more than 1 service revision in an ACTIVE state.
+
+            You can use a lifecycle hook for this stage.
+
+            - PRE_SCALE_UP
+
+            The green service revision has not started. The blue service revision is handling 100% of the production traffic. There is no test traffic.
+
+            You can use a lifecycle hook for this stage.
+
+            - POST_SCALE_UP
+
+            The green service revision has started. The blue service revision is handling 100% of the production traffic. There is no test traffic.
+
+            You can use a lifecycle hook for this stage.
+
+            - TEST_TRAFFIC_SHIFT
+
+            The blue and green service revisions are running. The blue service revision handles 100% of the production traffic. The green service revision is migrating from 0% to 100% of test traffic.
+
+            You can use a lifecycle hook for this stage.
+
+            - POST_TEST_TRAFFIC_SHIFT
+
+            The test traffic shift is complete. The green service revision handles 100% of the test traffic.
+
+            You can use a lifecycle hook for this stage.
+
+            - PRODUCTION_TRAFFIC_SHIFT
+
+            Production traffic is shifting to the green service revision. The green service revision is migrating from 0% to 100% of production traffic.
+
+            You can use a lifecycle hook for this stage.
+
+            - POST_PRODUCTION_TRAFFIC_SHIFT
+
+            The production traffic shift is complete.
+
+            You can use a lifecycle hook for this stage.
+
+            You must provide this parameter when configuring a deployment lifecycle hook.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-lifecyclestages
             '''
             result = self._values.get("lifecycle_stages")
@@ -10086,7 +10158,10 @@ class CfnService(
 
         @builtins.property
         def role_arn(self) -> builtins.str:
-            '''
+            '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon ECS permission to call Lambda functions on your behalf.
+
+            For more information, see `Permissions required for Lambda functions in Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-permissions.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-rolearn
             '''
             result = self._values.get("role_arn")
@@ -10230,7 +10305,7 @@ class CfnService(
 
             Services with tasks that use the ``awsvpc`` network mode (for example, those with the Fargate launch type) only support Application Load Balancers and Network Load Balancers. Classic Load Balancers are not supported. Also, when you create any target groups for these services, you must choose ``ip`` as the target type, not ``instance`` . Tasks that use the ``awsvpc`` network mode are associated with an elastic network interface, not an Amazon EC2 instance.
 
-            :param advanced_configuration: 
+            :param advanced_configuration: The advanced settings for the load balancer used in blue/green deployments. Specify the alternate target group, listener rules, and IAM role required for traffic shifting during blue/green deployments.
             :param container_name: The name of the container (as it appears in a container definition) to associate with the load balancer. You need to specify the container name when configuring the target group for an Amazon ECS load balancer.
             :param container_port: The port on the container to associate with the load balancer. This port must correspond to a ``containerPort`` in the task definition the tasks in the service are using. For tasks that use the EC2 launch type, the container instance they're launched on must allow ingress traffic on the ``hostPort`` of the port mapping.
             :param load_balancer_name: The name of the load balancer to associate with the Amazon ECS service or task set. If you are using an Application Load Balancer or a Network Load Balancer the load balancer name parameter should be omitted.
@@ -10283,7 +10358,10 @@ class CfnService(
         def advanced_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.AdvancedConfigurationProperty"]]:
-            '''
+            '''The advanced settings for the load balancer used in blue/green deployments.
+
+            Specify the alternate target group, listener rules, and IAM role required for traffic shifting during blue/green deployments.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-loadbalancer.html#cfn-ecs-service-loadbalancer-advancedconfiguration
             '''
             result = self._values.get("advanced_configuration")
@@ -10902,7 +10980,7 @@ class CfnService(
 
             :param port: The listening port number for the Service Connect proxy. This port is available inside of all of the tasks within the same namespace. To avoid changing your applications in client Amazon ECS services, set this to the same port that the client application uses by default. For more information, see `Service Connect <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
             :param dns_name: The ``dnsName`` is the name that you use in the applications of client tasks to connect to this service. The name must be a valid DNS name but doesn't need to be fully-qualified. The name can include up to 127 characters. The name can include lowercase letters, numbers, underscores (_), hyphens (-), and periods (.). The name can't start with a hyphen. If this parameter isn't specified, the default value of ``discoveryName.namespace`` is used. If the ``discoveryName`` isn't specified, the port mapping name from the task definition is used in ``portName.namespace`` . To avoid changing your applications in client Amazon ECS services, set this to the same name that the client application uses by default. For example, a few common names are ``database`` , ``db`` , or the lowercase name of a database, such as ``mysql`` or ``redis`` . For more information, see `Service Connect <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
-            :param test_traffic_rules: 
+            :param test_traffic_rules: The configuration for test traffic routing rules used during blue/green deployments with Amazon ECS Service Connect. This allows you to route a portion of traffic to the new service revision of your service for testing before shifting all production traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectclientalias.html
             :exampleMetadata: fixture=_generated
@@ -10976,7 +11054,10 @@ class CfnService(
         def test_traffic_rules(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesProperty"]]:
-            '''
+            '''The configuration for test traffic routing rules used during blue/green deployments with Amazon ECS Service Connect.
+
+            This allows you to route a portion of traffic to the new service revision of your service for testing before shifting all production traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectclientalias.html#cfn-ecs-service-serviceconnectclientalias-testtrafficrules
             '''
             result = self._values.get("test_traffic_rules")
@@ -11502,8 +11583,13 @@ class CfnService(
             *,
             header: typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ServiceConnectTestTrafficRulesHeaderProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''
-            :param header: 
+            '''The test traffic routing configuration for Amazon ECS blue/green deployments.
+
+            This configuration allows you to define rules for routing specific traffic to the new service revision during the deployment process, allowing for safe testing before full production traffic shift.
+
+            For more information, see `Service Connect for Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect-blue-green.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+
+            :param header: The HTTP header-based routing rules that determine which requests should be routed to the new service version during blue/green deployment testing. These rules provide fine-grained control over test traffic routing based on request headers.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrules.html
             :exampleMetadata: fixture=_generated
@@ -11536,7 +11622,10 @@ class CfnService(
         def header(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesHeaderProperty"]:
-            '''
+            '''The HTTP header-based routing rules that determine which requests should be routed to the new service version during blue/green deployment testing.
+
+            These rules provide fine-grained control over test traffic routing based on request headers.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrules.html#cfn-ecs-service-serviceconnecttesttrafficrules-header
             '''
             result = self._values.get("header")

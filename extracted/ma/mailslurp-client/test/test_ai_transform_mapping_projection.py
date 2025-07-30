@@ -38,6 +38,7 @@ class TestAITransformMappingProjection(unittest.TestCase):
         if include_optional :
             return AITransformMappingProjection(
                 user_id = '0', 
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 ai_transform_id = '0', 
                 entity_id = '0', 
                 entity_type = 'INBOX', 
@@ -49,8 +50,8 @@ class TestAITransformMappingProjection(unittest.TestCase):
         else :
             return AITransformMappingProjection(
                 user_id = '0',
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 ai_transform_id = '0',
-                entity_id = '0',
                 entity_type = 'INBOX',
                 id = '0',
         )

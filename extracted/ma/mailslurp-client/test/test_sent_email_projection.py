@@ -38,12 +38,6 @@ class TestSentEmailProjection(unittest.TestCase):
         if include_optional :
             return SentEmailProjection(
                 id = '0', 
-                subject = '0', 
-                _from = '0', 
-                sender = mailslurp_client.models.sender.Sender(
-                    raw_value = '0', 
-                    email_address = '0', 
-                    name = '0', ), 
                 recipients = mailslurp_client.models.email_recipients.EmailRecipients(
                     to = [
                         mailslurp_client.models.recipient.Recipient(
@@ -63,6 +57,12 @@ class TestSentEmailProjection(unittest.TestCase):
                             email_address = '0', 
                             name = '0', )
                         ], ), 
+                _from = '0', 
+                sender = mailslurp_client.models.sender.Sender(
+                    raw_value = '0', 
+                    email_address = '0', 
+                    name = '0', ), 
+                subject = '0', 
                 attachments = [
                     '0'
                     ], 
@@ -92,15 +92,6 @@ class TestSentEmailProjection(unittest.TestCase):
                 inbox_id = '0',
                 user_id = '0',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                to = [
-                    '0'
-                    ],
-                cc = [
-                    '0'
-                    ],
-                bcc = [
-                    '0'
-                    ],
                 virtual_send = True,
         )
 

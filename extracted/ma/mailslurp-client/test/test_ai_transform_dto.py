@@ -50,7 +50,7 @@ class TestAITransformDto(unittest.TestCase):
                         mailslurp_client.models.structured_output_schema.StructuredOutputSchema(
                             default = mailslurp_client.models.meta_data.metaData(), 
                             description = '0', 
-                            enum = [
+                            enum_values = [
                                 '0'
                                 ], 
                             example = mailslurp_client.models.meta_data.metaData(), 
@@ -143,7 +143,7 @@ class TestAITransformDto(unittest.TestCase):
                         ], 
                     default = mailslurp_client.models.meta_data.metaData(), 
                     description = '0', 
-                    enum = [
+                    enum_values = [
                         '0'
                         ], 
                     example = mailslurp_client.models.meta_data.metaData(), 

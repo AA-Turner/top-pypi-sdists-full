@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:15.002271                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:44.075923                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
     import metaflow.runner.deployer
@@ -57,6 +57,17 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
         ...
     @classmethod
     def from_deployment(cls, identifier: str, metadata: typing.Optional[str] = None):
+        """
+        This method is not currently implemented for Step Functions.
+        
+        Raises
+        ------
+        NotImplementedError
+            This method is not implemented for Step Functions.
+        """
+        ...
+    @classmethod
+    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None):
         """
         This method is not currently implemented for Step Functions.
         

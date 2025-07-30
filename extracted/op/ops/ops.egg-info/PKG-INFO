@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ops
-Version: 3.0.0
+Version: 3.1.0
 Summary: The Python library behind great charms
 Author: The Charm Tech team at Canonical Ltd.
 Project-URL: Homepage, https://ops.readthedocs.io/en/latest/
@@ -23,9 +23,9 @@ Requires-Dist: websocket-client==1.*
 Requires-Dist: opentelemetry-api~=1.0
 Requires-Dist: importlib-metadata
 Provides-Extra: testing
-Requires-Dist: ops-scenario==8.0.0; extra == "testing"
+Requires-Dist: ops-scenario==8.1.0; extra == "testing"
 Provides-Extra: tracing
-Requires-Dist: ops-tracing==3.0.0; extra == "tracing"
+Requires-Dist: ops-tracing==3.1.0; extra == "tracing"
 Provides-Extra: harness
 Dynamic: license-file
 

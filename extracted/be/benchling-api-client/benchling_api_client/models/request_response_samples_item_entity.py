@@ -9,6 +9,7 @@ from ..models.archive_record import ArchiveRecord
 from ..models.custom_fields import CustomFields
 from ..models.dna_annotation import DnaAnnotation
 from ..models.dna_sequence_part import DnaSequencePart
+from ..models.dna_sequence_transcription import DnaSequenceTranscription
 from ..models.fields import Fields
 from ..models.inaccessible_resource_resource_type import InaccessibleResourceResourceType
 from ..models.ingredient import Ingredient
@@ -63,6 +64,7 @@ class RequestResponseSamplesItemEntity:
     _is_circular: Union[Unset, bool] = UNSET
     _parts: Union[Unset, List[DnaSequencePart]] = UNSET
     _primers: Union[Unset, List[Primer]] = UNSET
+    _transcriptions: Union[Unset, List[DnaSequenceTranscription]] = UNSET
     _translations: Union[Unset, List[Translation]] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -103,6 +105,7 @@ class RequestResponseSamplesItemEntity:
         fields.append("is_circular={}".format(repr(self._is_circular)))
         fields.append("parts={}".format(repr(self._parts)))
         fields.append("primers={}".format(repr(self._primers)))
+        fields.append("transcriptions={}".format(repr(self._transcriptions)))
         fields.append("translations={}".format(repr(self._translations)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "RequestResponseSamplesItemEntity({})".format(", ".join(fields))
@@ -214,6 +217,14 @@ class RequestResponseSamplesItemEntity:
 
                 primers.append(primers_item)
 
+        transcriptions: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._transcriptions, Unset):
+            transcriptions = []
+            for transcriptions_item_data in self._transcriptions:
+                transcriptions_item = transcriptions_item_data.to_dict()
+
+                transcriptions.append(transcriptions_item)
+
         translations: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._translations, Unset):
             translations = []
@@ -295,6 +306,8 @@ class RequestResponseSamplesItemEntity:
             field_dict["parts"] = parts
         if primers is not UNSET:
             field_dict["primers"] = primers
+        if transcriptions is not UNSET:
+            field_dict["transcriptions"] = transcriptions
         if translations is not UNSET:
             field_dict["translations"] = translations
 
@@ -779,6 +792,25 @@ class RequestResponseSamplesItemEntity:
                 raise
             primers = cast(Union[Unset, List[Primer]], UNSET)
 
+        def get_transcriptions() -> Union[Unset, List[DnaSequenceTranscription]]:
+            transcriptions = []
+            _transcriptions = d.pop("transcriptions")
+            for transcriptions_item_data in _transcriptions or []:
+                transcriptions_item = DnaSequenceTranscription.from_dict(
+                    transcriptions_item_data, strict=False
+                )
+
+                transcriptions.append(transcriptions_item)
+
+            return transcriptions
+
+        try:
+            transcriptions = get_transcriptions()
+        except KeyError:
+            if strict:
+                raise
+            transcriptions = cast(Union[Unset, List[DnaSequenceTranscription]], UNSET)
+
         def get_translations() -> Union[Unset, List[Translation]]:
             translations = []
             _translations = d.pop("translations")
@@ -832,6 +864,7 @@ class RequestResponseSamplesItemEntity:
             is_circular=is_circular,
             parts=parts,
             primers=primers,
+            transcriptions=transcriptions,
             translations=translations,
         )
 
@@ -1356,6 +1389,20 @@ class RequestResponseSamplesItemEntity:
     @primers.deleter
     def primers(self) -> None:
         self._primers = UNSET
+
+    @property
+    def transcriptions(self) -> List[DnaSequenceTranscription]:
+        if isinstance(self._transcriptions, Unset):
+            raise NotPresentError(self, "transcriptions")
+        return self._transcriptions
+
+    @transcriptions.setter
+    def transcriptions(self, value: List[DnaSequenceTranscription]) -> None:
+        self._transcriptions = value
+
+    @transcriptions.deleter
+    def transcriptions(self) -> None:
+        self._transcriptions = UNSET
 
     @property
     def translations(self) -> List[Translation]:

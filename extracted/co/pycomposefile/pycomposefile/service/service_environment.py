@@ -11,7 +11,7 @@ class EnvFile(ComposeStringOrListElement):
         env_array = []
 
         for file_name in self:
-            f = open(file_name, "r")
+            f = open(file_name)
 
             for line in f.readlines():
                 if not line.startswith("#"):

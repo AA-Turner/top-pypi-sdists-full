@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-# $Id: test_publisher.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_publisher.py 10077 2025-04-09 08:55:54Z milde $
 # Author: Martin Blais <blais@furius.ca>
 # Copyright: This module has been placed in the public domain.
 
 """
 Test the `Publisher` facade and the ``publish_*`` convenience functions.
 """
-import os.path
 import pickle
 from pathlib import Path
 import sys
@@ -19,10 +18,13 @@ if __name__ == '__main__':
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import docutils
-from docutils import core, nodes
+import docutils.parsers.null
+from docutils import core, nodes, parsers, readers, writers
+from docutils.writers import html4css1, odf_odt, pseudoxml
 
 # DATA_ROOT is ./test/data/ from the docutils root
-DATA_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
+DATA_ROOT = Path(__file__).parent / 'data'
+
 
 test_document = """\
 Test Document
@@ -64,14 +66,110 @@ exposed_pseudoxml_output = """\
 
 class PublisherTests(unittest.TestCase):
 
+    def test__init__(self):
+        reader = readers.standalone.Reader()
+        parser = parsers.null.Parser()
+        writer = writers.null.Writer()
+        # arguments may be component instances ...
+        publisher = core.Publisher(reader, parser, writer)
+        self.assertEqual(publisher.reader, reader)
+        self.assertEqual(publisher.parser, parser)
+        self.assertEqual(publisher.writer, writer)
+        # ... or names
+        publisher = core.Publisher('standalone', parser, writer)
+        self.assertTrue(isinstance(publisher.reader,
+                                   readers.standalone.Reader))
+        self.assertEqual(publisher.parser, parser)
+        self.assertEqual(publisher.writer, writer)
+
+        publisher = core.Publisher(reader, 'rst', writer)
+        self.assertEqual(publisher.reader, reader)
+        self.assertTrue(isinstance(publisher.parser, parsers.rst.Parser))
+        self.assertEqual(publisher.writer, writer)
+
+        publisher = core.Publisher(reader, parser, 'latex')
+        self.assertEqual(publisher.reader, reader)
+        self.assertEqual(publisher.parser, parser)
+        self.assertTrue(isinstance(publisher.writer, writers.latex2e.Writer))
+
+    def test_set_reader(self):
+        publisher = core.Publisher(parser='null')
+        parser = parsers.null.Parser()
+        # "parser" argument can be an instance or name
+        publisher.set_reader('standalone', parser='rst')
+        self.assertTrue(isinstance(publisher.parser, parsers.rst.Parser))
+        # synchronize parser attributes of publisher and reader:
+        self.assertEqual(publisher.reader.parser, publisher.parser)
+        # the "parser_name" argument is deprecated;
+        with self.assertWarnsRegex(PendingDeprecationWarning,
+                                   'Argument "parser_name" will be removed'):
+            publisher.set_reader('standalone', parser=None, parser_name='rst')
+        self.assertTrue(isinstance(publisher.parser, parsers.rst.Parser))
+        self.assertEqual(publisher.reader.parser, publisher.parser)
+        # "parser" takes precedence
+        with self.assertWarns(PendingDeprecationWarning):
+            publisher.set_reader('standalone', parser, parser_name='rst')
+        self.assertEqual(publisher.parser, parser)
+        self.assertEqual(publisher.reader.parser, publisher.parser)
+        # if there is no other parser specified, use self.parser
+        publisher.set_reader('standalone')
+        self.assertTrue(isinstance(publisher.parser, parsers.null.Parser))
+        self.assertEqual(publisher.reader.parser, publisher.parser)
+
+    def test_set_components(self):
+        publisher = core.Publisher()
+        reader = readers.standalone.Reader()
+        parser = parsers.null.Parser()
+        writer = writers.null.Writer()
+        # set components from names
+        with self.assertWarnsRegex(PendingDeprecationWarning,
+                                   'set_components.* will be removed'):
+            publisher.set_components('pep', 'rst', 'odt')
+        self.assertTrue(isinstance(publisher.reader, readers.pep.Reader))
+        self.assertTrue(isinstance(publisher.parser, parsers.rst.Parser))
+        self.assertTrue(isinstance(publisher.writer, writers.odf_odt.Writer))
+        # but don't overwrite registered component instances
+        publisher = core.Publisher(reader, parser, writer)
+        with self.assertWarns(PendingDeprecationWarning):
+            publisher.set_components('standalone', 'xml', 'odt')
+        self.assertEqual(publisher.reader, reader)
+        self.assertEqual(publisher.parser, parser)
+        self.assertEqual(publisher.writer, writer)
+
+    def test_set_destination(self):
+        # Exit if `_destination` and `output` settings conflict.
+        publisher = core.Publisher()
+        publisher.get_settings(output_path='out_name', _destination='other')
+        with self.assertRaises(SystemExit):
+            publisher.set_destination()
+        # no conflict if both have same value:
+        publisher.settings._destination = 'out_name'
+        publisher.set_destination()
+        # no conflict if both are overridden:
+        publisher.set_destination(destination_path='winning_dest')
+        # "output_path" and legacy settings are set to `destination_path`:
+        self.assertEqual(publisher.settings.output_path, 'winning_dest')
+        self.assertEqual(publisher.settings.output, 'winning_dest')
+        self.assertEqual(publisher.settings._destination, 'winning_dest')
+
+
+class ConvenienceFunctionTests(unittest.TestCase):
+    maxDiff = None
+
     settings = {'_disable_config': True,
                 'datestamp': False}
+
+    def test_publish_cmdline(self):
+        # the "*_name" arguments will be removed
+        with self.assertWarns(PendingDeprecationWarning):
+            core.publish_cmdline(writer_name='null',
+                                 argv=[(DATA_ROOT/'include.rst').as_posix()],
+                                 settings_overrides={'traceback': True})
 
     def test_input_error_handling(self):
         # core.publish_cmdline(argv=['nonexisting/path'])
         # exits with a short message, if `traceback` is False,
-
-        # pass IOErrors to calling application if `traceback` is True
+        # pass IOErrors to calling application if `traceback` is True:
         with self.assertRaises(IOError):
             core.publish_cmdline(argv=['nonexisting/path'],
                                  settings_overrides={'traceback': True})
@@ -79,25 +177,13 @@ class PublisherTests(unittest.TestCase):
     def test_output_error_handling(self):
         # pass IOErrors to calling application if `traceback` is True
         with self.assertRaises(docutils.io.OutputError):
-            core.publish_cmdline(argv=[os.path.join(DATA_ROOT, 'include.txt'),
+            core.publish_cmdline(argv=[(DATA_ROOT/'include.rst').as_posix(),
                                        'nonexisting/path'],
                                  settings_overrides={'traceback': True})
 
-    def test_set_destination(self):
-        # Exit if `_destination` and `output` settings conflict.
-        publisher = core.Publisher()
-        publisher.get_settings(output='out_name', _destination='out_name')
-        # no conflict if both have same value:
-        publisher.set_destination()
-        # no conflict if both are overridden:
-        publisher.set_destination(destination_path='winning_dest')
-        # ... also sets _destination to 'winning_dest' -> conflict
-        with self.assertRaises(SystemExit):
-            publisher.set_destination()
-
     def test_destination_output_conflict(self):
         # Exit if positional argument and --output option conflict.
-        settings = {'output': 'out_name'}
+        settings = {'output_path': 'out_name'}
         with self.assertRaises(SystemExit):
             core.publish_cmdline(argv=['-', 'dest_name'],
                                  settings_overrides=settings)
@@ -105,28 +191,29 @@ class PublisherTests(unittest.TestCase):
     def test_publish_string_input_encoding(self):
         """Test handling of encoded input."""
         # Transparently decode `bytes` source (with "input_encoding" setting)
-        # default: auto-detect, fallback utf-8
+        # default: utf-8
         # Output is encoded according to "output_encoding" setting.
-        settings = dict(self.settings)
+        settings = self.settings | {'input_encoding': 'utf-16',
+                                    'output_encoding': 'unicode'}
         source = 'test → me'
         expected = ('<document source="<string>">\n'
                     '    <paragraph>\n'
-                    '        test → me\n').encode('utf-8')
+                    '        test → me\n')
         output = core.publish_string(source.encode('utf-16'),
                                      settings_overrides=settings)
         self.assertEqual(expected, output)
 
-        # encoding declaration in source
+        # encoding declaration in source (used if input_encoding is None)
+        # input encoding detection will be removed in Docutils 1.0
         source = '.. encoding: latin1\n\nGrüße'
-        # don't encode output (return `str`)
-        settings['output_encoding'] = 'unicode'
-        output = core.publish_string(source.encode('utf-16'),
-                                     settings_overrides=settings)
+        settings['input_encoding'] = None
+        with self.assertWarnsRegex(DeprecationWarning, 'auto-detection'):
+            output = core.publish_string(source.encode('latin1'),
+                                         settings_overrides=settings)
         self.assertTrue(output.endswith('Grüße\n'))
 
     def test_publish_string_output_encoding(self):
-        settings = dict(self.settings)
-        settings['output_encoding'] = 'latin1'
+        settings = self.settings | {'output_encoding': 'latin1'}
         settings['output_encoding_error_handler'] = 'replace'
         source = 'Grüß → dich'
         expected = ('<document source="<string>">\n'
@@ -142,30 +229,41 @@ class PublisherTests(unittest.TestCase):
 
         TODO: return `str` with document as "flat XML" (.fodt).
         """
-        settings = dict(self.settings)
-        settings['output_encoding'] = 'unicode'
-        with self.assertRaises(AssertionError) as cm:
-            core.publish_string('test', writer_name='odt',
+        settings = self.settings | {'output_encoding': 'unicode',
+                                    'warning_stream': ''}
+        with self.assertRaisesRegex(docutils.utils.SystemMessage,
+                                    'The ODT writer returns `bytes` '):
+            core.publish_string('test', writer=odf_odt.Writer(),
                                 settings_overrides=settings)
-        self.assertIn('`data` is no `str` instance', str(cm.exception))
+
+    def test_publish_string_deprecation_warning(self):
+        """The "*_name" arguments are deprecated."""
+        source = 'test → me'
+        with self.assertWarns(PendingDeprecationWarning):
+            output = core.publish_string(source, writer_name='xml')
+        # ... but should still set the corresponding component:
+        self.assertTrue(output.decode('utf-8').startswith(
+            '<?xml version="1.0" encoding="utf-8"?>'))
 
 
 class PublishDoctreeTestCase(unittest.TestCase, docutils.SettingsSpec):
 
     settings_default_overrides = {
         '_disable_config': True,
-        'warning_stream': docutils.io.NullOutput()}
+        'warning_stream': docutils.io.NullOutput(),
+        'output_encoding': 'unicode'}
 
     def test_publish_doctree(self):
         # Test `publish_doctree` and `publish_from_doctree`.
 
         # Produce the document tree.
-        doctree = core.publish_doctree(
-            source=test_document, reader_name='standalone',
-            parser_name='restructuredtext', settings_spec=self,
-            settings_overrides={'expose_internals':
-                                ['refnames', 'do_not_expose'],
-                                'report_level': 5})
+        with self.assertWarns(PendingDeprecationWarning):
+            doctree = core.publish_doctree(
+                source=test_document,
+                parser_name='restructuredtext', settings_spec=self,
+                settings_overrides={'expose_internals':
+                                    ['refnames', 'do_not_expose'],
+                                    'report_level': 5})
         self.assertTrue(isinstance(doctree, nodes.document))
 
         # Confirm that transforms have been applied (in this case, the
@@ -181,7 +279,8 @@ class PublishDoctreeTestCase(unittest.TestCase, docutils.SettingsSpec):
         doctree.do_not_expose = 'test'
         # Write out the document:
         output = core.publish_from_doctree(
-            doctree, writer_name='pseudoxml',
+            doctree,
+            writer=pseudoxml.Writer(),
             settings_spec=self,
             settings_overrides={'expose_internals':
                                 ['refnames', 'do_not_expose'],
@@ -191,8 +290,8 @@ class PublishDoctreeTestCase(unittest.TestCase, docutils.SettingsSpec):
 
         # Test publishing parts using document as the source.
         parts = core.publish_parts(
-            reader_name='doctree', source_class=docutils.io.DocTreeInput,
-            source=doctree, source_path='test', writer_name='html',
+            reader='doctree', source_class=docutils.io.DocTreeInput,
+            source=doctree, source_path='test', writer=html4css1.Writer(),
             settings_spec=self)
         self.assertTrue(isinstance(parts, dict))
 
@@ -202,8 +301,6 @@ class PublishDoctreeTestCase(unittest.TestCase, docutils.SettingsSpec):
         # Produce the document tree.
         doctree = core.publish_doctree(
             source=test_document,
-            reader_name='standalone',
-            parser_name='restructuredtext',
             settings_spec=self)
         self.assertTrue(isinstance(doctree, nodes.document))
 
@@ -228,10 +325,12 @@ class PublishDoctreeTestCase(unittest.TestCase, docutils.SettingsSpec):
         self.assertTrue(isinstance(doctree_zombie, nodes.document))
 
         # Write out the document:
-        output = core.publish_from_doctree(doctree_zombie,
-                                           writer_name='pseudoxml',
-                                           settings_spec=self)
-        self.assertEqual(pseudoxml_output, output.decode())
+        with self.assertWarnsRegex(PendingDeprecationWarning,
+                                   'Argument "writer_name" will be removed '):
+            output = core.publish_from_doctree(doctree_zombie,
+                                               writer_name='pseudoxml',
+                                               settings_spec=self)
+        self.assertEqual(pseudoxml_output, output)
 
 
 if __name__ == '__main__':

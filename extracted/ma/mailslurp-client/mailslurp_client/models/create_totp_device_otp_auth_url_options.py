@@ -53,7 +53,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
         'algorithm': 'algorithm'
     }
 
-    def __init__(self, otp_auth_url=None, name=None, username=None, issuer=None, digits=None, period=None, algorithm=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, otp_auth_url=None, name=None, username=None, issuer=None, digits=6, period=30, algorithm=None, local_vars_configuration=None):  # noqa: E501
         """CreateTotpDeviceOtpAuthUrlOptions - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -80,6 +80,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def otp_auth_url(self):
         """Gets the otp_auth_url of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        OTP Auth URI for connecting a TOTP device.  # noqa: E501
 
         :return: The otp_auth_url of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: str
@@ -90,6 +91,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def otp_auth_url(self, otp_auth_url):
         """Sets the otp_auth_url of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        OTP Auth URI for connecting a TOTP device.  # noqa: E501
 
         :param otp_auth_url: The otp_auth_url of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: str
@@ -103,6 +105,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def name(self):
         """Gets the name of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        Name for labeling the TOTP device  # noqa: E501
 
         :return: The name of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: str
@@ -113,6 +116,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def name(self, name):
         """Sets the name of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        Name for labeling the TOTP device  # noqa: E501
 
         :param name: The name of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: str
@@ -124,6 +128,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def username(self):
         """Gets the username of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        Optional username for the TOTP device  # noqa: E501
 
         :return: The username of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: str
@@ -134,6 +139,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def username(self, username):
         """Sets the username of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        Optional username for the TOTP device  # noqa: E501
 
         :param username: The username of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: str
@@ -145,6 +151,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def issuer(self):
         """Gets the issuer of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        Optional issuer override for the TOTP device  # noqa: E501
 
         :return: The issuer of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: str
@@ -155,6 +162,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def issuer(self, issuer):
         """Sets the issuer of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        Optional issuer override for the TOTP device  # noqa: E501
 
         :param issuer: The issuer of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: str
@@ -166,6 +174,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def digits(self):
         """Gets the digits of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        Optional number of digits in TOTP code  # noqa: E501
 
         :return: The digits of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: int
@@ -176,10 +185,17 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def digits(self, digits):
         """Sets the digits of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        Optional number of digits in TOTP code  # noqa: E501
 
         :param digits: The digits of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: int
         """
+        if (self.local_vars_configuration.client_side_validation and
+                digits is not None and digits > 255):  # noqa: E501
+            raise ValueError("Invalid value for `digits`, must be a value less than or equal to `255`")  # noqa: E501
+        if (self.local_vars_configuration.client_side_validation and
+                digits is not None and digits < 0):  # noqa: E501
+            raise ValueError("Invalid value for `digits`, must be a value greater than or equal to `0`")  # noqa: E501
 
         self._digits = digits
 
@@ -187,6 +203,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def period(self):
         """Gets the period of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        Optional period in seconds for TOTP code expiration  # noqa: E501
 
         :return: The period of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: int
@@ -197,6 +214,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def period(self, period):
         """Sets the period of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        Optional period in seconds for TOTP code expiration  # noqa: E501
 
         :param period: The period of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: int
@@ -208,6 +226,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def algorithm(self):
         """Gets the algorithm of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
 
+        Optional algorithm override  # noqa: E501
 
         :return: The algorithm of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :rtype: str
@@ -218,6 +237,7 @@ class CreateTotpDeviceOtpAuthUrlOptions(object):
     def algorithm(self, algorithm):
         """Sets the algorithm of this CreateTotpDeviceOtpAuthUrlOptions.
 
+        Optional algorithm override  # noqa: E501
 
         :param algorithm: The algorithm of this CreateTotpDeviceOtpAuthUrlOptions.  # noqa: E501
         :type: str

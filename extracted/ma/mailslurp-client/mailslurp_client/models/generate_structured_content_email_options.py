@@ -65,8 +65,7 @@ class GenerateStructuredContentEmailOptions(object):
         self.email_id = email_id
         self.content_selector = content_selector
         self.instructions = instructions
-        if output_schema is not None:
-            self.output_schema = output_schema
+        self.output_schema = output_schema
         self.transform_id = transform_id
 
     @property

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: z3c.jbot
-Version: 3.0
+Version: 3.1
 Summary: Drop-in template overrides.
 Home-page: https://github.com/zopefoundation/z3c.jbot
 Author: Zope Foundation and Contributors
@@ -142,6 +142,12 @@ Malthe Borch <mborch@gmail.com>
 
 Changes
 =======
+
+3.1 (2025-07-29)
+----------------
+
+- Skins and scripts/templates are now cached using their path as key to prevent
+   memory leak of requests [djay]
 
 3.0 (2025-04-14)
 ----------------

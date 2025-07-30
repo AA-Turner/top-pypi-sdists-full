@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_get_writer_class.py 9277 2022-11-26 23:15:13Z milde $
+# $Id: test_get_writer_class.py 9748 2024-06-08 08:08:37Z milde $
 # Author: grubert
 # Maintainer: docutils-develop@lists.sourceforge.net
 # Copyright: This module has been placed in the public domain.

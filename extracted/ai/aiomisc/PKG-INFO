@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: aiomisc
-Version: 17.8.1
+Version: 17.9.1
 Summary: aiomisc - miscellaneous utils for asyncio
 License: MIT
 Author: Dmitry Orlov
 Author-email: me@mosquito.su
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Pytest
@@ -23,7 +23,6 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -63,7 +62,6 @@ Requires-Dist: logging-journald ; sys_platform == "linux"
 Requires-Dist: raven ; extra == "raven"
 Requires-Dist: rich ; extra == "rich"
 Requires-Dist: setuptools ; python_version < "3.8"
-Requires-Dist: typing_extensions ; python_version < "3.10"
 Requires-Dist: uvicorn (>=0.27,<0.28) ; extra == "uvicorn"
 Requires-Dist: uvloop (>=0.21,<1) ; extra == "uvloop"
 Project-URL: Changelog, https://github.com/aiokitchen/aiomisc/blob/master/CHANGELOG.md

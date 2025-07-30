@@ -18,7 +18,7 @@ limitations under the License.
 
 // Must be included first
 // clang-format off
-#include "_src/numpy.h" // NOLINT
+#include "ml_dtypes/_src/numpy.h" // NOLINT
 // clang-format on
 
 // Support utilities for adding custom floating-point dtypes to TensorFlow,
@@ -35,8 +35,8 @@ limitations under the License.
 #include <Python.h>
 
 #include "Eigen/Core"
-#include "_src/common.h"  // NOLINT
-#include "_src/ufuncs.h"  // NOLINT
+#include "ml_dtypes/_src/common.h"  // NOLINT
+#include "ml_dtypes/_src/ufuncs.h"  // NOLINT
 
 #undef copysign  // TODO(ddunleavy): temporary fix for Windows bazel build
                  // Possible this has to do with numpy.h being included before
@@ -401,7 +401,7 @@ PyArray_DescrProto GetCustomFloatDescrProto() {
       /*kind=*/TypeDescriptor<T>::kNpyDescrKind,
       /*type=*/TypeDescriptor<T>::kNpyDescrType,
       /*byteorder=*/TypeDescriptor<T>::kNpyDescrByteorder,
-      /*flags=*/NPY_NEEDS_PYAPI | NPY_USE_SETITEM,
+      /*flags=*/NPY_USE_SETITEM,
       /*type_num=*/0,
       /*elsize=*/sizeof(T),
       /*alignment=*/alignof(T),
@@ -849,6 +849,9 @@ template <typename T>
 bool RegisterFloatDtype(PyObject* numpy) {
   // bases must be a tuple for Python 3.9 and earlier. Change to just pass
   // the base type directly when dropping Python 3.9 support.
+  // TODO(jakevdp): it would be better to inherit from PyNumberArrType or
+  // PyFloatingArrType, but this breaks some assumptions made by NumPy, because
+  // dtype.kind='V' is then interpreted as a 'void' type in some contexts.
   Safe_PyObjectPtr bases(
       PyTuple_Pack(1, reinterpret_cast<PyObject*>(&PyGenericArrType_Type)));
   PyObject* type =

@@ -37,7 +37,9 @@ class TestInboxExistsDto(unittest.TestCase):
         # model = mailslurp_client.models.inbox_exists_dto.InboxExistsDto()  # noqa: E501
         if include_optional :
             return InboxExistsDto(
-                exists = True
+                exists = True, 
+                soft_bounce = True, 
+                hard_bounce = True
             )
         else :
             return InboxExistsDto(

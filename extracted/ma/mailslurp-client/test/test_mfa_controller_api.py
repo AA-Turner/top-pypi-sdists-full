@@ -29,6 +29,13 @@ class TestMFAControllerApi(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_create_totp_device_for_base32_secret_key(self):
+        """Test case for create_totp_device_for_base32_secret_key
+
+        Create a TOTP device from an base32 secret key  # noqa: E501
+        """
+        pass
+
     def test_create_totp_device_for_custom(self):
         """Test case for create_totp_device_for_custom
 

@@ -666,6 +666,7 @@ class Cursor(BaseCursor):
         self,
         statement: Optional[str],
         parameters: Optional[Union[list, tuple, dict]] = None,
+        suspend_on_success: bool = False,
         **keyword_parameters: Any,
     ) -> Any:
         """
@@ -702,8 +703,13 @@ class Cursor(BaseCursor):
         If the statement is a query, the cursor is returned as a convenience to
         the caller (so it can be used directly as an iterator over the rows in
         the cursor); otherwise, None is returned.
+
+        suspend_on_success parameter is specific to sessionless transactions.
+        When set to True, the active sessionless transaction will be suspended
+        after the successful execution of the current statement.
         """
         self._prepare_for_execute(statement, parameters, keyword_parameters)
+        self._impl.suspend_on_success = suspend_on_success
         impl = self._impl
         impl.execute(self)
         if impl.fetch_vars is not None:
@@ -712,9 +718,10 @@ class Cursor(BaseCursor):
     def executemany(
         self,
         statement: Optional[str],
-        parameters: Union[list, int],
+        parameters: Any,
         batcherrors: bool = False,
         arraydmlrowcounts: bool = False,
+        suspend_on_success: bool = False,
     ) -> None:
         """
         Prepare a statement for execution against a database and then execute
@@ -733,6 +740,9 @@ class Cursor(BaseCursor):
         the number of iterations can be specified as an integer instead of
         needing to provide a list of empty mappings or sequences.
 
+        A data frame can also be supplied as the parameters, in which case the
+        Arrow arrays found within it are extracted and used as the parameters.
+
         When true, the batcherrors parameter enables batch error support within
         Oracle and ensures that the call succeeds even if an exception takes
         place in one or more of the sequence of parameters. The errors can then
@@ -750,11 +760,16 @@ class Cursor(BaseCursor):
         specify the parameter types and sizes ahead of time; in particular,
         None is assumed to be a string of length 1 so any values that are later
         bound as numbers or dates will raise a TypeError exception.
+
+        suspend_on_success parameter is specific to sessionless transactions.
+        When set to True, the active sessionless transaction will be suspended
+        after the successful execution of the current statement.
         """
         self._verify_open()
         num_execs = self._impl._prepare_for_executemany(
             self, statement, parameters
         )
+        self._impl.suspend_on_success = suspend_on_success
         if num_execs > 0:
             self._impl.executemany(
                 self, num_execs, bool(batcherrors), bool(arraydmlrowcounts)
@@ -926,6 +941,7 @@ class AsyncCursor(BaseCursor):
         self,
         statement: Optional[str],
         parameters: Optional[Union[list, tuple, dict]] = None,
+        suspend_on_success: bool = False,
         **keyword_parameters: Any,
     ) -> None:
         """
@@ -958,16 +974,22 @@ class AsyncCursor(BaseCursor):
         of time; in particular, None is assumed to be a string of length 1 so
         any values that are later bound as numbers or dates will raise a
         TypeError exception.
+
+        suspend_on_success parameter is specific to sessionless transactions.
+        When set to True, the active sessionless transaction will be suspended
+        after the successful execution of the current statement.
         """
         self._prepare_for_execute(statement, parameters, keyword_parameters)
+        self._impl.suspend_on_success = suspend_on_success
         await self._impl.execute(self)
 
     async def executemany(
         self,
         statement: Optional[str],
-        parameters: Union[list, int],
+        parameters: Any,
         batcherrors: bool = False,
         arraydmlrowcounts: bool = False,
+        suspend_on_success: bool = False,
     ) -> None:
         """
         Prepare a statement for execution against a database and then execute
@@ -1003,11 +1025,16 @@ class AsyncCursor(BaseCursor):
         specify the parameter types and sizes ahead of time; in particular,
         None is assumed to be a string of length 1 so any values that are later
         bound as numbers or dates will raise a TypeError exception.
+
+        suspend_on_success parameter is specific to sessionless transactions.
+        When set to True, the active sessionless transaction will be suspended
+        after the successful execution of the current statement.
         """
         self._verify_open()
         num_execs = self._impl._prepare_for_executemany(
             self, statement, parameters
         )
+        self._impl.suspend_on_success = suspend_on_success
         if num_execs > 0:
             await self._impl.executemany(
                 self, num_execs, bool(batcherrors), bool(arraydmlrowcounts)

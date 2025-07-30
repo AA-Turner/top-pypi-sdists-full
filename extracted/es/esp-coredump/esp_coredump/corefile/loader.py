@@ -23,7 +23,7 @@ from .elf import (TASK_STATUS_CORRECT, TASK_STATUS_TCB_CORRUPTED, ElfFile,
                   ElfSegment, ESPCoreDumpElfFile, EspTaskStatus, NoteSection)
 from .riscv import (Esp32C2Methods, Esp32C3Methods, Esp32C5Methods,
                     Esp32C6Methods, Esp32C61Methods, Esp32H2Methods,
-                    Esp32P4Methods)
+                    Esp32H4Methods, Esp32H21Methods, Esp32P4Methods)
 from .xtensa import Esp32Methods, Esp32S2Methods, Esp32S3Methods
 
 IDF_PATH = os.getenv('IDF_PATH', '')
@@ -53,6 +53,12 @@ EspCoreDumpV2_1_Header = Struct(
     'task_num' / Int32ul,
     'tcbsz' / Int32ul,
     'segs_num' / Int32ul,
+    'chip_rev' / Int32ul,
+)
+
+EspCoreDumpV2_2_Header = Struct(
+    'tot_len' / Int32ul,
+    'ver' / Int32ul,
     'chip_rev' / Int32ul,
 )
 
@@ -117,7 +123,9 @@ class EspCoreDumpVersion(object):
     ESP32P4 = 18
     ESP32C61 = 20
     ESP32C5 = 23
-    RISCV_CHIPS = [ESP32C3, ESP32C2, ESP32H2, ESP32C6, ESP32P4, ESP32C5, ESP32C61]
+    ESP32H21 = 25
+    ESP32H4 = 28
+    RISCV_CHIPS = [ESP32C3, ESP32C2, ESP32H2, ESP32C6, ESP32P4, ESP32C5, ESP32C61, ESP32H21, ESP32H4]
 
     COREDUMP_SUPPORTED_TARGETS = XTENSA_CHIPS + RISCV_CHIPS
 
@@ -163,7 +171,8 @@ class EspCoreDumpLoader(EspCoreDumpVersion):
     ELF_CRC32_V2_1 = EspCoreDumpVersion.make_dump_ver(1, 2)
     ELF_SHA256_V2 = EspCoreDumpVersion.make_dump_ver(1, 1)
     ELF_SHA256_V2_1 = EspCoreDumpVersion.make_dump_ver(1, 3)
-    CORE_VERSIONS = [BIN_V1, BIN_V2, BIN_V2_1, ELF_CRC32_V2, ELF_CRC32_V2_1, ELF_SHA256_V2, ELF_SHA256_V2_1]
+    ELF_SHA256_V2_2 = EspCoreDumpVersion.make_dump_ver(1, 4)
+    CORE_VERSIONS = [BIN_V1, BIN_V2, BIN_V2_1, ELF_CRC32_V2, ELF_CRC32_V2_1, ELF_SHA256_V2, ELF_SHA256_V2_1, ELF_SHA256_V2_2]
 
     def __init__(self):  # type: () -> None
         super(EspCoreDumpLoader, self).__init__()
@@ -212,6 +221,9 @@ class EspCoreDumpLoader(EspCoreDumpVersion):
         elif self.dump_ver == self.ELF_SHA256_V2_1:
             self.checksum_struct = SHA256
             self.header_struct = EspCoreDumpV2_1_Header
+        elif self.dump_ver == self.ELF_SHA256_V2_2:
+            self.checksum_struct = SHA256
+            self.header_struct = EspCoreDumpV2_2_Header
         elif self.dump_ver == self.BIN_V1:
             self.checksum_struct = CRC
             self.header_struct = EspCoreDumpV1Header
@@ -259,6 +271,10 @@ class EspCoreDumpLoader(EspCoreDumpVersion):
                 self.target_methods = Esp32C5Methods()  # type: ignore
             elif self.chip_ver == self.ESP32C61:
                 self.target_methods = Esp32C61Methods()  # type: ignore
+            elif self.chip_ver == self.ESP32H21:
+                self.target_methods = Esp32H21Methods()  # type: ignore
+            elif self.chip_ver == self.ESP32H4:
+                self.target_methods = Esp32H4Methods()  # type: ignore
             else:
                 raise NotImplementedError
         else:
@@ -291,6 +307,9 @@ class EspCoreDumpLoader(EspCoreDumpVersion):
         if self.dump_ver in [self.ELF_SHA256_V2_1]:
             data_sha256 = hashlib.sha256(
                 EspCoreDumpV2_1_Header.build(self.core_src.header) + self.core_src.data)  # type: ignore
+        elif self.dump_ver in [self.ELF_SHA256_V2_2]:
+            data_sha256 = hashlib.sha256(
+                EspCoreDumpV2_2_Header.build(self.core_src.header) + self.core_src.data)  # type: ignore
         else:
             data_sha256 = hashlib.sha256(
                 EspCoreDumpV2Header.build(self.core_src.header) + self.core_src.data)  # type: ignore
@@ -312,7 +331,8 @@ class EspCoreDumpLoader(EspCoreDumpVersion):
         if self.dump_ver in [self.ELF_CRC32_V2,
                              self.ELF_CRC32_V2_1,
                              self.ELF_SHA256_V2,
-                             self.ELF_SHA256_V2_1]:
+                             self.ELF_SHA256_V2_1,
+                             self.ELF_SHA256_V2_2]:
             self._extract_elf_corefile(exe_name, e_machine)
         elif self.dump_ver in [self.BIN_V1,
                                self.BIN_V2,

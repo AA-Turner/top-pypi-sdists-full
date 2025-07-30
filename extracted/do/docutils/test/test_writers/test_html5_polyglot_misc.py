@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_html5_polyglot_misc.py 9501 2023-12-14 22:38:58Z milde $
+# $Id: test_html5_polyglot_misc.py 9928 2024-09-11 07:20:07Z milde $
 # Authors: Lea Wiemann, Dmitry Shachnev, Günter Milde
 # Maintainer: docutils-develop@lists.sourceforge.net
 # Copyright: This module has been placed in the public domain.
@@ -18,16 +18,16 @@ if __name__ == '__main__':
     # so we import the local `docutils` package.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from docutils import core
+from docutils import core, frontend, nodes, utils
+from docutils.writers import html5_polyglot, _html_base
 
 # TEST_ROOT is ./test/ from the docutils root
-TEST_ROOT = os.path.abspath(os.path.join(__file__, '..', '..'))
-# DATA_ROOT is ./test/data/ from the docutils root
-DATA_ROOT = os.path.join(TEST_ROOT, 'data')
+TEST_ROOT = Path(__file__).parents[1]
+DATA_ROOT = TEST_ROOT / 'data'
 
 
-def relpath(*parts):
-    return os.path.relpath(os.path.join(*parts), os.getcwd()).replace('\\', '/')
+def relpath(path):
+    return os.path.relpath(path, os.getcwd()).replace('\\', '/')
 
 
 class EncodingTestCase(unittest.TestCase):
@@ -37,10 +37,10 @@ class EncodingTestCase(unittest.TestCase):
         # error handler.
         settings_overrides = {
             'output_encoding': 'latin1',
-            'stylesheet': '',
+            'stylesheet_path': '',
             '_disable_config': True}
         result = core.publish_string(
-            'EUR = \u20ac', writer_name='html5_polyglot',
+            'EUR = \u20ac', writer=html5_polyglot.Writer(),
             settings_overrides=settings_overrides)
         # Encoding a euro sign with latin1 doesn't work, so the
         # xmlcharrefreplace handler is used.
@@ -50,7 +50,6 @@ class EncodingTestCase(unittest.TestCase):
 class MovingArgsTestCase(unittest.TestCase):
 
     mys = {'stylesheet_path': '',
-           # 'embed_stylesheet': False,
            '_disable_config': True,
            }
 
@@ -66,7 +65,7 @@ first term:
 second term:
   second def
 """
-        result = core.publish_string(data, writer_name='html5_polyglot',
+        result = core.publish_string(data, writer=html5_polyglot.Writer(),
                                      settings_overrides=self.mys).decode()
         self.assertIn('<dt class="for the second item">second term:</dt>',
                       result)
@@ -83,13 +82,13 @@ first term:
 second term:
   second def
 """
-        result = core.publish_string(data, writer_name='html5_polyglot',
+        result = core.publish_string(data, writer=html5_polyglot.Writer(),
                                      settings_overrides=self.mys).decode()
         self.assertIn('<dt id="second-item">second term:</dt>',
                       result)
 
 
-ham_css = relpath(DATA_ROOT, 'ham.css')
+ham_css = relpath(DATA_ROOT / 'ham.css')
 
 
 class SettingsTestCase(unittest.TestCase):
@@ -98,16 +97,16 @@ class SettingsTestCase(unittest.TestCase):
     def test_default_stylesheet(self):
         # default style sheet, embedded
         mys = {'_disable_config': True}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
-        self.assertIn('Minimal style sheet '
-                      'for the HTML output of Docutils.', styles)
+        self.assertIn('Minimal style sheet for the HTML output of Docutils.',
+                      styles)
 
     def test_default_stylesheet_linked(self):
         # default style sheet, linked
         mys = {'_disable_config': True,
                'embed_stylesheet': False}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
         self.assertIn('docutils/writers/html5_polyglot/minimal.css', styles)
 
@@ -116,7 +115,7 @@ class SettingsTestCase(unittest.TestCase):
         mys = {'_disable_config': True,
                'embed_stylesheet': False,
                'stylesheet_path': 'minimal.css, math.css'}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
         self.assertIn('docutils/writers/html5_polyglot/minimal.css', styles)
         self.assertIn('docutils/writers/html5_polyglot/math.css', styles)
@@ -127,7 +126,7 @@ class SettingsTestCase(unittest.TestCase):
                'embed_stylesheet': False,
                'stylesheet_path': 'minimal.css, '
                'data/ham.css'}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
         self.assertIn('docutils/writers/html5_polyglot/minimal.css', styles)
         self.assertIn('href="data/ham.css"', styles)
@@ -136,23 +135,24 @@ class SettingsTestCase(unittest.TestCase):
         mys = {'_disable_config': True,
                'embed_stylesheet': False,
                'stylesheet_dirs': (
-                   os.path.join(TEST_ROOT, '../docutils/writers/html5_polyglot/'),
+                   TEST_ROOT / '../docutils/writers/html5_polyglot/',
                    DATA_ROOT),
                'stylesheet_path': 'minimal.css, ham.css'}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
-        if os.path.isdir(os.path.join(TEST_ROOT, '../docutils/writers/html5_polyglot/')):
-            self.assertIn('docutils/writers/html5_polyglot/minimal.css', styles)
+        if (TEST_ROOT / '../docutils/writers/html5_polyglot/').is_dir():
+            self.assertIn('docutils/writers/html5_polyglot/minimal.css',
+                          styles)
         self.assertIn(f'href="{ham_css}"', styles)
 
     def test_custom_stylesheet_dir_embedded(self):
         mys = {'_disable_config': True,
                'embed_stylesheet': True,
                'stylesheet_dirs': (
-                   os.path.join(TEST_ROOT, '../docutils/writers/html5_polyglot/'),
+                   TEST_ROOT / '../docutils/writers/html5_polyglot/',
                    DATA_ROOT),
                'stylesheet_path': 'ham.css'}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
         self.assertIn('dl.docutils dd {\n  margin-bottom: 0.5em }', styles)
 
@@ -164,13 +164,14 @@ class SettingsTestCase(unittest.TestCase):
                        }
         with self.assertWarnsRegex(FutureWarning,
                                    '"embed_images"\n  will be removed'):
-            core.publish_string('warnings test', writer_name='html5',
+            core.publish_string('warnings test',
+                                writer=html5_polyglot.Writer(),
                                 settings_overrides=my_settings)
 
 
-minimal_css = relpath(TEST_ROOT, 'functional/input/data/minimal.css')
-plain_css = relpath(TEST_ROOT, 'functional/input/data/plain.css')
-math_css = relpath(TEST_ROOT, 'functional/input/data/math.css')
+minimal_css = relpath(TEST_ROOT / 'functional/input/data/minimal.css')
+plain_css = relpath(TEST_ROOT / 'functional/input/data/plain.css')
+math_css = relpath(TEST_ROOT / 'functional/input/data/math.css')
 
 
 class MathTestCase(unittest.TestCase):
@@ -185,11 +186,11 @@ class MathTestCase(unittest.TestCase):
     data = ':math:`42`'
 
     def test_math_output_default(self):
-        # HTML with math.css stylesheet (since 0.11)
+        # default math output is MathML (since 0.22)
         mys = {'_disable_config': True}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
-                                    settings_overrides=mys)['stylesheet']
-        self.assertIn('convert LaTeX equations to HTML output.', styles)
+        fragment = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
+                                      settings_overrides=mys)['fragment']
+        self.assertIn('<mn>42</mn>', fragment)
 
     def test_math_output_mathjax(self):
         # Explicitly specifying math_output=MathJax, case insensitively
@@ -197,7 +198,7 @@ class MathTestCase(unittest.TestCase):
         mys = {'_disable_config': True,
                'report_level': 3,
                'math_output': 'MathJax'}
-        head = core.publish_parts(self.data, writer_name='html5_polyglot',
+        head = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                   settings_overrides=mys)['head']
         self.assertIn(self.mathjax_script % self.default_mathjax_url, head)
 
@@ -206,14 +207,14 @@ class MathTestCase(unittest.TestCase):
         mys = {'_disable_config': True,
                'math_output':
                'mathjax %s' % self.custom_mathjax_url}
-        head = core.publish_parts(self.data, writer_name='html5_polyglot',
+        head = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                   settings_overrides=mys)['head']
         self.assertIn(self.mathjax_script % self.custom_mathjax_url, head)
 
     def test_math_output_html(self):
         mys = {'_disable_config': True,
                'math_output': 'HTML'}
-        head = core.publish_parts(self.data, writer_name='html5_polyglot',
+        head = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                   settings_overrides=mys)['head']
         # There should be no MathJax script when math_output is not MathJax
         self.assertNotIn('MathJax.js', head)
@@ -223,9 +224,9 @@ class MathTestCase(unittest.TestCase):
                'math_output': 'HTML math.css,custom/style.css',
                'stylesheet_dirs': (
                    TEST_ROOT,
-                   os.path.join(TEST_ROOT, 'functional/input/data')),
+                   TEST_ROOT / 'functional/input/data'),
                'embed_stylesheet': False}
-        styles = core.publish_parts(self.data, writer_name='html5_polyglot',
+        styles = core.publish_parts(self.data, writer=html5_polyglot.Writer(),
                                     settings_overrides=mys)['stylesheet']
         self.assertEqual(f"""\
 <link rel="stylesheet" href="{minimal_css}" type="text/css" />
@@ -236,8 +237,62 @@ class MathTestCase(unittest.TestCase):
 
     def test_math_output_mathjax_no_math(self):
         # There should be no math script when text does not contain math
-        head = core.publish_parts('No math.', writer_name='html5_polyglot')['head']
+        head = core.publish_parts('No math.', writer=html5_polyglot.Writer())['head']
         self.assertNotIn('MathJax', head)
+
+
+class ImagesTestCase(unittest.TestCase):
+    """Test image handling routines."""
+    maxDiff = None
+    settings = frontend.get_default_settings(_html_base.Writer)
+    document = utils.new_document('test data', settings)
+    translator = _html_base.HTMLTranslator(document)
+    svg_sample = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     style="background: blue; width: 5ex; height: 3ex" viewBox="0 0 10 10">
+  <circle cx="5" cy="5" r="4" fill="lightblue" />
+  <!-- comments are ignored -->
+</svg>
+"""
+    expected = """\
+<svg xmlns="http://www.w3.org/2000/svg" style="background: blue; width: 4em; height: 3ex;" viewBox="0 0 10 10" height="32" class="test me">
+  <title>blue circle</title><circle cx="5" cy="5" r="4" fill="lightblue" />
+  \n\
+</svg>"""
+
+    def test_image_size(self):
+        # HTML attributes "width" and "height" take only integer values:
+        # -> height value is passed as "height" attribute,
+        #    value with unit is passed via "style".
+        image = nodes.image(width='4em', height='3', scale=200)
+        self.assertEqual(self.translator.image_size(image),
+                         {'height': '6', 'style': 'width: 8em;'})
+        # "style" declaration also used for unitless non-interger value
+        image = nodes.image(width='4em', height='3', scale=50)
+        self.assertEqual(self.translator.image_size(image),
+                         {'style': 'width: 2em;', 'height': '2'})
+
+    def test_prepare_svg(self):
+        # Internal method: the test is no guaranty for stability,
+        # interface and behaviour may change without notice.
+        image = nodes.image(height='32', width='4em', alt='blue circle',
+                            align='left', classes=['test', 'me'])
+        atts = self.translator.image_size(image)
+        rv = self.translator.prepare_svg(self.svg_sample, image, atts)
+        self.assertEqual(rv, self.expected)
+
+    def test_prepare_svg_syntax_variants(self):
+        # parsing "style" declarations must be robust:
+        svg_sample = '<svg style="width:3em"></svg>'
+
+        atts = {'style': 'colon:in:value'}
+        rv = self.translator.prepare_svg(svg_sample, nodes.image(), atts)
+        self.assertEqual(rv, '<svg style="width: 3em; colon: in:value;" />')
+
+        atts = {'style': 'no-colon;'}
+        rv = self.translator.prepare_svg(svg_sample, nodes.image(), atts)
+        self.assertEqual(rv, '<svg style="width: 3em; no-colon: ;" />')
 
 
 if __name__ == '__main__':

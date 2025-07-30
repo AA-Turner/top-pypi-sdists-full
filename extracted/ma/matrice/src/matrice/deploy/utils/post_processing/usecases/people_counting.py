@@ -301,7 +301,7 @@ class PeopleCountingUseCase(BaseProcessor):
         # Step 6: Generate summary and standardized agg_summary components for this frame
         incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_id, stream_info)
         tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id=frame_id, alerts=alerts, stream_info=stream_info)
-        business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, stream_info, is_empty=True)
+        business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, frame_id, stream_info, is_empty=True)
         summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)
         
         # Return standardized components as tuple
@@ -313,7 +313,7 @@ class PeopleCountingUseCase(BaseProcessor):
         camera_info = self.get_camera_info_from_stream(stream_info)
         incidents = []
         total_people = counting_summary.get("total_objects", 0)
-        current_timestamp = self._get_current_timestamp_str(stream_info)
+        current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
         self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
 
         alert_settings=[]
@@ -422,7 +422,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     incidents.append(event)
         return incidents
 
-    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleCountingConfig, frame_id: Optional[str] = None, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleCountingConfig, frame_id: str, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate tracking stats using standardized methods."""
         
         total_people = counting_summary.get("total_objects", 0)
@@ -522,26 +522,62 @@ class PeopleCountingUseCase(BaseProcessor):
                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                             }
             })
-        
-               
-        human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, alerts, stream_info)
+        if zone_analysis:
+                human_text_lines=[]
+                current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
+                start_timestamp = self._get_start_timestamp_str(stream_info)
+                human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+                def robust_zone_total(zone_count):
+                    if isinstance(zone_count, dict):
+                        total = 0
+                        for v in zone_count.values():
+                            if isinstance(v, int):
+                                total += v
+                            elif isinstance(v, list) and total==0:
+                                total += len(v)
+                        return total
+                    elif isinstance(zone_count, list):
+                        return len(zone_count)
+                    elif isinstance(zone_count, int):
+                        return zone_count
+                    else:
+                        return 0
+                human_text_lines.append(f"\t- People Detected: {total_people}")
+                human_text_lines.append("")
+                human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+                
+                for zone_name, zone_count in zone_analysis.items():
+                        zone_total = robust_zone_total(zone_count)
+                        human_text_lines.append(f"\t- Zone name: {zone_name}")
+                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total-1}")
+
+                
+                human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
+                if alerts:
+                    for alert in alerts:
+                        human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+                else:
+                    human_text_lines.append("Alerts: None")
+                human_text = "\n".join(human_text_lines)  
+        else:      
+            human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, frame_id, alerts, stream_info)
         
          # Create high precision timestamps for input_timestamp and reset_timestamp
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
         # Create tracking_stat using standardized method
         tracking_stat = self.create_tracking_stats(
-            total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings, high_precision_start_timestamp, high_precision_reset_timestamp
+            total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings, start_time=high_precision_start_timestamp, reset_time=high_precision_reset_timestamp
         )
         
         return [tracking_stat]
     
-    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleCountingConfig, alerts:Any=[], stream_info: Optional[Dict[str, Any]] = None) -> str:
+    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleCountingConfig, frame_id: str, alerts:Any=[], stream_info: Optional[Dict[str, Any]] = None) -> str:
         """Generate human-readable text for tracking stats in old format."""
         from datetime import datetime, timezone
         
         human_text_lines=[]
-        current_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
@@ -587,15 +623,13 @@ class PeopleCountingUseCase(BaseProcessor):
             return alerts
         
         total_people = counting_summary.get("total_objects", 0)
-        print(f"----ALERT: total_people: {total_people}")
-        print(f"----ALERT: CONFIGG: {config.alert_config}")
         
         # Count threshold alerts
         if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
-            print(f"----ALERT: CONFIGG--IF INN---------------")
+
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_people >= threshold:
-                    print(f"----ALERT: category: {category}")
+
                     alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                         "alert_id": "alert_"+category+'_'+frame_id,
@@ -608,7 +642,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     })
                 elif category in counting_summary.get("by_category", {}):
                     count = counting_summary["by_category"][category]
-                    print(f"----ALERT: count: {count},{threshold}")
+
                     if count >= threshold:
                         alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
@@ -621,19 +655,20 @@ class PeopleCountingUseCase(BaseProcessor):
                                     }                    
                     })
         else: 
-            print(config.alert_config.count_thresholds)
-            print(f"----ALERT: CONFIGG--IF INN---------------")
+            pass
         
         # Zone occupancy threshold alerts
         if config.alert_config.occupancy_thresholds:
             for zone_name, threshold in config.alert_config.occupancy_thresholds.items():
                 if zone_name in zone_analysis:
-                    zone_count = sum(zone_analysis[zone_name].values()) if isinstance(zone_analysis[zone_name], dict) else zone_analysis[zone_name]
+                    # Calculate zone_count robustly (supports int, list, dict values)
+                    print('ZONEEE',zone_name, zone_analysis[zone_name])
+                    zone_count = self._robust_zone_total(zone_analysis[zone_name])
                     if zone_count >= threshold:
                         alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                        "alert_id": "alert_"+category+'_zone_'+zone_name+'_'+frame_id,
-                        "incident_category": self.CASE_TYPE+'_'+zone_name,
+                        "alert_id": f"alert_zone_{zone_name}_{frame_id}",
+                        "incident_category": f"{self.CASE_TYPE}_{zone_name}",
                         "threshold_level": threshold,
                         "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
                         "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
@@ -643,7 +678,7 @@ class PeopleCountingUseCase(BaseProcessor):
         
         return alerts
 
-    def _generate_business_analytics(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleCountingConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+    def _generate_business_analytics(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleCountingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
         """Generate standardized business analytics for the agg_summary structure."""
         if is_empty:
             return []
@@ -671,7 +706,7 @@ class PeopleCountingUseCase(BaseProcessor):
                 analytics_stats.update(zone_stats)
             
             # Generate human text for analytics
-            current_timestamp = self._get_current_timestamp_str(stream_info)
+            current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
             start_timestamp = self._get_start_timestamp_str(stream_info)
             
             analytics_human_text = self.generate_analytics_human_text(
@@ -1153,38 +1188,44 @@ class PeopleCountingUseCase(BaseProcessor):
             for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
         }
 
-    def _format_timestamp_for_video(self, timestamp: float) -> str:
-        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
-        hours = int(float(timestamp) // 3600)
-        minutes = int((float(timestamp) % 3600) // 60)
-        seconds = float(timestamp) % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
-
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60),2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: str=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-
         # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-                stream_time_str = stream_info.get("video_timestamp", "")
-                return stream_time_str[:8]
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
         else:
             # For streams, use stream_time from stream_info
-            stream_time_str = stream_info.get("stream_time", "")
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 # Parse the high precision timestamp string to get timestamp
                 try:
@@ -1204,22 +1245,21 @@ class PeopleCountingUseCase(BaseProcessor):
         if not stream_info:
             return "00:00:00"
 
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 return "00:00:00"
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
 
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
             # For streams, use tracking start time or current time with minutes/seconds reset
             if self._tracking_start_time is None:
                 # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("stream_time", "")
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
                         # Remove " UTC" suffix and parse

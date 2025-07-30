@@ -91,7 +91,6 @@ class Service(ComposeElement):
         "networks": (Networks, "https://github.com/compose-spec/compose-spec/blob/master/spec.md#networks"),
         "mac_address": (str, "https://github.com/compose-spec/compose-spec/blob/master/spec.md#mac_address"),
         "mem_limit": (ComposeByteValue, "https://github.com/compose-spec/compose-spec/blob/master/spec.md#mem_limit"),
-        "mem_reservation": (ComposeByteValue, "https://github.com/compose-spec/compose-spec/blob/master/spec.md#mem_reservation"),
         "mem_swappiness": ((int, [0, 100]), "https://github.com/compose-spec/compose-spec/blob/master/spec.md#mem_swappiness"),
         "memswap_limit": (ComposeByteValue, "https://github.com/compose-spec/compose-spec/blob/master/spec.md#memswap_limit"),
         "oom_kill_disable": (bool, "https://github.com/compose-spec/compose-spec/blob/master/spec.md#oom_kill_disable"),

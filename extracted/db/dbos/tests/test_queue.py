@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import multiprocessing
 import multiprocessing.synchronize
 import os
@@ -27,7 +26,7 @@ from dbos import (
 )
 from dbos._context import assert_current_dbos_context
 from dbos._dbos import WorkflowHandleAsync
-from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSWorkflowCancelledError
+from dbos._error import DBOSAwaitedWorkflowCancelledError
 from dbos._schemas.system_database import SystemSchema
 from dbos._sys_db import WorkflowStatusString
 from dbos._utils import GlobalParams
@@ -943,7 +942,7 @@ def test_timeout_queue(dbos: DBOS) -> None:
 
     with SetWorkflowTimeout(1.0):
         handle = DBOS.start_workflow(blocked_parent_workflow)
-    with pytest.raises(DBOSWorkflowCancelledError):
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         handle.get_result()
     with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         DBOS.retrieve_workflow(child_id).get_result()
@@ -1343,7 +1342,9 @@ def test_worker_concurrency_across_versions(dbos: DBOS, client: DBOSClient) -> N
 
     @DBOS.workflow()
     def test_workflow() -> str:
-        return DBOS.workflow_id
+        workflow_id = DBOS.workflow_id
+        assert workflow_id is not None
+        return workflow_id
 
     # First enqueue a workflow on the other version, then on the current version
     other_version = "other_version"
@@ -1417,7 +1418,9 @@ def test_unsetting_timeout(dbos: DBOS) -> None:
     def child() -> str:
         for _ in range(5):
             DBOS.sleep(1)
-        return DBOS.workflow_id
+        workflow_id = DBOS.workflow_id
+        assert workflow_id is not None
+        return workflow_id
 
     @DBOS.workflow()
     def parent(child_one: str, child_two: str) -> None:
@@ -1448,7 +1451,9 @@ def test_queue_executor_id(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def example_workflow() -> str:
-        return DBOS.workflow_id
+        workflow_id = DBOS.workflow_id
+        assert workflow_id is not None
+        return workflow_id
 
     # Set an executor ID
     original_executor_id = str(uuid.uuid4())

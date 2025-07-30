@@ -96,7 +96,9 @@ class RandomGrayscale(BaseImagePreprocessingLayer):
         return input_shape
 
     def compute_output_spec(self, inputs, **kwargs):
-        return inputs
+        return backend.KerasTensor(
+            inputs.shape, dtype=inputs.dtype, sparse=inputs.sparse
+        )
 
     def transform_bounding_boxes(self, bounding_boxes, **kwargs):
         return bounding_boxes

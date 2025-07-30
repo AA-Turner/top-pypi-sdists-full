@@ -2881,9 +2881,7 @@ class PreTrainedModel(nn.Module, EmbeddingAccessMixin, ModuleUtilsMixin, PushToH
         # We cannot use `isinstance` on the RMSNorms or LayerNorms, as they usually are custom modules which change names
         # between modelings (because they are prefixed with the model name)
         elif (
-            isinstance(
-                module, (nn.LayerNorm, nn.RMSNorm, nn.GroupNorm, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
-            )
+            isinstance(module, (nn.GroupNorm, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d))
             or "LayerNorm" in module.__class__.__name__
             or "RMSNorm" in module.__class__.__name__
         ):
@@ -4472,7 +4470,7 @@ class PreTrainedModel(nn.Module, EmbeddingAccessMixin, ModuleUtilsMixin, PushToH
                 A torch tensor parallel degree. If not provided would default to world size.
             device_mesh (`torch.distributed.DeviceMesh`, *optional*):
                 A torch device mesh. If not provided would default to world size. Used only for tensor parallel for now.
-                If provided, it has to contain dimension named `"tp"` which will be used for tensor parallelism
+                If provided, it has to contain dimension named `"tp"` in case it's > 1 dimensional, this dimension will be used for tensor parallelism
             offload_folder (`str` or `os.PathLike`, *optional*):
                 If the `device_map` contains any value `"disk"`, the folder where we will offload weights.
             offload_state_dict (`bool`, *optional*):
@@ -4617,10 +4615,15 @@ class PreTrainedModel(nn.Module, EmbeddingAccessMixin, ModuleUtilsMixin, PushToH
             if device_mesh is None:
                 tp_plan, device_map, device_mesh, tp_size = initialize_tensor_parallelism(tp_plan, tp_size=tp_size)
             else:
-                # TODO: make device_mesh support multiple dimensions
                 if device_mesh.ndim > 1:
-                    raise ValueError("device_mesh must be 1 dimensional and will be used for TP")
-                device_map = torch.device(device_mesh.device_type, int(os.environ["LOCAL_RANK"]))
+                    if "tp" not in device_mesh.mesh_dim_names:
+                        raise ValueError(
+                            "When using `tp_plan` and n-d `device_mesh`, it must contain a 'tp' dimension. "
+                            "Please provide a valid `device_mesh`."
+                        )
+                    device_mesh = device_mesh["tp"]
+                tp_size = device_mesh.size()
+                device_map = torch.device(f"{device_mesh.device_type}:{int(os.environ['LOCAL_RANK'])}")
 
             if tp_size is None:
                 tp_size = torch.distributed.get_world_size()

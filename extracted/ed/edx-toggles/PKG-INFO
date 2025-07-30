@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: edx-toggles
-Version: 5.3.0
+Version: 5.4.1
 Summary: Library and utilities for feature toggles
 Home-page: https://github.com/openedx/edx-toggles
 Author: edX
@@ -10,6 +10,7 @@ Keywords: Django edx
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
@@ -29,6 +30,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
@@ -42,7 +44,7 @@ Library and utilities for implementing and reporting on feature toggles.
 
 Documentation is on `Read the Docs`_.  Code repository is on `GitHub`_.
 
-.. _Read the Docs: https://edx.readthedocs.io/projects/edx-toggles/en/latest/readme.html
+.. _Read the Docs: https://docs.openedx.org/projects/edx-toggles/en/latest/readme.html
 .. _GitHub: https://github.com/openedx/edx-toggles
 
 See the `scripts README`_ for more information on the scripts for reporting on the status of
@@ -126,6 +128,17 @@ Change Log
 
 Unreleased
 ~~~~~~~~~~
+
+[5.4.1] - 2025-07-27
+--------------------
+
+* Fix toggle report to extract boolean values from deeply nested configurations.
+
+[5.4.0] - 2025-04-16
+--------------------
+
+* Added Django 5.2 support.
+* Log error on waffle object creation when name includes a blank space as a prefix or suffix.
 
 [5.3.0] - 2025-02-14
 --------------------
@@ -292,11 +305,11 @@ First release to PyPI (2020-10-02)
 * Add toggles report with CSV output using new CsvRenderer.
 * Add CourseWaffleFlag and course override data to toggle report.
 * Add output for waffle flag course overrides to data gatherer
-* Add additional options to scripts/feature_toggle_report_generator
+* Add additional options to scripts/feature_toggle_report
 
     * filter toggle types and envs, add github_url, and change name of ida in report
 
-* Modified scripts/feature_toggle_report_generator to work based on envs
+* Modified scripts/feature_toggle_report to work based on envs
 * Removed confluence integration
 * Moved HtmlRenderer to its own file
 * Add ADR for new SettingToggle. (see 0003-django-setting-toggles.rst)

@@ -38,8 +38,8 @@ class TestEntityAutomationItemProjection(unittest.TestCase):
         if include_optional :
             return EntityAutomationItemProjection(
                 inbox_id = '0', 
-                phone_id = '0', 
                 action = '0', 
+                phone_id = '0', 
                 automation_type = 'INBOX_FORWARDER', 
                 name = '0', 
                 id = '0'

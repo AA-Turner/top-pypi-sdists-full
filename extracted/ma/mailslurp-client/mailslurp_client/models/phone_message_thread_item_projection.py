@@ -37,21 +37,21 @@ class PhoneMessageThreadItemProjection(object):
         'body': 'str',
         'phone_number_id': 'str',
         'created': 'datetime',
-        'from_phone_number': 'str',
+        'message_direction': 'str',
         'to_phone_number': 'str',
-        'message_direction': 'str'
+        'from_phone_number': 'str'
     }
 
     attribute_map = {
         'body': 'body',
         'phone_number_id': 'phoneNumberId',
         'created': 'created',
-        'from_phone_number': 'fromPhoneNumber',
+        'message_direction': 'messageDirection',
         'to_phone_number': 'toPhoneNumber',
-        'message_direction': 'messageDirection'
+        'from_phone_number': 'fromPhoneNumber'
     }
 
-    def __init__(self, body=None, phone_number_id=None, created=None, from_phone_number=None, to_phone_number=None, message_direction=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, body=None, phone_number_id=None, created=None, message_direction=None, to_phone_number=None, from_phone_number=None, local_vars_configuration=None):  # noqa: E501
         """PhoneMessageThreadItemProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -60,17 +60,17 @@ class PhoneMessageThreadItemProjection(object):
         self._body = None
         self._phone_number_id = None
         self._created = None
-        self._from_phone_number = None
-        self._to_phone_number = None
         self._message_direction = None
+        self._to_phone_number = None
+        self._from_phone_number = None
         self.discriminator = None
 
         self.body = body
         self.phone_number_id = phone_number_id
         self.created = created
-        self.from_phone_number = from_phone_number
-        self.to_phone_number = to_phone_number
         self.message_direction = message_direction
+        self.to_phone_number = to_phone_number
+        self.from_phone_number = from_phone_number
 
     @property
     def body(self):
@@ -142,52 +142,6 @@ class PhoneMessageThreadItemProjection(object):
         self._created = created
 
     @property
-    def from_phone_number(self):
-        """Gets the from_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
-
-
-        :return: The from_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._from_phone_number
-
-    @from_phone_number.setter
-    def from_phone_number(self, from_phone_number):
-        """Sets the from_phone_number of this PhoneMessageThreadItemProjection.
-
-
-        :param from_phone_number: The from_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and from_phone_number is None:  # noqa: E501
-            raise ValueError("Invalid value for `from_phone_number`, must not be `None`")  # noqa: E501
-
-        self._from_phone_number = from_phone_number
-
-    @property
-    def to_phone_number(self):
-        """Gets the to_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
-
-
-        :return: The to_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._to_phone_number
-
-    @to_phone_number.setter
-    def to_phone_number(self, to_phone_number):
-        """Sets the to_phone_number of this PhoneMessageThreadItemProjection.
-
-
-        :param to_phone_number: The to_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and to_phone_number is None:  # noqa: E501
-            raise ValueError("Invalid value for `to_phone_number`, must not be `None`")  # noqa: E501
-
-        self._to_phone_number = to_phone_number
-
-    @property
     def message_direction(self):
         """Gets the message_direction of this PhoneMessageThreadItemProjection.  # noqa: E501
 
@@ -215,6 +169,52 @@ class PhoneMessageThreadItemProjection(object):
             )
 
         self._message_direction = message_direction
+
+    @property
+    def to_phone_number(self):
+        """Gets the to_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
+
+
+        :return: The to_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._to_phone_number
+
+    @to_phone_number.setter
+    def to_phone_number(self, to_phone_number):
+        """Sets the to_phone_number of this PhoneMessageThreadItemProjection.
+
+
+        :param to_phone_number: The to_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and to_phone_number is None:  # noqa: E501
+            raise ValueError("Invalid value for `to_phone_number`, must not be `None`")  # noqa: E501
+
+        self._to_phone_number = to_phone_number
+
+    @property
+    def from_phone_number(self):
+        """Gets the from_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
+
+
+        :return: The from_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._from_phone_number
+
+    @from_phone_number.setter
+    def from_phone_number(self, from_phone_number):
+        """Sets the from_phone_number of this PhoneMessageThreadItemProjection.
+
+
+        :param from_phone_number: The from_phone_number of this PhoneMessageThreadItemProjection.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and from_phone_number is None:  # noqa: E501
+            raise ValueError("Invalid value for `from_phone_number`, must not be `None`")  # noqa: E501
+
+        self._from_phone_number = from_phone_number
 
     def to_dict(self):
         """Returns the model properties as a dict"""

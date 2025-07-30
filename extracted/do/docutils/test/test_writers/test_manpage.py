@@ -10,6 +10,7 @@ Tests for manpage writer.
 from pathlib import Path
 import sys
 import unittest
+from io import StringIO
 
 if __name__ == '__main__':
     # prepend the "docutils root" to the Python library path
@@ -17,6 +18,27 @@ if __name__ == '__main__':
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from docutils.core import publish_string
+from docutils.writers import manpage
+
+URI_tests = (
+        ("///abc.de", r"///\:abc\:.de"),
+        ("/abc.de/", r"/\:abc\:.de/"),
+        ("http://abc.de", r"http://\:abc\:.de"),
+        ("http://abc.de/fg", r"http://\:abc\:.de/fg"),
+        ("http://abc.de/fg?q=abc", r"http://\:abc\:.de/\:fg?\:q=abc"),
+        ("http://abc.de/fg/?q=abc", r"http://\:abc\:.de/\:fg/?\:q=abc"),
+        ("http://abc.de/fg/?q=abc&me#", r"http://\:abc\:.de/\:fg/?\:q=abc&\:me#"),
+        ("me@home.here", r"me@\:home\:.here"),
+        ("me..dot@home.here..", r"me\:..dot@\:home\:.here.."),
+        )
+
+
+class URIBreakpointsTestCase(unittest.TestCase):
+
+    def test_insert(self):
+        for t in URI_tests:
+            got = manpage.insert_URI_breakpoints(t[0])
+            self.assertEqual(t[1], got)
 
 
 class WriterPublishTestCase(unittest.TestCase):
@@ -24,19 +46,59 @@ class WriterPublishTestCase(unittest.TestCase):
     maxDiff = None
 
     def test_publish(self):
-        writer_name = 'manpage'
         for name, cases in totest.items():
             for casenum, (case_input, case_expected) in enumerate(cases):
                 with self.subTest(id=f'totest[{name!r}][{casenum}]'):
                     output = publish_string(
                         source=case_input,
-                        writer_name=writer_name,
+                        writer=manpage.Writer(),
                         settings_overrides={
                             '_disable_config': True,
                             'strict_visitor': True,
                         }).decode()
                     self.assertEqual(case_expected, output)
 
+    def test_reference_macros(self):
+        for name, cases in totest_refs.items():
+            for casenum, (case_input, case_expected) in enumerate(cases):
+                with self.subTest(id=f'totest_refs[{name!r}][{casenum}]'):
+                    output = publish_string(
+                        source=case_input,
+                        writer=manpage.Writer(),
+                        settings_overrides={
+                            '_disable_config': True,
+                            'strict_visitor': True,
+                            'text_references': False,
+                            'output_encoding': "unicode",
+                        })
+                    self.assertEqual(case_expected, output)
+
+    def test_system_msgs(self):
+        for name, cases in totest_system_msgs.items():
+            for casenum, (case_input, case_expected, case_warning) in enumerate(cases):
+                with self.subTest(id=f'totest_system_msgs[{name!r}][{casenum}]'):
+                    warnings = StringIO("")
+                    output = publish_string(
+                        source=case_input,
+                        writer=manpage.Writer(),
+                        settings_overrides={
+                            '_disable_config': True,
+                            'strict_visitor': True,
+                            'report_level': 1,
+                            'warning_stream': warnings,
+                            'output_encoding': "unicode",
+                        })
+                    self.assertEqual(case_expected, output)
+                    warnings.seek(0)
+                    self.assertEqual(
+                            case_warning,
+                            warnings.readlines())
+
+
+document_start = r""".\" Man page generated from reStructuredText
+.\" by the Docutils 0.22 manpage writer.
+.
+"""
 
 indend_macros = r""".
 .nr rst2man-indent-level 0
@@ -67,17 +129,85 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 """
 
+totest_refs = {}
+
+totest_refs['ext hyperlink'] = [
+        [r"""External hyperlinks, like Python_.
+
+.. _Python: https://www.python.org/
+""",
+         document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
+ \\- \n\
+External hyperlinks, like \\c\n\
+.UR \\%https://\\:www\\:.python\\:.org/
+Python
+.UE \\c
+\\&.
+.\\" End of generated man page.
+"""],
+        ]
+
+totest_refs['emb hyperlink'] = [
+        [r"""embedded External hyperlinks, like `Python
+<https://www.python.org/>`_.
+""",
+         document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
+ \\- \n\
+embedded External hyperlinks, like \\c\n\
+.UR \\%https://\\:www\\:.python\\:.org/
+Python
+.UE \\c
+\\&.
+.\\" End of generated man page.
+"""],
+        ]
+
+totest_refs['email'] = [
+        [r"""`Write to me`_ with your questions.
+
+.. _Write to me: jdoe@example.com
+
+whatever.""",
+         document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
+ \\- \n\
+.MT \\%jdoe@\\:example\\:.com
+Write to me
+.ME \\c
+ with your questions.
+.sp
+whatever.
+.\\" End of generated man page.
+"""],
+        ]
+
+totest_refs['email trailings'] = [
+        [r"""email: (eee@mmm.al).
+
+no spaces before and after the email.""",
+         document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
+ \\- \n\
+email: (\\c
+.MT \\%eee@\\:mmm\\:.al
+.ME \\c
+).
+.sp
+no spaces before and after the email.
+.\\" End of generated man page.
+"""],
+        ]
+
 totest = {}
 
 totest['blank'] = [
         ["",
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "" "" "" ""
-.SH NAME
+         document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
  \\- \n\
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
         [r"""Hello, world.
 =============
@@ -86,20 +216,18 @@ totest['blank'] = [
    This broke docutils-sphinx.
 
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "HELLO, WORLD." "" "" ""
-.SH NAME
+         document_start + indend_macros +
+""".TH "Hello, world." "" "" ""
+.SH Name
 Hello, world. \\- \n\
 .sp
-\\fBWARNING:\\fP
+\\fBWarning:\\fP
 .INDENT 0.0
 .INDENT 3.5
 This broke docutils\\-sphinx.
 .UNINDENT
 .UNINDENT
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
 ]
 
@@ -163,11 +291,11 @@ With mixed case.
 and . in a line and at line start
 .in a paragraph
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + r""".TH "SIMPLE" "1" "2009-08-05" "0.1" "text processing"
-.SH NAME
-simple \- The way to go
+         document_start + indend_macros +
+"""\
+.TH "simple" "1" "2009-08-05" "0.1" "text processing"
+.SH Name
+simple \\- The way to go
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
@@ -183,29 +311,29 @@ General rule of life.
 .SH OPTIONS
 .INDENT 0.0
 .TP
-.BI \-\-config\fB= <file>
+.BI \\-\\-config\\fB= <file>
 Read configuration settings from <file>, if it exists.
 .TP
-.B  \-\-version\fP,\fB  \-V
-Show this program\(aqs version number and exit.
+.B  \\-\\-version\\fP,\\fB  \\-V
+Show this program\\(aqs version number and exit.
 .TP
-.B  \-\-help\fP,\fB  \-h
+.B  \\-\\-help\\fP,\\fB  \\-h
 Show this help message and exit.
 .UNINDENT
-.SH OTHER SECTION
+.SH OtHeR SECTION
 .sp
-link to  <http://docutils.sourceforge.io> 
+link to \\%<http://\\:docutils\\:.sourceforge\\:.io>\n\
 .sp
 With mixed case.
 .sp
-\fBATTENTION!:\fP
+\\fBAttention!:\\fP
 .INDENT 0.0
 .INDENT 3.5
 Admonition with title
 .INDENT 0.0
-.IP \(bu 2
+.IP \\(bu 2
 bullet list
-.IP \(bu 2
+.IP \\(bu 2
 bull and list
 .UNINDENT
 .UNINDENT
@@ -218,19 +346,34 @@ something important
 .UNINDENT
 .UNINDENT
 .sp
-\&. period at line start.
+\\&. period at line start.
 .sp
 and . in a line and at line start
-\&.in a paragraph
-.SH AUTHOR
+\\&.in a paragraph
+.SH Author
 someone@somewhere.net
 
 Arbitrary field: some text
-.SH COPYRIGHT
+.SH Copyright
 public domain
-.\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
+["""\
+Internal hyperlinks_ and targets_ are ignored.
+
+.. _hyperlinks:
+
+(Text content of hyperlinks and _`targets` is printed as normal text.)
+""",
+f"""{document_start}{indend_macros}.TH "" "" "" ""
+.SH Name
+ \\- \n\
+Internal hyperlinks and targets are ignored.
+.sp
+(Text content of hyperlinks and targets is printed as normal text.)
+.\\" End of generated man page.
+"""],
+
 ]
 
 totest['table'] = [
@@ -244,10 +387,8 @@ totest['table'] = [
 """,
 '''\
 \'\\" t
-.\\" Man page generated from reStructuredText.
-.
-''' + indend_macros + '''.TH "" "" "" ""
-.SH NAME
+''' + document_start + indend_macros + '''.TH "" "" "" ""
+.SH Name
  \\- \n\
 .INDENT 0.0
 .INDENT 3.5
@@ -274,8 +415,7 @@ T}
 .TE
 .UNINDENT
 .UNINDENT
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 ''']
 ]
 
@@ -298,11 +438,8 @@ $
 ]
    bla bla bla
 """,
-        """\
-.\\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "" "" "" ""
-.SH NAME
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
  \\- \n\
 optin group with dot as group item
 .INDENT 0.0
@@ -330,8 +467,7 @@ bla bla bla
 .B ]
 bla bla bla
 .UNINDENT
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
 ]
 
@@ -355,16 +491,13 @@ Section
     Description of Term 1 Description of Term 1
 
 """,
-'''\
-.\\" Man page generated from reStructuredText.
-.
-''' + indend_macros + '''.TH "DEFINITION LIST TEST" "" "" ""
-.SH NAME
+document_start + indend_macros + '''.TH "Definition List Test" "" "" ""
+.SH Name
 Definition List Test \\- \n\
 ''' + '''.SS Abstract
 .sp
 Docinfo is required.
-.SH SECTION
+.SH Section
 .INDENT 0.0
 .TP
 .B term1
@@ -374,8 +507,7 @@ Description of Term 1 Description of Term 1
 Description of Term 1 Description of Term 1 Description of Term 1
 Description of Term 1 Description of Term 1
 .UNINDENT
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 '''],
 ]
 
@@ -385,10 +517,8 @@ totest['cmdlineoptions'] = [
   --output FILE, -o FILE     output filename
   -i DEVICE, --input DEVICE  input device
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "" "" "" ""
-.SH NAME
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
  \\- \n\
 .INDENT 0.0
 .TP
@@ -405,25 +535,22 @@ output filename
 input device
 .UNINDENT
 .UNINDENT
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
 ]
 
 totest['citation'] = [
         [""".. [docutils] blah blah blah
-.. [empty_citation]
+.. [citation2] Another Source
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "" "" "" ""
-.SH NAME
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
  \\- \n\
 .IP [docutils] 5
 blah blah blah
-.IP [empty_citation] 5
-.\\" Generated by docutils manpage writer.
-.
+.IP [citation2] 5
+Another Source
+.\\" End of generated man page.
 """],
 ]
 
@@ -433,10 +560,8 @@ totest['rubric'] = [
 - followed by
 - a list
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "" "" "" ""
-.SH NAME
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
  \\- \n\
 some rubric
 .INDENT 0.0
@@ -445,8 +570,7 @@ followed by
 .IP \\(bu 2
 a list
 .UNINDENT
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
 ]
 
@@ -456,10 +580,8 @@ totest['double_quote'] = [
 
 They are "escaped" anywhere.
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + """.TH "" "" "" ""
-.SH NAME
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
  \\- \n\
 .INDENT 0.0
 .TP
@@ -468,8 +590,7 @@ double quotes must be escaped on macro invocations.
 .UNINDENT
 .sp
 They are \\(dqescaped\\(dq anywhere.
-.\\" Generated by docutils manpage writer.
-.
+.\\" End of generated man page.
 """],
 ]
 
@@ -489,16 +610,61 @@ in short
 
 Test title, docinfo to man page header.
 """,
-        r""".\" Man page generated from reStructuredText.
-.
-""" + indend_macros + r""".TH "PAGE TITLE" "3" "3/Nov/2022" "0.0" "the books"
-.SH NAME
+document_start + indend_macros + r""".TH "page title" "3" "3/Nov/2022" "0.0" "the books"
+.SH Name
 page title \- in short
 .sp
 Test title, docinfo to man page header.
-.\" Generated by docutils manpage writer.
-.
+.\" End of generated man page.
 """],
+]
+
+# test defintion
+# [ input, expect, expected_warning ]
+totest_system_msgs = {}
+# check we get an INFO not a WARNING
+totest_system_msgs['image'] = [
+        ["""\
+text
+
+.. image:: gibsnich.png
+   :alt: an image of something
+
+more text
+""",
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
+ \\- \n\
+text
+.sp
+    an image of something
+.sp
+more text
+.\\" End of generated man page.
+""",
+['<string>:3: (INFO/1) "image" not supported by "manpage" writer.\n']
+],
+
+# check we get a WARNING if no alt text
+        ["""text
+
+.. image:: gibsnich.png
+
+more text
+""",
+document_start + indend_macros + """.TH "" "" "" ""
+.SH Name
+ \\- \n\
+text
+.sp
+    image: gibsnich.png
+.sp
+more text
+.\\" End of generated man page.
+""",
+['<string>:3: (WARNING/2) "image" not supported by "manpage" writer.\n',
+'Please provide an "alt" attribute with textual replacement.\n']
+]
 ]
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-distro
-Version: 0.56b0
+Version: 0.57b0
 Summary: OpenTelemetry Python Distro
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/opentelemetry-distro
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -19,10 +19,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: opentelemetry-api~=1.12
-Requires-Dist: opentelemetry-instrumentation==0.56b0
+Requires-Dist: opentelemetry-instrumentation==0.57b0
 Requires-Dist: opentelemetry-sdk~=1.13
 Provides-Extra: otlp
-Requires-Dist: opentelemetry-exporter-otlp==1.35.0; extra == 'otlp'
+Requires-Dist: opentelemetry-exporter-otlp==1.36.0; extra == 'otlp'
 Description-Content-Type: text/x-rst
 
 OpenTelemetry Distro

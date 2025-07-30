@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: rst2xetex.py 9115 2022-07-28 17:06:24Z milde $
+# $Id: rst2xetex.py 9771 2024-06-18 08:00:10Z milde $
 # Author: Guenter Milde
 # Copyright: This module has been placed in the public domain.
 
@@ -24,4 +24,4 @@ description = ('Generates LaTeX documents from standalone reStructuredText '
                '<https://docutils.sourceforge.io/docs/user/latex.html> for '
                'the full reference.')
 
-publish_cmdline(writer_name='xetex', description=description)
+publish_cmdline(writer='xetex', description=description)

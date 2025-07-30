@@ -126,6 +126,7 @@ class SmsPreview(object):
     def body(self):
         """Gets the body of this SmsPreview.  # noqa: E501
 
+        TXT message content  # noqa: E501
 
         :return: The body of this SmsPreview.  # noqa: E501
         :rtype: str
@@ -136,6 +137,7 @@ class SmsPreview(object):
     def body(self, body):
         """Sets the body of this SmsPreview.
 
+        TXT message content  # noqa: E501
 
         :param body: The body of this SmsPreview.  # noqa: E501
         :type: str
@@ -149,6 +151,7 @@ class SmsPreview(object):
     def phone_number(self):
         """Gets the phone_number of this SmsPreview.  # noqa: E501
 
+        ID of the phone number that received this SMS  # noqa: E501
 
         :return: The phone_number of this SmsPreview.  # noqa: E501
         :rtype: str
@@ -159,6 +162,7 @@ class SmsPreview(object):
     def phone_number(self, phone_number):
         """Sets the phone_number of this SmsPreview.
 
+        ID of the phone number that received this SMS  # noqa: E501
 
         :param phone_number: The phone_number of this SmsPreview.  # noqa: E501
         :type: str
@@ -172,6 +176,7 @@ class SmsPreview(object):
     def from_number(self):
         """Gets the from_number of this SmsPreview.  # noqa: E501
 
+        Sender number  # noqa: E501
 
         :return: The from_number of this SmsPreview.  # noqa: E501
         :rtype: str
@@ -182,6 +187,7 @@ class SmsPreview(object):
     def from_number(self, from_number):
         """Sets the from_number of this SmsPreview.
 
+        Sender number  # noqa: E501
 
         :param from_number: The from_number of this SmsPreview.  # noqa: E501
         :type: str
@@ -195,6 +201,7 @@ class SmsPreview(object):
     def read(self):
         """Gets the read of this SmsPreview.  # noqa: E501
 
+        Is the message read or unread  # noqa: E501
 
         :return: The read of this SmsPreview.  # noqa: E501
         :rtype: bool
@@ -205,6 +212,7 @@ class SmsPreview(object):
     def read(self, read):
         """Sets the read of this SmsPreview.
 
+        Is the message read or unread  # noqa: E501
 
         :param read: The read of this SmsPreview.  # noqa: E501
         :type: bool

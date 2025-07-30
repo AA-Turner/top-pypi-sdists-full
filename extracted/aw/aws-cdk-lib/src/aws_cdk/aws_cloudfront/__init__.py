@@ -3831,6 +3831,10 @@ class CfnCachePolicy(
             - The values that CloudFront includes in the cache key. These values can include HTTP headers, cookies, and URL query strings. CloudFront uses the cache key to find an object in its cache that it can return to the viewer.
             - The default, minimum, and maximum time to live (TTL) values that you want objects to stay in the CloudFront cache.
 
+            .. epigraph::
+
+               If your minimum TTL is greater than 0, CloudFront will cache content for at least the duration specified in the cache policy's minimum TTL, even if the ``Cache-Control: no-cache`` , ``no-store`` , or ``private`` directives are present in the origin headers.
+
             The headers, cookies, and query strings that are included in the cache key are also included in requests that CloudFront sends to the origin. CloudFront sends a request when it can't find a valid object in its cache that matches the request's cache key. If you want to send values to the origin but *not* include them in the cache key, use ``OriginRequestPolicy`` .
 
             :param default_ttl: The default amount of time, in seconds, that you want objects to stay in the CloudFront cache before CloudFront sends another request to the origin to see if the object has been updated. CloudFront uses this value as the object's time to live (TTL) only when the origin does *not* send ``Cache-Control`` or ``Expires`` headers with the object. For more information, see `Managing How Long Content Stays in an Edge Cache (Expiration) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Expiration.html>`_ in the *Amazon CloudFront Developer Guide* . The default value for this field is 86400 seconds (one day). If the value of ``MinTTL`` is more than 86400 seconds, then the default value for this field is the same as the value of ``MinTTL`` .
@@ -6467,6 +6471,9 @@ class CfnDistribution(
             To delete all cache behaviors in an existing distribution, update the distribution configuration and include only an empty ``CacheBehaviors`` element.
 
             To add, change, or remove one or more cache behaviors, update the distribution configuration and specify all of the cache behaviors that you want to include in the updated distribution.
+            .. epigraph::
+
+               If your minimum TTL is greater than 0, CloudFront will cache content for at least the duration specified in the cache policy's minimum TTL, even if the ``Cache-Control: no-cache`` , ``no-store`` , or ``private`` directives are present in the origin headers.
 
             For more information about cache behaviors, see `Cache Behavior Settings <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesCacheBehavior>`_ in the *Amazon CloudFront Developer Guide* .
 
@@ -7401,6 +7408,9 @@ class CfnDistribution(
             '''A complex type that describes the default cache behavior if you don't specify a ``CacheBehavior`` element or if request URLs don't match any of the values of ``PathPattern`` in ``CacheBehavior`` elements.
 
             You must create exactly one default cache behavior.
+            .. epigraph::
+
+               If your minimum TTL is greater than 0, CloudFront will cache content for at least the duration specified in the cache policy's minimum TTL, even if the ``Cache-Control: no-cache`` , ``no-store`` , or ``private`` directives are present in the origin headers.
 
             :param target_origin_id: The value of ``ID`` for the origin that you want CloudFront to route requests to when they use the default cache behavior.
             :param viewer_protocol_policy: The protocol that viewers can use to access the files in the origin specified by ``TargetOriginId`` when a request matches the path pattern in ``PathPattern`` . You can specify the following options: - ``allow-all`` : Viewers can use HTTP or HTTPS. - ``redirect-to-https`` : If a viewer submits an HTTP request, CloudFront returns an HTTP status code of 301 (Moved Permanently) to the viewer along with the HTTPS URL. The viewer then resubmits the request using the new URL. - ``https-only`` : If a viewer sends an HTTP request, CloudFront returns an HTTP status code of 403 (Forbidden). For more information about requiring the HTTPS protocol, see `Requiring HTTPS Between Viewers and CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-https-viewers-to-cloudfront.html>`_ in the *Amazon CloudFront Developer Guide* . .. epigraph:: The only way to guarantee that viewers retrieve an object that was fetched from the origin using HTTPS is never to use any other protocol to fetch the object. If you have recently changed from HTTP to HTTPS, we recommend that you clear your objects' cache because cached objects are protocol agnostic. That means that an edge location will return an object from the cache regardless of whether the current request protocol matches the protocol used previously. For more information, see `Managing Cache Expiration <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Expiration.html>`_ in the *Amazon CloudFront Developer Guide* .
@@ -8020,7 +8030,7 @@ class CfnDistribution(
             :param cache_behaviors: A complex type that contains zero or more ``CacheBehavior`` elements.
             :param cnam_es: An alias for the CloudFront distribution's domain name. .. epigraph:: This property is legacy. We recommend that you use `Aliases <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-aliases>`_ instead.
             :param comment: A comment to describe the distribution. The comment cannot be longer than 128 characters. Default: - ""
-            :param connection_mode: This field specifies whether the connection mode is through a standard distribution (direct) or a multi-tenant distribution with distribution tenants(tenant-only).
+            :param connection_mode: This field specifies whether the connection mode is through a standard distribution (direct) or a multi-tenant distribution with distribution tenants (tenant-only).
             :param continuous_deployment_policy_id: .. epigraph:: This field only supports standard distributions. You can't specify this field for multi-tenant distributions. For more information, see `Unsupported features for SaaS Manager for Amazon CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-config-options.html#unsupported-saas>`_ in the *Amazon CloudFront Developer Guide* . The identifier of a continuous deployment policy. For more information, see ``CreateContinuousDeploymentPolicy`` .
             :param custom_error_responses: A complex type that controls the following:. - Whether CloudFront replaces HTTP status codes in the 4xx and 5xx range with custom error messages before returning the response to the viewer. - How long CloudFront caches HTTP status codes in the 4xx and 5xx range. For more information about custom error pages, see `Customizing Error Responses <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/custom-error-pages.html>`_ in the *Amazon CloudFront Developer Guide* .
             :param custom_origin: The user-defined HTTP server that serves as the origin for content that CloudFront distributes. .. epigraph:: This property is legacy. We recommend that you use `Origin <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html>`_ instead.
@@ -8293,7 +8303,7 @@ class CfnDistribution(
 
         @builtins.property
         def connection_mode(self) -> typing.Optional[builtins.str]:
-            '''This field specifies whether the connection mode is through a standard distribution (direct) or a multi-tenant distribution with distribution tenants(tenant-only).
+            '''This field specifies whether the connection mode is through a standard distribution (direct) or a multi-tenant distribution with distribution tenants (tenant-only).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-connectionmode
             '''

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import List, Dict, Union, Mapping, Optional, Set
 
 import pandas as pd
-
 from seeq import spy
 from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
@@ -239,7 +238,7 @@ def search(query, *, all_properties=False, include_properties: List[str] = None,
         items will also be returned in the results.
 
         If you want all items regardless of scope, use
-        workbook=spy.GLOBALS_AND_ALL_WORKBOOKS
+        workbook=spy.GLOBALS_AND_ALL_WORKBOOKS (equivalent to workbook=None)
 
         If you want only globally-scoped items, use
         workbook=spy.GLOBALS_ONLY
@@ -471,10 +470,12 @@ def search(query, *, all_properties=False, include_properties: List[str] = None,
         queries = [query]
         context.comparison = '~='
 
-    # Handle the case where the user provides a lower-case ID (CRAB-38168)
+    all_queries_have_id = True  # if all queries are by ID, we can skip searching for the workbook
     for query in queries:
         if _common.present(query, 'ID'):
-            query['ID'] = query['ID'].upper()
+            query['ID'] = query['ID'].upper()  # Handle the case where the user provides a lower-case ID (CRAB-38168)
+        else:
+            all_queries_have_id = False
 
     context.status.df = pd.DataFrame(queries)
     context.status.df['Time'] = datetime.timedelta(0)
@@ -484,7 +485,7 @@ def search(query, *, all_properties=False, include_properties: List[str] = None,
     context.status.update('Initializing', Status.RUNNING)
 
     context.workbook_id = None
-    if context.workbook:
+    if context.workbook and not all_queries_have_id:
         if _common.is_guid(context.workbook):
             context.workbook_id = _common.sanitize_guid(context.workbook)
         else:

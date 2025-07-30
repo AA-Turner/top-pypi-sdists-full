@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import logging
 import signal
@@ -97,7 +98,7 @@ def check_jupyter() -> bool:
 )
 @click.option(
     "--allow-sync-from",
-    default="me",
+    default=None,
     type=str,
     help=(
         "IP address or CIDR from which connections to port 22 (SSH) are open; "
@@ -143,6 +144,16 @@ def check_jupyter() -> bool:
     "--disk-size",
     default=None,
     help="Use larger-than-default disk on VM, specified in GiB.",
+)
+@click.option(
+    "--disk-config",
+    default=None,
+    type=str,
+    help=(
+        "Custom configuration for disk attached to the VM. "
+        "For example, ``--disk-config \"{'VolumeType': 'io2', 'Iops': 3000}\"`` "
+        "allows you to use an io2 EBS volume on AWS."
+    ),
 )
 @click.option(
     "--region",
@@ -238,6 +249,7 @@ def start_notebook(
     memory: Union[str, None],
     gpu: bool,
     disk_size: int | None,
+    disk_config: str | None,
     region: str | None,
     open: bool,
     block: bool,
@@ -258,6 +270,10 @@ def start_notebook(
     If file sync was initially not enabled, running ``coiled notebook start --sync``
     will begin file sync without re-launching the notebook.
     """
+
+    # convert (eg) "{'VolumeType': 'io2', 'Iops': 3000}" to dict
+    disk_config_dict: dict | None = ast.literal_eval(disk_config) if disk_config else None
+
     _start_notebook(
         name=name,
         workspace=account,
@@ -270,6 +286,7 @@ def start_notebook(
         memory=memory,
         gpu=gpu,
         disk_size=disk_size,
+        disk_config=disk_config_dict,
         region=region,
         open=open,
         block=block,
@@ -290,7 +307,7 @@ def _start_notebook(
     name: str | None = None,
     workspace: str | None = None,
     sync: bool = False,
-    allow_sync_from: str = "me",
+    allow_sync_from: str | None = None,
     software: str | None = None,
     container: str | None = None,
     vm_type: Sequence[str] = [],
@@ -298,6 +315,7 @@ def _start_notebook(
     memory: Union[str, None] = None,
     gpu: bool = False,
     disk_size: int | None = None,
+    disk_config: dict | None = None,
     region: str | None = None,
     open: bool = False,
     block: bool = True,
@@ -325,6 +343,8 @@ def _start_notebook(
 
     runtime_env_dict = dict_from_key_val_list(env)
     tags = dict_from_key_val_list(tag)
+
+    allow_sync_from = "me" if allow_sync_from is None and sync else allow_sync_from
 
     try:
         # when using package sync, check that local env has jupyter and recent distributed
@@ -384,6 +404,7 @@ def _start_notebook(
                 scheduler_cpu=cpu,
                 scheduler_memory=memory,
                 scheduler_disk_size=disk_size,
+                scheduler_disk_config=disk_config,
                 allow_ssh_from=allow_sync_from,
                 environ=initial_env,
                 scheduler_gpu=gpu,

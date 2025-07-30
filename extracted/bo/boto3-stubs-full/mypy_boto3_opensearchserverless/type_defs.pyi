@@ -94,6 +94,7 @@ __all__ = (
     "GetSecurityConfigResponseTypeDef",
     "GetSecurityPolicyRequestTypeDef",
     "GetSecurityPolicyResponseTypeDef",
+    "IamFederationConfigOptionsTypeDef",
     "IamIdentityCenterConfigOptionsTypeDef",
     "LifecyclePolicyDetailTypeDef",
     "LifecyclePolicyErrorDetailTypeDef",
@@ -361,6 +362,10 @@ CreateLifecyclePolicyRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
     },
 )
+
+class IamFederationConfigOptionsTypeDef(TypedDict):
+    groupAttribute: NotRequired[str]
+    userAttribute: NotRequired[str]
 
 class SamlConfigOptionsTypeDef(TypedDict):
     metadata: str
@@ -777,6 +782,7 @@ CreateSecurityConfigRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "samlOptions": NotRequired[SamlConfigOptionsTypeDef],
         "iamIdentityCenterOptions": NotRequired[CreateIamIdentityCenterConfigOptionsTypeDef],
+        "iamFederationOptions": NotRequired[IamFederationConfigOptionsTypeDef],
         "clientToken": NotRequired[str],
     },
 )
@@ -822,6 +828,7 @@ SecurityConfigDetailTypeDef = TypedDict(
         "description": NotRequired[str],
         "samlOptions": NotRequired[SamlConfigOptionsTypeDef],
         "iamIdentityCenterOptions": NotRequired[IamIdentityCenterConfigOptionsTypeDef],
+        "iamFederationOptions": NotRequired[IamFederationConfigOptionsTypeDef],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
     },
@@ -864,6 +871,7 @@ UpdateSecurityConfigRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "samlOptions": NotRequired[SamlConfigOptionsTypeDef],
         "iamIdentityCenterOptionsUpdates": NotRequired[UpdateIamIdentityCenterConfigOptionsTypeDef],
+        "iamFederationOptions": NotRequired[IamFederationConfigOptionsTypeDef],
         "clientToken": NotRequired[str],
     },
 )

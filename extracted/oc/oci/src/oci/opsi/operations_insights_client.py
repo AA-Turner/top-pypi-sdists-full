@@ -163,7 +163,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/add_exadata_insight_members.py.html>`__ to see an example of how to use add_exadata_insight_members API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/add_exadata_insight_members.py.html>`__ to see an example of how to use add_exadata_insight_members API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -283,7 +283,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_autonomous_database_insight_advanced_features.py.html>`__ to see an example of how to use change_autonomous_database_insight_advanced_features API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_autonomous_database_insight_advanced_features.py.html>`__ to see an example of how to use change_autonomous_database_insight_advanced_features API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -403,7 +403,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_awr_hub_source_compartment.py.html>`__ to see an example of how to use change_awr_hub_source_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_awr_hub_source_compartment.py.html>`__ to see an example of how to use change_awr_hub_source_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -523,7 +523,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_database_insight_compartment.py.html>`__ to see an example of how to use change_database_insight_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_database_insight_compartment.py.html>`__ to see an example of how to use change_database_insight_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -635,7 +635,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_enterprise_manager_bridge_compartment.py.html>`__ to see an example of how to use change_enterprise_manager_bridge_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_enterprise_manager_bridge_compartment.py.html>`__ to see an example of how to use change_enterprise_manager_bridge_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['enterpriseManagerBridgeId']
@@ -752,7 +752,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_exadata_insight_compartment.py.html>`__ to see an example of how to use change_exadata_insight_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_exadata_insight_compartment.py.html>`__ to see an example of how to use change_exadata_insight_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -872,7 +872,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_external_mysql_database_insight_connection.py.html>`__ to see an example of how to use change_external_mysql_database_insight_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_external_mysql_database_insight_connection.py.html>`__ to see an example of how to use change_external_mysql_database_insight_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -992,7 +992,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_host_insight_compartment.py.html>`__ to see an example of how to use change_host_insight_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_host_insight_compartment.py.html>`__ to see an example of how to use change_host_insight_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['hostInsightId']
@@ -1112,7 +1112,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_macs_managed_autonomous_database_insight_connection.py.html>`__ to see an example of how to use change_macs_managed_autonomous_database_insight_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_macs_managed_autonomous_database_insight_connection.py.html>`__ to see an example of how to use change_macs_managed_autonomous_database_insight_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -1232,7 +1232,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_macs_managed_cloud_database_insight_connection.py.html>`__ to see an example of how to use change_macs_managed_cloud_database_insight_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_macs_managed_cloud_database_insight_connection.py.html>`__ to see an example of how to use change_macs_managed_cloud_database_insight_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -1352,7 +1352,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_news_report_compartment.py.html>`__ to see an example of how to use change_news_report_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_news_report_compartment.py.html>`__ to see an example of how to use change_news_report_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['newsReportId']
@@ -1474,7 +1474,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_operations_insights_private_endpoint_compartment.py.html>`__ to see an example of how to use change_operations_insights_private_endpoint_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_operations_insights_private_endpoint_compartment.py.html>`__ to see an example of how to use change_operations_insights_private_endpoint_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsPrivateEndpointId']
@@ -1594,7 +1594,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_operations_insights_warehouse_compartment.py.html>`__ to see an example of how to use change_operations_insights_warehouse_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_operations_insights_warehouse_compartment.py.html>`__ to see an example of how to use change_operations_insights_warehouse_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -1716,7 +1716,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_opsi_configuration_compartment.py.html>`__ to see an example of how to use change_opsi_configuration_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_opsi_configuration_compartment.py.html>`__ to see an example of how to use change_opsi_configuration_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['opsiConfigurationId']
@@ -1836,7 +1836,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/change_pe_comanaged_database_insight.py.html>`__ to see an example of how to use change_pe_comanaged_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/change_pe_comanaged_database_insight.py.html>`__ to see an example of how to use change_pe_comanaged_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -1949,7 +1949,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_awr_hub.py.html>`__ to see an example of how to use create_awr_hub API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_awr_hub.py.html>`__ to see an example of how to use create_awr_hub API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2049,7 +2049,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_awr_hub_source.py.html>`__ to see an example of how to use create_awr_hub_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_awr_hub_source.py.html>`__ to see an example of how to use create_awr_hub_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2149,7 +2149,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_database_insight.py.html>`__ to see an example of how to use create_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_database_insight.py.html>`__ to see an example of how to use create_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2249,7 +2249,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_enterprise_manager_bridge.py.html>`__ to see an example of how to use create_enterprise_manager_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_enterprise_manager_bridge.py.html>`__ to see an example of how to use create_enterprise_manager_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2349,7 +2349,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_exadata_insight.py.html>`__ to see an example of how to use create_exadata_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_exadata_insight.py.html>`__ to see an example of how to use create_exadata_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2449,7 +2449,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_host_insight.py.html>`__ to see an example of how to use create_host_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_host_insight.py.html>`__ to see an example of how to use create_host_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2549,7 +2549,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_news_report.py.html>`__ to see an example of how to use create_news_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_news_report.py.html>`__ to see an example of how to use create_news_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2650,7 +2650,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_operations_insights_private_endpoint.py.html>`__ to see an example of how to use create_operations_insights_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_operations_insights_private_endpoint.py.html>`__ to see an example of how to use create_operations_insights_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2752,7 +2752,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_operations_insights_warehouse.py.html>`__ to see an example of how to use create_operations_insights_warehouse API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_operations_insights_warehouse.py.html>`__ to see an example of how to use create_operations_insights_warehouse API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2853,7 +2853,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_operations_insights_warehouse_user.py.html>`__ to see an example of how to use create_operations_insights_warehouse_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_operations_insights_warehouse_user.py.html>`__ to see an example of how to use create_operations_insights_warehouse_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2972,7 +2972,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/create_opsi_configuration.py.html>`__ to see an example of how to use create_opsi_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/create_opsi_configuration.py.html>`__ to see an example of how to use create_opsi_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3107,7 +3107,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_awr_hub.py.html>`__ to see an example of how to use delete_awr_hub API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_awr_hub.py.html>`__ to see an example of how to use delete_awr_hub API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -3214,7 +3214,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_awr_hub_object.py.html>`__ to see an example of how to use delete_awr_hub_object API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_awr_hub_object.py.html>`__ to see an example of how to use delete_awr_hub_object API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId', 'objectName']
@@ -3319,7 +3319,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_awr_hub_source.py.html>`__ to see an example of how to use delete_awr_hub_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_awr_hub_source.py.html>`__ to see an example of how to use delete_awr_hub_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -3423,7 +3423,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_database_insight.py.html>`__ to see an example of how to use delete_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_database_insight.py.html>`__ to see an example of how to use delete_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -3527,7 +3527,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_enterprise_manager_bridge.py.html>`__ to see an example of how to use delete_enterprise_manager_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_enterprise_manager_bridge.py.html>`__ to see an example of how to use delete_enterprise_manager_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['enterpriseManagerBridgeId']
@@ -3631,7 +3631,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_exadata_insight.py.html>`__ to see an example of how to use delete_exadata_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_exadata_insight.py.html>`__ to see an example of how to use delete_exadata_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -3735,7 +3735,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_host_insight.py.html>`__ to see an example of how to use delete_host_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_host_insight.py.html>`__ to see an example of how to use delete_host_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['hostInsightId']
@@ -3839,7 +3839,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_news_report.py.html>`__ to see an example of how to use delete_news_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_news_report.py.html>`__ to see an example of how to use delete_news_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['newsReportId']
@@ -3945,7 +3945,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_operations_insights_private_endpoint.py.html>`__ to see an example of how to use delete_operations_insights_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_operations_insights_private_endpoint.py.html>`__ to see an example of how to use delete_operations_insights_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsPrivateEndpointId']
@@ -4052,7 +4052,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_operations_insights_warehouse.py.html>`__ to see an example of how to use delete_operations_insights_warehouse API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_operations_insights_warehouse.py.html>`__ to see an example of how to use delete_operations_insights_warehouse API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -4156,7 +4156,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_operations_insights_warehouse_user.py.html>`__ to see an example of how to use delete_operations_insights_warehouse_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_operations_insights_warehouse_user.py.html>`__ to see an example of how to use delete_operations_insights_warehouse_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseUserId']
@@ -4262,7 +4262,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/delete_opsi_configuration.py.html>`__ to see an example of how to use delete_opsi_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/delete_opsi_configuration.py.html>`__ to see an example of how to use delete_opsi_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['opsiConfigurationId']
@@ -4374,7 +4374,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/disable_autonomous_database_insight_advanced_features.py.html>`__ to see an example of how to use disable_autonomous_database_insight_advanced_features API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/disable_autonomous_database_insight_advanced_features.py.html>`__ to see an example of how to use disable_autonomous_database_insight_advanced_features API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -4489,7 +4489,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/disable_awr_hub_source.py.html>`__ to see an example of how to use disable_awr_hub_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/disable_awr_hub_source.py.html>`__ to see an example of how to use disable_awr_hub_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -4604,7 +4604,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/disable_database_insight.py.html>`__ to see an example of how to use disable_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/disable_database_insight.py.html>`__ to see an example of how to use disable_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -4719,7 +4719,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/disable_exadata_insight.py.html>`__ to see an example of how to use disable_exadata_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/disable_exadata_insight.py.html>`__ to see an example of how to use disable_exadata_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -4834,7 +4834,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/disable_host_insight.py.html>`__ to see an example of how to use disable_host_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/disable_host_insight.py.html>`__ to see an example of how to use disable_host_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['hostInsightId']
@@ -4947,7 +4947,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/download_operations_insights_warehouse_wallet.py.html>`__ to see an example of how to use download_operations_insights_warehouse_wallet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/download_operations_insights_warehouse_wallet.py.html>`__ to see an example of how to use download_operations_insights_warehouse_wallet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -5067,7 +5067,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/enable_autonomous_database_insight_advanced_features.py.html>`__ to see an example of how to use enable_autonomous_database_insight_advanced_features API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/enable_autonomous_database_insight_advanced_features.py.html>`__ to see an example of how to use enable_autonomous_database_insight_advanced_features API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -5184,7 +5184,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/enable_awr_hub_source.py.html>`__ to see an example of how to use enable_awr_hub_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/enable_awr_hub_source.py.html>`__ to see an example of how to use enable_awr_hub_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -5302,7 +5302,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/enable_database_insight.py.html>`__ to see an example of how to use enable_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/enable_database_insight.py.html>`__ to see an example of how to use enable_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -5422,7 +5422,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/enable_exadata_insight.py.html>`__ to see an example of how to use enable_exadata_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/enable_exadata_insight.py.html>`__ to see an example of how to use enable_exadata_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -5542,7 +5542,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/enable_host_insight.py.html>`__ to see an example of how to use enable_host_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/enable_host_insight.py.html>`__ to see an example of how to use enable_host_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['hostInsightId']
@@ -5678,7 +5678,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_awr_database_report.py.html>`__ to see an example of how to use get_awr_database_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_awr_database_report.py.html>`__ to see an example of how to use get_awr_database_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -5842,7 +5842,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_awr_database_sql_report.py.html>`__ to see an example of how to use get_awr_database_sql_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_awr_database_sql_report.py.html>`__ to see an example of how to use get_awr_database_sql_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier', 'sqlId']
@@ -5968,7 +5968,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_awr_hub.py.html>`__ to see an example of how to use get_awr_hub API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_awr_hub.py.html>`__ to see an example of how to use get_awr_hub API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -6070,7 +6070,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_awr_hub_object.py.html>`__ to see an example of how to use get_awr_hub_object API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_awr_hub_object.py.html>`__ to see an example of how to use get_awr_hub_object API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId', 'objectName']
@@ -6170,7 +6170,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_awr_hub_source.py.html>`__ to see an example of how to use get_awr_hub_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_awr_hub_source.py.html>`__ to see an example of how to use get_awr_hub_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -6293,7 +6293,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_awr_report.py.html>`__ to see an example of how to use get_awr_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_awr_report.py.html>`__ to see an example of how to use get_awr_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -6418,7 +6418,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_database_insight.py.html>`__ to see an example of how to use get_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_database_insight.py.html>`__ to see an example of how to use get_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -6517,7 +6517,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_enterprise_manager_bridge.py.html>`__ to see an example of how to use get_enterprise_manager_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_enterprise_manager_bridge.py.html>`__ to see an example of how to use get_enterprise_manager_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['enterpriseManagerBridgeId']
@@ -6616,7 +6616,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_exadata_insight.py.html>`__ to see an example of how to use get_exadata_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_exadata_insight.py.html>`__ to see an example of how to use get_exadata_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -6715,7 +6715,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_host_insight.py.html>`__ to see an example of how to use get_host_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_host_insight.py.html>`__ to see an example of how to use get_host_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['hostInsightId']
@@ -6814,7 +6814,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_news_report.py.html>`__ to see an example of how to use get_news_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_news_report.py.html>`__ to see an example of how to use get_news_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['newsReportId']
@@ -6915,7 +6915,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_operations_insights_private_endpoint.py.html>`__ to see an example of how to use get_operations_insights_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_operations_insights_private_endpoint.py.html>`__ to see an example of how to use get_operations_insights_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsPrivateEndpointId']
@@ -7015,7 +7015,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_operations_insights_warehouse.py.html>`__ to see an example of how to use get_operations_insights_warehouse API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_operations_insights_warehouse.py.html>`__ to see an example of how to use get_operations_insights_warehouse API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -7114,7 +7114,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_operations_insights_warehouse_user.py.html>`__ to see an example of how to use get_operations_insights_warehouse_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_operations_insights_warehouse_user.py.html>`__ to see an example of how to use get_operations_insights_warehouse_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseUserId']
@@ -7236,7 +7236,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_opsi_configuration.py.html>`__ to see an example of how to use get_opsi_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_opsi_configuration.py.html>`__ to see an example of how to use get_opsi_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['opsiConfigurationId']
@@ -7378,7 +7378,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_opsi_data_object.py.html>`__ to see an example of how to use get_opsi_data_object API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_opsi_data_object.py.html>`__ to see an example of how to use get_opsi_data_object API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['opsiDataObjectIdentifier', 'compartmentId']
@@ -7484,7 +7484,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -7586,7 +7586,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/head_awr_hub_object.py.html>`__ to see an example of how to use head_awr_hub_object API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/head_awr_hub_object.py.html>`__ to see an example of how to use head_awr_hub_object API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId', 'objectName']
@@ -7708,7 +7708,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_addm_reports.py.html>`__ to see an example of how to use ingest_addm_reports API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_addm_reports.py.html>`__ to see an example of how to use ingest_addm_reports API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -7835,7 +7835,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_database_configuration.py.html>`__ to see an example of how to use ingest_database_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_database_configuration.py.html>`__ to see an example of how to use ingest_database_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -7957,7 +7957,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_host_configuration.py.html>`__ to see an example of how to use ingest_host_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_host_configuration.py.html>`__ to see an example of how to use ingest_host_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']
@@ -8076,7 +8076,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_host_metrics.py.html>`__ to see an example of how to use ingest_host_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_host_metrics.py.html>`__ to see an example of how to use ingest_host_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['id']
@@ -8201,7 +8201,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_my_sql_sql_stats.py.html>`__ to see an example of how to use ingest_my_sql_sql_stats API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_my_sql_sql_stats.py.html>`__ to see an example of how to use ingest_my_sql_sql_stats API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8335,7 +8335,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_my_sql_sql_text.py.html>`__ to see an example of how to use ingest_my_sql_sql_text API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_my_sql_sql_text.py.html>`__ to see an example of how to use ingest_my_sql_sql_text API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8470,7 +8470,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_sql_bucket.py.html>`__ to see an example of how to use ingest_sql_bucket API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_sql_bucket.py.html>`__ to see an example of how to use ingest_sql_bucket API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8605,7 +8605,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_sql_plan_lines.py.html>`__ to see an example of how to use ingest_sql_plan_lines API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_sql_plan_lines.py.html>`__ to see an example of how to use ingest_sql_plan_lines API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8735,7 +8735,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_sql_stats.py.html>`__ to see an example of how to use ingest_sql_stats API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_sql_stats.py.html>`__ to see an example of how to use ingest_sql_stats API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8869,7 +8869,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/ingest_sql_text.py.html>`__ to see an example of how to use ingest_sql_text API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/ingest_sql_text.py.html>`__ to see an example of how to use ingest_sql_text API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -9041,7 +9041,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_addm_db_finding_categories.py.html>`__ to see an example of how to use list_addm_db_finding_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_addm_db_finding_categories.py.html>`__ to see an example of how to use list_addm_db_finding_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -9256,7 +9256,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_addm_db_findings_time_series.py.html>`__ to see an example of how to use list_addm_db_findings_time_series API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_addm_db_findings_time_series.py.html>`__ to see an example of how to use list_addm_db_findings_time_series API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -9460,7 +9460,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_addm_db_parameter_categories.py.html>`__ to see an example of how to use list_addm_db_parameter_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_addm_db_parameter_categories.py.html>`__ to see an example of how to use list_addm_db_parameter_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -9656,7 +9656,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_addm_db_recommendation_categories.py.html>`__ to see an example of how to use list_addm_db_recommendation_categories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_addm_db_recommendation_categories.py.html>`__ to see an example of how to use list_addm_db_recommendation_categories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -9887,7 +9887,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_addm_db_recommendations_time_series.py.html>`__ to see an example of how to use list_addm_db_recommendations_time_series API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_addm_db_recommendations_time_series.py.html>`__ to see an example of how to use list_addm_db_recommendations_time_series API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -10112,7 +10112,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_addm_dbs.py.html>`__ to see an example of how to use list_addm_dbs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_addm_dbs.py.html>`__ to see an example of how to use list_addm_dbs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -10294,7 +10294,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_awr_database_snapshots.py.html>`__ to see an example of how to use list_awr_database_snapshots API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_awr_database_snapshots.py.html>`__ to see an example of how to use list_awr_database_snapshots API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -10467,7 +10467,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_awr_databases.py.html>`__ to see an example of how to use list_awr_databases API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_awr_databases.py.html>`__ to see an example of how to use list_awr_databases API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -10643,7 +10643,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_awr_hub_objects.py.html>`__ to see an example of how to use list_awr_hub_objects API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_awr_hub_objects.py.html>`__ to see an example of how to use list_awr_hub_objects API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -10824,7 +10824,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_awr_hub_sources.py.html>`__ to see an example of how to use list_awr_hub_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_awr_hub_sources.py.html>`__ to see an example of how to use list_awr_hub_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -11018,7 +11018,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_awr_hubs.py.html>`__ to see an example of how to use list_awr_hubs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_awr_hubs.py.html>`__ to see an example of how to use list_awr_hubs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -11186,7 +11186,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_awr_snapshots.py.html>`__ to see an example of how to use list_awr_snapshots API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_awr_snapshots.py.html>`__ to see an example of how to use list_awr_snapshots API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -11408,7 +11408,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_database_configurations.py.html>`__ to see an example of how to use list_database_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_database_configurations.py.html>`__ to see an example of how to use list_database_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -11633,7 +11633,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_database_insights.py.html>`__ to see an example of how to use list_database_insights API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_database_insights.py.html>`__ to see an example of how to use list_database_insights API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -11845,7 +11845,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_enterprise_manager_bridges.py.html>`__ to see an example of how to use list_enterprise_manager_bridges API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_enterprise_manager_bridges.py.html>`__ to see an example of how to use list_enterprise_manager_bridges API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -12043,7 +12043,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_exadata_configurations.py.html>`__ to see an example of how to use list_exadata_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_exadata_configurations.py.html>`__ to see an example of how to use list_exadata_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -12228,7 +12228,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_exadata_insights.py.html>`__ to see an example of how to use list_exadata_insights API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_exadata_insights.py.html>`__ to see an example of how to use list_exadata_insights API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -12468,7 +12468,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_host_configurations.py.html>`__ to see an example of how to use list_host_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_host_configurations.py.html>`__ to see an example of how to use list_host_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -12694,7 +12694,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_host_insights.py.html>`__ to see an example of how to use list_host_insights API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_host_insights.py.html>`__ to see an example of how to use list_host_insights API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -12930,7 +12930,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_hosted_entities.py.html>`__ to see an example of how to use list_hosted_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_hosted_entities.py.html>`__ to see an example of how to use list_hosted_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id']
@@ -13111,7 +13111,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_importable_agent_entities.py.html>`__ to see an example of how to use list_importable_agent_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_importable_agent_entities.py.html>`__ to see an example of how to use list_importable_agent_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -13261,7 +13261,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_importable_compute_entities.py.html>`__ to see an example of how to use list_importable_compute_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_importable_compute_entities.py.html>`__ to see an example of how to use list_importable_compute_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -13402,7 +13402,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_importable_enterprise_manager_entities.py.html>`__ to see an example of how to use list_importable_enterprise_manager_entities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_importable_enterprise_manager_entities.py.html>`__ to see an example of how to use list_importable_enterprise_manager_entities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['enterpriseManagerBridgeId']
@@ -13561,7 +13561,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_news_reports.py.html>`__ to see an example of how to use list_news_reports API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_news_reports.py.html>`__ to see an example of how to use list_news_reports API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -13752,7 +13752,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_operations_insights_private_endpoints.py.html>`__ to see an example of how to use list_operations_insights_private_endpoints API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_operations_insights_private_endpoints.py.html>`__ to see an example of how to use list_operations_insights_private_endpoints API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -13931,7 +13931,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_operations_insights_warehouse_users.py.html>`__ to see an example of how to use list_operations_insights_warehouse_users API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_operations_insights_warehouse_users.py.html>`__ to see an example of how to use list_operations_insights_warehouse_users API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -14103,7 +14103,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_operations_insights_warehouses.py.html>`__ to see an example of how to use list_operations_insights_warehouses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_operations_insights_warehouses.py.html>`__ to see an example of how to use list_operations_insights_warehouses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -14275,7 +14275,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_opsi_configurations.py.html>`__ to see an example of how to use list_opsi_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_opsi_configurations.py.html>`__ to see an example of how to use list_opsi_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -14455,7 +14455,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_opsi_data_objects.py.html>`__ to see an example of how to use list_opsi_data_objects API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_opsi_data_objects.py.html>`__ to see an example of how to use list_opsi_data_objects API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -14615,7 +14615,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_sql_plans.py.html>`__ to see an example of how to use list_sql_plans API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_sql_plans.py.html>`__ to see an example of how to use list_sql_plans API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier', 'planHash']
@@ -14778,7 +14778,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_sql_searches.py.html>`__ to see an example of how to use list_sql_searches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_sql_searches.py.html>`__ to see an example of how to use list_sql_searches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -14942,7 +14942,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_sql_texts.py.html>`__ to see an example of how to use list_sql_texts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_sql_texts.py.html>`__ to see an example of how to use list_sql_texts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -15102,7 +15102,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_warehouse_data_objects.py.html>`__ to see an example of how to use list_warehouse_data_objects API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_warehouse_data_objects.py.html>`__ to see an example of how to use list_warehouse_data_objects API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['warehouseType', 'warehouseId']
@@ -15280,7 +15280,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -15433,7 +15433,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -15602,7 +15602,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -15752,7 +15752,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/put_awr_hub_object.py.html>`__ to see an example of how to use put_awr_hub_object API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/put_awr_hub_object.py.html>`__ to see an example of how to use put_awr_hub_object API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId', 'objectName']
@@ -15899,7 +15899,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/query_opsi_data_object_data.py.html>`__ to see an example of how to use query_opsi_data_object_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/query_opsi_data_object_data.py.html>`__ to see an example of how to use query_opsi_data_object_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -16026,7 +16026,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/query_warehouse_data_object_data.py.html>`__ to see an example of how to use query_warehouse_data_object_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/query_warehouse_data_object_data.py.html>`__ to see an example of how to use query_warehouse_data_object_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['warehouseType', 'warehouseId']
@@ -16143,7 +16143,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/rotate_operations_insights_warehouse_wallet.py.html>`__ to see an example of how to use rotate_operations_insights_warehouse_wallet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/rotate_operations_insights_warehouse_wallet.py.html>`__ to see an example of how to use rotate_operations_insights_warehouse_wallet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -16327,7 +16327,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_addm_db_findings.py.html>`__ to see an example of how to use summarize_addm_db_findings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_addm_db_findings.py.html>`__ to see an example of how to use summarize_addm_db_findings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -16557,7 +16557,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_addm_db_parameter_changes.py.html>`__ to see an example of how to use summarize_addm_db_parameter_changes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_addm_db_parameter_changes.py.html>`__ to see an example of how to use summarize_addm_db_parameter_changes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'name']
@@ -16808,7 +16808,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_addm_db_parameters.py.html>`__ to see an example of how to use summarize_addm_db_parameters API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_addm_db_parameters.py.html>`__ to see an example of how to use summarize_addm_db_parameters API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -17079,7 +17079,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_addm_db_recommendations.py.html>`__ to see an example of how to use summarize_addm_db_recommendations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_addm_db_recommendations.py.html>`__ to see an example of how to use summarize_addm_db_recommendations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -17299,7 +17299,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_addm_db_schema_objects.py.html>`__ to see an example of how to use summarize_addm_db_schema_objects API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_addm_db_schema_objects.py.html>`__ to see an example of how to use summarize_addm_db_schema_objects API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'objectIdentifier']
@@ -17489,7 +17489,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_addm_db_sql_statements.py.html>`__ to see an example of how to use summarize_addm_db_sql_statements API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_addm_db_sql_statements.py.html>`__ to see an example of how to use summarize_addm_db_sql_statements API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -17663,7 +17663,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_cpu_usages.py.html>`__ to see an example of how to use summarize_awr_database_cpu_usages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_cpu_usages.py.html>`__ to see an example of how to use summarize_awr_database_cpu_usages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -17861,7 +17861,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_metrics.py.html>`__ to see an example of how to use summarize_awr_database_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_metrics.py.html>`__ to see an example of how to use summarize_awr_database_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier', 'name']
@@ -18055,7 +18055,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_parameter_changes.py.html>`__ to see an example of how to use summarize_awr_database_parameter_changes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_parameter_changes.py.html>`__ to see an example of how to use summarize_awr_database_parameter_changes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier', 'name']
@@ -18273,7 +18273,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_parameters.py.html>`__ to see an example of how to use summarize_awr_database_parameters API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_parameters.py.html>`__ to see an example of how to use summarize_awr_database_parameters API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -18477,7 +18477,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_snapshot_ranges.py.html>`__ to see an example of how to use summarize_awr_database_snapshot_ranges API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_snapshot_ranges.py.html>`__ to see an example of how to use summarize_awr_database_snapshot_ranges API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -18661,7 +18661,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_sysstats.py.html>`__ to see an example of how to use summarize_awr_database_sysstats API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_sysstats.py.html>`__ to see an example of how to use summarize_awr_database_sysstats API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier', 'name']
@@ -18840,7 +18840,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_top_wait_events.py.html>`__ to see an example of how to use summarize_awr_database_top_wait_events API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_top_wait_events.py.html>`__ to see an example of how to use summarize_awr_database_top_wait_events API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -19045,7 +19045,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_wait_event_buckets.py.html>`__ to see an example of how to use summarize_awr_database_wait_event_buckets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_wait_event_buckets.py.html>`__ to see an example of how to use summarize_awr_database_wait_event_buckets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier', 'name']
@@ -19246,7 +19246,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_database_wait_events.py.html>`__ to see an example of how to use summarize_awr_database_wait_events API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_database_wait_events.py.html>`__ to see an example of how to use summarize_awr_database_wait_events API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId', 'awrSourceDatabaseIdentifier']
@@ -19429,7 +19429,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_awr_sources_summaries.py.html>`__ to see an example of how to use summarize_awr_sources_summaries API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_awr_sources_summaries.py.html>`__ to see an example of how to use summarize_awr_sources_summaries API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -19595,7 +19595,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_configuration_items.py.html>`__ to see an example of how to use summarize_configuration_items API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_configuration_items.py.html>`__ to see an example of how to use summarize_configuration_items API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -19842,7 +19842,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_resource_capacity_trend.py.html>`__ to see an example of how to use summarize_database_insight_resource_capacity_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_resource_capacity_trend.py.html>`__ to see an example of how to use summarize_database_insight_resource_capacity_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -20150,7 +20150,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_resource_forecast_trend.py.html>`__ to see an example of how to use summarize_database_insight_resource_forecast_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_resource_forecast_trend.py.html>`__ to see an example of how to use summarize_database_insight_resource_forecast_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -20456,7 +20456,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_resource_statistics.py.html>`__ to see an example of how to use summarize_database_insight_resource_statistics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_resource_statistics.py.html>`__ to see an example of how to use summarize_database_insight_resource_statistics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -20724,7 +20724,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_resource_usage.py.html>`__ to see an example of how to use summarize_database_insight_resource_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_resource_usage.py.html>`__ to see an example of how to use summarize_database_insight_resource_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -20970,7 +20970,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_resource_usage_trend.py.html>`__ to see an example of how to use summarize_database_insight_resource_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_resource_usage_trend.py.html>`__ to see an example of how to use summarize_database_insight_resource_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -21230,7 +21230,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_resource_utilization_insight.py.html>`__ to see an example of how to use summarize_database_insight_resource_utilization_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_resource_utilization_insight.py.html>`__ to see an example of how to use summarize_database_insight_resource_utilization_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -21422,7 +21422,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_database_insight_tablespace_usage_trend.py.html>`__ to see an example of how to use summarize_database_insight_tablespace_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_database_insight_tablespace_usage_trend.py.html>`__ to see an example of how to use summarize_database_insight_tablespace_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -21620,7 +21620,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_capacity_trend.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_capacity_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_capacity_trend.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_capacity_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resourceType', 'resourceMetric', 'exadataInsightId']
@@ -21851,7 +21851,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_capacity_trend_aggregated.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_capacity_trend_aggregated API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_capacity_trend_aggregated.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_capacity_trend_aggregated API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resourceType', 'resourceMetric']
@@ -22104,7 +22104,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_forecast_trend.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_forecast_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_forecast_trend.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_forecast_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resourceType', 'resourceMetric', 'exadataInsightId']
@@ -22373,7 +22373,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_forecast_trend_aggregated.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_forecast_trend_aggregated API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_forecast_trend_aggregated.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_forecast_trend_aggregated API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resourceType', 'resourceMetric']
@@ -22592,7 +22592,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_statistics.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_statistics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_statistics.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_statistics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId', 'resourceType', 'resourceMetric']
@@ -22830,7 +22830,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_usage.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_usage.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceType', 'resourceMetric']
@@ -23061,7 +23061,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_usage_aggregated.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_usage_aggregated API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_usage_aggregated.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_usage_aggregated API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceType', 'resourceMetric']
@@ -23285,7 +23285,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_insight_resource_utilization_insight.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_utilization_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_insight_resource_utilization_insight.py.html>`__ to see an example of how to use summarize_exadata_insight_resource_utilization_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceType', 'resourceMetric']
@@ -23449,7 +23449,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_exadata_members.py.html>`__ to see an example of how to use summarize_exadata_members API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_exadata_members.py.html>`__ to see an example of how to use summarize_exadata_members API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -23608,7 +23608,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_disk_statistics.py.html>`__ to see an example of how to use summarize_host_insight_disk_statistics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_disk_statistics.py.html>`__ to see an example of how to use summarize_host_insight_disk_statistics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id']
@@ -23779,7 +23779,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_host_recommendation.py.html>`__ to see an example of how to use summarize_host_insight_host_recommendation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_host_recommendation.py.html>`__ to see an example of how to use summarize_host_insight_host_recommendation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id', 'resourceMetric']
@@ -23951,7 +23951,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_io_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_io_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_io_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_io_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id']
@@ -24134,7 +24134,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_network_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_network_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_network_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_network_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id']
@@ -24382,7 +24382,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_resource_capacity_trend.py.html>`__ to see an example of how to use summarize_host_insight_resource_capacity_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_resource_capacity_trend.py.html>`__ to see an example of how to use summarize_host_insight_resource_capacity_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -24700,7 +24700,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_resource_forecast_trend.py.html>`__ to see an example of how to use summarize_host_insight_resource_forecast_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_resource_forecast_trend.py.html>`__ to see an example of how to use summarize_host_insight_resource_forecast_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -25016,7 +25016,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_resource_statistics.py.html>`__ to see an example of how to use summarize_host_insight_resource_statistics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_resource_statistics.py.html>`__ to see an example of how to use summarize_host_insight_resource_statistics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -25290,7 +25290,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_resource_usage.py.html>`__ to see an example of how to use summarize_host_insight_resource_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_resource_usage.py.html>`__ to see an example of how to use summarize_host_insight_resource_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -25542,7 +25542,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_resource_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_resource_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_resource_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_resource_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -25808,7 +25808,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_resource_utilization_insight.py.html>`__ to see an example of how to use summarize_host_insight_resource_utilization_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_resource_utilization_insight.py.html>`__ to see an example of how to use summarize_host_insight_resource_utilization_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceMetric']
@@ -26014,7 +26014,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_storage_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_storage_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_storage_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_storage_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id']
@@ -26211,7 +26211,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_top_processes_usage.py.html>`__ to see an example of how to use summarize_host_insight_top_processes_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_top_processes_usage.py.html>`__ to see an example of how to use summarize_host_insight_top_processes_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id', 'resourceMetric', 'timestamp']
@@ -26411,7 +26411,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_host_insight_top_processes_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_top_processes_usage_trend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_host_insight_top_processes_usage_trend.py.html>`__ to see an example of how to use summarize_host_insight_top_processes_usage_trend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'id', 'resourceMetric']
@@ -26543,7 +26543,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_operations_insights_warehouse_resource_usage.py.html>`__ to see an example of how to use summarize_operations_insights_warehouse_resource_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_operations_insights_warehouse_resource_usage.py.html>`__ to see an example of how to use summarize_operations_insights_warehouse_resource_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -26732,7 +26732,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_sql_insights.py.html>`__ to see an example of how to use summarize_sql_insights API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_sql_insights.py.html>`__ to see an example of how to use summarize_sql_insights API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -26911,7 +26911,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_sql_plan_insights.py.html>`__ to see an example of how to use summarize_sql_plan_insights API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_sql_plan_insights.py.html>`__ to see an example of how to use summarize_sql_plan_insights API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -27061,7 +27061,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_sql_response_time_distributions.py.html>`__ to see an example of how to use summarize_sql_response_time_distributions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_sql_response_time_distributions.py.html>`__ to see an example of how to use summarize_sql_response_time_distributions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -27287,7 +27287,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_sql_statistics.py.html>`__ to see an example of how to use summarize_sql_statistics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_sql_statistics.py.html>`__ to see an example of how to use summarize_sql_statistics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -27540,7 +27540,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_sql_statistics_time_series.py.html>`__ to see an example of how to use summarize_sql_statistics_time_series API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_sql_statistics_time_series.py.html>`__ to see an example of how to use summarize_sql_statistics_time_series API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -27708,7 +27708,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/summarize_sql_statistics_time_series_by_plan.py.html>`__ to see an example of how to use summarize_sql_statistics_time_series_by_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/summarize_sql_statistics_time_series_by_plan.py.html>`__ to see an example of how to use summarize_sql_statistics_time_series_by_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'sqlIdentifier']
@@ -27850,7 +27850,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/synchronize_autonomous_database_to_exadata.py.html>`__ to see an example of how to use synchronize_autonomous_database_to_exadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/synchronize_autonomous_database_to_exadata.py.html>`__ to see an example of how to use synchronize_autonomous_database_to_exadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -27973,7 +27973,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/test_macs_managed_autonomous_database_insight_connection.py.html>`__ to see an example of how to use test_macs_managed_autonomous_database_insight_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/test_macs_managed_autonomous_database_insight_connection.py.html>`__ to see an example of how to use test_macs_managed_autonomous_database_insight_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -28091,7 +28091,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/test_macs_managed_cloud_database_insight_connection.py.html>`__ to see an example of how to use test_macs_managed_cloud_database_insight_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/test_macs_managed_cloud_database_insight_connection.py.html>`__ to see an example of how to use test_macs_managed_cloud_database_insight_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -28199,7 +28199,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_awr_hub.py.html>`__ to see an example of how to use update_awr_hub API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_awr_hub.py.html>`__ to see an example of how to use update_awr_hub API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubId']
@@ -28308,7 +28308,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_awr_hub_source.py.html>`__ to see an example of how to use update_awr_hub_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_awr_hub_source.py.html>`__ to see an example of how to use update_awr_hub_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['awrHubSourceId']
@@ -28417,7 +28417,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_database_insight.py.html>`__ to see an example of how to use update_database_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_database_insight.py.html>`__ to see an example of how to use update_database_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['databaseInsightId']
@@ -28526,7 +28526,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_enterprise_manager_bridge.py.html>`__ to see an example of how to use update_enterprise_manager_bridge API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_enterprise_manager_bridge.py.html>`__ to see an example of how to use update_enterprise_manager_bridge API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['enterpriseManagerBridgeId']
@@ -28635,7 +28635,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_exadata_insight.py.html>`__ to see an example of how to use update_exadata_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_exadata_insight.py.html>`__ to see an example of how to use update_exadata_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exadataInsightId']
@@ -28744,7 +28744,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_host_insight.py.html>`__ to see an example of how to use update_host_insight API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_host_insight.py.html>`__ to see an example of how to use update_host_insight API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['hostInsightId']
@@ -28853,7 +28853,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_news_report.py.html>`__ to see an example of how to use update_news_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_news_report.py.html>`__ to see an example of how to use update_news_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['newsReportId']
@@ -28964,7 +28964,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_operations_insights_private_endpoint.py.html>`__ to see an example of how to use update_operations_insights_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_operations_insights_private_endpoint.py.html>`__ to see an example of how to use update_operations_insights_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsPrivateEndpointId']
@@ -29074,7 +29074,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_operations_insights_warehouse.py.html>`__ to see an example of how to use update_operations_insights_warehouse API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_operations_insights_warehouse.py.html>`__ to see an example of how to use update_operations_insights_warehouse API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseId']
@@ -29183,7 +29183,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_operations_insights_warehouse_user.py.html>`__ to see an example of how to use update_operations_insights_warehouse_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_operations_insights_warehouse_user.py.html>`__ to see an example of how to use update_operations_insights_warehouse_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operationsInsightsWarehouseUserId']
@@ -29294,7 +29294,7 @@ class OperationsInsightsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/opsi/update_opsi_configuration.py.html>`__ to see an example of how to use update_opsi_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/opsi/update_opsi_configuration.py.html>`__ to see an example of how to use update_opsi_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['opsiConfigurationId']

@@ -12147,6 +12147,7 @@ async function _connectBrowser(browserName, url, connectCDP, timeout) {
 async function _createIndexedContext(context, defaultTimeout, traceFile, options) {
   const contextId = `context=${(0, import_uuid2.v4)()}`;
   if (defaultTimeout) {
+    logger9.info(`Setting default timeout for context ${contextId} to ${defaultTimeout}`);
     context.setDefaultTimeout(defaultTimeout);
   }
   if (traceFile) {
@@ -12269,13 +12270,14 @@ var PlaywrightState = class {
   }
   async getOrCreateActiveBrowser(browserType, timeout) {
     const currentBrowser = this.activeBrowser;
-    logger9.info("currentBrowser: " + currentBrowser);
     if (currentBrowser === void 0) {
+      logger9.info("No active browser, creating a new one");
       const browserAndConfs = await _newBrowser(browserType || "chromium", true, timeout);
       const newState = new BrowserState(browserAndConfs);
       this.browserStack.push(newState);
       return { browser: newState, newBrowser: true };
     } else {
+      logger9.info(`currentBrowser: ${JSON.stringify(currentBrowser)}`);
       return { browser: currentBrowser, newBrowser: false };
     }
   }
@@ -12450,7 +12452,7 @@ var BrowserState = class {
         throw new Error("Tried to switch to context, which did not exist anymore.");
       }
       this._contextStack.push(newContext2);
-      logger9.info("Changed active context");
+      logger9.info(`Changed active context: ${newContext2.id}`);
     } else logger9.info("Set active context to undefined");
   }
   unshiftContext(newContext2) {

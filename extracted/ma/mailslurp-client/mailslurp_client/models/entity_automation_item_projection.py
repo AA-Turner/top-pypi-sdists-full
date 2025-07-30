@@ -35,8 +35,8 @@ class EntityAutomationItemProjection(object):
     """
     openapi_types = {
         'inbox_id': 'str',
-        'phone_id': 'str',
         'action': 'str',
+        'phone_id': 'str',
         'automation_type': 'str',
         'name': 'str',
         'id': 'str'
@@ -44,22 +44,22 @@ class EntityAutomationItemProjection(object):
 
     attribute_map = {
         'inbox_id': 'inboxId',
-        'phone_id': 'phoneId',
         'action': 'action',
+        'phone_id': 'phoneId',
         'automation_type': 'automationType',
         'name': 'name',
         'id': 'id'
     }
 
-    def __init__(self, inbox_id=None, phone_id=None, action=None, automation_type=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, inbox_id=None, action=None, phone_id=None, automation_type=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """EntityAutomationItemProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._inbox_id = None
-        self._phone_id = None
         self._action = None
+        self._phone_id = None
         self._automation_type = None
         self._name = None
         self._id = None
@@ -67,10 +67,10 @@ class EntityAutomationItemProjection(object):
 
         if inbox_id is not None:
             self.inbox_id = inbox_id
-        if phone_id is not None:
-            self.phone_id = phone_id
         if action is not None:
             self.action = action
+        if phone_id is not None:
+            self.phone_id = phone_id
         self.automation_type = automation_type
         if name is not None:
             self.name = name
@@ -98,27 +98,6 @@ class EntityAutomationItemProjection(object):
         self._inbox_id = inbox_id
 
     @property
-    def phone_id(self):
-        """Gets the phone_id of this EntityAutomationItemProjection.  # noqa: E501
-
-
-        :return: The phone_id of this EntityAutomationItemProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._phone_id
-
-    @phone_id.setter
-    def phone_id(self, phone_id):
-        """Sets the phone_id of this EntityAutomationItemProjection.
-
-
-        :param phone_id: The phone_id of this EntityAutomationItemProjection.  # noqa: E501
-        :type: str
-        """
-
-        self._phone_id = phone_id
-
-    @property
     def action(self):
         """Gets the action of this EntityAutomationItemProjection.  # noqa: E501
 
@@ -138,6 +117,27 @@ class EntityAutomationItemProjection(object):
         """
 
         self._action = action
+
+    @property
+    def phone_id(self):
+        """Gets the phone_id of this EntityAutomationItemProjection.  # noqa: E501
+
+
+        :return: The phone_id of this EntityAutomationItemProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._phone_id
+
+    @phone_id.setter
+    def phone_id(self, phone_id):
+        """Sets the phone_id of this EntityAutomationItemProjection.
+
+
+        :param phone_id: The phone_id of this EntityAutomationItemProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._phone_id = phone_id
 
     @property
     def automation_type(self):

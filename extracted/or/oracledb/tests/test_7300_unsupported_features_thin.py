@@ -26,13 +26,11 @@
 7300 - Module for testing unsupported features in Thin mode
 """
 
-import unittest
-
 import oracledb
 import test_env
 
 
-@unittest.skipUnless(test_env.get_is_thin(), "only relevant in thin mode")
+@test_env.skip_unless_thin_mode()
 class TestCase(test_env.BaseTestCase):
 
     def test_7300(self):
@@ -61,6 +59,12 @@ class TestCase(test_env.BaseTestCase):
                 user=test_env.get_main_user(),
                 password=test_env.get_main_password(),
             )
+
+    def test_7304(self):
+        "7304 - test acquire() from a pool with a session tag"
+        pool = test_env.get_pool()
+        with self.assertRaisesFullCode("DPY-3001"):
+            pool.acquire(tag="unimportant")
 
 
 if __name__ == "__main__":

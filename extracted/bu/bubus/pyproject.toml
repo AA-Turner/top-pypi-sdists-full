@@ -2,7 +2,7 @@
 name = "bubus"
 description = "Advanced Pydantic-powered event bus with async support"
 authors = [{ name = "Nick Sweeting" }]
-version = "1.4.5"
+version = "1.4.7"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 classifiers = [
@@ -66,13 +66,13 @@ allow-direct-references = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
-asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 testpaths = [
     "tests"
 ]
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --strict-markers --tb=short"
+addopts = "-svx --strict-markers --tb=short --dist=loadscope"
 log_cli = true
 log_cli_format = "%(levelname)-8s [%(name)s] %(message)s"
 filterwarnings = [
@@ -87,7 +87,7 @@ dev-dependencies = [
     "ruff>=0.11.2",
     "build>=1.2.2",
     "pytest>=8.3.5",
-    "pytest-asyncio>=1.0.0",
+    "pytest-asyncio>=1.1.0",
     "pytest-httpserver>=1.0.8",
     "ipdb>=0.13.13",
     "pre-commit>=4.2.0",

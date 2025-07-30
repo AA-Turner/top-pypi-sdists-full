@@ -28,7 +28,6 @@
 
 import datetime
 import decimal
-import unittest
 
 import oracledb
 import test_env
@@ -662,13 +661,13 @@ class TestCase(test_env.BaseTestCase):
         )
         self.assertEqual(result, 7146445847327)
 
-    @unittest.skipIf(test_env.get_is_thin(), "thin mode supports xmltype")
+    @test_env.skip_unless_thick_mode()
     def test_2328(self):
         "2328 - test object with unknown type in one of its attributes"
         typ = self.conn.gettype("UDT_OBJECTWITHXMLTYPE")
         self.assertEqual(typ.attributes[1].type, oracledb.DB_TYPE_UNKNOWN)
 
-    @unittest.skipIf(test_env.get_is_thin(), "thin mode supports xmltype")
+    @test_env.skip_unless_thick_mode()
     def test_2329(self):
         "2329 - test object with unknown type as the element type"
         typ = self.conn.gettype("UDT_XMLTYPEARRAY")
@@ -761,6 +760,7 @@ class TestCase(test_env.BaseTestCase):
             ("INTVALUE", oracledb.DB_TYPE_NUMBER, 38, 0, None),
             ("SMALLINTVALUE", oracledb.DB_TYPE_NUMBER, 38, 0, None),
             ("REALVALUE", oracledb.DB_TYPE_NUMBER, 63, -127, None),
+            ("DECIMALVALUE", oracledb.DB_TYPE_NUMBER, 20, 6, None),
             ("DOUBLEPRECISIONVALUE", oracledb.DB_TYPE_NUMBER, 126, -127, None),
             ("FLOATVALUE", oracledb.DB_TYPE_NUMBER, 126, -127, None),
             (
@@ -813,9 +813,7 @@ class TestCase(test_env.BaseTestCase):
         result = [i for i in obj]
         self.assertEqual(result, [5, 10, 15])
 
-    @unittest.skipUnless(
-        test_env.get_is_thin(), "thick mode does not support xmltype"
-    )
+    @test_env.skip_unless_thin_mode()
     def test_2339(self):
         "2339 - test fetching an object containing an XmlType instance"
         num_val = 2339
@@ -865,6 +863,81 @@ class TestCase(test_env.BaseTestCase):
                 self.assertIsNotNone(obj.INNER2)
                 self.assertIsNone(obj.INNER2.ATTR1)
                 self.assertEqual(obj.INNER2.ATTR2, value2)
+
+    def test_2343(self):
+        "2343 - test varray of numbers"
+        obj_type = self.conn.gettype("UDT_VARRAYOFNUMBER")
+        obj = self.cursor.callfunc(
+            "pkg_NestedTable.GetVarrayOfNumber", obj_type
+        )
+        self.assertEqual(obj.aslist(), [10, 20, 30])
+
+    def test_2344(self):
+        "2344 - test table of numbers"
+        obj_type = self.conn.gettype("UDT_TABLEOFNUMBER")
+        obj = self.cursor.callfunc(
+            "pkg_NestedTable.GetTableOfNumber", obj_type
+        )
+        self.assertEqual(obj.aslist(), [15, 25, 35, 45])
+
+    def test_2345(self):
+        "2345 - test table of varray of numbers"
+        obj_type = self.conn.gettype("UDT_TABLEOFVARRAYOFNUMBER")
+        obj = self.cursor.callfunc(
+            "pkg_NestedTable.GetTableOfVarrayOfNumber", obj_type
+        )
+        plain_obj = self.get_db_object_as_plain_object(obj)
+        self.assertEqual(plain_obj, [[10, 20], [30, 40]])
+
+    def test_2346(self):
+        "2346 - test nested table of nested tables"
+        num_tab_type = self.conn.gettype("UDT_TABLEOFNUMBER")
+        tab_num_tab_type = self.conn.gettype("UDT_TABLEOFTABLEOFNUMBER")
+
+        num_tab_1 = num_tab_type.newobject([1, 2])
+        num_tab_2 = num_tab_type.newobject([3, 4, 5])
+        num_tab_3 = num_tab_type.newobject([6, 7, 8, 9, 10])
+        tab_num_tab = tab_num_tab_type.newobject(
+            [num_tab_1, None, num_tab_2, None, num_tab_3]
+        )
+
+        self.cursor.execute(
+            """
+            insert into NestedCollectionTests (Id, TableCol)
+            values (:1, :2)
+            """,
+            [1, tab_num_tab],
+        )
+        self.cursor.execute("select TableCol from NestedCollectionTests")
+        (obj,) = self.cursor.fetchone()
+        plain_obj = self.get_db_object_as_plain_object(obj)
+        expected_data = [[1, 2], None, [3, 4, 5], None, [6, 7, 8, 9, 10]]
+        self.assertEqual(plain_obj, expected_data)
+
+    def test_2347(self):
+        "2347 - test nested table of varrays"
+        num_tab_type = self.conn.gettype("UDT_TABLEOFNUMBER")
+        arr_num_tab_type = self.conn.gettype("UDT_VARRAYOFTABLEOFNUMBER")
+
+        num_tab_1 = num_tab_type.newobject([4, 8])
+        num_tab_2 = num_tab_type.newobject([1, 3, 5])
+        num_tab_3 = num_tab_type.newobject([2, 6, 10, 7, 9])
+        tab_num_tab = arr_num_tab_type.newobject(
+            [num_tab_1, None, num_tab_2, None, num_tab_3]
+        )
+
+        self.cursor.execute(
+            """
+            insert into NestedCollectionTests (Id, VarrayCol)
+            values (:1, :2)
+            """,
+            [1, tab_num_tab],
+        )
+        self.cursor.execute("select VarrayCol from NestedCollectionTests")
+        (obj,) = self.cursor.fetchone()
+        plain_obj = self.get_db_object_as_plain_object(obj)
+        expected_data = [[4, 8], None, [1, 3, 5], None, [2, 6, 10, 7, 9]]
+        self.assertEqual(plain_obj, expected_data)
 
 
 if __name__ == "__main__":

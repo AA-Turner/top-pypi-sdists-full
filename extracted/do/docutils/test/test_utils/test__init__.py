@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test__init__.py 9518 2024-01-26 22:46:31Z milde $
+# $Id: test__init__.py 10039 2025-03-08 18:53:20Z aa-turner $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -19,9 +19,7 @@ if __name__ == '__main__':
     # so we import the local `docutils` package.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import docutils
 from docutils import nodes, utils
-import docutils.utils.math
 
 TEST_ROOT = Path(__file__).parents[1]  # ./test/ from the docutils root
 
@@ -184,16 +182,16 @@ class ExtensionOptionTests(unittest.TestCase):
                   'empty': (lambda x: x)}
 
     def test_assemble_option_dict(self):
-        input = utils.extract_name_value('a=1 bbb=2.0 cdef=hol%s' % chr(224))
+        input_ = utils.extract_name_value('a=1 bbb=2.0 cdef=hol%s' % chr(224))
         self.assertEqual(
-              utils.assemble_option_dict(input, self.optionspec),
+              utils.assemble_option_dict(input_, self.optionspec),
               {'a': 1, 'bbb': 2.0, 'cdef': ('hol%s' % chr(224))})
-        input = utils.extract_name_value('a=1 b=2.0 c=hol%s' % chr(224))
+        input_ = utils.extract_name_value('a=1 b=2.0 c=hol%s' % chr(224))
         with self.assertRaises(KeyError):
-            utils.assemble_option_dict(input, self.optionspec)
-        input = utils.extract_name_value('a=1 bbb=two cdef=hol%s' % chr(224))
+            utils.assemble_option_dict(input_, self.optionspec)
+        input_ = utils.extract_name_value('a=1 bbb=two cdef=hol%s' % chr(224))
         with self.assertRaises(ValueError):
-            utils.assemble_option_dict(input, self.optionspec)
+            utils.assemble_option_dict(input_, self.optionspec)
 
     def test_extract_extension_options(self):
         field_list = nodes.field_list()
@@ -239,29 +237,6 @@ class ExtensionOptionTests(unittest.TestCase):
 
 
 class HelperFunctionTests(unittest.TestCase):
-
-    # Test conversion from `version information tuple` to a PEP 440 compliant
-    # Docutils version identifier.
-    # See 'Version Numbering' in docs/dev/policies.txt.
-    def test_version_identifier(self):
-        release_0_14_final = docutils.VersionInfo(
-            major=0, minor=14, micro=0,
-            releaselevel='final', serial=0, release=True)
-        self.assertEqual(utils.version_identifier(release_0_14_final), '0.14')
-        dev_0_15_beta = docutils.VersionInfo(
-            major=0, minor=15, micro=0,
-            releaselevel='beta', serial=0, release=False)
-        self.assertEqual(utils.version_identifier(dev_0_15_beta), '0.15b.dev')
-        release_0_14_rc1 = docutils.VersionInfo(
-            major=0, minor=14, micro=0,
-            releaselevel='candidate', serial=1, release=True)
-        self.assertEqual(utils.version_identifier(release_0_14_rc1), '0.14rc1')
-
-    def test_implicit_version_identifier(self):
-        self.assertEqual(
-            utils.version_identifier(docutils.__version_info__),
-            utils.version_identifier())
-
     def test_normalize_language_tag(self):
         self.assertEqual(utils.normalize_language_tag('de'), ['de'])
         self.assertEqual(utils.normalize_language_tag('de-AT'),
@@ -339,7 +314,7 @@ class HelperFunctionTests(unittest.TestCase):
             source = r'C:\foo\bar\fileA'
         target = os.path.join('eggs', 'fileB')
         self.assertEqual(utils.relative_path(source, target),
-                         os.path.abspath('eggs/fileB'))
+                         os.path.abspath('eggs/fileB').replace('\\', '/'))
         # Correctly process characters outside the ASCII range:
         self.assertEqual(utils.relative_path('spam', 'spam'), '')
         source = os.path.join('häm', 'spam', 'fileA')
@@ -361,20 +336,20 @@ class HelperFunctionTests(unittest.TestCase):
         result = utils.find_file_in_dirs('alltests.py', dirs)
         expected = os.path.join(TEST_ROOT, 'alltests.py').replace('\\', '/')
         self.assertEqual(expected, result)
-        result = utils.find_file_in_dirs('HISTORY.txt', dirs)
-        expected = (TEST_ROOT / '..' / 'HISTORY.txt').as_posix()
+        result = utils.find_file_in_dirs('HISTORY.rst', dirs)
+        expected = (TEST_ROOT / '..' / 'HISTORY.rst').as_posix()
         self.assertEqual(expected, result)
         # normalize for second check
         self.assertTrue(os.path.relpath(result, TEST_ROOT).startswith('..'),
-                        'HISTORY.txt not found in "..".')
+                        'HISTORY.rst not found in "..".')
         # Return `path` if the file exists in the cwd or if there is no match
-        self.assertEqual(utils.find_file_in_dirs('gibts/nicht.txt', dirs),
-                         'gibts/nicht.txt')
+        self.assertEqual(utils.find_file_in_dirs('gibts/nicht.rst', dirs),
+                         'gibts/nicht.rst')
 
     # samples for the (un)escaping tests:
     escaped = r'escapes: \*one, \\*two, \\\*three in\side no\ space' + '\\'
     nulled = ('escapes: \x00*one, \x00\\*two, \x00\\\x00*three'
-              + ' in\x00side no\x00 space\x00')
+              ' in\x00side no\x00 space\x00')
     unescaped = r'escapes: *one, \*two, \*three inside nospace'
 
     def test_escape2null(self):

@@ -221,7 +221,6 @@ the name `Namespace/MetricName`.
 
 You can expose a metric on a metric filter by calling the `MetricFilter.metric()` API.
 This has a default of `statistic = 'avg'` if the statistic is not set in the `props`.
-Additionally, if the metric filter was created with a dimension map, those dimensions will be included in the metric.
 
 ```python
 # log_group: logs.LogGroup
@@ -417,6 +416,8 @@ logs.QueryDefinition(self, "QueryDefinition",
         parse_statements=["@message \"[*] *\" as loggingType, loggingMessage", "@message \"<*>: *\" as differentLoggingType, differentLoggingMessage"
         ],
         filter_statements=["loggingType = \"ERROR\"", "loggingMessage = \"A very strange error occurred!\""
+        ],
+        stats_statements=["count(loggingMessage) as loggingErrors", "count(differentLoggingMessage) as differentLoggingErrors"
         ],
         sort="@timestamp desc",
         limit=20
@@ -15055,6 +15056,8 @@ class QueryDefinition(
                 ],
                 filter_statements=["loggingType = \"ERROR\"", "loggingMessage = \"A very strange error occurred!\""
                 ],
+                stats_statements=["count(loggingMessage) as loggingErrors", "count(differentLoggingMessage) as differentLoggingErrors"
+                ],
                 sort="@timestamp desc",
                 limit=20
             )
@@ -15140,6 +15143,8 @@ class QueryDefinitionProps:
                     ],
                     filter_statements=["loggingType = \"ERROR\"", "loggingMessage = \"A very strange error occurred!\""
                     ],
+                    stats_statements=["count(loggingMessage) as loggingErrors", "count(differentLoggingMessage) as differentLoggingErrors"
+                    ],
                     sort="@timestamp desc",
                     limit=20
                 )
@@ -15210,6 +15215,8 @@ class QueryString(
                 ],
                 filter_statements=["loggingType = \"ERROR\"", "loggingMessage = \"A very strange error occurred!\""
                 ],
+                stats_statements=["count(loggingMessage) as loggingErrors", "count(differentLoggingMessage) as differentLoggingErrors"
+                ],
                 sort="@timestamp desc",
                 limit=20
             )
@@ -15228,6 +15235,7 @@ class QueryString(
         parse_statements: typing.Optional[typing.Sequence[builtins.str]] = None,
         sort: typing.Optional[builtins.str] = None,
         stats: typing.Optional[builtins.str] = None,
+        stats_statements: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
         :param display: Specifies which fields to display in the query results. Default: - no display in QueryString
@@ -15238,7 +15246,8 @@ class QueryString(
         :param parse: (deprecated) A single statement for parsing data from a log field and creating ephemeral fields that can be processed further in the query. Default: - no parse in QueryString
         :param parse_statements: An array of one or more statements for parsing data from a log field and creating ephemeral fields that can be processed further in the query. Each provided statement generates a separate parse line in the query string. Note: If provided, this property overrides any value provided for the ``parse`` property. Default: - no parse in QueryString
         :param sort: Sorts the retrieved log events. Default: - no sort in QueryString
-        :param stats: Uses log field values to calculate aggregate statistics. Default: - no stats in QueryString
+        :param stats: (deprecated) A single statement for using log field values to calculate aggregate statistics. Default: - no stats in QueryString
+        :param stats_statements: An array of one or more statements for calculating aggregate statistics. CloudWatch Logs Insights supports up to two stats commands in a single query. Each provided statement generates a separate stats line in the query string. Note: If provided, this property overrides any value provided for the ``stats`` property. Default: - no stats in QueryString
         '''
         props = QueryStringProps(
             display=display,
@@ -15250,6 +15259,7 @@ class QueryString(
             parse_statements=parse_statements,
             sort=sort,
             stats=stats,
+            stats_statements=stats_statements,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -15258,6 +15268,18 @@ class QueryString(
     def to_string(self) -> builtins.str:
         '''String representation of this QueryString.'''
         return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="hasStatsAndStatsStatements")
+    def has_stats_and_stats_statements(self) -> builtins.bool:
+        '''If the props for the query string have both stats and statsStatements.'''
+        return typing.cast(builtins.bool, jsii.get(self, "hasStatsAndStatsStatements"))
+
+    @builtins.property
+    @jsii.member(jsii_name="statsStatementsLength")
+    def stats_statements_length(self) -> typing.Optional[jsii.Number]:
+        '''Length of statsStatements.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "statsStatementsLength"))
 
 
 @jsii.data_type(
@@ -15273,6 +15295,7 @@ class QueryString(
         "parse_statements": "parseStatements",
         "sort": "sort",
         "stats": "stats",
+        "stats_statements": "statsStatements",
     },
 )
 class QueryStringProps:
@@ -15288,6 +15311,7 @@ class QueryStringProps:
         parse_statements: typing.Optional[typing.Sequence[builtins.str]] = None,
         sort: typing.Optional[builtins.str] = None,
         stats: typing.Optional[builtins.str] = None,
+        stats_statements: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for a QueryString.
 
@@ -15299,7 +15323,8 @@ class QueryStringProps:
         :param parse: (deprecated) A single statement for parsing data from a log field and creating ephemeral fields that can be processed further in the query. Default: - no parse in QueryString
         :param parse_statements: An array of one or more statements for parsing data from a log field and creating ephemeral fields that can be processed further in the query. Each provided statement generates a separate parse line in the query string. Note: If provided, this property overrides any value provided for the ``parse`` property. Default: - no parse in QueryString
         :param sort: Sorts the retrieved log events. Default: - no sort in QueryString
-        :param stats: Uses log field values to calculate aggregate statistics. Default: - no stats in QueryString
+        :param stats: (deprecated) A single statement for using log field values to calculate aggregate statistics. Default: - no stats in QueryString
+        :param stats_statements: An array of one or more statements for calculating aggregate statistics. CloudWatch Logs Insights supports up to two stats commands in a single query. Each provided statement generates a separate stats line in the query string. Note: If provided, this property overrides any value provided for the ``stats`` property. Default: - no stats in QueryString
 
         :exampleMetadata: infused
 
@@ -15312,6 +15337,8 @@ class QueryStringProps:
                     parse_statements=["@message \"[*] *\" as loggingType, loggingMessage", "@message \"<*>: *\" as differentLoggingType, differentLoggingMessage"
                     ],
                     filter_statements=["loggingType = \"ERROR\"", "loggingMessage = \"A very strange error occurred!\""
+                    ],
+                    stats_statements=["count(loggingMessage) as loggingErrors", "count(differentLoggingMessage) as differentLoggingErrors"
                     ],
                     sort="@timestamp desc",
                     limit=20
@@ -15329,6 +15356,7 @@ class QueryStringProps:
             check_type(argname="argument parse_statements", value=parse_statements, expected_type=type_hints["parse_statements"])
             check_type(argname="argument sort", value=sort, expected_type=type_hints["sort"])
             check_type(argname="argument stats", value=stats, expected_type=type_hints["stats"])
+            check_type(argname="argument stats_statements", value=stats_statements, expected_type=type_hints["stats_statements"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if display is not None:
             self._values["display"] = display
@@ -15348,6 +15376,8 @@ class QueryStringProps:
             self._values["sort"] = sort
         if stats is not None:
             self._values["stats"] = stats
+        if stats_statements is not None:
+            self._values["stats_statements"] = stats_statements
 
     @builtins.property
     def display(self) -> typing.Optional[builtins.str]:
@@ -15440,12 +15470,30 @@ class QueryStringProps:
 
     @builtins.property
     def stats(self) -> typing.Optional[builtins.str]:
-        '''Uses log field values to calculate aggregate statistics.
+        '''(deprecated) A single statement for using log field values to calculate aggregate statistics.
 
         :default: - no stats in QueryString
+
+        :deprecated: Use ``statsStatements`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("stats")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stats_statements(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of one or more statements for calculating aggregate statistics.
+
+        CloudWatch Logs Insights supports up to two stats commands in a single query.
+        Each provided statement generates a separate stats line in the query string.
+
+        Note: If provided, this property overrides any value provided for the ``stats`` property.
+
+        :default: - no stats in QueryString
+        '''
+        result = self._values.get("stats_statements")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19645,6 +19693,7 @@ def _typecheckingstub__d205eb2ac9b46de0083e3387b95b00f2362e2ade91d5c581e5d8cde68
     parse_statements: typing.Optional[typing.Sequence[builtins.str]] = None,
     sort: typing.Optional[builtins.str] = None,
     stats: typing.Optional[builtins.str] = None,
+    stats_statements: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

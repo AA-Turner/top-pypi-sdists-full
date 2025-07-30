@@ -5369,6 +5369,7 @@ class CfnDBCluster(
             db_instance_parameter_group_name="dbInstanceParameterGroupName",
             db_subnet_group_name="dbSubnetGroupName",
             db_system_id="dbSystemId",
+            delete_automated_backups=False,
             deletion_protection=False,
             domain="domain",
             domain_iam_role_name="domainIamRoleName",
@@ -5452,6 +5453,7 @@ class CfnDBCluster(
         db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
         db_subnet_group_name: typing.Optional[builtins.str] = None,
         db_system_id: typing.Optional[builtins.str] = None,
+        delete_automated_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_iam_role_name: typing.Optional[builtins.str] = None,
@@ -5514,6 +5516,7 @@ class CfnDBCluster(
         :param db_instance_parameter_group_name: The name of the DB parameter group to apply to all instances of the DB cluster. .. epigraph:: When you apply a parameter group using the ``DBInstanceParameterGroupName`` parameter, the DB cluster isn't rebooted automatically. Also, parameter changes are applied immediately rather than during the next maintenance window. Valid for Cluster Type: Aurora DB clusters only Default: The existing name setting Constraints: - The DB parameter group must be in the same DB parameter group family as this DB cluster. - The ``DBInstanceParameterGroupName`` parameter is valid in combination with the ``AllowMajorVersionUpgrade`` parameter for a major version upgrade only.
         :param db_subnet_group_name: A DB subnet group that you want to associate with this DB cluster. If you are restoring a DB cluster to a point in time with ``RestoreType`` set to ``copy-on-write`` , and don't specify a DB subnet group name, then the DB cluster is restored with a default DB subnet group. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param db_system_id: Reserved for future use.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param deletion_protection: A value that indicates whether the DB cluster has deletion protection enabled. The database can't be deleted when deletion protection is enabled. By default, deletion protection is disabled. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param domain: Indicates the directory ID of the Active Directory to create the DB cluster. For Amazon Aurora DB clusters, Amazon RDS can use Kerberos authentication to authenticate users that connect to the DB cluster. For more information, see `Kerberos authentication <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/kerberos-authentication.html>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters only
         :param domain_iam_role_name: Specifies the name of the IAM role to use when making API calls to the Directory Service. Valid for: Aurora DB clusters only
@@ -5578,6 +5581,7 @@ class CfnDBCluster(
             db_instance_parameter_group_name=db_instance_parameter_group_name,
             db_subnet_group_name=db_subnet_group_name,
             db_system_id=db_system_id,
+            delete_automated_backups=delete_automated_backups,
             deletion_protection=deletion_protection,
             domain=domain,
             domain_iam_role_name=domain_iam_role_name,
@@ -5999,6 +6003,24 @@ class CfnDBCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__41f2773ed2c93659b8bf06ee2830b9675bbe867fb30ad2e89f77f72a45a3b0e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbSystemId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteAutomatedBackups")
+    def delete_automated_backups(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to remove automated backups immediately after the DB cluster is deleted.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deleteAutomatedBackups"))
+
+    @delete_automated_backups.setter
+    def delete_automated_backups(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e8a2ba2ab46cead449dbe97283d45de5dd8c86ea7d68521f70c997f8eb39235)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deleteAutomatedBackups", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -7583,6 +7605,7 @@ class CfnDBClusterParameterGroupProps:
         "db_instance_parameter_group_name": "dbInstanceParameterGroupName",
         "db_subnet_group_name": "dbSubnetGroupName",
         "db_system_id": "dbSystemId",
+        "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
         "domain_iam_role_name": "domainIamRoleName",
@@ -7647,6 +7670,7 @@ class CfnDBClusterProps:
         db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
         db_subnet_group_name: typing.Optional[builtins.str] = None,
         db_system_id: typing.Optional[builtins.str] = None,
+        delete_automated_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_iam_role_name: typing.Optional[builtins.str] = None,
@@ -7708,6 +7732,7 @@ class CfnDBClusterProps:
         :param db_instance_parameter_group_name: The name of the DB parameter group to apply to all instances of the DB cluster. .. epigraph:: When you apply a parameter group using the ``DBInstanceParameterGroupName`` parameter, the DB cluster isn't rebooted automatically. Also, parameter changes are applied immediately rather than during the next maintenance window. Valid for Cluster Type: Aurora DB clusters only Default: The existing name setting Constraints: - The DB parameter group must be in the same DB parameter group family as this DB cluster. - The ``DBInstanceParameterGroupName`` parameter is valid in combination with the ``AllowMajorVersionUpgrade`` parameter for a major version upgrade only.
         :param db_subnet_group_name: A DB subnet group that you want to associate with this DB cluster. If you are restoring a DB cluster to a point in time with ``RestoreType`` set to ``copy-on-write`` , and don't specify a DB subnet group name, then the DB cluster is restored with a default DB subnet group. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param db_system_id: Reserved for future use.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param deletion_protection: A value that indicates whether the DB cluster has deletion protection enabled. The database can't be deleted when deletion protection is enabled. By default, deletion protection is disabled. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param domain: Indicates the directory ID of the Active Directory to create the DB cluster. For Amazon Aurora DB clusters, Amazon RDS can use Kerberos authentication to authenticate users that connect to the DB cluster. For more information, see `Kerberos authentication <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/kerberos-authentication.html>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters only
         :param domain_iam_role_name: Specifies the name of the IAM role to use when making API calls to the Directory Service. Valid for: Aurora DB clusters only
@@ -7782,6 +7807,7 @@ class CfnDBClusterProps:
                 db_instance_parameter_group_name="dbInstanceParameterGroupName",
                 db_subnet_group_name="dbSubnetGroupName",
                 db_system_id="dbSystemId",
+                delete_automated_backups=False,
                 deletion_protection=False,
                 domain="domain",
                 domain_iam_role_name="domainIamRoleName",
@@ -7861,6 +7887,7 @@ class CfnDBClusterProps:
             check_type(argname="argument db_instance_parameter_group_name", value=db_instance_parameter_group_name, expected_type=type_hints["db_instance_parameter_group_name"])
             check_type(argname="argument db_subnet_group_name", value=db_subnet_group_name, expected_type=type_hints["db_subnet_group_name"])
             check_type(argname="argument db_system_id", value=db_system_id, expected_type=type_hints["db_system_id"])
+            check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_iam_role_name", value=domain_iam_role_name, expected_type=type_hints["domain_iam_role_name"])
@@ -7936,6 +7963,8 @@ class CfnDBClusterProps:
             self._values["db_subnet_group_name"] = db_subnet_group_name
         if db_system_id is not None:
             self._values["db_system_id"] = db_system_id
+        if delete_automated_backups is not None:
+            self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
             self._values["deletion_protection"] = deletion_protection
         if domain is not None:
@@ -8267,6 +8296,19 @@ class CfnDBClusterProps:
         '''
         result = self._values.get("db_system_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_automated_backups(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to remove automated backups immediately after the DB cluster is deleted.
+
+        This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-deleteautomatedbackups
+        '''
+        result = self._values.get("delete_automated_backups")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
     def deletion_protection(
@@ -9550,6 +9592,15 @@ class CfnDBInstance(
         return typing.cast(builtins.str, jsii.get(self, "attrDbInstanceArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrDbInstanceStatus")
+    def attr_db_instance_status(self) -> builtins.str:
+        '''The current state of this DB instance.
+
+        :cloudformationAttribute: DBInstanceStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbInstanceStatus"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrDbiResourceId")
     def attr_dbi_resource_id(self) -> builtins.str:
         '''The AWS Region-unique, immutable identifier for the DB instance.
@@ -9622,6 +9673,77 @@ class CfnDBInstance(
         return typing.cast(builtins.str, jsii.get(self, "attrEndpointPort"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrInstanceCreateTime")
+    def attr_instance_create_time(self) -> builtins.str:
+        '''The date and time when the DB instance was created.
+
+        :cloudformationAttribute: InstanceCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInstanceCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsStorageConfigUpgradeAvailable")
+    def attr_is_storage_config_upgrade_available(self) -> _IResolvable_da3f097b:
+        '''Indicates whether an upgrade is recommended for the storage file system configuration on the DB instance.
+
+        :cloudformationAttribute: IsStorageConfigUpgradeAvailable
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsStorageConfigUpgradeAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatestRestorableTime")
+    def attr_latest_restorable_time(self) -> builtins.str:
+        '''The latest time to which a database in this DB instance can be restored with point-in-time restore.
+
+        :cloudformationAttribute: LatestRestorableTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLatestRestorableTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListenerEndpoint")
+    def attr_listener_endpoint(self) -> _IResolvable_da3f097b:
+        '''This data type represents the information you need to connect to an Amazon RDS DB instance.
+
+        This data type is used as a response element in the following actions:
+
+        - ``CreateDBInstance``
+        - ``DescribeDBInstances``
+        - ``DeleteDBInstance``
+
+        For the data structure that represents Amazon Aurora DB cluster endpoints, see ``DBClusterEndpoint``.
+
+        :cloudformationAttribute: ListenerEndpoint
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrListenerEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListenerEndpointAddress")
+    def attr_listener_endpoint_address(self) -> builtins.str:
+        '''Specifies the DNS address of the DB instance.
+
+        :cloudformationAttribute: ListenerEndpoint.Address
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrListenerEndpointAddress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListenerEndpointHostedZoneId")
+    def attr_listener_endpoint_hosted_zone_id(self) -> builtins.str:
+        '''Specifies the ID that Amazon Route 53 assigns when you create a hosted zone.
+
+        :cloudformationAttribute: ListenerEndpoint.HostedZoneId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrListenerEndpointHostedZoneId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListenerEndpointPort")
+    def attr_listener_endpoint_port(self) -> builtins.str:
+        '''Specifies the port that the database engine is listening on.
+
+        :cloudformationAttribute: ListenerEndpoint.Port
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrListenerEndpointPort"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrMasterUserSecretSecretArn")
     def attr_master_user_secret_secret_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the secret.
@@ -9631,6 +9753,24 @@ class CfnDBInstance(
         :cloudformationAttribute: MasterUserSecret.SecretArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrMasterUserSecretSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReadReplicaDbClusterIdentifiers")
+    def attr_read_replica_db_cluster_identifiers(self) -> typing.List[builtins.str]:
+        '''The identifiers of Aurora DB clusters to which the RDS DB instance is replicated as a read replica.
+
+        :cloudformationAttribute: ReadReplicaDBClusterIdentifiers
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrReadReplicaDbClusterIdentifiers"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReadReplicaDbInstanceIdentifiers")
+    def attr_read_replica_db_instance_identifiers(self) -> typing.List[builtins.str]:
+        '''The identifiers of the read replicas associated with this DB instance.
+
+        :cloudformationAttribute: ReadReplicaDBInstanceIdentifiers
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrReadReplicaDbInstanceIdentifiers"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -36937,7 +37077,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_17")
     def VER_13_17(cls) -> "PostgresEngineVersion":
-        '''Version "13.17".'''
+        '''(deprecated) Version "13.17".
+
+        :deprecated: PostgreSQL 13.17 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_17"))
 
     @jsii.python.classproperty
@@ -36949,7 +37094,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_19")
     def VER_13_19(cls) -> "PostgresEngineVersion":
-        '''Version "13.19".'''
+        '''(deprecated) Version "13.19".
+
+        :deprecated: PostgreSQL 13.19 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_19"))
 
     @jsii.python.classproperty
@@ -37106,7 +37256,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_14")
     def VER_14_14(cls) -> "PostgresEngineVersion":
-        '''Version "14.14".'''
+        '''(deprecated) Version "14.14".
+
+        :deprecated: PostgreSQL 14.14 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_14"))
 
     @jsii.python.classproperty
@@ -37118,7 +37273,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_16")
     def VER_14_16(cls) -> "PostgresEngineVersion":
-        '''Version "14.16".'''
+        '''(deprecated) Version "14.16".
+
+        :deprecated: PostgreSQL 14.16 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_16"))
 
     @jsii.python.classproperty
@@ -37236,7 +37396,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_11")
     def VER_15_11(cls) -> "PostgresEngineVersion":
-        '''Version "15.11".'''
+        '''(deprecated) Version "15.11".
+
+        :deprecated: PostgreSQL 15.11 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_11"))
 
     @jsii.python.classproperty
@@ -37321,7 +37486,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_9")
     def VER_15_9(cls) -> "PostgresEngineVersion":
-        '''Version "15.9".'''
+        '''(deprecated) Version "15.9".
+
+        :deprecated: PostgreSQL 15.9 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_9"))
 
     @jsii.python.classproperty
@@ -37367,7 +37537,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_5")
     def VER_16_5(cls) -> "PostgresEngineVersion":
-        '''Version "16.5".'''
+        '''(deprecated) Version "16.5".
+
+        :deprecated: PostgreSQL 16.5 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_5"))
 
     @jsii.python.classproperty
@@ -37379,7 +37554,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_7")
     def VER_16_7(cls) -> "PostgresEngineVersion":
-        '''Version "16.7".'''
+        '''(deprecated) Version "16.7".
+
+        :deprecated: PostgreSQL 16.7 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_7"))
 
     @jsii.python.classproperty
@@ -37403,7 +37583,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_1")
     def VER_17_1(cls) -> "PostgresEngineVersion":
-        '''Version "17.1".'''
+        '''(deprecated) Version "17.1".
+
+        :deprecated: PostgreSQL 17.1 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_1"))
 
     @jsii.python.classproperty
@@ -37415,7 +37600,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_3")
     def VER_17_3(cls) -> "PostgresEngineVersion":
-        '''Version "17.3".'''
+        '''(deprecated) Version "17.3".
+
+        :deprecated: PostgreSQL 17.3 is no longer supported by Amazon RDS
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_3"))
 
     @jsii.python.classproperty
@@ -49147,6 +49337,7 @@ def _typecheckingstub__1eb14b9dcc306eabcc2963c7b6ef9b87bf8d616bb5691dbc6656242be
     db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
     db_subnet_group_name: typing.Optional[builtins.str] = None,
     db_system_id: typing.Optional[builtins.str] = None,
+    delete_automated_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_iam_role_name: typing.Optional[builtins.str] = None,
@@ -49297,6 +49488,12 @@ def _typecheckingstub__2659ab1026eaa69df2aeac64c6195777b6de1b6c75de8c797bfe2b742
 
 def _typecheckingstub__41f2773ed2c93659b8bf06ee2830b9675bbe867fb30ad2e89f77f72a45a3b0e0(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e8a2ba2ab46cead449dbe97283d45de5dd8c86ea7d68521f70c997f8eb39235(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -49689,6 +49886,7 @@ def _typecheckingstub__aaf089104646bb0ea95e48cd2107d642585c3eb3785a21112fc029b15
     db_instance_parameter_group_name: typing.Optional[builtins.str] = None,
     db_subnet_group_name: typing.Optional[builtins.str] = None,
     db_system_id: typing.Optional[builtins.str] = None,
+    delete_automated_backups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_iam_role_name: typing.Optional[builtins.str] = None,

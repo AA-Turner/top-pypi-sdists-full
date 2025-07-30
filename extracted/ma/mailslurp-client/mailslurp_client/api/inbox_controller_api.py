@@ -968,6 +968,9 @@ class InboxControllerApi(object):
                                                         local_var_params['description'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `description` when calling `delete_all_inboxes_by_description`")  # noqa: E501
 
+        if self.api_client.client_side_validation and ('description' in local_var_params and  # noqa: E501
+                                                        len(local_var_params['description']) < 1):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `description` when calling `delete_all_inboxes_by_description`, length must be greater than or equal to `1`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -1078,6 +1081,9 @@ class InboxControllerApi(object):
                                                         local_var_params['name'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `name` when calling `delete_all_inboxes_by_name`")  # noqa: E501
 
+        if self.api_client.client_side_validation and ('name' in local_var_params and  # noqa: E501
+                                                        len(local_var_params['name']) < 1):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `name` when calling `delete_all_inboxes_by_name`, length must be greater than or equal to `1`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -1188,6 +1194,9 @@ class InboxControllerApi(object):
                                                         local_var_params['tag'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `tag` when calling `delete_all_inboxes_by_tag`")  # noqa: E501
 
+        if self.api_client.client_side_validation and ('tag' in local_var_params and  # noqa: E501
+                                                        len(local_var_params['tag']) < 1):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `tag` when calling `delete_all_inboxes_by_tag`, length must be greater than or equal to `1`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -1342,7 +1351,9 @@ class InboxControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_address: Email address (required)
-        :param bool allow_catch_all:
+        :param bool allow_catch_all: Allow catch all
+        :param str ip_address: IP address
+        :param str sender: Sender
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1368,7 +1379,9 @@ class InboxControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_address: Email address (required)
-        :param bool allow_catch_all:
+        :param bool allow_catch_all: Allow catch all
+        :param str ip_address: IP address
+        :param str sender: Sender
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1387,7 +1400,9 @@ class InboxControllerApi(object):
 
         all_params = [
             'email_address',
-            'allow_catch_all'
+            'allow_catch_all',
+            'ip_address',
+            'sender'
         ]
         all_params.extend(
             [
@@ -1420,6 +1435,10 @@ class InboxControllerApi(object):
             query_params.append(('emailAddress', local_var_params['email_address']))  # noqa: E501
         if 'allow_catch_all' in local_var_params and local_var_params['allow_catch_all'] is not None:  # noqa: E501
             query_params.append(('allowCatchAll', local_var_params['allow_catch_all']))  # noqa: E501
+        if 'ip_address' in local_var_params and local_var_params['ip_address'] is not None:  # noqa: E501
+            query_params.append(('ipAddress', local_var_params['ip_address']))  # noqa: E501
+        if 'sender' in local_var_params and local_var_params['sender'] is not None:  # noqa: E501
+            query_params.append(('sender', local_var_params['sender']))  # noqa: E501
 
         header_params = {}
 
@@ -3179,6 +3198,9 @@ class InboxControllerApi(object):
                                                         local_var_params['email_address'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `email_address` when calling `get_inbox_by_email_address`")  # noqa: E501
 
+        if self.api_client.client_side_validation and ('email_address' in local_var_params and  # noqa: E501
+                                                        len(local_var_params['email_address']) < 1):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `email_address` when calling `get_inbox_by_email_address`, length must be greater than or equal to `1`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -3293,6 +3315,9 @@ class InboxControllerApi(object):
                                                         local_var_params['name'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `name` when calling `get_inbox_by_name`")  # noqa: E501
 
+        if self.api_client.client_side_validation and ('name' in local_var_params and  # noqa: E501
+                                                        len(local_var_params['name']) < 1):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `name` when calling `get_inbox_by_name`, length must be greater than or equal to `1`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}

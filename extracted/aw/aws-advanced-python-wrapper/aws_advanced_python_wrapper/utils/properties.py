@@ -20,7 +20,9 @@ from aws_advanced_python_wrapper.utils.messages import Messages
 
 
 class Properties(Dict[str, Any]):
-    pass
+    def put_if_absent(self, key: str, value: Any):
+        if self.get(key) is None:
+            self[key] = value
 
 
 class WrapperProperty:
@@ -29,10 +31,18 @@ class WrapperProperty:
         self.default_value = default_value
         self.description = description
 
+    def __str__(self):
+        return f"WrapperProperty(name={self.name}, default_value={self.default_value}"
+
     def get(self, props: Properties) -> Optional[str]:
         if self.default_value:
             return props.get(self.name, self.default_value)
         return props.get(self.name)
+
+    def get_or_default(self, props: Properties) -> str:
+        if not self.default_value:
+            raise ValueError(f"No default value found for property {self}")
+        return props.get(self.name, self.default_value)
 
     def get_int(self, props: Properties) -> int:
         if self.default_value:
@@ -130,6 +140,15 @@ class WrapperProperties:
     SECRETS_MANAGER_SECRET_ID = WrapperProperty(
         "secrets_manager_secret_id",
         "The name or the ARN of the secret to retrieve.")
+    SECRETS_MANAGER_SECRET_USERNAME_KEY = WrapperProperty(
+        "secrets_manager_secret_username_key",
+        "The key of the secret to retrieve, which contains the username.",
+        "username")
+    SECRETS_MANAGER_SECRET_PASSWORD_KEY = WrapperProperty(
+        "secrets_manager_secret_password_key",
+        "The key of the secret to retrieve, which contains the password.",
+        "password"
+    )
     SECRETS_MANAGER_REGION = WrapperProperty(
         "secrets_manager_region",
         "The region of the secret to retrieve.",
@@ -137,6 +156,10 @@ class WrapperProperties:
     SECRETS_MANAGER_ENDPOINT = WrapperProperty(
         "secrets_manager_endpoint",
         "The endpoint of the secret to retrieve.")
+    SECRETS_MANAGER_EXPIRATION = WrapperProperty(
+        "secrets_manager_expiration",
+        "Secret cache expiration in seconds",
+        60 * 60 * 24 * 365)
 
     DIALECT = WrapperProperty("wrapper_dialect", "A unique identifier for the supported database dialect.")
     AUXILIARY_QUERY_TIMEOUT_SEC = WrapperProperty(
@@ -255,13 +278,23 @@ class WrapperProperties:
         True)
 
     # Host Selector
-    ROUND_ROBIN_DEFAULT_WEIGHT = WrapperProperty("round_robin_default_weight", "The default weight for any hosts that have not been " +
+    ROUND_ROBIN_DEFAULT_WEIGHT = WrapperProperty("round_robin_default_weight",
+                                                 "The default weight for any hosts that have not been " +
                                                  "configured with the `round_robin_host_weight_pairs` parameter.",
                                                  1)
 
     ROUND_ROBIN_HOST_WEIGHT_PAIRS = WrapperProperty("round_robin_host_weight_pairs",
                                                     "Comma separated list of database host-weight pairs in the format of `<host>:<weight>`.",
                                                     "")
+
+    WEIGHTED_RANDOM_DEFAULT_WEIGHT = WrapperProperty("weighted_random_default_weight", "The default weight for any hosts that have not been " +
+                                                     "configured with the `weighted_random_host_weight_pairs` parameter.",
+                                                     1)
+
+    WEIGHTED_RANDOM_HOST_WEIGHT_PAIRS = WrapperProperty("weighted_random_host_weight_pairs",
+                                                        "Comma separated list of database host-weight pairs in the format of `<host>:<weight>`.",
+                                                        "")
+
     # Federated Auth Plugin
     IDP_ENDPOINT = WrapperProperty("idp_endpoint",
                                    "The hosting URL of the Identity Provider",
@@ -300,8 +333,9 @@ class WrapperProperties:
                                            60)
 
     SSL_SECURE = WrapperProperty("ssl_secure",
-                                 "Whether the SSL session is to be secure and the server's certificates will be verified",
-                                 False)
+                                 "Whether the SSL session is to be secure and the server's certificates will be verified."
+                                 " We do not recommend disabling this for production use.",
+                                 True)
 
     IDP_NAME = WrapperProperty("idp_name",
                                "The name of the Identity Provider implementation used",
@@ -316,9 +350,69 @@ class WrapperProperties:
     APP_ID = WrapperProperty("app_id", "The ID of the AWS application configured on Okta", None)
 
     # Fastest Response Strategy
-    RESPONSE_MEASUREMENT_INTERVAL_MILLIS = WrapperProperty("response_measurement_interval_ms",
-                                                           "Interval in milliseconds between measuring response time to a database host",
-                                                           30_000)
+    RESPONSE_MEASUREMENT_INTERVAL_MS = WrapperProperty("response_measurement_interval_ms",
+                                                       "Interval in milliseconds between measuring response time to a database host",
+                                                       30_000)
+
+    # Limitless
+    LIMITLESS_MONITOR_DISPOSAL_TIME_MS = WrapperProperty("limitless_transaction_router_monitor_disposal_time_ms",
+                                                         "Interval in milliseconds for an Limitless router monitor to be "
+                                                         "considered inactive and to be disposed.",
+                                                         600_000)
+
+    LIMITLESS_INTERVAL_MILLIS = WrapperProperty("limitless_transaction_router_monitor_interval_ms",
+                                                "Interval in millis between polling for Limitless Transaction Routers to the database.",
+                                                7_500)
+
+    WAIT_FOR_ROUTER_INFO = WrapperProperty("limitless_wait_for_transaction_router_info",
+                                           "If the cache of transaction router info is empty "
+                                           "and a new connection is made, this property toggles whether "
+                                           "the plugin will wait and synchronously fetch transaction router info before selecting a transaction "
+                                           "router to connect to, or to fall back to using the provided DB Shard Group endpoint URL.",
+                                           True)
+
+    GET_ROUTER_RETRY_INTERVAL_MS = WrapperProperty("limitless_get_transaction_router_retry_interval_ms",
+                                                   "Interval in milliseconds between retries fetching Limitless Transaction Router information.",
+                                                   300)
+
+    GET_ROUTER_MAX_RETRIES = WrapperProperty("limitless_get_transaction_router_max_retries",
+                                             "Max number of connection retries the Limitless Connection Plugin will attempt.",
+                                             5)
+
+    MAX_RETRIES_MS = WrapperProperty("limitless_max_retries_ms",
+                                     "Interval in milliseconds between polling for Limitless Transaction Routers to the database.",
+                                     7_500)
+
+    # Blue/Green
+    BG_CONNECT_TIMEOUT_MS = WrapperProperty(
+        "bg_connect_timeout_ms",
+        "Connect timeout (in msec) during Blue/Green Deployment switchover.",
+        30_000)
+    BG_ID = WrapperProperty(
+        "bg_id",
+        "Blue/Green Deployment identifier that helps the driver to distinguish different deployments.",
+        "1")
+    BG_INTERVAL_BASELINE_MS = WrapperProperty(
+        "bg_interval_baseline_ms",
+        "Baseline Blue/Green Deployment status checking interval (in msec).",
+        60_000)
+    BG_INTERVAL_INCREASED_MS = WrapperProperty(
+        "bg_interval_increased_ms",
+        "Increased Blue/Green Deployment status checking interval (in msec).",
+        1_000)
+    BG_INTERVAL_HIGH_MS = WrapperProperty(
+        "bg_interval_high_ms",
+        "High Blue/Green Deployment status checking interval (in msec).",
+        100)
+    BG_SWITCHOVER_TIMEOUT_MS = WrapperProperty(
+        "bg_switchover_timeout_ms",
+        "Blue/Green Deployment switchover timeout (in msec).",
+        180_000)  # 3 minutes
+    BG_SUSPEND_NEW_BLUE_CONNECTIONS = WrapperProperty(
+        "bg_suspend_new_blue_connections",
+        "Enables Blue/Green Deployment switchover to suspend new blue connection requests while the "
+        "switchover process is in progress.",
+        False)
 
     # Telemetry
     ENABLE_TELEMETRY = WrapperProperty(

@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_code_long.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_code_long.py 10022 2025-03-07 23:05:06Z aa-turner $
 # Author: Guenter Milde
 # Copyright: This module has been placed in the public domain.
 
@@ -22,7 +22,7 @@ from docutils.parsers.rst import Parser
 from docutils.utils import new_document
 from docutils.utils.code_analyzer import with_pygments
 from test.test_parsers.test_rst.test_directives.test_code \
-    import PYGMENTS_2_14_PLUS
+    import PYGMENTS_2_14_PLUS, def_ws
 
 
 @unittest.skipUnless(with_pygments, 'needs Pygments')
@@ -55,14 +55,14 @@ totest['code_parsing_long'] = [
       # and now for something completely different
       print(8/2)
 """,
-"""\
+f"""\
 <document source="test data">
     <literal_block classes="code python3" xml:space="preserve">
         <inline classes="ln">
              7 \n\
         <inline classes="keyword">
             def
-         \n\
+        {def_ws}
         <inline classes="name function">
             my_function
         <inline classes="punctuation">

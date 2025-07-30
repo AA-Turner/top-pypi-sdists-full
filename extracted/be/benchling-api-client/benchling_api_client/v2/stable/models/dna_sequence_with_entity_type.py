@@ -9,6 +9,7 @@ from ..models.archive_record import ArchiveRecord
 from ..models.custom_fields import CustomFields
 from ..models.dna_annotation import DnaAnnotation
 from ..models.dna_sequence_part import DnaSequencePart
+from ..models.dna_sequence_transcription import DnaSequenceTranscription
 from ..models.dna_sequence_with_entity_type_entity_type import DnaSequenceWithEntityTypeEntityType
 from ..models.fields import Fields
 from ..models.primer import Primer
@@ -47,6 +48,7 @@ class DnaSequenceWithEntityType:
     _registration_origin: Union[Unset, None, RegistrationOrigin] = UNSET
     _registry_id: Union[Unset, None, str] = UNSET
     _schema: Union[Unset, None, SchemaSummary] = UNSET
+    _transcriptions: Union[Unset, List[DnaSequenceTranscription]] = UNSET
     _translations: Union[Unset, List[Translation]] = UNSET
     _web_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
@@ -75,6 +77,7 @@ class DnaSequenceWithEntityType:
         fields.append("registration_origin={}".format(repr(self._registration_origin)))
         fields.append("registry_id={}".format(repr(self._registry_id)))
         fields.append("schema={}".format(repr(self._schema)))
+        fields.append("transcriptions={}".format(repr(self._transcriptions)))
         fields.append("translations={}".format(repr(self._translations)))
         fields.append("web_url={}".format(repr(self._web_url)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
@@ -154,6 +157,14 @@ class DnaSequenceWithEntityType:
         if not isinstance(self._schema, Unset):
             schema = self._schema.to_dict() if self._schema else None
 
+        transcriptions: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._transcriptions, Unset):
+            transcriptions = []
+            for transcriptions_item_data in self._transcriptions:
+                transcriptions_item = transcriptions_item_data.to_dict()
+
+                transcriptions.append(transcriptions_item)
+
         translations: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._translations, Unset):
             translations = []
@@ -211,6 +222,8 @@ class DnaSequenceWithEntityType:
             field_dict["registryId"] = registry_id
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if transcriptions is not UNSET:
+            field_dict["transcriptions"] = transcriptions
         if translations is not UNSET:
             field_dict["translations"] = translations
         if web_url is not UNSET:
@@ -528,6 +541,25 @@ class DnaSequenceWithEntityType:
                 raise
             schema = cast(Union[Unset, None, SchemaSummary], UNSET)
 
+        def get_transcriptions() -> Union[Unset, List[DnaSequenceTranscription]]:
+            transcriptions = []
+            _transcriptions = d.pop("transcriptions")
+            for transcriptions_item_data in _transcriptions or []:
+                transcriptions_item = DnaSequenceTranscription.from_dict(
+                    transcriptions_item_data, strict=False
+                )
+
+                transcriptions.append(transcriptions_item)
+
+            return transcriptions
+
+        try:
+            transcriptions = get_transcriptions()
+        except KeyError:
+            if strict:
+                raise
+            transcriptions = cast(Union[Unset, List[DnaSequenceTranscription]], UNSET)
+
         def get_translations() -> Union[Unset, List[Translation]]:
             translations = []
             _translations = d.pop("translations")
@@ -579,6 +611,7 @@ class DnaSequenceWithEntityType:
             registration_origin=registration_origin,
             registry_id=registry_id,
             schema=schema,
+            transcriptions=transcriptions,
             translations=translations,
             web_url=web_url,
         )
@@ -913,6 +946,20 @@ class DnaSequenceWithEntityType:
     @schema.deleter
     def schema(self) -> None:
         self._schema = UNSET
+
+    @property
+    def transcriptions(self) -> List[DnaSequenceTranscription]:
+        if isinstance(self._transcriptions, Unset):
+            raise NotPresentError(self, "transcriptions")
+        return self._transcriptions
+
+    @transcriptions.setter
+    def transcriptions(self, value: List[DnaSequenceTranscription]) -> None:
+        self._transcriptions = value
+
+    @transcriptions.deleter
+    def transcriptions(self) -> None:
+        self._transcriptions = UNSET
 
     @property
     def translations(self) -> List[Translation]:

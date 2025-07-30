@@ -17,7 +17,7 @@ class Dependency(str):
             condition = detail["condition"]
         else:
             name = config
-        ob = super(Dependency, cls).__new__(cls, name)
+        ob = super().__new__(cls, name)
         ob.__setattr__('condition', condition)
         return ob
 

@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_inline_markup.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_inline_markup.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -25,6 +25,8 @@ from docutils.utils import new_document
 
 
 class PEPParserTestCase(unittest.TestCase):
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser(rfc2822=True, inliner=Inliner())
         settings = get_default_settings(Parser, Reader)

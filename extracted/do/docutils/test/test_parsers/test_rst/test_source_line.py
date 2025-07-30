@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_source_line.py 9500 2023-12-14 22:38:49Z milde $
+# $Id: test_source_line.py 9949 2024-10-13 13:44:24Z milde $
 # Author: Günter Milde
 # Maintainer: docutils-develop@lists.sourceforge.net
 # :Copyright: 2021 Günter Milde,
@@ -66,7 +66,7 @@ class TransformTestCase(unittest.TestCase):
 
 mydir = os.path.join(TEST_ROOT, 'test_parsers/test_rst')
 include14 = os.path.relpath(
-    os.path.join(mydir, 'includes/include14.txt'),
+    os.path.join(mydir, 'includes/include14.rst'),
     os.getcwd()).replace('\\', '/')
 totest = {}
 
@@ -270,6 +270,67 @@ Final paragraph in line 10
             caption on line 8
     <paragraph internal:line="10" internal:source="test data">
         Final paragraph in line 10
+"""],
+["""\
+Paragraph
+
+.. sidebar::
+
+   .. compound::
+      paragraph at line 6
+
+      | line block,
+        first line
+      | line block, second line at line 10
+      |   indented
+          line
+
+      .. line-block::  line block at line 14
+                       with legacy directive
+
+   continuation at line 17
+
+.. topic:: topic title at line 19
+
+   .. container::
+
+         container content at line 23
+
+Final paragraph at line 25
+""",
+"""\
+<document source="test data">
+    <paragraph internal:line="1" internal:source="test data">
+        Paragraph
+    <sidebar internal:line="3" internal:source="test data">
+        <compound internal:line="5" internal:source="test data">
+            <paragraph internal:line="6" internal:source="test data">
+                paragraph at line 6
+            <line_block internal:line="8" internal:source="test data">
+                <line internal:line="8" internal:source="test data">
+                    line block,
+                    first line
+                <line internal:line="10" internal:source="test data">
+                    line block, second line at line 10
+                <line_block>
+                    <line internal:line="11" internal:source="test data">
+                        indented
+                        line
+            <line_block internal:line="14" internal:source="test data">
+                <line internal:line="14" internal:source="test data">
+                    line block at line 14
+                <line internal:line="15" internal:source="test data">
+                    with legacy directive
+        <paragraph internal:line="17" internal:source="test data">
+            continuation at line 17
+    <topic internal:line="19" internal:source="test data">
+        <title>
+            topic title at line 19
+        <container internal:line="21" internal:source="test data">
+            <paragraph internal:line="23" internal:source="test data">
+                container content at line 23
+    <paragraph internal:line="25" internal:source="test data">
+        Final paragraph at line 25
 """],
 ])
 

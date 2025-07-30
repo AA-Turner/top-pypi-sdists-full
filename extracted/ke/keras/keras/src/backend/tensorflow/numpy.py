@@ -151,6 +151,36 @@ def hamming(x):
     return tf.signal.hamming_window(x, periodic=False)
 
 
+def hanning(x):
+    x = convert_to_tensor(x, dtype=tf.int32)
+    return tf.signal.hann_window(x, periodic=False)
+
+
+def heaviside(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+
+    dtype = dtypes.result_type(x1.dtype, x2.dtype)
+    if dtype in ["int8", "int16", "int32", "uint8", "uint16", "uint32"]:
+        dtype = config.floatx()
+    elif dtype in ["int64"]:
+        dtype = "float64"
+
+    x1 = tf.cast(x1, dtype)
+    x2 = tf.cast(x2, dtype)
+
+    return tf.where(
+        x1 < 0,
+        tf.zeros_like(x1),
+        tf.where(x1 > 0, tf.ones_like(x1), x2),
+    )
+
+
+def kaiser(x, beta):
+    x = convert_to_tensor(x, dtype=tf.int32)
+    return tf.signal.kaiser_window(x, beta=beta)
+
+
 def bincount(x, weights=None, minlength=0, sparse=False):
     x = convert_to_tensor(x)
     dtypes_to_resolve = [x.dtype]
@@ -1079,6 +1109,18 @@ def broadcast_to(x, shape):
     return tf.broadcast_to(x, shape)
 
 
+def cbrt(x):
+    x = convert_to_tensor(x)
+
+    dtype = standardize_dtype(x.dtype)
+    if dtype == "int64":
+        x = tf.cast(x, "float64")
+    elif dtype not in ["bfloat16", "float16", "float64"]:
+        x = tf.cast(x, config.floatx())
+
+    return tf.sign(x) * tf.pow(tf.abs(x), 1.0 / 3.0)
+
+
 @sparse.elementwise_unary
 def ceil(x):
     x = convert_to_tensor(x)
@@ -1246,6 +1288,28 @@ def cumsum(x, axis=None, dtype=None):
     return tf.math.cumsum(x, axis=axis)
 
 
+def deg2rad(x):
+    x = convert_to_tensor(x)
+
+    dtype = x.dtype
+    if standardize_dtype(dtype) in [
+        "bool",
+        "int8",
+        "int16",
+        "int32",
+        "uint8",
+        "uint16",
+        "uint32",
+    ]:
+        dtype = config.floatx()
+    elif standardize_dtype(dtype) in ["int64"]:
+        dtype = "float64"
+    x = tf.cast(x, dtype)
+
+    pi = tf.constant(math.pi, dtype=dtype)
+    return x * (pi / tf.constant(180.0, dtype=dtype))
+
+
 def diag(x, k=0):
     x = convert_to_tensor(x)
     if len(x.shape) == 1:
@@ -1354,23 +1418,23 @@ def digitize(x, bins):
     return tf.raw_ops.Bucketize(input=x, boundaries=bins)
 
 
-def dot(x, y):
-    x = convert_to_tensor(x)
-    y = convert_to_tensor(y)
-    result_dtype = dtypes.result_type(x.dtype, y.dtype)
+def dot(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    result_dtype = dtypes.result_type(x1.dtype, x2.dtype)
     # GPU only supports float types
     compute_dtype = dtypes.result_type(result_dtype, float)
-    x = tf.cast(x, compute_dtype)
-    y = tf.cast(y, compute_dtype)
+    x1 = tf.cast(x1, compute_dtype)
+    x2 = tf.cast(x2, compute_dtype)
 
-    x_shape = x.shape
-    y_shape = y.shape
+    x_shape = x1.shape
+    y_shape = x2.shape
     if x_shape.rank == 0 or y_shape.rank == 0:
-        output = x * y
+        output = x1 * x2
     elif y_shape.rank == 1:
-        output = tf.tensordot(x, y, axes=[[-1], [-1]])
+        output = tf.tensordot(x1, x2, axes=[[-1], [-1]])
     else:
-        output = tf.tensordot(x, y, axes=[[-1], [-2]])
+        output = tf.tensordot(x1, x2, axes=[[-1], [-2]])
     return tf.cast(output, result_dtype)
 
 
@@ -2008,27 +2072,29 @@ def ravel(x):
     return tf.reshape(x, [-1])
 
 
-def unravel_index(x, shape):
-    x = tf.convert_to_tensor(x)
-    input_dtype = x.dtype
+def unravel_index(indices, shape):
+    indices = tf.convert_to_tensor(indices)
+    input_dtype = indices.dtype
 
     if None in shape:
         raise ValueError(
             f"`shape` argument cannot contain `None`. Received: shape={shape}"
         )
 
-    if x.ndim == 1:
+    if indices.ndim == 1:
         coords = []
         for dim in reversed(shape):
-            coords.append(tf.cast(x % dim, input_dtype))
-            x = x // dim
+            coords.append(tf.cast(indices % dim, input_dtype))
+            indices = indices // dim
         return tuple(reversed(coords))
 
-    x_shape = x.shape
+    indices_shape = indices.shape
     coords = []
     for dim in shape:
-        coords.append(tf.reshape(tf.cast(x % dim, input_dtype), x_shape))
-        x = x // dim
+        coords.append(
+            tf.reshape(tf.cast(indices % dim, input_dtype), indices_shape)
+        )
+        indices = indices // dim
 
     return tuple(reversed(coords))
 
@@ -2577,7 +2643,7 @@ def vectorize(pyfunc, *, excluded=None, signature=None):
     )
 
 
-def where(condition, x1, x2):
+def where(condition, x1=None, x2=None):
     condition = tf.cast(condition, "bool")
     if x1 is not None and x2 is not None:
         if not isinstance(x1, (int, float)):
@@ -2774,6 +2840,38 @@ def logical_xor(x1, x2):
     return tf.math.logical_xor(x1, x2)
 
 
+def corrcoef(x):
+    dtype = x.dtype
+    if dtype in ["bool", "int8", "int16", "int32", "uint8", "uint16", "uint32"]:
+        dtype = config.floatx()
+    x = convert_to_tensor(x, dtype)
+
+    if tf.rank(x) == 0:
+        return tf.constant(float("nan"), dtype=config.floatx())
+
+    mean = tf.reduce_mean(x, axis=-1, keepdims=True)
+    x_centered = x - mean
+
+    num_samples = tf.cast(tf.shape(x)[-1], x.dtype)
+    cov_matrix = tf.matmul(x_centered, x_centered, adjoint_b=True) / (
+        num_samples - 1
+    )
+
+    diag = tf.linalg.diag_part(cov_matrix)
+    stddev = tf.sqrt(tf.math.real(diag))
+
+    outer_std = tf.tensordot(stddev, stddev, axes=0)
+    outer_std = tf.cast(outer_std, cov_matrix.dtype)
+    correlation = cov_matrix / outer_std
+
+    correlation_clipped = tf.clip_by_value(tf.math.real(correlation), -1.0, 1.0)
+    if correlation.dtype.is_complex:
+        imag_clipped = tf.clip_by_value(tf.math.imag(correlation), -1.0, 1.0)
+        return tf.complex(correlation_clipped, imag_clipped)
+    else:
+        return correlation_clipped
+
+
 def correlate(x1, x2, mode="valid"):
     x1 = convert_to_tensor(x1)
     x2 = convert_to_tensor(x2)
@@ -2846,7 +2944,7 @@ def argpartition(x, kth, axis=-1):
     return swapaxes(out, -1, axis)
 
 
-def histogram(x, bins, range):
+def histogram(x, bins=10, range=None):
     """Computes a histogram of the data tensor `x`.
 
     Note: the `tf.histogram_fixed_width()` and

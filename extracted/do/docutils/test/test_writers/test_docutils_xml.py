@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: test_docutils_xml.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_docutils_xml.py 9914 2024-08-21 13:45:08Z milde $
 # Author: Lea Wiemann <LeWiemann@gmail.com>
 # Copyright: This module has been placed in the public domain.
 
@@ -19,6 +19,7 @@ import unittest
 
 import docutils
 import docutils.core
+from docutils.writers import docutils_xml
 
 from io import StringIO
 
@@ -122,8 +123,7 @@ invalid_raw_xml = """\
 
 def publish_xml(settings, source):
     return docutils.core.publish_string(source=source,
-                                       reader_name='standalone',
-                                       writer_name='docutils_xml',
+                                       writer=docutils_xml.Writer(),
                                        settings_overrides=settings)
 
 

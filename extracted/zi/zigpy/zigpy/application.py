@@ -16,10 +16,14 @@ import typing
 from typing import Any, TypeVar
 import warnings
 
+from zigpy.backports.contextlib import nullcontext
+
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout  # pragma: no cover
 else:
     from asyncio import timeout as asyncio_timeout  # pragma: no cover
+
+import contextvars
 
 import zigpy.appdb
 import zigpy.backups
@@ -70,7 +74,6 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         self._config = self.SCHEMA(config)
         self._dblistener = None
         self._groups = zigpy.group.Groups(self)
-        self._listeners = {}
         self._send_sequence = 0
         self._tasks: set[asyncio.Future[Any]] = set()
 
@@ -89,6 +92,11 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             collections.deque[zigpy.listeners.BaseRequestListener],
         ] = collections.defaultdict(lambda: collections.deque([]))
 
+        # Context variable for request priority context manager
+        self._packet_priority_var = contextvars.ContextVar(
+            "request_priority", default=t.PacketPriority.NORMAL
+        )
+
     def create_task(
         self, target: Coroutine[Any, Any, _R], name: str | None = None
     ) -> asyncio.Task[_R]:
@@ -100,6 +108,16 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         self._tasks.add(task)
         task.add_done_callback(self._tasks.remove)
         return task
+
+    @contextlib.asynccontextmanager
+    async def request_priority(self, priority: int) -> AsyncGenerator[None]:
+        """Context manager to set the request priority for the duration of the context."""
+        token = self._packet_priority_var.set(priority)
+
+        try:
+            yield
+        finally:
+            self._packet_priority_var.reset(token)
 
     async def _load_db(self) -> None:
         """Restore save state."""
@@ -417,9 +435,15 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         if self._watchdog_task is not None:
             self._watchdog_task.cancel()
 
+        for task in self._tasks:
+            task.cancel()
+
         self.ota.stop_periodic_broadcasts()
         self.backups.stop_periodic_backups()
         self.topology.stop_periodic_scans()
+
+        for device in self.devices.values():
+            device.on_remove()
 
         try:
             await self.disconnect()
@@ -566,6 +590,9 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         dev._concurrent_requests_semaphore.cancel_waiting(
             zigpy.exceptions.DeliveryError("Device has re-joined the network")
         )
+
+        # Reset all timers related to the device
+        dev.reset_timers()
 
         if new_join:
             self.listener_event("device_joined", dev)
@@ -741,11 +768,27 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             await self.add_endpoint(endpoint)
 
     @contextlib.asynccontextmanager
-    async def _limit_concurrency(self, *, priority: int = t.PacketPriority.NORMAL):
+    async def _limit_concurrency(
+        self, *, priority: int | None = None
+    ) -> AsyncGenerator[None, None]:
         """Async context manager to limit global coordinator request concurrency."""
+        if priority is None:
+            priority = self._packet_priority_var.get()
 
         start_time = time.monotonic()
-        was_locked = self._concurrent_requests_semaphore.locked()
+        manager: contextlib.AbstractAsyncContextManager
+
+        if priority >= t.PacketPriority.CRITICAL:
+            LOGGER.debug(
+                "Critical priority request received (%s), skipping queue with %d requests",
+                priority,
+                self._concurrent_requests_semaphore.num_waiting,
+            )
+            manager = nullcontext()
+            was_locked = False
+        else:
+            manager = self._concurrent_requests_semaphore(priority=priority)
+            was_locked = self._concurrent_requests_semaphore.locked()
 
         if was_locked:
             LOGGER.debug(
@@ -754,7 +797,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                 self._concurrent_requests_semaphore.num_waiting,
             )
 
-        async with self._concurrent_requests_semaphore(priority=priority):
+        async with manager:
             if was_locked:
                 LOGGER.debug(
                     "Previously delayed request is now running, delayed by %0.2fs",
@@ -1067,13 +1110,17 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             or device.all_endpoints_init
             or (
                 device.has_non_zdo_endpoints
-                and packet.cluster_id == zigpy.zcl.clusters.general.Basic.cluster_id
+                and packet.cluster_id
+                in (
+                    zigpy.zcl.clusters.general.Basic.cluster_id,
+                    zigpy.zcl.clusters.general.PollControl.cluster_id,
+                )
             )
         ):
             # Allow the following responses:
             #  - any ZDO
             #  - ZCL if endpoints are initialized
-            #  - ZCL from Basic packet.cluster_id if endpoints are initializing
+            #  - ZCL from Basic or PollControl clusters, if endpoints are initializing
 
             if not device.initializing:
                 device.schedule_initialize()
@@ -1150,6 +1197,32 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         else:
             raise ValueError(f"Invalid address: {address!r}")
 
+    def register_callback_listener(
+        self,
+        src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
+        filters: list[zigpy.listeners.MatcherType],
+        callback: typing.Callable[
+            [
+                zigpy.zcl.foundation.ZCLHeader,
+                zigpy.zcl.foundation.CommandSchema,
+            ],
+            typing.Any,
+        ],
+    ) -> typing.Callable[[], None]:
+        listener = zigpy.listeners.CallbackListener(
+            matchers=tuple(filters),
+            callback=callback,
+        )
+
+        self._req_listeners[src].append(listener)
+
+        def cancel_callback() -> None:
+            """Remove the listener."""
+            if listener in self._req_listeners[src]:
+                self._req_listeners[src].remove(listener)
+
+        return cancel_callback
+
     @contextlib.contextmanager
     def callback_for_response(
         self,
@@ -1164,18 +1237,14 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         ],
     ) -> typing.Any:
         """Context manager to create a callback that is passed Zigbee responses."""
-
-        listener = zigpy.listeners.CallbackListener(
-            matchers=tuple(filters),
-            callback=callback,
+        cancel = self.register_callback_listener(
+            src=src, filters=filters, callback=callback
         )
-
-        self._req_listeners[src].append(listener)
 
         try:
             yield
         finally:
-            self._req_listeners[src].remove(listener)
+            cancel()
 
     @contextlib.contextmanager
     def wait_for_response(

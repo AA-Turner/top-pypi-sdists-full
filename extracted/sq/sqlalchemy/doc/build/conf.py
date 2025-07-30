@@ -42,7 +42,7 @@ extensions = [
     "sphinx_paramlinks",
     "sphinx_copybutton",
 ]
-needs_extensions = {"zzzeeksphinx": "1.2.1"}
+needs_extensions = {"zzzeeksphinx": "1.6.1"}
 
 # Add any paths that contain templates here, relative to this directory.
 # not sure why abspath() is needed here, some users
@@ -169,11 +169,6 @@ autodocmods_convert_modname = {
     "sqlalchemy.orm.util": "sqlalchemy.orm",
 }
 
-autodocmods_convert_modname_w_class = {
-    ("sqlalchemy.engine.interfaces", "Connectable"): "sqlalchemy.engine",
-    ("sqlalchemy.sql.base", "DialectKWArgs"): "sqlalchemy.sql.base",
-}
-
 # on the referencing side, a newer zzzeeksphinx extension
 # applies shorthand symbols to references so that we can have short
 # names that are still using absolute references.
@@ -244,9 +239,9 @@ copyright = "2007-2025, the SQLAlchemy authors and contributors"  # noqa
 # The short X.Y version.
 version = "2.0"
 # The full version, including alpha/beta/rc tags.
-release = "2.0.41"
+release = "2.0.42"
 
-release_date = "May 14, 2025"
+release_date = "July 29, 2025"
 
 site_base = os.environ.get("RTD_SITE_BASE", "https://www.sqlalchemy.org")
 site_adapter_template = "docs_adapter.mako"

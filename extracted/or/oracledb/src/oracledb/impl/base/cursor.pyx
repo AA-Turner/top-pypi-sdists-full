@@ -422,6 +422,7 @@ cdef class BaseCursorImpl:
         """
         Internal method for preparing a statement for execution multiple times.
         """
+        cdef DataFrameImpl df_impl
 
         # prepare statement, if necessary
         if statement is None and self.statement is None:
@@ -441,6 +442,12 @@ cdef class BaseCursorImpl:
             num_execs = len(parameters)
             if parameters:
                 self.bind_many(cursor, parameters)
+        elif isinstance(parameters, PY_TYPE_DATAFRAME):
+            df_impl = parameters._impl
+            num_execs = self.bind_arrow_arrays(cursor, df_impl.arrays)
+        elif hasattr(parameters, "__arrow_c_stream__"):
+            df_impl = DataFrameImpl.from_arrow_stream(parameters)
+            num_execs = self.bind_arrow_arrays(cursor, df_impl.arrays)
         else:
             errors._raise_err(errors.ERR_WRONG_EXECUTEMANY_PARAMETERS_TYPE)
 
@@ -482,6 +489,28 @@ cdef class BaseCursorImpl:
                               var_arraysize=var.num_elements,
                               required_arraysize=self.arraysize)
 
+    cdef object bind_arrow_arrays(self, object cursor, list arrays):
+        """
+        Internal method for binding Arrow arrays. The number of elements in the
+        array is returned for use by the caller.
+        """
+        cdef:
+            ArrowArrayImpl array
+            int64_t num_rows
+            BindVar bind_var
+            ssize_t i
+        conn = cursor.connection
+        array = arrays[0]
+        array.get_length(&num_rows)
+        self._reset_bind_vars(num_rows)
+        self.bind_vars = []
+        for i, array in enumerate(arrays):
+            bind_var = BindVar.__new__(BindVar)
+            bind_var.pos = i + 1
+            bind_var._create_var_from_arrow_array(conn, self, array)
+            self.bind_vars.append(bind_var)
+        return num_rows
+
     cdef int bind_many(self, object cursor, list parameters) except -1:
         """
         Internal method used for binding multiple rows of data.
@@ -519,11 +548,13 @@ cdef class BaseCursorImpl:
         Flush all buffers and return an Oracle Data frame.
         """
         cdef:
+            DataFrameImpl df_impl
             BaseVarImpl var_impl
-            list columns = []
+        df_impl = DataFrameImpl.__new__(DataFrameImpl)
+        df_impl.arrays = []
         for var_impl in self.fetch_var_impls:
-            columns.append(var_impl._finish_building_arrow_array())
-        return PY_TYPE_DATAFRAME(columns)
+            df_impl.arrays.append(var_impl._finish_building_arrow_array())
+        return PY_TYPE_DATAFRAME._from_impl(df_impl)
 
     def close(self, bint in_del=False):
         """
@@ -576,7 +607,7 @@ cdef class BaseCursorImpl:
 
     def fetch_df_all(self, cursor):
         """
-        Internal method used for fetching all data as OracleDataFrame
+        Internal method used for fetching all data as DataFrame
         """
         while self._more_rows_to_fetch:
             self._fetch_rows(cursor)
@@ -584,7 +615,7 @@ cdef class BaseCursorImpl:
 
     def fetch_df_batches(self, cursor, int batch_size):
         """
-        Internal method used for fetching next batch as OracleDataFrame
+        Internal method used for fetching next batch as DataFrame
         cursor.arraysize = batchsize
         """
         cdef:

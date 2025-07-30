@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-llama-index
-Version: 4.3.2
+Version: 4.3.3
 Summary: OpenInference LlamaIndex Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-llama-index
 Author-email: OpenInference Authors <oss@arize.com>

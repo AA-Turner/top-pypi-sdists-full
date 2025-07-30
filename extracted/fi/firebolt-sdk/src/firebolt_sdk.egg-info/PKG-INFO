@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: firebolt_sdk
-Version: 1.13.0
+Version: 1.14.0
 Summary: Python SDK for Firebolt
 Home-page: https://github.com/firebolt-db/firebolt-sdk
 Author: Firebolt
@@ -11,12 +11,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiorwlock==1.1.0
@@ -57,7 +56,7 @@ Requires-Dist: sphinx==7.*; extra == "docs"
 Requires-Dist: sphinx-rtd-theme==2.*; extra == "docs"
 
 # firebolt-sdk
-[![Nightly code check](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/nightly.yml/badge.svg)](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/nightly.yml)
+[![Nightly code check](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/nightly-v2.yml/badge.svg)](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/nightly-v2.yml)
 [![Unit tests](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/unit-tests.yml)
 [![Code quality checks](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/code-check.yml/badge.svg)](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/code-check.yml)
 [![Firebolt Security Scan](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/security-scan.yml/badge.svg)](https://github.com/firebolt-db/firebolt-python-sdk/actions/workflows/security-scan.yml)

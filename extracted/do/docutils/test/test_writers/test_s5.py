@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: test_s5.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_s5.py 9914 2024-08-21 13:45:08Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -21,11 +21,11 @@ if __name__ == '__main__':
 
 import docutils
 from docutils.core import publish_string
+from docutils.writers import s5_html
 
 
 class WriterPublishTestCase(unittest.TestCase):
     def test_publish(self):
-        writer_name = 's5'
         settings = {
             '_disable_config': True,
             'strict_visitor': True,
@@ -38,7 +38,7 @@ class WriterPublishTestCase(unittest.TestCase):
                 with self.subTest(id=f'totest_1[{name!r}][{casenum}]'):
                     output = publish_string(
                         source=case_input,
-                        writer_name=writer_name,
+                        writer=s5_html.Writer(),
                         settings_overrides=settings.copy()
                         ).decode()
                     self.assertEqual(case_expected, output)
@@ -50,7 +50,7 @@ class WriterPublishTestCase(unittest.TestCase):
                 with self.subTest(id=f'totest_2[{name!r}][{casenum}]'):
                     output = publish_string(
                         source=case_input,
-                        writer_name=writer_name,
+                        writer=s5_html.Writer(),
                         settings_overrides=settings.copy()
                         ).decode()
                     self.assertEqual(case_expected, output)

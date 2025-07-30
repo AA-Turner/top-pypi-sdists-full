@@ -189,21 +189,6 @@ buffers_overlap(bitarrayobject *self, bitarrayobject *other)
 #undef PIB
 }
 
-/* setup translation table, which maps each byte to its reversed:
-   reverse_trans = {0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, ..., 0xff} */
-static void
-setup_reverse_trans(void)
-{
-    int j, k;
-
-    for (k = 0; k < 256; k++) {
-        reverse_trans[k] = 0x00;
-        for (j = 0; j < 8; j++)
-            if (k & 128 >> j)
-                reverse_trans[k] |= 1 << j;
-    }
-}
-
 /* reverse bits in first n characters of p */
 static void
 bytereverse(char *p, Py_ssize_t n)
@@ -221,7 +206,7 @@ bytereverse(char *p, Py_ssize_t n)
    They operate on little-endian and bit-endian bitarrays respectively.
    As we shift right, we need to start with the highest address and loop
    downwards such that lower bytes are still unaltered.
-   See also examples/shift_r8.c
+   See also devel/shift_r8.c
 */
 static void
 shift_r8le(unsigned char *buff, Py_ssize_t n, int k)
@@ -321,7 +306,7 @@ shift_r8(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b, int k)
 }
 
 /* Copy n bits from other (starting at b) onto self (starting at a).
-   Please see examples/copy_n.py for more details.
+   Please see devel/copy_n.py for more details.
 
    Notes:
      - self and other may have opposite bit-endianness
@@ -4214,6 +4199,20 @@ Return tuple containing:\n\
 
 #ifndef NDEBUG
 
+static PyObject *
+module_setup_table(PyObject *module, PyObject *obj)
+{
+    char table[256];
+    Py_UCS4 ch;
+
+    assert(PyUnicode_Check(obj));
+    assert(PyUnicode_GET_LENGTH(obj) == 1);
+    ch = PyUnicode_READ_CHAR(obj, 0);
+
+    setup_table(table, ch);
+    return PyBytes_FromStringAndSize(table, 256);
+}
+
 /* Return zlw(a) as a new bitarray, rather than an int object.
    This makes testing easier, because the int result would depend
    on the machine byteorder. */
@@ -4250,6 +4249,7 @@ static PyMethodDef module_functions[] = {
 
 #ifndef NDEBUG
     /* functions exposed in debug mode for testing */
+    {"_setup_table",        (PyCFunction) module_setup_table, METH_O,  0},
     {"_zlw",                (PyCFunction) module_zlw,         METH_O,  0},
 #endif
 
@@ -4291,7 +4291,9 @@ PyInit__bitarray(void)
 {
     PyObject *m;
 
-    setup_reverse_trans();
+    /* setup translation table, which maps each byte to its reversed:
+       reverse_trans = {0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, ..., 0xff} */
+    setup_table(reverse_trans, 'r');
 
     if ((m = PyModule_Create(&moduledef)) == NULL)
         return NULL;

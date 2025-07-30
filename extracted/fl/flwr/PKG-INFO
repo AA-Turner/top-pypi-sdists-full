@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: flwr
-Version: 1.19.0
+Version: 1.20.0
 Summary: Flower: A Friendly Federated AI Framework
 License: Apache-2.0
 Keywords: Artificial Intelligence,Federated AI,Federated Analytics,Federated Evaluation,Federated Learning,Flower,Machine Learning
@@ -34,6 +34,7 @@ Provides-Extra: simulation
 Requires-Dist: click (<8.2.0)
 Requires-Dist: cryptography (>=44.0.1,<45.0.0)
 Requires-Dist: grpcio (>=1.62.3,<2.0.0,!=1.65.0)
+Requires-Dist: grpcio-health-checking (>=1.62.3,<2.0.0)
 Requires-Dist: iterators (>=0.0.2,<0.0.3)
 Requires-Dist: numpy (>=1.26.0,<3.0.0)
 Requires-Dist: pathspec (>=0.12.1,<0.13.0)

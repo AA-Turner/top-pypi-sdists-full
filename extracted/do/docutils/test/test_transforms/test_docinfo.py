@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_docinfo.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_docinfo.py 10039 2025-03-08 18:53:20Z aa-turner $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -360,7 +360,7 @@ totest['bibliographic_field_lists'] = ((DocInfo,), [
                     <paragraph>
                         Cannot extract "Authors" from bibliographic field:
                         Bibliographic field "Authors" must contain either
-                         a single paragraph (with author names separated by one of ";,"),
+                         a single paragraph (with author names separated by a character from the set ";,"),
                          multiple paragraphs (one per author),
                          or a bullet list with one author name per item.
                         Note: Leading initials can cause (mis)recognizing names as enumerated list.
@@ -375,7 +375,7 @@ totest['bibliographic_field_lists'] = ((DocInfo,), [
                     <paragraph>
                         Cannot extract "Authors" from bibliographic field:
                         Bibliographic field "Authors" must contain either
-                         a single paragraph (with author names separated by one of ";,"),
+                         a single paragraph (with author names separated by a character from the set ";,"),
                          multiple paragraphs (one per author),
                          or a bullet list with one author name per item.
                         Note: Leading initials can cause (mis)recognizing names as enumerated list.
@@ -393,7 +393,7 @@ totest['bibliographic_field_lists'] = ((DocInfo,), [
                     <paragraph>
                         Cannot extract "Authors" from bibliographic field:
                         Bibliographic field "Authors" must contain either
-                         a single paragraph (with author names separated by one of ";,"),
+                         a single paragraph (with author names separated by a character from the set ";,"),
                          multiple paragraphs (one per author),
                          or a bullet list with one author name per item.
                         Note: Leading initials can cause (mis)recognizing names as enumerated list.
@@ -411,7 +411,7 @@ totest['bibliographic_field_lists'] = ((DocInfo,), [
                     <paragraph>
                         Cannot extract "Authors" from bibliographic field:
                         Bibliographic field "Authors" must contain either
-                         a single paragraph (with author names separated by one of ";,"),
+                         a single paragraph (with author names separated by a character from the set ";,"),
                          multiple paragraphs (one per author),
                          or a bullet list with one author name per item.
                         Note: Leading initials can cause (mis)recognizing names as enumerated list.
@@ -423,7 +423,7 @@ totest['bibliographic_field_lists'] = ((DocInfo,), [
 :Date: (some text) $""" + """Date: 2002/10/08 01:34:23 $ (more text)
 :Date: (some text) $""" + """Date: 2005-03-26T16:21:28.693201Z $ (more text)
 :Version: (some text) $""" + """Revision: 1.1 $ (more text)
-""",
+""",  # NoQA: ISC003
 """\
 <document source="test data">
     <docinfo>

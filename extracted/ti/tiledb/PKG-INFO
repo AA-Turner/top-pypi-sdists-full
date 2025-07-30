@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tiledb
-Version: 0.34.1
+Version: 0.34.2
 Summary: Pythonic interface to the TileDB array storage manager
 Author-Email: "TileDB, Inc." <help@tiledb.io>
 Maintainer-Email: "TileDB, Inc." <help@tiledb.io>

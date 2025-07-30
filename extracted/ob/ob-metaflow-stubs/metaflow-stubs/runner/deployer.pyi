@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-25T18:05:15.019088                                                            #
+# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-29T18:33:44.110084                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.runner.deployer
     import metaflow.plugins.argo.argo_workflows_deployer
-    import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
+    import metaflow
     import metaflow.plugins.aws.step_functions.step_functions_deployer
+    import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
     import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow.runner.deployer
 
 from ..exception import MetaflowNotFound as MetaflowNotFound
 
@@ -181,6 +181,31 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         """
         ...
     @classmethod
+    def get_triggered_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None, impl: str = 'argo_workflows') -> TriggeredRun:
+        """
+        Retrieves a `TriggeredRun` object from an identifier, a run id and optional
+        metadata. The `impl` parameter specifies the deployer implementation
+        to use (like `argo-workflows`).
+        
+        Parameters
+        ----------
+        identifier : str
+            Deployer specific identifier for the workflow to retrieve
+        run_id : str
+            Run ID for the which to fetch the triggered run object
+        metadata : str, optional, default None
+            Optional deployer specific metadata.
+        impl : str, optional, default given by METAFLOW_DEFAULT_FROM_DEPLOYMENT_IMPL
+            The default implementation to use if not specified
+        
+        Returns
+        -------
+        TriggeredRun
+            A `TriggeredRun` object representing the triggered run corresponding
+            to the identifier and the run id.
+        """
+        ...
+    @classmethod
     def from_step_functions(cls) -> "metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsDeployedFlow":
         """
         This method is not currently implemented for Step Functions.
@@ -200,6 +225,9 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         ...
     @classmethod
     def list_step_functions(cls, flow_name: typing.Optional[str] = None):
+        ...
+    @classmethod
+    def get_triggered_step_functions_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None):
         ...
     @classmethod
     def from_argo_workflows(cls, *, identifier: str, metadata: typing.Optional[str] = None) -> "metaflow.plugins.argo.argo_workflows_deployer_objects.ArgoWorkflowsDeployedFlow":
@@ -227,6 +255,9 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         ...
     @classmethod
     def list_argo_workflows(cls, flow_name: typing.Optional[str] = None):
+        ...
+    @classmethod
+    def get_triggered_argo_workflows_run(cls, identifier: str, run_id: str, metadata: typing.Optional[str] = None):
         ...
     ...
 

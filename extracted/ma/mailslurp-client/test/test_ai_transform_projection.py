@@ -37,6 +37,7 @@ class TestAITransformProjection(unittest.TestCase):
         # model = mailslurp_client.models.ai_transform_projection.AITransformProjection()  # noqa: E501
         if include_optional :
             return AITransformProjection(
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 conditions = [
                     '0'
                     ], 
@@ -48,7 +49,7 @@ class TestAITransformProjection(unittest.TestCase):
                         mailslurp_client.models.structured_output_schema.StructuredOutputSchema(
                             default = mailslurp_client.models.meta_data.metaData(), 
                             description = '0', 
-                            enum = [
+                            enum_values = [
                                 '0'
                                 ], 
                             example = mailslurp_client.models.meta_data.metaData(), 
@@ -141,7 +142,7 @@ class TestAITransformProjection(unittest.TestCase):
                         ], 
                     default = mailslurp_client.models.meta_data.metaData(), 
                     description = '0', 
-                    enum = [
+                    enum_values = [
                         '0'
                         ], 
                     example = mailslurp_client.models.meta_data.metaData(), 
@@ -205,6 +206,7 @@ class TestAITransformProjection(unittest.TestCase):
             )
         else :
             return AITransformProjection(
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = '0',
         )
 

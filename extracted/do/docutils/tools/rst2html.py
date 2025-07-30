@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: rst2html.py 9115 2022-07-28 17:06:24Z milde $
+# $Id: rst2html.py 9771 2024-06-18 08:00:10Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -20,4 +20,4 @@ from docutils.core import publish_cmdline, default_description
 description = ('Generates (X)HTML documents from standalone reStructuredText '
                'sources.  ' + default_description)
 
-publish_cmdline(writer_name='html', description=description)
+publish_cmdline(writer='html', description=description)

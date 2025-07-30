@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: backtesting
-Version: 0.6.4
+Version: 0.6.5
 Summary: Backtest trading strategies in Python
 Home-page: https://kernc.github.io/backtesting.py/
 Author: Zach Lûster
@@ -22,7 +22,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: numpy>=1.17.0
 Requires-Dist: pandas!=0.25.0,>=0.25.0
-Requires-Dist: bokeh!=3.0.*,!=3.2.*,>=1.4.0
+Requires-Dist: bokeh!=3.0.*,!=3.2.*,>=3.0.0
 Provides-Extra: doc
 Requires-Dist: pdoc3; extra == "doc"
 Requires-Dist: jupytext>=1.3; extra == "doc"
@@ -34,6 +34,7 @@ Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: sambo; extra == "test"
 Requires-Dist: tqdm; extra == "test"
+Requires-Dist: ipywidgets; extra == "test"
 Provides-Extra: dev
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: coverage; extra == "dev"

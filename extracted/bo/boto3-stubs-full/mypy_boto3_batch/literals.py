@@ -35,6 +35,7 @@ __all__ = (
     "DescribeComputeEnvironmentsPaginatorName",
     "DescribeJobDefinitionsPaginatorName",
     "DescribeJobQueuesPaginatorName",
+    "DescribeServiceEnvironmentsPaginatorName",
     "DeviceCgroupPermissionType",
     "EFSAuthorizationConfigIAMType",
     "EFSTransitEncryptionType",
@@ -42,6 +43,7 @@ __all__ = (
     "JQStateType",
     "JQStatusType",
     "JobDefinitionTypeType",
+    "JobQueueTypeType",
     "JobStateTimeLimitActionsActionType",
     "JobStateTimeLimitActionsStateType",
     "JobStatusType",
@@ -49,6 +51,7 @@ __all__ = (
     "ListJobsByConsumableResourcePaginatorName",
     "ListJobsPaginatorName",
     "ListSchedulingPoliciesPaginatorName",
+    "ListServiceJobsPaginatorName",
     "LogDriverType",
     "OrchestrationTypeType",
     "PaginatorName",
@@ -57,7 +60,14 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "RetryActionType",
+    "ServiceEnvironmentStateType",
+    "ServiceEnvironmentStatusType",
+    "ServiceEnvironmentTypeType",
+    "ServiceJobRetryActionType",
+    "ServiceJobStatusType",
+    "ServiceJobTypeType",
     "ServiceName",
+    "ServiceResourceIdNameType",
     "UserdataTypeType",
 )
 
@@ -77,6 +87,7 @@ CRUpdateAllocationStrategyType = Literal[
 DescribeComputeEnvironmentsPaginatorName = Literal["describe_compute_environments"]
 DescribeJobDefinitionsPaginatorName = Literal["describe_job_definitions"]
 DescribeJobQueuesPaginatorName = Literal["describe_job_queues"]
+DescribeServiceEnvironmentsPaginatorName = Literal["describe_service_environments"]
 DeviceCgroupPermissionType = Literal["MKNOD", "READ", "WRITE"]
 EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
@@ -84,7 +95,8 @@ FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 JQStateType = Literal["DISABLED", "ENABLED"]
 JQStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]
 JobDefinitionTypeType = Literal["container", "multinode"]
-JobStateTimeLimitActionsActionType = Literal["CANCEL"]
+JobQueueTypeType = Literal["ECS", "ECS_FARGATE", "EKS", "SAGEMAKER_TRAINING"]
+JobStateTimeLimitActionsActionType = Literal["CANCEL", "TERMINATE"]
 JobStateTimeLimitActionsStateType = Literal["RUNNABLE"]
 JobStatusType = Literal[
     "FAILED", "PENDING", "RUNNABLE", "RUNNING", "STARTING", "SUBMITTED", "SUCCEEDED"
@@ -93,6 +105,7 @@ ListConsumableResourcesPaginatorName = Literal["list_consumable_resources"]
 ListJobsByConsumableResourcePaginatorName = Literal["list_jobs_by_consumable_resource"]
 ListJobsPaginatorName = Literal["list_jobs"]
 ListSchedulingPoliciesPaginatorName = Literal["list_scheduling_policies"]
+ListServiceJobsPaginatorName = Literal["list_service_jobs"]
 LogDriverType = Literal[
     "awsfirelens", "awslogs", "fluentd", "gelf", "journald", "json-file", "splunk", "syslog"
 ]
@@ -100,6 +113,17 @@ OrchestrationTypeType = Literal["ECS", "EKS"]
 PlatformCapabilityType = Literal["EC2", "FARGATE"]
 ResourceTypeType = Literal["GPU", "MEMORY", "VCPU"]
 RetryActionType = Literal["EXIT", "RETRY"]
+ServiceEnvironmentStateType = Literal["DISABLED", "ENABLED"]
+ServiceEnvironmentStatusType = Literal[
+    "CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"
+]
+ServiceEnvironmentTypeType = Literal["SAGEMAKER_TRAINING"]
+ServiceJobRetryActionType = Literal["EXIT", "RETRY"]
+ServiceJobStatusType = Literal[
+    "FAILED", "PENDING", "RUNNABLE", "RUNNING", "SCHEDULED", "STARTING", "SUBMITTED", "SUCCEEDED"
+]
+ServiceJobTypeType = Literal["SAGEMAKER_TRAINING"]
+ServiceResourceIdNameType = Literal["TrainingJobArn"]
 UserdataTypeType = Literal["EKS_BOOTSTRAP_SH", "EKS_NODEADM"]
 BatchServiceName = Literal["batch"]
 ServiceName = Literal[
@@ -532,10 +556,12 @@ PaginatorName = Literal[
     "describe_compute_environments",
     "describe_job_definitions",
     "describe_job_queues",
+    "describe_service_environments",
     "list_consumable_resources",
     "list_jobs",
     "list_jobs_by_consumable_resource",
     "list_scheduling_policies",
+    "list_service_jobs",
 ]
 RegionName = Literal[
     "af-south-1",

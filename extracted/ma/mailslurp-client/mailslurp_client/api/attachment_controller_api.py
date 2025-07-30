@@ -721,6 +721,7 @@ class AttachmentControllerApi(object):
         :param str inbox_id: Optional inboxId to filter attachments by
         :param str email_id: Optional emailId to filter attachments by
         :param str sent_email_id: Optional sentEmailId to filter attachments by
+        :param list[str] include: Optional list of IDs to include in result
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -754,6 +755,7 @@ class AttachmentControllerApi(object):
         :param str inbox_id: Optional inboxId to filter attachments by
         :param str email_id: Optional emailId to filter attachments by
         :param str sent_email_id: Optional sentEmailId to filter attachments by
+        :param list[str] include: Optional list of IDs to include in result
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -779,7 +781,8 @@ class AttachmentControllerApi(object):
             'before',
             'inbox_id',
             'email_id',
-            'sent_email_id'
+            'sent_email_id',
+            'include'
         ]
         all_params.extend(
             [
@@ -822,6 +825,9 @@ class AttachmentControllerApi(object):
             query_params.append(('emailId', local_var_params['email_id']))  # noqa: E501
         if 'sent_email_id' in local_var_params and local_var_params['sent_email_id'] is not None:  # noqa: E501
             query_params.append(('sentEmailId', local_var_params['sent_email_id']))  # noqa: E501
+        if 'include' in local_var_params and local_var_params['include'] is not None:  # noqa: E501
+            query_params.append(('include', local_var_params['include']))  # noqa: E501
+            collection_formats['include'] = 'multi'  # noqa: E501
 
         header_params = {}
 
@@ -1117,7 +1123,7 @@ class AttachmentControllerApi(object):
         :param str x_filename: Optional filename header of attachment
         :param str x_filename_raw: Optional raw filename header of attachment that will be converted to punycode
         :param int x_filesize: Optional content size of attachment
-        :param InlineObject inline_object:
+        :param InlineObject1 inline_object1:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1148,7 +1154,7 @@ class AttachmentControllerApi(object):
         :param str x_filename: Optional filename header of attachment
         :param str x_filename_raw: Optional raw filename header of attachment that will be converted to punycode
         :param int x_filesize: Optional content size of attachment
-        :param InlineObject inline_object:
+        :param InlineObject1 inline_object1:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1173,7 +1179,7 @@ class AttachmentControllerApi(object):
             'x_filename',
             'x_filename_raw',
             'x_filesize',
-            'inline_object'
+            'inline_object1'
         ]
         all_params.extend(
             [
@@ -1219,8 +1225,8 @@ class AttachmentControllerApi(object):
         local_var_files = {}
 
         body_params = None
-        if 'inline_object' in local_var_params:
-            body_params = local_var_params['inline_object']
+        if 'inline_object1' in local_var_params:
+            body_params = local_var_params['inline_object1']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
             ['*/*'])  # noqa: E501

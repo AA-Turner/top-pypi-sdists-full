@@ -62,12 +62,13 @@ cdef class OracleMetadata:
             uint8_t py_type_num = self._py_type_num
             uint32_t db_type_num = self.dbtype.num
         if db_type_num == DB_TYPE_NUM_NUMBER:
-            if py_type_num == PY_TYPE_NUM_DECIMAL and self.precision > 0:
+            if py_type_num == PY_TYPE_NUM_DECIMAL \
+                    and self.precision > 0 and self.precision <= 38:
                 self._arrow_type = NANOARROW_TYPE_DECIMAL128
             elif py_type_num == PY_TYPE_NUM_STR:
                 self._arrow_type = NANOARROW_TYPE_STRING
             elif py_type_num == PY_TYPE_NUM_INT and self.scale == 0 \
-                    and self.precision <= 18:
+                    and 0 < self.precision <= 18:
                 self._arrow_type = NANOARROW_TYPE_INT64
             else:
                 self._arrow_type = NANOARROW_TYPE_DOUBLE
@@ -121,6 +122,46 @@ cdef class OracleMetadata:
         metadata.vector_dimensions = self.vector_dimensions
         metadata.vector_format = self.vector_format
         metadata.vector_flags = self.vector_flags
+        return metadata
+
+    @staticmethod
+    cdef OracleMetadata from_arrow_array(ArrowArrayImpl array):
+        """
+        Returns a new OracleMetadata instance with attributes set from an Arrow
+        array.
+        """
+        cdef OracleMetadata metadata = OracleMetadata.__new__(OracleMetadata)
+        metadata.name = array.name
+        if array.arrow_type in (NANOARROW_TYPE_DECIMAL128,
+                                NANOARROW_TYPE_INT64):
+            metadata.dbtype = DB_TYPE_NUMBER
+        elif array.arrow_type == NANOARROW_TYPE_STRING:
+            metadata.dbtype = DB_TYPE_VARCHAR
+        elif array.arrow_type in (NANOARROW_TYPE_BINARY,
+                                  NANOARROW_TYPE_FIXED_SIZE_BINARY):
+            metadata.dbtype = DB_TYPE_RAW
+        elif array.arrow_type == NANOARROW_TYPE_FLOAT:
+            metadata.dbtype = DB_TYPE_BINARY_FLOAT
+        elif array.arrow_type == NANOARROW_TYPE_DOUBLE:
+            metadata.dbtype = DB_TYPE_BINARY_DOUBLE
+        elif array.arrow_type == NANOARROW_TYPE_BOOL:
+            metadata.dbtype = DB_TYPE_BOOLEAN
+        elif array.arrow_type == NANOARROW_TYPE_TIMESTAMP:
+            metadata.dbtype = DB_TYPE_TIMESTAMP
+        elif array.arrow_type == NANOARROW_TYPE_LARGE_STRING:
+            metadata.dbtype = DB_TYPE_LONG
+        elif array.arrow_type == NANOARROW_TYPE_LARGE_BINARY:
+            metadata.dbtype = DB_TYPE_LONG_RAW
+        elif array.arrow_type in (NANOARROW_TYPE_LIST,
+                                  NANOARROW_TYPE_STRUCT,
+                                  NANOARROW_TYPE_FIXED_SIZE_LIST):
+            metadata.dbtype = DB_TYPE_VECTOR
+        else:
+            errors._raise_err(errors.ERR_UNEXPECTED_DATA,
+                              data=array.arrow_type)
+        metadata._arrow_type = array.arrow_type
+        metadata.precision = array.precision
+        metadata.scale = array.scale
         return metadata
 
     @staticmethod

@@ -65,16 +65,18 @@ class KafkaUtils:
         producer_config = {
             "bootstrap.servers": self.bootstrap_servers,
             "acks": "all",
-            "retries": 3,
-            "retry.backoff.ms": 1000,
+            "retries": 1,
+            "retry.backoff.ms": 500,
             "request.timeout.ms": 30000,
-            "max.in.flight.requests.per.connection": 5,
-            "linger.ms": 10,
-            "batch.size": 1048576, # 1MB
-            "queue.buffering.max.ms": 50,
+            "max.in.flight.requests.per.connection": 1,
+            "linger.ms": 5,
+            "batch.size": 65536, # 1MB
+            "queue.buffering.max.ms": 100,
             "message.max.bytes": 25000000, # 25MB
+            'queue.buffering.max.messages': 2000000
             # "compression.type": "snappy" # TODO: add the reqs for it
         }
+        
 
         # Add SASL authentication if configured
         if self.sasl_mechanism and self.sasl_username and self.sasl_password:
@@ -533,9 +535,9 @@ class AsyncKafkaUtils:
             "acks": "all",
             "enable_idempotence": True,
             "request_timeout_ms": 30000,
-            "retry_backoff_ms": 1000,
-            "max_batch_size": 1048576,
-            "linger_ms": 10,
+            "retry_backoff_ms": 500,
+            "max_batch_size": 65536,
+            "linger_ms": 5,
             "max_request_size": 25000000,
             # "compression_type": "snappy"
             }

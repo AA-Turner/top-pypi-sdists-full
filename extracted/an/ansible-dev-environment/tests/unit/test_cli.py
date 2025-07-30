@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -138,7 +140,7 @@ def test_acp_env_var_set(
         monkeypatch: Pytest fixture.
     """
     monkeypatch.setenv(env_var, "test")
-    monkeypatch.setattr("sys.argv", ["ansible-dev-environment", "install"])
+    monkeypatch.setattr("sys.argv", ["ansible-dev-environment", "install", "--im", "restrictive"])
     with pytest.raises(SystemExit):
         main(dry=True)
     captured = capsys.readouterr()
@@ -160,7 +162,7 @@ def test_collections_in_home(
     """
     monkeypatch.setattr(
         "sys.argv",
-        ["ansible-dev-environment", "install", "--venv", "venv"],
+        ["ansible-dev-environment", "install", "--venv", "venv", "--im", "restrictive"],
     )
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("ANSIBLE_HOME", str(tmp_path / ".ansible"))
@@ -220,7 +222,7 @@ def test_collections_in_user(
 
     monkeypatch.setattr(
         "sys.argv",
-        ["ansible-dev-environment", "install", "--venv", "venv"],
+        ["ansible-dev-environment", "install", "--venv", "venv", "--im", "restrictive"],
     )
     with pytest.raises(SystemExit):
         main(dry=True)
@@ -427,7 +429,6 @@ def test_arg_complete(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("_ARGCOMPLETE_IFS", "\013")
     monkeypatch.setenv("COMP_LINE", cli)
     monkeypatch.setenv("COMP_POINT", str(len(cli)))
-    import io
 
     str_io = io.StringIO()
 

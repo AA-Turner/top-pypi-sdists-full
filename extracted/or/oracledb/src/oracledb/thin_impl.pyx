@@ -109,8 +109,10 @@ from .base_impl cimport (
     BindVar,
     Buffer,
     ConnectParamsImpl,
+    convert_arrow_to_oracle_data,
     convert_oracle_data_to_python,
     convert_oracle_data_to_arrow,
+    convert_python_to_oracle_data,
     convert_vector_to_arrow,
     convert_date_to_python,
     CS_FORM_IMPLICIT,
@@ -174,6 +176,9 @@ from .base_impl cimport (
     PY_TYPE_TIMEDELTA,
     TNS_LONG_LENGTH_INDICATOR,
     TNS_NULL_LENGTH_INDICATOR,
+    TPC_TXN_FLAGS_NEW,
+    TPC_TXN_FLAGS_RESUME,
+    TPC_TXN_FLAGS_SESSIONLESS,
     decode_uint16be,
     decode_uint32be,
     decode_date,
@@ -193,9 +198,7 @@ from .base_impl import (
     DB_TYPE_XMLTYPE,
 )
 
-from .interchange.nanoarrow_bridge cimport (
-    OracleArrowArray,
-)
+from .arrow_impl cimport ArrowArrayImpl
 
 ctypedef unsigned char char_type
 

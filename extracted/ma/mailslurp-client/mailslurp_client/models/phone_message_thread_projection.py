@@ -65,9 +65,11 @@ class PhoneMessageThreadProjection(object):
         self._last_created = None
         self.discriminator = None
 
-        self.phone_number = phone_number
+        if phone_number is not None:
+            self.phone_number = phone_number
         self.phone_number_id = phone_number_id
-        self.other_phone_number = other_phone_number
+        if other_phone_number is not None:
+            self.other_phone_number = other_phone_number
         self.last_message_direction = last_message_direction
         self.last_body = last_body
         self.last_created = last_created
@@ -90,8 +92,6 @@ class PhoneMessageThreadProjection(object):
         :param phone_number: The phone_number of this PhoneMessageThreadProjection.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and phone_number is None:  # noqa: E501
-            raise ValueError("Invalid value for `phone_number`, must not be `None`")  # noqa: E501
 
         self._phone_number = phone_number
 
@@ -136,8 +136,6 @@ class PhoneMessageThreadProjection(object):
         :param other_phone_number: The other_phone_number of this PhoneMessageThreadProjection.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and other_phone_number is None:  # noqa: E501
-            raise ValueError("Invalid value for `other_phone_number`, must not be `None`")  # noqa: E501
 
         self._other_phone_number = other_phone_number
 

@@ -135,6 +135,7 @@ class ExpirationDefaults(object):
     def can_permanent_inbox(self):
         """Gets the can_permanent_inbox of this ExpirationDefaults.  # noqa: E501
 
+        Use nextInboxAllowsPermanent instead  # noqa: E501
 
         :return: The can_permanent_inbox of this ExpirationDefaults.  # noqa: E501
         :rtype: bool
@@ -145,6 +146,7 @@ class ExpirationDefaults(object):
     def can_permanent_inbox(self, can_permanent_inbox):
         """Sets the can_permanent_inbox of this ExpirationDefaults.
 
+        Use nextInboxAllowsPermanent instead  # noqa: E501
 
         :param can_permanent_inbox: The can_permanent_inbox of this ExpirationDefaults.  # noqa: E501
         :type: bool

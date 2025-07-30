@@ -34,7 +34,7 @@ from .cursors import Cursor, SSCursor, DictCursor, SSDictCursor
 from .pool import create_pool, Pool
 from ._version import version
 
-__version__ = "0.2.1"
+__version__ = version
 
 __all__ = [
 

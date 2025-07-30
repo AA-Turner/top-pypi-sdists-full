@@ -2,104 +2,174 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
+from collections.abc import MutableMapping
+from enum import Enum
+from functools import partial
+from typing import Any
 
-import niquests as requests
+import niquests
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 
-T = TypeVar("T")
+_FLAT_BUFFERS_FORMAT = "flatbuffers"
+
+ParamsType = MutableMapping[str, Any]
 
 
 class OpenMeteoRequestsError(Exception):
-    """Open-Meteo Error"""
+    """Open-Meteo Error."""
+
+
+class HTTPVerb(str, Enum):
+    GET = "GET"
+    POST = "POST"
+
+
+def _process_response(
+    response: niquests.Response,
+    *,
+    handler: type[WeatherApiResponse] = WeatherApiResponse,
+) -> list[WeatherApiResponse]:
+    data: bytes = response.content or b""
+    messages = []
+    total = len(data)
+    pos, step = 0, 4
+    while pos < total:
+        message = handler.GetRootAs(data, pos + step)
+        messages.append(message)
+        length = int.from_bytes(data[pos : pos + step], byteorder="little")
+        pos += length + step
+    return messages
 
 
 class Client:
     """Open-Meteo API Client"""
 
-    def __init__(self, session: requests.Session | None = None):
-        self.session = session or requests.Session()
+    def __init__(self, session: niquests.Session | None = None) -> None:
+        self._session = session or niquests.Session()
+        self._response_cls = WeatherApiResponse
+        self._closed: bool | None = None
 
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
-    def _get(self, cls: type[T], url: str, params: any, method: str, verify: bool | str | None, **kwargs) -> list[T]:
-        params["format"] = "flatbuffers"
+    def _request(
+        self,
+        url: str,
+        method: str,
+        params: ParamsType,
+        *,
+        verify: bool | str | None = None,
+        **kwargs,
+    ) -> list[WeatherApiResponse]:
+        params["format"] = _FLAT_BUFFERS_FORMAT
 
-        if method.upper() == "POST":
-            response = self.session.request("POST", url, data=params, verify=verify, **kwargs)
-        else:
-            response = self.session.request("GET", url, params=params, verify=verify, **kwargs)
+        if method.upper() == HTTPVerb.GET:
+            response = self._session.get(
+                url, params=params, verify=verify, **kwargs
+            )
+        if method.upper() == HTTPVerb.POST:
+            response = self._session.post(
+                url, data=params, verify=verify, **kwargs
+            )
 
         if response.status_code in [400, 429]:
             response_body = response.json()
             raise OpenMeteoRequestsError(response_body)
 
         response.raise_for_status()
-
-        data = response.content
-        messages = []
-        total = len(data)
-        pos = int(0)
-        while pos < total:
-            length = int.from_bytes(data[pos : pos + 4], byteorder="little")
-            message = cls.GetRootAs(data, pos + 4)
-            messages.append(message)
-            pos += length + 4
-        return messages
+        return _process_response(response=response, handler=self._response_cls)
 
     def weather_api(
-        self, url: str, params: any, method: str = "GET", verify: bool | str | None = None, **kwargs
+        self,
+        url: str,
+        params: ParamsType,
+        method: str = HTTPVerb.GET,
+        *,
+        verify: bool | str | None = None,
+        **kwargs,
     ) -> list[WeatherApiResponse]:
         """Get and decode as weather api"""
-        return self._get(WeatherApiResponse, url, params, method, verify, **kwargs)
+        try:
+            if self._closed:
+                msg = "Unavailable connection"
+                raise ConnectionError(msg)
 
-    def __del__(self):
-        """cleanup"""
-        self.session.close()
+            return self._request(
+                url=url,
+                method=method,
+                params=dict(params),
+                verify=verify,
+                **kwargs,
+            )
+        except Exception as e:
+            msg = f"failed to request {url!r}: {e}"
+            raise OpenMeteoRequestsError(msg) from e
+
+    def close(self) -> None:
+        """Close the client."""
+        # closing session may not be enough here (niquests)
+        self._session.close()
+        self._closed = True
 
 
 # pylint: disable=too-few-public-methods
 class AsyncClient:
-    """Open-Meteo API Client"""
+    """Asynchronous client for Open-Meteo API."""
 
-    def __init__(self, session: requests.AsyncSession | None = None):
-        self.session = session or requests.AsyncSession()
+    def __init__(self, session: niquests.AsyncSession | None = None) -> None:
+        self._session = session or niquests.AsyncSession()
+        self._response_cls = WeatherApiResponse
 
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
-    async def _get(
+    async def _request(
         self,
-        cls: type[T],
         url: str,
-        params: any,
         method: str,
-        verify: bool | str | None,
+        params: ParamsType,
+        *,
+        verify: bool | str | None = None,
         **kwargs,
-    ) -> list[T]:
-        params["format"] = "flatbuffers"
+    ) -> list[WeatherApiResponse]:
+        params["format"] = _FLAT_BUFFERS_FORMAT
 
-        if method.upper() == "POST":
-            response = await self.session.request("POST", url, data=params, verify=verify, **kwargs)
-        else:
-            response = await self.session.request("GET", url, params=params, verify=verify, **kwargs)
+        response: niquests.Response
+        async with self._session as sess:
+            method = method.upper()
+            if method == "GET":
+                meth = partial(
+                    sess.get, url, params=params, verify=verify, **kwargs
+                )
+            if method == "POST":
+                meth = partial(
+                    sess.post, url, data=params, verify=verify, **kwargs
+                )
+            response = await meth()
 
         if response.status_code in [400, 429]:
             response_body = response.json()
             raise OpenMeteoRequestsError(response_body)
 
         response.raise_for_status()
-
-        data = response.content
-        messages = []
-        total = len(data)
-        pos = 0
-        while pos < total:
-            length = int.from_bytes(data[pos : pos + 4], byteorder="little")
-            message = cls.GetRootAs(data, pos + 4)
-            messages.append(message)
-            pos += length + 4
-        return messages
+        return _process_response(response=response, handler=self._response_cls)
 
     async def weather_api(
-        self, url: str, params: any, method: str = "GET", verify: bool | str | None = None, **kwargs
+        self,
+        url: str,
+        params: ParamsType,
+        method: str = HTTPVerb.GET,
+        *,
+        verify: bool | str | None = None,
+        **kwargs,
     ) -> list[WeatherApiResponse]:
         """Get and decode as weather api"""
-        return await self._get(WeatherApiResponse, url, params, method, verify, **kwargs)
+        try:
+            return await self._request(
+                url=url,
+                method=method,
+                params=dict(params),
+                verify=verify,
+                **kwargs,
+            )
+        except Exception as e:
+            msg = f"failed to request {url!r}: {e}"
+            raise OpenMeteoRequestsError(msg) from e
+
+    async def close(self) -> None:
+        """Close the client."""
+        await self._session.close()

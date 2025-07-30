@@ -266,19 +266,90 @@ Return parity of bitarray `a`.\n\
 
 
 static PyObject *
+add_uint64(PyObject *number, uint64_t i)
+{
+    PyObject *res, *tmp = PyLong_FromUnsignedLongLong(i);
+
+    res = PyNumber_Add(number, tmp);
+    Py_DECREF(tmp);
+    Py_DECREF(number);
+    return res;
+}
+
+static PyObject *
+sum_indices(PyObject *module, PyObject *obj)
+{
+    static char table[256];
+    static int setup = -1;      /* endianness of table */
+    PyObject *res;
+    bitarrayobject *a;
+    Py_ssize_t nbytes, i;
+    uint64_t sm = 0;            /* accumulated sum */
+
+    if (ensure_bitarray(obj) < 0)
+        return NULL;
+
+    res = PyLong_FromLong(0);
+    a = (bitarrayobject *) obj;
+    nbytes = Py_SIZE(a);
+    set_padbits(a);
+
+    if (setup != a->endian) {
+        setup_table(table, IS_LE(a) ? 'a' : 'A');
+        setup = a->endian;
+    }
+
+    for (i = 0; i < nbytes; i++) {
+        unsigned char c = a->ob_item[i];
+        if (!c)
+            continue;
+        sm += ((uint64_t) i) * ((uint64_t) (8 * popcnt_64(c)));
+        sm += table[c];
+
+        if (sm > ((uint64_t ) 1) << 63) {
+            /* Flush accumulated sum into Python number object.
+               For ones(n) this will already happen when n > 2**32.
+               printf("%llu  %30zd\n", sm, i);  */
+            if ((res = add_uint64(res, sm)) == NULL)
+                return NULL;
+            sm = 0;
+        }
+    }
+    return add_uint64(res, sm);
+}
+
+PyDoc_STRVAR(sum_indices_doc,
+"sum_indices(a, /) -> int\n\
+\n\
+Return sum of indices of all active bits in bitarray `a`.\n\
+This is equivalent to `sum(i for i, v in enumerate(a) if v)`.");
+
+
+static PyObject *
 xor_indices(PyObject *module, PyObject *obj)
 {
+    static char table[256];
+    static int setup = -1;      /* endianness of table */
     bitarrayobject *a;
-    Py_ssize_t res = 0, n, i;
+    Py_ssize_t res = 0, nbytes, i;
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     a = (bitarrayobject *) obj;
-    n = a->nbits;
-    for (i = 1; i < n; i++) {
-        if (getbit(a, i))
-            res ^= i;
+    nbytes = Py_SIZE(a);
+    set_padbits(a);
+
+    if (setup != a->endian) {
+        setup_table(table, IS_LE(a) ? 'x' : 'X');
+        setup = a->endian;
+    }
+
+    for (i = 0; i < nbytes; i++) {
+        unsigned char c = a->ob_item[i];
+        if (parity_64(c))
+            res ^= i << 3;
+        res ^= table[c];
     }
     return PyLong_FromSsize_t(res);
 }
@@ -288,7 +359,7 @@ PyDoc_STRVAR(xor_indices_doc,
 \n\
 Return xor reduced indices of all active bits in bitarray `a`.\n\
 This is essentially equivalent to\n\
-`reduce(operator.xor, [i for i, v in enumerate(a) if v])`.");
+`reduce(operator.xor, (i for i, v in enumerate(a) if v))`.");
 
 /* --------------------------- binary functions ------------------------ */
 
@@ -786,6 +857,7 @@ digit_to_int(int m, char c)
     static int setup = 0;
     int i;
 
+    assert(1 <= m && m <= 6);
     if (m < 5) {                                 /* base 2, 4, 8, 16 */
         i = hex_to_int(c);
         return i >> m ? -1 : i;
@@ -2084,6 +2156,9 @@ static PyMethodDef module_functions[] = {
                                            METH_VARARGS, ones_doc},
     {"count_n",   (PyCFunction) count_n,   METH_VARARGS, count_n_doc},
     {"parity",    (PyCFunction) parity,    METH_O,       parity_doc},
+    {"sum_indices",
+                  (PyCFunction) sum_indices,
+                                           METH_O,       sum_indices_doc},
     {"xor_indices",
                   (PyCFunction) xor_indices,
                                            METH_O,       xor_indices_doc},

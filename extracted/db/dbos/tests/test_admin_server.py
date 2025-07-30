@@ -20,7 +20,7 @@ from dbos import (
     WorkflowHandle,
     _workflow_commands,
 )
-from dbos._error import DBOSWorkflowCancelledError
+from dbos._error import DBOSAwaitedWorkflowCancelledError
 from dbos._schemas.system_database import SystemSchema
 from dbos._sys_db import SystemDatabase, WorkflowStatusString
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
@@ -142,7 +142,6 @@ def test_admin_recovery(config: DBOSConfig) -> None:
 
     @DBOS.workflow()
     def test_workflow(var: str, var2: str) -> str:
-        DBOS.logger.info("WFID: " + DBOS.workflow_id)
         nonlocal wf_counter
         wf_counter += 1
         res = test_step(var2)
@@ -307,7 +306,7 @@ def test_admin_workflow_resume(dbos: DBOS, sys_db: SystemDatabase) -> None:
     )
     assert response.status_code == 204
     event.set()
-    with pytest.raises(DBOSWorkflowCancelledError):
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         handle.get_result()
     info = _workflow_commands.get_workflow(sys_db, wfid)
     assert info is not None
@@ -464,7 +463,9 @@ def test_list_workflows(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def test_workflow_2(my_time: datetime) -> str:
-        return DBOS.workflow_id + " completed at " + my_time.isoformat()
+        workflow_id = DBOS.workflow_id
+        assert workflow_id is not None
+        return workflow_id + " completed at " + my_time.isoformat()
 
     # Start workflows
     handle_1 = DBOS.start_workflow(test_workflow_1)
@@ -656,7 +657,9 @@ def test_get_workflow_by_id(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def test_workflow_2(my_time: datetime) -> str:
-        return DBOS.workflow_id + " completed at " + my_time.isoformat()
+        workflow_id = DBOS.workflow_id
+        assert workflow_id is not None
+        return workflow_id + " completed at " + my_time.isoformat()
 
     # Start workflows
     handle_1 = DBOS.start_workflow(test_workflow_1)
@@ -713,7 +716,9 @@ def test_admin_garbage_collect(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def workflow() -> str:
-        return DBOS.workflow_id
+        workflow_id = DBOS.workflow_id
+        assert workflow_id is not None
+        return workflow_id
 
     workflow()
 
@@ -745,7 +750,7 @@ def test_admin_global_timeout(dbos: DBOS) -> None:
         timeout=5,
     )
     response.raise_for_status()
-    with pytest.raises(DBOSWorkflowCancelledError):
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         handle.get_result()
 
 

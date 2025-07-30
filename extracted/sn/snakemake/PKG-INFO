@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snakemake
-Version: 9.8.2
+Version: 9.9.0
 Summary: Workflow management system to create reproducible and scalable data analyses
 Author-email: Johannes Köster <johannes.koester@uni-due.de>
 License-Expression: MIT
@@ -14,6 +14,7 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown

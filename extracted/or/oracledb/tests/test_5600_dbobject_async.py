@@ -28,15 +28,12 @@
 
 import datetime
 import decimal
-import unittest
 
 import oracledb
 import test_env
 
 
-@unittest.skipUnless(
-    test_env.get_is_thin(), "asyncio not supported in thick mode"
-)
+@test_env.skip_unless_thin_mode()
 class TestCase(test_env.BaseAsyncTestCase):
     maxDiff = None
 
@@ -566,6 +563,7 @@ class TestCase(test_env.BaseAsyncTestCase):
             ("INTVALUE", oracledb.DB_TYPE_NUMBER, 38, 0, None),
             ("SMALLINTVALUE", oracledb.DB_TYPE_NUMBER, 38, 0, None),
             ("REALVALUE", oracledb.DB_TYPE_NUMBER, 63, -127, None),
+            ("DECIMALVALUE", oracledb.DB_TYPE_NUMBER, 20, 6, None),
             ("DOUBLEPRECISIONVALUE", oracledb.DB_TYPE_NUMBER, 126, -127, None),
             ("FLOATVALUE", oracledb.DB_TYPE_NUMBER, 126, -127, None),
             (

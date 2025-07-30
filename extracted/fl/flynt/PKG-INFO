@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flynt
-Version: 1.0.5
+Version: 1.0.6
 Summary: CLI tool to convert a python project's %-formatted strings to f-strings.
 Project-URL: Homepage, https://github.com/ikamensh/flynt
 Author: Ilya Kamenshchikov

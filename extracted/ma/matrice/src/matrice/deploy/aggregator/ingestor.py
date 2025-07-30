@@ -1,7 +1,7 @@
 import logging
 import time
 import threading
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from queue import Empty, PriorityQueue
 from matrice.session import Session
 from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
@@ -30,7 +30,7 @@ class ResultsIngestor:
         self.deployments_stream_utils: Dict[str, MatriceKafkaDeployment] = {}
         for deployment_id in self.deployment_ids:
             self.deployments_stream_utils[deployment_id] = MatriceKafkaDeployment(
-                self.session, deployment_id, type="client"
+                self.session, deployment_id, type="client", consumer_group_id=f"aggregator-{deployment_id}", consumer_group_instance_id=f"aggregator-{deployment_id}"
             )
 
         self.consumer_timeout = consumer_timeout
@@ -48,7 +48,13 @@ class ResultsIngestor:
         self._lock = threading.RLock()
 
         # Counter for tie-breaking in PriorityQueue (to avoid dict comparison)
-        self._counter = itertools.count()
+        self._counters: Dict[Tuple[str, str], itertools.count] = {}
+        
+        # Track last seen input_order for reset detection
+        self._last_input_order: Dict[Tuple[str, str], int] = {}
+        
+        # Track session/epoch for each (deployment_id, stream_key) to handle resets
+        self._session_counters: Dict[Tuple[str, str], int] = {}
 
         # Statistics
         self.stats = {
@@ -69,6 +75,37 @@ class ResultsIngestor:
         for deployment_id in self.deployment_ids:
             self.results_queues[deployment_id] = PriorityQueue()
             self.stats["queue_sizes"][deployment_id] = 0
+    
+    def _get_priority_counter(self, deployment_id: str, stream_key: str, input_order: int) -> Tuple[int, int, int]:
+        """
+        Get priority tuple for queue ordering with reset detection.
+        
+        Returns:
+            Tuple[session_id, temporal_counter, input_order]: Priority tuple for queue ordering
+        """
+        key = (deployment_id, stream_key)
+        
+        # Initialize counters if needed
+        if key not in self._counters:
+            self._counters[key] = itertools.count()
+            self._last_input_order[key] = -1
+            self._session_counters[key] = 0
+        
+        # Get current temporal counter (always increments)
+        temporal_counter = next(self._counters[key])
+        
+        # Detect input_order reset (significant decrease suggests reset)
+        last_input_order = self._last_input_order[key]
+        if last_input_order != -1 and input_order < last_input_order - 5:  # Allow some tolerance for out-of-order
+            # Input order reset detected - increment session counter
+            self._session_counters[key] += 1
+            logging.info(f"Input order reset detected for {deployment_id}:{stream_key} - {last_input_order} -> {input_order}, session: {self._session_counters[key]}")
+        
+        # Update last seen input_order
+        self._last_input_order[key] = input_order
+        
+        # Return (session_id, temporal_counter, input_order) for proper ordering
+        return (self._session_counters[key], temporal_counter, input_order)
 
     def start_streaming(self) -> bool:
         """
@@ -189,19 +226,26 @@ class ResultsIngestor:
                         continue
                     
 
+                    # Get priority tuple with reset detection
+                    priority_tuple = self._get_priority_counter(deployment_id, stream_key, input_order)
+                    session_id, temporal_counter, _ = priority_tuple
+
                     # Create enhanced result object with the structured response
                     enhanced_result = {
                         "deployment_id": deployment_id,
                         "stream_key": stream_key,
                         "stream_group_key": stream_group_key,
                         "input_order": input_order,
+                        "session_id": session_id,  # Add session ID for proper synchronization
+                        "temporal_counter": temporal_counter,  # Add temporal counter for debugging
                         "timestamp": time.time(),
                         "result": result_value, # TODO: check if should send this or just agg_summary
                     }
 
-                    # Add to priority queue (non-blocking) with counter as tie-breaker
+                    # Add to priority queue (non-blocking) with proper ordering
+                    # Priority: (session_id, temporal_counter, input_order) ensures correct ordering even with resets
                     try:
-                        results_queue.put((input_order, next(self._counter), enhanced_result), block=False)
+                        results_queue.put((priority_tuple, enhanced_result), block=False)
 
                         with self._lock:
                             self.stats["results_consumed"] += 1
@@ -258,7 +302,7 @@ class ResultsIngestor:
                     deployment_id
                 ].qsize()
 
-            return priority_result[2]  # Return the actual result (3rd element, after priority and counter)
+            return priority_result[1]  # Return the actual result (2nd element, after priority tuple)
         except Empty:
             return None
         except Exception as exc:
@@ -316,20 +360,44 @@ class ResultsIngestor:
 
         # Check queue sizes
         with self._lock:
+            total_queue_size = 0
             for deployment_id, queue in self.results_queues.items():
                 queue_size = queue.qsize()
                 health["queue_sizes"][deployment_id] = queue_size
+                total_queue_size += queue_size
 
                 # Mark as degraded if queue is getting full
                 if queue_size > self.max_queue_size * 0.8:
                     health["status"] = "degraded"
+                    health["reason"] = f"Queue for {deployment_id} nearly full ({queue_size}/{self.max_queue_size})"
+                    logging.warning(f"Ingestor degraded: {deployment_id} queue has {queue_size} items (threshold: {self.max_queue_size * 0.8})")
 
-        # Check for recent errors
+        # Check for recent errors (within last 60 seconds)
         if (
             self.stats["last_error_time"]
             and (time.time() - self.stats["last_error_time"]) < 60
         ):
             health["status"] = "degraded"
+            health["reason"] = f"Recent error: {self.stats['last_error']}"
+            logging.warning(f"Ingestor degraded due to recent error: {self.stats['last_error']}")
+
+        # Check if threads are running when they should be
+        if self._is_streaming:
+            dead_threads = []
+            for deployment_id, thread in self.results_streaming_threads.items():
+                if not thread.is_alive():
+                    dead_threads.append(deployment_id)
+            
+            if dead_threads:
+                health["status"] = "degraded" 
+                health["reason"] = f"Dead threads for deployments: {', '.join(dead_threads)}"
+                logging.warning(f"Ingestor degraded: dead threads for {len(dead_threads)} deployments: {', '.join(dead_threads)}")
+
+        # Check if not streaming when it should be
+        if not self._is_streaming:
+            health["status"] = "unhealthy"
+            health["reason"] = "Ingestor is not streaming"
+            logging.error("Ingestor is not streaming")
 
         return health
 

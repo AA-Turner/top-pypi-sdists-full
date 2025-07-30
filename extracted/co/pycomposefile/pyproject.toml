@@ -1,21 +1,33 @@
 [project]
 name = "pycomposefile"
-version = "0.0.33"
+version = "0.0.34"
 description = "Structured deserialization of Docker Compose files."
 readme = "README.md"
 authors = [
     { name = "Steven Murawski", email = "steven.murawski@microsoft.com" },
 ]
-requires-python = ">=3.6"
+requires-python = ">=3.9"
 dependencies = ["pyyaml"]
 keywords = ["docker", "compose"]
 license = "MIT"
+license-files = ["LICENSE"]
 
 [project.urls]
 Homepage = "https://github.com/smurawski/pycomposefile"
 
+[dependency-groups]
+dev = ["pyyaml>=6.0", "build>=0.7", "ruff==0.12.5", "timeout-decorator==0.5.0"]
+
 [tool.flit.sdist]
-include = ["tests/"]
+include = ["sample/", "tests/"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["C9", "E", "F", "UP", "W"]
+ignore = ["C901", "E501", "E722", "F401", "F811"]
+mccabe = { max-complexity = 10 }
 
 [build-system]
 requires = ["flit_core >=3.11,<4"]

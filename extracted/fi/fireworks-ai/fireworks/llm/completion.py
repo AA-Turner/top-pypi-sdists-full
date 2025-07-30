@@ -185,8 +185,11 @@ class Completion(BaseCompletion):
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAICompletion, Generator[OpenAICompletion, None, None]]:
-        skip_setup = kwargs.pop("skip_setup", False)
-        model_id = self._create_setup(skip_setup=skip_setup)
+        if "model" in kwargs:
+            raise ValueError(
+                "Pass model as a parameter to the constructor of LLM instead of passing it as a parameter to the create method"
+            )
+        model_id = self._llm.model_id()
         params = self._build_request_params(
             model_id,
             prompt,
@@ -303,8 +306,7 @@ class Completion(BaseCompletion):
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAICompletion, AsyncGenerator[OpenAICompletion, None]]:
-        skip_setup = kwargs.pop("skip_setup", False)
-        model_id = self._create_setup(skip_setup=skip_setup)
+        model_id = self._llm.model_id()
         params = self._build_request_params(
             model_id,
             prompt,

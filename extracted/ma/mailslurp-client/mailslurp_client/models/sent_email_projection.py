@@ -35,10 +35,10 @@ class SentEmailProjection(object):
     """
     openapi_types = {
         'id': 'str',
-        'subject': 'str',
+        'recipients': 'EmailRecipients',
         '_from': 'str',
         'sender': 'Sender',
-        'recipients': 'EmailRecipients',
+        'subject': 'str',
         'attachments': 'list[str]',
         'inbox_id': 'str',
         'user_id': 'str',
@@ -57,10 +57,10 @@ class SentEmailProjection(object):
 
     attribute_map = {
         'id': 'id',
-        'subject': 'subject',
+        'recipients': 'recipients',
         '_from': 'from',
         'sender': 'sender',
-        'recipients': 'recipients',
+        'subject': 'subject',
         'attachments': 'attachments',
         'inbox_id': 'inboxId',
         'user_id': 'userId',
@@ -77,17 +77,17 @@ class SentEmailProjection(object):
         'thread_id': 'threadId'
     }
 
-    def __init__(self, id=None, subject=None, _from=None, sender=None, recipients=None, attachments=None, inbox_id=None, user_id=None, created_at=None, to=None, cc=None, bcc=None, message_id=None, in_reply_to=None, body_excerpt=None, text_excerpt=None, body_md5_hash=None, virtual_send=None, thread_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, recipients=None, _from=None, sender=None, subject=None, attachments=None, inbox_id=None, user_id=None, created_at=None, to=None, cc=None, bcc=None, message_id=None, in_reply_to=None, body_excerpt=None, text_excerpt=None, body_md5_hash=None, virtual_send=None, thread_id=None, local_vars_configuration=None):  # noqa: E501
         """SentEmailProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._id = None
-        self._subject = None
+        self._recipients = None
         self.__from = None
         self._sender = None
-        self._recipients = None
+        self._subject = None
         self._attachments = None
         self._inbox_id = None
         self._user_id = None
@@ -105,17 +105,20 @@ class SentEmailProjection(object):
         self.discriminator = None
 
         self.id = id
-        self.subject = subject
+        self.recipients = recipients
         self._from = _from
         self.sender = sender
-        self.recipients = recipients
+        self.subject = subject
         self.attachments = attachments
         self.inbox_id = inbox_id
         self.user_id = user_id
         self.created_at = created_at
-        self.to = to
-        self.cc = cc
-        self.bcc = bcc
+        if to is not None:
+            self.to = to
+        if cc is not None:
+            self.cc = cc
+        if bcc is not None:
+            self.bcc = bcc
         self.message_id = message_id
         self.in_reply_to = in_reply_to
         self.body_excerpt = body_excerpt
@@ -148,25 +151,25 @@ class SentEmailProjection(object):
         self._id = id
 
     @property
-    def subject(self):
-        """Gets the subject of this SentEmailProjection.  # noqa: E501
+    def recipients(self):
+        """Gets the recipients of this SentEmailProjection.  # noqa: E501
 
 
-        :return: The subject of this SentEmailProjection.  # noqa: E501
-        :rtype: str
+        :return: The recipients of this SentEmailProjection.  # noqa: E501
+        :rtype: EmailRecipients
         """
-        return self._subject
+        return self._recipients
 
-    @subject.setter
-    def subject(self, subject):
-        """Sets the subject of this SentEmailProjection.
+    @recipients.setter
+    def recipients(self, recipients):
+        """Sets the recipients of this SentEmailProjection.
 
 
-        :param subject: The subject of this SentEmailProjection.  # noqa: E501
-        :type: str
+        :param recipients: The recipients of this SentEmailProjection.  # noqa: E501
+        :type: EmailRecipients
         """
 
-        self._subject = subject
+        self._recipients = recipients
 
     @property
     def _from(self):
@@ -211,25 +214,25 @@ class SentEmailProjection(object):
         self._sender = sender
 
     @property
-    def recipients(self):
-        """Gets the recipients of this SentEmailProjection.  # noqa: E501
+    def subject(self):
+        """Gets the subject of this SentEmailProjection.  # noqa: E501
 
 
-        :return: The recipients of this SentEmailProjection.  # noqa: E501
-        :rtype: EmailRecipients
+        :return: The subject of this SentEmailProjection.  # noqa: E501
+        :rtype: str
         """
-        return self._recipients
+        return self._subject
 
-    @recipients.setter
-    def recipients(self, recipients):
-        """Sets the recipients of this SentEmailProjection.
+    @subject.setter
+    def subject(self, subject):
+        """Sets the subject of this SentEmailProjection.
 
 
-        :param recipients: The recipients of this SentEmailProjection.  # noqa: E501
-        :type: EmailRecipients
+        :param subject: The subject of this SentEmailProjection.  # noqa: E501
+        :type: str
         """
 
-        self._recipients = recipients
+        self._subject = subject
 
     @property
     def attachments(self):
@@ -339,8 +342,6 @@ class SentEmailProjection(object):
         :param to: The to of this SentEmailProjection.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and to is None:  # noqa: E501
-            raise ValueError("Invalid value for `to`, must not be `None`")  # noqa: E501
 
         self._to = to
 
@@ -362,8 +363,6 @@ class SentEmailProjection(object):
         :param cc: The cc of this SentEmailProjection.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and cc is None:  # noqa: E501
-            raise ValueError("Invalid value for `cc`, must not be `None`")  # noqa: E501
 
         self._cc = cc
 
@@ -385,8 +384,6 @@ class SentEmailProjection(object):
         :param bcc: The bcc of this SentEmailProjection.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and bcc is None:  # noqa: E501
-            raise ValueError("Invalid value for `bcc`, must not be `None`")  # noqa: E501
 
         self._bcc = bcc
 

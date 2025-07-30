@@ -32,13 +32,6 @@ class TestAIControllerApi(unittest.TestCase):
     def test_create_transformer(self):
         """Test case for create_transformer
 
-        List transformers  # noqa: E501
-        """
-        pass
-
-    def test_create_transformer1(self):
-        """Test case for create_transformer1
-
         Create a transformer for reuse in automations  # noqa: E501
         """
         pass
@@ -47,6 +40,13 @@ class TestAIControllerApi(unittest.TestCase):
         """Test case for create_transformer_mappings
 
         Create transformer mapping  # noqa: E501
+        """
+        pass
+
+    def test_delete_all_transformer_mappings(self):
+        """Test case for delete_all_transformer_mappings
+
+        Delete all transformer mapping  # noqa: E501
         """
         pass
 
@@ -124,6 +124,20 @@ class TestAIControllerApi(unittest.TestCase):
         """Test case for get_transformer_results
 
         Get transformer results  # noqa: E501
+        """
+        pass
+
+    def test_get_transformers(self):
+        """Test case for get_transformers
+
+        List transformers  # noqa: E501
+        """
+        pass
+
+    def test_invoke_transformer(self):
+        """Test case for invoke_transformer
+
+        Invoke a transformer  # noqa: E501
         """
         pass
 

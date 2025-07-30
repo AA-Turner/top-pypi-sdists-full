@@ -2374,6 +2374,7 @@ class CfnServer(
                 url="url"
             ),
             identity_provider_type="identityProviderType",
+            ip_address_type="ipAddressType",
             logging_role="loggingRole",
             post_authentication_login_banner="postAuthenticationLoginBanner",
             pre_authentication_login_banner="preAuthenticationLoginBanner",
@@ -2417,6 +2418,7 @@ class CfnServer(
         endpoint_type: typing.Optional[builtins.str] = None,
         identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServer.IdentityProviderDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         identity_provider_type: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
         logging_role: typing.Optional[builtins.str] = None,
         post_authentication_login_banner: typing.Optional[builtins.str] = None,
         pre_authentication_login_banner: typing.Optional[builtins.str] = None,
@@ -2437,6 +2439,7 @@ class CfnServer(
         :param endpoint_type: The type of endpoint that you want your server to use. You can choose to make your server's endpoint publicly accessible (PUBLIC) or host it inside your VPC. With an endpoint that is hosted in a VPC, you can restrict access to your server and resources only within your VPC or choose to make it internet facing by attaching Elastic IP addresses directly to it. .. epigraph:: After May 19, 2021, you won't be able to create a server using ``EndpointType=VPC_ENDPOINT`` in your AWS account if your account hasn't already done so before May 19, 2021. If you have already created servers with ``EndpointType=VPC_ENDPOINT`` in your AWS account on or before May 19, 2021, you will not be affected. After this date, use ``EndpointType`` = ``VPC`` . For more information, see `Discontinuing the use of VPC_ENDPOINT <https://docs.aws.amazon.com//transfer/latest/userguide/create-server-in-vpc.html#deprecate-vpc-endpoint>`_ . It is recommended that you use ``VPC`` as the ``EndpointType`` . With this endpoint type, you have the option to directly associate up to three Elastic IPv4 addresses (BYO IP included) with your server's endpoint and use VPC security groups to restrict traffic by the client's public IP address. This is not possible with ``EndpointType`` set to ``VPC_ENDPOINT`` .
         :param identity_provider_details: Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE`` , ``AWS _LAMBDA`` or ``API_GATEWAY`` . Accepts an array containing all of the information required to use a directory in ``AWS_DIRECTORY_SERVICE`` or invoke a customer-supplied authentication API, including the API Gateway URL. Cannot be specified when ``IdentityProviderType`` is set to ``SERVICE_MANAGED`` .
         :param identity_provider_type: The mode of authentication for a server. The default value is ``SERVICE_MANAGED`` , which allows you to store and access user credentials within the AWS Transfer Family service. Use ``AWS_DIRECTORY_SERVICE`` to provide access to Active Directory groups in AWS Directory Service for Microsoft Active Directory or Microsoft Active Directory in your on-premises environment or in AWS using AD Connector. This option also requires you to provide a Directory ID by using the ``IdentityProviderDetails`` parameter. Use the ``API_GATEWAY`` value to integrate with an identity provider of your choosing. The ``API_GATEWAY`` setting requires you to provide an Amazon API Gateway endpoint URL to call for authentication by using the ``IdentityProviderDetails`` parameter. Use the ``AWS_LAMBDA`` value to directly use an AWS Lambda function as your identity provider. If you choose this value, you must specify the ARN for the Lambda function in the ``Function`` parameter for the ``IdentityProviderDetails`` data type.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint. The default value is ``IPV4`` . .. epigraph:: The ``IpAddressType`` parameter has the following limitations: - It cannot be changed while the server is online. You must stop the server before modifying this parameter. - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
         :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events. When set, you can view user activity in your CloudWatch logs.
         :param post_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed after the user authenticates. .. epigraph:: The SFTP protocol does not support post-authentication display banners.
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed before the user authenticates. For example, the following banner displays details about using the system: ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
@@ -2459,6 +2462,7 @@ class CfnServer(
             endpoint_type=endpoint_type,
             identity_provider_details=identity_provider_details,
             identity_provider_type=identity_provider_type,
+            ip_address_type=ip_address_type,
             logging_role=logging_role,
             post_authentication_login_banner=post_authentication_login_banner,
             pre_authentication_login_banner=pre_authentication_login_banner,
@@ -2645,6 +2649,19 @@ class CfnServer(
             type_hints = typing.get_type_hints(_typecheckingstub__08a6cb2bcf7a55379e6b89fa02d0735271e11fc131bf9d9b0693cea393aa4401)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityProviderType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressType")
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
+
+    @ip_address_type.setter
+    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cfe7d7f7218e63daf2394f025140f03c85b4b448857853b83b58f4e59a3eee0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="loggingRole")
@@ -3471,6 +3488,7 @@ class CfnServer(
         "endpoint_type": "endpointType",
         "identity_provider_details": "identityProviderDetails",
         "identity_provider_type": "identityProviderType",
+        "ip_address_type": "ipAddressType",
         "logging_role": "loggingRole",
         "post_authentication_login_banner": "postAuthenticationLoginBanner",
         "pre_authentication_login_banner": "preAuthenticationLoginBanner",
@@ -3493,6 +3511,7 @@ class CfnServerProps:
         endpoint_type: typing.Optional[builtins.str] = None,
         identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         identity_provider_type: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
         logging_role: typing.Optional[builtins.str] = None,
         post_authentication_login_banner: typing.Optional[builtins.str] = None,
         pre_authentication_login_banner: typing.Optional[builtins.str] = None,
@@ -3512,6 +3531,7 @@ class CfnServerProps:
         :param endpoint_type: The type of endpoint that you want your server to use. You can choose to make your server's endpoint publicly accessible (PUBLIC) or host it inside your VPC. With an endpoint that is hosted in a VPC, you can restrict access to your server and resources only within your VPC or choose to make it internet facing by attaching Elastic IP addresses directly to it. .. epigraph:: After May 19, 2021, you won't be able to create a server using ``EndpointType=VPC_ENDPOINT`` in your AWS account if your account hasn't already done so before May 19, 2021. If you have already created servers with ``EndpointType=VPC_ENDPOINT`` in your AWS account on or before May 19, 2021, you will not be affected. After this date, use ``EndpointType`` = ``VPC`` . For more information, see `Discontinuing the use of VPC_ENDPOINT <https://docs.aws.amazon.com//transfer/latest/userguide/create-server-in-vpc.html#deprecate-vpc-endpoint>`_ . It is recommended that you use ``VPC`` as the ``EndpointType`` . With this endpoint type, you have the option to directly associate up to three Elastic IPv4 addresses (BYO IP included) with your server's endpoint and use VPC security groups to restrict traffic by the client's public IP address. This is not possible with ``EndpointType`` set to ``VPC_ENDPOINT`` .
         :param identity_provider_details: Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE`` , ``AWS _LAMBDA`` or ``API_GATEWAY`` . Accepts an array containing all of the information required to use a directory in ``AWS_DIRECTORY_SERVICE`` or invoke a customer-supplied authentication API, including the API Gateway URL. Cannot be specified when ``IdentityProviderType`` is set to ``SERVICE_MANAGED`` .
         :param identity_provider_type: The mode of authentication for a server. The default value is ``SERVICE_MANAGED`` , which allows you to store and access user credentials within the AWS Transfer Family service. Use ``AWS_DIRECTORY_SERVICE`` to provide access to Active Directory groups in AWS Directory Service for Microsoft Active Directory or Microsoft Active Directory in your on-premises environment or in AWS using AD Connector. This option also requires you to provide a Directory ID by using the ``IdentityProviderDetails`` parameter. Use the ``API_GATEWAY`` value to integrate with an identity provider of your choosing. The ``API_GATEWAY`` setting requires you to provide an Amazon API Gateway endpoint URL to call for authentication by using the ``IdentityProviderDetails`` parameter. Use the ``AWS_LAMBDA`` value to directly use an AWS Lambda function as your identity provider. If you choose this value, you must specify the ARN for the Lambda function in the ``Function`` parameter for the ``IdentityProviderDetails`` data type.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint. The default value is ``IPV4`` . .. epigraph:: The ``IpAddressType`` parameter has the following limitations: - It cannot be changed while the server is online. You must stop the server before modifying this parameter. - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
         :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events. When set, you can view user activity in your CloudWatch logs.
         :param post_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed after the user authenticates. .. epigraph:: The SFTP protocol does not support post-authentication display banners.
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed before the user authenticates. For example, the following banner displays details about using the system: ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
@@ -3551,6 +3571,7 @@ class CfnServerProps:
                     url="url"
                 ),
                 identity_provider_type="identityProviderType",
+                ip_address_type="ipAddressType",
                 logging_role="loggingRole",
                 post_authentication_login_banner="postAuthenticationLoginBanner",
                 pre_authentication_login_banner="preAuthenticationLoginBanner",
@@ -3590,6 +3611,7 @@ class CfnServerProps:
             check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
             check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
             check_type(argname="argument identity_provider_type", value=identity_provider_type, expected_type=type_hints["identity_provider_type"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
             check_type(argname="argument post_authentication_login_banner", value=post_authentication_login_banner, expected_type=type_hints["post_authentication_login_banner"])
             check_type(argname="argument pre_authentication_login_banner", value=pre_authentication_login_banner, expected_type=type_hints["pre_authentication_login_banner"])
@@ -3613,6 +3635,8 @@ class CfnServerProps:
             self._values["identity_provider_details"] = identity_provider_details
         if identity_provider_type is not None:
             self._values["identity_provider_type"] = identity_provider_type
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
         if logging_role is not None:
             self._values["logging_role"] = logging_role
         if post_authentication_login_banner is not None:
@@ -3733,6 +3757,23 @@ class CfnServerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-identityprovidertype
         '''
         result = self._values.get("identity_provider_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint.
+
+        The default value is ``IPV4`` .
+        .. epigraph::
+
+           The ``IpAddressType`` parameter has the following limitations:
+
+           - It cannot be changed while the server is online. You must stop the server before modifying this parameter.
+           - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -7259,6 +7300,7 @@ def _typecheckingstub__bf4192baa4fd5a52c9092a6bab5b78398f0e5f14bdad138f58e799069
     endpoint_type: typing.Optional[builtins.str] = None,
     identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     identity_provider_type: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
     logging_role: typing.Optional[builtins.str] = None,
     post_authentication_login_banner: typing.Optional[builtins.str] = None,
     pre_authentication_login_banner: typing.Optional[builtins.str] = None,
@@ -7316,6 +7358,12 @@ def _typecheckingstub__1216795787e100411fafd375b3cfc4b841d96cdfab5edb3bdaad0c403
     pass
 
 def _typecheckingstub__08a6cb2bcf7a55379e6b89fa02d0735271e11fc131bf9d9b0693cea393aa4401(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cfe7d7f7218e63daf2394f025140f03c85b4b448857853b83b58f4e59a3eee0(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -7444,6 +7492,7 @@ def _typecheckingstub__755735299782e941527b817551c61582134dc6f25d12aff5d9120aeeb
     endpoint_type: typing.Optional[builtins.str] = None,
     identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     identity_provider_type: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
     logging_role: typing.Optional[builtins.str] = None,
     post_authentication_login_banner: typing.Optional[builtins.str] = None,
     pre_authentication_login_banner: typing.Optional[builtins.str] = None,

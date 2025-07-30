@@ -35,11 +35,26 @@ class PPEComplianceConfig(BaseConfig):
     ])
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {
-        0: 'Hardhat', 1: 'Mask', 2: 'NO-Hardhat', 3: 'NO-Mask', 4: 'NO-Safety Vest',
-        5: 'Person', 6: 'Safety Cone', 7: 'Safety Vest', 8: 'machinery', 9: 'vehicle'
+        -1: 'Hardhat', 0: 'Mask', 1: 'NO-Hardhat', 2: 'NO-Mask', 3: 'NO-Safety Vest',
+        4: 'Person', 5: 'Safety Cone', 6: 'Safety Vest', 7: 'machinery', 8: 'vehicle'
     })
 
 class PPEComplianceUseCase(BaseProcessor):
+    def get_camera_info_from_stream(self, stream_info: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Extract camera information from stream_info dict, matching mask_detection's approach.
+        """
+        if not stream_info:
+            return {"camera_name": None, "camera_group": None, "location": None}
+        input_settings = stream_info.get("input_settings", {})
+        camera_name = input_settings.get("camera_name")
+        camera_group = input_settings.get("camera_group")
+        location = input_settings.get("location")
+        return {
+            "camera_name": camera_name,
+            "camera_group": camera_group,
+            "location": location
+        }
     def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
         """Return a stable canonical ID for a raw tracker ID, merging fragmented tracks when IoU and temporal constraints indicate they represent the same physical object."""
         if not hasattr(self, '_track_aliases'):
@@ -195,31 +210,47 @@ class PPEComplianceUseCase(BaseProcessor):
         # Track start time for "TOTAL SINCE" calculation
         self._tracking_start_time = None
     def _format_timestamp_for_video(self, timestamp: float) -> str:
-        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        """Format timestamp for video chunks (HH:MM:SS.s format)."""
         hours = int(timestamp // 3600)
         minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+        seconds = round(float(timestamp % 60), 1)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        # if is_video_chunk:
-        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
-        #     return self._format_timestamp_for_video(video_timestamp)
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
+        # If precision is requested, use frame-based time for video files
+        if precision:
+            if stream_info.get("feed_type", "live") == "disk":
+                start_time = stream_info.get("start_frame", 30)/stream_info.get("original_fps", 30)
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("feed_type", "live") == "disk":
+            start_time = stream_info.get("start_frame", 30)/stream_info.get("original_fps", 30)
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            if frame_id:
+                start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+            else:
+                start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+            stream_time_str = self._format_timestamp_for_video(start_time)
+            return stream_time_str
         else:
-            stream_time_str = stream_info.get("stream_time", "")
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
@@ -231,19 +262,21 @@ class PPEComplianceUseCase(BaseProcessor):
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        if is_video_chunk:
-            return "00:00:00"
-        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, start from 00:00:00
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             return "00:00:00"
         else:
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("stream_time", "")
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
@@ -261,21 +294,17 @@ class PPEComplianceUseCase(BaseProcessor):
         """
         Main entry point for PPE compliance detection post-processing.
         Applies category mapping, violation smoothing, counting, alerting, and summary generation.
-        Returns a ProcessingResult with all relevant outputs.
+        Returns a ProcessingResult with all relevant outputs in the new agg_summary format
         """
         start_time = time.time()
-        # Ensure config is correct type
         if not isinstance(config, PPEComplianceConfig):
             return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
         if context is None:
             context = ProcessingContext()
 
-        # Detect input format and store in context
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.no_hardhat_threshold = config.no_hardhat_threshold
-
-
 
         # Map detection indices to category names robustly (PPE only)
         processed_data = self._robust_apply_category_mapping(data, config.index_to_category)
@@ -294,51 +323,29 @@ class PPEComplianceUseCase(BaseProcessor):
                     enable_smoothing=True
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            smoothed_violations = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            processed_data = smoothed_violations
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
 
         # Advanced tracking (BYTETracker-like)
         try:
             from ..advanced_tracker import AdvancedTracker
             from ..advanced_tracker.config import TrackerConfig
-            
-            # Create tracker instance if it doesn't exist (preserves state across frames)
             if self.tracker is None:
                 tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
                 self.logger.info("Initialized AdvancedTracker for PPE compliance tracking")
-            
-            # The tracker expects the data in the same format as input
-            # It will add track_id and frame_id to each detection
             processed_data = self.tracker.update(processed_data)
-            
         except Exception as e:
-            # If advanced tracker fails, fallback to unsmoothed detections
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
-        # Deduplicate overlapping violations (same label, high IoU)
-        # processed_data = self._deduplicate_violations(processed_data, iou_thresh=0.92)
-
-        # Update violation tracking state for total count per label
         self._update_violation_tracking_state(processed_data)
-        
-        # Update frame counter
         self._total_frame_counter += 1
 
-        # Extract frame information from stream_info
-        frame_number = None
-        if stream_info:
-            input_settings = stream_info.get("input_settings", {})
-            start_frame = input_settings.get("start_frame")
-            end_frame = input_settings.get("end_frame")
-            # If start and end frame are the same, it's a single frame
-            if start_frame is not None and end_frame is not None and start_frame == end_frame:
-                frame_number = start_frame
+        # Frame number logic (not chunkwise, just per call)
+        frame_number = self._total_frame_counter
 
         # Compute summaries and alerts
         general_counting_summary = calculate_counting_summary(data)
         counting_summary = self._count_categories(processed_data, config)
-        # Add total unique violation counts after tracking using only local state
         total_violation_counts = self.get_total_violation_counts()
         counting_summary['total_violation_counts'] = total_violation_counts
         insights = self._generate_insights(counting_summary, config)
@@ -346,26 +353,29 @@ class PPEComplianceUseCase(BaseProcessor):
         predictions = self._extract_predictions(processed_data)
         summary = self._generate_summary(counting_summary, alerts)
 
-        # Step: Generate structured events and tracking stats with frame-based keys
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
-
-        # Extract frame-based dictionaries from the lists
-        events = events_list[0] if events_list else {}
-        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        # Generate new-format output (agg_summary)
+        incidents = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
+        tracking_stats = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
+        business_analytics = {}
+        app_name = "ppe_compliance"
+        app_version = "1.2"
+        agg_human_text = {
+            "Application Name": app_name,
+            "Application Version": app_version,
+            "Incidents:": incidents.get("human_text", ""),
+            "Tracking Statistics:": tracking_stats.get("human_text", "")
+        }
+        agg_summary = {str(frame_number): {
+            "incidents": incidents,
+            "tracking_stats": tracking_stats,
+            "business_analytics": business_analytics,
+            "alerts": alerts,
+            "human_text": agg_human_text
+        }}
 
         context.mark_completed()
-
-        # Build result object
         result = self.create_result(
-            data={
-                "counting_summary": counting_summary,
-                "general_counting_summary": general_counting_summary,
-                "alerts": alerts,
-                "total_violations": counting_summary.get("total_count", 0),
-                "events": events,
-                "tracking_stats": tracking_stats,
-            },
+            data={"agg_summary": agg_summary},
             usecase=self.name,
             category=self.category,
             context=context
@@ -415,46 +425,28 @@ class PPEComplianceUseCase(BaseProcessor):
         self.reset_violation_tracking()
         self.logger.info("All PPE tracking state reset")
         
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: PPEComplianceConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        """Generate structured events for the output format with frame-based keys."""
-        # Use frame number as key, fallback to 'current_frame' if not available
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = [{frame_key: []}]
-        frame_events = events[0][frame_key]
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: PPEComplianceConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> Dict:
         total_violations = counting_summary.get("total_count", 0)
-
-        # Generate human text in new format
-        human_text_lines = ["EVENTS DETECTED:"]
-        if total_violations > 0:
-            human_text_lines.append(f"    - {total_violations} PPE violation(s) detected [INFO]")
-        else:
-            human_text_lines.append("    - No PPE violations detected")
-        human_text = "\n".join(human_text_lines)
-
-        if total_violations > 0:
-            event = {
-                "type": "ppe_violation",
-                "severity": "info",
-                "category": "ppe",
-                "count": total_violations,
-                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-                "location_info": None,
-                "human_text": human_text
-            }
-            frame_events.append(event)
-        # Add alert events
-        for alert in alerts:
-            alert_event = {
-                "type": alert.get("type", "alert"),
-                "severity": alert.get("severity", "warning"),
-                "category": alert.get("category", "ppe"),
-                "count": alert.get("current_count", 0),
-                "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-                "location_info": alert.get("zone"),
-                "human_text": alert.get("human_text", "PPE alert triggered")
-            }
-            frame_events.append(alert_event)
-        return events
+        severity = "info" if total_violations > 0 else "none"
+        human_text = f"INCIDENTS DETECTED @ :\n\tSeverity Level: ('ppe_compliance', '{severity}')"
+        incident = {
+            "incident_id": f"ppe_compliance_{frame_number}",
+            "incident_type": "ppe_compliance",
+            "severity_level": severity,
+            "human_text": human_text,
+            "start_time": "00:00:00",
+            "end_time": "00:00:00",
+            "camera_info": self.get_camera_info_from_stream(stream_info),
+            "level_settings": {
+                "low": 1,
+                "medium": 3,
+                "significant": 4,
+                "critical": 7
+            },
+            "alerts": alerts,
+            "alert_settings": [],
+        }
+        return incident
 
     def _generate_tracking_stats(
             self,
@@ -464,27 +456,15 @@ class PPEComplianceUseCase(BaseProcessor):
             config: PPEComplianceConfig,
             frame_number: Optional[int] = None,
             stream_info: Optional[Dict[str, Any]] = None
-    ) -> List[Dict]:
-        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
-
-
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
-
+    ) -> Dict:
         total_violations = counting_summary.get("total_count", 0)
         per_cat = counting_summary.get("per_category_count", {})
         cumulative = counting_summary.get("total_violation_counts", {})
         cumulative_total = sum(cumulative.values()) if cumulative else 0
-
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
-
         human_text_lines = []
-
-        # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if total_violations > 0:
             human_text_lines.append(f"\t- PPE Violations Detected: {total_violations}")
@@ -495,10 +475,7 @@ class PPEComplianceUseCase(BaseProcessor):
                     human_text_lines.append(f"\t\t- {label}: {count}")
         else:
             human_text_lines.append("\t- No PPE violations detected")
-
-        human_text_lines.append("")  # spacing
-
-        # TOTAL SINCE section
+        human_text_lines.append("")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total PPE Violations Detected: {cumulative_total}")
         for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]:
@@ -506,25 +483,29 @@ class PPEComplianceUseCase(BaseProcessor):
             if count > 0:
                 label = self.CATEGORY_DISPLAY.get(cat, cat).replace(" Violations", "")
                 human_text_lines.append(f"\t\t- {label}: {count}")
-
         human_text = "\n".join(human_text_lines)
-
         tracking_stat = {
-            "type": "ppe_tracking",
-            "category": "ppe",
-            "count": total_violations,
-            "insights": insights,
-            "summary": summary,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": human_text,
-            "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key,
-            "detections": counting_summary.get("detections", [])
+            "input_timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S.%f UTC'),
+            "reset_timestamp": "00:00:00",
+            "camera_info": self.get_camera_info_from_stream(stream_info),
+            "total_counts": [
+                {"category": cat, "count": cumulative.get(cat, 0)} for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]
+            ],
+            "current_counts": [
+                {"category": cat, "count": per_cat.get(cat, 0)} for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"] if per_cat.get(cat, 0) > 0
+            ],
+            "detections": counting_summary.get("detections", []),
+            "alerts": [],
+            "alert_settings": [],
+            "reset_settings": [
+                {
+                    "interval_type": "daily",
+                    "reset_time": {"value": 9, "time_unit": "hour"}
+                }
+            ],
+            "human_text": human_text
         }
-
-        frame_tracking_stats.append(tracking_stat)
-        return tracking_stats
+        return tracking_stat
 
     def _count_categories(self, detections: list, config: PPEComplianceConfig) -> dict:
         """

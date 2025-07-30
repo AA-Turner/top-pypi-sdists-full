@@ -36,12 +36,12 @@ class ResultsSynchronizer:
         self._synchronization_thread = None
 
         # Synchronization state
-        # Structure: {(stream_key, input_order): {deployment_id: result, ...}}
-        self._pending_results: Dict[Tuple[str, int], Dict[str, Dict]] = defaultdict(
+        # Structure: {(stream_key, session_id, input_order): {deployment_id: result, ...}}
+        self._pending_results: Dict[Tuple[str, int, int], Dict[str, Dict]] = defaultdict(
             dict
         )
         # Track when each key combination was first seen
-        self._result_timestamps: Dict[Tuple[str, int], float] = {}
+        self._result_timestamps: Dict[Tuple[str, int, int], float] = {}
 
         # Statistics
         self.stats = {
@@ -65,7 +65,7 @@ class ResultsSynchronizer:
             self.stats["errors"] += 1
             self.stats["last_error"] = error_message
             self.stats["last_error_time"] = time.time()
-        logging.error(error_message)
+        logging.error(f"Synchronizer error: {error_message}")
 
     def _collect_results_from_queues(self):
         """Collect results from all deployment queues and organize by stream_key and input_order."""
@@ -76,20 +76,21 @@ class ResultsSynchronizer:
                 while True:  # Collect all available results from this queue
                     try:
                         priority_result = queue.get(block=False)
-                        result = priority_result[2]  # Get actual result (3rd element, after priority and counter)
+                        result = priority_result[1]  # Get actual result (2nd element, after priority tuple)
 
                         stream_key = result.get("stream_key")
                         input_order = result.get("input_order")
+                        session_id = result.get("session_id")
                         stream_group_key = result.get("stream_group_key")
 
-                        if stream_key is None or input_order is None:
+                        if stream_key is None or input_order is None or session_id is None:
                             logging.warning(
-                                f"Result missing stream_key or input_order from {deployment_id}, skipping. "
-                                f"Stream key: {stream_key}, Input order: {input_order}, Stream group: {stream_group_key}"
+                                f"Result missing stream_key, input_order, or session_id from {deployment_id}, skipping. "
+                                f"Stream key: {stream_key}, Input order: {input_order}, Session ID: {session_id}, Stream group: {stream_group_key}"
                             )
                             continue
 
-                        key = (stream_key, input_order)
+                        key = (stream_key, session_id, input_order)
                         current_time = time.time()
 
                         with self._lock:
@@ -104,7 +105,7 @@ class ResultsSynchronizer:
                             results_collected += 1
 
                         logging.debug(
-                            f"Collected result from {deployment_id} for stream {stream_key}, order {input_order}"
+                            f"Collected result from {deployment_id} for stream {stream_key}, session {session_id}, order {input_order}"
                         )
 
                     except Empty:
@@ -120,13 +121,13 @@ class ResultsSynchronizer:
 
     def _create_synchronized_result(
         self,
-        key: Tuple[str, int],
+        key: Tuple[str, int, int],
         deployment_results: Dict[str, Dict],
         is_complete: bool,
         is_timeout: bool,
     ) -> Dict:
         """Create a synchronized result dictionary with enhanced metadata."""
-        stream_key, input_order = key
+        stream_key, session_id, input_order = key
         current_time = time.time()
         sync_start_time = self._result_timestamps.get(key, current_time)
         sync_duration = current_time - sync_start_time
@@ -154,6 +155,7 @@ class ResultsSynchronizer:
         synchronized_result = {
             "stream_key": stream_key,
             "input_order": input_order,
+            "session_id": session_id,  # Include session ID for reset tracking
             "stream_group_key": stream_group_key,
             "deployment_results": deployment_results.copy(),
             "synchronization_metadata": {
@@ -174,7 +176,8 @@ class ResultsSynchronizer:
                     else []
                 ),
                 "sync_completeness_ratio": len(deployment_results) / len(self.deployment_ids),
-                "synchronizer_version": "2.0",
+                "synchronizer_version": "2.0",  # Updated version for session support
+                "session_id": session_id,  # Include session ID in metadata
             },
         }
 
@@ -211,11 +214,11 @@ class ResultsSynchronizer:
                     # Update statistics
                     if is_complete:
                         self.stats["complete_syncs"] += 1
-                        logging.debug(f"Complete sync for stream {key[0]}, order {key[1]} with {len(deployment_results)} deployments")
+                        logging.debug(f"Complete sync for stream {key[0]}, session {key[1]}, order {key[2]} with {len(deployment_results)} deployments")
                     else:
                         self.stats["partial_syncs"] += 1
                         logging.warning(
-                            f"Partial sync for stream {key[0]}, order {key[1]}: {len(deployment_results)}/{len(self.deployment_ids)} deployments "
+                            f"Partial sync for stream {key[0]}, session {key[1]}, order {key[2]}: {len(deployment_results)}/{len(self.deployment_ids)} deployments "
                             f"(timeout after {result_age:.2f}s)"
                         )
 
@@ -238,7 +241,7 @@ class ResultsSynchronizer:
 
             logging.debug(
                 f"Sent synchronized result for stream {synchronized_result['stream_key']}, "
-                f"order {synchronized_result['input_order']}"
+                f"session {synchronized_result['session_id']}, order {synchronized_result['input_order']}"
             )
 
         except Exception as exc:
@@ -400,28 +403,39 @@ class ResultsSynchronizer:
         if total_syncs > 0:
             health["completion_rate"] = self.stats["complete_syncs"] / total_syncs
 
-        # Check for recent errors
+        # Check for recent errors (within last 60 seconds)
         if (
             self.stats["last_error_time"]
             and (time.time() - self.stats["last_error_time"]) < 60
         ):
             health["status"] = "degraded"
             health["recent_error"] = self.stats["last_error"]
+            health["issue"] = f"Recent error: {self.stats['last_error']}"
+            logging.warning(f"Synchronizer degraded due to recent error: {self.stats['last_error']}")
 
         # Check for excessive pending keys (potential memory issue)
         if self.stats["pending_keys"] > 1000:
             health["status"] = "degraded"
-            health["issue"] = "Too many pending sync keys"
+            health["issue"] = f"Too many pending sync keys ({self.stats['pending_keys']})"
+            logging.warning(f"Synchronizer degraded: too many pending sync keys ({self.stats['pending_keys']}, threshold: 1000)")
 
         # Check completion rate
         if total_syncs > 10 and health["completion_rate"] < 0.8:  # Less than 80% completion
             health["status"] = "degraded"
-            health["issue"] = f"Low completion rate: {health['completion_rate']:.2%}"
+            health["issue"] = f"Low completion rate: {health['completion_rate']:.2%} ({self.stats['complete_syncs']}/{total_syncs})"
+            logging.warning(f"Synchronizer degraded: low completion rate {health['completion_rate']:.2%} ({self.stats['complete_syncs']}/{total_syncs} complete)")
 
         # Check sync time
         if self.stats["avg_sync_time"] > self.sync_timeout * 0.8:  # Average sync time near timeout
             health["status"] = "degraded"
-            health["issue"] = f"High average sync time: {self.stats['avg_sync_time']:.2f}s"
+            health["issue"] = f"High average sync time: {self.stats['avg_sync_time']:.2f}s (timeout: {self.sync_timeout}s)"
+            logging.warning(f"Synchronizer degraded: high average sync time {self.stats['avg_sync_time']:.2f}s (timeout threshold: {self.sync_timeout * 0.8:.1f}s)")
+
+        # Check if not running when it should be
+        if not self._is_running:
+            health["status"] = "unhealthy"
+            health["issue"] = "Synchronizer is not running"
+            logging.error("Synchronizer is not running")
 
         return health
 

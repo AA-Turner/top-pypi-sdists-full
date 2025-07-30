@@ -33,6 +33,7 @@ else:
 
 
 from docutils.core import publish_parts, publish_file
+from docutils.utils import relative_path
 
 from test.test_functional import compare_output
 
@@ -77,7 +78,7 @@ math_options = [('mathml', ''),
                 ('mathml', 'ttm'),
                 ('mathml', 'blahtexml'),
                 ('mathml', 'pandoc'),
-                # ('mathml', 'latexml'),  # VERY slow
+                # ('mathml', 'latexml'),  # VERY slow (up to 20 min)
                 ]
 
 
@@ -98,9 +99,9 @@ class MathMLConverterTestCase(unittest.TestCase):
                 }
 
     def test_mathematics(self):
-        """Test converting "mathematics.txt" from the documentation."""
+        """Test converting "mathematics.rst" from the documentation."""
 
-        source_path = DOCS / 'ref' / 'rst' / 'mathematics.txt'
+        source_path = relative_path(None, DOCS/'ref'/'rst'/'mathematics.rst')
 
         for math_output in math_options:
             settings = {'math_output': math_output,
@@ -111,7 +112,7 @@ class MathMLConverterTestCase(unittest.TestCase):
             expected_path = EXPECTED / out_file
             output = publish_file(source_path=str(source_path),
                                   destination_path=out_path.as_posix(),
-                                  writer_name='html5',
+                                  writer='html5',
                                   settings_overrides=settings)
             with self.subTest(converter=math_output[1] or 'latex2mathml()'):
                 compare_output(output, out_path, expected_path)
@@ -119,7 +120,7 @@ class MathMLConverterTestCase(unittest.TestCase):
     def test_math_experiments(self):
         """Convert experimental math sample."""
 
-        source_path = INPUT / 'data' / 'math_experiments.txt'
+        source_path = relative_path(None, INPUT/'data'/'math_experiments.rst')
 
         for math_output in math_options:
             settings = {'math_output': math_output, **self.settings}
@@ -128,7 +129,7 @@ class MathMLConverterTestCase(unittest.TestCase):
             expected_path = EXPECTED / out_file
             output = publish_file(source_path=str(source_path),
                                   destination_path=out_path.as_posix(),
-                                  writer_name='html5',
+                                  writer='html5',
                                   settings_overrides=settings)
             with self.subTest(converter=math_output[1] or 'latex2mathml()'):
                 compare_output(output, out_path, expected_path)
@@ -144,10 +145,9 @@ class MathMLConverterTestCase(unittest.TestCase):
             preface = f'Test "math-output: {" ".join(math_output)}".\n\n'
             parts = publish_parts(preface + buggy_sample,
                                   'buggy-maths',
-                                  writer_name='html5',
+                                  writer='html5',
                                   settings_overrides=settings)
-            with open(out_path, "w") as fd:
-                fd.write(parts['whole'])
+            Path(out_path).write_text(parts['whole'])
             with self.subTest(converter=math_output[1] or 'latex2mathml()'):
                 compare_output(parts['whole'], out_path, expected_path)
 

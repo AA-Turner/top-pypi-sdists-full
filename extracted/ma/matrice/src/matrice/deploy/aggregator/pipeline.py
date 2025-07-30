@@ -285,9 +285,20 @@ class ResultsAggregationPipeline:
                     
                     # Check pipeline health
                     health = self.get_health_status()
-                    if health.get("overall_status") == "unhealthy":
-                        logging.error("Pipeline is unhealthy! Issues: %s", health.get("issues", []))
-                        # Continue running but log the issue
+                    overall_status = health.get("overall_status")
+                    
+                    if overall_status == "unhealthy":
+                        issues = health.get("issues", [])
+                        logging.error(f"Pipeline is UNHEALTHY with {len(issues)} critical issues:")
+                        for i, issue in enumerate(issues, 1):
+                            logging.error(f"  {i}. {issue}")
+                        logging.error("Pipeline will continue running but may need intervention")
+                        
+                    elif overall_status == "degraded":
+                        issues = health.get("issues", [])
+                        logging.warning(f"Pipeline is DEGRADED with {len(issues)} issues:")
+                        for i, issue in enumerate(issues, 1):
+                            logging.warning(f"  {i}. {issue}")
                     
                     # Sleep for a short time to prevent busy waiting
                     time.sleep(1.0)
@@ -336,42 +347,79 @@ class ResultsAggregationPipeline:
             logging.info(f"   ⏱️  Runtime: {stats.get('runtime_seconds', 0):.1f} seconds")
             logging.info(f"   🔄 Overall Health: {health.get('overall_status', 'unknown')}")
             
-            # Component stats
+            # Log health issues with details
+            issues = health.get("issues", [])
+            if issues:
+                logging.warning(f"   ⚠️  Health Issues ({len(issues)}):")
+                for i, issue in enumerate(issues, 1):
+                    logging.warning(f"      {i}. {issue}")
+            
+            # Component stats with error details
             components = stats.get("components", {})
             
             if "results_ingestor" in components:
                 ingestor_stats = components["results_ingestor"]
                 logging.info(f"   📥 Results Consumed: {ingestor_stats.get('results_consumed', 0)}")
+                if ingestor_stats.get("errors", 0) > 0:
+                    logging.warning(f"      └─ Ingestor Errors: {ingestor_stats['errors']} (last: {ingestor_stats.get('last_error', 'N/A')})")
             
             if "results_synchronizer" in components:
                 sync_stats = components["results_synchronizer"]
                 logging.info(f"   🔗 Results Synchronized: {sync_stats.get('results_synchronized', 0)}")
                 logging.info(f"   ✅ Complete Syncs: {sync_stats.get('complete_syncs', 0)}")
-                logging.info(f"   ⚠️  Partial Syncs: {sync_stats.get('partial_syncs', 0)}")
+                partial_syncs = sync_stats.get('partial_syncs', 0)
+                if partial_syncs > 0:
+                    logging.warning(f"   ⚠️  Partial Syncs: {partial_syncs}")
+                if sync_stats.get("errors", 0) > 0:
+                    logging.warning(f"      └─ Sync Errors: {sync_stats['errors']} (last: {sync_stats.get('last_error', 'N/A')})")
+                    
+                # Log sync performance details
+                completion_rate = sync_stats.get('completion_rate', 0.0)
+                avg_sync_time = sync_stats.get('avg_sync_time', 0.0)
+                if completion_rate < 0.9:
+                    logging.warning(f"      └─ Low Completion Rate: {completion_rate:.1%}")
+                if avg_sync_time > 5.0:  # More than 5 seconds average
+                    logging.warning(f"      └─ High Avg Sync Time: {avg_sync_time:.2f}s")
             
             if "results_aggregator" in components:
                 agg_stats = components["results_aggregator"]
                 logging.info(f"   🎯 Results Aggregated: {agg_stats.get('aggregations_created', 0)}")
+                if agg_stats.get("errors", 0) > 0:
+                    logging.warning(f"      └─ Aggregator Errors: {agg_stats['errors']} (last: {agg_stats.get('last_error', 'N/A')})")
             
             if "results_publisher" in components:
                 pub_stats = components["results_publisher"]
                 logging.info(f"   📤 Messages Published: {pub_stats.get('messages_produced', 0)}")
+                kafka_errors = pub_stats.get('kafka_errors', 0)
+                validation_errors = pub_stats.get('validation_errors', 0)
+                if kafka_errors > 0 or validation_errors > 0:
+                    logging.warning(f"      └─ Publisher Errors: {kafka_errors} kafka, {validation_errors} validation")
             
             # Pipeline metrics
             pipeline_metrics = stats.get("pipeline_metrics", {})
             if pipeline_metrics:
-                logging.info(f"   🚀 Throughput: {pipeline_metrics.get('throughput', 0):.2f} msg/sec")
-                logging.info(f"   📊 Completion Rate: {pipeline_metrics.get('completion_rate', 0):.1%}")
-            
-            # Health issues
-            issues = health.get("issues", [])
-            if issues:
-                logging.warning(f"   ⚠️  Issues: {', '.join(issues)}")
+                throughput = pipeline_metrics.get('throughput', 0)
+                completion_rate = pipeline_metrics.get('completion_rate', 0)
+                error_rate = pipeline_metrics.get('error_rate', 0)
+                
+                logging.info(f"   🚀 Throughput: {throughput:.2f} msg/sec")
+                logging.info(f"   📊 Completion Rate: {completion_rate:.1%}")
+                
+                if error_rate > 0.05:  # More than 5% error rate
+                    logging.warning(f"   ❌ Error Rate: {error_rate:.1%}")
+                elif error_rate > 0:
+                    logging.info(f"   📉 Error Rate: {error_rate:.1%}")
             
             logging.info("─" * 50)
             
         except Exception as exc:
             logging.error(f"Error logging pipeline status: {exc}")
+            # Log basic fallback info
+            try:
+                health = self.get_health_status()
+                logging.error(f"Pipeline health: {health.get('overall_status', 'unknown')}, Issues: {len(health.get('issues', []))}")
+            except:
+                logging.error("Unable to retrieve basic health status")
 
     def stop_streaming(self):
         """Stop all streaming operations in reverse order."""
@@ -502,38 +550,89 @@ class ResultsAggregationPipeline:
         }
         
         try:
-            # Check components health
+            # Check components health with detailed logging
             if self.results_ingestor:
-                health["components"]["results_ingestor"] = self.results_ingestor.get_health_status()
-                if health["components"]["results_ingestor"].get("status") != "healthy":
-                    health["issues"].append("Results ingestor is not healthy")
+                ingestor_health = self.results_ingestor.get_health_status()
+                health["components"]["results_ingestor"] = ingestor_health
+                if ingestor_health.get("status") != "healthy":
+                    issue_detail = f"Results ingestor is {ingestor_health.get('status', 'unknown')}"
+                    if "reason" in ingestor_health:
+                        issue_detail += f": {ingestor_health['reason']}"
+                    if ingestor_health.get("errors", 0) > 0:
+                        issue_detail += f" ({ingestor_health['errors']} errors)"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Ingestor health issue: {issue_detail}")
+            else:
+                health["issues"].append("Results ingestor not initialized")
+                logging.error("Results ingestor not initialized")
             
             if self.results_synchronizer:
-                health["components"]["results_synchronizer"] = self.results_synchronizer.get_health_status()
-                if health["components"]["results_synchronizer"].get("status") != "healthy":
-                    health["issues"].append("Results synchronizer is not healthy")
+                sync_health = self.results_synchronizer.get_health_status()
+                health["components"]["results_synchronizer"] = sync_health
+                if sync_health.get("status") != "healthy":
+                    issue_detail = f"Results synchronizer is {sync_health.get('status', 'unknown')}"
+                    if "issue" in sync_health:
+                        issue_detail += f": {sync_health['issue']}"
+                    if "recent_error" in sync_health:
+                        issue_detail += f" (recent error: {sync_health['recent_error']})"
+                    if sync_health.get("completion_rate", 1.0) < 0.8:
+                        issue_detail += f" (completion rate: {sync_health.get('completion_rate', 0):.1%})"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Synchronizer health issue: {issue_detail}")
+            else:
+                health["issues"].append("Results synchronizer not initialized")
+                logging.error("Results synchronizer not initialized")
             
             if self.results_aggregator:
-                health["components"]["results_aggregator"] = self.results_aggregator.get_health_status()
-                if health["components"]["results_aggregator"].get("status") != "healthy":
-                    health["issues"].append("Results aggregator is not healthy")
+                agg_health = self.results_aggregator.get_health_status()
+                health["components"]["results_aggregator"] = agg_health
+                if agg_health.get("status") != "healthy":
+                    issue_detail = f"Results aggregator is {agg_health.get('status', 'unknown')}"
+                    if agg_health.get("errors", 0) > 0:
+                        issue_detail += f" ({agg_health['errors']} errors)"
+                    if agg_health.get("output_queue_size", 0) > 100:
+                        issue_detail += f" (output queue size: {agg_health['output_queue_size']})"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Aggregator health issue: {issue_detail}")
+            else:
+                health["issues"].append("Results aggregator not initialized")
+                logging.error("Results aggregator not initialized")
             
             if self.results_publisher:
-                health["components"]["results_publisher"] = self.results_publisher.get_health_status()
-                if health["components"]["results_publisher"].get("status") != "healthy":
-                    health["issues"].append("Results publisher is not healthy")
+                pub_health = self.results_publisher.get_health_status()
+                health["components"]["results_publisher"] = pub_health
+                if pub_health.get("status") != "healthy":
+                    issue_detail = f"Results publisher is {pub_health.get('status', 'unknown')}"
+                    if "reason" in pub_health:
+                        issue_detail += f": {pub_health['reason']}"
+                    if "last_error" in pub_health:
+                        issue_detail += f" (last error: {pub_health['last_error']})"
+                    if pub_health.get("kafka_errors", 0) > 0:
+                        issue_detail += f" ({pub_health['kafka_errors']} kafka errors)"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Publisher health issue: {issue_detail}")
+            else:
+                health["issues"].append("Results publisher not initialized")
+                logging.error("Results publisher not initialized")
             
-            # Determine overall status
-            if len(health["issues"]) > 0:
-                if len(health["issues"]) >= 2:
+            # Determine overall status with logging
+            issue_count = len(health["issues"])
+            if issue_count > 0:
+                if issue_count >= 2:
                     health["overall_status"] = "unhealthy"
+                    logging.error(f"Pipeline is UNHEALTHY with {issue_count} issues: {'; '.join(health['issues'])}")
                 else:
                     health["overall_status"] = "degraded"
+                    logging.warning(f"Pipeline is DEGRADED with {issue_count} issue: {health['issues'][0]}")
+            else:
+                logging.debug("Pipeline health check: all components healthy")
                     
         except Exception as exc:
             health["overall_status"] = "unhealthy"
             health["error"] = str(exc)
-            health["issues"].append(f"Error checking health: {str(exc)}")
+            error_msg = f"Error checking health: {str(exc)}"
+            health["issues"].append(error_msg)
+            logging.error(f"Pipeline health check failed: {error_msg}")
         
         return health
 

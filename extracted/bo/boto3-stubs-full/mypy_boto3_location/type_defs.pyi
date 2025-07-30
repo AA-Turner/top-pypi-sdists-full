@@ -908,6 +908,7 @@ class GeofenceGeometryOutputTypeDef(TypedDict):
     Polygon: NotRequired[List[List[List[float]]]]
     Circle: NotRequired[CircleOutputTypeDef]
     Geobuf: NotRequired[bytes]
+    MultiPolygon: NotRequired[List[List[List[List[float]]]]]
 
 CircleUnionTypeDef = Union[CircleTypeDef, CircleOutputTypeDef]
 
@@ -1228,6 +1229,7 @@ class GeofenceGeometryTypeDef(TypedDict):
     Polygon: NotRequired[Sequence[Sequence[Sequence[float]]]]
     Circle: NotRequired[CircleUnionTypeDef]
     Geobuf: NotRequired[BlobTypeDef]
+    MultiPolygon: NotRequired[Sequence[Sequence[Sequence[Sequence[float]]]]]
 
 class BatchGetDevicePositionResponseTypeDef(TypedDict):
     Errors: List[BatchGetDevicePositionErrorTypeDef]

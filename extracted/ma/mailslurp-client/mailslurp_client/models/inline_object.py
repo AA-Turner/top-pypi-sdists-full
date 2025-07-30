@@ -34,46 +34,187 @@ class InlineObject(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'file': 'file'
+        'to': 'str',
+        'subject': 'str',
+        'email_address': 'str',
+        'success_message': 'str',
+        'spam_check': 'str',
+        'other_parameters': 'str'
     }
 
     attribute_map = {
-        'file': 'file'
+        'to': '_to',
+        'subject': '_subject',
+        'email_address': '_emailAddress',
+        'success_message': '_successMessage',
+        'spam_check': '_spamCheck',
+        'other_parameters': 'otherParameters'
     }
 
-    def __init__(self, file=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, to=None, subject=None, email_address=None, success_message=None, spam_check=None, other_parameters=None, local_vars_configuration=None):  # noqa: E501
         """InlineObject - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._file = None
+        self._to = None
+        self._subject = None
+        self._email_address = None
+        self._success_message = None
+        self._spam_check = None
+        self._other_parameters = None
         self.discriminator = None
 
-        self.file = file
+        if to is not None:
+            self.to = to
+        if subject is not None:
+            self.subject = subject
+        if email_address is not None:
+            self.email_address = email_address
+        if success_message is not None:
+            self.success_message = success_message
+        if spam_check is not None:
+            self.spam_check = spam_check
+        if other_parameters is not None:
+            self.other_parameters = other_parameters
 
     @property
-    def file(self):
-        """Gets the file of this InlineObject.  # noqa: E501
+    def to(self):
+        """Gets the to of this InlineObject.  # noqa: E501
 
+        The email address that submitted form should be sent to.  # noqa: E501
 
-        :return: The file of this InlineObject.  # noqa: E501
-        :rtype: file
+        :return: The to of this InlineObject.  # noqa: E501
+        :rtype: str
         """
-        return self._file
+        return self._to
 
-    @file.setter
-    def file(self, file):
-        """Sets the file of this InlineObject.
+    @to.setter
+    def to(self, to):
+        """Sets the to of this InlineObject.
 
+        The email address that submitted form should be sent to.  # noqa: E501
 
-        :param file: The file of this InlineObject.  # noqa: E501
-        :type: file
+        :param to: The to of this InlineObject.  # noqa: E501
+        :type: str
         """
-        if self.local_vars_configuration.client_side_validation and file is None:  # noqa: E501
-            raise ValueError("Invalid value for `file`, must not be `None`")  # noqa: E501
 
-        self._file = file
+        self._to = to
+
+    @property
+    def subject(self):
+        """Gets the subject of this InlineObject.  # noqa: E501
+
+        Optional subject of the email that will be sent.  # noqa: E501
+
+        :return: The subject of this InlineObject.  # noqa: E501
+        :rtype: str
+        """
+        return self._subject
+
+    @subject.setter
+    def subject(self, subject):
+        """Sets the subject of this InlineObject.
+
+        Optional subject of the email that will be sent.  # noqa: E501
+
+        :param subject: The subject of this InlineObject.  # noqa: E501
+        :type: str
+        """
+
+        self._subject = subject
+
+    @property
+    def email_address(self):
+        """Gets the email_address of this InlineObject.  # noqa: E501
+
+        Email address of the submitting user. Include this if you wish to record the submitters email address and reply to it later.  # noqa: E501
+
+        :return: The email_address of this InlineObject.  # noqa: E501
+        :rtype: str
+        """
+        return self._email_address
+
+    @email_address.setter
+    def email_address(self, email_address):
+        """Sets the email_address of this InlineObject.
+
+        Email address of the submitting user. Include this if you wish to record the submitters email address and reply to it later.  # noqa: E501
+
+        :param email_address: The email_address of this InlineObject.  # noqa: E501
+        :type: str
+        """
+
+        self._email_address = email_address
+
+    @property
+    def success_message(self):
+        """Gets the success_message of this InlineObject.  # noqa: E501
+
+        Optional success message to display if no _redirectTo present.  # noqa: E501
+
+        :return: The success_message of this InlineObject.  # noqa: E501
+        :rtype: str
+        """
+        return self._success_message
+
+    @success_message.setter
+    def success_message(self, success_message):
+        """Sets the success_message of this InlineObject.
+
+        Optional success message to display if no _redirectTo present.  # noqa: E501
+
+        :param success_message: The success_message of this InlineObject.  # noqa: E501
+        :type: str
+        """
+
+        self._success_message = success_message
+
+    @property
+    def spam_check(self):
+        """Gets the spam_check of this InlineObject.  # noqa: E501
+
+        Optional but recommended field that catches spammers out. Include as a hidden form field but LEAVE EMPTY. Spam-bots will usually fill every field. If the _spamCheck field is filled the form submission will be ignored.  # noqa: E501
+
+        :return: The spam_check of this InlineObject.  # noqa: E501
+        :rtype: str
+        """
+        return self._spam_check
+
+    @spam_check.setter
+    def spam_check(self, spam_check):
+        """Sets the spam_check of this InlineObject.
+
+        Optional but recommended field that catches spammers out. Include as a hidden form field but LEAVE EMPTY. Spam-bots will usually fill every field. If the _spamCheck field is filled the form submission will be ignored.  # noqa: E501
+
+        :param spam_check: The spam_check of this InlineObject.  # noqa: E501
+        :type: str
+        """
+
+        self._spam_check = spam_check
+
+    @property
+    def other_parameters(self):
+        """Gets the other_parameters of this InlineObject.  # noqa: E501
+
+        All other parameters or fields will be accepted and attached to the sent email. This includes files and any HTML form field with a name. These fields will become the body of the email that is sent.  # noqa: E501
+
+        :return: The other_parameters of this InlineObject.  # noqa: E501
+        :rtype: str
+        """
+        return self._other_parameters
+
+    @other_parameters.setter
+    def other_parameters(self, other_parameters):
+        """Sets the other_parameters of this InlineObject.
+
+        All other parameters or fields will be accepted and attached to the sent email. This includes files and any HTML form field with a name. These fields will become the body of the email that is sent.  # noqa: E501
+
+        :param other_parameters: The other_parameters of this InlineObject.  # noqa: E501
+        :type: str
+        """
+
+        self._other_parameters = other_parameters
 
     def to_dict(self):
         """Returns the model properties as a dict"""

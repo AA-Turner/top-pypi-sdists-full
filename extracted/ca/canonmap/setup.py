@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonmap",
-    version="0.3.44",
+    version="0.3.48",
     packages=find_packages(),
     install_requires=[
         "python-dotenv",
@@ -14,6 +14,7 @@ setup(
         "metaphone",
         "python-Levenshtein",
         "jellyfish",
+        "chardet",
     ],
     extras_require={},
     author="Vince Berry",

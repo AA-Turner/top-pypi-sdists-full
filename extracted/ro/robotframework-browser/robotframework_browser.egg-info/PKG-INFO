@@ -1,22 +1,27 @@
 Metadata-Version: 2.4
 Name: robotframework-browser
-Version: 19.6.2
+Version: 19.7.0
 Summary: Robot Framework Browser library powered by Playwright. Aiming for speed, reliability and visibility.
-Home-page: https://github.com/MarketSquare/robotframework-browser
 Author: MarketSquare - Robot Framework community
-Author-email: mikko.korpela@gmail.com
+Maintainer-email: Tatu Aalto <aalto.aalto@gmail.com>, Mikko Korpela <mikko.korpela@gmail.com>, Kerkko Pelttari <kerk.pelt@gmail.com>, René Rohner <rene@robotframework.org>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://robotframework-browser.org/
+Project-URL: Documentation, https://marketsquare.github.io/robotframework-browser/Browser.html
+Project-URL: Repository, https://github.com/MarketSquare/robotframework-browser
+Project-URL: Issues, https://github.com/MarketSquare/robotframework-browser/issues
+Project-URL: Changelog, https://github.com/MarketSquare/robotframework-browser/tree/main/docs/releasenotes
+Keywords: robotframework,playwright,testing,automation,web,browser
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Testing
 Classifier: Framework :: Robot Framework
 Classifier: Framework :: Robot Framework :: Library
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: grpcio==1.73.1
-Requires-Dist: grpcio-tools==1.73.1
+Requires-Dist: grpcio==1.74.0
+Requires-Dist: grpcio-tools==1.74.0
 Requires-Dist: protobuf==6.31.1
 Requires-Dist: robotframework<8.0.0,>=5.0.1
 Requires-Dist: robotframework-pythonlibcore<5.0.0,>=4.4.1
@@ -27,21 +32,11 @@ Requires-Dist: click>=8.1.8
 Requires-Dist: seedir>=0.5.1
 Provides-Extra: tidy
 Requires-Dist: robotframework-tidy>=4.12.0; extra == "tidy"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # robotframework-browser
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-185-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-187-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 [![Version](https://img.shields.io/pypi/v/robotframework-browser.svg)](https://pypi.python.org/pypi/robotframework-browser)
 [![Actions Status](https://github.com/MarketSquare/robotframework-browser/workflows/Continuous%20integration/badge.svg)](https://github.com/MarketSquare/robotframework-browser/actions)
@@ -58,7 +53,7 @@ See [keyword documentation](https://marketsquare.github.io/robotframework-browse
 
 # Installation instructions
 
-Only Python 3.9 or newer is supported. From Node side 18, 20 and 22 LTS versions are supported.
+Only Python 3.9 or newer is supported. From Node side 20 and 22 LTS versions are supported.
 
 1. Install node.js e.g. from https://nodejs.org/en/download/
 2. Update pip `pip install -U pip` to ensure latest version is used
@@ -454,8 +449,10 @@ Supported by [Robocorp](https://robocorp.com/) through [Robot Framework Foundati
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/cj36457"><img src="https://avatars.githubusercontent.com/u/172324801?v=4?s=100" width="100px;" alt="Matias Perichon"/><br /><sub><b>Matias Perichon</b></sub></a><br /><a href="#ideas-cj36457" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Brownies"><img src="https://avatars.githubusercontent.com/u/3786418?v=4?s=100" width="100px;" alt="Lassi Heikkinen"/><br /><sub><b>Lassi Heikkinen</b></sub></a><br /><a href="#ideas-Brownies" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Brownies"><img src="https://avatars.githubusercontent.com/u/3786418?v=4?s=100" width="100px;" alt="Lassi Heikkinen"/><br /><sub><b>Lassi Heikkinen</b></sub></a><br /><a href="#ideas-Brownies" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/MarketSquare/robotframework-browser/commits?author=Brownies" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mauricekoster"><img src="https://avatars.githubusercontent.com/u/4836127?v=4?s=100" width="100px;" alt="Maurice Koster"/><br /><sub><b>Maurice Koster</b></sub></a><br /><a href="https://github.com/MarketSquare/robotframework-browser/issues?q=author%3Amauricekoster" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://kitsiosk.github.io"><img src="https://avatars.githubusercontent.com/u/20650935?v=4?s=100" width="100px;" alt="Kitsios Konstantinos"/><br /><sub><b>Kitsios Konstantinos</b></sub></a><br /><a href="https://github.com/MarketSquare/robotframework-browser/commits?author=kitsiosk" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tobiasBora"><img src="https://avatars.githubusercontent.com/u/2164118?v=4?s=100" width="100px;" alt="Tobias Bora"/><br /><sub><b>Tobias Bora</b></sub></a><br /><a href="https://github.com/MarketSquare/robotframework-browser/issues?q=author%3AtobiasBora" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

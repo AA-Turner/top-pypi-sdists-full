@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fakeredis
-Version: 2.30.2
+Version: 2.30.3
 Summary: Python implementation of redis API, can be used for testing purposes.
 Project-URL: Homepage, https://github.com/cunla/fakeredis-py
 Project-URL: Repository, https://github.com/cunla/fakeredis-py

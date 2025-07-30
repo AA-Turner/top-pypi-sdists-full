@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_date.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_date.py 9829 2024-08-01 20:47:11Z aa-turner $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # so we import the local `docutils` package.
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from docutils.io import _locale_encoding  # noqa
+from docutils.io import _locale_encoding
 from docutils.frontend import get_default_settings
 from docutils.parsers.rst import Parser
 from docutils.utils import new_document

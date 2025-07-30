@@ -667,6 +667,7 @@ class CreateMonitorRequestTypeDef(TypedDict):
     subdomain: str
     roleArn: str
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class CreateQueueEnvironmentRequestTypeDef(TypedDict):
     farmId: str

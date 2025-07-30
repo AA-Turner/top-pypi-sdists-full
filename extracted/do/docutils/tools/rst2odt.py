@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: rst2odt.py 9115 2022-07-28 17:06:24Z milde $
+# $Id: rst2odt.py 9768 2024-06-15 12:08:27Z milde $
 # Author: Dave Kuhlman <dkuhlman@rexx.com>
 # Copyright: This module has been placed in the public domain.
 
@@ -14,7 +14,7 @@ try:
 except Exception:
     pass
 
-from docutils.core import publish_cmdline_to_binary, default_description
+from docutils.core import publish_cmdline, default_description
 from docutils.writers.odf_odt import Writer, Reader
 
 
@@ -24,5 +24,4 @@ description = ('Generates OpenDocument/OpenOffice/ODF documents from '
 
 writer = Writer()
 reader = Reader()
-output = publish_cmdline_to_binary(reader=reader, writer=writer,
-                                   description=description)
+output = publish_cmdline(reader=reader, writer=writer, description=description)

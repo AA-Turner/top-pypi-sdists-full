@@ -144,6 +144,9 @@ class SmsMatchOption(object):
         """
         if self.local_vars_configuration.client_side_validation and value is None:  # noqa: E501
             raise ValueError("Invalid value for `value`, must not be `None`")  # noqa: E501
+        if (self.local_vars_configuration.client_side_validation and
+                value is not None and len(value) < 1):
+            raise ValueError("Invalid value for `value`, length must be greater than or equal to `1`")  # noqa: E501
 
         self._value = value
 

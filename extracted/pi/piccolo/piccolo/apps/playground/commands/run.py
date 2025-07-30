@@ -8,10 +8,12 @@ import sys
 import uuid
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 
 from piccolo.columns import (
     JSON,
     UUID,
+    Array,
     Boolean,
     Date,
     ForeignKey,
@@ -24,7 +26,7 @@ from piccolo.columns import (
     Varchar,
 )
 from piccolo.columns.readable import Readable
-from piccolo.engine import PostgresEngine, SQLiteEngine
+from piccolo.engine import CockroachEngine, PostgresEngine, SQLiteEngine
 from piccolo.engine.base import Engine
 from piccolo.table import Table
 from piccolo.utils.warnings import colored_string
@@ -149,6 +151,7 @@ class Album(Table):
     band = ForeignKey(Band)
     release_date = Date()
     recorded_at = ForeignKey(RecordingStudio)
+    awards = Array(Varchar())
 
     @classmethod
     def get_readable(cls) -> Readable:
@@ -265,6 +268,7 @@ def populate():
                 Album.recorded_at: recording_studio_1,
                 Album.band: pythonistas,
                 Album.release_date: datetime.date(year=2021, month=1, day=1),
+                Album.awards: ["Grammy Award 2021"],
             }
         ),
         Album(
@@ -273,6 +277,7 @@ def populate():
                 Album.recorded_at: recording_studio_2,
                 Album.band: rustaceans,
                 Album.release_date: datetime.date(year=2022, month=2, day=2),
+                Album.awards: ["Mercury Prize 2022"],
             }
         ),
     ).run_sync()
@@ -280,28 +285,29 @@ def populate():
 
 def run(
     engine: str = "sqlite",
-    user: str = "piccolo",
-    password: str = "piccolo",
+    user: Optional[str] = None,
+    password: Optional[str] = None,
     database: str = "piccolo_playground",
     host: str = "localhost",
-    port: int = 5432,
+    port: Optional[int] = None,
     ipython_profile: bool = False,
 ):
     """
     Creates a test database to play with.
 
     :param engine:
-        Which database engine to use - options are sqlite or postgres
+        Which database engine to use - options are sqlite, postgres or
+        cockroach
     :param user:
-        Postgres user
+        Database user (ignored for SQLite)
     :param password:
-        Postgres password
+        Database password (ignored for SQLite)
     :param database:
-        Postgres database
+        Database name (ignored for SQLite)
     :param host:
-        Postgres host
+        Database host (ignored for SQLite)
     :param port:
-        Postgres port
+        Database port (ignored for SQLite)
     :param ipython_profile:
         Set to true to use your own IPython profile. Located at ~/.ipython/.
         For more info see the IPython docs
@@ -320,9 +326,19 @@ def run(
             {
                 "host": host,
                 "database": database,
-                "user": user,
-                "password": password,
-                "port": port,
+                "user": user or "piccolo",
+                "password": password or "piccolo",
+                "port": port or 5432,
+            }
+        )
+    elif engine.upper() == "COCKROACH":
+        db = CockroachEngine(
+            {
+                "host": host,
+                "database": database,
+                "user": user or "root",
+                "password": password or "",
+                "port": port or 26257,
             }
         )
     else:

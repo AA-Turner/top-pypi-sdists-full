@@ -39,6 +39,7 @@ class TestPageAITransformProjection(unittest.TestCase):
             return PageAITransformProjection(
                 content = [
                     mailslurp_client.models.ai_transform_projection.AITransformProjection(
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         conditions = [
                             '0'
                             ], 
@@ -50,7 +51,7 @@ class TestPageAITransformProjection(unittest.TestCase):
                                 mailslurp_client.models.structured_output_schema.StructuredOutputSchema(
                                     default = mailslurp_client.models.meta_data.metaData(), 
                                     description = '0', 
-                                    enum = [
+                                    enum_values = [
                                         '0'
                                         ], 
                                     example = mailslurp_client.models.meta_data.metaData(), 
@@ -143,7 +144,7 @@ class TestPageAITransformProjection(unittest.TestCase):
                                 ], 
                             default = mailslurp_client.models.meta_data.metaData(), 
                             description = '0', 
-                            enum = [
+                            enum_values = [
                                 '0'
                                 ], 
                             example = mailslurp_client.models.meta_data.metaData(), 

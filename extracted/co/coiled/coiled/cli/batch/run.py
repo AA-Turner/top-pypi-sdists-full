@@ -265,7 +265,11 @@ def get_kwargs_from_header(f: dict, click_params: list):
     "--spot-policy",
     default=None,
     type=click.Choice(["on-demand", "spot", "spot_with_fallback"]),
-    help="Default is on-demand; allows using spot VMs, or spot VMs as available with on-demand as a fallback.",
+    help=(
+        "Default is on-demand; allows using spot VMs, or spot VMs as available "
+        "with on-demand as a fallback. Only applies to workers (scheduler VM is "
+        "always on-demand)."
+    ),
 )
 @click.option(
     "--allow-cross-zone/--no-cross-zone",

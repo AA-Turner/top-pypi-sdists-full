@@ -23,11 +23,11 @@ from collections import Counter
 from bitarray import (bitarray, frozenbitarray, decodetree, bits2bytes,
                       _set_default_endian)
 from bitarray.test_bitarray import (Util, skipIf, is_pypy, urandom_2,
-                                    PTRSIZE, DEBUG, WHITESPACE)
+                                    PTRSIZE, WHITESPACE)
 
 from bitarray.util import (
-    zeros, ones, urandom, random_p, pprint, strip, count_n,
-    parity, xor_indices,
+    zeros, ones, urandom, random_k, random_p, pprint, strip, count_n,
+    parity, sum_indices, xor_indices,
     count_and, count_or, count_xor, any_and, subset,
     correspond_all, byteswap, intervals,
     serialize, deserialize, ba2hex, hex2ba, ba2base, base2ba,
@@ -36,15 +36,7 @@ from bitarray.util import (
     _huffman_tree, huffman_code, canonical_huffman, canonical_decode,
 )
 
-from bitarray.util import _RandomP  # type: ignore
-
-if DEBUG:
-    from bitarray._util import (  # type: ignore
-        _cfw, _read_n, _write_n, _sc_rts, _SEGSIZE,
-    )
-    SEGBITS = 8 * _SEGSIZE
-else:
-    SEGBITS = None
+from bitarray.util import _Random  # type: ignore
 
 # ---------------------------------------------------------------------------
 
@@ -122,6 +114,163 @@ class URandomTests(unittest.TestCase):
         # see if population is within expectation
         self.assertTrue(abs(a.count() - 5_000_000) <= 15_811)
 
+# ---------------------------- .random_k() ----------------------------------
+
+HAVE_RANDBYTES = sys.version_info[:2] >= (3, 9)
+
+@skipIf(HAVE_RANDBYTES)
+class Random_K_Not_Implemented(unittest.TestCase):
+
+    def test_not_implemented(self):
+        self.assertRaises(NotImplementedError, random_k, 100, 60)
+
+
+@skipIf(not HAVE_RANDBYTES)
+class Random_K_Tests(unittest.TestCase):
+
+    def test_basic(self):
+        for _ in range(250):
+            default_endian = choice(['little', 'big'])
+            _set_default_endian(default_endian)
+            endian = choice(['little', 'big', None])
+            n = randrange(120)
+            k = randint(0, n)
+            a = random_k(n, k, endian)
+            self.assertTrue(type(a), bitarray)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.count(), k)
+            self.assertEqual(a.endian, endian or default_endian)
+
+    def test_inputs_and_edge_cases(self):
+        R = random_k
+        self.assertRaises(TypeError, R)
+        self.assertRaises(TypeError, R, 4)
+        self.assertRaises(TypeError, R, 1, "0.5")
+        self.assertRaises(TypeError, R, 1, p=1)
+        self.assertRaises(ValueError, R, -1, 0)
+        for k in -1, 11:  # k is not 0 <= k <= n
+            self.assertRaises(ValueError, R, 10, k)
+        self.assertRaises(ValueError, R, 10, 7, 'foo')
+        self.assertRaises(ValueError, R, 10, 7, endian='foo')
+        for n in range(20):
+            self.assertEqual(R(n, k=0), zeros(n))
+            self.assertEqual(R(n, k=n), ones(n))
+
+    def test_count(self):
+        for _ in range(100):
+            n = randrange(10_000)
+            k = randint(0, n)
+            a = random_k(n, k)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.count(), k)
+
+    def test_active_bits(self):
+        # test if all bits are active
+        n = 240
+        cum = zeros(n)
+        for _ in range(1000):
+            k = randint(30, 40)
+            a = random_k(n, k)
+            self.assertEqual(a.count(), k)
+            cum |= a
+            if cum.all():
+                break
+        else:
+            self.fail()
+
+    def test_combinations(self):
+        # for entire range of 0 <= k <= n, validate that random_k()
+        # generates all possible combinations
+        n = 7
+        total = 0
+        for k in range(n + 1):
+            expected = math.comb(n, k)
+            combs = set()
+            for _ in range(10_000):
+                combs.add(frozenbitarray(random_k(n, k)))
+                if len(combs) == expected:
+                    total += expected
+                    break
+            else:
+                self.fail()
+        self.assertEqual(total, 2 ** n)
+
+    def collect_code_branches(self):
+        # return list of bitarrays from all code branches of random_k()
+        res = []
+        # test small k (no .combine_half())
+        res.append(random_k(300, 10))
+        # general cases
+        for k in 100, 500, 2_500, 4_000:
+            res.append(random_k(5_000, k))
+        return res
+
+    def test_seed(self):
+        # We ensure that after setting a seed value, random_k() will
+        # always return the same random bitarrays.  However, we do not ensure
+        # that these results will not change in future versions of bitarray.
+        _set_default_endian("little")
+        a = []
+        for val in 654321, 654322, 654321, 654322:
+            seed(val)
+            a.append(self.collect_code_branches())
+        self.assertEqual(a[0], a[2])
+        self.assertEqual(a[1], a[3])
+        self.assertNotEqual(a[0], a[1])
+        # initialize seed with current system time again
+        seed()
+
+    # ---------------- tests for internal _Random methods -------------------
+
+    def test_op_seq(self):
+        r = _Random()
+        G = r.op_seq
+        K = r.K
+        M = r.M
+
+        # special cases
+        self.assertRaises(ValueError, G, 0)
+        self.assertEqual(G(1), zeros(M - 1))
+        self.assertEqual(G(K // 2), bitarray())
+        self.assertEqual(G(K - 1), ones(M - 1))
+        self.assertRaises(ValueError, G, K)
+
+        # examples
+        for p, s in [
+                (0.15625, '0100'),
+                (0.25,       '0'),  # 1/2   AND ->   1/4
+                (0.375,     '10'),  # 1/2   OR ->   3/4   AND ->   3/8
+                (0.5,         ''),
+                (0.625,     '01'),  # 1/2   AND ->   1/4   OR ->   5/8
+                (0.6875,   '101'),
+                (0.75,       '1'),  # 1/2   OR ->   3/4
+        ]:
+            seq = G(int(p * K))
+            self.assertEqual(seq.to01(), s)
+
+        for i in range(1, K):
+            seq = G(i)
+            self.assertTrue(0 <= len(s) < M)
+            q = 0.5                        # a = random_half()
+            for k in seq:
+                # k=0: AND    k=1: OR
+                if k:
+                    q += 0.5 * (1.0 - q)   # a |= random_half()
+                else:
+                    q *= 0.5               # a &= random_half()
+            self.assertEqual(q, i / K)
+
+    def test_combine_half(self):
+        r = _Random(1_000_000)
+        for seq, mean in [
+                ([],     500_000),  # .random_half() itself
+                ([0],    250_000),  # AND
+                ([1],    750_000),  # OR
+                ([1, 0], 375_000),  # OR followed by AND
+        ]:
+            a = r.combine_half(seq)
+            self.assertTrue(abs(a.count() - mean) < 5_000)
+
 # ---------------------------- .random_p() ----------------------------------
 
 HAVE_BINOMIALVARIATE = sys.version_info[:2] >= (3, 12)
@@ -131,6 +280,7 @@ class Random_P_Not_Implemented(unittest.TestCase):
 
     def test_not_implemented(self):
         self.assertRaises(NotImplementedError, random_p, 100, 0.25)
+
 
 @skipIf(not HAVE_BINOMIALVARIATE)
 class Random_P_Tests(unittest.TestCase):
@@ -206,95 +356,12 @@ class Random_P_Tests(unittest.TestCase):
         # initialize seed with current system time again
         seed()
 
-    # ---------------- tests for internal _RandomP methods ------------------
-
-    # To better understand how the algorithm works, see ./doc/random_p.rst
-
-    r = _RandomP()
-
     def test_small_p_limit(self):
-        K = self.r.K
-        SMALL_P = self.r.SMALL_P
-
-        # see VerificationTests in ./examples/test_random.py
-        limit = 1.0 / (K + 1)  # lower limit for p
-        self.assertTrue(SMALL_P > limit)
-
-    def test_op_seq(self):
-        G = self.r.op_seq
-        K = self.r.K
-        M = self.r.M
-
-        # special cases
-        self.assertRaises(ValueError, G, 0)
-        self.assertEqual(G(1), zeros(M - 1))
-        self.assertEqual(G(K // 2), bitarray())
-        self.assertEqual(G(K - 1), ones(M - 1))
-        self.assertRaises(ValueError, G, K)
-
-        # examples
-        for p, s in [
-                (0.15625, '0100'),
-                (0.25,       '0'),  # 1/2   AND ->   1/4
-                (0.375,     '10'),  # 1/2   OR ->   3/4   AND ->   3/8
-                (0.5,         ''),
-                (0.625,     '01'),  # 1/2   AND ->   1/4   OR ->   5/8
-                (0.6875,   '101'),
-                (0.75,       '1'),  # 1/2   OR ->   3/4
-        ]:
-            seq = G(int(p * K))
-            self.assertEqual(seq.to01(), s)
-
-        for i in range(1, K):
-            seq = G(i)
-            self.assertTrue(0 <= len(s) < M)
-            q = 0.5                        # a = random_half()
-            for k in seq:
-                # k=0: AND    k=1: OR
-                if k:
-                    q += 0.5 * (1.0 - q)   # a |= random_half()
-                else:
-                    q *= 0.5               # a &= random_half()
-            self.assertEqual(q, i / K)
-
-    def test_combine_half(self):
-        r = _RandomP(1_000_000)
-        for seq, mean in [
-                ([],     500_000),  # .random_half() itself
-                ([0],    250_000),  # AND
-                ([1],    750_000),  # OR
-                ([1, 0], 375_000),  # OR followed by AND
-        ]:
-            a = r.combine_half(seq)
-            self.assertTrue(abs(a.count() - mean) < 5_000)
-
-    def test_random_pop_basic(self):
-        r = _RandomP(7)
-        a = r.random_pop(3)
-        self.assertEqual(len(a), 7)
-        self.assertEqual(a.count(), 3)
-        for m in -1, 8:
-            self.assertRaises(ValueError, r.random_pop, m)
-
-        for n in range(10):
-            r = _RandomP(n)
-            k = randint(0, n)
-            a = r.random_pop(k)
-            self.assertEqual(len(a), n)
-            self.assertEqual(a.count(), k)
-
-    def test_random_pop_active(self):
-        # test if all bits are active
-        n = 250
-        r = _RandomP(n)
-        cum = zeros(n)
-        for _ in range(100):
-            k = randrange(n // 2)
-            a = r.random_pop(k)
-            self.assertEqual(len(a), n)
-            self.assertEqual(a.count(), k)
-            cum |= a
-        self.assertTrue(cum.all())
+        # For understanding how the algorithm works, see ./doc/random_p.rst
+        # Also, see VerificationTests in ./devel/test_random.py
+        r = _Random()
+        limit = 1.0 / (r.K + 1)  # lower limit for p
+        self.assertTrue(r.SMALL_P > limit)
 
 # ---------------------------------------------------------------------------
 
@@ -955,19 +1022,68 @@ class ParityTests(unittest.TestCase, Util):
 
 # ---------------------------------------------------------------------------
 
+class SumIndicesTests(unittest.TestCase, Util):
+
+    def test_explicit(self):
+        for s, r in [("", 0), ("0", 0), ("1", 0), ("11", 1),
+                     ("011", 3), ("001", 2), ("0001100", 7),
+                     ("00001111", 22), ("01100111 1101", 49)]:
+            a = bitarray(s, self.random_endian())
+            self.assertEqual(sum_indices(a), r)
+
+    def test_wrong_args(self):
+        S = sum_indices
+        self.assertRaises(TypeError, S, '')
+        self.assertRaises(TypeError, S, 1)
+        self.assertRaises(TypeError, S)
+        self.assertRaises(TypeError, S, bitarray("110"), 1)
+
+    def test_ones_small(self):
+        a = bitarray()
+        sm = 0
+        for i in range(1000):
+            a.append(1)
+            sm += i
+            self.assertEqual(sum_indices(a), sm)
+
+    def test_large_ones(self):
+        # Note that this will also work on 32-bit machines, even though
+        # for n=100_000, we get: n*(n-1)/2 = 4999950000 > 2**32
+        n = 100_000
+        a = bitarray(n)
+        self.assertEqual(sum_indices(a), 0)
+        a.setall(1)
+        self.assertEqual(sum_indices(a), n * (n - 1) // 2)
+
+    def test_large_random(self):
+        n = 100_000
+        a = urandom_2(n)
+        self.assertEqual(sum_indices(a),
+                         sum(i for i, v in enumerate(a) if v))
+
+    def test_random(self):
+        for a in self.randombitarrays():
+            res = sum_indices(a)
+            self.assertEqual(res, sum(i for i, v in enumerate(a) if v))
+            self.assertEqual(res, sum(a.search(1)))
+
+# ---------------------------------------------------------------------------
+
 class XoredIndicesTests(unittest.TestCase, Util):
 
     def test_explicit(self):
         for s, r in [("", 0), ("0", 0), ("1", 0), ("11", 1),
-                     ("011", 3), ("001", 2), ("0001100", 7)]:
-            a = bitarray(s)
+                     ("011", 3), ("001", 2), ("0001100", 7),
+                     ("01100111 1101", 13)]:
+            a = bitarray(s, self.random_endian())
             self.assertEqual(xor_indices(a), r)
 
     def test_wrong_args(self):
-        self.assertRaises(TypeError, parity, '')
-        self.assertRaises(TypeError, parity, 1)
-        self.assertRaises(TypeError, parity)
-        self.assertRaises(TypeError, parity, bitarray("110"), 1)
+        X = xor_indices
+        self.assertRaises(TypeError, X, '')
+        self.assertRaises(TypeError, X, 1)
+        self.assertRaises(TypeError, X)
+        self.assertRaises(TypeError, X, bitarray("110"), 1)
 
     def test_ones(self):
         # OEIS A003815
@@ -982,15 +1098,23 @@ class XoredIndicesTests(unittest.TestCase, Util):
             if i < 19:
                 self.assertEqual(lst[i], x)
 
+    def test_large_random(self):
+        n = 100_000
+        a = urandom_2(n)
+        self.assertEqual(
+            xor_indices(a),
+            reduce(operator.xor, (i for i, v in enumerate(a) if v))
+        )
+
     def test_random(self):
         for a in self.randombitarrays():
-            indices = [i for i, v in enumerate(a) if v]
-            if len(indices) == 0:
+            cnt = a.count()
+            if cnt == 0:
                 c = 0
-            elif len(indices) == 1:
-                c = indices[0]
+            elif cnt == 1:
+                c = a.index(1)
             else:
-                c = reduce(operator.xor, indices)
+                c = reduce(operator.xor, (i for i, v in enumerate(a) if v))
             self.assertEqual(xor_indices(a), c)
 
     def test_flips(self):
@@ -1388,56 +1512,6 @@ class BaseTests(unittest.TestCase, Util):
             b = base2ba(n, s, a.endian)
             self.assertEQUAL(a, b)
             self.check_obj(b)
-
-# -----------------  _sc_rts()   (running totals debug test)  ---------------
-
-@skipIf(not DEBUG)
-class RTS_Tests(unittest.TestCase):
-
-    def test_segsize(self):
-        self.assertEqual(type(_SEGSIZE), int)
-        self.assertTrue(_SEGSIZE in [8, 16, 32])
-
-    def test_empty(self):
-        rts = _sc_rts(bitarray())
-        self.assertEqual(len(rts), 1)
-        self.assertEqual(rts, [0])
-
-    @skipIf(SEGBITS != 256)
-    def test_example(self):
-        # see example before sc_calc_rts() in _util.c
-        a = zeros(987)
-        a[:5] = a[512:515] = a[768:772] = 1
-        self.assertEqual(a.count(), 12)
-        rts = _sc_rts(a)
-        self.assertEqual(type(rts), list)
-        self.assertEqual(len(rts), 5)
-        self.assertEqual(rts, [0, 5, 5, 8, 12])
-
-    @staticmethod
-    def nseg(a):  # number of segments
-        return (a.nbytes + _SEGSIZE - 1) // _SEGSIZE
-
-    def test_ones(self):
-        for n in range(1000):
-            a = ones(n)
-            rts = _sc_rts(a)
-            self.assertEqual(len(rts), self.nseg(a) + 1)
-            self.assertEqual(rts[0], 0)
-            self.assertEqual(rts[-1], n)
-            for i, v in enumerate(rts):
-                self.assertEqual(v, min(SEGBITS * i, n))
-
-    def test_random(self):
-        for _ in range(200):
-            a = urandom_2(randrange(10000))
-            rts = _sc_rts(a)
-            self.assertEqual(len(rts), self.nseg(a) + 1)
-            self.assertEqual(rts[0], 0)
-            self.assertEqual(rts[-1], a.count())
-            for i in range(self.nseg(a)):
-                seg_pop = a.count(1, SEGBITS * i, SEGBITS * (i + 1))
-                self.assertEqual(rts[i + 1] - rts[i], seg_pop)
 
 # --------------------------- sparse compression ----------------------------
 
@@ -2687,88 +2761,6 @@ class CanonicalHuffmanTests(unittest.TestCase, Util):
         for n in 2, 3, 4, randint(5, 200):
             freq = {i: random() for i in range(n)}
             self.check_code(*canonical_huffman(freq))
-
-# ------------------------- Internal debug tests ----------------------------
-
-@skipIf(not DEBUG)
-class CountFromWord_Tests(unittest.TestCase, Util):
-
-    def test_ones_zeros_empty(self):
-        for _ in range(1000):
-            n = randrange(1024)
-            a = ones(n)
-            i = randrange(16)
-            self.assertEqual(_cfw(a, i), max(0, n - i * 64))
-            a.setall(0)
-            self.assertEqual(_cfw(a, i), 0)
-            a.clear()
-            self.assertEqual(_cfw(a, i), 0)
-
-    def test_random(self):
-        for _ in range(1000):
-            n = randrange(1024)
-            a = urandom_2(n)
-            i = randrange(16)
-            res = _cfw(a, i)
-            self.assertEqual(res, a[64 * i:].count())
-
-
-@skipIf(not DEBUG)
-class ReadN_WriteN_Tests(unittest.TestCase, Util):
-
-    # Regardless of machine byte-order, read_n() and write_n() use
-    # little endian byte-order.
-
-    def test_explicit(self):
-        for blob, x in [(b"", 0),
-                        (b"\x00", 0),
-                        (b"\x01", 1),
-                        (b"\xff", 255),
-                        (b"\xff\x00", 255),
-                        (b"\xaa\xbb\xcc", 0xccbbaa)]:
-            n = len(blob)
-            self.assertEqual(_read_n(iter(blob), n), x)
-            self.assertEqual(_write_n(n, x), blob)
-
-    def test_zeros(self):
-        for n in range(PTRSIZE):
-            blob = n * b"\x00"
-            self.assertEqual(_read_n(iter(blob), n), 0)
-            self.assertEqual(_write_n(n, 0), blob)
-
-    def test_max(self):
-        blob = (PTRSIZE - 1) * b"\xff" + b"\x7f"
-        self.assertEqual(_read_n(iter(blob), PTRSIZE), sys.maxsize)
-        self.assertEqual(_write_n(PTRSIZE, sys.maxsize), blob)
-
-    def test_round_trip_random(self):
-        for _ in range(1000):
-            n = randint(1, PTRSIZE - 1);
-            blob = os.urandom(n)
-            i = _read_n(iter(blob), n)
-            self.assertEqual(_write_n(n, i), blob)
-
-    def test_read_n_untouch(self):
-        it = iter(b"\x00XY")
-        self.assertEqual(_read_n(it, 1), 0)
-        self.assertEqual(next(it), ord('X'))
-        self.assertEqual(_read_n(it, 0), 0)
-        self.assertEqual(next(it), ord('Y'))
-        self.assertRaises(StopIteration, _read_n, it, 1)
-
-    def test_read_n_item_errors(self):
-        for v in -1, 256:
-            self.assertRaises(ValueError, _read_n, iter([3, v]), 2)
-
-        for v in None, "F", Ellipsis, []:
-            self.assertRaises(TypeError, _read_n, iter([3, v]), 2)
-
-    def test_read_n_negative(self):
-        it = iter(PTRSIZE * b"\xff")
-        self.assertRaisesMessage(
-            ValueError,
-            "read %d bytes got negative value: -1" % PTRSIZE,
-            _read_n, it, PTRSIZE)
 
 # ---------------------------------------------------------------------------
 

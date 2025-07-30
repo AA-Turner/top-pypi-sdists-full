@@ -232,8 +232,9 @@ def table_cleanup(loop, connection):
     yield _register_table
     for t in table_list:
         # TODO: probably this is not safe code
-        sql = f"DROP TABLE IF EXISTS {t};"
-        loop.run_until_complete(cursor.execute(sql))
+        sql = f"DROP TABLE IF EXISTS {t}"
+        end = "; "
+        loop.run_until_complete(cursor.execute(sql+end))
 
 
 @pytest.fixture(scope='session')
@@ -252,7 +253,7 @@ def mysql_server(mysql_address):
 
     server_params = {
         'user': 'root',
-        'password': os.environ.get("MYSQL_ROOT_PASSWORD"),
+        'password': os.environ.get("MYSQL_ROOT_PASSWORD", ""),
     }
 
     if unix_socket:

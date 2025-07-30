@@ -4013,6 +4013,10 @@ class CfnEventBus(
             description="description",
             event_source_name="eventSourceName",
             kms_key_identifier="kmsKeyIdentifier",
+            log_config=events.CfnEventBus.LogConfigProperty(
+                include_detail="includeDetail",
+                level="level"
+            ),
             policy=policy,
             tags=[CfnTag(
                 key="key",
@@ -4031,6 +4035,7 @@ class CfnEventBus(
         description: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
+        log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventBus.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         policy: typing.Any = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4042,6 +4047,7 @@ class CfnEventBus(
         :param description: The event bus description.
         :param event_source_name: If you are creating a partner event bus, this specifies the partner event source that the new event bus will be matched with.
         :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt events on this event bus. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt events on the event bus. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: Schema discovery is not supported for event buses encrypted using a customer managed key. EventBridge returns an error if: - You call ``[CreateDiscoverer](https://docs.aws.amazon.com/eventbridge/latest/schema-reference/v1-discoverers.html#CreateDiscoverer)`` on an event bus set to use a customer managed key for encryption. - You call ``[UpdatedEventBus](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_UpdatedEventBus.html)`` to set a customer managed key on an event bus with schema discovery enabled. To enable schema discovery on an event bus, choose to use an AWS owned key . For more information, see `Encrypting events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html>`_ in the *Amazon EventBridge User Guide* . > If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+        :param log_config: The logging configuration settings for the event bus. For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
         :param policy: The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.
         :param tags: Tags to associate with the event bus.
         '''
@@ -4055,6 +4061,7 @@ class CfnEventBus(
             description=description,
             event_source_name=event_source_name,
             kms_key_identifier=kms_key_identifier,
+            log_config=log_config,
             policy=policy,
             tags=tags,
         )
@@ -4199,6 +4206,24 @@ class CfnEventBus(
         jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="logConfig")
+    def log_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.LogConfigProperty"]]:
+        '''The logging configuration settings for the event bus.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.LogConfigProperty"]], jsii.get(self, "logConfig"))
+
+    @log_config.setter
+    def log_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.LogConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="policy")
     def policy(self) -> typing.Any:
         '''The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.'''
@@ -4274,6 +4299,84 @@ class CfnEventBus(
 
         def __repr__(self) -> str:
             return "DeadLetterConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_events.CfnEventBus.LogConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_detail": "includeDetail", "level": "level"},
+    )
+    class LogConfigProperty:
+        def __init__(
+            self,
+            *,
+            include_detail: typing.Optional[builtins.str] = None,
+            level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The logging configuration settings for the event bus.
+
+            For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
+
+            :param include_detail: Whether EventBridge include detailed event information in the records it generates. Detailed data can be useful for troubleshooting and debugging. This information includes details of the event itself, as well as target details. For more information, see `Including detail data in event bus logs <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus-logs.html#eb-event-logs-data>`_ in the *EventBridge User Guide* .
+            :param level: The level of logging detail to include. This applies to all log destinations for the event bus. For more information, see `Specifying event bus log level <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus-logs.html#eb-event-bus-logs-level>`_ in the *EventBridge User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-eventbus-logconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_events as events
+                
+                log_config_property = events.CfnEventBus.LogConfigProperty(
+                    include_detail="includeDetail",
+                    level="level"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__325c97a9fc2ec199dfb4fb51645bc16dde3cf1f257d1bcf5c86f7cd3a0b2d77c)
+                check_type(argname="argument include_detail", value=include_detail, expected_type=type_hints["include_detail"])
+                check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include_detail is not None:
+                self._values["include_detail"] = include_detail
+            if level is not None:
+                self._values["level"] = level
+
+        @builtins.property
+        def include_detail(self) -> typing.Optional[builtins.str]:
+            '''Whether EventBridge include detailed event information in the records it generates.
+
+            Detailed data can be useful for troubleshooting and debugging. This information includes details of the event itself, as well as target details.
+
+            For more information, see `Including detail data in event bus logs <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus-logs.html#eb-event-logs-data>`_ in the *EventBridge User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-eventbus-logconfig.html#cfn-events-eventbus-logconfig-includedetail
+            '''
+            result = self._values.get("include_detail")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def level(self) -> typing.Optional[builtins.str]:
+            '''The level of logging detail to include. This applies to all log destinations for the event bus.
+
+            For more information, see `Specifying event bus log level <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus-logs.html#eb-event-bus-logs-level>`_ in the *EventBridge User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-eventbus-logconfig.html#cfn-events-eventbus-logconfig-level
+            '''
+            result = self._values.get("level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4760,6 +4863,7 @@ class CfnEventBusPolicyProps:
         "description": "description",
         "event_source_name": "eventSourceName",
         "kms_key_identifier": "kmsKeyIdentifier",
+        "log_config": "logConfig",
         "policy": "policy",
         "tags": "tags",
     },
@@ -4773,6 +4877,7 @@ class CfnEventBusProps:
         description: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
+        log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         policy: typing.Any = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4783,6 +4888,7 @@ class CfnEventBusProps:
         :param description: The event bus description.
         :param event_source_name: If you are creating a partner event bus, this specifies the partner event source that the new event bus will be matched with.
         :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt events on this event bus. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt events on the event bus. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: Schema discovery is not supported for event buses encrypted using a customer managed key. EventBridge returns an error if: - You call ``[CreateDiscoverer](https://docs.aws.amazon.com/eventbridge/latest/schema-reference/v1-discoverers.html#CreateDiscoverer)`` on an event bus set to use a customer managed key for encryption. - You call ``[UpdatedEventBus](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_UpdatedEventBus.html)`` to set a customer managed key on an event bus with schema discovery enabled. To enable schema discovery on an event bus, choose to use an AWS owned key . For more information, see `Encrypting events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html>`_ in the *Amazon EventBridge User Guide* . > If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+        :param log_config: The logging configuration settings for the event bus. For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
         :param policy: The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.
         :param tags: Tags to associate with the event bus.
 
@@ -4807,6 +4913,10 @@ class CfnEventBusProps:
                 description="description",
                 event_source_name="eventSourceName",
                 kms_key_identifier="kmsKeyIdentifier",
+                log_config=events.CfnEventBus.LogConfigProperty(
+                    include_detail="includeDetail",
+                    level="level"
+                ),
                 policy=policy,
                 tags=[CfnTag(
                     key="key",
@@ -4821,6 +4931,7 @@ class CfnEventBusProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
             check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
+            check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4834,6 +4945,8 @@ class CfnEventBusProps:
             self._values["event_source_name"] = event_source_name
         if kms_key_identifier is not None:
             self._values["kms_key_identifier"] = kms_key_identifier
+        if log_config is not None:
+            self._values["log_config"] = log_config
         if policy is not None:
             self._values["policy"] = policy
         if tags is not None:
@@ -4908,6 +5021,19 @@ class CfnEventBusProps:
         '''
         result = self._values.get("kms_key_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]]:
+        '''The logging configuration settings for the event bus.
+
+        For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-logconfig
+        '''
+        result = self._values.get("log_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]], result)
 
     @builtins.property
     def policy(self) -> typing.Any:
@@ -12941,6 +13067,7 @@ def _typecheckingstub__5766595a149723459145d9f55c6afa7ed3017d49f4af7cec85e0fffe2
     description: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
+    log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -12989,6 +13116,12 @@ def _typecheckingstub__1899d0d8378d7d8ade574708aa2d0221794e2fcd5f946287a6f238e59
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24(
     value: typing.Any,
 ) -> None:
@@ -13004,6 +13137,14 @@ def _typecheckingstub__7839bb5f17e47516f1a7287848eb4905b08ca899cd21b2544645df1f4
 def _typecheckingstub__19cc778177531cf61ae62a46e1a008d0fb9f91cd857dc37c522f0cd73c2cda44(
     *,
     arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__325c97a9fc2ec199dfb4fb51645bc16dde3cf1f257d1bcf5c86f7cd3a0b2d77c(
+    *,
+    include_detail: typing.Optional[builtins.str] = None,
+    level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13098,6 +13239,7 @@ def _typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc111
     description: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
+    log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

@@ -49,7 +49,6 @@ class FormControllerApi(object):
         :param async_req bool: execute request asynchronously
         :param str to: The email address that submitted form should be sent to.
         :param str subject: Optional subject of the email that will be sent.
-        :param str redirect_to: Optional URL to redirect form submitter to after submission. If not present user will see a success message.
         :param str email_address: Email address of the submitting user. Include this if you wish to record the submitters email address and reply to it later.
         :param str success_message: Optional success message to display if no _redirectTo present.
         :param str spam_check: Optional but recommended field that catches spammers out. Include as a hidden form field but LEAVE EMPTY. Spam-bots will usually fill every field. If the _spamCheck field is filled the form submission will be ignored.
@@ -80,7 +79,6 @@ class FormControllerApi(object):
         :param async_req bool: execute request asynchronously
         :param str to: The email address that submitted form should be sent to.
         :param str subject: Optional subject of the email that will be sent.
-        :param str redirect_to: Optional URL to redirect form submitter to after submission. If not present user will see a success message.
         :param str email_address: Email address of the submitting user. Include this if you wish to record the submitters email address and reply to it later.
         :param str success_message: Optional success message to display if no _redirectTo present.
         :param str spam_check: Optional but recommended field that catches spammers out. Include as a hidden form field but LEAVE EMPTY. Spam-bots will usually fill every field. If the _spamCheck field is filled the form submission will be ignored.
@@ -104,7 +102,6 @@ class FormControllerApi(object):
         all_params = [
             'to',
             'subject',
-            'redirect_to',
             'email_address',
             'success_message',
             'spam_check',
@@ -133,30 +130,32 @@ class FormControllerApi(object):
         path_params = {}
 
         query_params = []
-        if 'to' in local_var_params and local_var_params['to'] is not None:  # noqa: E501
-            query_params.append(('_to', local_var_params['to']))  # noqa: E501
-        if 'subject' in local_var_params and local_var_params['subject'] is not None:  # noqa: E501
-            query_params.append(('_subject', local_var_params['subject']))  # noqa: E501
-        if 'redirect_to' in local_var_params and local_var_params['redirect_to'] is not None:  # noqa: E501
-            query_params.append(('_redirectTo', local_var_params['redirect_to']))  # noqa: E501
-        if 'email_address' in local_var_params and local_var_params['email_address'] is not None:  # noqa: E501
-            query_params.append(('_emailAddress', local_var_params['email_address']))  # noqa: E501
-        if 'success_message' in local_var_params and local_var_params['success_message'] is not None:  # noqa: E501
-            query_params.append(('_successMessage', local_var_params['success_message']))  # noqa: E501
-        if 'spam_check' in local_var_params and local_var_params['spam_check'] is not None:  # noqa: E501
-            query_params.append(('_spamCheck', local_var_params['spam_check']))  # noqa: E501
-        if 'other_parameters' in local_var_params and local_var_params['other_parameters'] is not None:  # noqa: E501
-            query_params.append(('otherParameters', local_var_params['other_parameters']))  # noqa: E501
 
         header_params = {}
 
         form_params = []
         local_var_files = {}
+        if 'to' in local_var_params:
+            form_params.append(('_to', local_var_params['to']))  # noqa: E501
+        if 'subject' in local_var_params:
+            form_params.append(('_subject', local_var_params['subject']))  # noqa: E501
+        if 'email_address' in local_var_params:
+            form_params.append(('_emailAddress', local_var_params['email_address']))  # noqa: E501
+        if 'success_message' in local_var_params:
+            form_params.append(('_successMessage', local_var_params['success_message']))  # noqa: E501
+        if 'spam_check' in local_var_params:
+            form_params.append(('_spamCheck', local_var_params['spam_check']))  # noqa: E501
+        if 'other_parameters' in local_var_params:
+            form_params.append(('otherParameters', local_var_params['other_parameters']))  # noqa: E501
 
         body_params = None
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
             ['*/*'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/x-www-form-urlencoded', 'multipart/form-data'])  # noqa: E501
 
         # Authentication setting
         auth_settings = ['API_KEY']  # noqa: E501

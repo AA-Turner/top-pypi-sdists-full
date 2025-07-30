@@ -149,7 +149,7 @@ class TestBracesNoUnderscoreNoDigitVariableInterpolation(TestCase):
         os.unsetenv(env_var)
         braced_env_with_default_unset = "{" + env_var + ":-a}-}"
         compose_file = ComposeGenerator.get_compose_with_string_value(braced_env_with_default_unset)
-        self.assertEqual(compose_file.services["frontend"].image, "awesome/a-}") # 
+        self.assertEqual(compose_file.services["frontend"].image, "awesome/a-}")
 
     @timeout_decorator.timeout(5)
     def test_lowercase_with_asterisk_as_default(self):

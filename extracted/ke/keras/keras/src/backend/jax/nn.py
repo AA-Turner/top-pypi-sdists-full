@@ -1,4 +1,5 @@
 import builtins
+import inspect
 import math
 
 import jax
@@ -155,9 +156,9 @@ def log_softmax(x, axis=-1):
     return jnn.log_softmax(x, axis=axis)
 
 
-def sparsemax(logits, axis=-1):
+def sparsemax(x, axis=-1):
     # Sort logits along the specified axis in descending order
-    logits = convert_to_tensor(logits)
+    logits = convert_to_tensor(x)
     logits_sorted = -1.0 * jnp.sort(logits * -1.0, axis=axis)
     logits_cumsum = jnp.cumsum(logits_sorted, axis=axis)  # find cumulative sum
     r = jnp.arange(1, logits.shape[axis] + 1)  # Determine the sparsity
@@ -250,8 +251,8 @@ def max_pool(
 def average_pool(
     inputs,
     pool_size,
-    strides,
-    padding,
+    strides=None,
+    padding="valid",
     data_format=None,
 ):
     data_format = backend.standardize_data_format(data_format)
@@ -485,7 +486,7 @@ def conv_transpose(
     )
 
 
-def one_hot(x, num_classes, axis=-1, dtype="float32", sparse=False):
+def one_hot(x, num_classes, axis=-1, dtype=None, sparse=False):
     x = convert_to_tensor(x)
     if sparse:
         if axis < 0:
@@ -513,7 +514,7 @@ def one_hot(x, num_classes, axis=-1, dtype="float32", sparse=False):
     return jnn.one_hot(x, num_classes, axis=axis, dtype=dtype)
 
 
-def multi_hot(x, num_classes, axis=-1, dtype="float32", sparse=False):
+def multi_hot(x, num_classes, axis=-1, dtype=None, sparse=False):
     x = convert_to_tensor(x)
     reduction_axis = 1 if len(x.shape) > 1 else 0
     if sparse:
@@ -1054,14 +1055,15 @@ def _can_use_flash_attention(query, key, value, bias, raise_error=False):
         if not check_compute_capability("8.0"):
             raise RuntimeError("Require at least Ampere arch to run")
         # Check inputs layout
+        check_layout_params = list(
+            inspect.signature(check_layout).parameters.keys()
+        )
+        for known_param in ("query", "key", "value", "bias", "layout"):
+            check_layout_params.remove(known_param)
+        # Defaults to `None` when not specified.
+        kwargs = {key: None for key in check_layout_params}
         check_layout(
-            query,
-            key,
-            value,
-            bias,
-            q_seqlen=None,
-            kv_seqlen=None,
-            layout=_normalize_layout("BTNH"),
+            query, key, value, bias, layout=_normalize_layout("BTNH"), **kwargs
         )
         check_is_flash_attention(
             query,
@@ -1129,6 +1131,34 @@ def wrap_flash_attention(
     head_shards=1,
     q_seq_shards=1,
 ):
+    """Applies a wrapped flash attention mechanism using the Splash kernel.
+    This function prepares the appropriate attention mask (causal or custom),
+    constructs a multi-head mask, and applies the Splash multi-head attention
+    kernel to the provided query, key, and value tensors. It supports optional
+    sharding and soft capping of attention logits.
+    Args:
+        query: jax.Array. The query tensor of shape
+            (batch, num_heads, seq_len, head_dim).
+        key: jax.Array. The key tensor of shape
+            (batch, num_heads, seq_len, head_dim).
+        value: jax.Array. The value tensor of shape
+            (batch, num_heads, seq_len, head_dim).
+        decoder_segment_ids: Optional. Segment IDs for the decoder, used for
+            sharding or masking.
+        custom_mask: Optional[jax.Array]. A custom attention mask to apply. If
+            None, a causal mask is used.
+        attn_logits_soft_cap: Optional[float]. If provided, applies a soft cap
+            to the attention logits.
+        head_shards: int, default=1. Number of shards for the attention heads.
+        q_seq_shards: int, default=1. Number of shards for the query sequence
+            dimension.
+    Returns:
+        jax.Array: The result of applying the Splash multi-head attention
+            kernel to the inputs.
+    Raises:
+        AssertionError: If sharding along the sequence dimension is attempted
+            with decoder_segment_ids.
+    """
     if decoder_segment_ids is not None:
         assert query.shape[2] == decoder_segment_ids.q.shape[1], (
             "Sharding along sequence dimension not allowed"
@@ -1215,11 +1245,17 @@ def dot_product_attention(
     platform = jax.devices()[0].platform
     is_tpu = platform == "tpu"
 
-    # Get sharding parameters from distribution context
-    head_shards = 1
-    q_seq_shards = 1
+    # Determine flash attention compatibility
+    if flash_attention is None:
+        flash_attention = _can_use_flash_attention(query, key, value, bias)
+    elif flash_attention is True:
+        # Use `raise_error=True` to provide more details if the inputs failed to
+        # use flash attention
+        _can_use_flash_attention(query, key, value, bias, raise_error=True)
 
-    if is_tpu:
+    # TPU-specific flash attention path
+    if is_tpu and flash_attention:
+        # Get sharding parameters from distribution context
         try:
             from keras.src.distribution.distribution_lib import ModelParallel
             from keras.src.distribution.distribution_lib import (
@@ -1240,44 +1276,6 @@ def dot_product_attention(
             # Use default values if detection fails
             head_shards = 1
             q_seq_shards = 1
-
-    # Check if inputs use partial sharding (not fully replicated)
-    # Flash attention works well with fully replicated tensors on all platforms
-    # but may have issues with certain partial sharding patterns on non-TPU
-    # platforms
-    partially_sharded_inputs = any(
-        hasattr(t, "sharding") and not t.sharding.is_fully_replicated
-        for t in (query, key, value)
-    )
-
-    # Determine flash attention compatibility
-    if flash_attention is None:
-        # Auto-detect flash attention availability
-        if is_tpu:
-            # TPUs have specialized hardware for attention that works with any
-            # sharding pattern
-            flash_attention = True
-        else:
-            # For GPU/CPU with partially sharded inputs, we need
-            # multiple devices to efficiently handle the sharding
-            if partially_sharded_inputs and len(jax.devices()) <= 1:
-                flash_attention = False
-            else:
-                flash_attention = _can_use_flash_attention(
-                    query, key, value, bias
-                )
-    elif flash_attention is True and not is_tpu:
-        # If flash attention is explicitly requested, validate compatibility
-        # Skip validation for TPU as it has specialized hardware support
-        try:
-            _can_use_flash_attention(query, key, value, bias, raise_error=True)
-        except Exception:
-            # Only disable flash attention on non-TPU platforms
-            # if validation fails
-            flash_attention = False
-
-    # TPU-specific flash attention path
-    if is_tpu and flash_attention:
         # Transpose to ('batch', 'heads', 'length', 'head_dim')
         query_tpu_layout = jnp.transpose(query, axes=(0, 2, 1, 3))
         key_tpu_layout = jnp.transpose(key, axes=(0, 2, 1, 3))

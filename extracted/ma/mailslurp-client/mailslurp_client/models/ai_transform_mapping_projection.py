@@ -35,6 +35,7 @@ class AITransformMappingProjection(object):
     """
     openapi_types = {
         'user_id': 'str',
+        'created_at': 'datetime',
         'ai_transform_id': 'str',
         'entity_id': 'str',
         'entity_type': 'str',
@@ -46,6 +47,7 @@ class AITransformMappingProjection(object):
 
     attribute_map = {
         'user_id': 'userId',
+        'created_at': 'createdAt',
         'ai_transform_id': 'aiTransformId',
         'entity_id': 'entityId',
         'entity_type': 'entityType',
@@ -55,13 +57,14 @@ class AITransformMappingProjection(object):
         'id': 'id'
     }
 
-    def __init__(self, user_id=None, ai_transform_id=None, entity_id=None, entity_type=None, content_selector=None, trigger_selector=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, created_at=None, ai_transform_id=None, entity_id=None, entity_type=None, content_selector=None, trigger_selector=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """AITransformMappingProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._user_id = None
+        self._created_at = None
         self._ai_transform_id = None
         self._entity_id = None
         self._entity_type = None
@@ -72,8 +75,10 @@ class AITransformMappingProjection(object):
         self.discriminator = None
 
         self.user_id = user_id
+        self.created_at = created_at
         self.ai_transform_id = ai_transform_id
-        self.entity_id = entity_id
+        if entity_id is not None:
+            self.entity_id = entity_id
         self.entity_type = entity_type
         if content_selector is not None:
             self.content_selector = content_selector
@@ -105,6 +110,29 @@ class AITransformMappingProjection(object):
             raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
 
         self._user_id = user_id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this AITransformMappingProjection.  # noqa: E501
+
+
+        :return: The created_at of this AITransformMappingProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this AITransformMappingProjection.
+
+
+        :param created_at: The created_at of this AITransformMappingProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def ai_transform_id(self):
@@ -147,8 +175,6 @@ class AITransformMappingProjection(object):
         :param entity_id: The entity_id of this AITransformMappingProjection.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and entity_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `entity_id`, must not be `None`")  # noqa: E501
 
         self._entity_id = entity_id
 

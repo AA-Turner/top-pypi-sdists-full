@@ -18,7 +18,8 @@ def test_run():
     state = State()
 
     with patch.object(ctx, '_run') as p:
-        ctx._output_state = 'foo'  # would normally be set within the _run call scope
+        # This would normally be set within the _run call scope.
+        ctx._output_state = 'foo'  # type: ignore
         output = ctx.run(ctx.on.start(), state)
         assert output == 'foo'
 
@@ -37,7 +38,8 @@ def test_run_action():
     expected_id = _next_action_id(update=False)
 
     with patch.object(ctx, '_run') as p:
-        ctx._output_state = 'foo'  # would normally be set within the _run call scope
+        # This would normally be set within the _run call scope.
+        ctx._output_state = 'foo'  # type: ignore
         output = ctx.run(ctx.on.action('do-foo'), state)
         assert output == 'foo'
 
@@ -70,3 +72,15 @@ def test_context_manager():
     with ctx(ctx.on.action('act'), state) as mgr:
         mgr.run()
         assert mgr.charm.meta.name == 'foo'
+
+
+def test_app_name_and_unit_id_default():
+    ctx = Context(MyCharm, meta={'name': 'foo'})
+    assert ctx.app_name == 'foo'
+    assert ctx.unit_id == 0
+
+
+def test_app_name_and_unit_id():
+    ctx = Context(MyCharm, meta={'name': 'foo'}, app_name='notfoo', unit_id=42)
+    assert ctx.app_name == 'notfoo'
+    assert ctx.unit_id == 42

@@ -9,8 +9,8 @@
 #
 # .. _2-Clause BSD license: https://opensource.org/licenses/BSD-2-Clause
 #
-# Revision: $Revision: 9021 $
-# Date: $Date: 2022-03-04 16:54:22 +0100 (Fr, 04. Mär 2022) $
+# Revision: $Revision: 9771 $
+# Date: $Date: 2024-06-18 10:00:10 +0200 (Di, 18. Jun 2024) $
 
 """
 A minimal front end to the Docutils Publisher, producing HTML 5 documents.
@@ -30,4 +30,4 @@ description = ('Generates HTML5 documents from standalone '
                'reStructuredText sources.\n'
                + default_description)
 
-publish_cmdline(writer_name='html5', description=description)
+publish_cmdline(writer='html5', description=description)

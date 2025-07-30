@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_target_notes.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_target_notes.py 10168 2025-06-16 09:58:04Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -67,11 +67,14 @@ totest['target_notes'] = [
 """,
 """\
 <document source="test data">
-    <pending ids="targets" names="targets">
-        .. internal attributes:
-             .transform: docutils.transforms.references.TargetNotes
-             .details:
-               class: ['custom']
+    <system_message level="3" line="1" source="test data" type="ERROR">
+        <paragraph>
+            Error in "target-notes" directive:
+            unknown option: "name".
+        <literal_block xml:space="preserve">
+            .. target-notes::
+               :class: custom
+               :name: targets
 """],
 ["""\
 .. target-notes::

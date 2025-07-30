@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_images.py 9496 2023-12-01 13:25:40Z milde $
+# $Id: test_images.py 9943 2024-09-29 09:31:39Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -23,6 +23,8 @@ from docutils.utils import new_document
 
 
 class ParserTestCase(unittest.TestCase):
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser()
         settings = get_default_settings(Parser)
@@ -172,12 +174,22 @@ totest['images'] = [
 """],
 ["""\
 .. image:: picture.png
-   :width: 50%
-   :height: 10mm
+   :width:  200 Q
+   :height: 100 em
 """,
 """\
 <document source="test data">
-    <image height="10mm" uri="picture.png" width="50%">
+    <image height="100em" uri="picture.png" width="200Q">
+"""],
+# TODO: support CSS3 units (cf. [feature-requests:#57]
+["""\
+.. image:: picture.png
+   :width: 50%
+   :height: 10vh
+""",
+"""\
+<document source="test data">
+    <image height="10vh" uri="picture.png" width="50%">
 """],
 ["""\
 .. image:: picture.png
@@ -190,8 +202,8 @@ totest['images'] = [
         <paragraph>
             Error in "image" directive:
             invalid option value: (option: "height"; value: \'40%\')
-            not a positive measure of one of the following units:
-            "em" "ex" "px" "in" "cm" "mm" "pt" "pc" "".
+            not a positive number or measure of one of the following units:
+            em, ex, ch, rem, vw, vh, vmin, vmax, cm, mm, Q, in, pt, pc, px.
         <literal_block xml:space="preserve">
             .. image:: picture.png
                :width: 50%
@@ -207,8 +219,8 @@ totest['images'] = [
         <paragraph>
             Error in "image" directive:
             invalid option value: (option: "width"; value: \'20mc\')
-            not a positive measure of one of the following units:
-            "em" "ex" "px" "in" "cm" "mm" "pt" "pc" "%".
+            not a positive number or measure of one of the following units:
+            em, ex, ch, rem, vw, vh, vmin, vmax, cm, mm, Q, in, pt, pc, px, %.
         <literal_block xml:space="preserve">
             .. image:: picture.png
                :width: 20mc

@@ -271,8 +271,8 @@ class EventBus:
         # Check for name uniqueness among existing instances
         # We'll collect potential conflicts and check if they're still alive
         original_name = self.name
-        conflicting_buses = []
-        
+        conflicting_buses: list[EventBus] = []
+
         for existing_bus in list(EventBus.all_instances):  # Make a list copy to avoid modification during iteration
             if existing_bus is not self and existing_bus.name == self.name:
                 # Try to trigger collection of just this object by checking if it's collectable
@@ -292,13 +292,13 @@ class EventBus:
                     # Object was garbage collected or is invalid (e.g., AttributeError), that's fine
                     # Don't re-add to WeakSet, let it stay removed
                     pass
-        
+
         # If we found conflicting buses, auto-generate a unique suffix
         if conflicting_buses:
             # Generate a unique suffix using the last 8 chars of a UUID
             unique_suffix = uuid7str()[-8:]
-            self.name = f"{original_name}_{unique_suffix}"
-            
+            self.name = f'{original_name}_{unique_suffix}'
+
             warnings.warn(
                 f'⚠️ EventBus with name "{original_name}" already exists. '
                 f'Auto-generated unique name: "{self.name}" to avoid conflicts. '
@@ -726,6 +726,16 @@ class EventBus:
             # Remove from global instance tracking
             if self in EventBus.all_instances:
                 EventBus.all_instances.discard(self)
+            
+            # Remove from event loop's tracking if present
+            try:
+                loop = asyncio.get_running_loop()
+                if hasattr(loop, '_eventbus_instances'):
+                    loop._eventbus_instances.discard(self)  # type: ignore
+            except RuntimeError:
+                # No running loop, that's fine
+                pass
+            
             logger.debug(f'🧹 {self} cleared event history and removed from global tracking')
 
         logger.debug(f'🛑 {self} shut down gracefully' if timeout is not None else f'🛑 {self} killed')

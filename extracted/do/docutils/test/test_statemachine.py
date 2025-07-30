@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_statemachine.py 9277 2022-11-26 23:15:13Z milde $
+# $Id: test_statemachine.py 9795 2024-07-31 08:35:47Z aa-turner $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -102,7 +102,7 @@ class MockState(statemachine.StateWS):
         return [match.string], next_state, ['text%s' % self.level]
 
     def literalblock(self):
-        indented, indent, offset, good = self.state_machine.get_indented()
+        _indented, indent, _offset, _good = self.state_machine.get_indented()
         if self.debug:
             print('literalblock%s(%s)' % (self.level, indent), file=sys.stderr)
         return ['literalblock%s(%s)' % (self.level, indent)]

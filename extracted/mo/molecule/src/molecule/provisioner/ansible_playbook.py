@@ -21,14 +21,15 @@
 
 from __future__ import annotations
 
-import logging
 import shlex
 import subprocess
 import warnings
 
 from typing import TYPE_CHECKING
 
-from molecule import util
+from rich.markup import escape
+
+from molecule import logger, util
 from molecule.api import MoleculeRuntimeWarning
 from molecule.exceptions import ScenarioFailureError
 from molecule.types import ScenarioResult
@@ -36,9 +37,6 @@ from molecule.types import ScenarioResult
 
 if TYPE_CHECKING:
     from molecule.config import Config
-
-
-LOG = logging.getLogger(__name__)
 
 
 class AnsiblePlaybook:
@@ -71,6 +69,17 @@ class AnsiblePlaybook:
             )
         elif self._config.provisioner:
             self._env = self._config.provisioner.env
+
+    @property
+    def _log(self) -> logger.ScenarioLoggerAdapter:
+        """Get a fresh scenario logger with current context.
+
+        Returns:
+            A scenario logger adapter with current scenario and step context.
+        """
+        # Get step context from the current action being executed
+        step_name = getattr(self._config, "action", "provisioner")
+        return logger.get_scenario_logger(__name__, self._config.scenario.name, step_name)
 
     def bake(self) -> None:
         """Bake ``ansible-playbook`` or ``navigator run`` command so it's ready to execute.
@@ -117,7 +126,7 @@ class AnsiblePlaybook:
                         text=True,
                         check=True,
                     )
-                    LOG.info("%s version: %s", backend, result.stdout.strip())
+                    self._log.info("%s version: %s", backend, result.stdout.strip())
                 except subprocess.CalledProcessError as exc:
                     msg = f"{backend} is not available. Please ensure that it is installed."
                     raise RuntimeError(msg) from exc
@@ -162,7 +171,7 @@ class AnsiblePlaybook:
             self.bake()
 
         if not self._playbook:
-            LOG.warning("Skipping, %s action has no playbook.", self._config.action)
+            self._log.warning("Skipping, %s action has no playbook.", self._config.action)
             self._config.scenario.results.append(
                 ScenarioResult(subcommand=self._config.action, state="SKIPPED"),
             )
@@ -184,8 +193,6 @@ class AnsiblePlaybook:
                 ScenarioResult(subcommand=self._config.action, state="FAILED"),
             )
 
-            from rich.markup import escape
-
             msg = f"Ansible return code was {result.returncode}, command was: [dim]{escape(shlex.join(result.args))}[/dim]"
             raise ScenarioFailureError(
                 msg,
@@ -198,7 +205,7 @@ class AnsiblePlaybook:
         )
         return result.stdout
 
-    def add_cli_arg(self, name: str, value: str | bool) -> None:
+    def add_cli_arg(self, name: str, value: str | bool) -> None:  # noqa: FBT001
         """Add argument to CLI passed to ansible-playbook.
 
         Args:

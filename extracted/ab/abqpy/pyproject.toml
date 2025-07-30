@@ -23,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: PyPy",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -84,8 +83,8 @@ docs = [
 "Homepage" = "https://abqpy.com"
 "GitHub" = "https://github.com/haiiliin/abqpy"
 "Bug Tracker" = "https://github.com/haiiliin/abqpy/issues"
-"Read the Docs" = "https://readthedocs.org/projects/abqpy"
-"Documentation" = "https://haiiliin.github.io/abqpy/"
+"Conda" = "https://anaconda.org/conda-forge/abqpy"
+"Documentation" = "https://haiiliin.github.io/abqpy"
 
 [project.scripts]
 abqpy = "abqpy.__main__:main"

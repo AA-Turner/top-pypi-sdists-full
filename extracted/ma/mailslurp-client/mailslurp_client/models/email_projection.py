@@ -34,8 +34,8 @@ class EmailProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'sender': 'Sender',
         'recipients': 'EmailRecipients',
+        'sender': 'Sender',
         'attachments': 'list[str]',
         'inbox_id': 'str',
         'created_at': 'datetime',
@@ -61,8 +61,8 @@ class EmailProjection(object):
     }
 
     attribute_map = {
-        'sender': 'sender',
         'recipients': 'recipients',
+        'sender': 'sender',
         'attachments': 'attachments',
         'inbox_id': 'inboxId',
         'created_at': 'createdAt',
@@ -87,14 +87,14 @@ class EmailProjection(object):
         '_from': 'from'
     }
 
-    def __init__(self, sender=None, recipients=None, attachments=None, inbox_id=None, created_at=None, to=None, cc=None, bcc=None, message_id=None, domain_id=None, favourite=None, plus_address=None, size_bytes=None, in_reply_to=None, read=None, body_excerpt=None, text_excerpt=None, body_part_content_types=None, body_md5_hash=None, team_access=None, subject=None, id=None, thread_id=None, _from=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, recipients=None, sender=None, attachments=None, inbox_id=None, created_at=None, to=None, cc=None, bcc=None, message_id=None, domain_id=None, favourite=None, plus_address=None, size_bytes=None, in_reply_to=None, read=None, body_excerpt=None, text_excerpt=None, body_part_content_types=None, body_md5_hash=None, team_access=None, subject=None, id=None, thread_id=None, _from=None, local_vars_configuration=None):  # noqa: E501
         """EmailProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._sender = None
         self._recipients = None
+        self._sender = None
         self._attachments = None
         self._inbox_id = None
         self._created_at = None
@@ -119,8 +119,8 @@ class EmailProjection(object):
         self.__from = None
         self.discriminator = None
 
-        self.sender = sender
         self.recipients = recipients
+        self.sender = sender
         self.attachments = attachments
         self.inbox_id = inbox_id
         self.created_at = created_at
@@ -145,27 +145,6 @@ class EmailProjection(object):
         self._from = _from
 
     @property
-    def sender(self):
-        """Gets the sender of this EmailProjection.  # noqa: E501
-
-
-        :return: The sender of this EmailProjection.  # noqa: E501
-        :rtype: Sender
-        """
-        return self._sender
-
-    @sender.setter
-    def sender(self, sender):
-        """Sets the sender of this EmailProjection.
-
-
-        :param sender: The sender of this EmailProjection.  # noqa: E501
-        :type: Sender
-        """
-
-        self._sender = sender
-
-    @property
     def recipients(self):
         """Gets the recipients of this EmailProjection.  # noqa: E501
 
@@ -185,6 +164,27 @@ class EmailProjection(object):
         """
 
         self._recipients = recipients
+
+    @property
+    def sender(self):
+        """Gets the sender of this EmailProjection.  # noqa: E501
+
+
+        :return: The sender of this EmailProjection.  # noqa: E501
+        :rtype: Sender
+        """
+        return self._sender
+
+    @sender.setter
+    def sender(self, sender):
+        """Sets the sender of this EmailProjection.
+
+
+        :param sender: The sender of this EmailProjection.  # noqa: E501
+        :type: Sender
+        """
+
+        self._sender = sender
 
     @property
     def attachments(self):

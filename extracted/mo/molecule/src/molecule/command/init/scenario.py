@@ -22,7 +22,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import sys
 
@@ -31,8 +30,8 @@ from typing import TYPE_CHECKING
 
 import click
 
-from molecule import api
-from molecule.command import base as command_base
+from molecule import api, logger
+from molecule.click_cfg import click_command_ex
 from molecule.command.init import base
 from molecule.config import (
     DEFAULT_DRIVER,
@@ -40,6 +39,7 @@ from molecule.config import (
     Config,
     molecule_directory,
 )
+from molecule.constants import MOLECULE_DEFAULT_SCENARIO_NAME
 from molecule.exceptions import MoleculeError
 
 
@@ -62,9 +62,6 @@ if TYPE_CHECKING:
         provisioner_name: str
         scenario_name: str
         subcommand: str
-
-
-LOG = logging.getLogger(__name__)
 
 
 class Scenario(base.Base):
@@ -99,6 +96,9 @@ class Scenario(base.Base):
         """
         self._config = config
         self._command_args = command_args
+        # For init scenario, use the scenario name from command args
+        scenario_name = command_args.get("scenario_name", "unknown")
+        self._log = logger.get_scenario_logger(__name__, scenario_name, "init")
 
     def execute(self, action_args: list[str] | None = None) -> None:  # noqa: ARG002
         """Execute the actions necessary to perform a `molecule init scenario`.
@@ -112,7 +112,7 @@ class Scenario(base.Base):
         scenario_name = self._command_args["scenario_name"]
 
         msg = f"Initializing new scenario {scenario_name}..."
-        LOG.info(msg)
+        self._log.info(msg)
         molecule_path = Path(molecule_directory(Path.cwd()))
         scenario_directory = molecule_path / scenario_name
 
@@ -138,7 +138,7 @@ class Scenario(base.Base):
         self._config.app.run_command(cmd, env=env, check=True)
 
         msg = f"Initialized scenario in {scenario_directory} successfully."
-        LOG.info(msg)
+        self._log.info(msg)
 
 
 def _role_exists(
@@ -158,7 +158,7 @@ def _role_exists(
     return value
 
 
-@command_base.click_command_ex()
+@click_command_ex()
 @click.pass_context
 @click.option(
     "--dependency-name",
@@ -169,7 +169,7 @@ def _role_exists(
 @click.option(
     "--driver-name",
     "-d",
-    type=click.Choice([str(s) for s in api.drivers()]),
+    type=str,
     default=DEFAULT_DRIVER,
     help=f"Name of driver to initialize. ({DEFAULT_DRIVER})",
 )
@@ -181,7 +181,7 @@ def _role_exists(
 )
 @click.argument(
     "scenario-name",
-    default=command_base.MOLECULE_DEFAULT_SCENARIO_NAME,
+    default=MOLECULE_DEFAULT_SCENARIO_NAME,
     required=False,
 )
 def scenario(
@@ -195,14 +195,41 @@ def scenario(
 
     If name is not specified the 'default' value will be used.
 
-    \f
     Args:
         ctx: Click context object holding commandline arguments.
         dependency_name: Name of dependency to initialize.
         driver_name: Name of driver to use.
         provisioner_name: Name of provisioner to use.
         scenario_name: Name of scenario to initialize.
-    """  # noqa: D301
+
+    Raises:
+        click.Abort: If the specified driver is not available.
+    """
+    config = Config("", args={})
+    available_drivers = list(api.drivers(config).keys())
+    if driver_name not in available_drivers:
+        if len(available_drivers) == 1 and available_drivers[0] == "default":
+            click.echo(
+                click.style(
+                    f"Driver '{driver_name}' not available.\n\n"
+                    f"Install cloud drivers with:\n"
+                    f"  pip install molecule-plugins\n\n"
+                    f"Currently available drivers: {available_drivers}\n",
+                    fg="red",
+                ),
+                err=True,
+            )
+        else:
+            click.echo(
+                click.style(
+                    f"Driver '{driver_name}' not available.\n"
+                    f"Available drivers: {available_drivers}",
+                    fg="red",
+                ),
+                err=True,
+            )
+        raise click.Abort
+
     command_args: CommandArgs = {
         "dependency_name": dependency_name,
         "driver_name": driver_name,

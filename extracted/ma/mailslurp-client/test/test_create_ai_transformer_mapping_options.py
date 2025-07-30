@@ -47,9 +47,7 @@ class TestCreateAITransformerMappingOptions(unittest.TestCase):
             )
         else :
             return CreateAITransformerMappingOptions(
-                name = '0',
                 ai_transform_id = '0',
-                entity_id = '0',
                 entity_type = 'INBOX',
         )
 

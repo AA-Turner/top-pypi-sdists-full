@@ -11,7 +11,7 @@ class EmptyOrUnsetException(Exception):
         return f"Failed to evaluate mandatory variable {self.variable_name}"
 
 
-class ComposeDataTypeTransformer():
+class ComposeDataTypeTransformer:
     transform = str
     valid_values = None
 

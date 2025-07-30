@@ -81,6 +81,11 @@ from .base_impl import (
     NUMBER as NUMBER,
     ROWID as ROWID,
     STRING as STRING,
+    # flags for tpc_begin()
+    TPC_TXN_FLAGS_JOIN as TPC_BEGIN_JOIN,  # noqa: F401
+    TPC_TXN_FLAGS_NEW as TPC_BEGIN_NEW,  # noqa: F401
+    TPC_TXN_FLAGS_PROMOTE as TPC_BEGIN_PROMOTE,  # noqa: F401
+    TPC_TXN_FLAGS_RESUME as TPC_BEGIN_RESUME,  # noqa: F401
 )
 
 from .enums import (
@@ -205,11 +210,6 @@ from .constants import (
     OPCODE_DROP as OPCODE_DROP,
     OPCODE_INSERT as OPCODE_INSERT,
     OPCODE_UPDATE as OPCODE_UPDATE,
-    # flags for tpc_begin()
-    TPC_BEGIN_JOIN as TPC_BEGIN_JOIN,
-    TPC_BEGIN_NEW as TPC_BEGIN_NEW,
-    TPC_BEGIN_PROMOTE as TPC_BEGIN_PROMOTE,
-    TPC_BEGIN_RESUME as TPC_BEGIN_RESUME,
     # flags for tpc_end()
     TPC_END_NORMAL as TPC_END_NORMAL,
     TPC_END_SUSPEND as TPC_END_SUSPEND,
@@ -287,6 +287,7 @@ from .driver_mode import is_thin_mode as is_thin_mode
 
 from .utils import (
     enable_thin_mode as enable_thin_mode,
+    from_arrow as from_arrow,
     register_params_hook as register_params_hook,
     register_password_type as register_password_type,
     register_protocol as register_protocol,
@@ -316,8 +317,12 @@ from .sparse_vector import (
     SparseVector as SparseVector,
 )
 
-from .interchange.dataframe import (
-    OracleDataFrame as OracleDataFrame,
+from .arrow_array import (
+    ArrowArray as ArrowArray,
+)
+
+from .dataframe import (
+    DataFrame as DataFrame,
 )
 
 from . import builtin_hooks

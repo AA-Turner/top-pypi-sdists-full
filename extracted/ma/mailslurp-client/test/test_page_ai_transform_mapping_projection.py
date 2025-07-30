@@ -40,6 +40,7 @@ class TestPageAITransformMappingProjection(unittest.TestCase):
                 content = [
                     mailslurp_client.models.ai_transform_mapping_projection.AITransformMappingProjection(
                         user_id = '0', 
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         ai_transform_id = '0', 
                         entity_id = '0', 
                         entity_type = 'INBOX', 

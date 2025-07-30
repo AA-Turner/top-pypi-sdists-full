@@ -636,33 +636,40 @@ class WarehouseObjectUseCase(BaseProcessor):
         """Format timestamp for video chunks (HH:MM:SS.ms format)."""
         hours = int(timestamp // 3600)
         minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+        seconds = round(float(timestamp % 60),2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-
+        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-                stream_time_str = stream_info.get("video_timestamp", "")
-                return stream_time_str[:8]
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
         else:
             # For streams, use stream_time from stream_info
-            stream_time_str = stream_info.get("stream_time", "")
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 # Parse the high precision timestamp string to get timestamp
                 try:
@@ -681,23 +688,20 @@ class WarehouseObjectUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 return "00:00:00"
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
             # For streams, use tracking start time or current time with minutes/seconds reset
             if self._tracking_start_time is None:
                 # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("stream_time", "")
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
                         # Remove " UTC" suffix and parse

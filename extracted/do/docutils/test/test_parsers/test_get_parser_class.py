@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_get_parser_class.py 9346 2023-04-13 18:48:20Z grubert $
+# $Id: test_get_parser_class.py 9966 2024-10-22 21:41:26Z milde $
 # Author: grubert abadger1999
 # Maintainer: docutils-develop@lists.sourceforge.net
 # Copyright: This module has been placed in the public domain.
@@ -29,8 +29,15 @@ except ImportError:
 
 class GetParserClassTestCase(unittest.TestCase):
 
-    def test_registered_parser(self):
+    def test_registered_parsers(self):
+        get_parser_class('null')
         get_parser_class('rst')
+        get_parser_class('docutils_xml')
+        # raises ImportError on failure
+
+    def test_registered_parsers_case_folding(self):
+        get_parser_class('reStructuredText')
+        get_parser_class('XML')
         # raises ImportError on failure
 
     def test_bogus_parser(self):
@@ -43,15 +50,14 @@ class GetParserClassTestCase(unittest.TestCase):
         # raises ImportError on failure
 
 
-@unittest.skipIf(md_parser_class is not None,
-                 'Optional "recommonmark" module found.')
+@unittest.skipUnless(md_parser_class is None, '"recommonmark" module found.')
 class RecommonmarkMissingTests(unittest.TestCase):
 
     def test_missing_parser_message(self):
         # match multiline message (?s) = re.DOTALL "." also matches newline
-        with self.assertRaisesRegex(ImportError,
-                                    '(?s)requires the.*package .*recommonmark'):
-            publish_string('test data', parser_name='recommonmark')
+        with self.assertRaisesRegex(
+            ImportError, '(?s)requires the.*package .*recommonmark'):
+            publish_string('test data', parser='recommonmark')
 
 
 if __name__ == '__main__':

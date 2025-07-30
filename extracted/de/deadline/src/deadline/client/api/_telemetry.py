@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import atexit
+from functools import lru_cache
 import json
 import logging
 import os
@@ -9,6 +10,7 @@ import uuid
 import random
 import time
 
+from botocore.exceptions import ClientError, NoCredentialsError
 from configparser import ConfigParser
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -23,6 +25,7 @@ from ._session import (
     get_monitor_id,
     get_user_and_identity_store_id,
     get_boto3_client,
+    get_boto3_session,
 )
 from ..config import config_file
 from .. import version
@@ -313,6 +316,12 @@ class TelemetryClient:
     def record_event(
         self, event_type: str, event_details: Dict[str, Any], *, from_gui: bool = False
     ):
+        try:
+            self.update_common_details({"accountId": self.get_account_id(get_boto3_session())})
+        except Exception as e:
+            # Print any errors when getting the boto3 session, then proceed
+            logger.debug(f"Could not add account ID to telemetry: {str(e)}")
+
         event_details.update(self._common_details)
         event_details["usage_mode"] = "GUI" if from_gui else "CLI"
         self._put_telemetry_record(
@@ -321,6 +330,19 @@ class TelemetryClient:
                 event_details=event_details,
             )
         )
+
+    @lru_cache
+    def get_account_id(self, boto3_session) -> Optional[str]:
+        """
+        Retrieves the AWS account ID for the current user.
+
+        If the user is not authenticated, print an error message
+        """
+        try:
+            return boto3_session.client("sts").get_caller_identity()["Account"]
+        except (ClientError, NoCredentialsError) as e:
+            print(f"Could not add account ID to telemetry: {str(e)}")
+            return None
 
     def update_common_details(self, details: Dict[str, Any]):
         """Updates the dict of common data that is included in every telemetry request."""
@@ -374,12 +396,11 @@ def record_success_fail_telemetry_event(**decorator_kwargs: Dict[str, Any]) -> C
             :param * Python variable argument. See https://docs.python.org/3/glossary.html#term-parameter
             :param ** Python variable argument. See https://docs.python.org/3/glossary.html#term-parameter
             """
-            success: bool = True
+            success: bool = False
             try:
-                return function(*args, **kwargs)
-            except Exception as e:
-                success = False
-                raise e
+                result = function(*args, **kwargs)
+                success = True
+                return result
             finally:
                 event_name = decorator_kwargs.get("metric_name", function.__name__)
                 get_deadline_cloud_library_telemetry_client().record_event(

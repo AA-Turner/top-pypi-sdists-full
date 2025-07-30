@@ -405,9 +405,18 @@ class NamedTypeTest(
             Column("value", dt),
             schema=symbol_name,
         )
-        conn = connection.execution_options(
-            schema_translate_map={symbol_name: testing.config.test_schema}
-        )
+
+        execution_opts = {
+            "schema_translate_map": {symbol_name: testing.config.test_schema}
+        }
+
+        if symbol_name is None:
+            # we are adding/ removing None from the schema_translate_map across
+            # runs, so we can't use caching else compiler will raise if it sees
+            # an inconsistency here
+            execution_opts["compiled_cache"] = None  # type: ignore
+
+        conn = connection.execution_options(**execution_opts)
         t1.create(conn)
         assert "schema_mytype" in [
             e["name"]
@@ -3548,7 +3557,11 @@ class SpecialTypesTest(fixtures.TablesTest, ComparesTables):
         (postgresql.INET, "127.0.0.1"),
         (postgresql.CIDR, "192.168.100.128/25"),
         (postgresql.MACADDR, "08:00:2b:01:02:03"),
-        (postgresql.MACADDR8, "08:00:2b:01:02:03:04:05"),
+        (
+            postgresql.MACADDR8,
+            "08:00:2b:01:02:03:04:05",
+            testing.skip_if("postgresql < 10"),
+        ),
         argnames="column_type, value",
         id_="na",
     )
@@ -5869,15 +5882,9 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
     def any_(self):
         return any_(array([7]))
 
+    # Test combinations that use path (#>) and astext (->> and #>>) operators
+    # These don't change between JSON and JSONB
     @testing.combinations(
-        (
-            lambda self: self.jsoncol["bar"] == None,  # noqa
-            "(test_table.test_column -> %(test_column_1)s) IS NULL",
-        ),
-        (
-            lambda self: self.jsoncol["bar"] != None,  # noqa
-            "(test_table.test_column -> %(test_column_1)s) IS NOT NULL",
-        ),
         (
             lambda self: self.jsoncol[("foo", 1)] == None,  # noqa
             "(test_table.test_column #> %(test_column_1)s) IS NULL",
@@ -5896,31 +5903,8 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
             "= %(param_1)s",
         ),
         (
-            lambda self: self.jsoncol["bar"].cast(Integer) == 5,
-            "CAST((test_table.test_column -> %(test_column_1)s) AS INTEGER) "
-            "= %(param_1)s",
-        ),
-        (
             lambda self: self.jsoncol[("foo", 1)].astext == None,  # noqa
             "(test_table.test_column #>> %(test_column_1)s) IS NULL",
-        ),
-        (
-            lambda self: self.jsoncol["bar"] == 42,
-            "(test_table.test_column -> %(test_column_1)s) = %(param_1)s",
-        ),
-        (
-            lambda self: self.jsoncol["bar"] != 42,
-            "(test_table.test_column -> %(test_column_1)s) != %(param_1)s",
-        ),
-        (
-            lambda self: self.jsoncol["bar"] == self.any_,
-            "(test_table.test_column -> %(test_column_1)s) = "
-            "ANY (ARRAY[%(param_1)s])",
-        ),
-        (
-            lambda self: self.jsoncol["bar"] != self.any_,
-            "(test_table.test_column -> %(test_column_1)s) != "
-            "ANY (ARRAY[%(param_1)s])",
         ),
         (
             lambda self: self.jsoncol["bar"].astext == self.any_,
@@ -5953,6 +5937,51 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
             "WHERE %s" % expected,
         )
 
+    # Test combinations that use subscript (->) operator
+    # These differ between JSON (always ->) and JSONB ([] on PG 14+)
+    @testing.combinations(
+        (
+            lambda self: self.jsoncol["bar"] == None,  # noqa
+            "(test_table.test_column -> %(test_column_1)s) IS NULL",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] != None,  # noqa
+            "(test_table.test_column -> %(test_column_1)s) IS NOT NULL",
+        ),
+        (
+            lambda self: self.jsoncol["bar"].cast(Integer) == 5,
+            "CAST((test_table.test_column -> %(test_column_1)s) AS INTEGER) "
+            "= %(param_1)s",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] == 42,
+            "(test_table.test_column -> %(test_column_1)s) = %(param_1)s",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] != 42,
+            "(test_table.test_column -> %(test_column_1)s) != %(param_1)s",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] == self.any_,
+            "(test_table.test_column -> %(test_column_1)s) = "
+            "ANY (ARRAY[%(param_1)s])",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] != self.any_,
+            "(test_table.test_column -> %(test_column_1)s) != "
+            "ANY (ARRAY[%(param_1)s])",
+        ),
+        id_="as",
+    )
+    def test_where_subscript(self, whereclause_fn, expected):
+        whereclause = whereclause_fn(self)
+        stmt = select(self.test_table).where(whereclause)
+        self.assert_compile(
+            stmt,
+            "SELECT test_table.id, test_table.test_column FROM test_table "
+            "WHERE %s" % expected,
+        )
+
     def test_path_typing(self):
         col = column("x", JSON())
         is_(col["q"].type._type_affinity, types.JSON)
@@ -5972,6 +6001,8 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
 
         is_(col["q"]["p"].astext.type.__class__, MyType)
 
+    # Test column selection that uses subscript (->) operator
+    # This differs between JSON (always ->) and JSONB ([] on PG 14+)
     @testing.combinations(
         (
             lambda self: self.jsoncol["foo"],
@@ -5979,7 +6010,7 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
             True,
         )
     )
-    def test_cols(self, colclause_fn, expected, from_):
+    def test_cols_subscript(self, colclause_fn, expected, from_):
         colclause = colclause_fn(self)
         stmt = select(colclause)
         self.assert_compile(
@@ -6340,6 +6371,68 @@ class JSONBTest(JSONTest):
     )
     def test_where_jsonb(self, whereclause_fn, expected):
         super().test_where(whereclause_fn, expected)
+
+    # Override test_where_subscript to provide JSONB-specific expectations
+    # JSONB uses subscript syntax (e.g., col['key']) on PostgreSQL 14+
+    @testing.combinations(
+        (
+            lambda self: self.jsoncol["bar"] == None,  # noqa
+            "test_table.test_column[%(test_column_1)s] IS NULL",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] != None,  # noqa
+            "test_table.test_column[%(test_column_1)s] IS NOT NULL",
+        ),
+        (
+            lambda self: self.jsoncol["bar"].cast(Integer) == 5,
+            "CAST(test_table.test_column[%(test_column_1)s] AS INTEGER) "
+            "= %(param_1)s",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] == 42,
+            "test_table.test_column[%(test_column_1)s] = %(param_1)s",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] != 42,
+            "test_table.test_column[%(test_column_1)s] != %(param_1)s",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] == self.any_,
+            "test_table.test_column[%(test_column_1)s] = "
+            "ANY (ARRAY[%(param_1)s])",
+        ),
+        (
+            lambda self: self.jsoncol["bar"] != self.any_,
+            "test_table.test_column[%(test_column_1)s] != "
+            "ANY (ARRAY[%(param_1)s])",
+        ),
+        id_="as",
+    )
+    def test_where_subscript(self, whereclause_fn, expected):
+        whereclause = whereclause_fn(self)
+        stmt = select(self.test_table).where(whereclause)
+        self.assert_compile(
+            stmt,
+            "SELECT test_table.id, test_table.test_column FROM test_table "
+            "WHERE %s" % expected,
+        )
+
+    # Override test_cols_subscript to provide JSONB-specific expectations
+    # JSONB uses subscript syntax (e.g., col['key']) on PostgreSQL 14+
+    @testing.combinations(
+        (
+            lambda self: self.jsoncol["foo"],
+            "test_table.test_column[%(test_column_1)s] AS anon_1",
+            True,
+        )
+    )
+    def test_cols_subscript(self, colclause_fn, expected, from_):
+        colclause = colclause_fn(self)
+        stmt = select(colclause)
+        self.assert_compile(
+            stmt,
+            ("SELECT %s" + (" FROM test_table" if from_ else "")) % expected,
+        )
 
 
 class JSONBRoundTripTest(JSONRoundTripTest):

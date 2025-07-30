@@ -168,6 +168,13 @@ class TestWebhookControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_test_webhook_payload_new_ai_transform_result(self):
+        """Test case for get_test_webhook_payload_new_ai_transform_result
+
+        Get webhook test payload for new ai transform result event  # noqa: E501
+        """
+        pass
+
     def test_get_test_webhook_payload_new_attachment(self):
         """Test case for get_test_webhook_payload_new_attachment
 

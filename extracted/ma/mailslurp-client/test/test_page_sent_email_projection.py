@@ -40,12 +40,6 @@ class TestPageSentEmailProjection(unittest.TestCase):
                 content = [
                     mailslurp_client.models.sent_email_projection.SentEmailProjection(
                         id = '0', 
-                        subject = '0', 
-                        from = '0', 
-                        sender = mailslurp_client.models.sender.Sender(
-                            raw_value = '0', 
-                            email_address = '0', 
-                            name = '0', ), 
                         recipients = mailslurp_client.models.email_recipients.EmailRecipients(
                             to = [
                                 mailslurp_client.models.recipient.Recipient(
@@ -65,6 +59,12 @@ class TestPageSentEmailProjection(unittest.TestCase):
                                     email_address = '0', 
                                     name = '0', )
                                 ], ), 
+                        from = '0', 
+                        sender = mailslurp_client.models.sender.Sender(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', ), 
+                        subject = '0', 
                         attachments = [
                             '0'
                             ], 

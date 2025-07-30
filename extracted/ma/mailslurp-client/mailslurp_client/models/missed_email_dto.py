@@ -246,6 +246,7 @@ class MissedEmailDto(object):
     def raw_url(self):
         """Gets the raw_url of this MissedEmailDto.  # noqa: E501
 
+        use raw key and raw bucket  # noqa: E501
 
         :return: The raw_url of this MissedEmailDto.  # noqa: E501
         :rtype: str
@@ -256,6 +257,7 @@ class MissedEmailDto(object):
     def raw_url(self, raw_url):
         """Sets the raw_url of this MissedEmailDto.
 
+        use raw key and raw bucket  # noqa: E501
 
         :param raw_url: The raw_url of this MissedEmailDto.  # noqa: E501
         :type: str

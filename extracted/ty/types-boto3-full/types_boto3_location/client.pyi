@@ -288,7 +288,7 @@ class LocationServiceClient(BaseClient):
     ) -> CalculateRouteResponseTypeDef:
         """
         <a
-        href="https://docs.aws.amazon.com/location/latest/developerguide/calculate-route.html">Calculates
+        href="https://docs.aws.amazon.com/location/previous/developerguide/calculate-route.html">Calculates
         a route</a> given the following required parameters:
         <code>DeparturePosition</code> and <code>DestinationPosition</code>.
 
@@ -301,7 +301,7 @@ class LocationServiceClient(BaseClient):
     ) -> CalculateRouteMatrixResponseTypeDef:
         """
         <a
-        href="https://docs.aws.amazon.com/location/latest/developerguide/calculate-route-matrix.html">
+        href="https://docs.aws.amazon.com/location/previous/developerguide/calculate-route-matrix.html">
         Calculates a route matrix</a> given the following required parameters:
         <code>DeparturePositions</code> and <code>DestinationPositions</code>.
 
@@ -496,8 +496,8 @@ class LocationServiceClient(BaseClient):
         self, **kwargs: Unpack[ForecastGeofenceEventsRequestTypeDef]
     ) -> ForecastGeofenceEventsResponseTypeDef:
         """
-        Evaluates device positions against geofence geometries from a given geofence
-        collection.
+        This action forecasts future geofence events that are likely to occur within a
+        specified time horizon if a device continues moving at its current speed.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/forecast_geofence_events.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_location/client/#forecast_geofence_events)

@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_entry`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_entry`](https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry).
+Refer to the Terraform Registry for docs: [`google_dataplex_entry`](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataplexEntry(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataplexEntry.DataplexEntry",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry google_dataplex_entry}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry google_dataplex_entry}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class DataplexEntry(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry google_dataplex_entry} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry google_dataplex_entry} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_type DataplexEntry#entry_type}
-        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspects DataplexEntry#aspects}
-        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_group_id DataplexEntry#entry_group_id}
-        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_id DataplexEntry#entry_id}
-        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_source DataplexEntry#entry_source}
-        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#fully_qualified_name DataplexEntry#fully_qualified_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#id DataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#location DataplexEntry#location}
-        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#parent_entry DataplexEntry#parent_entry}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#project DataplexEntry#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#timeouts DataplexEntry#timeouts}
+        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_type DataplexEntry#entry_type}
+        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspects DataplexEntry#aspects}
+        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_group_id DataplexEntry#entry_group_id}
+        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_id DataplexEntry#entry_id}
+        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_source DataplexEntry#entry_source}
+        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#fully_qualified_name DataplexEntry#fully_qualified_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#id DataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#location DataplexEntry#location}
+        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#parent_entry DataplexEntry#parent_entry}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#project DataplexEntry#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#timeouts DataplexEntry#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class DataplexEntry(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataplexEntry to import.
-        :param import_from_id: The id of the existing DataplexEntry that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataplexEntry that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataplexEntry to import is found.
         '''
         if __debug__:
@@ -172,15 +172,15 @@ class DataplexEntry(
         update_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#ancestors DataplexEntry#ancestors}
-        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#create_time DataplexEntry#create_time}
-        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#description DataplexEntry#description}
-        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#display_name DataplexEntry#display_name}
-        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#labels DataplexEntry#labels}
-        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#platform DataplexEntry#platform}
-        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#resource DataplexEntry#resource}
-        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#system DataplexEntry#system}
-        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#update_time DataplexEntry#update_time}
+        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#ancestors DataplexEntry#ancestors}
+        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#create_time DataplexEntry#create_time}
+        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#description DataplexEntry#description}
+        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#display_name DataplexEntry#display_name}
+        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#labels DataplexEntry#labels}
+        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#platform DataplexEntry#platform}
+        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#resource DataplexEntry#resource}
+        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#system DataplexEntry#system}
+        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#update_time DataplexEntry#update_time}
         '''
         value = DataplexEntryEntrySource(
             ancestors=ancestors,
@@ -205,9 +205,9 @@ class DataplexEntry(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#create DataplexEntry#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#delete DataplexEntry#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#update DataplexEntry#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#create DataplexEntry#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#delete DataplexEntry#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#update DataplexEntry#update}.
         '''
         value = DataplexEntryTimeouts(create=create, delete=delete, update=update)
 
@@ -465,8 +465,8 @@ class DataplexEntryAspects:
         aspect_key: builtins.str,
     ) -> None:
         '''
-        :param aspect: aspect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspect DataplexEntry#aspect}
-        :param aspect_key: Depending on how the aspect is attached to the entry, the format of the aspect key can be one of the following:. If the aspect is attached directly to the entry: {project_number}.{locationId}.{aspectTypeId} If the aspect is attached to an entry's path: {project_number}.{locationId}.{aspectTypeId}@{path} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspect_key DataplexEntry#aspect_key}
+        :param aspect: aspect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspect DataplexEntry#aspect}
+        :param aspect_key: Depending on how the aspect is attached to the entry, the format of the aspect key can be one of the following:. If the aspect is attached directly to the entry: {project_number}.{locationId}.{aspectTypeId} If the aspect is attached to an entry's path: {project_number}.{locationId}.{aspectTypeId}@{path} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspect_key DataplexEntry#aspect_key}
         '''
         if isinstance(aspect, dict):
             aspect = DataplexEntryAspectsAspect(**aspect)
@@ -483,7 +483,7 @@ class DataplexEntryAspects:
     def aspect(self) -> "DataplexEntryAspectsAspect":
         '''aspect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspect DataplexEntry#aspect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspect DataplexEntry#aspect}
         '''
         result = self._values.get("aspect")
         assert result is not None, "Required property 'aspect' is missing"
@@ -496,7 +496,7 @@ class DataplexEntryAspects:
         If the aspect is attached directly to the entry: {project_number}.{locationId}.{aspectTypeId}
         If the aspect is attached to an entry's path: {project_number}.{locationId}.{aspectTypeId}@{path}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspect_key DataplexEntry#aspect_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspect_key DataplexEntry#aspect_key}
         '''
         result = self._values.get("aspect_key")
         assert result is not None, "Required property 'aspect_key' is missing"
@@ -522,7 +522,7 @@ class DataplexEntryAspects:
 class DataplexEntryAspectsAspect:
     def __init__(self, *, data: builtins.str) -> None:
         '''
-        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#data DataplexEntry#data}
+        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#data DataplexEntry#data}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__899a4df70587095c7cbfa958272d99007670371e7d8198af0fbf01fa5868ba0b)
@@ -537,7 +537,7 @@ class DataplexEntryAspectsAspect:
 
         The maximum size of the field is 120KB (encoded as UTF-8).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#data DataplexEntry#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#data DataplexEntry#data}
         '''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
@@ -747,7 +747,7 @@ class DataplexEntryAspectsOutputReference(
     @jsii.member(jsii_name="putAspect")
     def put_aspect(self, *, data: builtins.str) -> None:
         '''
-        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#data DataplexEntry#data}
+        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#data DataplexEntry#data}
         '''
         value = DataplexEntryAspectsAspect(data=data)
 
@@ -853,17 +853,17 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_type DataplexEntry#entry_type}
-        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspects DataplexEntry#aspects}
-        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_group_id DataplexEntry#entry_group_id}
-        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_id DataplexEntry#entry_id}
-        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_source DataplexEntry#entry_source}
-        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#fully_qualified_name DataplexEntry#fully_qualified_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#id DataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#location DataplexEntry#location}
-        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#parent_entry DataplexEntry#parent_entry}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#project DataplexEntry#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#timeouts DataplexEntry#timeouts}
+        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_type DataplexEntry#entry_type}
+        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspects DataplexEntry#aspects}
+        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_group_id DataplexEntry#entry_group_id}
+        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_id DataplexEntry#entry_id}
+        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_source DataplexEntry#entry_source}
+        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#fully_qualified_name DataplexEntry#fully_qualified_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#id DataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#location DataplexEntry#location}
+        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#parent_entry DataplexEntry#parent_entry}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#project DataplexEntry#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#timeouts DataplexEntry#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -997,7 +997,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_type(self) -> builtins.str:
         '''The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_type DataplexEntry#entry_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_type DataplexEntry#entry_type}
         '''
         result = self._values.get("entry_type")
         assert result is not None, "Required property 'entry_type' is missing"
@@ -1009,7 +1009,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataplexEntryAspects]]]:
         '''aspects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#aspects DataplexEntry#aspects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#aspects DataplexEntry#aspects}
         '''
         result = self._values.get("aspects")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataplexEntryAspects]]], result)
@@ -1018,7 +1018,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_group_id(self) -> typing.Optional[builtins.str]:
         '''The entry group id of the entry group the entry will be created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_group_id DataplexEntry#entry_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_group_id DataplexEntry#entry_group_id}
         '''
         result = self._values.get("entry_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1027,7 +1027,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_id(self) -> typing.Optional[builtins.str]:
         '''The entry id of the entry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_id DataplexEntry#entry_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_id DataplexEntry#entry_id}
         '''
         result = self._values.get("entry_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1036,7 +1036,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_source(self) -> typing.Optional["DataplexEntryEntrySource"]:
         '''entry_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#entry_source DataplexEntry#entry_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#entry_source DataplexEntry#entry_source}
         '''
         result = self._values.get("entry_source")
         return typing.cast(typing.Optional["DataplexEntryEntrySource"], result)
@@ -1048,14 +1048,14 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names.
         The maximum size of the field is 4000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#fully_qualified_name DataplexEntry#fully_qualified_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#fully_qualified_name DataplexEntry#fully_qualified_name}
         '''
         result = self._values.get("fully_qualified_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#id DataplexEntry#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#id DataplexEntry#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1067,7 +1067,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location where entry will be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#location DataplexEntry#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#location DataplexEntry#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1076,14 +1076,14 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent_entry(self) -> typing.Optional[builtins.str]:
         '''The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#parent_entry DataplexEntry#parent_entry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#parent_entry DataplexEntry#parent_entry}
         '''
         result = self._values.get("parent_entry")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#project DataplexEntry#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#project DataplexEntry#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1091,7 +1091,7 @@ class DataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataplexEntryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#timeouts DataplexEntry#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#timeouts DataplexEntry#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataplexEntryTimeouts"], result)
@@ -1138,15 +1138,15 @@ class DataplexEntryEntrySource:
         update_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#ancestors DataplexEntry#ancestors}
-        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#create_time DataplexEntry#create_time}
-        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#description DataplexEntry#description}
-        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#display_name DataplexEntry#display_name}
-        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#labels DataplexEntry#labels}
-        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#platform DataplexEntry#platform}
-        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#resource DataplexEntry#resource}
-        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#system DataplexEntry#system}
-        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#update_time DataplexEntry#update_time}
+        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#ancestors DataplexEntry#ancestors}
+        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#create_time DataplexEntry#create_time}
+        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#description DataplexEntry#description}
+        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#display_name DataplexEntry#display_name}
+        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#labels DataplexEntry#labels}
+        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#platform DataplexEntry#platform}
+        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#resource DataplexEntry#resource}
+        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#system DataplexEntry#system}
+        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#update_time DataplexEntry#update_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4613345ef4ae3872d646c486214f384d742d7417196bc790ae127b4e424abf64)
@@ -1185,7 +1185,7 @@ class DataplexEntryEntrySource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataplexEntryEntrySourceAncestors"]]]:
         '''ancestors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#ancestors DataplexEntry#ancestors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#ancestors DataplexEntry#ancestors}
         '''
         result = self._values.get("ancestors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataplexEntryEntrySourceAncestors"]]], result)
@@ -1194,7 +1194,7 @@ class DataplexEntryEntrySource:
     def create_time(self) -> typing.Optional[builtins.str]:
         '''The time when the resource was created in the source system.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#create_time DataplexEntry#create_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#create_time DataplexEntry#create_time}
         '''
         result = self._values.get("create_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1203,7 +1203,7 @@ class DataplexEntryEntrySource:
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the data resource. Maximum length is 2,000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#description DataplexEntry#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#description DataplexEntry#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1212,7 +1212,7 @@ class DataplexEntryEntrySource:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A user-friendly display name. Maximum length is 500 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#display_name DataplexEntry#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#display_name DataplexEntry#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1224,7 +1224,7 @@ class DataplexEntryEntrySource:
         The maximum size of keys and values is 128 characters each.
         An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#labels DataplexEntry#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#labels DataplexEntry#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1233,7 +1233,7 @@ class DataplexEntryEntrySource:
     def platform(self) -> typing.Optional[builtins.str]:
         '''The platform containing the source system. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#platform DataplexEntry#platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#platform DataplexEntry#platform}
         '''
         result = self._values.get("platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1242,7 +1242,7 @@ class DataplexEntryEntrySource:
     def resource(self) -> typing.Optional[builtins.str]:
         '''The name of the resource in the source system. Maximum length is 4,000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#resource DataplexEntry#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#resource DataplexEntry#resource}
         '''
         result = self._values.get("resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1251,7 +1251,7 @@ class DataplexEntryEntrySource:
     def system_attribute(self) -> typing.Optional[builtins.str]:
         '''The name of the source system. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#system DataplexEntry#system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#system DataplexEntry#system}
         '''
         result = self._values.get("system_attribute")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1263,7 +1263,7 @@ class DataplexEntryEntrySource:
         If the entry exists in the system and its EntrySource has updateTime populated,
         further updates to the EntrySource of the entry must provide incremental updates to its updateTime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#update_time DataplexEntry#update_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#update_time DataplexEntry#update_time}
         '''
         result = self._values.get("update_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1293,8 +1293,8 @@ class DataplexEntryEntrySourceAncestors:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#name DataplexEntry#name}
-        :param type: The type of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#type DataplexEntry#type}
+        :param name: The name of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#name DataplexEntry#name}
+        :param type: The type of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#type DataplexEntry#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__332ecf58d14ae50db266ad5ddcdaa4e541658cbd08d56d52de9a62dd840e8057)
@@ -1310,7 +1310,7 @@ class DataplexEntryEntrySourceAncestors:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the ancestor resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#name DataplexEntry#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#name DataplexEntry#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1319,7 +1319,7 @@ class DataplexEntryEntrySourceAncestors:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of the ancestor resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#type DataplexEntry#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#type DataplexEntry#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1766,9 +1766,9 @@ class DataplexEntryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#create DataplexEntry#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#delete DataplexEntry#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#update DataplexEntry#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#create DataplexEntry#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#delete DataplexEntry#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#update DataplexEntry#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82b1e20af0f4d1b6f642dd65c17d1822212a6b677184c0e70b9cba125ce2d52a)
@@ -1785,19 +1785,19 @@ class DataplexEntryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#create DataplexEntry#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#create DataplexEntry#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#delete DataplexEntry#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#delete DataplexEntry#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/dataplex_entry#update DataplexEntry#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/dataplex_entry#update DataplexEntry#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -178,7 +178,7 @@ class CreateWebhookOptions(object):
         :param event_name: The event_name of this CreateWebhookOptions.  # noqa: E501
         :type: str
         """
-        allowed_values = [None,"EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
+        allowed_values = [None,"EMAIL_RECEIVED", "NEW_AI_TRANSFORM_RESULT", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and event_name not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `event_name` ({0}), must be one of {1}"  # noqa: E501

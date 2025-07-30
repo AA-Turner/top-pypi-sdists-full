@@ -146,7 +146,9 @@ pub enum ValidationErrorKind {
     /// Negated schema failed validation.
     Not { schema: Value },
     /// The given schema is valid under more than one of the schemas listed in the 'oneOf' keyword.
-    OneOfMultipleValid,
+    OneOfMultipleValid {
+        context: Vec<Vec<ValidationError<'static>>>,
+    },
     /// The given schema is not valid under any of the schemas listed in the 'oneOf' keyword.
     OneOfNotValid {
         context: Vec<Vec<ValidationError<'static>>>,
@@ -602,15 +604,21 @@ impl<'a> ValidationError<'a> {
             schema_path: location,
         }
     }
-    pub(crate) const fn one_of_multiple_valid(
+    pub(crate) fn one_of_multiple_valid(
         location: Location,
         instance_path: Location,
         instance: &'a Value,
+        context: Vec<Vec<ValidationError<'a>>>,
     ) -> ValidationError<'a> {
         ValidationError {
             instance_path,
             instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::OneOfMultipleValid,
+            kind: ValidationErrorKind::OneOfMultipleValid {
+                context: context
+                    .into_iter()
+                    .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
+                    .collect(),
+            },
             schema_path: location,
         }
     }
@@ -803,6 +811,48 @@ fn write_unexpected_suffix(f: &mut Formatter<'_>, len: usize) -> fmt::Result {
     })
 }
 
+const MAX_DISPLAYED_ENUM_VARIANTS: usize = 3;
+
+fn write_enum_message(
+    f: &mut Formatter<'_>,
+    value: impl fmt::Display,
+    options: &Value,
+) -> fmt::Result {
+    let array = options
+        .as_array()
+        .expect("Enum options must be a JSON array");
+
+    write!(f, "{value} is not one of ")?;
+
+    let total_count = array.len();
+
+    if total_count <= MAX_DISPLAYED_ENUM_VARIANTS {
+        // Show all options with proper "a, b or c" formatting
+        for (i, option) in array.iter().enumerate() {
+            if i == 0 {
+                write!(f, "{option}")?;
+            } else if i == total_count - 1 {
+                write!(f, " or {option}")?;
+            } else {
+                write!(f, ", {option}")?;
+            }
+        }
+    } else {
+        // Show first few, then "or X other candidates"
+        let show_count = MAX_DISPLAYED_ENUM_VARIANTS - 1;
+        for (i, option) in array.iter().take(show_count).enumerate() {
+            if i == 0 {
+                write!(f, "{option}")?;
+            } else {
+                write!(f, ", {option}")?;
+            }
+        }
+        let remaining = total_count - show_count;
+        write!(f, " or {remaining} other candidates")?;
+    }
+    Ok(())
+}
+
 /// Textual representation of various validation errors.
 impl fmt::Display for ValidationError<'_> {
     #[allow(clippy::too_many_lines)] // The function is long but it does formatting only
@@ -866,9 +916,7 @@ impl fmt::Display for ValidationError<'_> {
                 )
             }
             ValidationErrorKind::FromUtf8 { error } => error.fmt(f),
-            ValidationErrorKind::Enum { options } => {
-                write!(f, "{} is not one of {}", self.instance, options)
-            }
+            ValidationErrorKind::Enum { options } => write_enum_message(f, &self.instance, options),
             ValidationErrorKind::ExclusiveMaximum { limit } => write!(
                 f,
                 "{} is greater than or equal to the maximum of {}",
@@ -935,7 +983,7 @@ impl fmt::Display for ValidationError<'_> {
             ValidationErrorKind::Not { schema } => {
                 write!(f, "{} is not allowed for {}", schema, self.instance)
             }
-            ValidationErrorKind::OneOfMultipleValid => write!(
+            ValidationErrorKind::OneOfMultipleValid { .. } => write!(
                 f,
                 "{} is valid under more than one of the schemas listed in the 'oneOf' keyword",
                 self.instance
@@ -1012,7 +1060,7 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 write_quoted_list(f, unexpected)?;
                 write_unexpected_suffix(f, unexpected.len())
             }
-            ValidationErrorKind::AnyOf { context: _ } => write!(
+            ValidationErrorKind::AnyOf { .. } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'anyOf' keyword",
                 self.placeholder
@@ -1046,7 +1094,7 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
             }
             ValidationErrorKind::FromUtf8 { error } => error.fmt(f),
             ValidationErrorKind::Enum { options } => {
-                write!(f, "{} is not one of {}", self.placeholder, options)
+                write_enum_message(f, &self.placeholder, options)
             }
             ValidationErrorKind::ExclusiveMaximum { limit } => write!(
                 f,
@@ -1118,7 +1166,7 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
             ValidationErrorKind::Not { schema } => {
                 write!(f, "{} is not allowed for {}", schema, self.placeholder)
             }
-            ValidationErrorKind::OneOfMultipleValid => write!(
+            ValidationErrorKind::OneOfMultipleValid { .. } => write!(
                 f,
                 "{} is valid under more than one of the schemas listed in the 'oneOf' keyword",
                 self.placeholder

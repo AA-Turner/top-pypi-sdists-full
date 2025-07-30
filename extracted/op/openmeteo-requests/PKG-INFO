@@ -1,49 +1,31 @@
 Metadata-Version: 2.4
 Name: openmeteo_requests
-Version: 1.5.0
+Version: 1.6.0
 Summary: Open-Meteo Python Library
 Project-URL: Documentation, https://github.com/open-meteo/python-requests/tree/main#readme
-Project-URL: Source, https://github.com/open-meteo/python-requests
-Project-URL: Tracker, https://github.com/open-meteo/python-requests/issues
+Project-URL: Repository, https://github.com/open-meteo/python-requests
+Project-URL: Issue Tracker, https://github.com/open-meteo/python-requests/issues
 Author-email: Patrick Zippenfenig <info@open-meteo.com>
 License-File: LICENSE
+Keywords: client,meteo,open,python,weather
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.8.1
-Requires-Dist: niquests<4,>=3
-Requires-Dist: openmeteo-sdk>=1.4.0
-Provides-Extra: spark
-Requires-Dist: pyspark>=3.0.0; extra == 'spark'
-Provides-Extra: test
-Requires-Dist: bandit[toml]>=1.7.5; extra == 'test'
-Requires-Dist: black>=23.10.0; extra == 'test'
-Requires-Dist: check-manifest>=0.49; extra == 'test'
-Requires-Dist: flake8; extra == 'test'
-Requires-Dist: flake8-bugbear>=23.9.16; extra == 'test'
-Requires-Dist: flake8-docstrings; extra == 'test'
-Requires-Dist: flake8-formatter-junit-xml; extra == 'test'
-Requires-Dist: flake8-pyproject; extra == 'test'
-Requires-Dist: pre-commit>=3.5.0; extra == 'test'
-Requires-Dist: pylint-junit; extra == 'test'
-Requires-Dist: pylint>=3.0.1; extra == 'test'
-Requires-Dist: pytest-asyncio; extra == 'test'
-Requires-Dist: pytest-cov>=4.1.0; extra == 'test'
-Requires-Dist: pytest-github-actions-annotate-failures; extra == 'test'
-Requires-Dist: pytest-mock>=3.11.2; extra == 'test'
-Requires-Dist: pytest-runner; extra == 'test'
-Requires-Dist: pytest>=7.4.0; extra == 'test'
-Requires-Dist: shellcheck-py>=0.9.0.6; extra == 'test'
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
+Requires-Dist: niquests>=3.14.1
+Requires-Dist: openmeteo-sdk>=1.20.1
 Description-Content-Type: text/markdown
 
 # Open-Meteo API Python Client
 
-This ia an API client to get weather data from the [Open-Meteo Weather API](https://open-meteo.com) based on the Python library `requests`.
+This ia an API client to get weather data from the [Open-Meteo Weather API](https://open-meteo.com).
 
 Instead of using JSON, the API client uses FlatBuffers to transfer data. Encoding data in FlatBuffers is more efficient for long time-series data. Data can be transferred to `numpy`, `pandas`, or `polars` using [Zero-Copy](https://en.wikipedia.org/wiki/Zero-copy) to analyze large amount of data quickly. The schema definition files can be found on [GitHub open-meteo/sdk](https://github.com/open-meteo/sdk).
 
@@ -51,7 +33,9 @@ This library is primarily designed for data-scientists to process weather data. 
 
 ## Basic Usage
 
-The following example gets an hourly temperature, wind speed and precipitation forecast for Berlin. Additionally, the current temperature and relative humidity is retrieved. It is recommended to only specify the required weather variables.
+The following example gets an hourly temperature, wind speed and precipitation forecast for Berlin.
+Additionally, the current temperature and relative humidity is retrieved.
+It is recommended to only specify the required weather variables.
 
 ```python
 # pip install openmeteo-requests
@@ -151,10 +135,10 @@ After using `NumPy` to create arrays for hourly data, you can use `Pandas` to cr
 import pandas as pd
 
 hourly_data = {"date": pd.date_range(
-	start = pd.to_datetime(hourly.Time(), unit = "s"),
-	end = pd.to_datetime(hourly.TimeEnd(), unit = "s"),
-	freq = pd.Timedelta(seconds = hourly.Interval()),
-	inclusive = "left"
+    start = pd.to_datetime(hourly.Time(), unit = "s"),
+    end = pd.to_datetime(hourly.TimeEnd(), unit = "s"),
+    freq = pd.Timedelta(seconds = hourly.Interval()),
+    inclusive = "left"
 )}
 hourly_data["temperature_2m"] = hourly_temperature_2m
 hourly_data["precipitation"] = hourly_precipitation
@@ -223,7 +207,7 @@ om = openmeteo_requests.Client(session=retry_session)
 # Using the client object `om` will now cache all weather data
 ```
 
-# TODO
+## TODO
 
 - Document multi location/timeinterval usage
 - Document FlatBuffers data structure
@@ -233,6 +217,6 @@ om = openmeteo_requests.Client(session=retry_session)
 - Document endpoints for air quality, etc
 - Consider dedicated pandas library to convert responses quickly
 
-# License
+## License
 
 MIT

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: test_functional.py 9518 2024-01-26 22:46:31Z milde $
+# $Id: test_functional.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: Lea Wiemann <LeWiemann@gmail.com>
 # Copyright: This module has been placed in the public domain.
 
@@ -96,7 +96,7 @@ class FunctionalTests(unittest.TestCase):
         for entry in OUTPUT.rglob('*'):
             if entry.is_dir():
                 shutil.rmtree(entry)
-            elif entry.name != 'README.txt':
+            elif entry.name != 'README.rst':
                 entry.unlink()
 
     def test_functional(self):

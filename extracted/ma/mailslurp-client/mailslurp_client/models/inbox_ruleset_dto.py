@@ -169,7 +169,7 @@ class InboxRulesetDto(object):
         """
         if self.local_vars_configuration.client_side_validation and action is None:  # noqa: E501
             raise ValueError("Invalid value for `action`, must not be `None`")  # noqa: E501
-        allowed_values = ["BLOCK", "ALLOW", "FILTER_REMOVE"]  # noqa: E501
+        allowed_values = ["BLOCK", "ALLOW", "FILTER_REMOVE", "BOUNCE_SOFT", "BOUNCE_HARD"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and action not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `action` ({0}), must be one of {1}"  # noqa: E501

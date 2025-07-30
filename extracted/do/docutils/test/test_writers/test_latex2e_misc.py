@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_latex2e_misc.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_latex2e_misc.py 10003 2024-12-18 22:03:08Z milde $
 # Author: Günter Milde
 # Maintainer: docutils-develop@lists.sourceforge.net
 # :Copyright: 2020 Günter Milde,
@@ -16,11 +16,24 @@
 Miscellaneous LaTeX writer tests.
 """
 
+from pathlib import Path
+import sys
 import unittest
 
-from docutils import core
 
-contents_test_input = """\
+if __name__ == '__main__':
+    # prepend the "docutils root" to the Python library path
+    # so we import the local `docutils` package.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from docutils import core
+from docutils.writers import latex2e
+
+# TEST_ROOT is ./test/ from the docutils root
+TEST_ROOT = Path(__file__).parents[1]
+DATA_ROOT = TEST_ROOT / 'data'
+
+sample_toc = """\
 .. contents:: TOC
 
 foo
@@ -31,13 +44,38 @@ bar
 
 """
 
+sample_multiterm = f"""\
+.. include:: {DATA_ROOT}/multiple-term-definition.xml
+   :parser: xml
+"""
+expected_multiterm = """
+\\begin{description}
+\\item[{New in Docutils 0.22}] \n\
+A definition list item may contain several
+terms with optional classifier(s).
+
+However, there is currently no corresponding
+reStructuredText syntax.
+
+\\item[{term 2a}] \n\
+\\item[{term 2b}] \n\
+definition 2
+
+\\item[{term 3a}] (\\textbf{classifier 3a})
+(\\textbf{classifier 3aa})
+\\item[{term 3b}] (\\textbf{classifier 3b})
+definition 3
+\\end{description}
+"""
+
 
 class PublishTestCase(unittest.TestCase):
+    maxDiff = None
 
     settings = {'_disable_config': True,
                 # avoid latex writer future warnings:
                 'use_latex_citations': False,
-                'legacy_column_widths': True,
+                'legacy_column_widths': False,
                 }
 
     def test_publish_from_doctree(self):
@@ -47,41 +85,14 @@ class PublishTestCase(unittest.TestCase):
         """
         settings = self.settings.copy()
         settings['output_encoding'] = 'unicode'
-        doctree = core.publish_doctree(contents_test_input,
+        settings['warning_stream'] = ''  # don't warn for missing ToC details
+        doctree = core.publish_doctree(sample_toc,
                                        settings_overrides=settings)
         result = core.publish_from_doctree(doctree,
-                                           writer_name='latex',
+                                           writer=latex2e.Writer(),
                                            settings_overrides=settings)
         self.assertNotIn(r'\item \hyperref[foo]{foo}', result)
-        # self.assertIn(r'\tableofcontents', result)
-
-    def test_publish_parts(self):
-        """Check for the presence of documented parts.
-        """
-        parts = core.publish_parts(contents_test_input,
-                                   writer_name='latex',
-                                   settings_overrides=self.settings)
-        documented_parts = [
-            'abstract',
-            'body',
-            'body_pre_docinfo',
-            'dedication',
-            'docinfo',
-            'encoding',
-            'errors',
-            'fallbacks',
-            'head_prefix',
-            'latex_preamble',
-            'pdfsetup',
-            'requirements',
-            'stylesheet',
-            'subtitle',
-            'title',
-            'titledata',
-            'version',
-            'whole'
-            ]
-        self.assertEqual(documented_parts, sorted(parts.keys()))
+        self.assertIn(r'\tableofcontents', result)
 
 
 class WarningsTestCase(unittest.TestCase):
@@ -96,12 +107,16 @@ class WarningsTestCase(unittest.TestCase):
                     }
         with self.assertWarnsRegex(FutureWarning,
                                    '"legacy_column_widths" will change'):
-            core.publish_string('warnings test', writer_name='latex',
+            core.publish_string('warnings test', writer=latex2e.Writer(),
                                 settings_overrides=settings)
         with self.assertWarnsRegex(FutureWarning,
                                    '"use_latex_citations" will change'):
-            core.publish_string('warnings test', writer_name='latex',
+            core.publish_string('warnings test', writer=latex2e.Writer(),
                                 settings_overrides=settings)
+
+    def test_deprecation_warnings(self):
+        with self.assertWarnsRegex(DeprecationWarning, 'will be removed'):
+            latex2e.SortableDict(deprecated=True)
 
 
 if __name__ == '__main__':

@@ -47,8 +47,24 @@ def hamming(x):
     return jnp.hamming(x)
 
 
+def hanning(x):
+    x = convert_to_tensor(x)
+    return jnp.hanning(x)
+
+
+def heaviside(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    return jnp.heaviside(x1, x2)
+
+
+def kaiser(x, beta):
+    x = convert_to_tensor(x)
+    return jnp.kaiser(x, beta)
+
+
 def bincount(x, weights=None, minlength=0, sparse=False):
-    # Note: bincount is never tracable / jittable because the output shape
+    # Note: bincount is never traceable / jittable because the output shape
     # depends on the values in x.
     if sparse or isinstance(x, jax_sparse.BCOO):
         if isinstance(x, jax_sparse.BCOO):
@@ -489,6 +505,11 @@ def broadcast_to(x, shape):
     return jnp.broadcast_to(x, shape)
 
 
+def cbrt(x):
+    x = convert_to_tensor(x)
+    return jnp.cbrt(x)
+
+
 @sparse.elementwise_unary(linear=False)
 def ceil(x):
     x = convert_to_tensor(x)
@@ -588,6 +609,11 @@ def cumsum(x, axis=None, dtype=None):
     return jnp.cumsum(x, axis=axis, dtype=dtype)
 
 
+def deg2rad(x):
+    x = convert_to_tensor(x)
+    return jnp.deg2rad(x)
+
+
 def diag(x, k=0):
     x = convert_to_tensor(x)
     return jnp.diag(x, k=k)
@@ -620,10 +646,10 @@ def digitize(x, bins):
     return jnp.digitize(x, bins)
 
 
-def dot(x, y):
-    x = convert_to_tensor(x)
-    y = convert_to_tensor(y)
-    return jnp.dot(x, y)
+def dot(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    return jnp.dot(x1, x2)
 
 
 def empty(shape, dtype=None):
@@ -972,9 +998,9 @@ def ravel(x):
     return jnp.ravel(x)
 
 
-def unravel_index(x, shape):
-    x = convert_to_tensor(x)
-    return jnp.unravel_index(x, shape)
+def unravel_index(indices, shape):
+    indices = convert_to_tensor(indices)
+    return jnp.unravel_index(indices, shape)
 
 
 @sparse.elementwise_unary(linear=True)
@@ -1202,7 +1228,7 @@ def vectorize(pyfunc, *, excluded=None, signature=None):
     return jnp.vectorize(pyfunc, excluded=excluded, signature=signature)
 
 
-def where(condition, x1, x2):
+def where(condition, x1=None, x2=None):
     return jnp.where(condition, x1, x2)
 
 
@@ -1328,6 +1354,11 @@ def logical_xor(x1, x2):
     return jnp.logical_xor(x1, x2)
 
 
+def corrcoef(x):
+    x = convert_to_tensor(x)
+    return jnp.corrcoef(x)
+
+
 def correlate(x1, x2, mode="valid"):
     x1 = convert_to_tensor(x1)
     x2 = convert_to_tensor(x2)
@@ -1347,5 +1378,5 @@ def argpartition(x, kth, axis=-1):
     return jnp.argpartition(x, kth, axis)
 
 
-def histogram(x, bins, range):
+def histogram(x, bins=10, range=None):
     return jnp.histogram(x, bins=bins, range=range)

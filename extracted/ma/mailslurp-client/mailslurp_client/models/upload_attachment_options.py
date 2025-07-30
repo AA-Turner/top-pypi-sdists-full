@@ -155,6 +155,9 @@ class UploadAttachmentOptions(object):
         """
         if self.local_vars_configuration.client_side_validation and base64_contents is None:  # noqa: E501
             raise ValueError("Invalid value for `base64_contents`, must not be `None`")  # noqa: E501
+        if (self.local_vars_configuration.client_side_validation and
+                base64_contents is not None and len(base64_contents) < 1):
+            raise ValueError("Invalid value for `base64_contents`, length must be greater than or equal to `1`")  # noqa: E501
 
         self._base64_contents = base64_contents
 

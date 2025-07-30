@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_traversals.py 9277 2022-11-26 23:15:13Z milde $
+# $Id: test_traversals.py 9914 2024-08-21 13:45:08Z milde $
 # Author: Martin Blais <blais@furius.ca>
 # Copyright: This module has been placed in the public domain.
 
@@ -68,13 +68,11 @@ class StopTraversalTests(unittest.TestCase, docutils.SettingsSpec):
         # Load some document tree in memory.
         doctree = core.publish_doctree(
             source=stop_traversal_input,
-            reader_name='standalone',
-            parser_name='restructuredtext',
             settings_spec=self)
         self.assertTrue(isinstance(doctree, nodes.document))
 
         core.publish_parts(
-            reader_name='doctree', source_class=docutils.io.DocTreeInput,
+            reader='doctree', source_class=docutils.io.DocTreeInput,
             source=doctree, source_path='test',
             writer=AttentiveWriter())
 

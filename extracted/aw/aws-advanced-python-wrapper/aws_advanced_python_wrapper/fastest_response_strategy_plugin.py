@@ -51,7 +51,6 @@ class FastestResponseStrategyPlugin(Plugin):
     _FASTEST_RESPONSE_STRATEGY_NAME = "fastest_response"
     _SUBSCRIBED_METHODS: Set[str] = {"accepts_strategy",
                                      "connect",
-                                     "force_connect",
                                      "get_host_info_by_strategy",
                                      "notify_host_list_changed"}
 
@@ -59,8 +58,8 @@ class FastestResponseStrategyPlugin(Plugin):
         self._plugin_service = plugin_service
         self._properties = props
         self._host_response_time_service: HostResponseTimeService = \
-            HostResponseTimeService(plugin_service, props, WrapperProperties.RESPONSE_MEASUREMENT_INTERVAL_MILLIS.get_int(props))
-        self._cache_expiration_nanos = WrapperProperties.RESPONSE_MEASUREMENT_INTERVAL_MILLIS.get_int(props) * 10 ^ 6
+            HostResponseTimeService(plugin_service, props, WrapperProperties.RESPONSE_MEASUREMENT_INTERVAL_MS.get_int(props))
+        self._cache_expiration_nanos = WrapperProperties.RESPONSE_MEASUREMENT_INTERVAL_MS.get_int(props) * 10 ^ 6
         self._random_host_selector = RandomHostSelector()
         self._cached_fastest_response_host_by_role: CacheMap[str, HostInfo] = CacheMap()
         self._hosts: Tuple[HostInfo, ...] = ()
@@ -77,24 +76,6 @@ class FastestResponseStrategyPlugin(Plugin):
             props: Properties,
             is_initial_connection: bool,
             connect_func: Callable) -> Connection:
-        return self._connect(host_info, props, is_initial_connection, connect_func)
-
-    def force_connect(
-            self,
-            target_driver_func: Callable,
-            driver_dialect: DriverDialect,
-            host_info: HostInfo,
-            props: Properties,
-            is_initial_connection: bool,
-            force_connect_func: Callable) -> Connection:
-        return self._connect(host_info, props, is_initial_connection, force_connect_func)
-
-    def _connect(
-            self,
-            host: HostInfo,
-            properties: Properties,
-            is_initial_connection: bool,
-            connect_func: Callable) -> Connection:
         conn = connect_func()
 
         if is_initial_connection:
@@ -105,7 +86,7 @@ class FastestResponseStrategyPlugin(Plugin):
     def accepts_strategy(self, role: HostRole, strategy: str) -> bool:
         return strategy == FastestResponseStrategyPlugin._FASTEST_RESPONSE_STRATEGY_NAME
 
-    def get_host_info_by_strategy(self, role: HostRole, strategy: str) -> HostInfo:
+    def get_host_info_by_strategy(self, role: HostRole, strategy: str, host_list: Optional[List[HostInfo]] = None) -> HostInfo:
         if not self.accepts_strategy(role, strategy):
             logger.error("FastestResponseStrategyPlugin.UnsupportedHostSelectorStrategy", strategy)
             raise AwsWrapperError(Messages.get_formatted("FastestResponseStrategyPlugin.UnsupportedHostSelectorStrategy", strategy))

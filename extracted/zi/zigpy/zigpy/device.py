@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import enum
 import itertools
 import logging
@@ -11,13 +11,18 @@ import time
 import typing
 import warnings
 
-from zigpy.ota.manager import find_ota_cluster, update_firmware
-from zigpy.zcl.clusters.general import Ota
+from zigpy.backports.contextlib import nullcontext
+from zigpy.exceptions import DeliveryError
+from zigpy.ota.manager import update_firmware
+from zigpy.zcl.clusters.general import Ota, PollControl
 
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout  # pragma: no cover
 else:
     from asyncio import timeout as asyncio_timeout  # pragma: no cover
+
+
+from dataclasses import dataclass
 
 from zigpy import zdo
 from zigpy.const import (
@@ -39,7 +44,7 @@ import zigpy.listeners
 import zigpy.types as t
 from zigpy.typing import AddressingMode
 import zigpy.util
-from zigpy.zcl import foundation
+from zigpy.zcl import Cluster, ClusterType, foundation
 import zigpy.zdo.types as zdo_t
 
 if typing.TYPE_CHECKING:
@@ -51,11 +56,23 @@ LOGGER = logging.getLogger(__name__)
 
 PACKET_DEBOUNCE_WINDOW = 10
 MAX_DEVICE_CONCURRENCY = 1
+DEFAULT_FAST_POLL_TIMEOUT = 30
 
 AFTER_OTA_ATTR_READ_DELAY = 10
 OTA_RETRY_DECORATOR = zigpy.util.retryable_request(
     tries=4, delay=AFTER_OTA_ATTR_READ_DELAY
 )
+
+
+# TODO: Only Python 3.10+ support `slots=True` for dataclasses
+@dataclass(frozen=True, **({"slots": True} if sys.version_info[:2] >= (3, 10) else {}))
+class ResponseKey:
+    """Key for request/response matching."""
+
+    endpoint_id: int
+    cluster_id: int
+    direction: foundation.Direction | None
+    tsn: int
 
 
 class Status(enum.IntEnum):
@@ -90,10 +107,13 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         self._manufacturer: str | None = None
         self._model: str | None = None
         self.node_desc: zdo_t.NodeDescriptor | None = None
-        self._pending: zigpy.util.Requests[t.uint8_t] = zigpy.util.Requests()
+        self._requests: dict[ResponseKey, asyncio.Future] = {}
         self._relays: t.Relays | None = None
         self._skip_configuration: bool = False
         self._send_sequence: int = 0
+
+        self._fast_polling_end_time = datetime.min.replace(tzinfo=timezone.utc)
+        self._on_remove_callbacks: list[typing.Callable[[], None]] = []
 
         self._packet_debouncer = zigpy.datastructures.Debouncer()
         self._concurrent_requests_semaphore = (
@@ -103,12 +123,42 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         # Retained for backwards compatibility, will be removed in a future release
         self.status = Status.NEW
 
+        self._on_remove_callbacks.append(
+            self._application.register_callback_listener(
+                src=self,
+                filters=[PollControl.ClientCommandDefs.checkin.schema()],
+                callback=self.poll_control_checkin_callback,
+            )
+        )
+
+    def on_remove(self) -> None:
+        """Call on remove callbacks."""
+        for callback in self._on_remove_callbacks:
+            callback()
+
+        self._on_remove_callbacks.clear()
+
     @contextlib.asynccontextmanager
-    async def _limit_concurrency(self, *, priority: int = 0):
+    async def _limit_concurrency(self, *, priority: int | None = None):
         """Async context manager to limit device request concurrency."""
+        # Defer to the current app-level priority if not specified
+        if priority is None:
+            priority = self._application._packet_priority_var.get()
 
         start_time = time.monotonic()
-        was_locked = self._concurrent_requests_semaphore.locked()
+        manager: contextlib.AbstractAsyncContextManager
+
+        if priority >= t.PacketPriority.CRITICAL:
+            LOGGER.debug(
+                "Critical priority request received (%s), skipping queue with %d requests",
+                priority,
+                self._concurrent_requests_semaphore.num_waiting,
+            )
+            manager = nullcontext()
+            was_locked = False
+        else:
+            manager = self._concurrent_requests_semaphore(priority=priority)
+            was_locked = self._concurrent_requests_semaphore.locked()
 
         if was_locked:
             LOGGER.debug(
@@ -117,7 +167,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                 self._concurrent_requests_semaphore.num_waiting,
             )
 
-        async with self._concurrent_requests_semaphore(priority=priority):
+        async with manager:
             if was_locked:
                 LOGGER.debug(
                     "Previously delayed device request is now running, delayed by %0.2fs",
@@ -217,10 +267,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
     async def get_node_descriptor(self) -> zdo_t.NodeDescriptor:
         self.info("Requesting 'Node Descriptor'")
 
-        status, _, node_desc = await self.zdo.Node_Desc_req(
-            self.nwk,
-            priority=t.PacketPriority.HIGH,
-        )
+        status, _, node_desc = await self.zdo.Node_Desc_req(self.nwk)
 
         if status != zdo_t.Status.SUCCESS:
             raise zigpy.exceptions.InvalidResponse(
@@ -234,7 +281,9 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
 
     async def initialize(self) -> None:
         try:
-            await self._initialize()
+            # Perform initialization with critical priority
+            async with self._application.request_priority(t.PacketPriority.CRITICAL):
+                await self._initialize()
         except (asyncio.TimeoutError, zigpy.exceptions.ZigbeeException):
             self.application.listener_event("device_init_failure", self)
         except Exception:  # noqa: BLE001
@@ -245,6 +294,73 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
             )
 
             self.application.listener_event("device_init_failure", self)
+
+    def find_cluster(
+        self, cluster_id: int, cluster_type: ClusterType = ClusterType.Server
+    ) -> Cluster:
+        """Find the first cluster by its ID and type on any endpoint."""
+        for ep in self.non_zdo_endpoints:
+            if cluster_type == ClusterType.Server and cluster_id in ep.in_clusters:
+                return ep.in_clusters[cluster_id]
+            elif cluster_type == ClusterType.Client and cluster_id in ep.out_clusters:
+                return ep.out_clusters[cluster_id]
+        raise ValueError(
+            f"Cluster {cluster_id:#06x} not found in any endpoint of device {self}"
+        )
+
+    async def poll_control_checkin_callback(
+        self,
+        zcl_hdr: foundation.ZCLHeader,
+        command: foundation.CommandSchema,
+    ) -> None:
+        """Handle Poll Control check-in callback."""
+        poll_control = self.find_cluster(cluster_id=PollControl.cluster_id)
+
+        async with self._application.request_priority(t.PacketPriority.CRITICAL):
+            if self.initializing or self._concurrent_requests_semaphore.locked():
+                # Initiate fast polling mode if we are initializing or waiting for
+                # requests to be sent
+                await poll_control.checkin_response(
+                    start_fast_polling=True,
+                    fast_poll_timeout=int(DEFAULT_FAST_POLL_TIMEOUT * 4),
+                    tsn=zcl_hdr.tsn,
+                )
+            else:
+                await poll_control.checkin_response(
+                    start_fast_polling=False,
+                    fast_poll_timeout=0,
+                    tsn=zcl_hdr.tsn,
+                )
+
+    async def begin_fast_polling(
+        self, timeout: float = DEFAULT_FAST_POLL_TIMEOUT
+    ) -> None:
+        """Ask the device to enter fast polling mode."""
+        try:
+            poll_control = self.find_cluster(cluster_id=PollControl.cluster_id)
+        except ValueError:
+            # The device doesn't have the cluster, there's nothing more we can do
+            return
+
+        LOGGER.debug("Beginning fast polling for %0.2fs", timeout)
+
+        # We must first bind to the cluster, otherwise the device will not send a check-
+        # in command
+        await poll_control.bind()
+        await poll_control.write_attributes(
+            # The units are quarter seconds
+            {
+                PollControl.AttributeDefs.fast_poll_timeout.id: int(timeout * 4),
+            }
+        )
+
+        self._fast_polling_end_time = datetime.now(timezone.utc) + timedelta(
+            seconds=timeout
+        )
+
+    def reset_timers(self) -> None:
+        """Reset timers if we suspect a device has rebooted or reset."""
+        self._fast_polling_end_time = datetime.min.replace(tzinfo=timezone.utc)
 
     @zigpy.util.retryable_request(tries=5, delay=0.5)
     async def _initialize(self) -> None:
@@ -263,9 +379,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         else:
             self.info("Discovering endpoints")
 
-            status, _, endpoints = await self.zdo.Active_EP_req(
-                self.nwk, priority=t.PacketPriority.HIGH
-            )
+            status, _, endpoints = await self.zdo.Active_EP_req(self.nwk)
 
             if status != zdo_t.Status.SUCCESS:
                 raise zigpy.exceptions.InvalidResponse(
@@ -281,15 +395,33 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         self.status = Status.ZDO_INIT
 
         # Initialize all of the discovered endpoints
+        initiated_fast_polling = self._fast_polling_end_time > datetime.now(
+            timezone.utc
+        )
+
         if self.all_endpoints_init:
             self.info(
                 "All endpoints are already initialized: %s", self.non_zdo_endpoints
             )
+
+            if not initiated_fast_polling:
+                # Begin fast polling if we are re-initializing
+                await self.begin_fast_polling()
         else:
             self.info("Initializing endpoints %s", self.non_zdo_endpoints)
 
             for ep in self.non_zdo_endpoints:
                 await ep.initialize()
+
+                if not initiated_fast_polling:
+                    # Ask the device to enter fast polling mode as soon as we are
+                    # aware of a PollControl cluster
+                    try:
+                        await self.begin_fast_polling()
+                    except (asyncio.TimeoutError, DeliveryError):
+                        pass
+                    else:
+                        initiated_fast_polling = True
 
         # Query model info
         if self.model is not None and self.manufacturer is not None:
@@ -343,7 +475,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         timeout=APS_REPLY_TIMEOUT,
         use_ieee=False,
         ask_for_ack: bool | None = None,
-        priority: int = t.PacketPriority.NORMAL,
+        priority: int | None = None,
     ):
         extended_timeout = False
 
@@ -373,12 +505,46 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                 await send_request()
                 return None
 
-            # Only create a pending request if we are expecting a reply
-            with self._pending.new(sequence) as req:
-                await send_request()
+            if dst_ep == zdo.ZDO_ENDPOINT:
+                rsp_key = ResponseKey(
+                    endpoint_id=dst_ep,
+                    # e.g. Node_Desc_req = 0x0002 corresponds to Node_Desc_rsp = 0x8002
+                    cluster_id=cluster ^ 0x8000,
+                    direction=None,
+                    tsn=sequence,
+                )
+            else:
+                zcl_hdr, _ = foundation.ZCLHeader.deserialize(data)
+                rsp_key = ResponseKey(
+                    endpoint_id=dst_ep,
+                    cluster_id=cluster,
+                    direction=zcl_hdr.frame_control.direction.flip(),
+                    tsn=sequence,
+                )
 
+            if rsp_key in self._requests:
+                self.debug(
+                    "Duplicate request key %s, pending requests %s",
+                    rsp_key,
+                    self._requests,
+                )
+                raise zigpy.exceptions.ControllerException(
+                    f"Duplicate request key: {rsp_key}"
+                )
+
+            future: asyncio.Future[list[typing.Any, ...] | foundation.CommandSchema] = (
+                asyncio.Future()
+            )
+            self._requests[rsp_key] = future
+
+            try:
+                await send_request()
                 async with asyncio_timeout(timeout):
-                    return await req.result
+                    return await future
+            finally:
+                if not future.done():
+                    future.cancel()
+                self._requests.pop(rsp_key, None)
 
     def handle_message(
         self,
@@ -470,10 +636,22 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         # Parse the ZCL/ZDO header first. This should never fail.
         data = packet.data.serialize()
 
-        if packet.dst_ep == zdo.ZDO_ENDPOINT:
+        if packet.src_ep == zdo.ZDO_ENDPOINT:
             hdr, _ = zdo_t.ZDOHeader.deserialize(packet.cluster_id, data)
+            rsp_key = ResponseKey(
+                endpoint_id=packet.src_ep,
+                cluster_id=packet.cluster_id,
+                direction=None,
+                tsn=hdr.tsn,
+            )
         else:
             hdr, _ = foundation.ZCLHeader.deserialize(data)
+            rsp_key = ResponseKey(
+                endpoint_id=packet.src_ep,
+                cluster_id=packet.cluster_id,
+                direction=hdr.frame_control.direction,
+                tsn=hdr.tsn,
+            )
 
         try:
             if (
@@ -481,11 +659,11 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                 or getattr(self.deserialize, "__func__", None) is not Device.deserialize
             ):
                 # XXX: support for custom deserialization will be removed
-                hdr, args = self.deserialize(packet.src_ep, packet.cluster_id, data)
+                _, args = self.deserialize(packet.src_ep, packet.cluster_id, data)
             else:
                 # Next, parse the ZCL/ZDO payload
                 # FIXME: ZCL deserialization mutates the header!
-                hdr, args = endpoint.deserialize(packet.cluster_id, data)
+                _, args = endpoint.deserialize(packet.cluster_id, data)
         except Exception as exc:  # noqa: BLE001
             error = zigpy.exceptions.ParsingError()
             error.__cause__ = exc
@@ -494,28 +672,18 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         else:
             error = None
 
-        # Resolve the future if this is a response to a request
-        if hdr.tsn in self._pending and (
-            hdr.direction == foundation.Direction.Server_to_Client
-            if isinstance(hdr, foundation.ZCLHeader)
-            else hdr.is_reply
-        ):
-            future = self._pending[hdr.tsn]
-
+        future = self._requests.get(rsp_key)
+        if future is not None:
             try:
                 if error is not None:
-                    future.result.set_exception(error)
+                    future.set_exception(error)
                 else:
-                    future.result.set_result(args)
+                    future.set_result(args)
             except asyncio.InvalidStateError:
                 self.debug(
-                    (
-                        "Invalid state on future for 0x%02x seq "
-                        "-- probably duplicate response"
-                    ),
-                    hdr.tsn,
+                    "Invalid state on future for %s -- probably duplicate response",
+                    rsp_key,
                 )
-
             return
 
         if error is not None:
@@ -553,7 +721,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         expect_reply: bool = False,
         use_ieee: bool = False,
         ask_for_ack: bool | None = None,
-        priority: int = t.PacketPriority.NORMAL,
+        priority: int | None = None,
     ):
         return await self.request(
             profile=profile,
@@ -599,7 +767,9 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
             return result
 
         # Clear the current file version when the update succeeds
-        ota = find_ota_cluster(self)
+        ota = self.find_cluster(
+            cluster_id=Ota.cluster_id, cluster_type=ClusterType.Client
+        )
         ota.update_attribute(Ota.AttributeDefs.current_file_version.id, None)
 
         await asyncio.sleep(AFTER_OTA_ATTR_READ_DELAY)
@@ -700,7 +870,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
             signature[SIG_NODE_DESC] = self.node_desc.as_dict()
 
         for endpoint_id, endpoint in self.endpoints.items():
-            if endpoint_id == 0:  # ZDO
+            if endpoint_id == zdo.ZDO_ENDPOINT:  # ZDO
                 continue
             signature.setdefault(SIG_ENDPOINTS, {})
             in_clusters = list(endpoint.in_clusters)

@@ -175,7 +175,7 @@ class ClientStreamUtils:
                 if simulate_video_file_stream:
                     logging.info(f"End of video file reached, restarting from beginning: {input}")
                     cap.release()
-                    time.sleep(0.1)  # Brief pause before reopening
+                    time.sleep(10)  # Brief pause before reopening
                     cap = cv2.VideoCapture(input)
                     if not cap.isOpened():
                         raise RuntimeError(f"Failed to reopen video file: {input}")

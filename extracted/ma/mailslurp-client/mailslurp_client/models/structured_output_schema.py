@@ -37,7 +37,7 @@ class StructuredOutputSchema(object):
         'any_of': 'list[StructuredOutputSchema]',
         'default': 'object',
         'description': 'str',
-        'enum': 'list[str]',
+        'enum_values': 'list[str]',
         'example': 'object',
         'format': 'str',
         'items': 'StructuredOutputSchema',
@@ -62,7 +62,7 @@ class StructuredOutputSchema(object):
         'any_of': 'anyOf',
         'default': 'default',
         'description': 'description',
-        'enum': 'enum',
+        'enum_values': 'enumValues',
         'example': 'example',
         'format': 'format',
         'items': 'items',
@@ -83,7 +83,7 @@ class StructuredOutputSchema(object):
         'type': 'type'
     }
 
-    def __init__(self, any_of=None, default=None, description=None, enum=None, example=None, format=None, items=None, max_items=None, min_items=None, max_length=None, min_length=None, pattern=None, properties=None, property_ordering=None, required=None, max_properties=None, min_properties=None, maximum=None, minimum=None, nullable=None, title=None, type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, any_of=None, default=None, description=None, enum_values=None, example=None, format=None, items=None, max_items=None, min_items=None, max_length=None, min_length=None, pattern=None, properties=None, property_ordering=None, required=None, max_properties=None, min_properties=None, maximum=None, minimum=None, nullable=None, title=None, type=None, local_vars_configuration=None):  # noqa: E501
         """StructuredOutputSchema - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -92,7 +92,7 @@ class StructuredOutputSchema(object):
         self._any_of = None
         self._default = None
         self._description = None
-        self._enum = None
+        self._enum_values = None
         self._example = None
         self._format = None
         self._items = None
@@ -116,11 +116,10 @@ class StructuredOutputSchema(object):
         self.any_of = any_of
         self.default = default
         self.description = description
-        self.enum = enum
+        self.enum_values = enum_values
         self.example = example
         self.format = format
-        if items is not None:
-            self.items = items
+        self.items = items
         self.max_items = max_items
         self.min_items = min_items
         self.max_length = max_length
@@ -203,27 +202,27 @@ class StructuredOutputSchema(object):
         self._description = description
 
     @property
-    def enum(self):
-        """Gets the enum of this StructuredOutputSchema.  # noqa: E501
+    def enum_values(self):
+        """Gets the enum_values of this StructuredOutputSchema.  # noqa: E501
 
         When using type string and format enum pass a collection of enum values here.  # noqa: E501
 
-        :return: The enum of this StructuredOutputSchema.  # noqa: E501
+        :return: The enum_values of this StructuredOutputSchema.  # noqa: E501
         :rtype: list[str]
         """
-        return self._enum
+        return self._enum_values
 
-    @enum.setter
-    def enum(self, enum):
-        """Sets the enum of this StructuredOutputSchema.
+    @enum_values.setter
+    def enum_values(self, enum_values):
+        """Sets the enum_values of this StructuredOutputSchema.
 
         When using type string and format enum pass a collection of enum values here.  # noqa: E501
 
-        :param enum: The enum of this StructuredOutputSchema.  # noqa: E501
+        :param enum_values: The enum_values of this StructuredOutputSchema.  # noqa: E501
         :type: list[str]
         """
 
-        self._enum = enum
+        self._enum_values = enum_values
 
     @property
     def example(self):
@@ -390,6 +389,7 @@ class StructuredOutputSchema(object):
     def pattern(self):
         """Gets the pattern of this StructuredOutputSchema.  # noqa: E501
 
+        Regex pattern for STRING type  # noqa: E501
 
         :return: The pattern of this StructuredOutputSchema.  # noqa: E501
         :rtype: str
@@ -400,6 +400,7 @@ class StructuredOutputSchema(object):
     def pattern(self, pattern):
         """Sets the pattern of this StructuredOutputSchema.
 
+        Regex pattern for STRING type  # noqa: E501
 
         :param pattern: The pattern of this StructuredOutputSchema.  # noqa: E501
         :type: str
@@ -457,6 +458,7 @@ class StructuredOutputSchema(object):
     def required(self):
         """Gets the required of this StructuredOutputSchema.  # noqa: E501
 
+        Is field required  # noqa: E501
 
         :return: The required of this StructuredOutputSchema.  # noqa: E501
         :rtype: list[str]
@@ -467,6 +469,7 @@ class StructuredOutputSchema(object):
     def required(self, required):
         """Sets the required of this StructuredOutputSchema.
 
+        Is field required  # noqa: E501
 
         :param required: The required of this StructuredOutputSchema.  # noqa: E501
         :type: list[str]

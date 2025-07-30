@@ -155,11 +155,41 @@ def _get_or_create_semaphore(
         # Don't cache multiprocess semaphores - they have internal state issues
         # Create a new instance each time to avoid "Already locked" errors
         with MULTIPROCESS_SEMAPHORE_LOCK:
-            return portalocker.utils.NamedBoundedSemaphore(
-                maximum=semaphore_limit,
-                name=sem_key,
-                directory=str(MULTIPROCESS_SEMAPHORE_DIR),
-            )
+            # Ensure the directory exists (it might have been cleaned up in cloud environments)
+            MULTIPROCESS_SEMAPHORE_DIR.mkdir(exist_ok=True, parents=True)
+
+            # Clean up any stale lock files before creating semaphore
+            lock_pattern = f'{sem_key}.*.lock'
+            for lock_file in MULTIPROCESS_SEMAPHORE_DIR.glob(lock_pattern):
+                try:
+                    # Try to remove lock files older than 5 minutes
+                    if lock_file.stat().st_mtime < time.time() - 300:
+                        lock_file.unlink(missing_ok=True)
+                except Exception:
+                    pass  # Ignore errors when cleaning up
+
+            # Use a more aggressive timeout for lock acquisition
+            try:
+                semaphore = portalocker.utils.NamedBoundedSemaphore(
+                    maximum=semaphore_limit,
+                    name=sem_key,
+                    directory=str(MULTIPROCESS_SEMAPHORE_DIR),
+                    timeout=0.1,  # Very short timeout for internal lock acquisition
+                )
+                return semaphore
+            except FileNotFoundError as e:
+                # In some cloud environments, the lock file creation might fail
+                # Try once more after ensuring directory exists
+                logger.warning(f'Lock file creation failed: {e}. Retrying after ensuring directory exists.')
+                MULTIPROCESS_SEMAPHORE_DIR.mkdir(exist_ok=True, parents=True)
+
+                # Create a fallback asyncio semaphore instead of multiprocess
+                logger.warning(f'Falling back to asyncio semaphore for {sem_key} due to filesystem issues')
+                with GLOBAL_RETRY_SEMAPHORE_LOCK:
+                    fallback_key = f'multiprocess_fallback_{sem_key}'
+                    if fallback_key not in GLOBAL_RETRY_SEMAPHORES:
+                        GLOBAL_RETRY_SEMAPHORES[fallback_key] = asyncio.Semaphore(semaphore_limit)
+                    return GLOBAL_RETRY_SEMAPHORES[fallback_key]
     else:
         with GLOBAL_RETRY_SEMAPHORE_LOCK:
             if sem_key not in GLOBAL_RETRY_SEMAPHORES:
@@ -195,6 +225,8 @@ async def _acquire_multiprocess_semaphore(
     retry_delay = 0.1  # Start with 100ms
     backoff_factor = 2.0
     max_single_attempt = 1.0  # Max time for a single acquire attempt
+    recreate_attempts = 0
+    max_recreate_attempts = 3
 
     while time.time() - start_time < sem_timeout:
         try:
@@ -218,8 +250,61 @@ async def _acquire_multiprocess_semaphore(
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * backoff_factor, 1.0)  # Cap at 1 second
 
-        except Exception as e:
-            if 'Could not acquire' not in str(e) and not isinstance(e, TimeoutError):
+        except (FileNotFoundError, OSError) as e:
+            # Handle case where lock file disappears
+            if isinstance(e, FileNotFoundError) or 'No such file or directory' in str(e):
+                recreate_attempts += 1
+                if recreate_attempts <= max_recreate_attempts:
+                    logger.warning(
+                        f'Semaphore lock file disappeared for "{sem_key}". Attempting to recreate (attempt {recreate_attempts}/{max_recreate_attempts})...'
+                    )
+
+                    # Ensure directory exists
+                    with MULTIPROCESS_SEMAPHORE_LOCK:
+                        MULTIPROCESS_SEMAPHORE_DIR.mkdir(exist_ok=True, parents=True)
+
+                    # Try to recreate the semaphore
+                    try:
+                        semaphore = await asyncio.to_thread(
+                            lambda: portalocker.utils.NamedBoundedSemaphore(
+                                maximum=semaphore_limit,
+                                name=sem_key,
+                                directory=str(MULTIPROCESS_SEMAPHORE_DIR),
+                                timeout=0.1,
+                            )
+                        )
+                        # Continue with the new semaphore
+                        continue
+                    except Exception as recreate_error:
+                        logger.error(f'Failed to recreate semaphore: {recreate_error}')
+                        # If recreation fails and we're in lax mode, return without lock
+                        if semaphore_lax:
+                            logger.warning(f'Failed to recreate semaphore "{sem_key}", proceeding without concurrency limit')
+                            return False, None
+                        raise
+                else:
+                    # Max recreate attempts exceeded
+                    if semaphore_lax:
+                        logger.warning(
+                            f'Max semaphore recreation attempts exceeded for "{sem_key}", proceeding without concurrency limit'
+                        )
+                        return False, None
+                    raise
+            else:
+                # Other OS errors
+                raise
+
+        except (AssertionError, Exception) as e:
+            # Handle "Already locked" error by skipping this attempt
+            if 'Already locked' in str(e) or isinstance(e, AssertionError):
+                # Lock file might be stale from a previous process crash
+                # Wait before retrying
+                remaining_time = sem_timeout - (time.time() - start_time)
+                if remaining_time > retry_delay:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = min(retry_delay * backoff_factor, 1.0)
+                continue
+            elif 'Could not acquire' not in str(e) and not isinstance(e, TimeoutError):
                 raise
 
     # Timeout reached
@@ -427,10 +512,18 @@ def retry(
                 _track_active_operations(increment=False)
 
                 if semaphore_acquired and semaphore:
-                    if semaphore_scope == 'multiprocess' and multiprocess_lock:
-                        await asyncio.to_thread(lambda: multiprocess_lock.release())
-                    elif semaphore:
-                        semaphore.release()
+                    try:
+                        if semaphore_scope == 'multiprocess' and multiprocess_lock:
+                            await asyncio.to_thread(lambda: multiprocess_lock.release())
+                        elif semaphore:
+                            semaphore.release()
+                    except (FileNotFoundError, OSError) as e:
+                        # Handle case where lock file was removed during operation
+                        if isinstance(e, FileNotFoundError) or 'No such file or directory' in str(e):
+                            logger.warning(f'Semaphore lock file disappeared during release, ignoring: {e}')
+                        else:
+                            # Log other OS errors but don't raise - we already completed the operation
+                            logger.error(f'Error releasing semaphore: {e}')
 
         return wrapper
 

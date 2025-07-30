@@ -34,6 +34,7 @@ class AITransformProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'created_at': 'datetime',
         'conditions': 'list[str]',
         'instructions': 'list[str]',
         'output_schema': 'StructuredOutputSchema',
@@ -42,6 +43,7 @@ class AITransformProjection(object):
     }
 
     attribute_map = {
+        'created_at': 'createdAt',
         'conditions': 'conditions',
         'instructions': 'instructions',
         'output_schema': 'outputSchema',
@@ -49,12 +51,13 @@ class AITransformProjection(object):
         'id': 'id'
     }
 
-    def __init__(self, conditions=None, instructions=None, output_schema=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, created_at=None, conditions=None, instructions=None, output_schema=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """AITransformProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._created_at = None
         self._conditions = None
         self._instructions = None
         self._output_schema = None
@@ -62,15 +65,38 @@ class AITransformProjection(object):
         self._id = None
         self.discriminator = None
 
+        self.created_at = created_at
         if conditions is not None:
             self.conditions = conditions
         if instructions is not None:
             self.instructions = instructions
-        if output_schema is not None:
-            self.output_schema = output_schema
+        self.output_schema = output_schema
         if name is not None:
             self.name = name
         self.id = id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this AITransformProjection.  # noqa: E501
+
+
+        :return: The created_at of this AITransformProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this AITransformProjection.
+
+
+        :param created_at: The created_at of this AITransformProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def conditions(self):

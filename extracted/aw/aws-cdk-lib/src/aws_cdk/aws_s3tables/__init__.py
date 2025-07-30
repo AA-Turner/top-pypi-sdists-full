@@ -1562,6 +1562,216 @@ class CfnTableBucketProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556)
+class CfnTablePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3tables.CfnTablePolicy",
+):
+    '''Creates a new maintenance configuration or replaces an existing table policy for a table.
+
+    For more information, see `Adding a table policy <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-table-policy.html#table-policy-add>`_ in the *Amazon Simple Storage Service User Guide* .
+
+    - **Permissions** - You must have the ``s3tables:PutTablePolicy`` permission to use this operation.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablepolicy.html
+    :cloudformationResource: AWS::S3Tables::TablePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_s3tables as s3tables
+        
+        # resource_policy: Any
+        
+        cfn_table_policy = s3tables.CfnTablePolicy(self, "MyCfnTablePolicy",
+            resource_policy=resource_policy,
+            table_arn="tableArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        resource_policy: typing.Any,
+        table_arn: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_policy: 
+        :param table_arn: The Amazon Resource Name (ARN) of the specified table.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a411c2784ec9f97ff20ac6b524d48b9d66affbbc6dde8cf88f11829983b62656)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTablePolicyProps(
+            resource_policy=resource_policy, table_arn=table_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f0a3947da1bdccb78be78c5e73ba6a761b9581cfdb6fde618a0c2e2cc24e62e6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79081d3da496e49f8054cf224d3c19c14084df9686495715d7c13deb2b01f4e5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNamespace")
+    def attr_namespace(self) -> builtins.str:
+        '''The namespace that the table belongs to.
+
+        :cloudformationAttribute: Namespace
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNamespace"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTableBucketArn")
+    def attr_table_bucket_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the specified table bucket.
+
+        :cloudformationAttribute: TableBucketARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTableBucketArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTableName")
+    def attr_table_name(self) -> builtins.str:
+        '''The name for the table.
+
+        :cloudformationAttribute: TableName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTableName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicy")
+    def resource_policy(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "resourcePolicy"))
+
+    @resource_policy.setter
+    def resource_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5ff64cf2723b6c321a7dae00772c6657abff46b53f326cb7ef2461494ecaead)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableArn")
+    def table_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the specified table.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableArn"))
+
+    @table_arn.setter
+    def table_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87d38159ba1fcdcd6a78891e84e79fef3b2492c5066559f8f91cd5cc6191efe4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3tables.CfnTablePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_policy": "resourcePolicy", "table_arn": "tableArn"},
+)
+class CfnTablePolicyProps:
+    def __init__(self, *, resource_policy: typing.Any, table_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnTablePolicy``.
+
+        :param resource_policy: 
+        :param table_arn: The Amazon Resource Name (ARN) of the specified table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3tables as s3tables
+            
+            # resource_policy: Any
+            
+            cfn_table_policy_props = s3tables.CfnTablePolicyProps(
+                resource_policy=resource_policy,
+                table_arn="tableArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e4efe8d2b5f3164478497385240c6eecce420e07f634572b7fac929a357ad5f)
+            check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_policy": resource_policy,
+            "table_arn": table_arn,
+        }
+
+    @builtins.property
+    def resource_policy(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablepolicy.html#cfn-s3tables-tablepolicy-resourcepolicy
+        '''
+        result = self._values.get("resource_policy")
+        assert result is not None, "Required property 'resource_policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def table_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the specified table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablepolicy.html#cfn-s3tables-tablepolicy-tablearn
+        '''
+        result = self._values.get("table_arn")
+        assert result is not None, "Required property 'table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTablePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_s3tables.CfnTableProps",
     jsii_struct_bases=[],
@@ -1772,6 +1982,8 @@ __all__ = [
     "CfnTableBucketPolicy",
     "CfnTableBucketPolicyProps",
     "CfnTableBucketProps",
+    "CfnTablePolicy",
+    "CfnTablePolicyProps",
     "CfnTableProps",
 ]
 
@@ -2040,6 +2252,48 @@ def _typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b6
     table_bucket_name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     unreferenced_file_removal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a411c2784ec9f97ff20ac6b524d48b9d66affbbc6dde8cf88f11829983b62656(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resource_policy: typing.Any,
+    table_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0a3947da1bdccb78be78c5e73ba6a761b9581cfdb6fde618a0c2e2cc24e62e6(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79081d3da496e49f8054cf224d3c19c14084df9686495715d7c13deb2b01f4e5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5ff64cf2723b6c321a7dae00772c6657abff46b53f326cb7ef2461494ecaead(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87d38159ba1fcdcd6a78891e84e79fef3b2492c5066559f8f91cd5cc6191efe4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e4efe8d2b5f3164478497385240c6eecce420e07f634572b7fac929a357ad5f(
+    *,
+    resource_policy: typing.Any,
+    table_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

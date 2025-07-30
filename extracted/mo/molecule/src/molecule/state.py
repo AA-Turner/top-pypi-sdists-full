@@ -21,8 +21,6 @@
 
 from __future__ import annotations
 
-import logging
-
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, TypeVar, cast
@@ -32,9 +30,6 @@ from molecule import util
 
 if TYPE_CHECKING:
     from molecule.config import Config
-
-
-LOG = logging.getLogger(__name__)
 VALID_KEYS = [
     "created",
     "converged",
@@ -237,3 +232,14 @@ class State:
 
     def _get_state_file(self) -> Path:
         return Path(self._config.scenario.ephemeral_directory) / "state.yml"
+
+
+class SharedState(State):
+    """A class which manages the state file.
+
+    This is exactly like the normal State object but it's backed by the shared ephemeral directory,
+    so state is maintained between scenarios.
+    """
+
+    def _get_state_file(self) -> Path:
+        return Path(self._config.scenario.shared_ephemeral_directory) / "state.yml"

@@ -130,7 +130,7 @@ async def test_execute_sa_insert_positional_params(sa_connect):
 @pytest.mark.run_loop
 async def test_scalar(sa_connect):
     conn = await sa_connect()
-    res = await conn.scalar(select([func.count()]).select_from(tbl))
+    res = await conn.scalar(select(func.count()).select_from(tbl))
     assert 1 == res
 
 

@@ -486,6 +486,7 @@ class SmsControllerApi(object):
         :param datetime before: Optional filter SMSs received before given date time
         :param str search: Optional search filter
         :param bool favourite: Optionally filter results for favourites only
+        :param list[str] include: Optional list of IDs to include in result
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -517,6 +518,7 @@ class SmsControllerApi(object):
         :param datetime before: Optional filter SMSs received before given date time
         :param str search: Optional search filter
         :param bool favourite: Optionally filter results for favourites only
+        :param list[str] include: Optional list of IDs to include in result
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -541,7 +543,8 @@ class SmsControllerApi(object):
             'since',
             'before',
             'search',
-            'favourite'
+            'favourite',
+            'include'
         ]
         all_params.extend(
             [
@@ -584,6 +587,9 @@ class SmsControllerApi(object):
             query_params.append(('search', local_var_params['search']))  # noqa: E501
         if 'favourite' in local_var_params and local_var_params['favourite'] is not None:  # noqa: E501
             query_params.append(('favourite', local_var_params['favourite']))  # noqa: E501
+        if 'include' in local_var_params and local_var_params['include'] is not None:  # noqa: E501
+            query_params.append(('include', local_var_params['include']))  # noqa: E501
+            collection_formats['include'] = 'multi'  # noqa: E501
 
         header_params = {}
 

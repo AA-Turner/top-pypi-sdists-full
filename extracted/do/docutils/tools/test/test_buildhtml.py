@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: test_buildhtml.py 9072 2022-06-15 11:31:09Z milde $
+# $Id: test_buildhtml.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: engelbert gruber <grubert@users.sourceforge.net>
 # Copyright: This module has been placed in the public domain.
 
@@ -22,85 +22,73 @@ Build-HTML Options
                         "--quiet".
 """
 
-import unittest
-import os
-from subprocess import Popen, PIPE, STDOUT
+from __future__ import annotations
+
+import shutil
+import subprocess
 import sys
 import tempfile
+import unittest
+from pathlib import Path
+
+# TOOLS_ROOT is ./tools/ from the docutils root
+TOOLS_ROOT = Path(__file__).resolve().parent.parent
+BUILDHTML_PATH = TOOLS_ROOT / 'buildhtml.py'
 
 
-buildhtml_path = os.path.abspath(os.path.join(
-                    os.path.dirname(__file__) or os.curdir,
-                    '..', 'buildhtml.py'))
-
-
-def process_and_return_filelist(options):
+def process_and_return_filelist(
+    options: list[str],
+) -> tuple[list[str], list[str]]:
     dirs = []
     files = []
-    p = Popen([sys.executable, buildhtml_path] + options,
-              stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-    (cin, cout) = (p.stdin, p.stdout)
-    while True:
-        line = cout.readline()
-        if not line:
-            break
-        # in Py 3x, cout.readline() returns `bytes` and the processing fails
-        line = line.decode('ascii', 'replace')
+    ret = subprocess.run(
+        [sys.executable, BUILDHTML_PATH] + options,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+    )
+    for line in ret.stdout.splitlines():
         # BUG no colon in filename/path allowed
         item = line.split(": ")[-1].strip()
         if line.startswith(" "):
             files.append(item)
         else:
             dirs.append(item)
-    cin.close()
-    cout.close()
-    p.wait()
     return dirs, files
 
 
 class BuildHtmlTests(unittest.TestCase):
-    tree = ("_tmp_test_tree",
-            "_tmp_test_tree/one.txt",
-            "_tmp_test_tree/two.txt",
-            "_tmp_test_tree/dir1",
-            "_tmp_test_tree/dir1/one.txt",
-            "_tmp_test_tree/dir1/two.txt",
-            "_tmp_test_tree/dir2",
-            "_tmp_test_tree/dir2/one.txt",
-            "_tmp_test_tree/dir2/two.txt",
-            "_tmp_test_tree/dir2/sub",
-            "_tmp_test_tree/dir2/sub/one.txt",
-            "_tmp_test_tree/dir2/sub/two.txt",
-            )
+    tree = (
+        "_tmp_test_tree/one.rst",
+        "_tmp_test_tree/two.rst",
+        "_tmp_test_tree/dir1/one.rst",
+        "_tmp_test_tree/dir1/two.rst",
+        "_tmp_test_tree/dir2/one.rst",
+        "_tmp_test_tree/dir2/two.rst",
+        "_tmp_test_tree/dir2/sub/one.rst",
+        "_tmp_test_tree/dir2/sub/two.rst",
+    )
 
-    def setUp(self):
-        self.root = tempfile.mkdtemp()
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
 
-        for s in self.tree:
-            s = os.path.join(self.root, s)
-            if "." not in s:
-                os.mkdir(s)
-            else:
-                fd_s = open(s, "w", encoding='utf-8')
-                fd_s.write("dummy")
-                fd_s.close()
+        for file in self.tree:
+            path = self.root / file
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('dummy', encoding='utf-8')
 
-    def tearDown(self):
-        for i in range(len(self.tree) - 1, -1, -1):
-            s = os.path.join(self.root, self.tree[i])
-            if "." not in s:
-                os.rmdir(s)
-            else:
-                os.remove(s)
-        os.rmdir(self.root)
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root)
 
-    def test_1(self):
-        opts = ["--dry-run", self.root]
-        dirs, files = process_and_return_filelist(opts)
-        self.assertEqual(files.count("one.txt"), 4)
+    def test_1(self) -> None:
+        opts = ["--dry-run", str(self.root)]
+        _dirs, files = process_and_return_filelist(opts)
+        self.assertEqual(files.count("one.rst"), 4)
 
-    def test_local(self):
-        opts = ["--dry-run", "--local", self.root]
+    def test_local(self) -> None:
+        opts = ["--dry-run", "--local", str(self.root)]
         dirs, files = process_and_return_filelist(opts)
         self.assertEqual(len(dirs), 1)
         self.assertEqual(files, [])

@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: mkdocs-minify-html-plugin
-Version: 0.3.1
+Version: 0.3.4
 Classifier: Framework :: MkDocs
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -14,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Rust
@@ -23,7 +23,6 @@ Requires-Dist: typing-extensions>=4.4 ; python_full_version < '3.12'
 License-File: LICENSE
 Summary: MkDocs plugin for minification using minify-html, an extremely fast and smart HTML + JS + CSS minifier
 Author-email: monosans <hsyqixco@protonmail.com>
-License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: repository, https://github.com/monosans/mkdocs-minify-html-plugin

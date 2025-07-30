@@ -72,12 +72,9 @@ class CreateAITransformerMappingOptions(object):
         self.ai_transform_id = ai_transform_id
         self.entity_id = entity_id
         self.entity_type = entity_type
-        if content_selector is not None:
-            self.content_selector = content_selector
-        if trigger_selector is not None:
-            self.trigger_selector = trigger_selector
-        if spread_root_array is not None:
-            self.spread_root_array = spread_root_array
+        self.content_selector = content_selector
+        self.trigger_selector = trigger_selector
+        self.spread_root_array = spread_root_array
 
     @property
     def name(self):
@@ -97,8 +94,6 @@ class CreateAITransformerMappingOptions(object):
         :param name: The name of this CreateAITransformerMappingOptions.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and name is None:  # noqa: E501
-            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
         self._name = name
 
@@ -143,8 +138,6 @@ class CreateAITransformerMappingOptions(object):
         :param entity_id: The entity_id of this CreateAITransformerMappingOptions.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and entity_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `entity_id`, must not be `None`")  # noqa: E501
 
         self._entity_id = entity_id
 
@@ -195,7 +188,7 @@ class CreateAITransformerMappingOptions(object):
         :param content_selector: The content_selector of this CreateAITransformerMappingOptions.  # noqa: E501
         :type: str
         """
-        allowed_values = ["RAW", "BODY", "BODY_ATTACHMENTS"]  # noqa: E501
+        allowed_values = [None,"RAW", "BODY", "BODY_ATTACHMENTS"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and content_selector not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `content_selector` ({0}), must be one of {1}"  # noqa: E501
@@ -222,7 +215,7 @@ class CreateAITransformerMappingOptions(object):
         :param trigger_selector: The trigger_selector of this CreateAITransformerMappingOptions.  # noqa: E501
         :type: str
         """
-        allowed_values = ["PER_MESSAGE", "PER_ATTACHMENT"]  # noqa: E501
+        allowed_values = [None,"PER_MESSAGE", "PER_ATTACHMENT"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and trigger_selector not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `trigger_selector` ({0}), must be one of {1}"  # noqa: E501

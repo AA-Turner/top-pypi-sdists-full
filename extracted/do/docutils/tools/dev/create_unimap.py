@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: create_unimap.py 9030 2022-03-05 23:28:32Z milde $
+# $Id: create_unimap.py 10025 2025-03-08 01:03:56Z aa-turner $
 # Author: Lea Wiemann <LeWiemann@gmail.com>
 # Copyright: This file has been placed in the public domain.
 
@@ -9,19 +9,20 @@
 # Get unicode.xml from
 # <https://www.w3.org/2003/entities/xml/unicode.xml>.
 
-from xml.dom import minidom
-import sys
+from __future__ import annotations
+
 import pprint
+import sys
+from xml.dom import minidom
 
-
-text_map = {}
-math_map = {}
+text_map: dict[str, str] = {}
+math_map: dict[str, str] = {}
 
 
 class Visitor:
     """Node visitor for contents of unicode.xml."""
 
-    def visit_character(self, node):
+    def visit_character(self, node: minidom.Element) -> None:
         for n in node.childNodes:
             if n.nodeName == 'latex':
                 code = node.attributes['dec'].value
@@ -40,7 +41,10 @@ class Visitor:
                     text_map[chr(int(code))] = '{%s}' % latex_code
 
 
-def call_visitor(node, visitor=Visitor()):
+def call_visitor(
+    node: minidom.Document | minidom.Element | minidom.Text,
+    visitor: Visitor = Visitor(),
+) -> None:
     if isinstance(node, minidom.Text):
         name = 'Text'
     else:
@@ -56,7 +60,7 @@ def call_visitor(node, visitor=Visitor()):
 document = minidom.parse(sys.stdin)
 call_visitor(document)
 
-unicode_map = math_map
+unicode_map: dict[str, str] = math_map
 unicode_map.update(text_map)
 # Now unicode_map contains the text entries plus dollar-enclosed math
 # entries for those chars for which no text entry exists.
@@ -64,13 +68,13 @@ unicode_map.update(text_map)
 print('# $%s$' % 'Id')
 print('# Author: Lea Wiemann <LeWiemann@gmail.com>')
 print('# Copyright: This file has been placed in the public domain.')
-print('')
+print()
 print('# This is a mapping of Unicode characters to LaTeX equivalents.')
 print('# The information has been extracted from')
 print('# <https://www.w3.org/2003/entities/xml/unicode.xml>, written by')
 print('# David Carlisle and Sebastian Rahtz.')
 print('#')
 print('# The extraction has been done by the "create_unimap.py" script')
-print('# located at <https://docutils.sourceforge.io/tools/dev/create_unimap.py>.')  # noqa:501
-print('')
+print('# located at <https://docutils.sourceforge.io/tools/dev/create_unimap.py>.')  # noqa: E501
+print()
 print('unicode_map = %s' % pprint.pformat(unicode_map, indent=0))

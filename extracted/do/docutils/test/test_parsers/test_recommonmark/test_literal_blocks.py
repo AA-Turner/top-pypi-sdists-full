@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_literal_blocks.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_literal_blocks.py 9691 2024-05-07 11:24:22Z milde $
 # :Copyright: © 2020 Günter Milde.
 # :License: Released under the terms of the `2-Clause BSD license`_, in short:
 #
@@ -203,20 +203,6 @@ with *info string*.
     <literal_block classes="code ruby" xml:space="preserve">
         A literal block (fenced code block)
         with *info string*.
-"""],
-["""\
-~~~eval_rst
-Evaluating embedded rST blocks requires the AutoStructify component
-in recommonmark. Otherwise this is just a code block
-with class ``eval_rst``.
-~~~
-""",
-"""\
-<document source="test data">
-    <literal_block classes="code eval_rst" xml:space="preserve">
-        Evaluating embedded rST blocks requires the AutoStructify component
-        in recommonmark. Otherwise this is just a code block
-        with class ``eval_rst``.
 """],
 ]
 

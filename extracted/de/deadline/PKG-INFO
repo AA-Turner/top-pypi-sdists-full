@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deadline
-Version: 0.50.1
+Version: 0.51.0
 Summary: Multi-purpose library and command line tool that implements functionality to support applications using AWS Deadline Cloud.
 Project-URL: Homepage, https://github.com/aws-deadline/deadline-cloud
 Project-URL: Source, https://github.com/aws-deadline/deadline-cloud
@@ -27,7 +27,6 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: <3.14,>=3.8
 Requires-Dist: boto3>=1.36.8
 Requires-Dist: click>=8.1.7
-Requires-Dist: jsonschema<5.0,>=4.17
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pywin32<311,>=307; sys_platform == 'win32'
 Requires-Dist: pyyaml>=6.0
@@ -225,6 +224,81 @@ and removing them by logging out:
 ```sh
 $ deadline auth logout
 ```
+
+## Job Monitoring and Logs
+
+### Waiting for Job Completion
+
+After submitting a job, you can wait for it to complete using the `wait` command:
+
+```sh
+# Wait for a job to complete with default settings
+$ deadline job wait --job-id job-12345
+
+# Customize the maximum polling interval (default is 120 seconds)
+# The polling interval starts at 0.5 seconds and doubles until reaching this maximum
+$ deadline job wait --job-id job-12345 --max-poll-interval 30
+
+# Set a timeout (default is 0, meaning no timeout)
+$ deadline job wait --job-id job-12345 --timeout 3600
+
+# Get the result in JSON format
+$ deadline job wait --job-id job-12345 --output json
+```
+
+The command blocks until the job reaches a terminal state (SUCCEEDED, FAILED, CANCELED, SUSPENDED, NOT_COMPATIBLE), then returns information about the job's status and any failed tasks. It uses exponential backoff for polling, starting at 0.5 seconds and doubling the interval after each check until it reaches the maximum polling interval.
+
+**Exit Codes:**
+- `0` - Job succeeded
+- `1` - Timeout waiting for job completion
+- `2` - Job failed or has failed tasks
+- `3` - Job was canceled
+- `4` - Job was archived
+- `5` - Job is not compatible 
+
+### Retrieving Job Logs
+
+You can monitor job status and retrieve logs using the CLI. The logs lines are returned starting from the most recent log event with timestamps in ISO 8601 format:
+
+```sh
+# Get logs for a specific session
+$ deadline job logs --session-id session-12345
+
+# Get logs for a job (automatically selects session: ongoing sessions preferred, then most recently started/ended)
+$ deadline job logs --job-id job-12345
+
+# Limit the number of log lines returned to the 50 most recent.
+$ deadline job logs --session-id session-12345 --limit 50
+
+# Filter logs by time range
+$ deadline job logs --session-id session-12345 --start-time 2023-01-01T12:00:00Z --end-time 2023-01-01T13:00:00Z
+
+# Get logs in JSON format
+$ deadline job logs --session-id session-12345 --output json
+
+# Get logs with timestamps in local timezone (default is UTC)
+$ deadline job logs --session-id session-12345 --timezone local
+
+# Get logs with explicit UTC timestamps (default behavior)
+$ deadline job logs --session-id session-12345 --timezone utc
+
+# Combine timezone option with JSON output
+$ deadline job logs --session-id session-12345 --timezone local --output json
+
+# Paginate through logs
+$ deadline job logs --session-id session-12345 --next-token next-token-value
+```
+
+**Timestamp Format**: All timestamps are displayed in ISO 8601 format with full microsecond precision and timezone information:
+- UTC format: `2025-07-03T10:49:33.821306+00:00`
+- Local format: `2025-07-03T03:49:33.821306-07:00` (example for PST)
+
+**Timezone Options**:
+- `--timezone utc` (default): Display timestamps in UTC with `+00:00` offset
+- `--timezone local`: Display timestamps converted to your local system timezone
+
+When using a Deadline Cloud monitor profile, the `job logs` command will use the Queue role credentials to read logs. Otherwise, the chosen profile credentials are used for all API invocations. This allows you to access logs with the appropriate permissions based on your authentication method.
+
 
 ## AWS Credentials Integration
 

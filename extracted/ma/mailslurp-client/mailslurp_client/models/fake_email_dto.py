@@ -255,6 +255,7 @@ class FakeEmailDto(object):
     def body(self):
         """Gets the body of this FakeEmailDto.  # noqa: E501
 
+        use read content endpoints instead  # noqa: E501
 
         :return: The body of this FakeEmailDto.  # noqa: E501
         :rtype: str
@@ -265,6 +266,7 @@ class FakeEmailDto(object):
     def body(self, body):
         """Sets the body of this FakeEmailDto.
 
+        use read content endpoints instead  # noqa: E501
 
         :param body: The body of this FakeEmailDto.  # noqa: E501
         :type: str

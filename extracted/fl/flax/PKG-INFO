@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flax
-Version: 0.10.7
+Version: 0.11.0
 Summary: Flax: A neural network library for JAX designed for flexibility
 Author-email: Flax team <flax-dev@google.com>
 Project-URL: homepage, https://github.com/google/flax
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
@@ -64,8 +64,8 @@ Requires-Dist: recommonmark; extra == "docs"
 Requires-Dist: ipython_genutils; extra == "docs"
 Requires-Dist: sphinx-design; extra == "docs"
 Requires-Dist: jupytext==1.13.8; extra == "docs"
-Requires-Dist: dm-haiku; extra == "docs"
-Requires-Dist: docutils; extra == "docs"
+Requires-Dist: dm-haiku>=0.0.14; extra == "docs"
+Requires-Dist: docutils==0.16; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: scikit-learn; extra == "docs"
 Requires-Dist: ml_collections; extra == "docs"
@@ -237,7 +237,7 @@ To cite this repository:
   author = {Jonathan Heek and Anselm Levskaya and Avital Oliver and Marvin Ritter and Bertrand Rondepierre and Andreas Steiner and Marc van {Z}ee},
   title = {{F}lax: A neural network library and ecosystem for {JAX}},
   url = {http://github.com/google/flax},
-  version = {0.10.7},
+  version = {0.11.0},
   year = {2024},
 }
 ```

@@ -44,7 +44,8 @@ from cpython cimport array
 
 from .constants import VECTOR_META_FLAG_SPARSE_VECTOR
 
-from .interchange.nanoarrow_bridge cimport (
+from .arrow_impl cimport (
+    DataFrameImpl,
     NANOARROW_TIME_UNIT_SECOND,
     NANOARROW_TIME_UNIT_MILLI,
     NANOARROW_TIME_UNIT_MICRO,
@@ -54,6 +55,8 @@ from .interchange.nanoarrow_bridge cimport (
     NANOARROW_TYPE_BINARY,
     NANOARROW_TYPE_DECIMAL128,
     NANOARROW_TYPE_DOUBLE,
+    NANOARROW_TYPE_FIXED_SIZE_BINARY,
+    NANOARROW_TYPE_FIXED_SIZE_LIST,
     NANOARROW_TYPE_FLOAT,
     NANOARROW_TYPE_INT8,
     NANOARROW_TYPE_INT64,
@@ -64,6 +67,7 @@ from .interchange.nanoarrow_bridge cimport (
     NANOARROW_TYPE_STRUCT,
     NANOARROW_TYPE_TIMESTAMP,
     NANOARROW_TYPE_UINT8,
+    ArrowArrayImpl,
 )
 
 import array
@@ -88,11 +92,12 @@ import warnings
 cydatetime.import_datetime()
 
 # Python types used by the driver
+cdef type PY_TYPE_ARROW_ARRAY
 cdef type PY_TYPE_ASYNC_CURSOR
 cdef type PY_TYPE_ASYNC_LOB
 cdef type PY_TYPE_BOOL = bool
 cdef type PY_TYPE_CURSOR
-cdef object PY_TYPE_DATAFRAME
+cdef type PY_TYPE_DATAFRAME
 cdef type PY_TYPE_DATE = datetime.date
 cdef type PY_TYPE_DATETIME = datetime.datetime
 cdef type PY_TYPE_DB_OBJECT

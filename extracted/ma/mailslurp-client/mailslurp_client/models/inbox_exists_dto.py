@@ -34,23 +34,31 @@ class InboxExistsDto(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'exists': 'bool'
+        'exists': 'bool',
+        'soft_bounce': 'bool',
+        'hard_bounce': 'bool'
     }
 
     attribute_map = {
-        'exists': 'exists'
+        'exists': 'exists',
+        'soft_bounce': 'softBounce',
+        'hard_bounce': 'hardBounce'
     }
 
-    def __init__(self, exists=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, exists=None, soft_bounce=None, hard_bounce=None, local_vars_configuration=None):  # noqa: E501
         """InboxExistsDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._exists = None
+        self._soft_bounce = None
+        self._hard_bounce = None
         self.discriminator = None
 
         self.exists = exists
+        self.soft_bounce = soft_bounce
+        self.hard_bounce = hard_bounce
 
     @property
     def exists(self):
@@ -74,6 +82,52 @@ class InboxExistsDto(object):
             raise ValueError("Invalid value for `exists`, must not be `None`")  # noqa: E501
 
         self._exists = exists
+
+    @property
+    def soft_bounce(self):
+        """Gets the soft_bounce of this InboxExistsDto.  # noqa: E501
+
+        Inbox is full or simulating a soft bounce via inbox replier or rulesets  # noqa: E501
+
+        :return: The soft_bounce of this InboxExistsDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._soft_bounce
+
+    @soft_bounce.setter
+    def soft_bounce(self, soft_bounce):
+        """Sets the soft_bounce of this InboxExistsDto.
+
+        Inbox is full or simulating a soft bounce via inbox replier or rulesets  # noqa: E501
+
+        :param soft_bounce: The soft_bounce of this InboxExistsDto.  # noqa: E501
+        :type: bool
+        """
+
+        self._soft_bounce = soft_bounce
+
+    @property
+    def hard_bounce(self):
+        """Gets the hard_bounce of this InboxExistsDto.  # noqa: E501
+
+        Inbox is blocking receiving emails or simulating a hard bounce via inbox replier or rulesets  # noqa: E501
+
+        :return: The hard_bounce of this InboxExistsDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._hard_bounce
+
+    @hard_bounce.setter
+    def hard_bounce(self, hard_bounce):
+        """Sets the hard_bounce of this InboxExistsDto.
+
+        Inbox is blocking receiving emails or simulating a hard bounce via inbox replier or rulesets  # noqa: E501
+
+        :param hard_bounce: The hard_bounce of this InboxExistsDto.  # noqa: E501
+        :type: bool
+        """
+
+        self._hard_bounce = hard_bounce
 
     def to_dict(self):
         """Returns the model properties as a dict"""

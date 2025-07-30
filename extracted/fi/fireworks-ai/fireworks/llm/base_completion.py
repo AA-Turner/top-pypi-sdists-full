@@ -40,16 +40,11 @@ class BaseCompletion(ABC):
         """
         if skip_setup:
             # Return cached model_id if available, otherwise get it without setup
-            if self._model_id is None:
-                self._model_id = self._llm.model_id()
-            return self._model_id
-
+            return self._llm.model_id()
         if not self._llm._ran_setup:
             self._llm._ensure_deployment_ready()
             self._llm._ran_setup = True
-        if self._model_id is None:
-            self._model_id = self._llm.model_id()
-        return self._model_id
+        return self._llm.model_id()
 
     def _should_retry_error(self, e: Exception) -> bool:
         """Check if an error should trigger a retry."""

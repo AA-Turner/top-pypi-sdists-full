@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fireworks-ai
-Version: 0.19.12
+Version: 0.19.14
 Summary: Python client library for the Fireworks AI Platform
 Author-Email: Fireworks AI <info@fireworks.ai>
 License: MIT
@@ -27,6 +27,7 @@ Requires-Dist: rich>=14.0.0
 Requires-Dist: reward-kit>=0.3.1
 Requires-Dist: toml>=0.10.2
 Requires-Dist: aiohttp[speedups]>=3.12.11
+Requires-Dist: attrs==23.2.0
 Provides-Extra: flumina
 Requires-Dist: fastapi; extra == "flumina"
 Requires-Dist: tabulate; extra == "flumina"

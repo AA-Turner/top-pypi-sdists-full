@@ -102,15 +102,16 @@ class ResultsPublisher:
                 # enhanced_result = self._enhance_result_for_publishing(aggregated_result)
                 
                 # Produce message to Kafka
-                if self.kafka_handler.produce_message(message=aggregated_result, key=aggregated_result.get("aggregation_metadata", {}).get("stream_key")):
+                try:
+                    self.kafka_handler.produce_message(message=aggregated_result, key=aggregated_result.get("aggregation_metadata", {}).get("stream_key"))
                     self.stats["messages_produced"] += 1
                     # Extract stream key from camera_info for logging (new structure)
                     camera_info = aggregated_result.get('camera_info', {})
                     stream_key = camera_info.get('camera_name', 'unknown')
                     logging.debug(f"Successfully published camera_results for stream: {stream_key}")
-                else:
+                except Exception as exc:
                     self.stats["kafka_errors"] += 1
-                    self._record_error("Failed to produce aggregated result to Kafka")
+                    self._record_error(f"Failed to produce aggregated result to Kafka: {str(exc)}")
                 
                 # Mark task as done
                 self.final_results_queue.task_done()
@@ -259,6 +260,7 @@ class ResultsPublisher:
         self.stats["errors"] += 1
         self.stats["last_error"] = error_message
         self.stats["last_error_time"] = time.time()
+        logging.error(f"Publisher error: {error_message}")
 
     def stop_streaming(self):
         """Stop streaming final results."""
@@ -281,7 +283,7 @@ class ResultsPublisher:
         
         # Stop Kafka deployment
         try:
-            self.kafka_handler.stop_streaming()
+            self.kafka_handler.close()
         except Exception as exc:
             logging.error(f"Error stopping Kafka deployment: {exc}")
         
@@ -324,18 +326,22 @@ class ResultsPublisher:
             "messages_produced": self.stats["messages_produced"],
         }
 
-        # Check for recent errors
+        # Check for recent errors (within last 60 seconds)
         if (
             self.stats["last_error_time"]
             and (time.time() - self.stats["last_error_time"]) < 60
         ):
             health["status"] = "degraded"
             health["last_error"] = self.stats["last_error"]
+            health["reason"] = f"Recent error: {self.stats['last_error']}"
+            logging.warning(f"Publisher degraded due to recent error: {self.stats['last_error']}")
 
         # Check queue size
-        if self.final_results_queue.qsize() > 100:
+        queue_size = self.final_results_queue.qsize()
+        if queue_size > 1000:
             health["status"] = "degraded"
-            health["reason"] = "Queue size too large"
+            health["reason"] = f"Queue size too large ({queue_size} items)"
+            logging.warning(f"Publisher degraded: queue has {queue_size} items (threshold: 100)")
 
         # Check error rates
         total_attempts = self.stats["messages_produced"] + self.stats["validation_errors"] + self.stats["kafka_errors"]
@@ -343,7 +349,14 @@ class ResultsPublisher:
             error_rate = (self.stats["validation_errors"] + self.stats["kafka_errors"]) / total_attempts
             if error_rate > 0.1:  # More than 10% error rate
                 health["status"] = "degraded"
-                health["reason"] = f"High error rate: {error_rate:.2%}"
+                health["reason"] = f"High error rate: {error_rate:.2%} ({self.stats['kafka_errors']} kafka, {self.stats['validation_errors']} validation)"
+                logging.warning(f"Publisher degraded: high error rate {error_rate:.2%} with {self.stats['kafka_errors']} kafka errors and {self.stats['validation_errors']} validation errors")
+
+        # Check if not running when it should be
+        if not self._is_running:
+            health["status"] = "unhealthy"
+            health["reason"] = "Publisher is not running"
+            logging.error("Publisher is not running")
 
         return health
 

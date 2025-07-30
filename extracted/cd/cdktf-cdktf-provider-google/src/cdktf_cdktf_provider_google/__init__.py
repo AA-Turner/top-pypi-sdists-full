@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.45.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.46.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.45.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.46.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -153,6 +153,7 @@ __all__ = [
     "alloydb_user",
     "apigee_addons_config",
     "apigee_api",
+    "apigee_api_product",
     "apigee_app_group",
     "apigee_control_plane_access",
     "apigee_developer",
@@ -894,6 +895,7 @@ __all__ = [
     "data_google_storage_control_folder_intelligence_config",
     "data_google_storage_control_organization_intelligence_config",
     "data_google_storage_control_project_intelligence_config",
+    "data_google_storage_insights_dataset_config",
     "data_google_storage_managed_folder_iam_policy",
     "data_google_storage_object_signed_url",
     "data_google_storage_project_service_account",
@@ -1026,6 +1028,7 @@ __all__ = [
     "dialogflow_intent",
     "discovery_engine_chat_engine",
     "discovery_engine_data_store",
+    "discovery_engine_recommendation_engine",
     "discovery_engine_schema",
     "discovery_engine_search_engine",
     "discovery_engine_sitemap",
@@ -1357,6 +1360,8 @@ __all__ = [
     "oracle_database_autonomous_database",
     "oracle_database_cloud_exadata_infrastructure",
     "oracle_database_cloud_vm_cluster",
+    "oracle_database_odb_network",
+    "oracle_database_odb_subnet",
     "org_policy_custom_constraint",
     "org_policy_policy",
     "organization_access_approval_settings",
@@ -1522,6 +1527,7 @@ __all__ = [
     "storage_default_object_acl",
     "storage_folder",
     "storage_hmac_key",
+    "storage_insights_dataset_config",
     "storage_insights_report_config",
     "storage_managed_folder",
     "storage_managed_folder_iam_binding",
@@ -1606,6 +1612,7 @@ from . import alloydb_instance
 from . import alloydb_user
 from . import apigee_addons_config
 from . import apigee_api
+from . import apigee_api_product
 from . import apigee_app_group
 from . import apigee_control_plane_access
 from . import apigee_developer
@@ -2347,6 +2354,7 @@ from . import data_google_storage_buckets
 from . import data_google_storage_control_folder_intelligence_config
 from . import data_google_storage_control_organization_intelligence_config
 from . import data_google_storage_control_project_intelligence_config
+from . import data_google_storage_insights_dataset_config
 from . import data_google_storage_managed_folder_iam_policy
 from . import data_google_storage_object_signed_url
 from . import data_google_storage_project_service_account
@@ -2479,6 +2487,7 @@ from . import dialogflow_fulfillment
 from . import dialogflow_intent
 from . import discovery_engine_chat_engine
 from . import discovery_engine_data_store
+from . import discovery_engine_recommendation_engine
 from . import discovery_engine_schema
 from . import discovery_engine_search_engine
 from . import discovery_engine_sitemap
@@ -2810,6 +2819,8 @@ from . import notebooks_runtime_iam_policy
 from . import oracle_database_autonomous_database
 from . import oracle_database_cloud_exadata_infrastructure
 from . import oracle_database_cloud_vm_cluster
+from . import oracle_database_odb_network
+from . import oracle_database_odb_subnet
 from . import org_policy_custom_constraint
 from . import org_policy_policy
 from . import organization_access_approval_settings
@@ -2975,6 +2986,7 @@ from . import storage_default_object_access_control
 from . import storage_default_object_acl
 from . import storage_folder
 from . import storage_hmac_key
+from . import storage_insights_dataset_config
 from . import storage_insights_report_config
 from . import storage_managed_folder
 from . import storage_managed_folder_iam_binding

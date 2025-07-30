@@ -1,3 +1,5 @@
+import time
+from datetime import datetime, timezone
 """
 Advanced customer service use case implementation.
 
@@ -63,6 +65,94 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
             det['category'] = 'staff'
 
 class AdvancedCustomerServiceUseCase(BaseProcessor):
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60), 2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:04.1f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        input_settings = stream_info.get("input_settings", {})
+        if precision:
+            if input_settings.get("start_frame", "na") != "na":
+                if frame_id is not None:
+                    start_time = int(frame_id)/input_settings.get("original_fps", 30)
+                else:
+                    start_time = input_settings.get("start_frame", 30)/input_settings.get("original_fps", 30)
+                return self._format_timestamp_for_video(start_time)
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if input_settings.get("start_frame", "na") != "na":
+            if frame_id is not None:
+                start_time = int(frame_id)/input_settings.get("original_fps", 30)
+            else:
+                start_time = input_settings.get("start_frame", 30)/input_settings.get("original_fps", 30)
+            return self._format_timestamp_for_video(start_time)
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = input_settings.get("stream_info", {}).get("stream_time", "")
+            if stream_time_str:
+                try:
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        input_settings = stream_info.get("input_settings", {})
+        if precision:
+            if input_settings.get("start_frame", "na") != "na":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if input_settings.get("start_frame", "na") != "na":
+            return "00:00:00"
+        else:
+            if not hasattr(self, '_tracking_start_time') or self._tracking_start_time is None:
+                stream_time_str = input_settings.get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+    def get_camera_info_from_stream(self, stream_info):
+        """Extract camera_info from stream_info, matching people_counting pattern."""
+        if not stream_info:
+            return {}
+        # Try to get camera_info directly
+        camera_info = stream_info.get("camera_info")
+        if camera_info:
+            return camera_info
+        # Fallback: try to extract from nested input_settings
+        input_settings = stream_info.get("input_settings", {})
+        for key in ["camera_info", "camera_id", "location", "site_id"]:
+            if key in input_settings:
+                return {key: input_settings[key]}
+        return {}
     def _generate_per_frame_agg_summary(self, processed_data, analytics_results, config, context, stream_info=None):
         """
         Generate agg_summary dict with per-frame incidents, tracking_stats, business_analytics, alerts, human_text.
@@ -73,7 +163,33 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         total_frames_processed = getattr(self, '_total_frames_processed', 0)
         global_frame_offset = getattr(self, 'global_frame_offset', 0)
 
-        for frame_id, detections in processed_data.items():
+        # Try to get FPS from stream_info or config
+        fps = None
+        if stream_info:
+            fps = stream_info.get('fps') or stream_info.get('frame_rate')
+        if not fps:
+            fps = getattr(config, 'fps', None) or getattr(config, 'frame_rate', None)
+        try:
+            fps = float(fps)
+            if fps <= 0:
+                fps = None
+        except Exception:
+            fps = None
+
+        # If frame_ids are not sorted, sort them numerically if possible
+        try:
+            frame_ids = sorted(processed_data.keys(), key=lambda x: int(x))
+        except Exception:
+            frame_ids = list(processed_data.keys())
+
+
+        # For real-time fallback, record wall-clock start time
+        wallclock_start_time = None
+        if not fps:
+            wallclock_start_time = time.time()
+
+        for idx, frame_id in enumerate(frame_ids):
+            detections = processed_data[frame_id]
             staff_count = sum(1 for d in detections if d.get('category') == 'staff')
             customer_count = sum(1 for d in detections if d.get('category') == 'customer')
             total_people = staff_count + customer_count
@@ -84,6 +200,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             journey_analytics = analytics_results.get("customer_journey_analytics", {})
             business_metrics = analytics_results.get("business_metrics", {})
 
+            # --- Per-frame timestamp logic (robust, never default to 00:00:00.00 except first frame) ---
             current_timestamp = self._get_current_timestamp_str(stream_info)
             start_timestamp = self._get_start_timestamp_str(stream_info)
 
@@ -113,7 +230,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     }
                 })
             # service efficiency alert
-            efficiency_threshold = getattr(config, "service_efficiency_threshold", 0.5)
+            efficiency_threshold = getattr(config, "service_efficiency_threshold", 0.1)
             if business_metrics.get("service_efficiency", 0) < efficiency_threshold:
                 alert_settings.append({
                     "alert_type": "email",
@@ -187,7 +304,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 "alert_settings": alert_settings
             }
             # Harmonize tracking_stats fields with people_counting output
-            camera_info = stream_info.get("camera_info", {}) if stream_info else {}
+            camera_info = self.get_camera_info_from_stream(stream_info)
             input_timestamp = current_timestamp
             reset_timestamp = start_timestamp
             reset_settings = config.create_default_config() if hasattr(config, "create_default_config") else {}
@@ -235,21 +352,36 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 "reset_settings": reset_settings,
                 "human_text": human_text
             }
-            business_analytics = [{
+            # Patch: Build real_time_occupancy with correct service_areas info (not just empty lists)
+            real_time_occupancy = analytics_results.get("real_time_occupancy", {}).copy()
+            # Overwrite service_areas with per-zone info matching service_areas_status
+            service_areas_status = service_analytics.get("service_areas_status", {})
+            real_time_occupancy["service_areas"] = {}
+            for area_name, area_info in service_areas_status.items():
+                real_time_occupancy["service_areas"][area_name] = {
+                    "customers": area_info.get("customers", 0),
+                    "customer_ids": area_info.get("customer_ids", []),
+                    "staff": area_info.get("staff", 0),
+                    "staff_ids": area_info.get("staff_ids", []),
+                    "service_ratio": area_info.get("service_ratio", 0.0),
+                    "status": area_info.get("status", "inactive"),
+                    "service_proximity_threshold": area_info.get("service_proximity_threshold", 230)
+                }
+            business_analytics = {
                 "business_metrics": business_metrics,
                 "customer_queue_analytics": queue_analytics,
                 "staff_management_analytics": staff_analytics,
                 "service_area_analytics": service_analytics,
                 "customer_journey_analytics": journey_analytics,
                 "service_times": analytics_results.get("service_times", []),
-                "real_time_occupancy": analytics_results.get("real_time_occupancy", {}),
+                "real_time_occupancy": real_time_occupancy,
                 "alerts": alerts,
                 "alert_settings": alert_settings
-            }]
+            }
 
             agg_summary[str(frame_id)] = {
-                "incidents": [event],
-                "tracking_stats": [tracking_stat],
+                "incidents": event,
+                "tracking_stats": tracking_stat,
                 "business_analytics": business_analytics,
                 "alerts": alerts,
                 "human_text": human_text
@@ -1344,20 +1476,6 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         
         return insights
 
-    def _get_current_timestamp_str(self, stream_info: Optional[dict]) -> str:
-        """Get formatted current timestamp based on stream type (video or stream)."""
-        if not stream_info:
-            return "00:00:00.00"
-        input_settings = stream_info.get("input_settings", {})
-        stream_type = input_settings.get("stream_type", "video_file")
-        if stream_type == "video_file":
-            # For video files, use video_timestamp
-            video_timestamp = stream_info.get("video_timestamp", "")
-            return video_timestamp[:8] if video_timestamp else "00:00:00.00"
-        else:
-            # For streams, use stream_time
-            stream_time_str = stream_info.get("stream_time", "")
-            return stream_time_str[:8] if stream_time_str else "00:00:00.00"
 
     def _get_start_timestamp_str(self, stream_info: Optional[dict]) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""

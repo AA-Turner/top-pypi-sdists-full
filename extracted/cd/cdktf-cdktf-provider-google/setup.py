@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.7.0",
+    "version": "16.8.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -50,6 +50,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.alloydb_user",
         "cdktf_cdktf_provider_google.apigee_addons_config",
         "cdktf_cdktf_provider_google.apigee_api",
+        "cdktf_cdktf_provider_google.apigee_api_product",
         "cdktf_cdktf_provider_google.apigee_app_group",
         "cdktf_cdktf_provider_google.apigee_control_plane_access",
         "cdktf_cdktf_provider_google.apigee_developer",
@@ -791,6 +792,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_storage_control_folder_intelligence_config",
         "cdktf_cdktf_provider_google.data_google_storage_control_organization_intelligence_config",
         "cdktf_cdktf_provider_google.data_google_storage_control_project_intelligence_config",
+        "cdktf_cdktf_provider_google.data_google_storage_insights_dataset_config",
         "cdktf_cdktf_provider_google.data_google_storage_managed_folder_iam_policy",
         "cdktf_cdktf_provider_google.data_google_storage_object_signed_url",
         "cdktf_cdktf_provider_google.data_google_storage_project_service_account",
@@ -923,6 +925,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.dialogflow_intent",
         "cdktf_cdktf_provider_google.discovery_engine_chat_engine",
         "cdktf_cdktf_provider_google.discovery_engine_data_store",
+        "cdktf_cdktf_provider_google.discovery_engine_recommendation_engine",
         "cdktf_cdktf_provider_google.discovery_engine_schema",
         "cdktf_cdktf_provider_google.discovery_engine_search_engine",
         "cdktf_cdktf_provider_google.discovery_engine_sitemap",
@@ -1254,6 +1257,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.oracle_database_autonomous_database",
         "cdktf_cdktf_provider_google.oracle_database_cloud_exadata_infrastructure",
         "cdktf_cdktf_provider_google.oracle_database_cloud_vm_cluster",
+        "cdktf_cdktf_provider_google.oracle_database_odb_network",
+        "cdktf_cdktf_provider_google.oracle_database_odb_subnet",
         "cdktf_cdktf_provider_google.org_policy_custom_constraint",
         "cdktf_cdktf_provider_google.org_policy_policy",
         "cdktf_cdktf_provider_google.organization_access_approval_settings",
@@ -1419,6 +1424,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.storage_default_object_acl",
         "cdktf_cdktf_provider_google.storage_folder",
         "cdktf_cdktf_provider_google.storage_hmac_key",
+        "cdktf_cdktf_provider_google.storage_insights_dataset_config",
         "cdktf_cdktf_provider_google.storage_insights_report_config",
         "cdktf_cdktf_provider_google.storage_managed_folder",
         "cdktf_cdktf_provider_google.storage_managed_folder_iam_binding",
@@ -1474,7 +1480,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.7.0.jsii.tgz"
+            "provider-google@16.8.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

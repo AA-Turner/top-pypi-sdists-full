@@ -107,6 +107,8 @@ class ChildMonitoringUseCase(BaseProcessor):
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
+        
+        
 
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
@@ -115,15 +117,17 @@ class ChildMonitoringUseCase(BaseProcessor):
             processed_data = data
             
             self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
-
+        print(processed_data)
         # Step 2: Apply category mapping if provided
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
             self.logger.debug("Applied category mapping")
-
+        print(processed_data)
         if config.target_categories:
             processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
             self.logger.debug(f"Applied  category filtering")
+        
+        print(processed_data)
 
         # Apply bbox smoothing if enabled
         if config.enable_smoothing:

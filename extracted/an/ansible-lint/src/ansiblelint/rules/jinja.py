@@ -14,7 +14,9 @@ from typing import TYPE_CHECKING, NamedTuple
 import black
 import jinja2
 from ansible.errors import AnsibleError, AnsibleFilterError, AnsibleParserError
+from ansible_compat.config import ansible_version
 from jinja2.exceptions import TemplateSyntaxError
+from packaging.version import Version
 
 from ansiblelint.errors import RuleMatchTransformMeta
 from ansiblelint.file_utils import Lintable
@@ -145,11 +147,15 @@ class JinjaRule(AnsibleLintRule, TransformMixin):
                     except AnsibleFilterError:
                         bypass = True
                     # ValueError RepresenterError
-                    except AnsibleError as exc:
+                    except (AnsibleError, ImportError) as exc:
                         bypass = False
-                        orig_exc = (
-                            exc.orig_exc if getattr(exc, "orig_exc", None) else exc
-                        )
+                        orig_exc = exc
+                        if (
+                            isinstance(exc, AnsibleError)
+                            and hasattr(exc, "orig_exc")
+                            and exc.orig_exc
+                        ):
+                            orig_exc = exc.orig_exc
                         orig_exc_message = getattr(orig_exc, "message", str(orig_exc))
                         match = self._ansible_error_re.match(
                             getattr(orig_exc, "message", str(orig_exc)),
@@ -185,6 +191,12 @@ class JinjaRule(AnsibleLintRule, TransformMixin):
                                 bypass = True
                             else:
                                 bypass = False
+                        elif isinstance(exc, ImportError):
+                            if self.options and self.options.nodeps:
+                                msg = f"Ignored exception {exc} due to running with nodeps mode."
+                                _logger.debug(msg)
+                                continue
+                            bypass = False
                         elif re.match(r"^lookup plugin (.*) not found$", exc.message):
                             # lookup plugin 'template' not found
                             bypass = True
@@ -309,7 +321,9 @@ class JinjaRule(AnsibleLintRule, TransformMixin):
             )
         return tokens
 
-    def unlex(self, tokens: list[Token]) -> str:
+    def unlex(
+        self, tokens: list[Token], original_line_ending: str | None = None
+    ) -> str:
         """Return original text by compiling the lex output."""
         result = ""
         last_lineno = 1
@@ -320,6 +334,11 @@ class JinjaRule(AnsibleLintRule, TransformMixin):
             result += value
             last_lineno = lineno
             last_value = value
+
+        # Preserve original line endings if they were different from \n
+        if original_line_ending and original_line_ending != "\n":
+            result = result.replace("\n", original_line_ending)
+
         return result
 
     # pylint: disable=too-many-locals
@@ -351,6 +370,13 @@ class JinjaRule(AnsibleLintRule, TransformMixin):
             if not implicit:
                 return value
             return value[3:-3]
+
+        # Detect original line ending style to preserve it
+        # Only preserve \r\n (Windows CRLF), let \r (Mac classic) be normalized to \n
+        # as per jinja 3.0.0 behavior (see test case 44)
+        original_line_ending = None
+        if "\r\n" in text:
+            original_line_ending = "\r\n"
 
         tokens = []
         details = ""
@@ -431,7 +457,7 @@ class JinjaRule(AnsibleLintRule, TransformMixin):
             return uncook(text, implicit=implicit), "", "spacing"
 
         # finalize
-        reformatted = self.unlex(tokens)
+        reformatted = self.unlex(tokens, original_line_ending)
         failed = reformatted != text
         reformatted = uncook(reformatted, implicit=implicit)
         details = (
@@ -522,6 +548,7 @@ if "pytest" in sys.modules:
     from ansiblelint.runner import Runner
     from ansiblelint.transformer import Transformer
 
+    @pytest.mark.libyaml
     def test_jinja_spacing_playbook() -> None:
         """Ensure that expected error lines are matching found linting error lines."""
         # list unexpected error lines or non-matching error lines
@@ -770,6 +797,13 @@ if "pytest" in sys.modules:
                 "spacing",
                 id="45",
             ),
+            # Windows line endings (\r\n) should be preserved, but \r alone should normalize to \n
+            pytest.param(
+                "Created on {{ '%Y-%m-%d %H:%M:%S %Z' | strftime }}.\r\n",
+                "Created on {{ '%Y-%m-%d %H:%M:%S %Z' | strftime }}.\r\n",
+                "spacing",
+                id="46",
+            ),
         ),
     )
     def test_jinja(text: str, expected: str, tag: str) -> None:
@@ -841,10 +875,10 @@ if "pytest" in sys.modules:
         assert len(errs) == 2
         assert errs[0].tag == "jinja[spacing]"
         assert errs[0].rule.id == "jinja"
-        assert errs[0].lineno == 9
+        assert errs[0].lineno in [9, 13]  # ruamel w/ clib return different numbers
         assert errs[1].tag == "jinja[invalid]"
         assert errs[1].rule.id == "jinja"
-        assert errs[1].lineno in [9, 10]  # 2.19 has better line identification
+        assert errs[1].lineno in [9, 10, 13]  # 2.19 has better line identification
 
     def test_jinja_valid() -> None:
         """Tests our ability to parse jinja, even when variables may not be defined."""
@@ -905,3 +939,25 @@ if "pytest" in sys.modules:
         with mock.patch.object(Templar, "do_template", _do_template):
             results = Runner(lintable, rules=collection).run()
             assert len(results) == 0
+
+    @pytest.mark.parametrize(
+        ("nodeps", "expected_results"),
+        (
+            pytest.param(
+                "0",
+                0 if ansible_version() >= Version("2.19.0.dev0") else 1,
+                id="normal",
+            ),
+            pytest.param("1", 0, id="nodeps"),
+        ),
+    )
+    def test_filter_import_failure(
+        nodeps: str, expected_results: int, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Tests how we process import failures from within filters."""
+        monkeypatch.setenv("ANSIBLE_LINT_NODEPS", nodeps)
+        collection = RulesCollection()
+        collection.register(JinjaRule())
+        lintable = Lintable("examples/playbooks/test_filter_with_importerror.yml")
+        results = Runner(lintable, rules=collection).run()
+        assert len(results) == expected_results

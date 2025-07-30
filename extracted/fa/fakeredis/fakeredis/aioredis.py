@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import warnings
-from typing import Union, Optional, Any, Callable, Iterable, Tuple, List, Set
+from typing import Union, Optional, Any, Callable, Iterable, Tuple, List, Set, Sequence
 
 import redis.asyncio as redis_async
 from redis import ResponseError
@@ -141,6 +141,12 @@ class FakeConnection(FakeBaseConnectionMixin, redis_async.Connection):
             if timeout is not None and now > start + timeout:
                 return False
 
+    async def _get_from_local_cache(self, command: Sequence[str]) -> None:
+        return None
+
+    def _add_to_local_cache(self, command: Sequence[str], response: Any, keys: List[Any]) -> None:
+        return None
+
     def _decode(self, response: Any) -> Any:
         if isinstance(response, list):
             return [self._decode(item) for item in response]
@@ -187,9 +193,10 @@ class FakeRedisMixin:
         version: VersionType = (7,),
         server_type: ServerType = "redis",
         lua_modules: Optional[Set[str]] = None,
+        client_class=redis_async.Redis,
         **kwargs: Any,
     ) -> None:
-        kwds = convert_args_to_redis_init_kwargs(redis_async.Redis, *args, **kwargs)
+        kwds = convert_args_to_redis_init_kwargs(client_class, *args, **kwargs)
         kwds["server"] = server
         kwds["connected"] = kwargs.get("connected", True)
         if not kwds.get("connection_pool", None):

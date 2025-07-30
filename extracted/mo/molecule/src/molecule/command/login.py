@@ -21,26 +21,23 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import shlex
 import subprocess
 
 from typing import TYPE_CHECKING
 
-import click
-
 from molecule import scenarios
+from molecule.click_cfg import click_command_ex, options
 from molecule.command import base
 from molecule.exceptions import MoleculeError
 
 
 if TYPE_CHECKING:
+    import click
+
     from molecule import config
     from molecule.types import CommandArgs
-
-
-LOG = logging.getLogger(__name__)
 
 
 class Login(base.Base):
@@ -102,13 +99,13 @@ class Login(base.Base):
         return match[0]
 
     def _get_login(self, hostname: str) -> None:  # pragma: no cover
-        # ruff: noqa: S605,S607
+        # ruff: noqa: S605
         lines, columns = os.popen("stty size", "r").read().split()
         login_options = self._config.driver.login_options(hostname)
         login_options["columns"] = columns
         login_options["lines"] = lines
         if not self._config.driver.login_cmd_template:
-            LOG.warning(
+            self._log.warning(
                 "Login command is not supported for [dim]%s[/] host because 'login_cmd_template' was not defined in driver options.",
                 login_options["instance"],
             )
@@ -116,35 +113,25 @@ class Login(base.Base):
         login_cmd = self._config.driver.login_cmd_template.format(**login_options)
 
         cmd = shlex.split(f"/usr/bin/env {login_cmd}")
-        # ruff: noqa: S603
         subprocess.run(cmd, check=False)
 
 
-@base.click_command_ex()
-@click.pass_context
-@click.option("--host", "-h", help="Host to access.")
-@click.option(
-    "--scenario-name",
-    "-s",
-    default=base.MOLECULE_DEFAULT_SCENARIO_NAME,
-    help=f"Name of the scenario to target. ({base.MOLECULE_DEFAULT_SCENARIO_NAME})",
-)
-def login(
-    ctx: click.Context,
-    host: str,
-    scenario_name: str,
-) -> None:  # pragma: no cover
+@click_command_ex()
+@options(["host", "scenario_name_single_with_default"])
+def login(ctx: click.Context) -> None:  # pragma: no cover
     """Log in to one instance.
 
-    \f
     Args:
         ctx: Click context object holding commandline arguments.
-        host: Host to access.
-        scenario_name: Name of the scenario to target.
-    """  # noqa: D301
+    """
     args = ctx.obj.get("args")
     subcommand = base._get_subcommand(__name__)  # noqa: SLF001
-    command_args: CommandArgs = {"subcommand": subcommand, "host": host}
+    command_args: CommandArgs = {
+        "host": ctx.params["host"],
+        "subcommand": subcommand,
+    }
+
+    scenario_name = ctx.params["scenario_name"]
 
     s = scenarios.Scenarios(base.get_configs(args, command_args), [scenario_name])
     for scenario in s.all:

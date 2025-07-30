@@ -1229,7 +1229,29 @@ class CfnOriginEndpoint(
                 manifest_name="manifestName",
         
                 # the properties below are optional
+                base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
+                    url="url",
+        
+                    # the properties below are optional
+                    dvb_priority=123,
+                    dvb_weight=123,
+                    service_location="serviceLocation"
+                )],
+                compactness="compactness",
                 drm_signaling="drmSignaling",
+                dvb_settings=mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty(
+                    error_metrics=[mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
+                        reporting_url="reportingUrl",
+        
+                        # the properties below are optional
+                        probability=123
+                    )],
+                    font_download=mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
+                        font_family="fontFamily",
+                        mime_type="mimeType",
+                        url="url"
+                    )
+                ),
                 filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
                     clip_start_time="clipStartTime",
                     end="end",
@@ -1241,10 +1263,23 @@ class CfnOriginEndpoint(
                 min_buffer_time_seconds=123,
                 min_update_period_seconds=123,
                 period_triggers=["periodTriggers"],
+                profiles=["profiles"],
+                program_information=mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty(
+                    copyright="copyright",
+                    language_code="languageCode",
+                    more_information_url="moreInformationUrl",
+                    source="source",
+                    title="title"
+                ),
                 scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
                     ad_marker_dash="adMarkerDash"
                 ),
                 segment_template_format="segmentTemplateFormat",
+                subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
+                    ttml_configuration=mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
+                        ttml_profile="ttmlProfile"
+                    )
+                ),
                 suggested_presentation_delay_seconds=123,
                 utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
                     timing_mode="timingMode",
@@ -1677,18 +1712,396 @@ class CfnOriginEndpoint(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "url": "url",
+            "dvb_priority": "dvbPriority",
+            "dvb_weight": "dvbWeight",
+            "service_location": "serviceLocation",
+        },
+    )
+    class DashBaseUrlProperty:
+        def __init__(
+            self,
+            *,
+            url: builtins.str,
+            dvb_priority: typing.Optional[jsii.Number] = None,
+            dvb_weight: typing.Optional[jsii.Number] = None,
+            service_location: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The base URLs to use for retrieving segments.
+
+            You can specify multiple locations and indicate the priority and weight for when each should be used, for use in mutli-CDN workflows.
+
+            :param url: A source location for segments.
+            :param dvb_priority: For use with DVB-DASH profiles only. The priority of this location for servings segments. The lower the number, the higher the priority.
+            :param dvb_weight: For use with DVB-DASH profiles only. The weighting for source locations that have the same priority.
+            :param service_location: The name of the source location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashbaseurl.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_base_url_property = mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
+                    url="url",
+                
+                    # the properties below are optional
+                    dvb_priority=123,
+                    dvb_weight=123,
+                    service_location="serviceLocation"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__be1d880fe401caed5e0186c4f4a6b76f8d63f2e78cf2fcbb490b66d185d4af29)
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument dvb_priority", value=dvb_priority, expected_type=type_hints["dvb_priority"])
+                check_type(argname="argument dvb_weight", value=dvb_weight, expected_type=type_hints["dvb_weight"])
+                check_type(argname="argument service_location", value=service_location, expected_type=type_hints["service_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "url": url,
+            }
+            if dvb_priority is not None:
+                self._values["dvb_priority"] = dvb_priority
+            if dvb_weight is not None:
+                self._values["dvb_weight"] = dvb_weight
+            if service_location is not None:
+                self._values["service_location"] = service_location
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''A source location for segments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashbaseurl.html#cfn-mediapackagev2-originendpoint-dashbaseurl-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dvb_priority(self) -> typing.Optional[jsii.Number]:
+            '''For use with DVB-DASH profiles only.
+
+            The priority of this location for servings segments. The lower the number, the higher the priority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashbaseurl.html#cfn-mediapackagev2-originendpoint-dashbaseurl-dvbpriority
+            '''
+            result = self._values.get("dvb_priority")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def dvb_weight(self) -> typing.Optional[jsii.Number]:
+            '''For use with DVB-DASH profiles only.
+
+            The weighting for source locations that have the same priority.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashbaseurl.html#cfn-mediapackagev2-originendpoint-dashbaseurl-dvbweight
+            '''
+            result = self._values.get("dvb_weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def service_location(self) -> typing.Optional[builtins.str]:
+            '''The name of the source location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashbaseurl.html#cfn-mediapackagev2-originendpoint-dashbaseurl-servicelocation
+            '''
+            result = self._values.get("service_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashBaseUrlProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "font_family": "fontFamily",
+            "mime_type": "mimeType",
+            "url": "url",
+        },
+    )
+    class DashDvbFontDownloadProperty:
+        def __init__(
+            self,
+            *,
+            font_family: typing.Optional[builtins.str] = None,
+            mime_type: typing.Optional[builtins.str] = None,
+            url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''For use with DVB-DASH profiles only.
+
+            The settings for font downloads that you want AWS Elemental MediaPackage to pass through to the manifest.
+
+            :param font_family: The ``fontFamily`` name for subtitles, as described in `EBU-TT-D Subtitling Distribution Format <https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380>`_ .
+            :param mime_type: The ``mimeType`` of the resource that's at the font download URL. For information about font MIME types, see the `MPEG-DASH Profile for Transport of ISO BMFF Based DVB Services over IP Based Networks <https://docs.aws.amazon.com/https://dvb.org/wp-content/uploads/2021/06/A168r4_MPEG-DASH-Profile-for-Transport-of-ISO-BMFF-Based-DVB-Services_Draft-ts_103-285-v140_November_2021.pdf>`_ document.
+            :param url: The URL for downloading fonts for subtitles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbfontdownload.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_dvb_font_download_property = mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
+                    font_family="fontFamily",
+                    mime_type="mimeType",
+                    url="url"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__81c2694b55243cfd80ec8b5b8d807b1d991f3ae38973b41f6fb77d9d5ea24965)
+                check_type(argname="argument font_family", value=font_family, expected_type=type_hints["font_family"])
+                check_type(argname="argument mime_type", value=mime_type, expected_type=type_hints["mime_type"])
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if font_family is not None:
+                self._values["font_family"] = font_family
+            if mime_type is not None:
+                self._values["mime_type"] = mime_type
+            if url is not None:
+                self._values["url"] = url
+
+        @builtins.property
+        def font_family(self) -> typing.Optional[builtins.str]:
+            '''The ``fontFamily`` name for subtitles, as described in `EBU-TT-D Subtitling Distribution Format <https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbfontdownload.html#cfn-mediapackagev2-originendpoint-dashdvbfontdownload-fontfamily
+            '''
+            result = self._values.get("font_family")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def mime_type(self) -> typing.Optional[builtins.str]:
+            '''The ``mimeType`` of the resource that's at the font download URL.
+
+            For information about font MIME types, see the `MPEG-DASH Profile for Transport of ISO BMFF Based DVB Services over IP Based Networks <https://docs.aws.amazon.com/https://dvb.org/wp-content/uploads/2021/06/A168r4_MPEG-DASH-Profile-for-Transport-of-ISO-BMFF-Based-DVB-Services_Draft-ts_103-285-v140_November_2021.pdf>`_ document.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbfontdownload.html#cfn-mediapackagev2-originendpoint-dashdvbfontdownload-mimetype
+            '''
+            result = self._values.get("mime_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def url(self) -> typing.Optional[builtins.str]:
+            '''The URL for downloading fonts for subtitles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbfontdownload.html#cfn-mediapackagev2-originendpoint-dashdvbfontdownload-url
+            '''
+            result = self._values.get("url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashDvbFontDownloadProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"reporting_url": "reportingUrl", "probability": "probability"},
+    )
+    class DashDvbMetricsReportingProperty:
+        def __init__(
+            self,
+            *,
+            reporting_url: builtins.str,
+            probability: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''For use with DVB-DASH profiles only.
+
+            The settings for error reporting from the playback device that you want AWS Elemental MediaPackage to pass through to the manifest.
+
+            :param reporting_url: The URL where playback devices send error reports.
+            :param probability: The number of playback devices per 1000 that will send error reports to the reporting URL. This represents the probability that a playback device will be a reporting player for this session.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbmetricsreporting.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_dvb_metrics_reporting_property = mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
+                    reporting_url="reportingUrl",
+                
+                    # the properties below are optional
+                    probability=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fadf127f9f82d1f5f09e73b8a4d72d5685c1236b84cdaa5c6132a7ab4774e495)
+                check_type(argname="argument reporting_url", value=reporting_url, expected_type=type_hints["reporting_url"])
+                check_type(argname="argument probability", value=probability, expected_type=type_hints["probability"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "reporting_url": reporting_url,
+            }
+            if probability is not None:
+                self._values["probability"] = probability
+
+        @builtins.property
+        def reporting_url(self) -> builtins.str:
+            '''The URL where playback devices send error reports.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbmetricsreporting.html#cfn-mediapackagev2-originendpoint-dashdvbmetricsreporting-reportingurl
+            '''
+            result = self._values.get("reporting_url")
+            assert result is not None, "Required property 'reporting_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def probability(self) -> typing.Optional[jsii.Number]:
+            '''The number of playback devices per 1000 that will send error reports to the reporting URL.
+
+            This represents the probability that a playback device will be a reporting player for this session.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbmetricsreporting.html#cfn-mediapackagev2-originendpoint-dashdvbmetricsreporting-probability
+            '''
+            result = self._values.get("probability")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashDvbMetricsReportingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "error_metrics": "errorMetrics",
+            "font_download": "fontDownload",
+        },
+    )
+    class DashDvbSettingsProperty:
+        def __init__(
+            self,
+            *,
+            error_metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashDvbMetricsReportingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            font_download: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashDvbFontDownloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''For endpoints that use the DVB-DASH profile only.
+
+            The font download and error reporting information that you want MediaPackage to pass through to the manifest.
+
+            :param error_metrics: Playback device error reporting settings.
+            :param font_download: Subtitle font settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_dvb_settings_property = mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty(
+                    error_metrics=[mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
+                        reporting_url="reportingUrl",
+                
+                        # the properties below are optional
+                        probability=123
+                    )],
+                    font_download=mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
+                        font_family="fontFamily",
+                        mime_type="mimeType",
+                        url="url"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b0aed7d8)
+                check_type(argname="argument error_metrics", value=error_metrics, expected_type=type_hints["error_metrics"])
+                check_type(argname="argument font_download", value=font_download, expected_type=type_hints["font_download"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if error_metrics is not None:
+                self._values["error_metrics"] = error_metrics
+            if font_download is not None:
+                self._values["font_download"] = font_download
+
+        @builtins.property
+        def error_metrics(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashDvbMetricsReportingProperty"]]]]:
+            '''Playback device error reporting settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbsettings.html#cfn-mediapackagev2-originendpoint-dashdvbsettings-errormetrics
+            '''
+            result = self._values.get("error_metrics")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashDvbMetricsReportingProperty"]]]], result)
+
+        @builtins.property
+        def font_download(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashDvbFontDownloadProperty"]]:
+            '''Subtitle font settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbsettings.html#cfn-mediapackagev2-originendpoint-dashdvbsettings-fontdownload
+            '''
+            result = self._values.get("font_download")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashDvbFontDownloadProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashDvbSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashManifestConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "manifest_name": "manifestName",
+            "base_urls": "baseUrls",
+            "compactness": "compactness",
             "drm_signaling": "drmSignaling",
+            "dvb_settings": "dvbSettings",
             "filter_configuration": "filterConfiguration",
             "manifest_window_seconds": "manifestWindowSeconds",
             "min_buffer_time_seconds": "minBufferTimeSeconds",
             "min_update_period_seconds": "minUpdatePeriodSeconds",
             "period_triggers": "periodTriggers",
+            "profiles": "profiles",
+            "program_information": "programInformation",
             "scte_dash": "scteDash",
             "segment_template_format": "segmentTemplateFormat",
+            "subtitle_configuration": "subtitleConfiguration",
             "suggested_presentation_delay_seconds": "suggestedPresentationDelaySeconds",
             "utc_timing": "utcTiming",
         },
@@ -1698,28 +2111,40 @@ class CfnOriginEndpoint(
             self,
             *,
             manifest_name: builtins.str,
+            base_urls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashBaseUrlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            compactness: typing.Optional[builtins.str] = None,
             drm_signaling: typing.Optional[builtins.str] = None,
+            dvb_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashDvbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
             min_buffer_time_seconds: typing.Optional[jsii.Number] = None,
             min_update_period_seconds: typing.Optional[jsii.Number] = None,
             period_triggers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            profiles: typing.Optional[typing.Sequence[builtins.str]] = None,
+            program_information: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashProgramInformationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scte_dash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.ScteDashProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             segment_template_format: typing.Optional[builtins.str] = None,
+            subtitle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashSubtitleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             suggested_presentation_delay_seconds: typing.Optional[jsii.Number] = None,
             utc_timing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashUtcTimingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The DASH manifest configuration associated with the origin endpoint.
 
             :param manifest_name: A short string that's appended to the endpoint URL. The child manifest name creates a unique path to this endpoint.
+            :param base_urls: The base URLs to use for retrieving segments.
+            :param compactness: The layout of the DASH manifest that MediaPackage produces. ``STANDARD`` indicates a default manifest, which is compacted. ``NONE`` indicates a full manifest. For information about compactness, see `DASH manifest compactness <https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html>`_ in the *AWS Elemental MediaPackage v2 User Guide* .
             :param drm_signaling: Determines how the DASH manifest signals the DRM content.
+            :param dvb_settings: For endpoints that use the DVB-DASH profile only. The font download and error reporting information that you want MediaPackage to pass through to the manifest.
             :param filter_configuration: Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
             :param manifest_window_seconds: The total duration (in seconds) of the manifest's content.
             :param min_buffer_time_seconds: Minimum amount of content (in seconds) that a player must keep available in the buffer.
             :param min_update_period_seconds: Minimum amount of time (in seconds) that the player should wait before requesting updates to the manifest.
             :param period_triggers: A list of triggers that controls when AWS Elemental MediaPackage separates the MPEG-DASH manifest into multiple periods. Type ``ADS`` to indicate that AWS Elemental MediaPackage must create periods in the output manifest that correspond to SCTE-35 ad markers in the input source. Leave this value empty to indicate that the manifest is contained all in one period. For more information about periods in the DASH manifest, see `Multi-period DASH in AWS Elemental MediaPackage <https://docs.aws.amazon.com/mediapackage/latest/userguide/multi-period.html>`_ .
+            :param profiles: The profile that the output is compliant with.
+            :param program_information: Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
             :param scte_dash: The SCTE configuration.
             :param segment_template_format: Determines the type of variable used in the ``media`` URL of the ``SegmentTemplate`` tag in the manifest. Also specifies if segment timeline information is included in ``SegmentTimeline`` or ``SegmentTemplate`` . Value description: - ``NUMBER_WITH_TIMELINE`` - The ``$Number$`` variable is used in the ``media`` URL. The value of this variable is the sequential number of the segment. A full ``SegmentTimeline`` object is presented in each ``SegmentTemplate`` .
+            :param subtitle_configuration: The configuration for DASH subtitles.
             :param suggested_presentation_delay_seconds: The amount of time (in seconds) that the player should be from the end of the manifest.
             :param utc_timing: Determines the type of UTC timing included in the DASH Media Presentation Description (MPD).
 
@@ -1736,7 +2161,29 @@ class CfnOriginEndpoint(
                     manifest_name="manifestName",
                 
                     # the properties below are optional
+                    base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
+                        url="url",
+                
+                        # the properties below are optional
+                        dvb_priority=123,
+                        dvb_weight=123,
+                        service_location="serviceLocation"
+                    )],
+                    compactness="compactness",
                     drm_signaling="drmSignaling",
+                    dvb_settings=mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty(
+                        error_metrics=[mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
+                            reporting_url="reportingUrl",
+                
+                            # the properties below are optional
+                            probability=123
+                        )],
+                        font_download=mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
+                            font_family="fontFamily",
+                            mime_type="mimeType",
+                            url="url"
+                        )
+                    ),
                     filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
                         clip_start_time="clipStartTime",
                         end="end",
@@ -1748,10 +2195,23 @@ class CfnOriginEndpoint(
                     min_buffer_time_seconds=123,
                     min_update_period_seconds=123,
                     period_triggers=["periodTriggers"],
+                    profiles=["profiles"],
+                    program_information=mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty(
+                        copyright="copyright",
+                        language_code="languageCode",
+                        more_information_url="moreInformationUrl",
+                        source="source",
+                        title="title"
+                    ),
                     scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
                         ad_marker_dash="adMarkerDash"
                     ),
                     segment_template_format="segmentTemplateFormat",
+                    subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
+                        ttml_configuration=mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
+                            ttml_profile="ttmlProfile"
+                        )
+                    ),
                     suggested_presentation_delay_seconds=123,
                     utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
                         timing_mode="timingMode",
@@ -1762,21 +2222,33 @@ class CfnOriginEndpoint(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
+                check_type(argname="argument base_urls", value=base_urls, expected_type=type_hints["base_urls"])
+                check_type(argname="argument compactness", value=compactness, expected_type=type_hints["compactness"])
                 check_type(argname="argument drm_signaling", value=drm_signaling, expected_type=type_hints["drm_signaling"])
+                check_type(argname="argument dvb_settings", value=dvb_settings, expected_type=type_hints["dvb_settings"])
                 check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
                 check_type(argname="argument manifest_window_seconds", value=manifest_window_seconds, expected_type=type_hints["manifest_window_seconds"])
                 check_type(argname="argument min_buffer_time_seconds", value=min_buffer_time_seconds, expected_type=type_hints["min_buffer_time_seconds"])
                 check_type(argname="argument min_update_period_seconds", value=min_update_period_seconds, expected_type=type_hints["min_update_period_seconds"])
                 check_type(argname="argument period_triggers", value=period_triggers, expected_type=type_hints["period_triggers"])
+                check_type(argname="argument profiles", value=profiles, expected_type=type_hints["profiles"])
+                check_type(argname="argument program_information", value=program_information, expected_type=type_hints["program_information"])
                 check_type(argname="argument scte_dash", value=scte_dash, expected_type=type_hints["scte_dash"])
                 check_type(argname="argument segment_template_format", value=segment_template_format, expected_type=type_hints["segment_template_format"])
+                check_type(argname="argument subtitle_configuration", value=subtitle_configuration, expected_type=type_hints["subtitle_configuration"])
                 check_type(argname="argument suggested_presentation_delay_seconds", value=suggested_presentation_delay_seconds, expected_type=type_hints["suggested_presentation_delay_seconds"])
                 check_type(argname="argument utc_timing", value=utc_timing, expected_type=type_hints["utc_timing"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "manifest_name": manifest_name,
             }
+            if base_urls is not None:
+                self._values["base_urls"] = base_urls
+            if compactness is not None:
+                self._values["compactness"] = compactness
             if drm_signaling is not None:
                 self._values["drm_signaling"] = drm_signaling
+            if dvb_settings is not None:
+                self._values["dvb_settings"] = dvb_settings
             if filter_configuration is not None:
                 self._values["filter_configuration"] = filter_configuration
             if manifest_window_seconds is not None:
@@ -1787,10 +2259,16 @@ class CfnOriginEndpoint(
                 self._values["min_update_period_seconds"] = min_update_period_seconds
             if period_triggers is not None:
                 self._values["period_triggers"] = period_triggers
+            if profiles is not None:
+                self._values["profiles"] = profiles
+            if program_information is not None:
+                self._values["program_information"] = program_information
             if scte_dash is not None:
                 self._values["scte_dash"] = scte_dash
             if segment_template_format is not None:
                 self._values["segment_template_format"] = segment_template_format
+            if subtitle_configuration is not None:
+                self._values["subtitle_configuration"] = subtitle_configuration
             if suggested_presentation_delay_seconds is not None:
                 self._values["suggested_presentation_delay_seconds"] = suggested_presentation_delay_seconds
             if utc_timing is not None:
@@ -1809,6 +2287,30 @@ class CfnOriginEndpoint(
             return typing.cast(builtins.str, result)
 
         @builtins.property
+        def base_urls(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashBaseUrlProperty"]]]]:
+            '''The base URLs to use for retrieving segments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-baseurls
+            '''
+            result = self._values.get("base_urls")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashBaseUrlProperty"]]]], result)
+
+        @builtins.property
+        def compactness(self) -> typing.Optional[builtins.str]:
+            '''The layout of the DASH manifest that MediaPackage produces.
+
+            ``STANDARD`` indicates a default manifest, which is compacted. ``NONE`` indicates a full manifest.
+
+            For information about compactness, see `DASH manifest compactness <https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html>`_ in the *AWS Elemental MediaPackage v2 User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-compactness
+            '''
+            result = self._values.get("compactness")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def drm_signaling(self) -> typing.Optional[builtins.str]:
             '''Determines how the DASH manifest signals the DRM content.
 
@@ -1816,6 +2318,19 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("drm_signaling")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def dvb_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashDvbSettingsProperty"]]:
+            '''For endpoints that use the DVB-DASH profile only.
+
+            The font download and error reporting information that you want MediaPackage to pass through to the manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-dvbsettings
+            '''
+            result = self._values.get("dvb_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashDvbSettingsProperty"]], result)
 
         @builtins.property
         def filter_configuration(
@@ -1867,6 +2382,26 @@ class CfnOriginEndpoint(
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
+        def profiles(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The profile that the output is compliant with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-profiles
+            '''
+            result = self._values.get("profiles")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def program_information(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashProgramInformationProperty"]]:
+            '''Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-programinformation
+            '''
+            result = self._values.get("program_information")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashProgramInformationProperty"]], result)
+
+        @builtins.property
         def scte_dash(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.ScteDashProperty"]]:
@@ -1891,6 +2426,17 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("segment_template_format")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def subtitle_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashSubtitleConfigurationProperty"]]:
+            '''The configuration for DASH subtitles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-subtitleconfiguration
+            '''
+            result = self._values.get("subtitle_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashSubtitleConfigurationProperty"]], result)
 
         @builtins.property
         def suggested_presentation_delay_seconds(self) -> typing.Optional[jsii.Number]:
@@ -1920,6 +2466,240 @@ class CfnOriginEndpoint(
 
         def __repr__(self) -> str:
             return "DashManifestConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "copyright": "copyright",
+            "language_code": "languageCode",
+            "more_information_url": "moreInformationUrl",
+            "source": "source",
+            "title": "title",
+        },
+    )
+    class DashProgramInformationProperty:
+        def __init__(
+            self,
+            *,
+            copyright: typing.Optional[builtins.str] = None,
+            language_code: typing.Optional[builtins.str] = None,
+            more_information_url: typing.Optional[builtins.str] = None,
+            source: typing.Optional[builtins.str] = None,
+            title: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
+
+            :param copyright: A copyright statement about the content.
+            :param language_code: The language code for this manifest.
+            :param more_information_url: An absolute URL that contains more information about this content.
+            :param source: Information about the content provider.
+            :param title: The title for the manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_program_information_property = mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty(
+                    copyright="copyright",
+                    language_code="languageCode",
+                    more_information_url="moreInformationUrl",
+                    source="source",
+                    title="title"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5b0c2b5b70e24041767a172f1ebbd9317cd4ce50194b747d40b0c075a554bb92)
+                check_type(argname="argument copyright", value=copyright, expected_type=type_hints["copyright"])
+                check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+                check_type(argname="argument more_information_url", value=more_information_url, expected_type=type_hints["more_information_url"])
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+                check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if copyright is not None:
+                self._values["copyright"] = copyright
+            if language_code is not None:
+                self._values["language_code"] = language_code
+            if more_information_url is not None:
+                self._values["more_information_url"] = more_information_url
+            if source is not None:
+                self._values["source"] = source
+            if title is not None:
+                self._values["title"] = title
+
+        @builtins.property
+        def copyright(self) -> typing.Optional[builtins.str]:
+            '''A copyright statement about the content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html#cfn-mediapackagev2-originendpoint-dashprograminformation-copyright
+            '''
+            result = self._values.get("copyright")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def language_code(self) -> typing.Optional[builtins.str]:
+            '''The language code for this manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html#cfn-mediapackagev2-originendpoint-dashprograminformation-languagecode
+            '''
+            result = self._values.get("language_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def more_information_url(self) -> typing.Optional[builtins.str]:
+            '''An absolute URL that contains more information about this content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html#cfn-mediapackagev2-originendpoint-dashprograminformation-moreinformationurl
+            '''
+            result = self._values.get("more_information_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source(self) -> typing.Optional[builtins.str]:
+            '''Information about the content provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html#cfn-mediapackagev2-originendpoint-dashprograminformation-source
+            '''
+            result = self._values.get("source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def title(self) -> typing.Optional[builtins.str]:
+            '''The title for the manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashprograminformation.html#cfn-mediapackagev2-originendpoint-dashprograminformation-title
+            '''
+            result = self._values.get("title")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashProgramInformationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ttml_configuration": "ttmlConfiguration"},
+    )
+    class DashSubtitleConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            ttml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashTtmlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for DASH subtitles.
+
+            :param ttml_configuration: Settings for TTML subtitles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashsubtitleconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_subtitle_configuration_property = mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
+                    ttml_configuration=mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
+                        ttml_profile="ttmlProfile"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__aa51912df0060cf290274ace134d0cb16e34e1de7ea689b411eeae296d9a8155)
+                check_type(argname="argument ttml_configuration", value=ttml_configuration, expected_type=type_hints["ttml_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ttml_configuration is not None:
+                self._values["ttml_configuration"] = ttml_configuration
+
+        @builtins.property
+        def ttml_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashTtmlConfigurationProperty"]]:
+            '''Settings for TTML subtitles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashsubtitleconfiguration.html#cfn-mediapackagev2-originendpoint-dashsubtitleconfiguration-ttmlconfiguration
+            '''
+            result = self._values.get("ttml_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashTtmlConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashSubtitleConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ttml_profile": "ttmlProfile"},
+    )
+    class DashTtmlConfigurationProperty:
+        def __init__(self, *, ttml_profile: builtins.str) -> None:
+            '''The settings for TTML subtitles.
+
+            :param ttml_profile: The profile that MediaPackage uses when signaling subtitles in the manifest. ``IMSC`` is the default profile. ``EBU-TT-D`` produces subtitles that are compliant with the EBU-TT-D TTML profile. MediaPackage passes through subtitle styles to the manifest. For more information about EBU-TT-D subtitles, see `EBU-TT-D Subtitling Distribution Format <https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashttmlconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                dash_ttml_configuration_property = mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
+                    ttml_profile="ttmlProfile"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bba187ab72699f6dc21195cb98838c8f292af76576ca0254079260c1346c116d)
+                check_type(argname="argument ttml_profile", value=ttml_profile, expected_type=type_hints["ttml_profile"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ttml_profile": ttml_profile,
+            }
+
+        @builtins.property
+        def ttml_profile(self) -> builtins.str:
+            '''The profile that MediaPackage uses when signaling subtitles in the manifest.
+
+            ``IMSC`` is the default profile. ``EBU-TT-D`` produces subtitles that are compliant with the EBU-TT-D TTML profile. MediaPackage passes through subtitle styles to the manifest. For more information about EBU-TT-D subtitles, see `EBU-TT-D Subtitling Distribution Format <https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashttmlconfiguration.html#cfn-mediapackagev2-originendpoint-dashttmlconfiguration-ttmlprofile
+            '''
+            result = self._values.get("ttml_profile")
+            assert result is not None, "Required property 'ttml_profile' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DashTtmlConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3813,7 +4593,29 @@ class CfnOriginEndpointProps:
                     manifest_name="manifestName",
             
                     # the properties below are optional
+                    base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
+                        url="url",
+            
+                        # the properties below are optional
+                        dvb_priority=123,
+                        dvb_weight=123,
+                        service_location="serviceLocation"
+                    )],
+                    compactness="compactness",
                     drm_signaling="drmSignaling",
+                    dvb_settings=mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty(
+                        error_metrics=[mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
+                            reporting_url="reportingUrl",
+            
+                            # the properties below are optional
+                            probability=123
+                        )],
+                        font_download=mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
+                            font_family="fontFamily",
+                            mime_type="mimeType",
+                            url="url"
+                        )
+                    ),
                     filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
                         clip_start_time="clipStartTime",
                         end="end",
@@ -3825,10 +4627,23 @@ class CfnOriginEndpointProps:
                     min_buffer_time_seconds=123,
                     min_update_period_seconds=123,
                     period_triggers=["periodTriggers"],
+                    profiles=["profiles"],
+                    program_information=mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty(
+                        copyright="copyright",
+                        language_code="languageCode",
+                        more_information_url="moreInformationUrl",
+                        source="source",
+                        title="title"
+                    ),
                     scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
                         ad_marker_dash="adMarkerDash"
                     ),
                     segment_template_format="segmentTemplateFormat",
+                    subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
+                        ttml_configuration=mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
+                            ttml_profile="ttmlProfile"
+                        )
+                    ),
                     suggested_presentation_delay_seconds=123,
                     utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
                         timing_mode="timingMode",
@@ -4424,19 +5239,85 @@ def _typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__be1d880fe401caed5e0186c4f4a6b76f8d63f2e78cf2fcbb490b66d185d4af29(
+    *,
+    url: builtins.str,
+    dvb_priority: typing.Optional[jsii.Number] = None,
+    dvb_weight: typing.Optional[jsii.Number] = None,
+    service_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81c2694b55243cfd80ec8b5b8d807b1d991f3ae38973b41f6fb77d9d5ea24965(
+    *,
+    font_family: typing.Optional[builtins.str] = None,
+    mime_type: typing.Optional[builtins.str] = None,
+    url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fadf127f9f82d1f5f09e73b8a4d72d5685c1236b84cdaa5c6132a7ab4774e495(
+    *,
+    reporting_url: builtins.str,
+    probability: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b0aed7d8(
+    *,
+    error_metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashDvbMetricsReportingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    font_download: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashDvbFontDownloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6(
     *,
     manifest_name: builtins.str,
+    base_urls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashBaseUrlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    compactness: typing.Optional[builtins.str] = None,
     drm_signaling: typing.Optional[builtins.str] = None,
+    dvb_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashDvbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
     min_buffer_time_seconds: typing.Optional[jsii.Number] = None,
     min_update_period_seconds: typing.Optional[jsii.Number] = None,
     period_triggers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    profiles: typing.Optional[typing.Sequence[builtins.str]] = None,
+    program_information: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashProgramInformationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scte_dash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteDashProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_template_format: typing.Optional[builtins.str] = None,
+    subtitle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashSubtitleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     suggested_presentation_delay_seconds: typing.Optional[jsii.Number] = None,
     utc_timing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashUtcTimingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b0c2b5b70e24041767a172f1ebbd9317cd4ce50194b747d40b0c075a554bb92(
+    *,
+    copyright: typing.Optional[builtins.str] = None,
+    language_code: typing.Optional[builtins.str] = None,
+    more_information_url: typing.Optional[builtins.str] = None,
+    source: typing.Optional[builtins.str] = None,
+    title: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa51912df0060cf290274ace134d0cb16e34e1de7ea689b411eeae296d9a8155(
+    *,
+    ttml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashTtmlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bba187ab72699f6dc21195cb98838c8f292af76576ca0254079260c1346c116d(
+    *,
+    ttml_profile: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

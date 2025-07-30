@@ -5,7 +5,6 @@ import copy
 from typing import Dict, Optional, Any
 from queue import Queue, Empty
 from collections import defaultdict
-from datetime import datetime, timezone
 
 
 class ResultsAggregator:
@@ -208,7 +207,7 @@ class ResultsAggregator:
             self.stats["errors"] += 1
             self.stats["last_error"] = error_message
             self.stats["last_error_time"] = time.time()
-        logging.error(error_message)
+        logging.error(f"Aggregator error: {error_message}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get current aggregation statistics."""
@@ -232,16 +231,27 @@ class ResultsAggregator:
             "errors": self.stats["errors"],
         }
 
-        # Check for recent errors
+        # Check for recent errors (within last 60 seconds)
         if (
             self.stats["last_error_time"]
             and (time.time() - self.stats["last_error_time"]) < 60
         ):
             health["status"] = "degraded"
+            health["reason"] = f"Recent error: {self.stats['last_error']}"
+            logging.warning(f"Aggregator degraded due to recent error: {self.stats['last_error']}")
 
         # Check if output queue is getting full
-        if self.aggregated_results_queue.qsize() > 100:
+        queue_size = self.aggregated_results_queue.qsize()
+        if queue_size > 0:
             health["status"] = "degraded"
+            health["reason"] = f"Output queue too large ({queue_size} items)"
+            logging.warning(f"Aggregator degraded: output queue has {queue_size} items (threshold: 100)")
+
+        # Check if not running when it should be
+        if not self._is_running:
+            health["status"] = "unhealthy"
+            health["reason"] = "Aggregator is not running"
+            logging.error("Aggregator is not running")
 
         return health
 

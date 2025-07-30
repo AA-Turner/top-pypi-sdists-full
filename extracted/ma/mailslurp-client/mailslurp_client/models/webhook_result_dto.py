@@ -311,7 +311,7 @@ class WebhookResultDto(object):
         """
         if self.local_vars_configuration.client_side_validation and webhook_event is None:  # noqa: E501
             raise ValueError("Invalid value for `webhook_event`, must not be `None`")  # noqa: E501
-        allowed_values = ["EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
+        allowed_values = ["EMAIL_RECEIVED", "NEW_AI_TRANSFORM_RESULT", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and webhook_event not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `webhook_event` ({0}), must be one of {1}"  # noqa: E501

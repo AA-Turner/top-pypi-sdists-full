@@ -38,14 +38,15 @@ class TestPageAITransformResultProjection(unittest.TestCase):
         if include_optional :
             return PageAITransformResultProjection(
                 content = [
-                    mailslurp_client.models.ai_transform_result_projection.AITransformResultProjection(
-                        user_id = '0', 
+                    mailslurp_client.models.ai_transform_result_projection_dto.AITransformResultProjectionDto(
+                        id = '0', 
                         ai_transform_id = '0', 
+                        ai_transform_mapping_id = '0', 
+                        user_id = '0', 
+                        value = mailslurp_client.models.value.value(), 
                         entity_id = '0', 
                         entity_type = 'INBOX', 
-                        ai_transform_mapping_id = '0', 
-                        value = '0', 
-                        id = '0', )
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ], 
                 pageable = mailslurp_client.models.pageable_object.PageableObject(
                     page_size = 56, 

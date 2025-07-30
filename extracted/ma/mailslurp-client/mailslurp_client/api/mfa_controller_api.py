@@ -37,17 +37,17 @@ class MFAControllerApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def create_totp_device_for_custom(self, create_totp_device_otp_auth_url_options, **kwargs):  # noqa: E501
-        """Create a TOTP device from custom options  # noqa: E501
+    def create_totp_device_for_base32_secret_key(self, create_totp_device_base32_secret_key_options, **kwargs):  # noqa: E501
+        """Create a TOTP device from an base32 secret key  # noqa: E501
 
-        Create a virtual TOTP device for custom options specifying all parameters of the TOTP device.  # noqa: E501
+        Create a virtual TOTP device for a given secret key. This is usually present as an alternative login option when pairing OTP devices.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_totp_device_for_custom(create_totp_device_otp_auth_url_options, async_req=True)
+        >>> thread = api.create_totp_device_for_base32_secret_key(create_totp_device_base32_secret_key_options, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param CreateTotpDeviceOtpAuthUrlOptions create_totp_device_otp_auth_url_options: (required)
+        :param CreateTotpDeviceBase32SecretKeyOptions create_totp_device_base32_secret_key_options: (required)
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -60,19 +60,19 @@ class MFAControllerApi(object):
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.create_totp_device_for_custom_with_http_info(create_totp_device_otp_auth_url_options, **kwargs)  # noqa: E501
+        return self.create_totp_device_for_base32_secret_key_with_http_info(create_totp_device_base32_secret_key_options, **kwargs)  # noqa: E501
 
-    def create_totp_device_for_custom_with_http_info(self, create_totp_device_otp_auth_url_options, **kwargs):  # noqa: E501
-        """Create a TOTP device from custom options  # noqa: E501
+    def create_totp_device_for_base32_secret_key_with_http_info(self, create_totp_device_base32_secret_key_options, **kwargs):  # noqa: E501
+        """Create a TOTP device from an base32 secret key  # noqa: E501
 
-        Create a virtual TOTP device for custom options specifying all parameters of the TOTP device.  # noqa: E501
+        Create a virtual TOTP device for a given secret key. This is usually present as an alternative login option when pairing OTP devices.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_totp_device_for_custom_with_http_info(create_totp_device_otp_auth_url_options, async_req=True)
+        >>> thread = api.create_totp_device_for_base32_secret_key_with_http_info(create_totp_device_base32_secret_key_options, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param CreateTotpDeviceOtpAuthUrlOptions create_totp_device_otp_auth_url_options: (required)
+        :param CreateTotpDeviceBase32SecretKeyOptions create_totp_device_base32_secret_key_options: (required)
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -90,7 +90,125 @@ class MFAControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'create_totp_device_otp_auth_url_options'
+            'create_totp_device_base32_secret_key_options'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method create_totp_device_for_base32_secret_key" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'create_totp_device_base32_secret_key_options' is set
+        if self.api_client.client_side_validation and ('create_totp_device_base32_secret_key_options' not in local_var_params or  # noqa: E501
+                                                        local_var_params['create_totp_device_base32_secret_key_options'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `create_totp_device_base32_secret_key_options` when calling `create_totp_device_for_base32_secret_key`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'create_totp_device_base32_secret_key_options' in local_var_params:
+            body_params = local_var_params['create_totp_device_base32_secret_key_options']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/mfa/totp/device/base32SecretKey', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='TotpDeviceDto',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def create_totp_device_for_custom(self, create_totp_device_custom_options, **kwargs):  # noqa: E501
+        """Create a TOTP device from custom options  # noqa: E501
+
+        Create a virtual TOTP device for custom options specifying all parameters of the TOTP device.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.create_totp_device_for_custom(create_totp_device_custom_options, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param CreateTotpDeviceCustomOptions create_totp_device_custom_options: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: TotpDeviceDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.create_totp_device_for_custom_with_http_info(create_totp_device_custom_options, **kwargs)  # noqa: E501
+
+    def create_totp_device_for_custom_with_http_info(self, create_totp_device_custom_options, **kwargs):  # noqa: E501
+        """Create a TOTP device from custom options  # noqa: E501
+
+        Create a virtual TOTP device for custom options specifying all parameters of the TOTP device.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.create_totp_device_for_custom_with_http_info(create_totp_device_custom_options, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param CreateTotpDeviceCustomOptions create_totp_device_custom_options: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(TotpDeviceDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'create_totp_device_custom_options'
         ]
         all_params.extend(
             [
@@ -109,10 +227,10 @@ class MFAControllerApi(object):
                 )
             local_var_params[key] = val
         del local_var_params['kwargs']
-        # verify the required parameter 'create_totp_device_otp_auth_url_options' is set
-        if self.api_client.client_side_validation and ('create_totp_device_otp_auth_url_options' not in local_var_params or  # noqa: E501
-                                                        local_var_params['create_totp_device_otp_auth_url_options'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `create_totp_device_otp_auth_url_options` when calling `create_totp_device_for_custom`")  # noqa: E501
+        # verify the required parameter 'create_totp_device_custom_options' is set
+        if self.api_client.client_side_validation and ('create_totp_device_custom_options' not in local_var_params or  # noqa: E501
+                                                        local_var_params['create_totp_device_custom_options'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `create_totp_device_custom_options` when calling `create_totp_device_for_custom`")  # noqa: E501
 
         collection_formats = {}
 
@@ -126,8 +244,8 @@ class MFAControllerApi(object):
         local_var_files = {}
 
         body_params = None
-        if 'create_totp_device_otp_auth_url_options' in local_var_params:
-            body_params = local_var_params['create_totp_device_otp_auth_url_options']
+        if 'create_totp_device_custom_options' in local_var_params:
+            body_params = local_var_params['create_totp_device_custom_options']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
             ['*/*'])  # noqa: E501

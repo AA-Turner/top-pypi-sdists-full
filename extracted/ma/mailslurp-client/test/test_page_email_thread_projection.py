@@ -39,10 +39,6 @@ class TestPageEmailThreadProjection(unittest.TestCase):
             return PageEmailThreadProjection(
                 content = [
                     mailslurp_client.models.email_thread_projection.EmailThreadProjection(
-                        sender = mailslurp_client.models.sender_projection.SenderProjection(
-                            email_address = '0', 
-                            raw_value = '0', 
-                            name = '0', ), 
                         recipients = mailslurp_client.models.email_recipients_projection.EmailRecipientsProjection(
                             to = [
                                 mailslurp_client.models.recipient_projection.RecipientProjection(
@@ -62,6 +58,10 @@ class TestPageEmailThreadProjection(unittest.TestCase):
                                     raw_value = '0', 
                                     name = '0', )
                                 ], ), 
+                        sender = mailslurp_client.models.sender_projection.SenderProjection(
+                            email_address = '0', 
+                            raw_value = '0', 
+                            name = '0', ), 
                         inbox_id = '0', 
                         user_id = '0', 
                         updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 

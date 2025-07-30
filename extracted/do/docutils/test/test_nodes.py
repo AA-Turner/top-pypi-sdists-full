@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_nodes.py 9310 2022-12-17 12:17:32Z milde $
+# $Id: test_nodes.py 10134 2025-05-19 21:12:34Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -21,37 +21,130 @@ from docutils import nodes, utils
 debug = False
 
 
+class NodeTests(unittest.TestCase):
+
+    def not_in_testlist(self, x):
+        # function to use in `condition` argument in findall() and next_node()
+        return x not in self.testlist
+
+    def test_findall(self):
+        # `findall()` is defined in class Node,
+        # we test with a tree of Element instances (simpler setup)
+        e = nodes.Element()
+        e += nodes.Element()
+        e[0] += nodes.Element()
+        e[0] += nodes.TextElement()
+        e[0][1] += nodes.Text('some text')
+        e += nodes.Element()
+        e += nodes.Element()
+        self.assertEqual(list(e.findall()),
+                         [e, e[0], e[0][0], e[0][1], e[0][1][0], e[1], e[2]])
+        self.assertEqual(list(e.findall(include_self=False)),
+                         [e[0], e[0][0], e[0][1], e[0][1][0], e[1], e[2]])
+        self.assertEqual(list(e.findall(descend=False)),
+                         [e])
+        self.assertEqual(list(e[0].findall(descend=False, ascend=True)),
+                         [e[0], e[1], e[2]])
+        self.assertEqual(list(e[0][0].findall(descend=False, ascend=True)),
+                         [e[0][0], e[0][1], e[1], e[2]])
+        self.assertEqual(list(e[0][0].findall(descend=False, siblings=True)),
+                         [e[0][0], e[0][1]])
+        self.testlist = e[0:2]
+        self.assertEqual(list(e.findall(condition=self.not_in_testlist)),
+                         [e, e[0][0], e[0][1], e[0][1][0], e[2]])
+        # Return siblings despite siblings=False because ascend is true.
+        self.assertEqual(list(e[1].findall(ascend=True, siblings=False)),
+                         [e[1], e[2]])
+        self.assertEqual(list(e[0].findall()),
+                         [e[0], e[0][0], e[0][1], e[0][1][0]])
+        self.testlist = [e[0][0], e[0][1]]
+        self.assertEqual(list(e[0].findall(condition=self.not_in_testlist)),
+                         [e[0], e[0][1][0]])
+        self.testlist.append(e[0][1][0])
+        self.assertEqual(list(e[0].findall(condition=self.not_in_testlist)),
+                         [e[0]])
+        self.assertEqual(list(e.findall(nodes.TextElement)), [e[0][1]])
+
+    def test_findall_duplicate_texts(self):
+        e = nodes.Element()
+        e += nodes.TextElement()
+        e[0] += nodes.Text('one')  # e[0][0]
+        e[0] += nodes.Text('two')  # e[0][1]
+        e[0] += nodes.Text('three')  # e[0][2]
+        e[0] += nodes.Text('two')  # e[0][3]    same value as e[0][1]
+        e[0] += nodes.Text('five')  # e[0][4]
+        full_list = list(e[0][0].findall(siblings=True))
+        self.assertEqual(len(full_list), 5)
+        for i in range(5):
+            self.assertIs(full_list[i], e[0][i])
+
+        partial_list = list(e[0][3].findall(siblings=True))
+        self.assertEqual(len(partial_list), 2)
+        self.assertIs(partial_list[0], e[0][3])
+        self.assertIs(partial_list[1], e[0][4])
+
+    def test_next_node(self):
+        e = nodes.Element()
+        e += nodes.Element()
+        e[0] += nodes.Element()
+        e[0] += nodes.TextElement()
+        e[0][1] += nodes.Text('some text')
+        e += nodes.Element()
+        e += nodes.Element()
+        self.testlist = [e[0], e[0][1], e[1]]
+        compare = [(e, e[0][0]),
+                   (e[0], e[0][0]),
+                   (e[0][0], e[0][1][0]),
+                   (e[0][1], e[0][1][0]),
+                   (e[0][1][0], e[2]),
+                   (e[1], e[2]),
+                   (e[2], None)]
+        for node, next_node in compare:
+            self.assertEqual(node.next_node(self.not_in_testlist, ascend=True),
+                             next_node)
+        self.assertEqual(e[0][0].next_node(ascend=True), e[0][1])
+        self.assertEqual(e[2].next_node(), None)
+
+
 class TextTests(unittest.TestCase):
 
-    def setUp(self):
-        self.text = nodes.Text('Line 1.\nLine 2.')
-        self.unicode_text = nodes.Text('Möhren')
-        self.longtext = nodes.Text('Mary had a little lamb whose '
-                                   'fleece was white as snow and '
-                                   'everwhere that Mary went the '
-                                   'lamb was sure to go.')
+    text = nodes.Text('Line 1.\n\x00rad två.')
+    longtext = nodes.Text('Mary had a little lamb '
+                          'whose fleece was white as snow '
+                          'and everwhere that Mary went '
+                          'the lamb was sure to go.')
 
-    def test_repr(self):
-        self.assertEqual(repr(self.text), r"<#text: 'Line 1.\nLine 2.'>")
-        self.assertEqual(self.text.shortrepr(),
-                         r"<#text: 'Line 1.\nLine 2.'>")
-        self.assertEqual(repr(self.unicode_text), "<#text: 'Möhren'>")
+    def test_value_type_check(self):
+        # data must by `str` instance, no `bytes` allowed
+        with self.assertRaises(TypeError):
+            nodes.Text(b'hol')
+
+    def test_Text_rawsource_deprection_warning(self):
+        with self.assertWarnsRegex(DeprecationWarning,
+                                   '"rawsource" is ignored'):
+            nodes.Text('content', rawsource='content')
 
     def test_str(self):
-        self.assertEqual(str(self.text), 'Line 1.\nLine 2.')
+        self.assertEqual(str(self.text), 'Line 1.\n\x00rad två.')
 
-    def test_unicode(self):
-        self.assertEqual(str(self.unicode_text), 'Möhren')
-        self.assertEqual(str(self.unicode_text), 'M\xf6hren')
+    def test_repr(self):
+        self.assertEqual(repr(self.text), r"<#text: 'Line 1.\n\x00rad två.'>")
+        self.assertEqual(self.text.shortrepr(),
+                         r"<#text: 'Line 1.\n\x00rad två.'>")
+
+    def test_repr_long_text(self):
+        self.assertEqual(repr(self.longtext), r"<#text: 'Mary had a "
+                         r"little lamb whose fleece was white as snow "
+                         r"and everwh ...'>")
+        self.assertEqual(self.longtext.shortrepr(),
+                         r"<#text: 'Mary had a lit ...'>")
 
     def test_astext(self):
-        self.assertTrue(isinstance(self.text.astext(), str))
-        self.assertEqual(self.text.astext(), 'Line 1.\nLine 2.')
-        self.assertEqual(self.unicode_text.astext(), 'Möhren')
+        self.assertEqual(self.text.astext(), 'Line 1.\nrad två.')
 
     def test_pformat(self):
         self.assertTrue(isinstance(self.text.pformat(), str))
-        self.assertEqual(self.text.pformat(), 'Line 1.\nLine 2.\n')
+        self.assertEqual(self.text.pformat(), 'Line 1.\nrad två.\n')
 
     def test_strip(self):
         text = nodes.Text(' was noch ')
@@ -60,26 +153,9 @@ class TextTests(unittest.TestCase):
         self.assertEqual(stripped, 'was noch')
         self.assertEqual(stripped2, 's noc')
 
-    def test_asciirestriction(self):
-        # no bytes at all allowed
-        self.assertRaises(TypeError, nodes.Text, b'hol')
-
-    def test_longrepr(self):
-        self.assertEqual(repr(self.longtext), r"<#text: 'Mary had a "
-                         r"little lamb whose fleece was white as snow "
-                         r"and everwh ...'>")
-        self.assertEqual(self.longtext.shortrepr(),
-                         r"<#text: 'Mary had a lit ...'>")
-
     def test_comparison(self):
         # Text nodes are compared by value
-        self.assertEqual(self.text, 'Line 1.\nLine 2.')
-        self.assertEqual(self.text, nodes.Text('Line 1.\nLine 2.'))
-
-    def test_Text_rawsource_deprection_warning(self):
-        with self.assertWarnsRegex(DeprecationWarning,
-                                   '"rawsource" is ignored'):
-            nodes.Text('content', rawsource='content')
+        self.assertEqual(self.text, nodes.Text('Line 1.\n\x00rad två.'))
 
 
 class ElementTests(unittest.TestCase):
@@ -163,6 +239,15 @@ class ElementTests(unittest.TestCase):
         self.assertTrue(len(element))
         element.clear()
         self.assertTrue(not len(element))
+
+    def test_get_language_code(self):
+        # Return language tag from node or parents
+        parent = nodes.Element(classes=['parental', 'language-pt-BR'])
+        self.assertEqual(parent.get_language_code('en'), 'pt-BR')
+        child = nodes.Element(classes=['small'])
+        self.assertEqual(child.get_language_code('en'), 'en')
+        parent.append(child)
+        self.assertEqual(child.get_language_code('en'), 'pt-BR')
 
     def test_normal_attributes(self):
         element = nodes.Element()
@@ -305,6 +390,46 @@ class ElementTests(unittest.TestCase):
         # 'll' is extended
         self.assertEqual(element1['ll'], ['A', 'B'])
 
+    def test_copy(self):
+        # Shallow copy:
+        grandchild = nodes.Text('grandchild text')
+        child = nodes.emphasis('childtext', grandchild, att='child')
+        e = nodes.Element('raw text', child, att='e')
+        e_copy = e.copy()
+        self.assertTrue(e is not e_copy)
+        # Internal attributes (like `rawsource`) are also copied.
+        self.assertEqual(e.rawsource, 'raw text')
+        self.assertEqual(e_copy.rawsource, e.rawsource)
+        self.assertEqual(e_copy['att'], 'e')
+        self.assertEqual(e_copy.document, e.document)
+        self.assertEqual(e_copy.source, e.source)
+        self.assertEqual(e_copy.line, e.line)
+        # Children are not copied.
+        self.assertEqual(len(e_copy), 0)
+
+    def test_deepcopy(self):
+        # Deep copy:
+        grandchild = nodes.Text('grandchild text')
+        child = nodes.emphasis('childtext', grandchild, att='child')
+        e = nodes.Element('raw text', child, att='e')
+        e_deepcopy = e.deepcopy()
+        self.assertEqual(e_deepcopy.rawsource, e.rawsource)
+        self.assertEqual(e_deepcopy['att'], 'e')
+        # Children are copied recursively.
+        self.assertEqual(e_deepcopy[0][0], grandchild)
+        self.assertTrue(e_deepcopy[0][0] is not grandchild)
+        self.assertEqual(e_deepcopy[0]['att'], 'child')
+
+    def test_system_message_copy(self):
+        e = nodes.system_message('mytext', att='e', rawsource='raw text')
+        # Shallow copy:
+        e_copy = e.copy()
+        self.assertTrue(e is not e_copy)
+        # Internal attributes (like `rawsource`) are also copied.
+        self.assertEqual(e.rawsource, 'raw text')
+        self.assertEqual(e_copy.rawsource, e.rawsource)
+        self.assertEqual(e_copy['att'], 'e')
+
     def test_replace_self(self):
         parent = nodes.Element(ids=['parent'])
         child1 = nodes.Element(ids=['child1'])
@@ -348,14 +473,349 @@ class ElementTests(unittest.TestCase):
         self.assertEqual(child4['ids'], ['child4'])
         self.assertEqual(len(parent), 5)
 
-    def test_unicode(self):
-        node = nodes.Element('Möhren', nodes.Text('Möhren'))
-        self.assertEqual(str(node), '<Element>Möhren</Element>')
 
-    def test_set_class_deprecation_warning(self):
-        node = nodes.Element('test node')
-        with self.assertWarns(DeprecationWarning):
-            node.set_class('parrot')
+class ColspecTests(unittest.TestCase):
+
+    def test_propwidth(self):
+        # Return colwidth attribute value if it is a proportional measure.
+        colspec = nodes.colspec()
+        colspec['colwidth'] = '8.2*'  # value + '*'
+        self.assertEqual(colspec.propwidth(), 8.2)
+        colspec['colwidth'] = '2'  # in Docutils < 2.0, default unit is '*'
+        self.assertEqual(colspec.propwidth(), 2)
+        colspec['colwidth'] = '20%'  # percentual values not supported
+        with self.assertRaisesRegex(ValueError, '"20%" is no proportional me'):
+            colspec.propwidth()
+        colspec['colwidth'] = '2em'  # fixed values not supported
+        with self.assertRaisesRegex(ValueError, '"2em" is no proportional me'):
+            colspec.propwidth()
+        colspec['colwidth'] = '0*'  # value must be positive
+        with self.assertRaisesRegex(ValueError, r'"0\*" is no proportional '):
+            colspec.propwidth()
+        # for backwards compatibility, numerical values are accepted
+        colspec['colwidth'] = 8.2
+        self.assertEqual(colspec.propwidth(), 8.2)
+        colspec['colwidth'] = 2
+        self.assertEqual(colspec.propwidth(), 2)
+
+
+class ElementValidationTests(unittest.TestCase):
+
+    def test_validate(self):
+        """Valid node: validation should simply pass."""
+        node = nodes.paragraph('', 'plain text', classes='my test classes')
+        node.append(nodes.emphasis('', 'emphasised text', ids='emphtext'))
+        node.validate()
+
+    def test_validate_invalid_descendent(self):
+        paragraph = nodes.paragraph('', 'plain text')
+        tip = nodes.tip('', paragraph)
+        paragraph.append(nodes.strong('doll', id='missing-es'))
+        tip.validate(recursive=False)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Element <strong id=.*> invalid:\n'
+                                    '  Attribute "id" not one of "ids", '):
+            tip.validate()
+
+    def test_validate_attributes(self):
+        # Convert to expected data-type, normalize values,
+        # cf. AttributeTypeTests below for attribute validating function tests.
+        node = nodes.image(classes='my  test-classes',
+                           names='My teST\n\\ \xA0classes',
+                           width='30 mm')
+        node.validate_attributes()
+        self.assertEqual(node['classes'], ['my', 'test-classes'])
+        self.assertEqual(node['names'], ['My', 'teST classes'])
+        self.assertEqual(node['width'], '30mm')
+
+    def test_validate_wrong_attribute(self):
+        node = nodes.paragraph('', 'text', id='test-paragraph')
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Element <paragraph id=.*> invalid:\n'
+                                    '  Attribute "id" not one of "ids", '):
+            node.validate()
+
+    def test_validate_wrong_attribute_value(self):
+        node = nodes.image(uri='test.png', width='1in 3pt')
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Element <image.*> invalid:\n'
+                                    '.*"width" has invalid value "1in 3pt".'):
+            node.validate()
+
+    def test_validate_spurious_element(self):
+        label = nodes.label('', '*')
+        label.append(nodes.strong())
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Element <label> invalid:\n'
+                                    '  Child element <strong> not allowed '):
+            label.validate()
+
+    def test_validate_content(self):
+        """Check, whether an element's children fit into its content model.
+
+        Return empty lists for valid elements,
+        lists with warnings and spurious children if children don't match.
+        """
+        # sample elements
+        inline = nodes.inline()  # inline element
+        text = nodes.Text('explanation')  # <#text>
+        hint = nodes.hint()  # body element
+
+        # empty element: (EMPTY)
+        image = nodes.image('')
+        self.assertEqual(image.validate_content(), [])
+        image.append(text)
+        self.assertEqual(image.validate_content(), [text])
+        #     ValueError, "Spurious Element <#text: 'explanation'>"):
+
+        # TextElement: (#PCDATA | %inline.elements;)*
+        paragraph = nodes.paragraph()  # empty element
+        self.assertEqual(paragraph.validate_content(), [])
+        paragraph = nodes.paragraph('', 'text')  # just text
+        self.assertEqual(paragraph.validate_content(), [])
+        paragraph.extend([inline, nodes.Text('text 2'), nodes.math()])
+        self.assertEqual(paragraph.validate_content(), [])
+        paragraph.append(hint)  # body element (sic!)
+        paragraph.append(text)
+        self.assertEqual(paragraph.validate_content(), [hint, text])
+        # validate() reports "relics" as ValueError:
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    '<paragraph> invalid:\n'
+                                    '  Child element <hint> not allowed '):
+            paragraph.validate()
+
+        # PureTextElement: (#PCDATA)
+        label = nodes.label()  # empty element
+        self.assertEqual(label.validate_content(), [])
+        label = nodes.label('', '†')
+        self.assertEqual(label.validate_content(), [])
+        label.append(inline)  # sic!
+        self.assertEqual(label.validate_content(), [inline])
+
+        # docinfo: (%bibliographic.elements;)+
+        docinfo = nodes.docinfo()  # empty element (sic!)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <Bibliographic>.'):
+            docinfo.validate_content()
+        docinfo.append(nodes.paragraph())
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting .* <Bibliographic>, not '):
+            docinfo.validate_content()
+        docinfo = nodes.docinfo('', nodes.authors(), nodes.contact())
+        self.assertEqual(docinfo.validate_content(), [])
+        docinfo.append(hint)  # sic!
+        self.assertEqual(docinfo.validate_content(), [hint])
+
+        # decoration: (header?, footer?)
+        decoration = nodes.decoration()  # empty element
+        self.assertEqual(decoration.validate_content(), [])
+        decoration = nodes.decoration('', nodes.header(), nodes.footer())
+        self.assertEqual(decoration.validate_content(), [])
+        header = nodes.header()
+        decoration.append(header)  # 3rd element (sic!)
+        self.assertEqual(decoration.validate_content(), [header])
+        decoration = nodes.decoration('', nodes.footer())
+        self.assertEqual(decoration.validate_content(), [])
+        decoration.append(header)  # wrong order!
+        self.assertEqual(decoration.validate_content(), [header])
+
+        # Body elements have a range of different content models.
+
+        # container: (%body.elements;)+
+        container = nodes.container()  # empty (sic!)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <Body>.'):
+            container.validate_content()
+        container.append(inline)  # sic!
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting child of type <Body>, not <in'):
+            container.validate_content()
+        container = nodes.container('', nodes.paragraph())  # one body element
+        self.assertEqual(container.validate_content(), [])  # valid
+        container.append(nodes.tip())  # more body elements
+        self.assertEqual(container.validate_content(), [])  # valid
+        container.append(inline)  # sic!
+        self.assertEqual(container.validate_content(), [inline])
+
+        # block_quote: ((%body.elements;)+, attribution?)
+        block_quote = nodes.block_quote('', hint, nodes.table())
+        self.assertEqual(block_quote.validate_content(), [])
+        block_quote.append(nodes.attribution())
+        self.assertEqual(block_quote.validate_content(), [])
+        block_quote.append(hint)  # element after attribution (sic!)
+        self.assertEqual(block_quote.validate_content(), [hint])
+
+        # list item (%body.elements;)*
+        list_item = nodes.list_item()  # empty list item is valid
+        self.assertEqual(list_item.validate_content(), [])
+        list_item.append(nodes.bullet_list())  # lists may be nested
+        list_item.append(paragraph)
+        self.assertEqual(list_item.validate_content(), [])
+        list_item.append(inline)  # sic!
+        self.assertEqual(list_item.validate_content(), [inline])
+
+        # bullet_list, enumerated_list: (list_item+)
+        bullet_list = nodes.bullet_list()  # empty (sic!)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <list_item>.'):
+            bullet_list.validate_content()
+        bullet_list.extend([list_item, list_item, list_item])
+        self.assertEqual(bullet_list.validate_content(), [])
+        bullet_list.append(hint)  # must nest in <list_item>
+        self.assertEqual(bullet_list.validate_content(), [hint])
+
+        # definition_list_item: (term, classifier*, definition)
+        definition_list_item = nodes.definition_list_item()
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Element <definition_list_item> invalid:\n'
+                                    '  Missing child of type <term>.'):
+            definition_list_item.validate_content(),
+        definition_list_item.append(nodes.term())
+        definition_list_item.append(nodes.definition())
+        self.assertEqual(definition_list_item.validate_content(), [])
+        definition_list_item.children.insert(1, nodes.classifier())
+        definition_list_item.children.insert(1, nodes.classifier())
+        self.assertEqual(definition_list_item.validate_content(), [])
+
+        # field: (field_name, field_body)
+        field = nodes.field()
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <field_name>.'):
+            field.validate_content()
+        field.extend([nodes.field_name(), nodes.field_body()])
+        self.assertEqual(field.validate_content(), [])
+        field = nodes.field('', nodes.field_body(), nodes.field_name())
+        # wrong order!
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting child of type <field_name>,'
+                                    ' not <field_body>.'):
+            field.validate_content()
+
+        # option: (option_string, option_argument*)
+        option = nodes.option()
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <option_string>.'):
+            option.validate_content()
+        option.append(nodes.paragraph())  # sic!
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting child of type <option_string>,'
+                                    ' not <paragraph>.'):
+            option.validate_content()
+        option = nodes.option('', nodes.option_string())
+        self.assertEqual(option.validate_content(), [])
+        option.append(nodes.option_argument())
+        self.assertEqual(option.validate_content(), [])
+
+        # line_block: (line | line_block)+
+        line_block = nodes.line_block()  # sic!
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    ' child of type <line> or <line_block>.'):
+            line_block.validate_content()
+        line_block.append(nodes.line_block())
+        self.assertEqual(line_block.validate_content(), [])
+        line_block = nodes.line_block('', nodes.paragraph(), nodes.line())
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting child of type <line> or '
+                                    '<line_block>, not <paragraph>.'):
+            line_block.validate_content()
+
+        # admonition: (title, (%body.elements;)+)
+        admonition = nodes.admonition('', nodes.paragraph())
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting child of type <title>,'
+                                    ' not <paragraph>.'):
+            admonition.validate_content()
+        admonition = nodes.admonition('', nodes.title(), nodes.paragraph())
+        self.assertEqual(admonition.validate_content(), [])
+
+        # specific admonitions: (%body.elements;)+
+        note = nodes.note()
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <Body>.'):
+            note.validate_content()
+        note.append(nodes.enumerated_list())
+        self.assertEqual(note.validate_content(), [])
+
+        # footnote: (label?, (%body.elements;)+)
+        # TODO: use case for footnote without label (make it required?)
+        #       rST parser can generate footnotes without body elements!
+        footnote = nodes.footnote('', hint)
+        self.assertEqual(footnote.validate_content(), [])
+
+        # citation: (label, (%body.elements;)+)
+        # TODO: rST parser allows empty citation
+        #       (see test_rst/test_citations.py). Is this sensible?
+        citation = nodes.citation('', hint)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Expecting child of type <label>,'
+                                    ' not <hint>.'):
+            citation.validate_content()
+
+        # Table group: (colspec*, thead?, tbody)
+        tgroup = nodes.tgroup()  # empty (sic!)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <tbody>.'):
+            tgroup.validate_content()
+        tgroup = nodes.tgroup('', nodes.colspec(), nodes.colspec(),
+                              nodes.thead(), nodes.tbody())
+        self.assertEqual(tgroup.validate_content(), [])
+        thead = nodes.thead()
+        tgroup = nodes.tgroup('', nodes.tbody(), thead)  # wrong order!
+        self.assertEqual(tgroup.validate_content(), [thead])
+
+    def test_validate_content_authors(self):
+        """Return empty list for valid elements, raise ValidationError else.
+
+        Specific method for `authors` instances: complex content model
+        requires repeated application of `authors.content_model`.
+        """
+        authors = nodes.authors()
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Missing child of type <author>.'):
+            authors.validate_content()
+        authors.extend([nodes.author(), nodes.address(), nodes.contact()])
+        self.assertEqual(authors.validate_content(), [])
+        authors.append(nodes.hint())
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    ' child of type <author>, not <hint>.'):
+            authors.validate_content()
+        authors.extend([nodes.author(), nodes.tip(), nodes.contact()])
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    ' child of type <author>, not <hint>.'):
+            authors.validate_content()
+
+    def test_validate_content_subtitle(self):
+        """<subtitle> must follow a <title>.
+        """
+        subtitle = nodes.subtitle()
+        paragraph = nodes.paragraph()
+        sidebar = nodes.sidebar('', subtitle, paragraph)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    '<subtitle> only allowed after <title>.'):
+            sidebar.validate_content()
+
+    def test_validate_content_transition(self):
+        """Test additional constraints on <transition> placement:
+           Not at begin or end of a section or document,
+           not after another transition.
+        """
+        transition = nodes.transition()
+        paragraph = nodes.paragraph()
+        section = nodes.section('', nodes.title(), transition, paragraph)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    '<transition> may not begin a section '):
+            section.validate_content()
+        section = nodes.section('', nodes.title(), paragraph, transition)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    '<transition> may not end a section '):
+            section.validate_content()
+        section = nodes.section('', nodes.title(), paragraph,
+                                nodes.transition(), transition)
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    'Element <section> invalid:\n'
+                                    '  <transition> may not end .*\n'
+                                    '  <transition> may not directly '):
+            section.validate_content()
 
 
 class MiscTests(unittest.TestCase):
@@ -372,11 +832,124 @@ class MiscTests(unittest.TestCase):
         nodes.node_class_names.sort()
         self.assertEqual(node_class_names, nodes.node_class_names)
 
+
+class TreeCopyVisitorTests(unittest.TestCase):
+
+    def setUp(self):
+        document = utils.new_document('test data')
+        document += nodes.paragraph('', 'Paragraph 1.')
+        blist = nodes.bullet_list()
+        for i in range(1, 6):
+            item = nodes.list_item()
+            for j in range(1, 4):
+                item += nodes.paragraph('', 'Item %s, paragraph %s.' % (i, j))
+            blist += item
+        document += blist
+        self.document = document
+
+    def compare_trees(self, one, two):
+        self.assertEqual(one.__class__, two.__class__)
+        self.assertNotEqual(id(one), id(two))
+        self.assertEqual(len(one.children), len(two.children))
+        for i in range(len(one.children)):
+            self.compare_trees(one.children[i], two.children[i])
+
+    def test_copy_whole(self):
+        visitor = nodes.TreeCopyVisitor(self.document)
+        self.document.walkabout(visitor)
+        newtree = visitor.get_tree_copy()
+        self.assertEqual(self.document.pformat(), newtree.pformat())
+        self.compare_trees(self.document, newtree)
+
+
+class SetIdTests(unittest.TestCase):
+
+    def setUp(self):
+        self.document = utils.new_document('test')
+        self.elements = [nodes.Element(names=['test']),
+                         nodes.section(),  # Name empty
+                         nodes.section(names=['Test']),  # duplicate id
+                         nodes.footnote(names=['2019-10-30']),  # id empty
+                         ]
+
+    def test_set_id_default(self):
+        # Default prefixes.
+        for element in self.elements:
+            self.document.set_id(element)
+        ids = [element['ids'] for element in self.elements]
+        self.assertEqual(ids, [['test'], ['section-1'],
+                               ['test-1'], ['footnote-1']])
+
+    def test_set_id_custom(self):
+        # Custom prefixes.
+
+        # Change settings.
+        self.document.settings.id_prefix = 'P-'
+        self.document.settings.auto_id_prefix = 'auto'
+
+        for element in self.elements:
+            self.document.set_id(element)
+        ids = [element['ids'] for element in self.elements]
+        self.assertEqual(ids, [['P-test'],
+                               ['P-auto1'],
+                               ['P-auto2'],
+                               ['P-2019-10-30']])
+
+    def test_set_id_descriptive_auto_id(self):
+        # Use name or tag-name for auto-id.
+
+        # Change setting.
+        self.document.settings.auto_id_prefix = '%'
+
+        for element in self.elements:
+            self.document.set_id(element)
+        ids = [element['ids'] for element in self.elements]
+        self.assertEqual(ids, [['test'],
+                               ['section-1'],
+                               ['test-1'],
+                               ['footnote-1']])
+
+    def test_set_id_custom_descriptive_auto_id(self):
+        # Custom prefixes and name or tag-name for auto-id.
+
+        # Change settings.
+        self.document.settings.id_prefix = 'P:'
+        self.document.settings.auto_id_prefix = 'a-%'
+
+        for element in self.elements:
+            self.document.set_id(element)
+        ids = [element['ids'] for element in self.elements]
+        self.assertEqual(ids, [['P:test'],
+                               ['P:a-section-1'],
+                               ['P:test-1'],
+                               ['P:2019-10-30']])
+
+
+class NodeVisitorTests(unittest.TestCase):
+    def setUp(self):
+        self.document = utils.new_document('test')
+        self.element = nodes.Element()
+        self.visitor = nodes.NodeVisitor(self.document)
+
+    def test_dispatch_visit_unknown(self):
+        # raise exception if no visit/depart methods are defined for node class
+        with self.assertRaises(NotImplementedError):
+            self.visitor.dispatch_visit(self.element)
+
+    def test_dispatch_visit_optional(self):
+        # silently skip nodes of a class in tuple nodes.NodeVisitor.optional
+        rv = self.visitor.dispatch_visit(nodes.meta())
+        self.assertIsNone(rv)
+
+
+class MiscFunctionTests(unittest.TestCase):
+
     ids = [('a', 'a'), ('A', 'a'), ('', ''), ('a b \n c', 'a-b-c'),
            ('a.b.c', 'a-b-c'), (' - a - b - c - ', 'a-b-c'), (' - ', ''),
            ('\u2020\u2066', ''), ('a \xa7 b \u2020 c', 'a-b-c'),
            ('1', ''), ('1abc', 'abc'),
            ]
+
     ids_unicode_all = [
             ('\u00f8 o with stroke', 'o-o-with-stroke'),
             ('\u0111 d with stroke', 'd-d-with-stroke'),
@@ -544,248 +1117,176 @@ class MiscTests(unittest.TestCase):
     def test_make_id(self):
         failures = []
         tests = self.ids + self.ids_unicode_all
-        for input, expect in tests:
-            output = nodes.make_id(input)
+        for input_, expect in tests:
+            output = nodes.make_id(input_)
             if expect != output:
                 failures.append("'%s' != '%s'" % (expect, output))
         if failures:
             self.fail(f'{len(failures)} failures in {len(self.ids)} ids\n'
                       + "\n".join(failures))
 
-    def test_findall(self):
-        e = nodes.Element()
-        e += nodes.Element()
-        e[0] += nodes.Element()
-        e[0] += nodes.TextElement()
-        e[0][1] += nodes.Text('some text')
-        e += nodes.Element()
-        e += nodes.Element()
-        self.assertEqual(list(e.findall()),
-                         [e, e[0], e[0][0], e[0][1], e[0][1][0], e[1], e[2]])
-        self.assertEqual(list(e.findall(include_self=False)),
-                         [e[0], e[0][0], e[0][1], e[0][1][0], e[1], e[2]])
-        self.assertEqual(list(e.findall(descend=False)),
-                         [e])
-        self.assertEqual(list(e[0].findall(descend=False, ascend=True)),
-                         [e[0], e[1], e[2]])
-        self.assertEqual(list(e[0][0].findall(descend=False, ascend=True)),
-                         [e[0][0], e[0][1], e[1], e[2]])
-        self.assertEqual(list(e[0][0].findall(descend=False, siblings=True)),
-                         [e[0][0], e[0][1]])
-        self.testlist = e[0:2]
-        self.assertEqual(list(e.findall(condition=self.not_in_testlist)),
-                         [e, e[0][0], e[0][1], e[0][1][0], e[2]])
-        # Return siblings despite siblings=False because ascend is true.
-        self.assertEqual(list(e[1].findall(ascend=True, siblings=False)),
-                         [e[1], e[2]])
-        self.assertEqual(list(e[0].findall()),
-                         [e[0], e[0][0], e[0][1], e[0][1][0]])
-        self.testlist = [e[0][0], e[0][1]]
-        self.assertEqual(list(e[0].findall(condition=self.not_in_testlist)),
-                         [e[0], e[0][1][0]])
-        self.testlist.append(e[0][1][0])
-        self.assertEqual(list(e[0].findall(condition=self.not_in_testlist)),
-                         [e[0]])
-        self.assertEqual(list(e.findall(nodes.TextElement)), [e[0][1]])
+    names = [  # sample, whitespace_normalized, fully_normalized
+             ('a', 'a', 'a'),
+             ('A', 'A', 'a'),
+             ('A a A ', 'A a A', 'a a a'),
+             ('A  a  A  a', 'A a A a', 'a a a a'),
+             ('  AaA\n\r\naAa\tAaA\t\t', 'AaA aAa AaA', 'aaa aaa aaa')
+             ]
 
-    def test_findall_duplicate_texts(self):
-        e = nodes.Element()
-        e += nodes.TextElement()
-        e[0] += nodes.Text('one')
-        e[0] += nodes.Text('two')
-        e[0] += nodes.Text('three')
-        e[0] += nodes.Text('two')
-        e[0] += nodes.Text('five')
-        full_list = list(e[0][0].findall(siblings=True))
-        self.assertEqual(len(full_list), 5)
-        for i in range(5):
-            self.assertIs(full_list[i], e[0][i])
+    def test_whitespace_normalize_name(self):
+        for (sample, ws, full) in self.names:
+            result = nodes.whitespace_normalize_name(sample)
+            self.assertEqual(result, ws)
 
-        partial_list = list(e[0][3].findall(siblings=True))
-        self.assertEqual(len(partial_list), 2)
-        self.assertIs(partial_list[0], e[0][3])
-        self.assertIs(partial_list[1], e[0][4])
+    def test_fully_normalize_name(self):
+        for (sample, ws, fully) in self.names:
+            result = nodes.fully_normalize_name(sample)
+            self.assertEqual(result, fully)
 
-    def test_next_node(self):
-        e = nodes.Element()
-        e += nodes.Element()
-        e[0] += nodes.Element()
-        e[0] += nodes.TextElement()
-        e[0][1] += nodes.Text('some text')
-        e += nodes.Element()
-        e += nodes.Element()
-        self.testlist = [e[0], e[0][1], e[1]]
-        compare = [(e, e[0][0]),
-                   (e[0], e[0][0]),
-                   (e[0][0], e[0][1][0]),
-                   (e[0][1], e[0][1][0]),
-                   (e[0][1][0], e[2]),
-                   (e[1], e[2]),
-                   (e[2], None)]
-        for node, next_node in compare:
-            self.assertEqual(node.next_node(self.not_in_testlist, ascend=True),
-                             next_node)
-        self.assertEqual(e[0][0].next_node(ascend=True), e[0][1])
-        self.assertEqual(e[2].next_node(), None)
+    def test_split_name_list(self):
+        self.assertEqual(nodes.split_name_list(r'a\ n\ame two\\ n\\ames'),
+                         ['a name', 'two\\', r'n\ames'])
 
-    def not_in_testlist(self, x):
-        return x not in self.testlist
-
-    def test_copy(self):
-        grandchild = nodes.Text('grandchild text')
-        child = nodes.emphasis('childtext', grandchild, att='child')
-        e = nodes.Element('raw text', child, att='e')
-        # Shallow copy:
-        e_copy = e.copy()
-        self.assertTrue(e is not e_copy)
-        # Internal attributes (like `rawsource`) are also copied.
-        self.assertEqual(e.rawsource, 'raw text')
-        self.assertEqual(e_copy.rawsource, e.rawsource)
-        self.assertEqual(e_copy['att'], 'e')
-        self.assertEqual(e_copy.document, e.document)
-        self.assertEqual(e_copy.source, e.source)
-        self.assertEqual(e_copy.line, e.line)
-        # Children are not copied.
-        self.assertEqual(len(e_copy), 0)
-        # Deep copy:
-        e_deepcopy = e.deepcopy()
-        self.assertEqual(e_deepcopy.rawsource, e.rawsource)
-        self.assertEqual(e_deepcopy['att'], 'e')
-        # Children are copied recursively.
-        self.assertEqual(e_deepcopy[0][0], grandchild)
-        self.assertTrue(e_deepcopy[0][0] is not grandchild)
-        self.assertEqual(e_deepcopy[0]['att'], 'child')
-
-    def test_system_message_copy(self):
-        e = nodes.system_message('mytext', att='e', rawsource='raw text')
-        # Shallow copy:
-        e_copy = e.copy()
-        self.assertTrue(e is not e_copy)
-        # Internal attributes (like `rawsource`) are also copied.
-        self.assertEqual(e.rawsource, 'raw text')
-        self.assertEqual(e_copy.rawsource, e.rawsource)
-        self.assertEqual(e_copy['att'], 'e')
+    def test_parse_measure(self):
+        # measure is number + unit
+        # By default, a run of ASCII letters or µ, a single percent sign,
+        # or the empty string are recognized as unit.
+        self.assertEqual(nodes.parse_measure('8ex'), (8, 'ex'))
+        self.assertEqual(nodes.parse_measure('2.5'), (2.5, ''))
+        self.assertEqual(nodes.parse_measure('-2s'), (-2, 's'))
+        # Spaces between number and unit are tolerated, case is preserved:
+        self.assertEqual(nodes.parse_measure('2 µF'), (2, 'µF'))
+        self.assertEqual(nodes.parse_measure('10 EUR'), (10, 'EUR'))
+        self.assertEqual(nodes.parse_measure('.5 %'), (.5, '%'))
+        # Only a single percent sign is allowed:
+        with self.assertRaisesRegex(ValueError, '"2%%" is no valid measure'):
+            nodes.parse_measure('2%%')
+        # Scientific notation is not supported:
+        with self.assertRaisesRegex(ValueError, '"3e-4 mm" is no valid '):
+            nodes.parse_measure('3e-4 mm')
+        # Units must follow the number:
+        with self.assertRaisesRegex(ValueError, '"EUR 23" is no valid '):
+            nodes.parse_measure('EUR 23')
+        # Supported units can be configured with a "unit regexp pattern":
+        self.assertEqual(nodes.parse_measure('10 EUR', 'EUR|€'), (10, 'EUR'))
+        self.assertEqual(nodes.parse_measure('10 €', 'EUR|€'), (10, '€'))
+        with self.assertRaisesRegex(ValueError, '"20 DM" is no valid measure'):
+            nodes.parse_measure('20 DM', 'EUR|€')
+        # Measures without unit are only supported, if the pattern says so:
+        with self.assertRaisesRegex(ValueError, '"20" is no valid measure'):
+            nodes.parse_measure('20', 'EUR|€')
 
 
-class TreeCopyVisitorTests(unittest.TestCase):
+class AttributeTypeTests(unittest.TestCase):
+    """Test validator functions for the supported `attribute data types`__
 
-    def setUp(self):
-        document = utils.new_document('test data')
-        document += nodes.paragraph('', 'Paragraph 1.')
-        blist = nodes.bullet_list()
-        for i in range(1, 6):
-            item = nodes.list_item()
-            for j in range(1, 4):
-                item += nodes.paragraph('', 'Item %s, paragraph %s.' % (i, j))
-            blist += item
-        document += blist
-        self.document = document
+    See also test_parsers/test_docutils_xml/test_parse_element.py.
 
-    def compare_trees(self, one, two):
-        self.assertEqual(one.__class__, two.__class__)
-        self.assertNotEqual(id(one), id(two))
-        self.assertEqual(len(one.children), len(two.children))
-        for i in range(len(one.children)):
-            self.compare_trees(one.children[i], two.children[i])
+    __ https://docutils.sourceforge.io/docs/ref/doctree.html#attribute-types
+    """
 
-    def test_copy_whole(self):
-        visitor = nodes.TreeCopyVisitor(self.document)
-        self.document.walkabout(visitor)
-        newtree = visitor.get_tree_copy()
-        self.assertEqual(self.document.pformat(), newtree.pformat())
-        self.compare_trees(self.document, newtree)
+    def test_create_keyword_validator(self):
+        # function factory for "choice validators"
+        food = nodes.create_keyword_validator('ham', 'spam')
+        self.assertEqual(food('ham'), 'ham')
+        with self.assertRaisesRegex(ValueError,
+                                    '"bacon" is not one of "ham", "spam".'):
+            food('bacon')
 
+    def test_validate_identifier(self):
+        # Identifiers must start with an ASCII letter and may contain
+        # letters, digits and the hyphen
+        # https://docutils.sourceforge.io/docs/ref/doctree.html#idref-type
+        self.assertEqual(nodes.validate_identifier('mo-8b'), 'mo-8b')
+        with self.assertRaisesRegex(ValueError, '"8b-mo" is no valid id'):
+            nodes.validate_identifier('8b-mo')
 
-class SetIdTests(unittest.TestCase):
+    def test_validate_identifier_list(self):
+        # list of identifiers (cf. above)
+        # or a `str` of space-separated identifiers.
+        l1 = ['m8-b', 'm8-c']
+        s1 = 'm8-b m8-c'
+        self.assertEqual(nodes.validate_identifier_list(l1), l1)
+        self.assertEqual(nodes.validate_identifier_list(s1), l1)
+        l2 = ['m8-b', 'm8_c']
+        s2 = 'm8-b #8c'
+        with self.assertRaises(ValueError):
+            nodes.validate_identifier_list(l2)
+        with self.assertRaises(ValueError):
+            nodes.validate_identifier_list(s2)
 
-    def setUp(self):
-        self.document = utils.new_document('test')
-        self.elements = [nodes.Element(names=['test']),
-                         nodes.section(),  # Name empty
-                         nodes.section(names=['Test']),  # duplicate id
-                         nodes.footnote(names=['2019-10-30']),  # id empty
-                         ]
+    def test_validate_measure(self):
+        # measure == number (int or decimal fraction) + optional unit
+        # internal whitespace is removed
+        self.assertEqual(nodes.validate_measure('8 ex'), '8ex')
+        self.assertEqual(nodes.validate_measure('2'), '2')
+        # unit is "%" or a run of ASCII letters plus "µ"; case is preserved
+        self.assertEqual(nodes.validate_measure('3.5 %'), '3.5%')
+        self.assertEqual(nodes.validate_measure('300 µm'), '300µm')
+        self.assertEqual(nodes.validate_measure('4 kHz'), '4kHz')
+        # other characters and whitespace are not allowed in a unit identifier
+        with self.assertRaisesRegex(ValueError, 'no valid measure'):
+            nodes.validate_measure('3 micro-farads')
+        with self.assertRaisesRegex(ValueError, 'no valid measure'):
+            nodes.validate_measure('3 micro farads')
+        # a number is required
+        with self.assertRaisesRegex(ValueError, '"ex" is no valid measure'):
+            nodes.validate_measure('ex')
+        # padding whitespace is not valid
+        with self.assertRaisesRegex(ValueError, '"8ex " is no valid measure'):
+            nodes.validate_measure('8ex ')
+        # Negative numbers:
+        # * ``doctree.txt`` does not mention negative numbers,
+        # * in rST, negative numbers are not valid.
+        # Provisional: currently valid but may become invalid!
+        # self.assertEqual(nodes.validate_measure('-2'), '-2')
 
-    def test_set_id_default(self):
-        # Default prefixes.
-        for element in self.elements:
-            self.document.set_id(element)
-        ids = [element['ids'] for element in self.elements]
-        self.assertEqual(ids, [['test'], ['section-1'],
-                               ['test-1'], ['footnote-1']])
+    def test_validate_NMTOKEN(self):
+        # str with ASCII-letters, digits, hyphen, underscore, and full-stop.
+        self.assertEqual(nodes.validate_NMTOKEN('-8x_.'), '-8x_.')
+        # internal space is not allowed
+        with self.assertRaises(ValueError):
+            nodes.validate_NMTOKEN('why me')
 
-    def test_set_id_custom(self):
-        # Custom prefixes.
+    def test_validate_NMTOKENS(self):
+        # list of NMTOKENS or string with space-separated NMTOKENS
+        l1 = ['8_b', '8.c']
+        s1 = '8_b 8.c'
+        l2 = ['8_b', '8/c']
+        s2 = '8_b #8'
+        self.assertEqual(nodes.validate_NMTOKENS(l1), l1)
+        self.assertEqual(nodes.validate_NMTOKENS(s1), l1)
+        with self.assertRaises(ValueError):
+            nodes.validate_NMTOKENS(l2)
+        with self.assertRaises(ValueError):
+            nodes.validate_NMTOKENS(s2)
 
-        # Change settings.
-        self.document.settings.id_prefix = 'P-'
-        self.document.settings.auto_id_prefix = 'auto'
+    def test_validate_refname_list(self):
+        # list or string of "reference names".
+        l1 = ['*:@', r'"more"\ & \x!']
+        s1 = r'*:@ \"more"\\\ &\ \\x!'  # unescaped backslash is ignored
+        self.assertEqual(nodes.validate_refname_list(l1), l1)
+        self.assertEqual(nodes.validate_refname_list(s1), l1)
+        # whitspace is normalized, case is not normalized
+        l2 = ['LARGE', 'a\t \tc']
+        s2 = r'LARGE a\ \ \c'
+        normalized = ['LARGE', 'a c']
 
-        for element in self.elements:
-            self.document.set_id(element)
-        ids = [element['ids'] for element in self.elements]
-        self.assertEqual(ids, [['P-test'],
-                               ['P-auto1'],
-                               ['P-auto2'],
-                               ['P-2019-10-30']])
+        self.assertEqual(nodes.validate_refname_list(l2), normalized)
+        self.assertEqual(nodes.validate_refname_list(s2), normalized)
 
-    def test_set_id_descriptive_auto_id(self):
-        # Use name or tag-name for auto-id.
-
-        # Change setting.
-        self.document.settings.auto_id_prefix = '%'
-
-        for element in self.elements:
-            self.document.set_id(element)
-        ids = [element['ids'] for element in self.elements]
-        self.assertEqual(ids, [['test'],
-                               ['section-1'],
-                               ['test-1'],
-                               ['footnote-1']])
-
-    def test_set_id_custom_descriptive_auto_id(self):
-        # Custom prefixes and name or tag-name for auto-id.
-
-        # Change settings.
-        self.document.settings.id_prefix = 'P:'
-        self.document.settings.auto_id_prefix = 'a-%'
-
-        for element in self.elements:
-            self.document.set_id(element)
-        ids = [element['ids'] for element in self.elements]
-        self.assertEqual(ids, [['P:test'],
-                               ['P:a-section-1'],
-                               ['P:test-1'],
-                               ['P:2019-10-30']])
-
-
-class NodeVisitorTests(unittest.TestCase):
-    def setUp(self):
-        self.document = utils.new_document('test')
-        self.element = nodes.Element()
-        self.visitor = nodes.NodeVisitor(self.document)
-
-    def test_dispatch_visit_unknown(self):
-        # raise exception if no visit/depart methods are defined for node class
-        with self.assertRaises(NotImplementedError):
-            self.visitor.dispatch_visit(self.element)
-
-    def test_dispatch_visit_optional(self):
-        # silently skip nodes of a calss in tuple nodes.NodeVisitor.optional
-        rv = self.visitor.dispatch_visit(nodes.meta())
-        self.assertIsNone(rv)
-
-
-class MiscFunctionTests(unittest.TestCase):
-
-    names = [('a', 'a'), ('A', 'a'), ('A a A', 'a a a'),
-             ('A  a  A  a', 'a a a a'),
-             ('  AaA\n\r\naAa\tAaA\t\t', 'aaa aaa aaa')]
-
-    def test_normalize_name(self):
-        for input, output in self.names:
-            normed = nodes.fully_normalize_name(input)
-            self.assertEqual(normed, output)
+    def test_validate_yesorno(self):
+        # False if '0', else bool
+        # TODO: The docs say '0' is false:
+        # * Also return `True` for values that evaluate to `False`?
+        #   Even for `False` and `None`?
+        # * Also return `False` for 'false', 'off', 'no'
+        #   like boolean config settings?
+        self.assertFalse(nodes.validate_yesorno('0'))
+        self.assertFalse(nodes.validate_yesorno(0))
+        self.assertTrue(nodes.validate_yesorno('*'))
+        self.assertTrue(nodes.validate_yesorno(1))
+        # self.assertFalse(nodes.validate_yesorno('no'))
 
 
 if __name__ == '__main__':

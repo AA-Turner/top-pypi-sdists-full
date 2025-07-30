@@ -1,7 +1,7 @@
 import queue
 import time
 import warnings
-from typing import Tuple, Any, List, Optional, Set
+from typing import Tuple, Any, List, Optional, Set, Sequence
 
 import redis
 
@@ -107,6 +107,12 @@ class FakeConnection(FakeBaseConnectionMixin, redis.Connection):
             pieces.append(("client_name", self.client_name))
         return pieces
 
+    def _get_from_local_cache(self, command: Sequence[str]) -> None:
+        return None
+
+    def _add_to_local_cache(self, command: Sequence[str], response: Any, keys: List[Any]) -> None:
+        return None
+
     def __str__(self) -> str:
         return self.server_key
 
@@ -119,9 +125,17 @@ class FakeRedisMixin:
         version: VersionType = (7,),
         server_type: ServerType = "redis",
         lua_modules: Optional[Set[str]] = None,
+        client_class=redis.Redis,
         **kwargs: Any,
     ) -> None:
-        kwds = convert_args_to_redis_init_kwargs(redis.Redis, *args, **kwargs)
+        """
+        :param server: The FakeServer instance to use for this connection.
+        :param version: The Redis version to use, as a tuple (major, minor).
+        :param server_type: The type of server, e.g., "redis", "valkey".
+        :param lua_modules: A set of Lua modules to load.
+        :param client_class: The Redis client class to use, e.g., redis.Redis or valkey.Valkey.
+        """
+        kwds = convert_args_to_redis_init_kwargs(client_class, *args, **kwargs)
         kwds["server"] = server
         if not kwds.get("connection_pool", None):
             charset = kwds.get("charset", None)

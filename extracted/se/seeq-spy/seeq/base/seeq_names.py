@@ -43,6 +43,7 @@ class SeeqNames:
         impact_lessons_learned = 'Lesson Learned'
         impact_formula_param = 'Formula Param'
         impact_based_on = 'Based on'
+        location = 'Location'
     
     class GraphQL:
         class DataLoaderRegistry:
@@ -246,6 +247,7 @@ class SeeqNames:
             context_condition = 'contextCondition'
             event_asset_creator = 'eventAssetCreator'
             descendant_search = 'descendantSearch'
+            find_property = 'findProperty'
             class ScalarCreator:
                 base_scalar_creator = 'scalarCreator'
                 numeric_scalar_creator = 'numericScalarCreator'

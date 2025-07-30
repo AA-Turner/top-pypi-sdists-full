@@ -331,7 +331,7 @@ impl<'db> Signature<'db> {
             }
         });
         let legacy_generic_context =
-            GenericContext::from_function_params(db, &parameters, return_ty);
+            GenericContext::from_function_params(db, definition, &parameters, return_ty);
 
         if generic_context.is_some() && legacy_generic_context.is_some() {
             // TODO: Raise a diagnostic!
@@ -383,7 +383,9 @@ impl<'db> Signature<'db> {
             inherited_generic_context: self
                 .inherited_generic_context
                 .map(|ctx| ctx.normalized_impl(db, visitor)),
-            definition: self.definition,
+            // Discard the definition when normalizing, so that two equivalent signatures
+            // with different `Definition`s share the same Salsa ID when normalized
+            definition: None,
             parameters: self
                 .parameters
                 .iter()

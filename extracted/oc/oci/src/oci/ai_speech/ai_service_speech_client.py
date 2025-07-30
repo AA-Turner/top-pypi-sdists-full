@@ -157,7 +157,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/cancel_transcription_job.py.html>`__ to see an example of how to use cancel_transcription_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/cancel_transcription_job.py.html>`__ to see an example of how to use cancel_transcription_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId']
@@ -273,7 +273,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/cancel_transcription_task.py.html>`__ to see an example of how to use cancel_transcription_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/cancel_transcription_task.py.html>`__ to see an example of how to use cancel_transcription_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId', 'transcriptionTaskId']
@@ -390,7 +390,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/change_customization_compartment.py.html>`__ to see an example of how to use change_customization_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/change_customization_compartment.py.html>`__ to see an example of how to use change_customization_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['customizationId']
@@ -508,7 +508,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/change_transcription_job_compartment.py.html>`__ to see an example of how to use change_transcription_job_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/change_transcription_job_compartment.py.html>`__ to see an example of how to use change_transcription_job_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId']
@@ -616,7 +616,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/create_customization.py.html>`__ to see an example of how to use create_customization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/create_customization.py.html>`__ to see an example of how to use create_customization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -712,7 +712,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/create_realtime_session_token.py.html>`__ to see an example of how to use create_realtime_session_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/create_realtime_session_token.py.html>`__ to see an example of how to use create_realtime_session_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -808,7 +808,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/create_transcription_job.py.html>`__ to see an example of how to use create_transcription_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/create_transcription_job.py.html>`__ to see an example of how to use create_transcription_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -911,7 +911,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/delete_customization.py.html>`__ to see an example of how to use delete_customization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/delete_customization.py.html>`__ to see an example of how to use delete_customization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['customizationId']
@@ -1024,7 +1024,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/delete_transcription_job.py.html>`__ to see an example of how to use delete_transcription_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/delete_transcription_job.py.html>`__ to see an example of how to use delete_transcription_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId']
@@ -1123,7 +1123,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/get_customization.py.html>`__ to see an example of how to use get_customization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/get_customization.py.html>`__ to see an example of how to use get_customization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['customizationId']
@@ -1219,7 +1219,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/get_transcription_job.py.html>`__ to see an example of how to use get_transcription_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/get_transcription_job.py.html>`__ to see an example of how to use get_transcription_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId']
@@ -1318,7 +1318,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/get_transcription_task.py.html>`__ to see an example of how to use get_transcription_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/get_transcription_task.py.html>`__ to see an example of how to use get_transcription_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId', 'transcriptionTaskId']
@@ -1442,7 +1442,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/list_customizations.py.html>`__ to see an example of how to use list_customizations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/list_customizations.py.html>`__ to see an example of how to use list_customizations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1596,7 +1596,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/list_transcription_jobs.py.html>`__ to see an example of how to use list_transcription_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/list_transcription_jobs.py.html>`__ to see an example of how to use list_transcription_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1750,7 +1750,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/list_transcription_tasks.py.html>`__ to see an example of how to use list_transcription_tasks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/list_transcription_tasks.py.html>`__ to see an example of how to use list_transcription_tasks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId']
@@ -1869,9 +1869,12 @@ class AIServiceSpeechClient(object):
             The ID of the compartment in which to list resources.
 
         :param str model_name: (optional)
-            The model the user wants to run the inference on.
+            The model name to filter voices for given model name.
 
             Allowed values are: "TTS_1_STANDARD", "TTS_2_NATURAL"
+
+        :param str language_code: (optional)
+            The Code or Id of the language to filter voices for given language code.
 
         :param str display_name: (optional)
             The name of the speaker voice in which the user wants tts inference to be.
@@ -1895,7 +1898,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/list_voices.py.html>`__ to see an example of how to use list_voices API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/list_voices.py.html>`__ to see an example of how to use list_voices API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1910,6 +1913,7 @@ class AIServiceSpeechClient(object):
             "retry_strategy",
             "compartment_id",
             "model_name",
+            "language_code",
             "display_name",
             "opc_request_id"
         ]
@@ -1928,6 +1932,7 @@ class AIServiceSpeechClient(object):
         query_params = {
             "compartmentId": kwargs.get("compartment_id", missing),
             "modelName": kwargs.get("model_name", missing),
+            "languageCode": kwargs.get("language_code", missing),
             "displayName": kwargs.get("display_name", missing)
         }
         query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
@@ -1998,7 +2003,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/synthesize_speech.py.html>`__ to see an example of how to use synthesize_speech API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/synthesize_speech.py.html>`__ to see an example of how to use synthesize_speech API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2094,7 +2099,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/update_customization.py.html>`__ to see an example of how to use update_customization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/update_customization.py.html>`__ to see an example of how to use update_customization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['customizationId']
@@ -2204,7 +2209,7 @@ class AIServiceSpeechClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/aispeech/update_transcription_job.py.html>`__ to see an example of how to use update_transcription_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/aispeech/update_transcription_job.py.html>`__ to see an example of how to use update_transcription_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['transcriptionJobId']

@@ -37,11 +37,15 @@ class TestInlineObject(unittest.TestCase):
         # model = mailslurp_client.models.inline_object.InlineObject()  # noqa: E501
         if include_optional :
             return InlineObject(
-                file = bytes(b'blah')
+                to = '0', 
+                subject = '0', 
+                email_address = '0', 
+                success_message = '0', 
+                spam_check = '0', 
+                other_parameters = '0'
             )
         else :
             return InlineObject(
-                file = bytes(b'blah'),
         )
 
     def testInlineObject(self):

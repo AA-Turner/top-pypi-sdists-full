@@ -97,12 +97,12 @@ class CfnInvestigationGroup(
 
     Currently, you can have one investigation group in each Region in your account. Each investigation in a Region is a part of the investigation group in that Region
 
-    To create an investigation group and set up CloudWatch investigations, you must be signed in to an IAM principal that has the either the ``AIOpsConsoleAdminPolicy`` or the ``AdministratorAccess`` IAM policy attached, or to an account that has similar permissions.
+    To create an investigation group and set up CloudWatch investigations, you must be signed in to an IAM principal that has either the ``AIOpsConsoleAdminPolicy`` or the ``AdministratorAccess`` IAM policy attached, or to an account that has similar permissions.
     .. epigraph::
 
        You can configure CloudWatch alarms to start investigations and add events to investigations. If you create your investigation group with ``CreateInvestigationGroup`` and you want to enable alarms to do this, you must use ``PutInvestigationGroupPolicy`` to create a resource policy that grants this permission to CloudWatch alarms.
 
-       For more information about configuring CloudWatch alarms to work with CloudWatch investigations, see
+       For more information about configuring CloudWatch alarms, see `Using Amazon CloudWatch alarms <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html>`_
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html
     :cloudformationResource: AWS::AIOps::InvestigationGroup
@@ -160,11 +160,11 @@ class CfnInvestigationGroup(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param name: Specify either the name or the ARN of the investigation group that you want to view.
+        :param name: Specify either the name or the ARN of the investigation group that you want to view. This is used to set the name of the investigation group.
         :param chatbot_notification_channels: Use this property to integrate CloudWatch investigations with chat applications. This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
-        :param cross_account_configurations: Number of ``sourceAccountId`` values that have been configured for cross-account access.
+        :param cross_account_configurations: List of ``sourceRoleArn`` values that have been configured for cross-account access.
         :param encryption_config: Specifies the customer managed AWS KMS key that the investigation group uses to encrypt data, if there is one. If not, the investigation group uses an AWS key to encrypt the data.
-        :param investigation_group_policy: Returns the IAM resource policy that is associated with the specified investigation group.
+        :param investigation_group_policy: Returns the JSON of the IAM resource policy associated with the specified investigation group in a string. For example, ``{\\"Version\\":\\"2012-10-17\\",\\"Statement\\":[{\\"Effect\\":\\"Allow\\",\\"Principal\\":{\\"Service\\":\\"aiops.alarms.cloudwatch.amazonaws.com\\"},\\"Action\\":[\\"aiops:CreateInvestigation\\",\\"aiops:CreateInvestigationEvent\\"],\\"Resource\\":\\"*\\",\\"Condition\\":{\\"StringEquals\\":{\\"aws:SourceAccount\\":\\"111122223333\\"},\\"ArnLike\\":{\\"aws:SourceArn\\":\\"arn:aws:cloudwatch:us-east-1:111122223333:alarm:*\\"}}}]}`` .
         :param is_cloud_trail_event_history_enabled: Specify ``true`` to enable CloudWatch investigations to have access to change events that are recorded by CloudTrail. The default is ``true`` .
         :param retention_in_days: Specifies how long that investigation data is kept.
         :param role_arn: The ARN of the IAM role that the investigation group uses for permissions to gather data.
@@ -312,7 +312,7 @@ class CfnInvestigationGroup(
     def cross_account_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.CrossAccountConfigurationProperty"]]]]:
-        '''Number of ``sourceAccountId`` values that have been configured for cross-account access.'''
+        '''List of ``sourceRoleArn`` values that have been configured for cross-account access.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.CrossAccountConfigurationProperty"]]]], jsii.get(self, "crossAccountConfigurations"))
 
     @cross_account_configurations.setter
@@ -346,7 +346,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="investigationGroupPolicy")
     def investigation_group_policy(self) -> typing.Optional[builtins.str]:
-        '''Returns the IAM resource policy that is associated with the specified investigation group.'''
+        '''Returns the JSON of the IAM resource policy associated with the specified investigation group in a string.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "investigationGroupPolicy"))
 
     @investigation_group_policy.setter
@@ -668,11 +668,11 @@ class CfnInvestigationGroupProps:
     ) -> None:
         '''Properties for defining a ``CfnInvestigationGroup``.
 
-        :param name: Specify either the name or the ARN of the investigation group that you want to view.
+        :param name: Specify either the name or the ARN of the investigation group that you want to view. This is used to set the name of the investigation group.
         :param chatbot_notification_channels: Use this property to integrate CloudWatch investigations with chat applications. This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
-        :param cross_account_configurations: Number of ``sourceAccountId`` values that have been configured for cross-account access.
+        :param cross_account_configurations: List of ``sourceRoleArn`` values that have been configured for cross-account access.
         :param encryption_config: Specifies the customer managed AWS KMS key that the investigation group uses to encrypt data, if there is one. If not, the investigation group uses an AWS key to encrypt the data.
-        :param investigation_group_policy: Returns the IAM resource policy that is associated with the specified investigation group.
+        :param investigation_group_policy: Returns the JSON of the IAM resource policy associated with the specified investigation group in a string. For example, ``{\\"Version\\":\\"2012-10-17\\",\\"Statement\\":[{\\"Effect\\":\\"Allow\\",\\"Principal\\":{\\"Service\\":\\"aiops.alarms.cloudwatch.amazonaws.com\\"},\\"Action\\":[\\"aiops:CreateInvestigation\\",\\"aiops:CreateInvestigationEvent\\"],\\"Resource\\":\\"*\\",\\"Condition\\":{\\"StringEquals\\":{\\"aws:SourceAccount\\":\\"111122223333\\"},\\"ArnLike\\":{\\"aws:SourceArn\\":\\"arn:aws:cloudwatch:us-east-1:111122223333:alarm:*\\"}}}]}`` .
         :param is_cloud_trail_event_history_enabled: Specify ``true`` to enable CloudWatch investigations to have access to change events that are recorded by CloudTrail. The default is ``true`` .
         :param retention_in_days: Specifies how long that investigation data is kept.
         :param role_arn: The ARN of the IAM role that the investigation group uses for permissions to gather data.
@@ -752,6 +752,8 @@ class CfnInvestigationGroupProps:
     def name(self) -> builtins.str:
         '''Specify either the name or the ARN of the investigation group that you want to view.
 
+        This is used to set the name of the investigation group.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-name
         '''
         result = self._values.get("name")
@@ -775,7 +777,7 @@ class CfnInvestigationGroupProps:
     def cross_account_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInvestigationGroup.CrossAccountConfigurationProperty]]]]:
-        '''Number of ``sourceAccountId`` values that have been configured for cross-account access.
+        '''List of ``sourceRoleArn`` values that have been configured for cross-account access.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-crossaccountconfigurations
         '''
@@ -797,7 +799,9 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def investigation_group_policy(self) -> typing.Optional[builtins.str]:
-        '''Returns the IAM resource policy that is associated with the specified investigation group.
+        '''Returns the JSON of the IAM resource policy associated with the specified investigation group in a string.
+
+        For example, ``{\\"Version\\":\\"2012-10-17\\",\\"Statement\\":[{\\"Effect\\":\\"Allow\\",\\"Principal\\":{\\"Service\\":\\"aiops.alarms.cloudwatch.amazonaws.com\\"},\\"Action\\":[\\"aiops:CreateInvestigation\\",\\"aiops:CreateInvestigationEvent\\"],\\"Resource\\":\\"*\\",\\"Condition\\":{\\"StringEquals\\":{\\"aws:SourceAccount\\":\\"111122223333\\"},\\"ArnLike\\":{\\"aws:SourceArn\\":\\"arn:aws:cloudwatch:us-east-1:111122223333:alarm:*\\"}}}]}`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-investigationgrouppolicy
         '''

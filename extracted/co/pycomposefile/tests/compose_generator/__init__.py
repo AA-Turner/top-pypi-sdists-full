@@ -556,7 +556,7 @@ services:
 services:
   frontend:
     image: awesome/webapp
-    build: 
+    build:
       context: ./webapp
 """
         return ComposeGenerator.convert_yaml_to_compose_file(compose)

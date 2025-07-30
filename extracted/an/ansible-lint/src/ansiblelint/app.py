@@ -66,7 +66,7 @@ class App:
         # pylint: disable=import-outside-toplevel
         from ansiblelint.yaml_utils import load_yamllint_config
 
-        self.yamllint_config = load_yamllint_config()
+        self.yamllint_config = load_yamllint_config(options.yamllint_file)
 
     def render_matches(self, matches: list[MatchError]) -> None:
         """Display given matches (if they are not fixed)."""
@@ -299,7 +299,8 @@ class App:
         summary.sort()
 
         if changed_files_count:
-            console_stderr.print(f"Modified {changed_files_count} files.")
+            file_word = "file" if changed_files_count == 1 else "files"
+            console_stderr.print(f"Modified {changed_files_count} {file_word}.")
 
         # determine which profile passed
         summary.passed_profile = ""

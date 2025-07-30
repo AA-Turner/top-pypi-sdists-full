@@ -148,6 +148,7 @@ class ClusterKwargs(TypedDict, total=False):
     worker_memory: Union[str, List[str]] | None
     worker_disk_size: Union[int, str] | None
     worker_disk_throughput: int | None
+    worker_disk_config: dict | None
     worker_gpu: Union[int, bool] | None
     worker_gpu_type: str | None
     scheduler_options: dict | None
@@ -155,6 +156,7 @@ class ClusterKwargs(TypedDict, total=False):
     scheduler_cpu: Union[int, List[int]] | None
     scheduler_memory: Union[str, List[str]] | None
     scheduler_disk_size: int | None
+    scheduler_disk_config: dict | None
     scheduler_gpu: bool | None
     asynchronous: bool
     cloud: CloudV2 | None
@@ -256,6 +258,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
     worker_disk_throughput
         EXPERIMENTAL. For AWS, non-default throughput (in MB/s) for EBS gp3 volumes attached
         to workers.
+    worker_disk_config
+        Allows custom configuration of the disk attached to worker VMs.
+        For AWS, this can be ``EbsBlockDevice`` dictionary that overrides our default EBS config.
     worker_gpu
         Number of GPUs to attach to each worker. Default is 0, ``True`` is interpreted as 1.
         Note that this is ignored if you're explicitly specifying an instance type which
@@ -286,6 +291,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         The best practice for Dask is to have a GPU on the scheduler if you are using GPUs on your
         workers, so if you don't explicitly specify, Coiled will follow this best practice and give
         you a scheduler GPU just in case you have ``worker_gpu`` set.
+    scheduler_disk_config
+        Allows custom configuration of the disk attached to scheduler VM.
+        For AWS, this can be ``EbsBlockDevice`` dictionary that overrides our default EBS config.
     asynchronous
         Set to True if using this Cloud within ``async``/``await`` functions or
         within Tornado ``gen.coroutines``. Otherwise this should remain
@@ -476,6 +484,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         worker_memory: Union[str, List[str]] | None = None,
         worker_disk_size: Union[int, str] | None = None,
         worker_disk_throughput: int | None = None,
+        worker_disk_config: dict | None = None,
         worker_gpu: Union[int, bool] | None = None,
         worker_gpu_type: str | None = None,
         scheduler_options: dict | None = None,
@@ -483,6 +492,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         scheduler_cpu: Union[int, List[int]] | None = None,
         scheduler_memory: Union[str, List[str]] | None = None,
         scheduler_disk_size: int | None = None,
+        scheduler_disk_config: dict | None = None,
         scheduler_gpu: bool | None = None,
         asynchronous: bool = False,
         cloud: CloudV2 | None = None,
@@ -764,6 +774,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         self.worker_disk_size = parse_bytes_as_gib(worker_disk_size)
 
         self.worker_disk_throughput = worker_disk_throughput
+        self.worker_disk_config = worker_disk_config
         self.worker_gpu_count = int(worker_gpu) if worker_gpu is not None else None
         self.worker_gpu_type = worker_gpu_type
         self.worker_options = {
@@ -777,6 +788,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             Union[int, List[int]], dask.config.get("coiled.scheduler.memory")
         )
         self.scheduler_disk_size = parse_bytes_as_gib(scheduler_disk_size)
+        self.scheduler_disk_config = scheduler_disk_config
         self.scheduler_options = {
             **(cast(dict, dask.config.get("coiled.scheduler-options", {}))),
             **(scheduler_options or {}),
@@ -1556,9 +1568,11 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     worker_options=self.worker_options,
                     worker_disk_size=self.worker_disk_size,
                     worker_disk_throughput=self.worker_disk_throughput,
+                    worker_disk_config=self.worker_disk_config,
                     gcp_worker_gpu_type=self.worker_gpu_type,
                     gcp_worker_gpu_count=self.worker_gpu_count,
                     scheduler_disk_size=self.scheduler_disk_size,
+                    scheduler_disk_config=self.scheduler_disk_config,
                     scheduler_options=self.scheduler_options,
                     environ=self.environ,
                     tags=self.tags,

@@ -322,6 +322,11 @@ ERR_UNSUPPORTED_PIPELINE_OPERATION = 3028
 ERR_INVALID_NETWORK_NAME = 3029
 ERR_ARROW_UNSUPPORTED_DATA_TYPE = 3030
 ERR_ARROW_UNSUPPORTED_VECTOR_FORMAT = 3031
+ERR_ARROW_UNSUPPORTED_DATA_FORMAT = 3032
+ERR_ARROW_UNSUPPORTED_CHILD_DATA_FORMAT = 3033
+ERR_SESSIONLESS_DIFFERING_METHODS = 3034
+ERR_SESSIONLESS_ALREADY_ACTIVE = 3035
+ERR_SESSIONLESS_INACTIVE = 3036
 
 # error numbers that result in DatabaseError
 ERR_TNS_ENTRY_NOT_FOUND = 4000
@@ -371,6 +376,8 @@ ERR_UNKNOWN_SERVER_PIGGYBACK = 5009
 ERR_UNKNOWN_TRANSACTION_STATE = 5010
 ERR_UNEXPECTED_PIPELINE_FAILURE = 5011
 ERR_NOT_IMPLEMENTED = 5012
+ERR_INTERNAL_CREATION_REQUIRED = 5013
+ERR_UNKNOWN_TRANSACTION_SYNC_VERSION = 5014
 
 # error numbers that result in OperationalError
 ERR_LISTENER_REFUSED_CONNECTION = 6000
@@ -426,6 +433,9 @@ ERR_ORACLE_ERROR_XREF = {
     24496: ERR_POOL_NO_CONNECTION_AVAILABLE,
     24338: ERR_INVALID_REF_CURSOR,
     24344: WRN_COMPILATION_ERROR,
+    26202: ERR_SESSIONLESS_INACTIVE,
+    26211: ERR_SESSIONLESS_DIFFERING_METHODS,
+    26216: ERR_SESSIONLESS_ALREADY_ACTIVE,
     27146: ERR_CONNECTION_CLOSED,
     28511: ERR_CONNECTION_CLOSED,
     38902: ERR_TOO_MANY_BATCH_ERRORS,
@@ -618,6 +628,7 @@ ERR_MESSAGE_FORMATS = {
         "internal error: read integer of length {length} when expecting "
         "integer of no more than length {max_length}"
     ),
+    ERR_INTERNAL_CREATION_REQUIRED: "object may not be created directly",
     ERR_INVALID_ACCESS_TOKEN_PARAM: (
         "invalid access token: value must be a string (for OAuth), a "
         "2-tuple containing the token and private key strings (for IAM), "
@@ -846,6 +857,9 @@ ERR_MESSAGE_FORMATS = {
     ERR_UNKNOWN_TRANSACTION_STATE: (
         "internal error: unknown transaction state {state}"
     ),
+    ERR_UNKNOWN_TRANSACTION_SYNC_VERSION: (
+        "internal error: unknown transaction sync version {version}"
+    ),
     ERR_UNSUPPORTED_PIPELINE_OPERATION: (
         "unsupported pipeline operation type: {op_type}"
     ),
@@ -877,7 +891,8 @@ ERR_MESSAGE_FORMATS = {
     ERR_WRONG_EXECUTEMANY_PARAMETERS_TYPE: (
         '"parameters" argument should be a list of sequences or '
         "dictionaries, or an integer specifying the number of "
-        "times to execute the statement"
+        "times to execute the statement, or an object implementing the Arrow "
+        "PyCapsule interface __arrow_c_stream__()"
     ),
     ERR_WRONG_NUMBER_OF_POSITIONAL_BINDS: (
         "{expected_num} positional bind values are required but "
@@ -898,6 +913,14 @@ ERR_MESSAGE_FORMATS = {
         "Apache Arrow format does not support sparse vectors with flexible "
         "dimensions"
     ),
+    ERR_ARROW_UNSUPPORTED_CHILD_DATA_FORMAT: (
+        'conversion from list with child Arrow format "{schema_format}" to '
+        "Oracle Database vector is not supported"
+    ),
+    ERR_ARROW_UNSUPPORTED_DATA_FORMAT: (
+        'conversion from Arrow format "{schema_format}" to Oracle Database '
+        "is not supported"
+    ),
     ERR_ARROW_UNSUPPORTED_DATA_TYPE: (
         "conversion from Oracle Database type {db_type_name} to Apache "
         "Arrow format is not supported"
@@ -909,4 +932,13 @@ ERR_MESSAGE_FORMATS = {
         "flexible vector formats are not supported. Only fixed 'FLOAT32', "
         "'FLOAT64', 'INT8' or 'BINARY' formats are supported"
     ),
+    ERR_SESSIONLESS_DIFFERING_METHODS: (
+        "suspending or resuming a Sessionless Transaction can be done with "
+        "DBMS_TRANSACTION or with python-oracledb, but not both"
+    ),
+    ERR_SESSIONLESS_ALREADY_ACTIVE: (
+        "suspend, commit, or rollback the current active sessionless "
+        "transaction before beginning or resuming another one"
+    ),
+    ERR_SESSIONLESS_INACTIVE: ("no Sessionless Transaction is active"),
 }

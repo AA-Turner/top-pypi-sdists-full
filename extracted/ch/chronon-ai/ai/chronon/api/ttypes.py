@@ -36,6 +36,7 @@ class Operation(object):
     BOTTOM_K = 16
     HISTOGRAM = 17
     APPROX_HISTOGRAM_K = 18
+    BOUNDED_UNIQUE_COUNT = 19
 
     _VALUES_TO_NAMES = {
         0: "MIN",
@@ -57,6 +58,7 @@ class Operation(object):
         16: "BOTTOM_K",
         17: "HISTOGRAM",
         18: "APPROX_HISTOGRAM_K",
+        19: "BOUNDED_UNIQUE_COUNT",
     }
 
     _NAMES_TO_VALUES = {
@@ -79,6 +81,7 @@ class Operation(object):
         "BOTTOM_K": 16,
         "HISTOGRAM": 17,
         "APPROX_HISTOGRAM_K": 18,
+        "BOUNDED_UNIQUE_COUNT": 19,
     }
 
 

@@ -34,8 +34,8 @@ class EmailThreadProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'sender': 'SenderProjection',
         'recipients': 'EmailRecipientsProjection',
+        'sender': 'SenderProjection',
         'inbox_id': 'str',
         'user_id': 'str',
         'updated_at': 'datetime',
@@ -57,8 +57,8 @@ class EmailThreadProjection(object):
     }
 
     attribute_map = {
-        'sender': 'sender',
         'recipients': 'recipients',
+        'sender': 'sender',
         'inbox_id': 'inboxId',
         'user_id': 'userId',
         'updated_at': 'updatedAt',
@@ -79,14 +79,14 @@ class EmailThreadProjection(object):
         '_from': 'from'
     }
 
-    def __init__(self, sender=None, recipients=None, inbox_id=None, user_id=None, updated_at=None, created_at=None, to=None, cc=None, bcc=None, has_attachments=None, unread=None, message_count=None, last_body_excerpt=None, last_text_excerpt=None, last_created_at=None, last_from=None, last_sender=None, subject=None, id=None, _from=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, recipients=None, sender=None, inbox_id=None, user_id=None, updated_at=None, created_at=None, to=None, cc=None, bcc=None, has_attachments=None, unread=None, message_count=None, last_body_excerpt=None, last_text_excerpt=None, last_created_at=None, last_from=None, last_sender=None, subject=None, id=None, _from=None, local_vars_configuration=None):  # noqa: E501
         """EmailThreadProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._sender = None
         self._recipients = None
+        self._sender = None
         self._inbox_id = None
         self._user_id = None
         self._updated_at = None
@@ -107,10 +107,10 @@ class EmailThreadProjection(object):
         self.__from = None
         self.discriminator = None
 
-        if sender is not None:
-            self.sender = sender
         if recipients is not None:
             self.recipients = recipients
+        if sender is not None:
+            self.sender = sender
         if inbox_id is not None:
             self.inbox_id = inbox_id
         self.user_id = user_id
@@ -141,27 +141,6 @@ class EmailThreadProjection(object):
             self._from = _from
 
     @property
-    def sender(self):
-        """Gets the sender of this EmailThreadProjection.  # noqa: E501
-
-
-        :return: The sender of this EmailThreadProjection.  # noqa: E501
-        :rtype: SenderProjection
-        """
-        return self._sender
-
-    @sender.setter
-    def sender(self, sender):
-        """Sets the sender of this EmailThreadProjection.
-
-
-        :param sender: The sender of this EmailThreadProjection.  # noqa: E501
-        :type: SenderProjection
-        """
-
-        self._sender = sender
-
-    @property
     def recipients(self):
         """Gets the recipients of this EmailThreadProjection.  # noqa: E501
 
@@ -181,6 +160,27 @@ class EmailThreadProjection(object):
         """
 
         self._recipients = recipients
+
+    @property
+    def sender(self):
+        """Gets the sender of this EmailThreadProjection.  # noqa: E501
+
+
+        :return: The sender of this EmailThreadProjection.  # noqa: E501
+        :rtype: SenderProjection
+        """
+        return self._sender
+
+    @sender.setter
+    def sender(self, sender):
+        """Sets the sender of this EmailThreadProjection.
+
+
+        :param sender: The sender of this EmailThreadProjection.  # noqa: E501
+        :type: SenderProjection
+        """
+
+        self._sender = sender
 
     @property
     def inbox_id(self):

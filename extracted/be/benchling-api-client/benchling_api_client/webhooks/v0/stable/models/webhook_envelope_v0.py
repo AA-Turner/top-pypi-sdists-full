@@ -12,8 +12,15 @@ from ..models.canvas_created_webhook_v2 import CanvasCreatedWebhookV2
 from ..models.canvas_created_webhook_v2_beta import CanvasCreatedWebhookV2Beta
 from ..models.canvas_initialize_webhook_v2 import CanvasInitializeWebhookV2
 from ..models.canvas_interaction_webhook_v2 import CanvasInteractionWebhookV2
+from ..models.custom_entity_created_webhook_v3 import CustomEntityCreatedWebhookV3
+from ..models.custom_entity_updated_webhook_v3 import CustomEntityUpdatedWebhookV3
+from ..models.dna_oligo_created_webhook_v3 import DnaOligoCreatedWebhookV3
+from ..models.dna_oligo_updated_webhook_v3 import DnaOligoUpdatedWebhookV3
+from ..models.dna_sequence_created_webhook_v3 import DnaSequenceCreatedWebhookV3
+from ..models.dna_sequence_updated_webhook_v3 import DnaSequenceUpdatedWebhookV3
 from ..models.entity_registered_webhook_v2 import EntityRegisteredWebhookV2
 from ..models.entry_created_webhook_v2 import EntryCreatedWebhookV2
+from ..models.entry_created_webhook_v3 import EntryCreatedWebhookV3
 from ..models.entry_updated_fields_webhook_v2 import EntryUpdatedFieldsWebhookV2
 from ..models.entry_updated_review_record_webhook_v2 import EntryUpdatedReviewRecordWebhookV2
 from ..models.lifecycle_activate_webhook_v0 import LifecycleActivateWebhookV0
@@ -22,9 +29,16 @@ from ..models.lifecycle_configuration_update_webhook_v0_beta import LifecycleCon
 from ..models.lifecycle_configuration_update_webhook_v2_beta import LifecycleConfigurationUpdateWebhookV2Beta
 from ..models.lifecycle_deactivate_webhook_v0 import LifecycleDeactivateWebhookV0
 from ..models.lifecycle_deactivate_webhook_v0_beta import LifecycleDeactivateWebhookV0Beta
+from ..models.project_created_webhook_v3 import ProjectCreatedWebhookV3
+from ..models.project_updated_webhook_v3 import ProjectUpdatedWebhookV3
 from ..models.request_created_webhook_v2 import RequestCreatedWebhookV2
 from ..models.request_updated_fields_webhook_v2 import RequestUpdatedFieldsWebhookV2
 from ..models.request_updated_status_webhook_v2 import RequestUpdatedStatusWebhookV2
+from ..models.rna_oligo_created_webhook_v3 import RnaOligoCreatedWebhookV3
+from ..models.rna_oligo_updated_webhook_v3 import RnaOligoUpdatedWebhookV3
+from ..models.rna_sequence_created_webhook_v3 import RnaSequenceCreatedWebhookV3
+from ..models.rna_sequence_updated_webhook_v3 import RnaSequenceUpdatedWebhookV3
+from ..models.run_created_webhook_v3 import RunCreatedWebhookV3
 from ..models.webhook_envelope_v0_app import WebhookEnvelopeV0App
 from ..models.webhook_envelope_v0_app_definition import WebhookEnvelopeV0AppDefinition
 from ..models.webhook_envelope_v0_version import WebhookEnvelopeV0Version
@@ -85,6 +99,20 @@ class WebhookEnvelopeV0:
         LifecycleActivateWebhookV0Beta,
         LifecycleDeactivateWebhookV0Beta,
         LifecycleConfigurationUpdateWebhookV0Beta,
+        EntryCreatedWebhookV3,
+        RunCreatedWebhookV3,
+        ProjectCreatedWebhookV3,
+        CustomEntityCreatedWebhookV3,
+        DnaOligoCreatedWebhookV3,
+        DnaSequenceCreatedWebhookV3,
+        RnaOligoCreatedWebhookV3,
+        RnaSequenceCreatedWebhookV3,
+        ProjectUpdatedWebhookV3,
+        CustomEntityUpdatedWebhookV3,
+        DnaOligoUpdatedWebhookV3,
+        DnaSequenceUpdatedWebhookV3,
+        RnaOligoUpdatedWebhookV3,
+        RnaSequenceUpdatedWebhookV3,
         UnknownType,
     ]
     _tenant_id: str
@@ -203,6 +231,48 @@ class WebhookEnvelopeV0:
         elif isinstance(self._message, LifecycleDeactivateWebhookV0Beta):
             message = self._message.to_dict()
 
+        elif isinstance(self._message, LifecycleConfigurationUpdateWebhookV0Beta):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, EntryCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, RunCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, ProjectCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, CustomEntityCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, DnaOligoCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, DnaSequenceCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, RnaOligoCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, RnaSequenceCreatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, ProjectUpdatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, CustomEntityUpdatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, DnaOligoUpdatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, DnaSequenceUpdatedWebhookV3):
+            message = self._message.to_dict()
+
+        elif isinstance(self._message, RnaOligoUpdatedWebhookV3):
+            message = self._message.to_dict()
+
         else:
             message = self._message.to_dict()
 
@@ -299,6 +369,20 @@ class WebhookEnvelopeV0:
             LifecycleActivateWebhookV0Beta,
             LifecycleDeactivateWebhookV0Beta,
             LifecycleConfigurationUpdateWebhookV0Beta,
+            EntryCreatedWebhookV3,
+            RunCreatedWebhookV3,
+            ProjectCreatedWebhookV3,
+            CustomEntityCreatedWebhookV3,
+            DnaOligoCreatedWebhookV3,
+            DnaSequenceCreatedWebhookV3,
+            RnaOligoCreatedWebhookV3,
+            RnaSequenceCreatedWebhookV3,
+            ProjectUpdatedWebhookV3,
+            CustomEntityUpdatedWebhookV3,
+            DnaOligoUpdatedWebhookV3,
+            DnaSequenceUpdatedWebhookV3,
+            RnaOligoUpdatedWebhookV3,
+            RnaSequenceUpdatedWebhookV3,
             UnknownType,
         ]:
             message: Union[
@@ -334,6 +418,20 @@ class WebhookEnvelopeV0:
                 LifecycleActivateWebhookV0Beta,
                 LifecycleDeactivateWebhookV0Beta,
                 LifecycleConfigurationUpdateWebhookV0Beta,
+                EntryCreatedWebhookV3,
+                RunCreatedWebhookV3,
+                ProjectCreatedWebhookV3,
+                CustomEntityCreatedWebhookV3,
+                DnaOligoCreatedWebhookV3,
+                DnaSequenceCreatedWebhookV3,
+                RnaOligoCreatedWebhookV3,
+                RnaSequenceCreatedWebhookV3,
+                ProjectUpdatedWebhookV3,
+                CustomEntityUpdatedWebhookV3,
+                DnaOligoUpdatedWebhookV3,
+                DnaSequenceUpdatedWebhookV3,
+                RnaOligoUpdatedWebhookV3,
+                RnaSequenceUpdatedWebhookV3,
                 UnknownType,
             ]
             _message = d.pop("message")
@@ -404,6 +502,34 @@ class WebhookEnvelopeV0:
                     message = WorkflowTaskGroupMappingCompletedWebhookV2.from_dict(_message)
                 elif discriminator == "v2.workflowTaskGroup.updated.watchers":
                     message = WorkflowTaskGroupUpdatedWatchersWebhookV2.from_dict(_message)
+                elif discriminator == "v3.customEntity.created":
+                    message = CustomEntityCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.customEntity.updated":
+                    message = CustomEntityUpdatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.dnaOligo.created":
+                    message = DnaOligoCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.dnaOligo.updated":
+                    message = DnaOligoUpdatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.dnaSequence.created":
+                    message = DnaSequenceCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.dnaSequence.updated":
+                    message = DnaSequenceUpdatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.entry.created":
+                    message = EntryCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.project.created":
+                    message = ProjectCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.project.updated":
+                    message = ProjectUpdatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.rnaOligo.created":
+                    message = RnaOligoCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.rnaOligo.updated":
+                    message = RnaOligoUpdatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.rnaSequence.created":
+                    message = RnaSequenceCreatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.rnaSequence.updated":
+                    message = RnaSequenceUpdatedWebhookV3.from_dict(_message)
+                elif discriminator == "v3.run.created":
+                    message = RunCreatedWebhookV3.from_dict(_message)
                 else:
                     message = UnknownType(value=_message)
 
@@ -448,6 +574,20 @@ class WebhookEnvelopeV0:
                     LifecycleActivateWebhookV0Beta,
                     LifecycleDeactivateWebhookV0Beta,
                     LifecycleConfigurationUpdateWebhookV0Beta,
+                    EntryCreatedWebhookV3,
+                    RunCreatedWebhookV3,
+                    ProjectCreatedWebhookV3,
+                    CustomEntityCreatedWebhookV3,
+                    DnaOligoCreatedWebhookV3,
+                    DnaSequenceCreatedWebhookV3,
+                    RnaOligoCreatedWebhookV3,
+                    RnaSequenceCreatedWebhookV3,
+                    ProjectUpdatedWebhookV3,
+                    CustomEntityUpdatedWebhookV3,
+                    DnaOligoUpdatedWebhookV3,
+                    DnaSequenceUpdatedWebhookV3,
+                    RnaOligoUpdatedWebhookV3,
+                    RnaSequenceUpdatedWebhookV3,
                     UnknownType,
                 ],
                 UNSET,
@@ -578,6 +718,20 @@ class WebhookEnvelopeV0:
         LifecycleActivateWebhookV0Beta,
         LifecycleDeactivateWebhookV0Beta,
         LifecycleConfigurationUpdateWebhookV0Beta,
+        EntryCreatedWebhookV3,
+        RunCreatedWebhookV3,
+        ProjectCreatedWebhookV3,
+        CustomEntityCreatedWebhookV3,
+        DnaOligoCreatedWebhookV3,
+        DnaSequenceCreatedWebhookV3,
+        RnaOligoCreatedWebhookV3,
+        RnaSequenceCreatedWebhookV3,
+        ProjectUpdatedWebhookV3,
+        CustomEntityUpdatedWebhookV3,
+        DnaOligoUpdatedWebhookV3,
+        DnaSequenceUpdatedWebhookV3,
+        RnaOligoUpdatedWebhookV3,
+        RnaSequenceUpdatedWebhookV3,
         UnknownType,
     ]:
         if isinstance(self._message, Unset):
@@ -620,6 +774,20 @@ class WebhookEnvelopeV0:
             LifecycleActivateWebhookV0Beta,
             LifecycleDeactivateWebhookV0Beta,
             LifecycleConfigurationUpdateWebhookV0Beta,
+            EntryCreatedWebhookV3,
+            RunCreatedWebhookV3,
+            ProjectCreatedWebhookV3,
+            CustomEntityCreatedWebhookV3,
+            DnaOligoCreatedWebhookV3,
+            DnaSequenceCreatedWebhookV3,
+            RnaOligoCreatedWebhookV3,
+            RnaSequenceCreatedWebhookV3,
+            ProjectUpdatedWebhookV3,
+            CustomEntityUpdatedWebhookV3,
+            DnaOligoUpdatedWebhookV3,
+            DnaSequenceUpdatedWebhookV3,
+            RnaOligoUpdatedWebhookV3,
+            RnaSequenceUpdatedWebhookV3,
             UnknownType,
         ],
     ) -> None:

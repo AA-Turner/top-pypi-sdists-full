@@ -10,7 +10,7 @@
 #
 # .. _2-Clause BSD license: https://opensource.org/licenses/BSD-2-Clause
 
-# :Id: $Id: test_CLI.py 9404 2023-06-24 19:40:30Z milde $
+# :Id: $Id: test_CLI.py 10091 2025-04-17 12:21:36Z milde $
 
 """
 Test module for the command line interface.
@@ -58,7 +58,8 @@ class CliTests(unittest.TestCase):
         sys.stdout = self.orig_stdout
         sys.argv = self.orig_argv
         # restore default locale settings:
-        locale.setlocale(locale.LC_MESSAGES, 'C')
+        if sys.platform != "win32":
+            locale.setlocale(locale.LC_MESSAGES, 'C')
         locale.setlocale(locale.LC_TIME, 'C')
 
     def get_help_text(self, prog, entry_point):
@@ -74,8 +75,9 @@ class CliTests(unittest.TestCase):
                         output, flags=re.DOTALL)
         # normalise error encoding default
         output = output.replace(
-            f'{core.OptionParser.default_error_encoding}:backslashreplace',
-            'utf-8:backslashreplace')
+            'error output.  Default: '
+            f'{core.OptionParser.default_error_encoding}',
+            'error output.  Default: utf-8')
         return output
 
     def test_main_help(self):
@@ -83,9 +85,8 @@ class CliTests(unittest.TestCase):
         output = self.get_help_text('docutils', __main__.main)
 
         # compare to stored version
-        docutils_txt = os.path.join(DATA_ROOT, 'help/docutils.txt')
-        with open(docutils_txt, encoding='utf-8') as samplefile:
-            expected = samplefile.read()
+        docutils_txt = os.path.join(DATA_ROOT, 'help/docutils.rst')
+        expected = Path(docutils_txt).read_text(encoding='utf-8')
         if expected != output:
             print_mismatch(expected, output)
 
@@ -93,9 +94,8 @@ class CliTests(unittest.TestCase):
         # collect help text
         output = self.get_help_text('rst2html', core.rst2html)
         # compare to stored version
-        rst2html_txt = os.path.join(DATA_ROOT, 'help/rst2html.txt')
-        with open(rst2html_txt, encoding='utf-8') as samplefile:
-            expected = samplefile.read()
+        rst2html_txt = os.path.join(DATA_ROOT, 'help/rst2html.rst')
+        expected = Path(rst2html_txt).read_text(encoding='utf-8')
         if expected != output:
             print_mismatch(expected, output)
 
@@ -103,9 +103,8 @@ class CliTests(unittest.TestCase):
         # collect help text
         output = self.get_help_text('rst2latex', core.rst2latex)
         # compare to stored version
-        rst2latex_txt = os.path.join(DATA_ROOT, 'help/rst2latex.txt')
-        with open(rst2latex_txt, encoding='utf-8') as samplefile:
-            expected = samplefile.read()
+        rst2latex_txt = os.path.join(DATA_ROOT, 'help/rst2latex.rst')
+        expected = Path(rst2latex_txt).read_text(encoding='utf-8')
         if expected != output:
             print_mismatch(expected, output)
 

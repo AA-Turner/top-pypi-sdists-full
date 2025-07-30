@@ -23387,7 +23387,7 @@ class CfnGuardrail(
         :param name: The name of the guardrail.
         :param content_policy_config: The content filter policies to configure for the guardrail.
         :param contextual_grounding_policy_config: Contextual grounding policy config for a guardrail.
-        :param cross_region_config: The system-defined guardrail profile that you’re using with your guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you're using with your guardrail. Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases. For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
         :param description: A description of the guardrail.
         :param kms_key_arn: The ARN of the AWS KMS key that you use to encrypt the guardrail.
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
@@ -23615,7 +23615,7 @@ class CfnGuardrail(
     def cross_region_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]]:
-        '''The system-defined guardrail profile that you’re using with your guardrail.'''
+        '''The system-defined guardrail profile that you're using with your guardrail.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]], jsii.get(self, "crossRegionConfig"))
 
     @cross_region_config.setter
@@ -23766,12 +23766,12 @@ class CfnGuardrail(
             :param input_strength: The strength of the content filter to apply to prompts. As you increase the filter strength, the likelihood of filtering harmful content increases and the probability of seeing harmful content in your application reduces.
             :param output_strength: The strength of the content filter to apply to model responses. As you increase the filter strength, the likelihood of filtering harmful content increases and the probability of seeing harmful content in your application reduces.
             :param type: The harmful category that the content filter is applied to.
-            :param input_action: 
-            :param input_enabled: 
-            :param input_modalities: List of modalities.
-            :param output_action: 
-            :param output_enabled: 
-            :param output_modalities: List of modalities.
+            :param input_action: Specifies the action to take when harmful content is detected. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param input_enabled: Specifies whether to enable guardrail evaluation on the input. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param input_modalities: The input modalities selected for the guardrail content filter configuration.
+            :param output_action: Specifies the action to take when harmful content is detected in the output. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param output_enabled: Specifies whether to enable guardrail evaluation on the output. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param output_modalities: The output modalities selected for the guardrail content filter configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html
             :exampleMetadata: fixture=_generated
@@ -23861,7 +23861,11 @@ class CfnGuardrail(
 
         @builtins.property
         def input_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html#cfn-bedrock-guardrail-contentfilterconfig-inputaction
             '''
             result = self._values.get("input_action")
@@ -23871,7 +23875,10 @@ class CfnGuardrail(
         def input_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the input.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html#cfn-bedrock-guardrail-contentfilterconfig-inputenabled
             '''
             result = self._values.get("input_enabled")
@@ -23879,7 +23886,7 @@ class CfnGuardrail(
 
         @builtins.property
         def input_modalities(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''List of modalities.
+            '''The input modalities selected for the guardrail content filter configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html#cfn-bedrock-guardrail-contentfilterconfig-inputmodalities
             '''
@@ -23888,7 +23895,11 @@ class CfnGuardrail(
 
         @builtins.property
         def output_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the output. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html#cfn-bedrock-guardrail-contentfilterconfig-outputaction
             '''
             result = self._values.get("output_action")
@@ -23898,7 +23909,10 @@ class CfnGuardrail(
         def output_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the output.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html#cfn-bedrock-guardrail-contentfilterconfig-outputenabled
             '''
             result = self._values.get("output_enabled")
@@ -23906,7 +23920,7 @@ class CfnGuardrail(
 
         @builtins.property
         def output_modalities(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''List of modalities.
+            '''The output modalities selected for the guardrail content filter configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterconfig.html#cfn-bedrock-guardrail-contentfilterconfig-outputmodalities
             '''
@@ -23931,9 +23945,11 @@ class CfnGuardrail(
     )
     class ContentFiltersTierConfigProperty:
         def __init__(self, *, tier_name: builtins.str) -> None:
-            '''Guardrail tier config for content policy.
+            '''The tier that your guardrail uses for content filters.
 
-            :param tier_name: Tier name for tier configuration in content filters policy.
+            Consider using a tier that balances performance, accuracy, and compatibility with your existing generative AI workflows.
+
+            :param tier_name: The tier that your guardrail uses for content filters. Valid values include:. - ``CLASSIC`` tier – Provides established guardrails functionality supporting English, French, and Spanish languages. - ``STANDARD`` tier – Provides a more robust solution than the ``CLASSIC`` tier and has more comprehensive language support. This tier requires that your guardrail use `cross-Region inference <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterstierconfig.html
             :exampleMetadata: fixture=_generated
@@ -23957,7 +23973,10 @@ class CfnGuardrail(
 
         @builtins.property
         def tier_name(self) -> builtins.str:
-            '''Tier name for tier configuration in content filters policy.
+            '''The tier that your guardrail uses for content filters. Valid values include:.
+
+            - ``CLASSIC`` tier – Provides established guardrails functionality supporting English, French, and Spanish languages.
+            - ``STANDARD`` tier – Provides a more robust solution than the ``CLASSIC`` tier and has more comprehensive language support. This tier requires that your guardrail use `cross-Region inference <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterstierconfig.html#cfn-bedrock-guardrail-contentfilterstierconfig-tiername
             '''
@@ -23994,7 +24013,7 @@ class CfnGuardrail(
             '''Contains details about how to handle harmful content.
 
             :param filters_config: Contains the type of the content filter and how strongly it should apply to prompts and model responses.
-            :param content_filters_tier_config: Guardrail tier config for content policy.
+            :param content_filters_tier_config: The tier that your guardrail uses for content filters. Consider using a tier that balances performance, accuracy, and compatibility with your existing generative AI workflows.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentpolicyconfig.html
             :exampleMetadata: fixture=_generated
@@ -24052,7 +24071,9 @@ class CfnGuardrail(
         def content_filters_tier_config(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContentFiltersTierConfigProperty"]]:
-            '''Guardrail tier config for content policy.
+            '''The tier that your guardrail uses for content filters.
+
+            Consider using a tier that balances performance, accuracy, and compatibility with your existing generative AI workflows.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentpolicyconfig.html#cfn-bedrock-guardrail-contentpolicyconfig-contentfilterstierconfig
             '''
@@ -24093,8 +24114,8 @@ class CfnGuardrail(
 
             :param threshold: The threshold details for the guardrails contextual grounding filter.
             :param type: The filter details for the guardrails contextual grounding filter.
-            :param action: 
-            :param enabled: 
+            :param action: Specifies the action to take when content fails the contextual grounding evaluation. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param enabled: Specifies whether to enable contextual grounding evaluation. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contextualgroundingfilterconfig.html
             :exampleMetadata: fixture=_generated
@@ -24151,7 +24172,11 @@ class CfnGuardrail(
 
         @builtins.property
         def action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when content fails the contextual grounding evaluation. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contextualgroundingfilterconfig.html#cfn-bedrock-guardrail-contextualgroundingfilterconfig-action
             '''
             result = self._values.get("action")
@@ -24161,7 +24186,10 @@ class CfnGuardrail(
         def enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable contextual grounding evaluation.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contextualgroundingfilterconfig.html#cfn-bedrock-guardrail-contextualgroundingfilterconfig-enabled
             '''
             result = self._values.get("enabled")
@@ -24256,7 +24284,7 @@ class CfnGuardrail(
 
             For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
 
-            :param guardrail_profile_arn: The Amazon Resource Name (ARN) of the guardrail profile.
+            :param guardrail_profile_arn: The Amazon Resource Name (ARN) of the guardrail profile that your guardrail is using. Guardrail profile availability depends on your current AWS Region . For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region-support.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-guardrailcrossregionconfig.html
             :exampleMetadata: fixture=_generated
@@ -24280,7 +24308,9 @@ class CfnGuardrail(
 
         @builtins.property
         def guardrail_profile_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the guardrail profile.
+            '''The Amazon Resource Name (ARN) of the guardrail profile that your guardrail is using.
+
+            Guardrail profile availability depends on your current AWS Region . For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region-support.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-guardrailcrossregionconfig.html#cfn-bedrock-guardrail-guardrailcrossregionconfig-guardrailprofilearn
             '''
@@ -24323,10 +24353,10 @@ class CfnGuardrail(
             '''The managed word list to configure for the guardrail.
 
             :param type: The managed word type to configure for the guardrail.
-            :param input_action: 
-            :param input_enabled: 
-            :param output_action: 
-            :param output_enabled: 
+            :param input_action: Specifies the action to take when harmful content is detected in the input. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param input_enabled: Specifies whether to enable guardrail evaluation on the input. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param output_action: Specifies the action to take when harmful content is detected in the output. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param output_enabled: Specifies whether to enable guardrail evaluation on the output. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-managedwordsconfig.html
             :exampleMetadata: fixture=_generated
@@ -24378,7 +24408,11 @@ class CfnGuardrail(
 
         @builtins.property
         def input_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the input. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-managedwordsconfig.html#cfn-bedrock-guardrail-managedwordsconfig-inputaction
             '''
             result = self._values.get("input_action")
@@ -24388,7 +24422,10 @@ class CfnGuardrail(
         def input_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the input.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-managedwordsconfig.html#cfn-bedrock-guardrail-managedwordsconfig-inputenabled
             '''
             result = self._values.get("input_enabled")
@@ -24396,7 +24433,11 @@ class CfnGuardrail(
 
         @builtins.property
         def output_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the output. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-managedwordsconfig.html#cfn-bedrock-guardrail-managedwordsconfig-outputaction
             '''
             result = self._values.get("output_action")
@@ -24406,7 +24447,10 @@ class CfnGuardrail(
         def output_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the output.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-managedwordsconfig.html#cfn-bedrock-guardrail-managedwordsconfig-outputenabled
             '''
             result = self._values.get("output_enabled")
@@ -24450,10 +24494,10 @@ class CfnGuardrail(
 
             :param action: Configure guardrail action when the PII entity is detected.
             :param type: Configure guardrail type when the PII entity is detected. The following PIIs are used to block or mask sensitive information: - *General* - *ADDRESS* A physical address, such as "100 Main Street, Anytown, USA" or "Suite #12, Building 123". An address can include information such as the street, building, location, city, state, country, county, zip code, precinct, and neighborhood. - *AGE* An individual's age, including the quantity and unit of time. For example, in the phrase "I am 40 years old," Guardrails recognizes "40 years" as an age. - *NAME* An individual's name. This entity type does not include titles, such as Dr., Mr., Mrs., or Miss. guardrails doesn't apply this entity type to names that are part of organizations or addresses. For example, guardrails recognizes the "John Doe Organization" as an organization, and it recognizes "Jane Doe Street" as an address. - *EMAIL* An email address, such as *marymajor@email.com* . - *PHONE* A phone number. This entity type also includes fax and pager numbers. - *USERNAME* A user name that identifies an account, such as a login name, screen name, nick name, or handle. - *PASSWORD* An alphanumeric string that is used as a password, such as "* *very20special#pass** ". - *DRIVER_ID* The number assigned to a driver's license, which is an official document permitting an individual to operate one or more motorized vehicles on a public road. A driver's license number consists of alphanumeric characters. - *LICENSE_PLATE* A license plate for a vehicle is issued by the state or country where the vehicle is registered. The format for passenger vehicles is typically five to eight digits, consisting of upper-case letters and numbers. The format varies depending on the location of the issuing state or country. - *VEHICLE_IDENTIFICATION_NUMBER* A Vehicle Identification Number (VIN) uniquely identifies a vehicle. VIN content and format are defined in the *ISO 3779* specification. Each country has specific codes and formats for VINs. - *Finance* - *CREDIT_DEBIT_CARD_CVV* A three-digit card verification code (CVV) that is present on VISA, MasterCard, and Discover credit and debit cards. For American Express credit or debit cards, the CVV is a four-digit numeric code. - *CREDIT_DEBIT_CARD_EXPIRY* The expiration date for a credit or debit card. This number is usually four digits long and is often formatted as *month/year* or *MM/YY* . Guardrails recognizes expiration dates such as *01/21* , *01/2021* , and *Jan 2021* . - *CREDIT_DEBIT_CARD_NUMBER* The number for a credit or debit card. These numbers can vary from 13 to 16 digits in length. However, Amazon Comprehend also recognizes credit or debit card numbers when only the last four digits are present. - *PIN* A four-digit personal identification number (PIN) with which you can access your bank account. - *INTERNATIONAL_BANK_ACCOUNT_NUMBER* An International Bank Account Number has specific formats in each country. For more information, see `www.iban.com/structure <https://docs.aws.amazon.com/https://www.iban.com/structure>`_ . - *SWIFT_CODE* A SWIFT code is a standard format of Bank Identifier Code (BIC) used to specify a particular bank or branch. Banks use these codes for money transfers such as international wire transfers. SWIFT codes consist of eight or 11 characters. The 11-digit codes refer to specific branches, while eight-digit codes (or 11-digit codes ending in 'XXX') refer to the head or primary office. - *IT* - *IP_ADDRESS* An IPv4 address, such as *198.51.100.0* . - *MAC_ADDRESS* A *media access control* (MAC) address is a unique identifier assigned to a network interface controller (NIC). - *URL* A web address, such as *www.example.com* . - *AWS_ACCESS_KEY* A unique identifier that's associated with a secret access key; you use the access key ID and secret access key to sign programmatic AWS requests cryptographically. - *AWS_SECRET_KEY* A unique identifier that's associated with an access key. You use the access key ID and secret access key to sign programmatic AWS requests cryptographically. - *USA specific* - *US_BANK_ACCOUNT_NUMBER* A US bank account number, which is typically 10 to 12 digits long. - *US_BANK_ROUTING_NUMBER* A US bank account routing number. These are typically nine digits long, - *US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER* A US Individual Taxpayer Identification Number (ITIN) is a nine-digit number that starts with a "9" and contain a "7" or "8" as the fourth digit. An ITIN can be formatted with a space or a dash after the third and forth digits. - *US_PASSPORT_NUMBER* A US passport number. Passport numbers range from six to nine alphanumeric characters. - *US_SOCIAL_SECURITY_NUMBER* A US Social Security Number (SSN) is a nine-digit number that is issued to US citizens, permanent residents, and temporary working residents. - *Canada specific* - *CA_HEALTH_NUMBER* A Canadian Health Service Number is a 10-digit unique identifier, required for individuals to access healthcare benefits. - *CA_SOCIAL_INSURANCE_NUMBER* A Canadian Social Insurance Number (SIN) is a nine-digit unique identifier, required for individuals to access government programs and benefits. The SIN is formatted as three groups of three digits, such as *123-456-789* . A SIN can be validated through a simple check-digit process called the `Luhn algorithm <https://docs.aws.amazon.com/https://www.wikipedia.org/wiki/Luhn_algorithm>`_ . - *UK Specific* - *UK_NATIONAL_HEALTH_SERVICE_NUMBER* A UK National Health Service Number is a 10-17 digit number, such as *485 777 3456* . The current system formats the 10-digit number with spaces after the third and sixth digits. The final digit is an error-detecting checksum. - *UK_NATIONAL_INSURANCE_NUMBER* A UK National Insurance Number (NINO) provides individuals with access to National Insurance (social security) benefits. It is also used for some purposes in the UK tax system. The number is nine digits long and starts with two letters, followed by six numbers and one letter. A NINO can be formatted with a space or a dash after the two letters and after the second, forth, and sixth digits. - *UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER* A UK Unique Taxpayer Reference (UTR) is a 10-digit number that identifies a taxpayer or a business. - *Custom* - *Regex filter* - You can use a regular expressions to define patterns for a guardrail to recognize and act upon such as serial number, booking ID etc..
-            :param input_action: Options for sensitive information action.
-            :param input_enabled: 
-            :param output_action: Options for sensitive information action.
-            :param output_enabled: 
+            :param input_action: Specifies the action to take when harmful content is detected in the input. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``ANONYMIZE`` – Mask the content and replace it with identifier tags. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param input_enabled: Specifies whether to enable guardrail evaluation on the input. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param output_action: Specifies the action to take when harmful content is detected in the output. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``ANONYMIZE`` – Mask the content and replace it with identifier tags. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param output_enabled: Indicates whether guardrail evaluation is enabled on the output. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-piientityconfig.html
             :exampleMetadata: fixture=_generated
@@ -24659,7 +24703,11 @@ class CfnGuardrail(
 
         @builtins.property
         def input_action(self) -> typing.Optional[builtins.str]:
-            '''Options for sensitive information action.
+            '''Specifies the action to take when harmful content is detected in the input. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``ANONYMIZE`` – Mask the content and replace it with identifier tags.
+            - ``NONE`` – Take no action but return detection information in the trace response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-piientityconfig.html#cfn-bedrock-guardrail-piientityconfig-inputaction
             '''
@@ -24670,7 +24718,10 @@ class CfnGuardrail(
         def input_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the input.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-piientityconfig.html#cfn-bedrock-guardrail-piientityconfig-inputenabled
             '''
             result = self._values.get("input_enabled")
@@ -24678,7 +24729,11 @@ class CfnGuardrail(
 
         @builtins.property
         def output_action(self) -> typing.Optional[builtins.str]:
-            '''Options for sensitive information action.
+            '''Specifies the action to take when harmful content is detected in the output. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``ANONYMIZE`` – Mask the content and replace it with identifier tags.
+            - ``NONE`` – Take no action but return detection information in the trace response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-piientityconfig.html#cfn-bedrock-guardrail-piientityconfig-outputaction
             '''
@@ -24689,7 +24744,10 @@ class CfnGuardrail(
         def output_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Indicates whether guardrail evaluation is enabled on the output.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-piientityconfig.html#cfn-bedrock-guardrail-piientityconfig-outputenabled
             '''
             result = self._values.get("output_enabled")
@@ -24739,10 +24797,10 @@ class CfnGuardrail(
             :param name: The name of the regular expression to configure for the guardrail.
             :param pattern: The regular expression pattern to configure for the guardrail.
             :param description: The description of the regular expression to configure for the guardrail.
-            :param input_action: Options for sensitive information action.
-            :param input_enabled: 
-            :param output_action: Options for sensitive information action.
-            :param output_enabled: 
+            :param input_action: Specifies the action to take when harmful content is detected in the input. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param input_enabled: Specifies whether to enable guardrail evaluation on the input. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param output_action: Specifies the action to take when harmful content is detected in the output. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param output_enabled: Specifies whether to enable guardrail evaluation on the output. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-regexconfig.html
             :exampleMetadata: fixture=_generated
@@ -24833,7 +24891,10 @@ class CfnGuardrail(
 
         @builtins.property
         def input_action(self) -> typing.Optional[builtins.str]:
-            '''Options for sensitive information action.
+            '''Specifies the action to take when harmful content is detected in the input. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-regexconfig.html#cfn-bedrock-guardrail-regexconfig-inputaction
             '''
@@ -24844,7 +24905,10 @@ class CfnGuardrail(
         def input_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the input.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-regexconfig.html#cfn-bedrock-guardrail-regexconfig-inputenabled
             '''
             result = self._values.get("input_enabled")
@@ -24852,7 +24916,10 @@ class CfnGuardrail(
 
         @builtins.property
         def output_action(self) -> typing.Optional[builtins.str]:
-            '''Options for sensitive information action.
+            '''Specifies the action to take when harmful content is detected in the output. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-regexconfig.html#cfn-bedrock-guardrail-regexconfig-outputaction
             '''
@@ -24863,7 +24930,10 @@ class CfnGuardrail(
         def output_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the output.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-regexconfig.html#cfn-bedrock-guardrail-regexconfig-outputenabled
             '''
             result = self._values.get("output_enabled")
@@ -25010,10 +25080,10 @@ class CfnGuardrail(
             :param name: The name of the topic to deny.
             :param type: Specifies to deny the topic.
             :param examples: A list of prompts, each of which is an example of a prompt that can be categorized as belonging to the topic.
-            :param input_action: 
-            :param input_enabled: 
-            :param output_action: 
-            :param output_enabled: 
+            :param input_action: Specifies the action to take when harmful content is detected in the input. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param input_enabled: Specifies whether to enable guardrail evaluation on the input. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param output_action: Specifies the action to take when harmful content is detected in the output. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param output_enabled: Specifies whether to enable guardrail evaluation on the output. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicconfig.html
             :exampleMetadata: fixture=_generated
@@ -25104,7 +25174,11 @@ class CfnGuardrail(
 
         @builtins.property
         def input_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the input. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicconfig.html#cfn-bedrock-guardrail-topicconfig-inputaction
             '''
             result = self._values.get("input_action")
@@ -25114,7 +25188,10 @@ class CfnGuardrail(
         def input_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the input.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicconfig.html#cfn-bedrock-guardrail-topicconfig-inputenabled
             '''
             result = self._values.get("input_enabled")
@@ -25122,7 +25199,11 @@ class CfnGuardrail(
 
         @builtins.property
         def output_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the output. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicconfig.html#cfn-bedrock-guardrail-topicconfig-outputaction
             '''
             result = self._values.get("output_action")
@@ -25132,7 +25213,10 @@ class CfnGuardrail(
         def output_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the output.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicconfig.html#cfn-bedrock-guardrail-topicconfig-outputenabled
             '''
             result = self._values.get("output_enabled")
@@ -25167,7 +25251,7 @@ class CfnGuardrail(
             '''Contains details about topics that the guardrail should identify and deny.
 
             :param topics_config: A list of policies related to topics that the guardrail should deny.
-            :param topics_tier_config: Guardrail tier config for topic policy.
+            :param topics_tier_config: The tier that your guardrail uses for denied topic filters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicpolicyconfig.html
             :exampleMetadata: fixture=_generated
@@ -25224,7 +25308,7 @@ class CfnGuardrail(
         def topics_tier_config(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.TopicsTierConfigProperty"]]:
-            '''Guardrail tier config for topic policy.
+            '''The tier that your guardrail uses for denied topic filters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicpolicyconfig.html#cfn-bedrock-guardrail-topicpolicyconfig-topicstierconfig
             '''
@@ -25249,9 +25333,11 @@ class CfnGuardrail(
     )
     class TopicsTierConfigProperty:
         def __init__(self, *, tier_name: builtins.str) -> None:
-            '''Guardrail tier config for topic policy.
+            '''The tier that your guardrail uses for denied topic filters.
 
-            :param tier_name: Tier name for tier configuration in topic policy.
+            Consider using a tier that balances performance, accuracy, and compatibility with your existing generative AI workflows.
+
+            :param tier_name: The tier that your guardrail uses for denied topic filters. Valid values include:. - ``CLASSIC`` tier – Provides established guardrails functionality supporting English, French, and Spanish languages. - ``STANDARD`` tier – Provides a more robust solution than the ``CLASSIC`` tier and has more comprehensive language support. This tier requires that your guardrail use `cross-Region inference <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicstierconfig.html
             :exampleMetadata: fixture=_generated
@@ -25275,7 +25361,10 @@ class CfnGuardrail(
 
         @builtins.property
         def tier_name(self) -> builtins.str:
-            '''Tier name for tier configuration in topic policy.
+            '''The tier that your guardrail uses for denied topic filters. Valid values include:.
+
+            - ``CLASSIC`` tier – Provides established guardrails functionality supporting English, French, and Spanish languages.
+            - ``STANDARD`` tier – Provides a more robust solution than the ``CLASSIC`` tier and has more comprehensive language support. This tier requires that your guardrail use `cross-Region inference <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicstierconfig.html#cfn-bedrock-guardrail-topicstierconfig-tiername
             '''
@@ -25318,10 +25407,10 @@ class CfnGuardrail(
             '''A word to configure for the guardrail.
 
             :param text: Text of the word configured for the guardrail to block.
-            :param input_action: 
-            :param input_enabled: 
-            :param output_action: 
-            :param output_enabled: 
+            :param input_action: Specifies the action to take when harmful content is detected in the input. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param input_enabled: Specifies whether to enable guardrail evaluation on the intput. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+            :param output_action: Specifies the action to take when harmful content is detected in the output. Supported values include:. - ``BLOCK`` – Block the content and replace it with blocked messaging. - ``NONE`` – Take no action but return detection information in the trace response.
+            :param output_enabled: Specifies whether to enable guardrail evaluation on the output. When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-wordconfig.html
             :exampleMetadata: fixture=_generated
@@ -25373,7 +25462,11 @@ class CfnGuardrail(
 
         @builtins.property
         def input_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the input. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-wordconfig.html#cfn-bedrock-guardrail-wordconfig-inputaction
             '''
             result = self._values.get("input_action")
@@ -25383,7 +25476,10 @@ class CfnGuardrail(
         def input_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the intput.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-wordconfig.html#cfn-bedrock-guardrail-wordconfig-inputenabled
             '''
             result = self._values.get("input_enabled")
@@ -25391,7 +25487,11 @@ class CfnGuardrail(
 
         @builtins.property
         def output_action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specifies the action to take when harmful content is detected in the output. Supported values include:.
+
+            - ``BLOCK`` – Block the content and replace it with blocked messaging.
+            - ``NONE`` – Take no action but return detection information in the trace response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-wordconfig.html#cfn-bedrock-guardrail-wordconfig-outputaction
             '''
             result = self._values.get("output_action")
@@ -25401,7 +25501,10 @@ class CfnGuardrail(
         def output_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether to enable guardrail evaluation on the output.
+
+            When disabled, you aren't charged for the evaluation. The evaluation doesn't appear in the response.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-wordconfig.html#cfn-bedrock-guardrail-wordconfig-outputenabled
             '''
             result = self._values.get("output_enabled")
@@ -25554,7 +25657,7 @@ class CfnGuardrailProps:
         :param name: The name of the guardrail.
         :param content_policy_config: The content filter policies to configure for the guardrail.
         :param contextual_grounding_policy_config: Contextual grounding policy config for a guardrail.
-        :param cross_region_config: The system-defined guardrail profile that you’re using with your guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you're using with your guardrail. Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases. For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
         :param description: A description of the guardrail.
         :param kms_key_arn: The ARN of the AWS KMS key that you use to encrypt the guardrail.
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
@@ -25775,7 +25878,11 @@ class CfnGuardrailProps:
     def cross_region_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.GuardrailCrossRegionConfigProperty]]:
-        '''The system-defined guardrail profile that you’re using with your guardrail.
+        '''The system-defined guardrail profile that you're using with your guardrail.
+
+        Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases.
+
+        For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-crossregionconfig
         '''
@@ -36622,6 +36729,18 @@ class FoundationModelIdentifier(
     def STABILITY_STABLE_IMAGE_ULTRA_V1_1(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.stable-image-ultra-v1:1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TWELVELABS_MARENGO_EMBED_2_7_V1_0")
+    def TWELVELABS_MARENGO_EMBED_2_7_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "twelvelabs.marengo-embed-2-7-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_MARENGO_EMBED_2_7_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TWELVELABS_PEGASUS_1_2_V1_0")
+    def TWELVELABS_PEGASUS_1_2_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "twelvelabs.pegasus-1-2-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_PEGASUS_1_2_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WRITER_PALMYRA_X4_V1_0")

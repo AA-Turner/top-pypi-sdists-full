@@ -161,45 +161,26 @@ class Ulysses(CommonSequenceParallel):
         self.sp_world_size = size
         self._init_device_mesh()
 
-        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-        ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'] = ALL_ATTENTION_FUNCTIONS['flash_attention_2']
-        ALL_ATTENTION_FUNCTIONS['sdpa_origin'] = ALL_ATTENTION_FUNCTIONS['sdpa']
+        try:
+            from transformers import masking_utils
 
-        def local_flash_attn(module: torch.nn.Module, query_states, key_states, value_states, attention_mask, *args,
-                             dist_attn, **kwargs):
-            if dist_attn.local_attn is None:
+            def flash_attention_mask(batch_size,
+                                     cache_position,
+                                     kv_length,
+                                     kv_offset=0,
+                                     mask_function=masking_utils.causal_mask_function,
+                                     attention_mask=None,
+                                     **kwargs):
+                if attention_mask is not None:
+                    if attention_mask.all():
+                        attention_mask = None
 
-                def _attention(query, key, value, *args, **kwargs):
-                    query = query.transpose(1, 2)
-                    key = key.transpose(1, 2)
-                    value = value.transpose(1, 2)
-                    return ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'](module, query, key, value, *args,
-                                                                               **kwargs)[0]
+                return attention_mask
 
-                dist_attn.local_attn = _attention
-
-            return dist_attn(
-                query_states.transpose(1, 2), key_states.transpose(1, 2), value_states.transpose(1, 2), attention_mask,
-                *args, **kwargs), None
-
-        def local_sdpa_attn(module: torch.nn.Module, query_states, key_states, value_states, attention_mask, *args,
-                            dist_attn, **kwargs):
-            if dist_attn.local_attn is None:
-
-                def _attention(query, key, value, *args, **kwargs):
-                    query = query.transpose(1, 2)
-                    key = key.transpose(1, 2)
-                    value = value.transpose(1, 2)
-                    return ALL_ATTENTION_FUNCTIONS['sdpa_origin'](module, query, key, value, *args, **kwargs)[0]
-
-                dist_attn.local_attn = _attention
-            return dist_attn(
-                query_states.transpose(1, 2), key_states.transpose(1, 2), value_states.transpose(1, 2), attention_mask,
-                *args, **kwargs), None
-
-        ALL_ATTENTION_FUNCTIONS['flash_attention_2'] = partial(
-            local_flash_attn, dist_attn=DistributedAttention(None, self.sp_group))
-        ALL_ATTENTION_FUNCTIONS['sdpa'] = partial(local_sdpa_attn, dist_attn=DistributedAttention(None, self.sp_group))
+            masking_utils.flash_attention_mask = flash_attention_mask
+            masking_utils.ALL_MASK_ATTENTION_FUNCTIONS._global_mapping['flash_attention_2'] = flash_attention_mask
+        except ImportError:
+            pass
 
         from transformers.modeling_flash_attention_utils import is_flash_attn_available
         if is_flash_attn_available():
@@ -244,12 +225,63 @@ class Ulysses(CommonSequenceParallel):
         else:
             base_model = llm_model.model
         if hasattr(base_model, 'language_model'):
-            self.causal_mask_func = base_model.language_model._update_causal_mask
+            text_model = base_model.language_model
+            if hasattr(base_model.language_model, '_update_causal_mask'):
+                self.causal_mask_func = base_model.language_model._update_causal_mask
         else:
-            self.causal_mask_func = base_model._update_causal_mask
+            text_model = base_model
+            if hasattr(base_model, '_update_causal_mask'):
+                self.causal_mask_func = base_model._update_causal_mask
         base_model.register_forward_pre_hook(pre_forward_split_hook, with_kwargs=True)
         self.model_dtype = next(model.parameters()).dtype
         self.tokenizer = tokenizer
+
+        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+
+        def local_flash_attn(module: torch.nn.Module, query_states, key_states, value_states, attention_mask, *args,
+                             dist_attn, **kwargs):
+            if module not in text_model.modules():
+                return ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'](module, query_states, key_states,
+                                                                           value_states, attention_mask, *args,
+                                                                           **kwargs)
+            if dist_attn.local_attn is None:
+
+                def _attention(query, key, value, *args, **kwargs):
+                    query = query.transpose(1, 2)
+                    key = key.transpose(1, 2)
+                    value = value.transpose(1, 2)
+                    return ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'](module, query, key, value, *args,
+                                                                               **kwargs)[0]
+
+                dist_attn.local_attn = _attention
+
+            return dist_attn(
+                query_states.transpose(1, 2), key_states.transpose(1, 2), value_states.transpose(1, 2), attention_mask,
+                *args, **kwargs), None
+
+        def local_sdpa_attn(module: torch.nn.Module, query_states, key_states, value_states, attention_mask, *args,
+                            dist_attn, **kwargs):
+            if module not in text_model.modules():
+                return ALL_ATTENTION_FUNCTIONS['sdpa_origin'](module, query_states, key_states, value_states,
+                                                              attention_mask, *args, **kwargs)
+            if dist_attn.local_attn is None:
+
+                def _attention(query, key, value, *args, **kwargs):
+                    query = query.transpose(1, 2)
+                    key = key.transpose(1, 2)
+                    value = value.transpose(1, 2)
+                    return ALL_ATTENTION_FUNCTIONS['sdpa_origin'](module, query, key, value, *args, **kwargs)[0]
+
+                dist_attn.local_attn = _attention
+            return dist_attn(
+                query_states.transpose(1, 2), key_states.transpose(1, 2), value_states.transpose(1, 2), attention_mask,
+                *args, **kwargs), None
+
+        ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'] = ALL_ATTENTION_FUNCTIONS['flash_attention_2']
+        ALL_ATTENTION_FUNCTIONS['sdpa_origin'] = ALL_ATTENTION_FUNCTIONS['sdpa']
+        ALL_ATTENTION_FUNCTIONS['flash_attention_2'] = partial(
+            local_flash_attn, dist_attn=DistributedAttention(None, self.sp_group))
+        ALL_ATTENTION_FUNCTIONS['sdpa'] = partial(local_sdpa_attn, dist_attn=DistributedAttention(None, self.sp_group))
 
     def get_dataloader(self, trainer, dataset, batch_size, skip_batches: int = 0):
         return get_common_dataloader(

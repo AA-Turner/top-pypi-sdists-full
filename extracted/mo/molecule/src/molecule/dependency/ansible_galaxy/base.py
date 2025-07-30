@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import abc
 import copy
-import logging
 import os
 
 from pathlib import Path
@@ -37,9 +36,6 @@ if TYPE_CHECKING:
     from collections.abc import MutableMapping
 
     from molecule.config import Config
-
-
-LOG = logging.getLogger(__name__)
 
 
 class AnsibleGalaxyBase(base.Base):
@@ -160,13 +156,13 @@ class AnsibleGalaxyBase(base.Base):
         """
         if not self.enabled:
             msg = "Skipping, dependency is disabled."
-            LOG.warning(msg)
+            self._log.warning(msg)
             return
         super().execute()
 
         if not self._has_requirements_file():
             msg = "Skipping, missing the requirements file."
-            LOG.warning(msg)
+            self._log.warning(msg)
             return
 
         if not self._sh_command:

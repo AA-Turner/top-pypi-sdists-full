@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 3.3.2
+Version: 3.3.3
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0
@@ -32,7 +32,7 @@ Requires-Dist: pytest-repeat
 Requires-Dist: pytest-rerunfailures (>=12.0,<13.0)
 Requires-Dist: pytest-xdist
 Requires-Dist: requests (>=2.31.0,<3.0.0)
-Requires-Dist: rich (>=13.6.0,<14.0.0)
+Requires-Dist: rich (>=13.6.0,<15.0.0)
 Requires-Dist: sentry-sdk
 Requires-Dist: setuptools
 Requires-Dist: tabulate (>=0.9.0,<0.10.0)
@@ -50,6 +50,10 @@ Description-Content-Type: text/markdown
 
 <p align="center">
     <h1 align="center">The LLM Evaluation Framework</h1>
+</p>
+
+<p align="center">
+<a href="https://trendshift.io/repositories/5917" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5917" alt="confident-ai%2Fdeepeval | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
 <p align="center">

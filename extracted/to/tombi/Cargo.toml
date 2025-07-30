@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.4.37"  # We use git tags for versioning. This is just a placeholder.
+version = "0.4.38"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"
@@ -42,6 +42,7 @@ indexmap = { version = "2.9.0", features = ["serde"] }
 itertools = "0.14.0"
 js-sys = "0.3.77"
 nu-ansi-term = "0.50.1"
+pep508_rs = "0.9"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.95"
 quote = "1.0.40"

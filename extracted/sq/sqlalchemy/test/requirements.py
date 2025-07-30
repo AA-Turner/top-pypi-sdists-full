@@ -160,6 +160,10 @@ class DefaultRequirements(SuiteRequirements):
         return only_on(["postgresql", "sqlite", self._mysql_80])
 
     @property
+    def temp_table_comment_reflection(self):
+        return only_on(["postgresql", "mysql", "mariadb", "oracle"])
+
+    @property
     def comment_reflection(self):
         return only_on(["postgresql", "mysql", "mariadb", "oracle", "mssql"])
 
@@ -737,6 +741,24 @@ class DefaultRequirements(SuiteRequirements):
         )
 
     @property
+    def ctes_with_values(self):
+        return only_on(
+            [
+                lambda config: against(config, "mysql")
+                and (
+                    (
+                        config.db.dialect._is_mariadb
+                        and config.db.dialect._mariadb_normalized_version_info
+                        >= (10, 2)
+                    )
+                ),
+                "mariadb>10.2",
+                "postgresql",
+                "sqlite>=3.8.3",
+            ]
+        )
+
+    @property
     def ctes_with_update_delete(self):
         """target database supports CTES that ride on top of a normal UPDATE
         or DELETE statement which refers to the CTE in a correlated subquery.
@@ -992,6 +1014,10 @@ class DefaultRequirements(SuiteRequirements):
 
         """
         return exclusions.open()
+
+    @property
+    def nvarchar_types(self):
+        return only_on(["mssql", "oracle", "sqlite", "mysql", "mariadb"])
 
     @property
     def unicode_data_no_special_types(self):

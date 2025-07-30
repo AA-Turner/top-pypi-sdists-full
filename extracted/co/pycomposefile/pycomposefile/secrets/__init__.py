@@ -3,7 +3,7 @@ from pycomposefile.compose_element import ComposeElement
 
 class SecretFile(str):
     def readFile(self):
-        with open(self, "r") as f:
+        with open(self) as f:
             secret = f.read()
         return secret
 

@@ -164,7 +164,7 @@ class Strategy(metaclass=ABCMeta):
                 f'length as `data` (data shape: {self._data.Close.shape}; indicator "{name}" '
                 f'shape: {getattr(value, "shape", "")}, returned value: {value})')
 
-        if plot and overlay is None and np.issubdtype(value.dtype, np.number):
+        if overlay is None and np.issubdtype(value.dtype, np.number):
             x = value / self._data.Close
             # By default, overlay if strong majority of indicator values
             # is within 30% of Close
@@ -590,7 +590,8 @@ class Trade:
     def close(self, portion: float = 1.):
         """Place new `Order` to close `portion` of the trade at next market price."""
         assert 0 < portion <= 1, "portion must be a fraction between 0 and 1"
-        size = copysign(max(1, round(abs(self.__size) * portion)), -self.__size)
+        # Ensure size is an int to avoid rounding errors on 32-bit OS
+        size = copysign(max(1, int(round(abs(self.__size) * portion))), -self.__size)
         order = Order(self.__broker, size, parent_trade=self, tag=self.__tag)
         self.__broker.orders.insert(0, order)
 
@@ -671,15 +672,22 @@ class Trade:
 
     @property
     def pl(self):
-        """Trade profit (positive) or loss (negative) in cash units."""
+        """
+        Trade profit (positive) or loss (negative) in cash units.
+        Commissions are reflected only after the Trade is closed.
+        """
         price = self.__exit_price or self.__broker.last_price
-        return self.__size * (price - self.__entry_price)
+        return (self.__size * (price - self.__entry_price)) - self._commissions
 
     @property
     def pl_pct(self):
         """Trade profit (positive) or loss (negative) in percent."""
         price = self.__exit_price or self.__broker.last_price
-        return copysign(1, self.__size) * (price / self.__entry_price - 1)
+        gross_pl_pct = copysign(1, self.__size) * (price / self.__entry_price - 1)
+
+        # Total commission across the entire trade size to individual units
+        commission_pct = self._commissions / (abs(self.__size) * self.__entry_price)
+        return gross_pl_pct - commission_pct
 
     @property
     def value(self):
@@ -926,6 +934,9 @@ class _Broker:
                 if trade in self.trades:
                     self._reduce_trade(trade, price, size, time_index)
                     assert order.size != -_prev_size or trade not in self.trades
+                    if price == stop_price:
+                        # Set SL back on the order for stats._trades["SL"]
+                        trade._sl_order._replace(stop_price=stop_price)
                 if order in (trade._sl_order,
                              trade._tp_order):
                     assert order.size == -trade.size
@@ -941,7 +952,8 @@ class _Broker:
             # Adjust price to include commission (or bid-ask spread).
             # In long positions, the adjusted price is a fraction higher, and vice versa.
             adjusted_price = self._adjusted_price(order.size, price)
-            adjusted_price_plus_commission = adjusted_price + self._commission(order.size, price)
+            adjusted_price_plus_commission = \
+                adjusted_price + self._commission(order.size, price) / abs(order.size)
 
             # If order size was specified proportionally,
             # precompute true size in units, accounting for margin and spread/commissions
@@ -1218,8 +1230,9 @@ class Backtest:
                              'fill them in with `df.interpolate()` or whatever.')
         if np.any(data['Close'] > cash):
             warnings.warn('Some prices are larger than initial cash value. Note that fractional '
-                          'trading is not supported. If you want to trade Bitcoin, '
-                          'increase initial cash, or trade μBTC or satoshis instead (GH-134).',
+                          'trading is not supported by this class. If you want to trade Bitcoin, '
+                          'increase initial cash, or trade μBTC or satoshis instead (see e.g. class '
+                          '`backtesting.lib.FractionalBacktest`.',
                           stacklevel=2)
         if not data.index.is_monotonic_increasing:
             warnings.warn('Data index is not sorted in ascending order. Sorting.',
@@ -1334,6 +1347,11 @@ class Backtest:
                     #  strategy iteration. Use the same OHLC values as in the last broker iteration.
                     if start < len(self._data):
                         try_(broker.next, exception=_OutOfMoneyError)
+                elif len(broker.trades):
+                    warnings.warn(
+                        'Some trades remain open at the end of backtest. Use '
+                        '`Backtest(..., finalize_trades=True)` to close them and '
+                        'include them in stats.', stacklevel=2)
 
             # Set data back to full length
             # for future `indicator._opts['data'].index` calls to work

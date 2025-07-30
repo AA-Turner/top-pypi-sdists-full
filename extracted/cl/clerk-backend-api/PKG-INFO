@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: clerk-backend-api
-Version: 3.1.5
+Version: 3.1.7
 Summary: Python Client SDK for clerk.dev
 Author: Clerk
 Requires-Python: >=3.9.2

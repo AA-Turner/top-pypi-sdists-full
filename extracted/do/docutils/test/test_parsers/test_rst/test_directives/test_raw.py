@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_raw.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_raw.py 9906 2024-08-15 08:43:38Z grubert $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -43,10 +43,10 @@ class ParserTestCase(unittest.TestCase):
 
 mydir = os.path.join(TEST_ROOT, 'test_parsers/test_rst/test_directives')
 raw1 = os.path.relpath(
-    os.path.join(mydir, 'raw1.txt'),
+    os.path.join(mydir, 'raw1.rst'),
     os.getcwd()).replace('\\', '/')
 utf_16_file = os.path.relpath(
-    os.path.join(TEST_ROOT, 'data/utf-16-le-sig.txt'),
+    os.path.join(TEST_ROOT, 'data/utf-16-le-sig.rst'),
     os.getcwd()).replace('\\', '/')
 utf_16_error_str = ("UnicodeDecodeError: 'ascii' codec can't decode byte 0xff "
                     "in position 0: ordinal not in range(128)")
@@ -122,19 +122,6 @@ f"""\
 """,
 f"""\
 <document source="test data">
-    <raw format="html" source="{utf_16_file}" xml:space="preserve">
-        Grüße
-"""],
-[f"""\
-Default encoding: auto-determine (here via BOM).
-
-.. raw:: html
-   :file: {utf_16_file}
-""",
-f"""\
-<document source="test data">
-    <paragraph>
-        Default encoding: auto-determine (here via BOM).
     <raw format="html" source="{utf_16_file}" xml:space="preserve">
         Grüße
 """],

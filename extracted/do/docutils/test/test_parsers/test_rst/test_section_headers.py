@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_section_headers.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_section_headers.py 10137 2025-05-20 15:48:42Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -22,6 +22,9 @@ from docutils.utils import new_document
 
 
 class ParserTestCase(unittest.TestCase):
+
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser()
         settings = get_default_settings(Parser)
@@ -494,10 +497,12 @@ Paragraph 4.
             Paragraph 3.
         <system_message level="4" line="15" source="test data" type="SEVERE">
             <paragraph>
-                Title level inconsistent:
+                Inconsistent title style: skip from level 1 to 3.
             <literal_block xml:space="preserve">
                 Title 4
                 ```````
+            <paragraph>
+                Established title styles: = - `
         <paragraph>
             Paragraph 4.
 """],
@@ -545,11 +550,13 @@ Paragraph 4.
             Paragraph 3.
         <system_message level="4" line="19" source="test data" type="SEVERE">
             <paragraph>
-                Title level inconsistent:
+                Inconsistent title style: skip from level 1 to 3.
             <literal_block xml:space="preserve">
                 ```````
                 Title 4
                 ```````
+            <paragraph>
+                Established title styles: =/= -/- `/`
         <paragraph>
             Paragraph 4.
 """],
@@ -840,10 +847,6 @@ Paragraph
                 <paragraph>
                     Possible incomplete section title.
                     Treating the overline as ordinary text because it's so short.
-    <system_message level="1" line="7" source="test data" type="INFO">
-        <paragraph>
-            Possible incomplete section title.
-            Treating the overline as ordinary text because it's so short.
     <section dupnames="..." ids="section-3">
         <title>
             ...

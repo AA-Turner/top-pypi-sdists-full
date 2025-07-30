@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: rst2latex.py 9115 2022-07-28 17:06:24Z milde $
+# $Id: rst2latex.py 9771 2024-06-18 08:00:10Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -23,4 +23,4 @@ description = ('Generates LaTeX documents from standalone reStructuredText '
                '<https://docutils.sourceforge.io/docs/user/latex.html> for '
                'the full reference.')
 
-publish_cmdline(writer_name='latex', description=description)
+publish_cmdline(writer='latex', description=description)

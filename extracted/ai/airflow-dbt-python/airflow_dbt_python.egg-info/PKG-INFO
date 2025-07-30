@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airflow-dbt-python
-Version: 3.0.2
+Version: 3.0.3
 Summary: A collection of Airflow operators, hooks, and utilities to execute dbt commands
 Author-email: Tomás Farías Santana <tomas@tomasfarias.dev>
 License-Expression: MIT

@@ -280,7 +280,8 @@ cdef class BaseVarImpl:
             else:
                 errors._raise_err(errors.ERR_ARROW_UNSUPPORTED_VECTOR_FORMAT)
 
-        self._arrow_array = OracleArrowArray(
+        self._arrow_array = ArrowArrayImpl.__new__(ArrowArrayImpl)
+        self._arrow_array.populate_from_metadata(
             arrow_type=self.metadata._arrow_type,
             name=self.metadata.name,
             precision=self.metadata.precision,
@@ -298,13 +299,13 @@ cdef class BaseVarImpl:
             self.num_elements = 1
         self._has_returned_data = False
 
-    cdef OracleArrowArray _finish_building_arrow_array(self):
+    cdef ArrowArrayImpl _finish_building_arrow_array(self):
         """
         Finish building the Arrow array associated with the variable and then
         return that array (after clearing it in the variable so that a new
         array will be built if more rows are fetched).
         """
-        cdef OracleArrowArray array = self._arrow_array
+        cdef ArrowArrayImpl array = self._arrow_array
         array.finish_building()
         self._arrow_array = None
         return array
@@ -357,6 +358,13 @@ cdef class BaseVarImpl:
         self.metadata.max_size = new_size
         self.metadata.buffer_size = 0
         self.metadata._finalize_init()
+
+    cdef int _set_metadata_from_arrow_array(self,
+                                            ArrowArrayImpl array) except -1:
+        """
+        Sets the type and size of the variable given an Arrow Array.
+        """
+        self.metadata = OracleMetadata.from_arrow_array(array)
 
     cdef int _set_metadata_from_type(self, object typ) except -1:
         """

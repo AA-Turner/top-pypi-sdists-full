@@ -54,7 +54,7 @@ from typing import Any, BinaryIO, List
 import b2sdk
 import requests
 import rst2ansi
-from b2sdk.v2 import (
+from b2sdk.v3 import (
     ALL_CAPABILITIES,
     B2_ACCOUNT_INFO_DEFAULT_FILE,
     B2_ACCOUNT_INFO_ENV_VAR,
@@ -103,12 +103,12 @@ from b2sdk.v2 import (
     get_included_sources,
     make_progress_listener,
     notification_rule_response_to_request,
-    parse_sync_folder,
+    parse_folder,
     points_to_fifo,
     substitute_control_chars,
     unprintable_to_hex,
 )
-from b2sdk.v2.exception import (
+from b2sdk.v3.exception import (
     B2Error,
     BadFileInfo,
     EmptyDirectory,
@@ -1364,7 +1364,7 @@ class AccountAuthorizeBase(Command):
         if verbose_realm:
             self._print_stderr(f'Using {url}')
         try:
-            self.api.authorize_account(realm, application_key_id, application_key)
+            self.api.authorize_account(application_key_id, application_key, realm=realm)
 
             allowed = self.api.account_info.get_allowed()
             if 'listBuckets' not in allowed['capabilities']:
@@ -1376,15 +1376,26 @@ class AccountAuthorizeBase(Command):
                 )
                 self.api.account_info.clear()
                 return 1
-            if allowed['bucketId'] is not None and allowed['bucketName'] is None:
-                logger.error('ConsoleTool has bucket-restricted key and the bucket does not exist')
-                self._print_stderr(
-                    "ERROR: application key is restricted to bucket id '{}', which no longer exists".format(
-                        allowed['bucketId']
+            buckets = allowed['buckets']
+            if buckets:
+                existing_bucket_present = False
+
+                for item in buckets:
+                    if item['name'] is not None:
+                        existing_bucket_present = True
+                        break
+
+                if not existing_bucket_present:
+                    logger.error(
+                        'ConsoleTool has bucket-restricted key and the bucket does not exist'
                     )
-                )
-                self.api.account_info.clear()
-                return 1
+                    self._print_stderr(
+                        "ERROR: application key is restricted to bucket id '{}', which no longer exists".format(
+                            allowed['bucketId']
+                        )
+                    )
+                    self.api.account_info.clear()
+                    return 1
             return 0
         except B2Error as e:
             logger.exception('ConsoleTool account authorization error')
@@ -1695,7 +1706,8 @@ class KeyCreateBase(Command):
     specified, the key will not expire.
 
     The ``bucket`` is the name of a bucket in the account.  When specified, the key
-    will only allow access to that bucket.
+    will only allow access to that bucket. You can specify multiple buckets by repeating
+    the option, e.g. ``--bucket bucket1 --bucket bucket2``
 
     The ``namePrefix`` restricts file access to files whose names start with the prefix.
 
@@ -1709,7 +1721,7 @@ class KeyCreateBase(Command):
 
     @classmethod
     def _setup_parser(cls, parser):
-        parser.add_argument('--bucket')
+        parser.add_argument('--bucket', action='append')
         add_normalized_argument(parser, '--name-prefix')
         parser.add_argument('--duration', type=int)
         parser.add_argument('keyName')
@@ -1720,11 +1732,21 @@ class KeyCreateBase(Command):
         super()._setup_parser(parser)
 
     def _run(self, args):
-        # Translate the bucket name into a bucketId
-        if args.bucket is None:
-            bucket_id_or_none = None
+        # Translate a list of bucket names into a list of bucketIds
+        if not args.bucket:
+            bucket_ids_or_none = None
+        elif len(args.bucket) == 1:
+            bucket_ids_or_none = [self.api.get_bucket_by_name(args.bucket[0]).id_]
         else:
-            bucket_id_or_none = self.api.get_bucket_by_name(args.bucket).id_
+            names_seeking = set(args.bucket)
+            bucket_ids_or_none = []
+            for bucket in self.api.list_buckets(use_cache=True):
+                if bucket.name in names_seeking:
+                    names_seeking.remove(bucket.name)
+                    bucket_ids_or_none.append(bucket.id_)
+
+            if names_seeking:
+                raise NonExistentBucket('; '.join(names_seeking))
 
         if args.all_capabilities:
             current_key_caps = set(self.api.account_info.get_allowed()['capabilities'])
@@ -1740,7 +1762,7 @@ class KeyCreateBase(Command):
             capabilities=args.capabilities,
             key_name=args.keyName,
             valid_duration_seconds=args.duration,
-            bucket_id=bucket_id_or_none,
+            bucket_ids=bucket_ids_or_none,
             name_prefix=args.name_prefix,
         )
 
@@ -2305,7 +2327,7 @@ class KeyListBase(Command):
 
     - ID of the application key
     - Name of the application key
-    - Name of the bucket the key is restricted to, or ``-`` for no restriction
+    - Name of the bucket(s) the key is restricted to, or ``-`` for no restriction
     - Date of expiration, or ``-``
     - Time of expiration, or ``-``
     - File name prefix, in single quotes
@@ -2339,15 +2361,16 @@ class KeyListBase(Command):
 
     def print_key(self, key: ApplicationKey, is_long_format: bool):
         if is_long_format:
-            format_str = "{keyId}   {keyName:20s}   {bucketName:20s}   {dateStr:10s}   {timeStr:8s}   '{namePrefix}'   {capabilities}"
+            format_str = "{keyId}   {keyName:20s}   {bucketNames:20s}   {dateStr:10s}   {timeStr:8s}   '{namePrefix}'   {capabilities}"
         else:
             format_str = '{keyId}   {keyName:20s}'
         timestamp_or_none = apply_or_none(int, key.expiration_timestamp_millis)
         (date_str, time_str) = self.timestamp_display(timestamp_or_none)
+
         key_str = format_str.format(
             keyId=key.id_,
             keyName=key.key_name,
-            bucketName=self.bucket_display_name(key.bucket_id),
+            bucketNames=self.bucket_display_names(key.bucket_ids),
             namePrefix=(key.name_prefix or ''),
             capabilities=','.join(key.capabilities),
             dateStr=date_str,
@@ -2355,16 +2378,18 @@ class KeyListBase(Command):
         )
         self._print(key_str)
 
-    def bucket_display_name(self, bucket_id):
-        # Special case for no bucket ID
-        if bucket_id is None:
+    def bucket_display_names(self, bucket_ids):
+        # Special case for no bucket IDs
+        if not bucket_ids:
             return '-'
 
         # Make sure we have the map
         if self.bucket_id_to_bucket_name is None:
             self.bucket_id_to_bucket_name = dict((b.id_, b.name) for b in self.api.list_buckets())
 
-        return self.bucket_id_to_bucket_name.get(bucket_id, 'id=' + bucket_id)
+        display_names = [self.bucket_id_to_bucket_name.get(id_, f'id={id_}') for id_ in bucket_ids]
+
+        return ', '.join(display_names)
 
     def timestamp_display(self, timestamp_or_none):
         """
@@ -2478,7 +2503,6 @@ class AbstractLsCommand(Command, metaclass=ABCMeta):
                 recursive=args.recursive,
                 with_wildcard=args.with_wildcard,
                 filters=args.filters,
-                folder_to_list_can_be_a_file=True,
             )
         except Exception as err:
             raise CommandError(unprintable_to_hex(str(err))) from err
@@ -3170,8 +3194,8 @@ class Sync(
         self.api.services.upload_manager.set_thread_pool_size(upload_threads)
         self.api.services.download_manager.set_thread_pool_size(download_threads)
 
-        source = parse_sync_folder(args.source, self.console_tool.api)
-        destination = parse_sync_folder(args.destination, self.console_tool.api)
+        source = parse_folder(args.source, self.console_tool.api)
+        destination = parse_folder(args.destination, self.console_tool.api)
         allow_empty_source = args.allow_empty_source or VERSION_0_COMPATIBILITY
 
         synchronizer = self.get_synchronizer_from_args(

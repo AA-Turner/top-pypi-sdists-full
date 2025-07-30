@@ -12,12 +12,20 @@ from keras.src import optimizers as optimizers_module
 from keras.src import tree
 from keras.src.backend import config
 from keras.src.backend import distribution_lib as jax_distribution_lib
+from keras.src.backend.config import is_nnx_enabled
 from keras.src.distribution import distribution_lib
 from keras.src.trainers import trainer as base_trainer
 from keras.src.trainers.data_adapters import array_slicing
 from keras.src.trainers.data_adapters import data_adapter_utils
 from keras.src.trainers.epoch_iterator import EpochIterator
 from keras.src.utils import traceback_utils
+
+if is_nnx_enabled():
+    from flax import nnx
+
+    jit = nnx.jit
+else:
+    jit = jax.jit
 
 
 class JAXTrainer(base_trainer.Trainer):
@@ -233,7 +241,7 @@ class JAXTrainer(base_trainer.Trainer):
                     return output
 
                 if not self.run_eagerly and self.jit_compile:
-                    concatenate = jax.jit(concatenate)
+                    concatenate = jit(concatenate)
 
                 def iterator_step(state, iterator):
                     data = next(iterator)
@@ -277,7 +285,7 @@ class JAXTrainer(base_trainer.Trainer):
             # so that jax will reuse the memory buffer for outputs.
             # This will reduce the memory usage of the training function by
             # half.
-            train_step = jax.jit(self.train_step, donate_argnums=0)
+            train_step = jit(self.train_step, donate_argnums=0)
         else:
             train_step = self.train_step
 
@@ -293,7 +301,8 @@ class JAXTrainer(base_trainer.Trainer):
             # so that jax will reuse the memory buffer for outputs.
             # This will reduce the memory usage of the training function by
             # half.
-            test_step = jax.jit(self.test_step, donate_argnums=0)
+            test_step = jit(self.test_step, donate_argnums=0)
+
         else:
             test_step = self.test_step
 
@@ -310,7 +319,7 @@ class JAXTrainer(base_trainer.Trainer):
             return outputs, (state[0], non_trainable_variables)
 
         if not self.run_eagerly and self.jit_compile:
-            predict_step = jax.jit(predict_step, donate_argnums=0)
+            predict_step = jit(predict_step, donate_argnums=0)
 
         _step_function = self._make_function(
             predict_step, concatenate_outputs=True
@@ -408,9 +417,9 @@ class JAXTrainer(base_trainer.Trainer):
 
                 self._jax_state_synced = True
                 with epoch_iterator.catch_stop_iteration():
-                    for step, iterator in epoch_iterator:
+                    for begin_step, end_step, iterator in epoch_iterator:
                         # Callbacks
-                        callbacks.on_train_batch_begin(step)
+                        callbacks.on_train_batch_begin(begin_step)
 
                         # Train step
                         if self._jax_state_synced:
@@ -441,7 +450,7 @@ class JAXTrainer(base_trainer.Trainer):
                             "metrics_variables": metrics_variables,
                         }
                         # Dispatch callbacks. This takes care of async dispatch.
-                        callbacks.on_train_batch_end(step, logs)
+                        callbacks.on_train_batch_end(end_step, logs)
 
                         if self.stop_training:
                             # Stop training if a callback has set
@@ -569,8 +578,8 @@ class JAXTrainer(base_trainer.Trainer):
 
         self._jax_state_synced = True
         with epoch_iterator.catch_stop_iteration():
-            for step, iterator in epoch_iterator:
-                callbacks.on_test_batch_begin(step)
+            for begin_step, end_step, iterator in epoch_iterator:
+                callbacks.on_test_batch_begin(begin_step)
 
                 if self._jax_state_synced:
                     # The state may have been synced by a callback.
@@ -600,7 +609,7 @@ class JAXTrainer(base_trainer.Trainer):
                 }
 
                 # Dispatch callbacks. This takes care of async dispatch.
-                callbacks.on_test_batch_end(step, logs)
+                callbacks.on_test_batch_end(end_step, logs)
 
                 if self.stop_evaluating:
                     break
@@ -633,13 +642,16 @@ class JAXTrainer(base_trainer.Trainer):
 
         if not all(layer.built for layer in self._flatten_layers()):
             # Build the model on one batch of data.
-            for _, iterator in epoch_iterator:
+            for _, _, iterator in epoch_iterator:
                 # Build model
                 x, _, _ = data_adapter_utils.unpack_x_y_sample_weight(
                     next(iterator)
                 )
-                with backend.StatelessScope():
+                if is_nnx_enabled():
                     self(x)
+                else:
+                    with backend.StatelessScope():
+                        self(x)
                 break
             epoch_iterator.reset()
         # Container that configures and calls callbacks.
@@ -677,8 +689,8 @@ class JAXTrainer(base_trainer.Trainer):
         outputs = None
         non_trainable_variables = None
         with epoch_iterator.catch_stop_iteration():
-            for step, iterator in epoch_iterator:
-                callbacks.on_predict_batch_begin(step)
+            for begin_step, end_step, iterator in epoch_iterator:
+                callbacks.on_predict_batch_begin(begin_step)
                 if self._jax_state_synced:
                     # The state may have been synced by a callback.
                     state = self._get_jax_state(
@@ -701,7 +713,9 @@ class JAXTrainer(base_trainer.Trainer):
                 outputs = append_to_outputs(batch_outputs, outputs)
 
                 # Dispatch callbacks. This takes care of async dispatch.
-                callbacks.on_predict_batch_end(step, {"outputs": batch_outputs})
+                callbacks.on_predict_batch_end(
+                    end_step, {"outputs": batch_outputs}
+                )
 
                 if self.stop_predicting:
                     break
@@ -904,7 +918,7 @@ class JAXTrainer(base_trainer.Trainer):
 
         Since the output of the train/eval step will be used as inputs to next
         step, we need to ensure that they have the same sharding spec, so that
-        jax.jit won't have to recompile the train/eval function.
+        nnx.jit/jax.jit won't have to recompile the train/eval function.
 
         Note that this function will also rely on the recorded sharding spec
         for each of states.
@@ -1024,10 +1038,12 @@ class JAXEpochIterator(EpochIterator):
         distribution = distribution_lib.distribution()
         if distribution is not None:
             return self._get_distributed_iterator(distribution)
-
-        return self._prefetch_numpy_iterator(
-            self.data_adapter.get_jax_iterator()
-        )
+        if self.data_adapter.builtin_prefetch:
+            return self.data_adapter.get_jax_iterator()
+        else:
+            return self._prefetch_numpy_iterator(
+                self.data_adapter.get_jax_iterator()
+            )
 
     def _get_distributed_iterator(self, distribution):
         """Lazily compute layouts to reduce host to device transfer latency."""

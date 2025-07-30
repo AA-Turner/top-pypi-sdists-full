@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# $Id: rst2s5.py 9115 2022-07-28 17:06:24Z milde $
+# $Id: rst2s5.py 9771 2024-06-18 08:00:10Z milde $
 # Author: Chris Liechti <cliechti@gmx.net>
 # Copyright: This module has been placed in the public domain.
 
@@ -21,4 +21,4 @@ from docutils.core import publish_cmdline, default_description
 description = ('Generates S5 (X)HTML slideshow documents from standalone '
                'reStructuredText sources.  ' + default_description)
 
-publish_cmdline(writer_name='s5', description=description)
+publish_cmdline(writer='s5', description=description)

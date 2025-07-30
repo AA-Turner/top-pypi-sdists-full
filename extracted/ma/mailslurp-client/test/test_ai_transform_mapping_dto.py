@@ -42,15 +42,16 @@ class TestAITransformMappingDto(unittest.TestCase):
                 user_id = '0', 
                 name = '0', 
                 entity_id = '0', 
-                entity_type = 'INBOX'
+                entity_type = 'INBOX', 
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else :
             return AITransformMappingDto(
                 id = '0',
                 ai_transform_id = '0',
                 user_id = '0',
-                entity_id = '0',
                 entity_type = 'INBOX',
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
         )
 
     def testAITransformMappingDto(self):

@@ -27,15 +27,12 @@
 """
 
 import decimal
-import unittest
 
 import oracledb
 import test_env
 
 
-@unittest.skipUnless(
-    test_env.get_is_thin(), "asyncio not supported in thick mode"
-)
+@test_env.skip_unless_thin_mode()
 class TestCase(test_env.BaseAsyncTestCase):
     book_type_name = "UDT_BOOK"
     book_queue_name = "TEST_BOOK_QUEUE"
@@ -212,6 +209,7 @@ class TestCase(test_env.BaseAsyncTestCase):
             queue.deqoptions.visibility = oracledb.DEQ_IMMEDIATE
             queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
             props = await queue.deqone()
+            self.assertEqual(props.deliverymode, oracledb.MSG_BUFFERED)
             book = props.payload
             results = (book.TITLE, book.AUTHORS, book.PRICE)
             await other_conn.commit()
@@ -237,6 +235,7 @@ class TestCase(test_env.BaseAsyncTestCase):
             queue.deqoptions.visibility = oracledb.DEQ_IMMEDIATE
             queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
             props = await queue.deqone()
+            self.assertEqual(props.deliverymode, oracledb.MSG_PERSISTENT)
             book = props.payload
             results = (book.TITLE, book.AUTHORS, book.PRICE)
             await other_conn.commit()
@@ -262,6 +261,7 @@ class TestCase(test_env.BaseAsyncTestCase):
             queue.deqoptions.visibility = oracledb.DEQ_IMMEDIATE
             queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
             props = await queue.deqone()
+            self.assertEqual(props.deliverymode, oracledb.MSG_PERSISTENT)
             book = props.payload
             results = (book.TITLE, book.AUTHORS, book.PRICE)
             await other_conn.commit()

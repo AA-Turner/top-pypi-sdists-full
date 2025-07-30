@@ -69,8 +69,7 @@ class AITransformDto(object):
             self.conditions = conditions
         if instructions is not None:
             self.instructions = instructions
-        if output_schema is not None:
-            self.output_schema = output_schema
+        self.output_schema = output_schema
 
     @property
     def id(self):

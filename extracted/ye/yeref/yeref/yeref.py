@@ -4445,7 +4445,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
 
             print(f'{POST_TYPE=}')
             if page == 'MSG':
-                if POST_LNK.endswith(('.mp4', '.gif', '.webm', '.mov', '.mp3')):
+                if POST_LNK.lower().endswith(('.mp4', '.gif', '.webm', '.mov', '.mp3')):
                     POST_LNK2 = await jpg_video_preview(bot, POST_TID, KEYS_JSON, POST_LNK, ENT_TID, POST_TYPE,
                                                         POST_FID, MEDIA_D, BOT_TOKEN)
                 else:
@@ -4563,7 +4563,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
                 pass
 
             if page == 'MSG':
-                if POST_LNK.endswith(('.mp4', '.gif', '.webm', '.mov', '.mp3')):
+                if POST_LNK.lower().endswith(('.mp4', '.gif', '.webm', '.mov', '.mp3')):
                     POST_LNK2 = await jpg_video_preview(bot, POST_TID, KEYS_JSON, POST_LNK, ENT_TID, POST_TYPE,
                                                         POST_FID, MEDIA_D, BOT_TOKEN)
                 else:
@@ -5164,7 +5164,7 @@ async def outsource_generate(lst, path='link_path'):
 
                                                     if "generations" in res and res["generations"]:
                                                         r_img = res["generations"][0]["img"]
-                                                        if str(r_img).endswith('.png'):
+                                                        if str(r_img).lower().endswith('.png'):
                                                             r_img = f"{r_img}.png"
 
                                                         print(f"ready{r_img}")
@@ -7249,7 +7249,7 @@ async def get_link_for_media(bot, chat_id, file_path, KEYS_JSON, is_del=True):
         base_name = base_name.encode("utf-8", "ignore").decode("utf-8")
         base_name = re.sub(r"[^\w\-.]", "", base_name)
         random_suffix = datetime.now(timezone.utc).strftime('%f')
-        base_name = f"r{random_suffix}_{base_name.replace('_', '')}"
+        base_name = f"r{random_suffix}_{base_name[:128].replace('_', '')}"
         base_name = urllib.parse.quote(base_name)
         print(f"{base_name=}")
 
@@ -9517,9 +9517,9 @@ async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, 
         if POST_LNK:
             if '[' in POST_LNK:
                 urls = ast.literal_eval(POST_LNK)
-                photo_url = next((url for url in urls if str(url).endswith(('.png', '.jpg', '.jpeg'))), None)
+                photo_url = next((url for url in urls if str(url).lower().endswith(('.png', '.jpg', '.jpeg'))), None)
             else:
-                photo_url = POST_LNK if str(POST_LNK).endswith(('.png', '.jpg', '.jpeg')) else None
+                photo_url = POST_LNK if str(POST_LNK).lower().endswith(('.png', '.jpg', '.jpeg')) else None
             print(f"{photo_url=}")
         else:
             photo_url = None
@@ -10681,6 +10681,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_TARGET = post['POST_TARGET'] if 'POST_TARGET' in post else ''
         POST_ISPRIVATE = post['POST_ISPRIVATE'] if 'POST_ISPRIVATE' in post else 0
 
+        targets = []
         if POST_TARGETTYPE == 'ids' and PROJECT_USERNAME == 'FereyBotBot':
             targets = list({t.strip() for t in POST_TARGET.split() if t.strip().isdigit() and len(t.strip()) >= 7})
             POST_TARGET = ' '.join(targets)
@@ -10914,6 +10915,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_BUTTONS = json.dumps(POST_BUTTONS, ensure_ascii=False)
         POST_CHKBOX = json.dumps(POST_CHKBOX, ensure_ascii=False)
 
+        print(f"before post_save-db_change_pg")
         sql = f""" 
             INSERT INTO {schema_prefix}_{tid_tmp}.POST (
                 POST_TID, POST_CHATTID, POST_USERTID, POST_USERTUN, POST_TARGETTYPE, POST_TARGET,
@@ -10956,6 +10958,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             POST_LZ or 'en', POST_TZ, POST_DT, POST_TR, POST_PRIORITY
         ), BASE_P)
         # endregion
+        print(f"finish post_save")
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
@@ -11324,13 +11327,13 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
         else:
             POST_FNAME = None
             is_sended = False
-            if POST_MEDIA and POST_MEDIA[0]['file_name'].endswith(('.webp', '.webm', '.tgs')):
+            if POST_MEDIA and POST_MEDIA[0]['file_name'].lower().endswith(('.webp', '.webm', '.tgs')):
                 try:
                     print(f"{POST_MEDIA=}")
                     ext_ = 'webp'
-                    if POST_MEDIA[0]['file_name'].endswith('webm'):
+                    if POST_MEDIA[0]['file_name'].lower().endswith('webm'):
                         ext_ = 'webm'
-                    elif POST_MEDIA[0]['file_name'].endswith('tgs'):
+                    elif POST_MEDIA[0]['file_name'].lower().endswith('tgs'):
                         ext_ = 'tgs'
 
                     POST_FNAME = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f.{ext_}')
@@ -16315,18 +16318,18 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
 
                         print(f"+++++++++++++++++++")
                         print(f"{F_NAME=}")
-                        if F_NAME.endswith('.mp4'):
+                        if F_NAME.lower().endswith('.mp4'):
                             file_id, _ = await item_to_dynamic_sticker(extra_bot, OWNER_TID, F_NAME, 'sticker',
                                                                        'video', False, True, False, True)
 
                             file_type = 'sticker'
                             if F_NAME != FILE_NAME and os.path.exists(F_NAME): os.remove(F_NAME)
                             break
-                        if F_NAME.endswith('.json'):
+                        if F_NAME.lower().endswith('.json'):
                             tgs_file_name = await convert_json_to_tgs(F_NAME)
                             print(f"{tgs_file_name=} jsjsjsjsjso tgtgsx")
                             F_NAME = tgs_file_name
-                        if F_NAME.endswith(('.png', '.jpg')):
+                        if F_NAME.lower().endswith(('.png', '.jpg')):
                             print(f"endswith png")
                             image = Image.open(F_NAME)
                             image = await correct_orientation(image)
@@ -16456,7 +16459,7 @@ async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE
             print(f'IS_LINK return_file_link: {result}')
         else:
             print(f'hare ai in FILE_NAME, {MSG_TYPE=}, {result=}')
-            if MSG_TYPE in ['document', 'web'] and not FILE_NAME.endswith(
+            if MSG_TYPE in ['document', 'web'] and not FILE_NAME.lower().endswith(
                 ('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp', '.webm', '.mp3')): return result
 
             res = await get_link_for_media(bot, MSG_VID, FILE_NAME, KEYS_JSON)
@@ -16590,7 +16593,7 @@ async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
         tmpls = [photo_jpg, gif_jpg, video_jpg, video_note_jpg, audio_jpg, voice_jpg, sticker_jpg, web_jpg,
                  document_jpg]
         if MSG_TYPE in ['audio', 'voice', 'document'] or file_link in tmpls or MSG_TYPE in [
-            'web'] and not file_link.endswith(('.jpg', '.jpeg', '.png', '.webp', '.webm', '.mp4', '.gif')): return result
+            'web'] and not file_link.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.webm', '.mp4', '.gif')): return result
 
         dt = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f.jpg')
         dt_finish = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f-2.jpg')
@@ -16833,9 +16836,9 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
                                                                                                BASE_D, EXTRA_D, MEDIA_D)
         print(f"{dst=}, {FILE_NAME=}")
         print(f"{dst=}, {os.path.exists(FILE_NAME)=}")
-        if os.path.exists(FILE_NAME) and FILE_NAME.endswith(('.json', '.tgs')):
+        if os.path.exists(FILE_NAME) and FILE_NAME.lower().endswith(('.json', '.tgs')):
             print(f"01")
-            if dst.endswith('.json'):
+            if dst.lower().endswith('.json'):
                 print(f"02")
                 async with aiofiles.open(FILE_NAME, 'r', encoding='utf-8') as f:
                     file_json = json.loads(await f.read())
@@ -16849,6 +16852,7 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
                         print(f"2 jjj")
                 if converted_path and os.path.exists(converted_path): os.remove(converted_path)
 
+            file_type = 'sticker'
             file_link = sticker_jpg
             file_link2 = sticker_jpg
         else:
@@ -16856,7 +16860,7 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
             file_link = await return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, msg_type, IS_LINK)
             print(f"facade_get_fid: {file_link=}")
 
-            if file_link.endswith(('.mp4', '.gif', '.webm', '.mov', '.mp3')):
+            if file_link.lower().endswith(('.mp4', '.gif', '.webm', '.mov', '.mp3')):
                 file_link2 = await jpg_video_preview(bot, MSG_VID, KEYS_JSON, file_link, BOT_TID, msg_type, file_id,
                                                      MEDIA_D, BOT_TOKEN)
             else:

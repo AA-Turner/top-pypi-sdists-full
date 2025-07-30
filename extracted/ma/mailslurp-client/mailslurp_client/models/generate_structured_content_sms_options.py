@@ -61,8 +61,7 @@ class GenerateStructuredContentSmsOptions(object):
 
         self.sms_id = sms_id
         self.instructions = instructions
-        if output_schema is not None:
-            self.output_schema = output_schema
+        self.output_schema = output_schema
         self.transform_id = transform_id
 
     @property

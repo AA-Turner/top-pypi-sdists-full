@@ -24,11 +24,12 @@ from tox.report import ToxHandler
 from tox.session.state import State
 
 from tox_ansible.plugin import (
+    Collection,
     conf_commands,
     conf_commands_pre,
     conf_deps,
     generate_gh_matrix,
-    get_collection_name,
+    get_collection,
     tox_add_env_config,
 )
 
@@ -63,7 +64,10 @@ def test_commands_pre(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         desc="",
     )
 
-    result = conf_commands_pre(env_conf=conf, c_name="test", c_namespace="test")
+    result = conf_commands_pre(
+        env_conf=conf,
+        collection=Collection(name="test", namespace="test", version="1.0.0"),
+    )
     number_commands = 12
     assert len(result) == number_commands, result
 
@@ -103,7 +107,7 @@ def test_gen_version_matrix(python: str, tmp_path: Path, monkeypatch: pytest.Mon
         tmp_path: Pytest fixture.
         monkeypatch: Pytest fixture.
     """
-    av = "2.18"
+    av = "2.19"
     environment_list = EnvList(envs=[f"integration-{python}-{av}"])
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     gh_output = tmp_path / "matrix.json"
@@ -128,7 +132,7 @@ def test_gen_version_matrix_with_nl(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         tmp_path: Pytest fixture.
         monkeypatch: Pytest fixture.
     """
-    environment_list = EnvList(envs=["integration-py3.13-2.18"])
+    environment_list = EnvList(envs=["integration-py3.13-2.19"])
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     gh_output = tmp_path / "matrix.json"
     monkeypatch.setenv("GITHUB_OUTPUT", str(gh_output))
@@ -153,7 +157,7 @@ def test_gen_version_matrix_with_nl(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert result.startswith("envlist<<EOF")
 
 
-def test_get_collection_name_file_missing(
+def test_get_collection_file_missing(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -164,12 +168,12 @@ def test_get_collection_name_file_missing(
         caplog: Pytest fixture for log capture
     """
     with pytest.raises(SystemExit, match="1"):
-        get_collection_name(tmp_path / "galaxy.yml")
+        get_collection(tmp_path / "galaxy.yml")
     logs = caplog.text
     assert "Unable to find galaxy.yml" in logs
 
 
-def test_get_collection_name_broken(
+def test_get_collection_broken(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -183,12 +187,12 @@ def test_get_collection_name_broken(
     contents = {"namespace": "test", "no_name": "test"}
     galaxy_file.write_text(yaml.dump(contents))
     with pytest.raises(SystemExit, match="1"):
-        get_collection_name(tmp_path / "galaxy.yml")
+        get_collection(tmp_path / "galaxy.yml")
     logs = caplog.text
     assert "Unable to find 'name' in galaxy.yml" in logs
 
 
-def test_get_collection_name_success(
+def test_get_collection_success(
     tmp_path: Path,
 ) -> None:
     """Test the collection name retrieval when the file is missing.
@@ -197,11 +201,12 @@ def test_get_collection_name_success(
         tmp_path: Pytest fixture.
     """
     galaxy_file = tmp_path / "galaxy.yml"
-    contents = {"namespace": "test", "name": "test"}
+    contents = {"namespace": "test", "name": "test", "version": "1.0.0"}
     galaxy_file.write_text(yaml.dump(contents))
-    name, namespace = get_collection_name(tmp_path / "galaxy.yml")
-    assert name == "test"
-    assert namespace == "test"
+    collection = get_collection(tmp_path / "galaxy.yml")
+    assert collection.name == "test"
+    assert collection.namespace == "test"
+    assert collection.version == "1.0.0"
 
 
 def test_conf_commands_unit(tmp_path: Path) -> None:
@@ -218,12 +223,11 @@ def test_conf_commands_unit(tmp_path: Path) -> None:
         Parsed(work_dir=tmp_path, override=[], config_file=ini_file, root_dir=tmp_path),
         pos_args=[],
         source=source,
-    ).get_env("unit-py3.13-2.18")
+    ).get_env("unit-py3.13-2.19")
 
     result = conf_commands(
         env_conf=conf,
-        c_name="test",
-        c_namespace="test",
+        collection=Collection(name="test", namespace="test", version="1.0.0"),
         test_type="unit",
         pos_args=None,
     )
@@ -245,7 +249,7 @@ def test_conf_commands_sanity(tmp_path: Path) -> None:
         Parsed(work_dir=tmp_path, override=[], config_file=ini_file, root_dir=tmp_path),
         pos_args=[],
         source=source,
-    ).get_env("sanity-py3.13-2.18")
+    ).get_env("sanity-py3.13-2.19")
 
     conf.add_config(
         keys=["env_tmp_dir", "envtmpdir"],
@@ -256,8 +260,7 @@ def test_conf_commands_sanity(tmp_path: Path) -> None:
 
     result = conf_commands(
         env_conf=conf,
-        c_name="test",
-        c_namespace="test",
+        collection=Collection(name="test", namespace="test", version="1.0.0"),
         test_type="sanity",
         pos_args=None,
     )
@@ -279,12 +282,11 @@ def test_conf_commands_integration(tmp_path: Path) -> None:
         Parsed(work_dir=tmp_path, override=[], config_file=ini_file, root_dir=tmp_path),
         pos_args=[],
         source=source,
-    ).get_env("integration-py3.13-2.18")
+    ).get_env("integration-py3.13-2.19")
 
     result = conf_commands(
         env_conf=conf,
-        c_name="test",
-        c_namespace="test",
+        collection=Collection(name="test", namespace="test", version="1.0.0"),
         test_type="integration",
         pos_args=None,
     )
@@ -307,13 +309,12 @@ def test_conf_commands_invalid(tmp_path: Path, caplog: pytest.LogCaptureFixture)
         Parsed(work_dir=tmp_path, override=[], config_file=ini_file, root_dir=tmp_path),
         pos_args=[],
         source=source,
-    ).get_env("invalid-py3.13-2.18")
+    ).get_env("invalid-py3.13-2.19")
 
     with pytest.raises(SystemExit, match="1"):
         conf_commands(
             env_conf=conf,
-            c_name="test",
-            c_namespace="test",
+            collection=Collection(name="test", namespace="test", version="1.0.0"),
             test_type="invalid",
             pos_args=None,
         )
@@ -359,7 +360,7 @@ def test_conf_deps(tmp_path: Path) -> None:
             Parsed(work_dir=tmp_path, override=[], config_file=ini_file, root_dir=tmp_path),
             pos_args=[],
             source=source,
-        ).get_env("unit-py3.13-2.18")
+        ).get_env("unit-py3.13-2.19")
 
         result = conf_deps(env_conf=conf, test_type="unit")
         assert "test-requirement" in result
@@ -380,7 +381,7 @@ def test_tox_add_env_config_valid(
     """
     ini_file = tmp_path / "tox.ini"
     ini_file.touch()
-    (tmp_path / "galaxy.yml").write_text("namespace: test\nname: test")
+    (tmp_path / "galaxy.yml").write_text("namespace: test\nname: test\nversion: 1.0.0")
     work_dir = tmp_path
     if custom_work_dir:
         work_dir = tmp_path / ".foo"
@@ -399,7 +400,7 @@ def test_tox_add_env_config_valid(
         parsed=parsed,
         pos_args=[],
         source=source,
-    ).get_env("unit-py3.13-2.18")
+    ).get_env("unit-py3.13-2.19")
 
     env_conf.add_config(
         keys=["env_tmp_dir", "envtmpdir"],
@@ -438,7 +439,7 @@ def test_tox_add_env_config_valid(
     assert isinstance(env_conf.loaders[0], MemoryLoader)
     assert (
         env_conf.loaders[0].raw["description"]
-        == "Unit tests using ansible-core 2.18 and python 3.13"
+        == "Unit tests using ansible-core 2.19 and python 3.13"
     )
 
 
@@ -466,7 +467,7 @@ def test_tox_add_env_config_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         parsed=parsed,
         pos_args=[],
         source=source,
-    ).get_env("insanity-py3.13-2.18")
+    ).get_env("insanity-py3.13-2.19")
 
     output = io.BytesIO()
     wrapper = io.TextIOWrapper(

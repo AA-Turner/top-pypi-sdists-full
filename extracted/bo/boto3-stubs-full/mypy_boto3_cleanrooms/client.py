@@ -401,7 +401,7 @@ class CleanRoomsServiceClient(BaseClient):
         self, **kwargs: Unpack[CreatePrivacyBudgetTemplateInputTypeDef]
     ) -> CreatePrivacyBudgetTemplateOutputTypeDef:
         """
-        Creates a privacy budget template for a specified membership.
+        Creates a privacy budget template for a specified collaboration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/create_privacy_budget_template.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#create_privacy_budget_template)
@@ -518,7 +518,7 @@ class CleanRoomsServiceClient(BaseClient):
         self, **kwargs: Unpack[DeletePrivacyBudgetTemplateInputTypeDef]
     ) -> Dict[str, Any]:
         """
-        Deletes a privacy budget template for a specified membership.
+        Deletes a privacy budget template for a specified collaboration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/delete_privacy_budget_template.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#delete_privacy_budget_template)
@@ -1075,7 +1075,7 @@ class CleanRoomsServiceClient(BaseClient):
         self, **kwargs: Unpack[UpdatePrivacyBudgetTemplateInputTypeDef]
     ) -> UpdatePrivacyBudgetTemplateOutputTypeDef:
         """
-        Updates the privacy budget template for the specified membership.
+        Updates the privacy budget template for the specified collaboration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_privacy_budget_template.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#update_privacy_budget_template)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binance
-Version: 0.3.56
+Version: 0.3.58
 Summary: binance crypto exchange api client
 Project-URL: Homepage, https://github.com/ccxt/ccxt
 Project-URL: Issues, https://github.com/ccxt/ccxt
@@ -465,6 +465,7 @@ You can also construct custom requests to available "implicit" endpoints
 - `sapi_get_portfolio_balance(request)`
 - `sapi_get_portfolio_negative_balance_exchange_record(request)`
 - `sapi_get_portfolio_pmloan_history(request)`
+- `sapi_get_portfolio_earn_asset_balance(request)`
 - `sapi_get_staking_productlist(request)`
 - `sapi_get_staking_position(request)`
 - `sapi_get_staking_stakingrecord(request)`
@@ -607,6 +608,7 @@ You can also construct custom requests to available "implicit" endpoints
 - `sapi_post_portfolio_repay_futures_negative_balance(request)`
 - `sapi_post_portfolio_mint(request)`
 - `sapi_post_portfolio_redeem(request)`
+- `sapi_post_portfolio_earn_asset_transfer(request)`
 - `sapi_post_lending_auto_invest_plan_add(request)`
 - `sapi_post_lending_auto_invest_plan_edit(request)`
 - `sapi_post_lending_auto_invest_plan_edit_status(request)`
@@ -745,6 +747,7 @@ You can also construct custom requests to available "implicit" endpoints
 - `fapipublic_get_apitradingstatus(request)`
 - `fapipublic_get_lvtklines(request)`
 - `fapipublic_get_convert_exchangeinfo(request)`
+- `fapipublic_get_insurancebalance(request)`
 - `fapidata_get_delivery_price(request)`
 - `fapidata_get_openinteresthist(request)`
 - `fapidata_get_toplongshortaccountratio(request)`

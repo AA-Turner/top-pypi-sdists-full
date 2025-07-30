@@ -1407,14 +1407,6 @@ class UpdateConfiguredTableAssociationInputTypeDef(TypedDict):
     roleArn: NotRequired[str]
 
 
-class UpdateConfiguredTableInputTypeDef(TypedDict):
-    configuredTableIdentifier: str
-    name: NotRequired[str]
-    description: NotRequired[str]
-    analysisMethod: NotRequired[AnalysisMethodType]
-    selectedAnalysisMethods: NotRequired[Sequence[SelectedAnalysisMethodType]]
-
-
 class UpdateIdMappingTableInputTypeDef(TypedDict):
     idMappingTableIdentifier: str
     membershipIdentifier: str
@@ -2917,6 +2909,16 @@ class CreateConfiguredTableInputTypeDef(TypedDict):
     description: NotRequired[str]
     selectedAnalysisMethods: NotRequired[Sequence[SelectedAnalysisMethodType]]
     tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateConfiguredTableInputTypeDef(TypedDict):
+    configuredTableIdentifier: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    tableReference: NotRequired[TableReferenceUnionTypeDef]
+    allowedColumns: NotRequired[Sequence[str]]
+    analysisMethod: NotRequired[AnalysisMethodType]
+    selectedAnalysisMethods: NotRequired[Sequence[SelectedAnalysisMethodType]]
 
 
 class CreateConfiguredTableAnalysisRuleOutputTypeDef(TypedDict):

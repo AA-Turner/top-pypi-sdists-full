@@ -1,11 +1,8 @@
 Metadata-Version: 2.4
 Name: tombi
-Version: 0.4.37
+Version: 0.4.38
 License-File: LICENSE
 Summary: 🦅 TOML Toolkit 🦅 
-Author: ya7010 <ya7010@outlook.com>
-Author-email: ya7010 <ya7010@outlook.com>
-License: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: GitHub, https://github.com/tombi-toml/tombi

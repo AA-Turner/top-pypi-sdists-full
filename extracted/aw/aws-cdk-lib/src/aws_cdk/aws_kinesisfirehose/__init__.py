@@ -2265,17 +2265,22 @@ class CfnDeliveryStream(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream.CatalogConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"catalog_arn": "catalogArn"},
+        name_mapping={
+            "catalog_arn": "catalogArn",
+            "warehouse_location": "warehouseLocation",
+        },
     )
     class CatalogConfigurationProperty:
         def __init__(
             self,
             *,
             catalog_arn: typing.Optional[builtins.str] = None,
+            warehouse_location: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the containers where the destination Apache Iceberg Tables are persisted.
 
             :param catalog_arn: Specifies the Glue catalog ARN identifier of the destination Apache Iceberg Tables. You must specify the ARN in the format ``arn:aws:glue:region:account-id:catalog`` .
+            :param warehouse_location: The warehouse location for Apache Iceberg tables. You must configure this when schema evolution and table creation is enabled. Amazon Data Firehose is in preview release and is subject to change.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-catalogconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2287,15 +2292,19 @@ class CfnDeliveryStream(
                 from aws_cdk import aws_kinesisfirehose as kinesisfirehose
                 
                 catalog_configuration_property = kinesisfirehose.CfnDeliveryStream.CatalogConfigurationProperty(
-                    catalog_arn="catalogArn"
+                    catalog_arn="catalogArn",
+                    warehouse_location="warehouseLocation"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__92b3c1717fb66856049eddd62f0c12dbf945ae8d9450b716e7d065a04359aee0)
                 check_type(argname="argument catalog_arn", value=catalog_arn, expected_type=type_hints["catalog_arn"])
+                check_type(argname="argument warehouse_location", value=warehouse_location, expected_type=type_hints["warehouse_location"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if catalog_arn is not None:
                 self._values["catalog_arn"] = catalog_arn
+            if warehouse_location is not None:
+                self._values["warehouse_location"] = warehouse_location
 
         @builtins.property
         def catalog_arn(self) -> typing.Optional[builtins.str]:
@@ -2306,6 +2315,17 @@ class CfnDeliveryStream(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-catalogconfiguration.html#cfn-kinesisfirehose-deliverystream-catalogconfiguration-catalogarn
             '''
             result = self._values.get("catalog_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def warehouse_location(self) -> typing.Optional[builtins.str]:
+            '''The warehouse location for Apache Iceberg tables. You must configure this when schema evolution and table creation is enabled.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-catalogconfiguration.html#cfn-kinesisfirehose-deliverystream-catalogconfiguration-warehouselocation
+            '''
+            result = self._values.get("warehouse_location")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3488,6 +3508,7 @@ class CfnDeliveryStream(
         name_mapping={
             "destination_database_name": "destinationDatabaseName",
             "destination_table_name": "destinationTableName",
+            "partition_spec": "partitionSpec",
             "s3_error_output_prefix": "s3ErrorOutputPrefix",
             "unique_keys": "uniqueKeys",
         },
@@ -3498,6 +3519,7 @@ class CfnDeliveryStream(
             *,
             destination_database_name: builtins.str,
             destination_table_name: builtins.str,
+            partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeliveryStream.PartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_error_output_prefix: typing.Optional[builtins.str] = None,
             unique_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -3505,6 +3527,7 @@ class CfnDeliveryStream(
 
             :param destination_database_name: The name of the Apache Iceberg database.
             :param destination_table_name: Specifies the name of the Apache Iceberg Table.
+            :param partition_spec: The partition spec configuration for a table that is used by automatic table creation. Amazon Data Firehose is in preview release and is subject to change.
             :param s3_error_output_prefix: The table specific S3 error output prefix. All the errors that occurred while delivering to this table will be prefixed with this value in S3 destination.
             :param unique_keys: A list of unique keys for a given Apache Iceberg table. Firehose will use these for running Create, Update, or Delete operations on the given Iceberg table.
 
@@ -3522,6 +3545,11 @@ class CfnDeliveryStream(
                     destination_table_name="destinationTableName",
                 
                     # the properties below are optional
+                    partition_spec=kinesisfirehose.CfnDeliveryStream.PartitionSpecProperty(
+                        identity=[kinesisfirehose.CfnDeliveryStream.PartitionFieldProperty(
+                            source_name="sourceName"
+                        )]
+                    ),
                     s3_error_output_prefix="s3ErrorOutputPrefix",
                     unique_keys=["uniqueKeys"]
                 )
@@ -3530,12 +3558,15 @@ class CfnDeliveryStream(
                 type_hints = typing.get_type_hints(_typecheckingstub__d9e156eb7fa7ea4dde332f5d2ef91909983b4fa7a5b5133510252f637465ea6c)
                 check_type(argname="argument destination_database_name", value=destination_database_name, expected_type=type_hints["destination_database_name"])
                 check_type(argname="argument destination_table_name", value=destination_table_name, expected_type=type_hints["destination_table_name"])
+                check_type(argname="argument partition_spec", value=partition_spec, expected_type=type_hints["partition_spec"])
                 check_type(argname="argument s3_error_output_prefix", value=s3_error_output_prefix, expected_type=type_hints["s3_error_output_prefix"])
                 check_type(argname="argument unique_keys", value=unique_keys, expected_type=type_hints["unique_keys"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "destination_database_name": destination_database_name,
                 "destination_table_name": destination_table_name,
             }
+            if partition_spec is not None:
+                self._values["partition_spec"] = partition_spec
             if s3_error_output_prefix is not None:
                 self._values["s3_error_output_prefix"] = s3_error_output_prefix
             if unique_keys is not None:
@@ -3560,6 +3591,19 @@ class CfnDeliveryStream(
             result = self._values.get("destination_table_name")
             assert result is not None, "Required property 'destination_table_name' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def partition_spec(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.PartitionSpecProperty"]]:
+            '''The partition spec configuration for a table that is used by automatic table creation.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-destinationtableconfiguration.html#cfn-kinesisfirehose-deliverystream-destinationtableconfiguration-partitionspec
+            '''
+            result = self._values.get("partition_spec")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.PartitionSpecProperty"]], result)
 
         @builtins.property
         def s3_error_output_prefix(self) -> typing.Optional[builtins.str]:
@@ -5370,6 +5414,8 @@ class CfnDeliveryStream(
             "processing_configuration": "processingConfiguration",
             "retry_options": "retryOptions",
             "s3_backup_mode": "s3BackupMode",
+            "schema_evolution_configuration": "schemaEvolutionConfiguration",
+            "table_creation_configuration": "tableCreationConfiguration",
         },
     )
     class IcebergDestinationConfigurationProperty:
@@ -5386,6 +5432,8 @@ class CfnDeliveryStream(
             processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeliveryStream.ProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeliveryStream.RetryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_backup_mode: typing.Optional[builtins.str] = None,
+            schema_evolution_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeliveryStream.SchemaEvolutionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_creation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeliveryStream.TableCreationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the destination configure settings for Apache Iceberg Table.
 
@@ -5399,6 +5447,8 @@ class CfnDeliveryStream(
             :param processing_configuration: 
             :param retry_options: 
             :param s3_backup_mode: Describes how Firehose will backup records. Currently,S3 backup only supports ``FailedDataOnly`` .
+            :param schema_evolution_configuration: The configuration to enable automatic schema evolution. Amazon Data Firehose is in preview release and is subject to change.
+            :param table_creation_configuration: The configuration to enable automatic table creation. Amazon Data Firehose is in preview release and is subject to change.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -5411,7 +5461,8 @@ class CfnDeliveryStream(
                 
                 iceberg_destination_configuration_property = kinesisfirehose.CfnDeliveryStream.IcebergDestinationConfigurationProperty(
                     catalog_configuration=kinesisfirehose.CfnDeliveryStream.CatalogConfigurationProperty(
-                        catalog_arn="catalogArn"
+                        catalog_arn="catalogArn",
+                        warehouse_location="warehouseLocation"
                     ),
                     role_arn="roleArn",
                     s3_configuration=kinesisfirehose.CfnDeliveryStream.S3DestinationConfigurationProperty(
@@ -5455,6 +5506,11 @@ class CfnDeliveryStream(
                         destination_table_name="destinationTableName",
                 
                         # the properties below are optional
+                        partition_spec=kinesisfirehose.CfnDeliveryStream.PartitionSpecProperty(
+                            identity=[kinesisfirehose.CfnDeliveryStream.PartitionFieldProperty(
+                                source_name="sourceName"
+                            )]
+                        ),
                         s3_error_output_prefix="s3ErrorOutputPrefix",
                         unique_keys=["uniqueKeys"]
                     )],
@@ -5473,7 +5529,13 @@ class CfnDeliveryStream(
                     retry_options=kinesisfirehose.CfnDeliveryStream.RetryOptionsProperty(
                         duration_in_seconds=123
                     ),
-                    s3_backup_mode="s3BackupMode"
+                    s3_backup_mode="s3BackupMode",
+                    schema_evolution_configuration=kinesisfirehose.CfnDeliveryStream.SchemaEvolutionConfigurationProperty(
+                        enabled=False
+                    ),
+                    table_creation_configuration=kinesisfirehose.CfnDeliveryStream.TableCreationConfigurationProperty(
+                        enabled=False
+                    )
                 )
             '''
             if __debug__:
@@ -5488,6 +5550,8 @@ class CfnDeliveryStream(
                 check_type(argname="argument processing_configuration", value=processing_configuration, expected_type=type_hints["processing_configuration"])
                 check_type(argname="argument retry_options", value=retry_options, expected_type=type_hints["retry_options"])
                 check_type(argname="argument s3_backup_mode", value=s3_backup_mode, expected_type=type_hints["s3_backup_mode"])
+                check_type(argname="argument schema_evolution_configuration", value=schema_evolution_configuration, expected_type=type_hints["schema_evolution_configuration"])
+                check_type(argname="argument table_creation_configuration", value=table_creation_configuration, expected_type=type_hints["table_creation_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "catalog_configuration": catalog_configuration,
                 "role_arn": role_arn,
@@ -5507,6 +5571,10 @@ class CfnDeliveryStream(
                 self._values["retry_options"] = retry_options
             if s3_backup_mode is not None:
                 self._values["s3_backup_mode"] = s3_backup_mode
+            if schema_evolution_configuration is not None:
+                self._values["schema_evolution_configuration"] = schema_evolution_configuration
+            if table_creation_configuration is not None:
+                self._values["table_creation_configuration"] = table_creation_configuration
 
         @builtins.property
         def catalog_configuration(
@@ -5619,6 +5687,32 @@ class CfnDeliveryStream(
             '''
             result = self._values.get("s3_backup_mode")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schema_evolution_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.SchemaEvolutionConfigurationProperty"]]:
+            '''The configuration to enable automatic schema evolution.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-schemaevolutionconfiguration
+            '''
+            result = self._values.get("schema_evolution_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.SchemaEvolutionConfigurationProperty"]], result)
+
+        @builtins.property
+        def table_creation_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.TableCreationConfigurationProperty"]]:
+            '''The configuration to enable automatic table creation.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-icebergdestinationconfiguration.html#cfn-kinesisfirehose-deliverystream-icebergdestinationconfiguration-tablecreationconfiguration
+            '''
+            result = self._values.get("table_creation_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.TableCreationConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6511,6 +6605,131 @@ class CfnDeliveryStream(
 
         def __repr__(self) -> str:
             return "ParquetSerDeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream.PartitionFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_name": "sourceName"},
+    )
+    class PartitionFieldProperty:
+        def __init__(self, *, source_name: builtins.str) -> None:
+            '''Represents a single field in a ``PartitionSpec`` .
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :param source_name: The column name to be configured in partition spec. Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-partitionfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+                
+                partition_field_property = kinesisfirehose.CfnDeliveryStream.PartitionFieldProperty(
+                    source_name="sourceName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a839897ef0a46c7170de280f66ed4688ca42be1fcb75c29fba57bc1f602931c1)
+                check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_name": source_name,
+            }
+
+        @builtins.property
+        def source_name(self) -> builtins.str:
+            '''The column name to be configured in partition spec.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-partitionfield.html#cfn-kinesisfirehose-deliverystream-partitionfield-sourcename
+            '''
+            result = self._values.get("source_name")
+            assert result is not None, "Required property 'source_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream.PartitionSpecProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identity": "identity"},
+    )
+    class PartitionSpecProperty:
+        def __init__(
+            self,
+            *,
+            identity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeliveryStream.PartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Represents how to produce partition data for a table.
+
+            Partition data is produced by transforming columns in a table. Each column transform is represented by a named ``PartitionField`` .
+
+            Here is an example of the schema in JSON.
+
+            ``"partitionSpec": { "identity": [ {"sourceName": "column1"}, {"sourceName": "column2"}, {"sourceName": "column3"} ] }``
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :param identity: List of identity `transforms <https://docs.aws.amazon.com/https://iceberg.apache.org/spec/#partition-transforms>`_ that performs an identity transformation. The transform takes the source value, and does not modify it. Result type is the source type. Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-partitionspec.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+                
+                partition_spec_property = kinesisfirehose.CfnDeliveryStream.PartitionSpecProperty(
+                    identity=[kinesisfirehose.CfnDeliveryStream.PartitionFieldProperty(
+                        source_name="sourceName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__605b75f57047594e41cbdfa3a36b644835c149c59b7bc3649d482257f34c89b4)
+                check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if identity is not None:
+                self._values["identity"] = identity
+
+        @builtins.property
+        def identity(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.PartitionFieldProperty"]]]]:
+            '''List of identity `transforms <https://docs.aws.amazon.com/https://iceberg.apache.org/spec/#partition-transforms>`_ that performs an identity transformation. The transform takes the source value, and does not modify it. Result type is the source type.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-partitionspec.html#cfn-kinesisfirehose-deliverystream-partitionspec-identity
+            '''
+            result = self._values.get("identity")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeliveryStream.PartitionFieldProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionSpecProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7556,6 +7775,67 @@ class CfnDeliveryStream(
 
         def __repr__(self) -> str:
             return "SchemaConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream.SchemaEvolutionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class SchemaEvolutionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The configuration to enable schema evolution.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :param enabled: Specify whether you want to enable schema evolution. Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-schemaevolutionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+                
+                schema_evolution_configuration_property = kinesisfirehose.CfnDeliveryStream.SchemaEvolutionConfigurationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__42267f168762343c22cce7785e160c133f9c7e7a8f4cb3e0888c940a1c3cb61d)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specify whether you want to enable schema evolution.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-schemaevolutionconfiguration.html#cfn-kinesisfirehose-deliverystream-schemaevolutionconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchemaEvolutionConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -8894,6 +9174,67 @@ class CfnDeliveryStream(
 
         def __repr__(self) -> str:
             return "SplunkRetryOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream.TableCreationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class TableCreationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The configuration to enable automatic table creation.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :param enabled: Specify whether you want to enable automatic table creation. Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-tablecreationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+                
+                table_creation_configuration_property = kinesisfirehose.CfnDeliveryStream.TableCreationConfigurationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ac9314efc3754736d60b5e8780b56333aa2816ec35cd3e5ede526a3656454369)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specify whether you want to enable automatic table creation.
+
+            Amazon Data Firehose is in preview release and is subject to change.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-tablecreationconfiguration.html#cfn-kinesisfirehose-deliverystream-tablecreationconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TableCreationConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -13041,6 +13382,7 @@ def _typecheckingstub__c672d0753e4b959e46f98cc809bc2380cd7be551cc9bab6f1b7baa1d2
 def _typecheckingstub__92b3c1717fb66856049eddd62f0c12dbf945ae8d9450b716e7d065a04359aee0(
     *,
     catalog_arn: typing.Optional[builtins.str] = None,
+    warehouse_location: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13150,6 +13492,7 @@ def _typecheckingstub__d9e156eb7fa7ea4dde332f5d2ef91909983b4fa7a5b5133510252f637
     *,
     destination_database_name: builtins.str,
     destination_table_name: builtins.str,
+    partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.PartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_error_output_prefix: typing.Optional[builtins.str] = None,
     unique_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -13302,6 +13645,8 @@ def _typecheckingstub__7cc5b65e233b52b72b153275ce8ced9f593e3385051386bed6920a574
     processing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retry_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.RetryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_backup_mode: typing.Optional[builtins.str] = None,
+    schema_evolution_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.SchemaEvolutionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_creation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.TableCreationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13378,6 +13723,20 @@ def _typecheckingstub__d5e42046b59e857630ade1e52237b3f99ec5d3fcea0cff6ee85255354
     max_padding_bytes: typing.Optional[jsii.Number] = None,
     page_size_bytes: typing.Optional[jsii.Number] = None,
     writer_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a839897ef0a46c7170de280f66ed4688ca42be1fcb75c29fba57bc1f602931c1(
+    *,
+    source_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__605b75f57047594e41cbdfa3a36b644835c149c59b7bc3649d482257f34c89b4(
+    *,
+    identity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeliveryStream.PartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13460,6 +13819,13 @@ def _typecheckingstub__c1389c57283b687c62069951b51187332947eeb24f5fcb8781af71c2b
     role_arn: typing.Optional[builtins.str] = None,
     table_name: typing.Optional[builtins.str] = None,
     version_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42267f168762343c22cce7785e160c133f9c7e7a8f4cb3e0888c940a1c3cb61d(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13565,6 +13931,13 @@ def _typecheckingstub__be9923ea7818bcdc567ae6e06b529c44c6a3c42b59af06768977f4c55
 def _typecheckingstub__5c5cbe7244c68f12454d07974a4cae50f1d208afdbc3a96f1e2ada11e37fc412(
     *,
     duration_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac9314efc3754736d60b5e8780b56333aa2816ec35cd3e5ede526a3656454369(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

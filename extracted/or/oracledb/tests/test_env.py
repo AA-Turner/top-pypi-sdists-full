@@ -43,10 +43,16 @@
 #   PYO_TEST_EXTERNAL_USER: user for testing external authentication
 #   PYO_TEST_EDITION_NAME: name of edition for editioning tests
 #   PYO_TEST_PLUGINS: list of plugins to import before running tests
+#   PYO_TEST_ORACLE_CLIENT_PATH: Oracle Client or Instant Client library dir
 #
 # PYO_TEST_CONNECT_STRING can be set to an Easy Connect string, or a
 # Net Service Name from a tnsnames.ora file or external naming service,
 # or it can be the name of a local Oracle database instance.
+#
+# On Windows set PYO_TEST_ORACLE_CLIENT_PATH if Oracle libraries are not in
+# PATH. On macOS set the variable to the Instant Client directory. On Linux do
+# not set the variable; instead set LD_LIBRARY_PATH or configure ldconfig
+# before running Python.
 #
 # If oracledb is using Instant Client, then an Easy Connect string is generally
 # appropriate. The syntax is:
@@ -68,6 +74,7 @@
 import getpass
 import importlib
 import os
+import platform
 import secrets
 import sys
 import string
@@ -95,7 +102,7 @@ def _initialize():
     if PARAMETERS.get("INITIALIZED"):
         return
     if not get_is_thin() and oracledb.is_thin_mode():
-        oracledb.init_oracle_client()
+        oracledb.init_oracle_client(lib_dir=get_oracle_client())
         oracledb.defaults.thick_mode_dsn_passthrough = False
     plugin_names = os.environ.get("PYO_TEST_PLUGINS")
     if plugin_names is not None:
@@ -230,6 +237,11 @@ def get_client_version():
         value = oracledb.clientversion()[:2]
         PARAMETERS[name] = value
     return value
+
+
+def get_oracle_client():
+    if platform.system() == "Darwin" or platform.system() == "Windows":
+        return get_value("ORACLE_CLIENT_PATH", "Oracle Instant Client Path")
 
 
 def get_connect_params():
@@ -487,7 +499,94 @@ def skip_soda_tests():
         return True
     if has_server_version(20, 1) and not has_client_version(20, 1):
         return True
+    if has_client_version(23, 3) and platform.system() == "Darwin":
+        return True
     return False
+
+
+def skip_if_drcp():
+    return unittest.skipIf(get_is_drcp(), "not supported with DRCP")
+
+
+def skip_if_implicit_pooling():
+    return unittest.skipIf(
+        get_is_implicit_pooling(), "not supported with implicit pooling"
+    )
+
+
+def skip_unless_binary_vectors_supported():
+    supported = has_client_version(23, 5) and has_server_version(23, 5)
+    return unittest.skipUnless(supported, "no binary vector support")
+
+
+def skip_unless_call_timeout_supported():
+    supported = has_client_version(18)
+    return unittest.skipUnless(supported, "no call timeout support")
+
+
+def skip_unless_domains_supported():
+    supported = has_server_version(23)
+    return unittest.skipUnless(supported, "no domain support")
+
+
+def skip_unless_json_supported():
+    supported = has_client_version(12, 2) and has_server_version(12, 2)
+    return unittest.skipUnless(supported, "no JSON support")
+
+
+def skip_unless_long_passwords_supported():
+    supported = has_server_version(23)
+    return unittest.skipUnless(supported, "no long password support")
+
+
+def skip_unless_native_boolean_supported():
+    supported = has_client_version(23) and has_server_version(23)
+    return unittest.skipUnless(supported, "no native boolean support")
+
+
+def skip_unless_native_json_extensions_supported():
+    supported = has_client_version(23) and has_server_version(23)
+    return unittest.skipUnless(supported, "no native JSON extensions support")
+
+
+def skip_unless_native_json_supported():
+    supported = has_client_version(21) and has_server_version(21)
+    return unittest.skipUnless(supported, "no native JSON support")
+
+
+def skip_unless_plsql_boolean_supported():
+    supported = has_client_version(12, 1) and has_server_version(12, 1)
+    return unittest.skipUnless(supported, "no PL/SQL boolean support")
+
+
+def skip_unless_pool_timed_wait_supported():
+    supported = has_client_version(12, 2) and has_server_version(12, 2)
+    return unittest.skipUnless(supported, "no pool timed wait support")
+
+
+def skip_unless_sessionless_transactions_supported():
+    return unittest.skipUnless(
+        has_client_version(23, 6) and has_server_version(23, 6),
+        "no sessionless transactions support",
+    )
+
+
+def skip_unless_sparse_vectors_supported():
+    supported = has_client_version(23, 7) and has_server_version(23, 7)
+    return unittest.skipUnless(supported, "no sparse vector support")
+
+
+def skip_unless_thick_mode():
+    return unittest.skipIf(get_is_thin(), "requires thick mode")
+
+
+def skip_unless_thin_mode():
+    return unittest.skipUnless(get_is_thin(), "requires thin mode")
+
+
+def skip_unless_vectors_supported():
+    supported = has_client_version(23, 4) and has_server_version(23, 4)
+    return unittest.skipUnless(supported, "no vector support")
 
 
 class DefaultsContextManager:

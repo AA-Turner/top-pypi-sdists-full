@@ -13,7 +13,8 @@ from chtoolset._query import replace_tables, \
     create_row_binary_encoder, \
     apply_row_binary_encoder, \
     apply_row_binary_encoder_bytes, \
-    delete_row_binary_encoder
+    delete_row_binary_encoder, \
+    validate_row_binary_encoder_schema
 
 
 class RowBinaryEncoderError(Exception):

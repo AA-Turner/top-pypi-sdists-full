@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_substitution_expansion_length_limit.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_substitution_expansion_length_limit.py 10037 2025-03-08 18:12:13Z aa-turner $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -62,16 +62,16 @@ The billion laughs attack for ReStructuredText:
 
 |a| |c| continuation text
 """,
-"""\
+f"""\
 <document source="test data">
     <paragraph>
         The billion laughs attack for ReStructuredText:
     <substitution_definition names="a">
         lol
     <substitution_definition names="b">
-{}
+{b}
     <substitution_definition names="c">
-{}
+{c}
     <comment xml:space="preserve">
         ...
     <paragraph>
@@ -83,7 +83,7 @@ The billion laughs attack for ReStructuredText:
     <system_message backrefs="problematic-1" ids="system-message-1" level="3" line="9" source="test data" type="ERROR">
         <paragraph>
             Substitution definition "c" exceeds the line-length-limit.
-""".format(b, c)],
+"""],
 ])
 
 

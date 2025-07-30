@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-exporter-otlp-proto-http
-Version: 1.35.0
+Version: 1.36.0
 Summary: OpenTelemetry Collector Protobuf over HTTP Exporter
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-proto-http
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
@@ -21,9 +21,9 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Requires-Dist: googleapis-common-protos~=1.52
 Requires-Dist: opentelemetry-api~=1.15
-Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.35.0
-Requires-Dist: opentelemetry-proto==1.35.0
-Requires-Dist: opentelemetry-sdk~=1.35.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.36.0
+Requires-Dist: opentelemetry-proto==1.36.0
+Requires-Dist: opentelemetry-sdk~=1.36.0
 Requires-Dist: requests~=2.7
 Requires-Dist: typing-extensions>=4.5.0
 Description-Content-Type: text/x-rst
