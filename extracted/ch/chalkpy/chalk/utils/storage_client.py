@@ -24,7 +24,6 @@ from typing import (
 )
 
 import pyarrow.parquet as pq
-from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 from typing_extensions import assert_never, override
 
 from chalk.utils.async_helpers import to_async_iterable
@@ -150,15 +149,6 @@ class StorageClient(Protocol):
         ...
 
 
-def _log_upload_retry(state: RetryCallState) -> None:
-    if state.outcome is not None:
-        safe_incr(
-            counter="chalk.engine.gcs_bulk_upload_output.retry",
-            value=state.attempt_number,
-            tags=[f"success:{not state.outcome.failed}"],
-        )
-
-
 class ParquetStorageClient:
     def __init__(self, fs: AbstractFileSystem, file_normalizer_fn: Callable[[str], str]):
         super().__init__()
@@ -222,6 +212,16 @@ class GCSStorageClient(StorageClient):
         blob = self._bucket.blob(filename)
         blob.metadata = metadata
         _logger.debug(f"Uploading file '{file_uri}' of size {num_bytes} bytes")
+
+        from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
+
+        def _log_upload_retry(state: RetryCallState) -> None:
+            if state.outcome is not None:
+                safe_incr(
+                    counter="chalk.engine.gcs_bulk_upload_output.retry",
+                    value=state.attempt_number,
+                    tags=[f"success:{not state.outcome.failed}"],
+                )
 
         # Empirically this appears to fail occasionally, so let's just try it five times.
         # FIXME: Configure the retrying on the google storage client, instead of doing our own wrapper around it

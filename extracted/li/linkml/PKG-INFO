@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: linkml
-Version: 1.9.2
+Version: 1.9.3
 Summary: Linked Open Data Modeling Language
 License: Apache-2.0
 Keywords: schema,linked data,data modeling,rdf,owl,biolink
@@ -34,7 +34,7 @@ Requires-Dist: isodate (>=0.6.0)
 Requires-Dist: jinja2 (>=3.1.0)
 Requires-Dist: jsonasobj2 (>=1.0.3,<2.0.0)
 Requires-Dist: jsonschema[format] (>=4.0.0)
-Requires-Dist: linkml-runtime (>=1.9.2,<2.0.0)
+Requires-Dist: linkml-runtime (>=1.9.4,<2.0.0)
 Requires-Dist: numpydantic (>=1.6.1) ; extra == "numpydantic"
 Requires-Dist: numpydantic (>=1.6.1) ; extra == "tests"
 Requires-Dist: openpyxl

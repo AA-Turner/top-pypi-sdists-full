@@ -44,7 +44,7 @@ class IngestClient(NamespacedClient):
           <p>Delete one or more IP geolocation database configurations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-delete-geoip-database>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-delete-geoip-database>`_
 
         :param id: A comma-separated list of geoip database configurations to delete
         :param master_timeout: The period to wait for a connection to the master node.
@@ -98,7 +98,7 @@ class IngestClient(NamespacedClient):
           <p>Delete IP geolocation database configurations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-delete-ip-location-database>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-delete-ip-location-database>`_
 
         :param id: A comma-separated list of IP location database configurations.
         :param master_timeout: The period to wait for a connection to the master node.
@@ -155,7 +155,7 @@ class IngestClient(NamespacedClient):
           Delete one or more ingest pipelines.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-delete-pipeline>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-delete-pipeline>`_
 
         :param id: Pipeline ID or wildcard expression of pipeline IDs used to limit the
             request. To delete all ingest pipelines in a cluster, use a value of `*`.
@@ -248,7 +248,7 @@ class IngestClient(NamespacedClient):
           <p>Get information about one or more IP geolocation database configurations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-get-geoip-database>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-get-geoip-database>`_
 
         :param id: A comma-separated list of database configuration IDs to retrieve.
             Wildcard (`*`) expressions are supported. To get all database configurations,
@@ -288,7 +288,6 @@ class IngestClient(NamespacedClient):
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -297,15 +296,11 @@ class IngestClient(NamespacedClient):
           <p>Get IP geolocation database configurations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-get-ip-location-database>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-get-ip-location-database>`_
 
         :param id: Comma-separated list of database configuration IDs to retrieve. Wildcard
             (`*`) expressions are supported. To get all database configurations, omit
             this parameter or use `*`.
-        :param master_timeout: The period to wait for a connection to the master node.
-            If no response is received before the timeout expires, the request fails
-            and returns an error. A value of `-1` indicates that the request should never
-            time out.
         """
         __path_parts: t.Dict[str, str]
         if id not in SKIP_IN_PATH:
@@ -321,8 +316,6 @@ class IngestClient(NamespacedClient):
             __query["filter_path"] = filter_path
         if human is not None:
             __query["human"] = human
-        if master_timeout is not None:
-            __query["master_timeout"] = master_timeout
         if pretty is not None:
             __query["pretty"] = pretty
         __headers = {"accept": "application/json"}
@@ -355,7 +348,7 @@ class IngestClient(NamespacedClient):
           This API returns a local reference of the pipeline.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-get-pipeline>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-get-pipeline>`_
 
         :param id: Comma-separated list of pipeline IDs to retrieve. Wildcard (`*`) expressions
             are supported. To get all ingest pipelines, omit this parameter or use `*`.
@@ -459,7 +452,7 @@ class IngestClient(NamespacedClient):
           <p>Refer to the create or update IP geolocation database configuration API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-put-geoip-database>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-put-geoip-database>`_
 
         :param id: ID of the database configuration to create or update.
         :param maxmind: The configuration necessary to identify which IP geolocation
@@ -534,7 +527,7 @@ class IngestClient(NamespacedClient):
           <p>Create or update an IP geolocation database configuration.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-put-ip-location-database>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-put-ip-location-database>`_
 
         :param id: The database configuration identifier.
         :param configuration:
@@ -717,7 +710,7 @@ class IngestClient(NamespacedClient):
           You can either specify an existing pipeline to use with the provided documents or supply a pipeline definition in the body of the request.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-ingest-simulate>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-ingest-simulate>`_
 
         :param docs: Sample documents to test in the pipeline.
         :param id: The pipeline to test. If you don't specify a `pipeline` in the request

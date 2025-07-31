@@ -6,7 +6,7 @@ from starlette.routing import BaseRoute
 
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.state import state_snapshot_to_thread_state
-from langgraph_api.utils import fetchone, validate_uuid
+from langgraph_api.utils import fetchone, get_pagination_headers, validate_uuid
 from langgraph_api.validation import (
     ThreadCreate,
     ThreadPatch,
@@ -58,20 +58,23 @@ async def search_threads(
 ):
     """List threads."""
     payload = await request.json(ThreadSearchRequest)
+    limit = int(payload.get("limit") or 10)
+    offset = int(payload.get("offset") or 0)
     async with connect() as conn:
-        iter, total = await Threads.search(
+        threads_iter, next_offset = await Threads.search(
             conn,
             status=payload.get("status"),
             values=payload.get("values"),
             metadata=payload.get("metadata"),
-            limit=payload.get("limit") or 10,
-            offset=payload.get("offset") or 0,
+            limit=limit,
+            offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
         )
-    return ApiResponse(
-        [thread async for thread in iter], headers={"X-Pagination-Total": str(total)}
+    threads, response_headers = await get_pagination_headers(
+        threads_iter, next_offset, offset
     )
+    return ApiResponse(threads, headers=response_headers)
 
 
 @retry_db

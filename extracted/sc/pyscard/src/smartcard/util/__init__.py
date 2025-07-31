@@ -103,11 +103,11 @@ def toBytes(bytestring: str) -> list[int]:
 
     try:
         return list(bytes.fromhex(bytestring))
-    except ValueError:
-        raise TypeError("not a string representing a list of bytes")
+    except ValueError as exc:
+        raise TypeError("not a string representing a list of bytes") from exc
 
 
-"""GSM3.38 character conversion table."""
+# GSM3.38 character conversion table.
 __dic_GSM_3_38__ = {
     "@": 0x00,  # @ At symbol
     "£": 0x01,  # £ Britain pound symbol
@@ -192,14 +192,14 @@ def toGSM3_38Bytes(stringtoconvert: str | bytes) -> list[int]:
     return result
 
 
-def toHexString(data: list[int] | None = None, format: int = 0) -> str:
+def toHexString(data: list[int] | None = None, output_format: int = 0) -> str:
     """Convert a list of integers to a formatted string of hexadecimal.
 
     Integers larger than 255 will be truncated to two-byte hexadecimal pairs.
 
     @param data:   a list of bytes to stringify,
                 e.g. [59, 22, 148, 32, 2, 1, 0, 0, 13]
-    @param format: a logical OR of
+    @param output_format: a logical OR of
       - COMMA: add a comma between bytes
       - HEX: add the 0x chars before bytes
       - UPPERCASE: use 0X before bytes (need HEX)
@@ -230,12 +230,12 @@ def toHexString(data: list[int] | None = None, format: int = 0) -> str:
 
     pformat = "%-0.2X"
     separator = ""
-    if COMMA & format:
+    if COMMA & output_format:
         separator = ","
-    if not PACK & format:
+    if not PACK & output_format:
         separator += " "
-    if HEX & format:
-        if UPPERCASE & format:
+    if HEX & output_format:
+        if UPPERCASE & output_format:
             pformat = "0X" + pformat
         else:
             pformat = "0x" + pformat

@@ -52,6 +52,22 @@ class PlanSqlQueryResponse(_message.Message):
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...
 
+class GetDbCatalogsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetDbCatalogsResponse(_message.Message):
+    __slots__ = ("catalog_names", "errors")
+    CATALOG_NAMES_FIELD_NUMBER: _ClassVar[int]
+    ERRORS_FIELD_NUMBER: _ClassVar[int]
+    catalog_names: _containers.RepeatedScalarFieldContainer[str]
+    errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    def __init__(
+        self,
+        catalog_names: _Optional[_Iterable[str]] = ...,
+        errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+    ) -> None: ...
+
 class GetDbSchemasRequest(_message.Message):
     __slots__ = ("catalog", "db_schema_filter_pattern", "errors")
     CATALOG_FIELD_NUMBER: _ClassVar[int]

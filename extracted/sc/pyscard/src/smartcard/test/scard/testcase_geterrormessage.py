@@ -30,7 +30,18 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import sys
 import unittest
 
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_E_INVALID_HANDLE,
+    SCARD_SCOPE_USER,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardListReaders,
+    SCardReleaseContext,
+)
+
+if "win32" == sys.platform:
+    # pylint: disable=no-name-in-module
+    from smartcard.scard import ERROR_INVALID_HANDLE
 
 
 class testcase_geterrormessage(unittest.TestCase):
@@ -45,25 +56,19 @@ class testcase_geterrormessage(unittest.TestCase):
         self.assertEqual(hresult, 0)
 
     def test_getErrorMessage(self):
-        hresult, readers = SCardListReaders(self.hcontext, [])
+        hresult, _readers = SCardListReaders(self.hcontext, [])
         self.assertEqual(hresult, 0)
 
         hresult = SCardReleaseContext(pow(2, 63) >> 60)
+        expected = "Invalid handle."
         if "win32" == sys.platform:
-            self.assertEqual(
-                (SCARD_E_INVALID_HANDLE == hresult or ERROR_INVALID_HANDLE == hresult),
-                True,
+            self.assertTrue(
+                hresult in (SCARD_E_INVALID_HANDLE, ERROR_INVALID_HANDLE),
             )
+            expected = "The handle is invalid."
         else:
-            self.assertEqual((SCARD_E_INVALID_HANDLE == hresult), True)
-        self.assertEqual(
-            (
-                SCardGetErrorMessage(hresult).rstrip() == "Invalid handle.".rstrip()
-                or SCardGetErrorMessage(hresult).rstrip()
-                == "The handle is invalid.".rstrip()
-            ),
-            True,
-        )
+            self.assertEqual(SCARD_E_INVALID_HANDLE, hresult)
+        self.assertEqual(SCardGetErrorMessage(hresult), expected)
 
 
 def suite():

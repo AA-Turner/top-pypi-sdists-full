@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify_client"
-version = "1.12.0"
+version = "1.12.1"
 description = "Apify API client for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -12,6 +12,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -24,35 +25,37 @@ classifiers = [
 ]
 keywords = ["apify", "api", "client", "automation", "crawling", "scraping"]
 dependencies = [
-    "apify-shared>=1.4.1",
-    "colorama~=0.4.0",
+    "apify-shared<2.0.0",
+    "colorama>=0.4.0",
     "httpx>=0.25",
     "more_itertools>=10.0.0",
 ]
 
 [project.urls]
+"Apify Homepage" = "https://apify.com"
 "Homepage" = "https://docs.apify.com/api/client/python/"
-"Apify homepage" = "https://apify.com"
-"Changelog" = "https://github.com/apify/apify-client-python/blob/master/CHANGELOG.md"
-"Documentation" = "https://docs.apify.com/api/client/python/"
-"Issue tracker" = "https://github.com/apify/apify-client-python/issues"
-"Repository" = "https://github.com/apify/apify-client-python"
+"Changelog" = "https://docs.apify.com/api/client/python/docs/changelog"
+"Discord" = "https://discord.com/invite/jyEM2PRvMU"
+"Documentation" = "https://docs.apify.com/api/client/python/docs/overview/introduction"
+"Issue Tracker" = "https://github.com/apify/apify-client-python/issues"
+"Source Code" = "https://github.com/apify/apify-client-python"
 
 [dependency-groups]
 dev = [
-    "griffe~=1.7.0",
-    "mypy~=1.16.0",
+    "dycw-pytest-only>=2.1.1",
+    "griffe~=1.9.0",
+    "mypy~=1.17.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",
-    "pytest-asyncio~=1.0.0",
+    "pytest-asyncio~=1.1.0",
     "pytest-cov~=6.2.0",
-    "pytest-only~=2.1.0",
-    "pytest-xdist~=3.7.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist~=3.8.0",
     "pytest~=8.4.0",
     "redbaron~=0.9.0",
     "respx~=0.22.0",
-    "ruff~=0.11.0",
-    "setuptools",  # setuptools are used by pytest but not explicitly required
+    "ruff~=0.12.0",
+    "setuptools", # setuptools are used by pytest but not explicitly required
     "types-colorama~=0.4.15.20240106",
 ]
 

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: synchronicity
-Version: 0.10.1
+Version: 0.10.2
 Summary: Export blocking and async library versions from a single async implementation
 Author: Modal Labs
 License-File: LICENSE
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: sigtools>=4.0.1
 Requires-Dist: typing-extensions>=4.12.2
 Description-Content-Type: text/markdown

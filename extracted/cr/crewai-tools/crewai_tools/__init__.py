@@ -10,6 +10,7 @@ from .aws import (
 from .tools import (
     AIMindTool,
     ApifyActorsTool,
+    ArxivPaperTool,
     BraveSearchTool,
     BrowserbaseLoadTool,
     CodeDocsSearchTool,
@@ -71,6 +72,8 @@ from .tools import (
     SnowflakeSearchTool,
     SpiderTool,
     StagehandTool,
+    TavilyExtractorTool,
+    TavilySearchTool,
     TXTSearchTool,
     VisionTool,
     WeaviateVectorSearchTool,

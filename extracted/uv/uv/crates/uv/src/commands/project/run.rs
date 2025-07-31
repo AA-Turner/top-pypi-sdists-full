@@ -19,7 +19,7 @@ use uv_cli::ExternalCommand;
 use uv_client::BaseClientBuilder;
 use uv_configuration::{
     Concurrency, Constraints, DependencyGroups, DryRun, EditableMode, ExtrasSpecification,
-    InstallOptions, PreviewMode,
+    InstallOptions, Preview,
 };
 use uv_distribution_types::Requirement;
 use uv_fs::which::is_executable;
@@ -53,8 +53,8 @@ use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
     EnvironmentSpecification, PreferenceLocation, ProjectEnvironment, ProjectError,
     ScriptEnvironment, ScriptInterpreter, UniversalState, WorkspacePython,
-    default_dependency_groups, script_specification, update_environment,
-    validate_project_requires_python,
+    default_dependency_groups, script_extra_build_requires, script_specification,
+    update_environment, validate_project_requires_python,
 };
 use crate::commands::reporters::PythonDownloadReporter;
 use crate::commands::{ExitStatus, diagnostics, project};
@@ -94,7 +94,7 @@ pub(crate) async fn run(
     printer: Printer,
     env_file: Vec<PathBuf>,
     no_env_file: bool,
-    preview: PreviewMode,
+    preview: Preview,
     max_recursion_depth: u32,
 ) -> anyhow::Result<ExitStatus> {
     // Check if max recursion depth was exceeded. This most commonly happens
@@ -359,6 +359,8 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
 
             // Install the script requirements, if necessary. Otherwise, use an isolated environment.
             if let Some(spec) = script_specification((&script).into(), &settings.resolver)? {
+                let script_extra_build_requires =
+                    script_extra_build_requires((&script).into(), &settings.resolver)?;
                 let environment = ScriptEnvironment::get_or_init(
                     (&script).into(),
                     python.as_deref().map(PythonRequest::parse),
@@ -407,6 +409,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     spec,
                     modifications,
                     build_constraints.unwrap_or_default(),
+                    script_extra_build_requires,
                     &settings,
                     &network_settings,
                     &sync_state,
@@ -1803,8 +1806,15 @@ fn copy_entrypoint(
 ' '''
 "#,
         )
-        // Or an absolute path shebang
+        // Or, an absolute path shebang
         .or_else(|| contents.strip_prefix(&format!("#!{}\n", previous_executable.display())))
+        // If the previous executable ends with `python3`, check for a shebang with `python` too
+        .or_else(|| {
+            previous_executable
+                .to_str()
+                .and_then(|path| path.strip_suffix("3"))
+                .and_then(|path| contents.strip_prefix(&format!("#!{path}\n")))
+        })
     else {
         // If it's not a Python shebang, we'll skip it
         trace!(

@@ -406,9 +406,13 @@ _DENSE_ONLY_METHODS = {
     "lu",
     "svdamr",
 }
+# methods whose left factor is isometric
 _LEFT_ISOM_METHODS = {"qr", "polar_right"}
+# methods whose right factor is isometric
 _RIGHT_ISOM_METHODS = {"lq", "polar_left"}
-_ISOM_METHODS = {"svd", "eig", "eigh", "isvd", "svds", "rsvd", "eigsh"}
+# methods whose left and right factors are isometric, depending
+# on where the 'singular/eigen' values are absorbed
+_BOTH_ISOM_METHODS = {"svd", "eig", "eigh", "isvd", "svds", "rsvd", "eigsh"}
 
 _CUTOFF_LOOKUP = {None: -1.0}
 _ABSORB_LOOKUP = {"left": -1, "both": 0, "right": 1, None: None}
@@ -456,10 +460,10 @@ def _parse_split_opts(method, cutoff, absorb, max_bond, cutoff_mode, renorm):
 @functools.lru_cache(None)
 def _check_left_right_isom(method, absorb):
     left_isom = (method in _LEFT_ISOM_METHODS) or (
-        method in _ISOM_METHODS and absorb in (None, "right")
+        method in _BOTH_ISOM_METHODS and absorb in (None, "right")
     )
-    right_isom = (method == _RIGHT_ISOM_METHODS) or (
-        method in _ISOM_METHODS and absorb in (None, "left")
+    right_isom = (method in _RIGHT_ISOM_METHODS) or (
+        method in _BOTH_ISOM_METHODS and absorb in (None, "left")
     )
     return left_isom, right_isom
 
@@ -1866,12 +1870,14 @@ class Tensor:
                 # index will be kept (including a partial slice of entries)
                 new_inds.append(ix)
                 data_loc.append(sel)
-            elif sel == "r":
+            elif isinstance(sel, str) and sel == "r":
                 # eagerly remove any 'random' selections
                 T.rand_reduce_(ix)
             else:
                 # index will be removed by selecting a specific index
-                data_loc.append(int(sel))
+                if isinstance(sel, str):
+                    sel = int(sel)
+                data_loc.append(sel)
 
         T.modify(
             apply=lambda x: x[tuple(data_loc)], inds=new_inds, left_inds=None
@@ -9174,13 +9180,14 @@ class TensorNetwork(object):
         Parameters
         ----------
         tags : sequence of str, all, or Ellipsis, optional
-            Any tensors with any of these tags with be contracted. Use ``all``
+            Any tensors with any of these tags will be contracted. Use ``all``
             or ``...`` (``Ellipsis``) to contract all tensors. ``...`` will try
             and use a 'structured' contract method if possible.
         output_inds : sequence of str, optional
             The indices to specify as outputs of the contraction. If not given,
             and the tensor network has no hyper-indices, these are computed
-            automatically as every index appearing once.
+            automatically as every index appearing once. If the network has
+            hyper-indices, `output_inds` must be specified.
         optimize : str, PathOptimizer, ContractionTree or path_like, optional
             The contraction path optimization strategy to use.
 
@@ -9222,8 +9229,9 @@ class TensorNetwork(object):
             Which backend to use to perform the contraction. Supplied to
             `cotengra`.
         inplace : bool, optional
-            Whether to perform the contraction inplace. This is only valid
-            if not all tensors are contracted (which doesn't produce a TN).
+            Whether to perform the contraction inplace. If ``True`` and all
+            tensors are being contracted, this forces the return type to
+            be preserved as a ``TensorNetwork``.
         kwargs
             Passed to :func:`~quimb.tensor.tensor_core.tensor_contract`,
             :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract_compressed`
@@ -9233,7 +9241,7 @@ class TensorNetwork(object):
         -------
         TensorNetwork, Tensor or scalar
             The result of the contraction, still a ``TensorNetwork`` if the
-            contraction was only partial.
+            contraction was only partial or `inplace=True` was used.
 
         See Also
         --------

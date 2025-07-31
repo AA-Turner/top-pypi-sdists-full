@@ -26,15 +26,32 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
-import platform
-
 # import local_config for reader/card configuration
 # configcheck.py is generating local_config.py in
 # the test suite.
 import sys
 import unittest
 
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_E_TIMEOUT,
+    SCARD_SCOPE_USER,
+    SCARD_STATE_CHANGED,
+    SCARD_STATE_PRESENT,
+    SCARD_STATE_UNAWARE,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardGetStatusChange,
+    SCardListReaders,
+    SCardReleaseContext,
+    resourceManager,
+)
+
+if "winscard" == resourceManager:
+    # pylint: disable=no-name-in-module
+    from smartcard.scard import (
+        SCardListCards,
+        SCardLocateCards,
+    )
 
 sys.path += [".."]
 
@@ -71,8 +88,8 @@ class testcase_locatecards(unittest.TestCase):
             self.assertEqual(hresult, 0)
 
             readerstates = []
-            for i in range(len(readers)):
-                readerstates += [(readers[i], SCARD_STATE_UNAWARE)]
+            for reader in readers:
+                readerstates += [(reader, SCARD_STATE_UNAWARE)]
 
             hresult, newstates = SCardLocateCards(self.hcontext, cards, readerstates)
             self.assertEqual(hresult, 0)
@@ -96,8 +113,8 @@ class testcase_locatecards(unittest.TestCase):
 
         elif "pcsclite" == resourceManager:
             readerstates = []
-            for i in range(len(readers)):
-                readerstates += [(readers[i], SCARD_STATE_UNAWARE)]
+            for reader in readers:
+                readerstates += [(reader, SCARD_STATE_UNAWARE)]
 
             hresult, newstates = SCardGetStatusChange(self.hcontext, 0, readerstates)
             self.assertEqual(hresult, 0)

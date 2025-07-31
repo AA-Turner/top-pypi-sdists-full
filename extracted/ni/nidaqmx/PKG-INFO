@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: nidaqmx
-Version: 1.1.0
+Version: 1.2.0
 Summary: NI-DAQmx Python API
-Home-page: https://github.com/ni/nidaqmx-python
 License: MIT
 Keywords: nidaqmx,nidaq,daqmx,daq
 Author: NI
@@ -26,31 +25,26 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Hardware :: Hardware Drivers
-Provides-Extra: docs
 Provides-Extra: grpc
-Requires-Dist: Sphinx (>=5.0) ; extra == "docs"
-Requires-Dist: click (>=8.0.0)
+Requires-Dist: click (>=8.0.0) ; python_version >= "3.10" and python_version < "4.0"
+Requires-Dist: click (>=8.0.0,<8.2.0) ; python_version == "3.9"
 Requires-Dist: deprecation (>=2.1)
 Requires-Dist: distro (>=1.9.0) ; sys_platform == "linux"
 Requires-Dist: grpcio (>=1.49.0,<2.0) ; extra == "grpc"
-Requires-Dist: hightime (>=0.2.2,<0.3.0)
+Requires-Dist: hightime (>=0.2.2)
 Requires-Dist: numpy (>=1.22) ; python_version >= "3.9" and python_version < "3.12"
-Requires-Dist: numpy (>=1.26) ; python_version >= "3.12" and python_version < "3.13"
+Requires-Dist: numpy (>=1.26) ; python_version == "3.12"
 Requires-Dist: numpy (>=2.1) ; python_version >= "3.13" and python_version < "4.0"
 Requires-Dist: protobuf (>=4.21) ; extra == "grpc"
 Requires-Dist: python-decouple (>=3.8)
 Requires-Dist: requests (>=2.25.0)
-Requires-Dist: sphinx_rtd_theme (>=1.0) ; extra == "docs"
-Requires-Dist: toml (>=0.10.2) ; extra == "docs"
 Requires-Dist: tzlocal (>=5.0,<6.0)
 Project-URL: Documentation, https://nidaqmx-python.readthedocs.io
 Project-URL: Repository, https://github.com/ni/nidaqmx-python
 Description-Content-Type: text/x-rst
 
 +------------+-----------------------------------------------------------+
-| **Info**   | Contains a Python API for interacting with NI-DAQmx. See  | 
-|            | `GitHub <https://github.com/ni/nidaqmx-python/>`_ for the |
-|            | latest source.                                            |
+| **Info**   | NI-DAQmx API for Python                                   | 
 +------------+-----------------------------------------------------------+
 | **Author** | National Instruments                                      |
 +------------+-----------------------------------------------------------+
@@ -63,7 +57,8 @@ About
 =====
 
 The **nidaqmx** package allows you to develop instrumentation, acquisition, and 
-control applications with NI data acquisition (DAQ) devices in Python.
+control applications with NI data acquisition (DAQ) devices in Python. NI
+created and supports this package.
 
 Documentation
 -------------
@@ -437,9 +432,4 @@ License
 `LICENSE <https://github.com/ni/nidaqmx-python/blob/master/LICENSE>`_).
 Other incorporated projects may be licensed under different licenses. All
 licenses allow for non-commercial and commercial use.
-
-**gRPC Features**
-For driver APIs that support it, passing a GrpcSessionOptions instance as a
-parameter is subject to the NI General Purpose EULA
-(`see NILICENSE <https://github.com/ni/nidaqmx-python/blob/master/NILICENSE>`_).
 

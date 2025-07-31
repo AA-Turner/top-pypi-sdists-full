@@ -3657,6 +3657,11 @@ FROM subquery2""",
         )
 
     def test_between(self):
+        between = exp.column("x").between(1, 2)
+        self.assertEqual(between.sql("postgres"), "x BETWEEN 1 AND 2")
+        self.assertEqual(between.sql("redshift"), "x BETWEEN 1 AND 2")
+        self.assertFalse("symmetric" in between.args)
+
         self.validate_all(
             "SELECT x BETWEEN 2 AND 10",
             read={
@@ -3664,33 +3669,42 @@ FROM subquery2""",
                 "clickhouse": "SELECT x BETWEEN 2 AND 10",
                 "dremio": "SELECT x BETWEEN 2 AND 10",
                 "duckdb": "SELECT x BETWEEN 2 AND 10",
-                "tsql": "SELECT x BETWEEN 2 AND 10",
-                "oracle": "SELECT x BETWEEN 2 AND 10",
+                "materialize": "SELECT x BETWEEN 2 AND 10",
                 "mysql": "SELECT x BETWEEN 2 AND 10",
+                "oracle": "SELECT x BETWEEN 2 AND 10",
                 "postgres": "SELECT x BETWEEN 2 AND 10",
+                "redshift": "SELECT x BETWEEN 2 AND 10",
+                "risingwave": "SELECT x BETWEEN 2 AND 10",
+                "tsql": "SELECT x BETWEEN 2 AND 10",
             },
             write={
                 "": "SELECT x BETWEEN 2 AND 10",
                 "clickhouse": "SELECT x BETWEEN 2 AND 10",
                 "dremio": "SELECT x BETWEEN 2 AND 10",
                 "duckdb": "SELECT x BETWEEN 2 AND 10",
-                "tsql": "SELECT x BETWEEN 2 AND 10",
-                "oracle": "SELECT x BETWEEN 2 AND 10",
+                "materialize": "SELECT x BETWEEN 2 AND 10",
                 "mysql": "SELECT x BETWEEN 2 AND 10",
+                "oracle": "SELECT x BETWEEN 2 AND 10",
                 "postgres": "SELECT x BETWEEN 2 AND 10",
+                "redshift": "SELECT x BETWEEN 2 AND 10",
+                "risingwave": "SELECT x BETWEEN 2 AND 10",
+                "tsql": "SELECT x BETWEEN 2 AND 10",
             },
         )
 
         self.validate_all(
             "SELECT x BETWEEN SYMMETRIC 10 AND 2",
             write={
-                "dremio": "SELECT x BETWEEN SYMMETRIC 10 AND 2",
-                "postgres": "SELECT x BETWEEN SYMMETRIC 10 AND 2",
                 "": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
+                "clickhouse": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
+                "dremio": "SELECT x BETWEEN SYMMETRIC 10 AND 2",
+                "duckdb": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
+                "materialize": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
                 "mysql": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
                 "oracle": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
-                "duckdb": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
-                "clickhouse": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
+                "postgres": "SELECT x BETWEEN SYMMETRIC 10 AND 2",
+                "redshift": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
+                "risingwave": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
                 "tsql": "SELECT (x BETWEEN 10 AND 2 OR x BETWEEN 2 AND 10)",
             },
         )
@@ -3698,13 +3712,56 @@ FROM subquery2""",
         self.validate_all(
             "SELECT x BETWEEN ASYMMETRIC 10 AND 2",
             write={
-                "dremio": "SELECT x BETWEEN ASYMMETRIC 10 AND 2",
-                "postgres": "SELECT x BETWEEN ASYMMETRIC 10 AND 2",
                 "": "SELECT x BETWEEN 10 AND 2",
+                "clickhouse": "SELECT x BETWEEN 10 AND 2",
+                "dremio": "SELECT x BETWEEN ASYMMETRIC 10 AND 2",
+                "duckdb": "SELECT x BETWEEN 10 AND 2",
+                "materialize": "SELECT x BETWEEN 10 AND 2",
                 "mysql": "SELECT x BETWEEN 10 AND 2",
                 "oracle": "SELECT x BETWEEN 10 AND 2",
-                "duckdb": "SELECT x BETWEEN 10 AND 2",
-                "clickhouse": "SELECT x BETWEEN 10 AND 2",
+                "postgres": "SELECT x BETWEEN ASYMMETRIC 10 AND 2",
+                "redshift": "SELECT x BETWEEN 10 AND 2",
+                "risingwave": "SELECT x BETWEEN 10 AND 2",
                 "tsql": "SELECT x BETWEEN 10 AND 2",
+            },
+        )
+
+    def test_like_quantifiers(self):
+        for quantifier in ("ANY", "ALL"):
+            connector = "OR" if quantifier == "ANY" else "AND"
+
+            with self.subTest(f"Testing LIKE {quantifier}"):
+                self.validate_all(
+                    f"SELECT col LIKE {quantifier} (x, y, z)",
+                    read={
+                        "": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "bigquery": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "snowflake": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "spark": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "databricks": f"SELECT col LIKE {quantifier} (x, y, z)",
+                    },
+                    write={
+                        "bigquery": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "snowflake": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "spark": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "databricks": f"SELECT col LIKE {quantifier} (x, y, z)",
+                        "duckdb": f"SELECT (col LIKE x {connector} col LIKE y) {connector} col LIKE z",
+                    },
+                )
+
+            with self.subTest(f"Testing ILIKE {quantifier}"):
+                self.validate_all(
+                    f"SELECT col ILIKE {quantifier} (x, y, z)",
+                    write={
+                        "": f"SELECT col ILIKE {quantifier} (x, y, z)",
+                        "duckdb": f"SELECT (col ILIKE x {connector} col ILIKE y) {connector} col ILIKE z",
+                    },
+                )
+
+        self.validate_all(
+            "SELECT 'foo' LIKE ANY((('bar', 'fo%')))",
+            write={
+                "": "SELECT 'foo' LIKE ANY((('bar', 'fo%')))",
+                "duckdb": "SELECT 'foo' LIKE 'bar' OR 'foo' LIKE 'fo%'",
             },
         )

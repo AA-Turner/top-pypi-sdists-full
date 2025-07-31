@@ -14,8 +14,6 @@
 
 import copy
 import logging
-import string
-import random
 from typing import TYPE_CHECKING, Dict, List, Optional, Union, Tuple
 
 import ibis.expr.datatypes as dt
@@ -101,7 +99,7 @@ class ConfigManager(object):
         The raw data type is the source/target engine type, for example it might
         be "NCLOB" or "char" when the Ibis type simply states "string".
         The data is cached in state when fetched for the first time.
-        The retuen value is keyed on the casefolded column name and the tuple is
+        The return value is keyed on the casefolded column name and the tuple is
         the remaining 6 elements of the DB API cursor description specification."""
         if self._source_raw_data_types is None:
             if hasattr(self.source_client, "raw_column_metadata"):
@@ -123,7 +121,7 @@ class ConfigManager(object):
         The raw data type is the source/target engine type, for example it might
         be "NCLOB" or "char" when the Ibis type simply states "string".
         The data is cached in state when fetched for the first time.
-        The retuen value is keyed on the casefolded column name and the tuple is
+        The return value is keyed on the casefolded column name and the tuple is
         the remaining 6 elements of the DB API cursor description specification."""
         if self._target_raw_data_types is None:
             if hasattr(self.target_client, "raw_column_metadata"):
@@ -176,8 +174,9 @@ class ConfigManager(object):
         return self.random_row_batch_size() if self.use_random_rows() else None
 
     def trim_string_pks(self):
-        """Return if the validation should trim string primary keys."""
-        return self._config.get(consts.CONFIG_TRIM_STRING_PKS) or False
+        # Even though trim_string_pks has been deprecated, some yaml files may have that config.
+        """Return if the validation should trim string primary keys, now deprecated"""
+        return self._config.get(consts.CONFIG_TRIM_STRING_PKS, False)
 
     def case_insensitive_match(self):
         """Return if the validation should perform a case insensitive match."""
@@ -332,13 +331,11 @@ class ConfigManager(object):
 
     @property
     def full_source_table(self):
-        """Return string value of target table."""
+        """Return string value of fully qualified source table."""
         if self.source_table and self.source_schema:
             return self.source_schema + "." + self.source_table
-        elif self.source_table:
-            return self.source_table
         else:
-            return f"custom.{''.join(random.choice(string.ascii_lowercase) for _ in range(5))}"
+            return self.source_table
 
     @property
     def labels(self):
@@ -518,7 +515,6 @@ class ConfigManager(object):
         result_handler_config=None,
         filter_config=None,
         filter_status=None,
-        trim_string_pks=None,
         case_insensitive_match=None,
         concat=None,
         hash=None,
@@ -551,7 +547,6 @@ class ConfigManager(object):
             consts.CONFIG_USE_RANDOM_ROWS: use_random_rows,
             consts.CONFIG_RANDOM_ROW_BATCH_SIZE: random_row_batch_size,
             consts.CONFIG_FILTER_STATUS: filter_status,
-            consts.CONFIG_TRIM_STRING_PKS: trim_string_pks,
             consts.CONFIG_CASE_INSENSITIVE_MATCH: case_insensitive_match,
             consts.CONFIG_ROW_CONCAT: concat,
             consts.CONFIG_ROW_HASH: hash,
@@ -982,9 +977,10 @@ class ConfigManager(object):
                 "date",
                 "!date",
             ] and agg_type in (
-                "sum",
-                "avg",
-                "bit_xor",
+                consts.CONFIG_TYPE_AVG,
+                consts.CONFIG_TYPE_BIT_XOR,
+                consts.CONFIG_TYPE_STD,
+                consts.CONFIG_TYPE_SUM,
             ):
                 # For timestamps: do not convert to epoch seconds for min/max
                 return True
@@ -1078,7 +1074,15 @@ class ConfigManager(object):
                     target_column_ibis_type,
                     margin=(2 if agg_type == consts.CONFIG_TYPE_SUM else 0),
                 ):
-                    aggregate_config[consts.CONFIG_CAST] = "string"
+                    if agg_type in (consts.CONFIG_TYPE_STD, consts.CONFIG_TYPE_AVG):
+                        # std and avg change the shape of the column result and we
+                        # can't know how to format them reliably, float64 is our best bet.
+                        # This may be lossy and generate false success validations.
+                        aggregate_config[consts.CONFIG_CAST] = "float64"
+                    else:
+                        # Other agg types should retain the shape of the results and can be
+                        # reliably formated as strings when the Pandas native types will overflow.
+                        aggregate_config[consts.CONFIG_CAST] = "string"
 
             aggregate_configs.append(aggregate_config)
 
@@ -1203,8 +1207,8 @@ class ConfigManager(object):
         return order_of_operations
 
     def _filter_columns_by_column_list(
-        self, casefold_columns: list, col_list: list, exclude_cols: bool
-    ) -> list:
+        self, casefold_columns: dict, col_list: list, exclude_cols: bool = False
+    ) -> dict:
         if col_list:
             filter_list = [_.casefold() for _ in col_list]
             if exclude_cols:
@@ -1223,9 +1227,7 @@ class ConfigManager(object):
             )
         return casefold_columns
 
-    def build_dependent_aliases(
-        self, calc_type: str, col_list=None, exclude_cols=False
-    ) -> List[Dict]:
+    def build_dependent_aliases(self, calc_type: str, col_list=None) -> List[Dict]:
         """This is a utility function for determining the required depth of all fields"""
         source_table = self.get_source_ibis_calculated_table()
         target_table = self.get_target_ibis_calculated_table()
@@ -1234,10 +1236,10 @@ class ConfigManager(object):
         casefold_target_columns = {x.casefold(): str(x) for x in target_table.columns}
 
         casefold_source_columns = self._filter_columns_by_column_list(
-            casefold_source_columns, col_list, exclude_cols
+            casefold_source_columns, col_list
         )
         casefold_target_columns = self._filter_columns_by_column_list(
-            casefold_target_columns, col_list, exclude_cols
+            casefold_target_columns, col_list
         )
 
         column_aliases = {}
@@ -1289,15 +1291,13 @@ class ConfigManager(object):
                     col_names.append(col)
         return col_names
 
-    def build_comp_fields(self, col_list: list, exclude_cols: bool = False) -> dict:
+    def build_comp_fields(self, col_list: list, exclude_cols: bool) -> dict:
         """This is a utility function processing comp-fields values like we do for hash/concat."""
         source_table = self.get_source_ibis_calculated_table()
         casefold_source_columns = {_.casefold(): str(_) for _ in source_table.columns}
-
         casefold_source_columns = self._filter_columns_by_column_list(
-            casefold_source_columns, col_list, exclude_cols
+            casefold_source_columns, col_list, exclude_cols=exclude_cols
         )
-
         return casefold_source_columns
 
     def auto_list_primary_keys(self) -> list:

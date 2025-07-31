@@ -43,16 +43,14 @@ def test_get_saved_channel_indices_from_spikeglx_meta():
 
 def test_NP1():
     probe = read_spikeglx(data_path / "Noise_g0_t0.imec0.ap.meta")
-    assert "1.0" in probe.model_name
+    assert "1.0" in probe.description
 
 
 def test_NP_phase3A():
     # Data provided by rtraghavan
     probe = read_spikeglx(data_path / "phase3a.imec.ap.meta")
 
-    assert probe.model_name == "Phase3a"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "Phase3a"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     assert probe.get_shank_count() == 1
@@ -68,16 +66,14 @@ def test_NP_phase3A():
 
 def test_NP2_1_shanks():
     probe = read_spikeglx(data_path / "p2_g0_t0.imec0.ap.meta")
-    assert "2.0" in probe.model_name
+    assert "2.0" in probe.description
     assert probe.get_shank_count() == 1
 
 
 def test_NP2_4_shanks():
     probe = read_spikeglx(data_path / "NP2_4_shanks.imec0.ap.meta")
 
-    assert probe.model_name == "Neuropixels 2.0 - Four Shank - Prototype"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "24"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     assert probe.get_shank_count() == 4
@@ -99,9 +95,7 @@ def test_NP2_2013_all():
     # Data provided by Jennifer Colonell
     probe = read_spikeglx(data_path / "NP2_2013_all_channels.imec0.ap.meta")
 
-    assert probe.model_name == "Neuropixels 2.0 - Four Shank"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "2013"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     # all channels are from the first shank
@@ -124,9 +118,7 @@ def test_NP2_2013_subset():
     # Data provided by Jennifer Colonell
     probe = read_spikeglx(data_path / "NP2_2013_subset_channels.imec0.ap.meta")
 
-    assert probe.model_name == "Neuropixels 2.0 - Four Shank"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "2013"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     # all channels are from the first shank
@@ -149,9 +141,7 @@ def test_NP2_4_shanks_with_different_electrodes_saved():
     # Data provided by Jennifer Colonell
     probe = read_spikeglx(data_path / "NP2_4_shanks_save_different_electrodes.imec0.ap.meta")
 
-    assert probe.model_name == "Neuropixels 2.0 - Four Shank - Prototype"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "24"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     assert probe.get_shank_count() == 4
@@ -173,7 +163,7 @@ def test_NP2_4_shanks_with_different_electrodes_saved():
 def test_NP1_large_depth_span():
     # Data provided by Tom Bugnon NP1 with large Depth span
     probe = read_spikeglx(data_path / "allan-longcol_g0_t0.imec0.ap.meta")
-    assert "1.0" in probe.model_name
+    assert "1.0" in probe.description
     assert probe.get_shank_count() == 1
     ypos = probe.contact_positions[:, 1]
     assert (np.max(ypos) - np.min(ypos)) > 7600
@@ -183,7 +173,7 @@ def test_NP1_other_example():
     # Data provided by Tom Bugnon NP1
     probe = read_spikeglx(data_path / "doppio-checkerboard_t0.imec0.ap.meta")
     print(probe)
-    assert "1.0" in probe.model_name
+    assert "1.0" in probe.description
     assert probe.get_shank_count() == 1
     ypos = probe.contact_positions[:, 1]
     assert (np.max(ypos) - np.min(ypos)) > 7600
@@ -201,9 +191,7 @@ def test_NPH_long_staggered():
     # Data provided by Nate Dolensek
     probe = read_spikeglx(data_path / "non_human_primate_long_staggered.imec0.ap.meta")
 
-    assert probe.model_name == "Neuropixels 1.0-NHP - long SOI90 staggered"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "1030"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     assert probe.get_shank_count() == 1
@@ -225,17 +213,17 @@ def test_NPH_long_staggered():
     # Every second contact the x position should increase by x_pitch
     increase = np.diff(x)
     every_second_increase = increase[::2]
-    x_pitch = 56
+    x_pitch = 87
     assert np.allclose(every_second_increase, x_pitch)
 
     # Every second contact should be staggered by contact_width
     every_second_contact = x[::2]
     staggered_values = np.abs(np.diff(every_second_contact))
-    contact_width = 12
+    contact_width = 16
     assert np.allclose(staggered_values, contact_width)
 
     # Every second contact should increase by y_pitch
-    y_pitch = 20.0
+    y_pitch = 20
     every_second_contact = y[::2]
     increase = np.diff(every_second_contact)
     assert np.allclose(increase, y_pitch)
@@ -257,9 +245,7 @@ def test_NPH_short_linear_probe_type_0():
     # Data provided by Jonathan A Michaels
     probe = read_spikeglx(data_path / "non_human_primate_short_linear_probe_type_0.meta")
 
-    assert probe.model_name == "Neuropixels 1.0-NHP - short"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "1015"
+    assert probe.manufacturer == "imec"
 
     assert probe.ndim == 2
     assert probe.get_shank_count() == 1
@@ -307,9 +293,7 @@ def test_ultra_probe():
     # Data provided by Alessio
     probe = read_spikeglx(data_path / "npUltra.meta")
 
-    assert probe.model_name == "Neuropixels Ultra (1 bank)"
-    assert probe.manufacturer == "IMEC"
-    assert probe.annotations["probe_type"] == "1100"
+    assert probe.manufacturer == "imec"
 
     # Test contact geometry
     contact_width = 5.0
@@ -333,7 +317,7 @@ def test_ultra_probe():
 
 def test_CatGT_NP1():
     probe = read_spikeglx(data_path / "catgt.meta")
-    assert "1.0" in probe.model_name
+    assert "1.0" in probe.description
 
 
 def test_snsGeomMap():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-readers-web
-Version: 0.4.5
+Version: 0.5.0
 Summary: llama-index readers web integration
 Author-email: Your Name <you@example.com>
 Maintainer: HawkClaws, Hironsan, NA, an-bluecat, bborn, jasonwcfan, kravetsmic, pandazki, ruze00, selamanse, thejessezhang
@@ -14,7 +14,7 @@ Requires-Dist: chromedriver-autoinstaller<0.7,>=0.6.3
 Requires-Dist: defusedxml<0.8,>=0.7.1
 Requires-Dist: html2text<2025,>=2024.2.26
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: llama-index-core<0.13,>=0.12.0
+Requires-Dist: llama-index-core<0.14,>=0.13.0
 Requires-Dist: lxml-html-clean>=0.4.2
 Requires-Dist: lxml>=5.4.0
 Requires-Dist: markdownify>=1.1.0

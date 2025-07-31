@@ -25,7 +25,26 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
-from smartcard.scard import *
+import sys
+
+from smartcard.scard import (
+    SCARD_ATTR_VENDOR_NAME,
+    SCARD_CTL_CODE,
+    SCARD_PROTOCOL_T0,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_SHARE_DIRECT,
+    SCARD_UNPOWER_CARD,
+    SCardConnect,
+    SCardControl,
+    SCardDisconnect,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardListReaders,
+    SCardReleaseContext,
+    error,
+    resourceManager,
+)
 from smartcard.util import toASCIIString, toBytes, toHexString
 
 try:
@@ -61,7 +80,7 @@ try:
                         hresult, response = SCardControl(
                             hcard,
                             SCARD_CTL_CODE(2),
-                            toBytes("%.8lx" % SCARD_ATTR_VENDOR_NAME),
+                            toBytes(f"{SCARD_ATTR_VENDOR_NAME:08x}"),
                         )
                         if hresult != SCARD_S_SUCCESS:
                             raise error(
@@ -97,8 +116,6 @@ try:
 
 except error as e:
     print(e)
-
-import sys
 
 if "win32" == sys.platform:
     print("press Enter to continue")

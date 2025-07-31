@@ -1,4 +1,8 @@
 #! /usr/bin/env python3
+
+# pylint: disable=invalid-name
+# pylint: disable=duplicate-code
+
 """Sample script for APDU error checking.
 
 __author__ = "https://www.gemalto.com/"

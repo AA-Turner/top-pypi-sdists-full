@@ -27,13 +27,35 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 import smartcard.util
-from smartcard.scard import *
+from smartcard.scard import (
+    INFINITE,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_STATE_ATRMATCH,
+    SCARD_STATE_CHANGED,
+    SCARD_STATE_EMPTY,
+    SCARD_STATE_EXCLUSIVE,
+    SCARD_STATE_IGNORE,
+    SCARD_STATE_INUSE,
+    SCARD_STATE_MUTE,
+    SCARD_STATE_PRESENT,
+    SCARD_STATE_UNAVAILABLE,
+    SCARD_STATE_UNAWARE,
+    SCARD_STATE_UNKNOWN,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardGetStatusChange,
+    SCardListReaders,
+    SCardReleaseContext,
+    error,
+)
 
 srTreeATR = [0x3B, 0x77, 0x94, 0x00, 0x00, 0x82, 0x30, 0x00, 0x13, 0x6C, 0x9F, 0x22]
 srTreeMask = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
 
 
 def printstate(state):
+    """Print card state"""
     reader, eventstate, atr = state
     print(reader + " " + smartcard.util.toHexString(atr, smartcard.util.HEX))
     if eventstate & SCARD_STATE_ATRMATCH:
@@ -60,45 +82,53 @@ def printstate(state):
         print("\tState unknowned")
 
 
-try:
-    hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
-    if hresult != SCARD_S_SUCCESS:
-        raise error("Failed to establish context: " + SCardGetErrorMessage(hresult))
-    print("Context established!")
-
+def main():
+    """main"""
     try:
-        hresult, readers = SCardListReaders(hcontext, [])
+        hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
         if hresult != SCARD_S_SUCCESS:
-            raise error("Failed to list readers: " + SCardGetErrorMessage(hresult))
-        print("PCSC Readers:", readers)
+            raise error("Failed to establish context: " + SCardGetErrorMessage(hresult))
+        print("Context established!")
 
-        readerstates = []
-        for i in range(len(readers)):
-            readerstates += [(readers[i], SCARD_STATE_UNAWARE)]
+        try:
+            hresult, readers = SCardListReaders(hcontext, [])
+            if hresult != SCARD_S_SUCCESS:
+                raise error("Failed to list readers: " + SCardGetErrorMessage(hresult))
+            print("PCSC Readers:", readers)
 
-        print("----- Current reader and card states are: -------")
-        hresult, newstates = SCardGetStatusChange(hcontext, 0, readerstates)
-        for i in newstates:
-            printstate(i)
+            readerstates = []
+            for reader in readers:
+                readerstates += [(reader, SCARD_STATE_UNAWARE)]
 
-        print("----- Please insert or remove a card ------------")
-        hresult, newstates = SCardGetStatusChange(hcontext, INFINITE, newstates)
+            print("----- Current reader and card states are: -------")
+            hresult, newstates = SCardGetStatusChange(hcontext, 0, readerstates)
+            for i in newstates:
+                printstate(i)
 
-        print("----- New reader and card states are: -----------")
-        for i in newstates:
-            printstate(i)
+            print("----- Please insert or remove a card ------------")
+            hresult, newstates = SCardGetStatusChange(hcontext, INFINITE, newstates)
 
-    finally:
-        hresult = SCardReleaseContext(hcontext)
-        if hresult != SCARD_S_SUCCESS:
-            raise error("Failed to release context: " + SCardGetErrorMessage(hresult))
-        print("Released context.")
+            print("----- New reader and card states are: -----------")
+            for i in newstates:
+                printstate(i)
+
+        finally:
+            hresult = SCardReleaseContext(hcontext)
+            if hresult != SCARD_S_SUCCESS:
+                raise error(
+                    "Failed to release context: " + SCardGetErrorMessage(hresult)
+                )
+            print("Released context.")
+
+    except error as e:
+        print(e)
+
+
+if __name__ == "__main__":
+    main()
 
     import sys
 
     if "win32" == sys.platform:
         print("press Enter to continue")
         sys.stdin.read(1)
-
-except error as e:
-    print(e)

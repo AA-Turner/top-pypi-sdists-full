@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2025-07-03 AT 22:14:18
+# AUTO GENERATED ON 2025-07-30 AT 21:21:40
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -834,11 +834,11 @@ def by_signature(cuda_kernel_templates):
         totallen=int(scan_in_array_offsets[length])
         if totallen == 0:
             return  # Nothing to do if no combinations, skip the rest
-        block_size = min(1024, totallen)
-        grid_size = (totallen + block_size - 1)//block_size
+        block_size = min(totallen, 1024)
+        grid_size = max(1, math.ceil(totallen / block_size))
         scan_in_array_parents = cupy.zeros(totallen, dtype=cupy.int64)
         scan_in_array_local_indices = cupy.zeros(totallen, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
         cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_c", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
         cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_d", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
     out["awkward_ListArray_combinations_a", int64, int64, int64, int32, int32] = None
@@ -857,11 +857,11 @@ def by_signature(cuda_kernel_templates):
         totallen=int(scan_in_array_offsets[length])
         if totallen == 0:
             return  # Nothing to do if no combinations, skip the rest
-        block_size = min(1024, totallen)
-        grid_size = (totallen + block_size - 1)//block_size
+        block_size = min(totallen, 1024)
+        grid_size = max(1, math.ceil(totallen / block_size))
         scan_in_array_parents = cupy.zeros(totallen, dtype=cupy.int64)
         scan_in_array_local_indices = cupy.zeros(totallen, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
         cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_c", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
         cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_d", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
     out["awkward_ListArray_combinations_a", int64, int64, int64, int64, int64] = None
@@ -880,11 +880,11 @@ def by_signature(cuda_kernel_templates):
         totallen=int(scan_in_array_offsets[length])
         if totallen == 0:
             return  # Nothing to do if no combinations, skip the rest
-        block_size = min(1024, totallen)
-        grid_size = (totallen + block_size - 1)//block_size
+        block_size = min(totallen, 1024)
+        grid_size = max(1, math.ceil(totallen / block_size))
         scan_in_array_parents = cupy.zeros(totallen, dtype=cupy.int64)
         scan_in_array_local_indices = cupy.zeros(totallen, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
         cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_c", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
         cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_d", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
     out["awkward_ListArray_combinations_a", int64, int64, int64, uint32, uint32] = None
@@ -3977,15 +3977,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, bool_, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, bool_, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, bool_, int64] = None
@@ -3995,15 +3994,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, int8, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, int8, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, int8, int64] = None
@@ -4013,15 +4011,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, int16, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, int16, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, int16, int64] = None
@@ -4031,15 +4028,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, int32, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, int32, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, int32, int64] = None
@@ -4049,15 +4045,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, int64, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, int64, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, int64, int64] = None
@@ -4067,15 +4062,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, uint8, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, uint8, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, uint8, int64] = None
@@ -4085,15 +4079,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, uint16, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, uint16, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, uint16, int64] = None
@@ -4103,15 +4096,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, uint32, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, uint32, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, uint32, int64] = None
@@ -4121,15 +4113,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, uint64, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, uint64, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, uint64, int64] = None
@@ -4139,15 +4130,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, float32, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, float32, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, float32, int64] = None
@@ -4157,15 +4147,14 @@ def by_signature(cuda_kernel_templates):
 
     def f(grid, block, args):
         (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
+        if outlength == 0:
+            return  # Nothing to do, skip the rest
+        block_size = min(outlength, 1024)
+        grid_size = max(1, math.ceil((max(lenparents, outlength) + block_size - 1) / block_size))
         atomic_toptr = cupy.array(toptr, dtype=cupy.uint32)
-        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_a", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_b", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_sum_bool_c", bool_, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), (block_size,), (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, toptr, invocation_index, err_code))
     out["awkward_reduce_sum_bool_a", bool_, float64, int64] = None
     out["awkward_reduce_sum_bool_b", bool_, float64, int64] = None
     out["awkward_reduce_sum_bool_c", bool_, float64, int64] = None

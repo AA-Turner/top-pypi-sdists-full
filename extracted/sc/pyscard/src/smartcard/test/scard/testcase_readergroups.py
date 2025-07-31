@@ -33,7 +33,20 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import sys
 import unittest
 
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_SCOPE_USER,
+    SCardAddReaderToGroup,
+    SCardEstablishContext,
+    SCardForgetReader,
+    SCardForgetReaderGroup,
+    SCardIntroduceReader,
+    SCardIntroduceReaderGroup,
+    SCardListReaderGroups,
+    SCardListReaders,
+    SCardReleaseContext,
+    SCardRemoveReaderFromGroup,
+    resourceManager,
+)
 
 sys.path += [".."]
 
@@ -63,14 +76,14 @@ class testcase_readergroups(unittest.TestCase):
         # list current readers and compare with expected list
         hresult, readers = SCardListReaders(self.hcontext, [])
         self.assertEqual(hresult, 0)
-        for i in range(len(expectedReaders)):
-            self.assertEqual(readers[i], expectedReaders[i])
+        for i, reader in enumerate(expectedReaders):
+            self.assertEqual(readers[i], reader)
 
         # list current reader groups and compare with expected list
         hresult, readerGroups = SCardListReaderGroups(self.hcontext)
         self.assertEqual(hresult, 0)
-        for i in range(len(expectedGroups)):
-            self.assertEqual(readerGroups[i], expectedGroups[i])
+        for i, group in enumerate(expectedGroups):
+            self.assertEqual(readerGroups[i], group)
 
         if "winscard" == resourceManager:
             # add a new group
@@ -89,8 +102,8 @@ class testcase_readergroups(unittest.TestCase):
 
             hresult, readerGroups = SCardListReaderGroups(self.hcontext)
             self.assertEqual(hresult, 0)
-            for i in range(len(expectedGroups)):
-                self.assertEqual(readerGroups[i], expectedGroups[i])
+            for i, group in enumerate(expectedGroups):
+                self.assertEqual(readerGroups[i], group)
 
             # list readers in new group
             hresult, newreaders = SCardListReaders(self.hcontext, [newgroup])
@@ -105,16 +118,16 @@ class testcase_readergroups(unittest.TestCase):
             self.assertEqual(hresult, 0)
 
             expectedGroups.remove(newgroup)
-            for i in range(len(expectedGroups)):
-                self.assertEqual(readerGroups[i], expectedGroups[i])
+            for i, group in enumerate(expectedGroups):
+                self.assertEqual(readerGroups[i], group)
 
             hresult = SCardForgetReaderGroup(self.hcontext, newgroup)
             self.assertEqual(hresult, 0)
 
             hresult, readerGroups = SCardListReaderGroups(self.hcontext)
             self.assertEqual(hresult, 0)
-            for i in range(len(expectedGroups)):
-                self.assertEqual(readerGroups[i], expectedGroups[i])
+            for i, group in enumerate(expectedGroups):
+                self.assertEqual(readerGroups[i], group)
 
             hresult = SCardForgetReader(self.hcontext, dummyreader)
             self.assertEqual(hresult, 0)

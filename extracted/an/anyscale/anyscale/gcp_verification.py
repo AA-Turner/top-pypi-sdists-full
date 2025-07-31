@@ -15,10 +15,7 @@ from google.iam.v1.policy_pb2 import Binding
 from googleapiclient.errors import HttpError
 
 from anyscale.cli_logger import CloudSetupLogger
-from anyscale.client.openapi_client.models import (
-    CloudAnalyticsEventCloudResource,
-    CreateCloudResourceGCP,
-)
+from anyscale.client.openapi_client.models import CloudAnalyticsEventCloudResource
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_CORS_ORIGIN
 from anyscale.utils.cloud_utils import CloudSetupError
 from anyscale.utils.gcp_managed_setup_utils import enable_project_apis
@@ -48,9 +45,10 @@ _FILESTORE_NAME_REGEX_PATTERN = r"projects/(?P<project_id>[^/]+)/locations/(?P<l
 PROXY_ONLY_SUBNET_PURPOSE = "REGIONAL_MANAGED_PROXY"
 
 
-def verify_gcp_networking(
+def verify_gcp_networking(  # noqa: PLR0911, PLR0913
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    vpc_name: Optional[str],
+    subnet_ids: Optional[List[str]],
     project_id: str,
     cloud_region: str,
     logger: GCPLogger,
@@ -58,8 +56,11 @@ def verify_gcp_networking(
     is_private_service_cloud: bool = False,
 ) -> bool:
     """Verify the existence and connectedness of the VPC & Subnet."""
-    vpc_name = resources.gcp_vpc_id
     # TODO Verify Internet Gateway
+    if not vpc_name:
+        logger.internal.warning("No VPC provided. Please provide a VPC.")
+        return False
+
     try:
         vpc = factory.compute_v1.NetworksClient().get(
             project=project_id, network=vpc_name
@@ -68,10 +69,14 @@ def verify_gcp_networking(
         logger.log_resource_not_found_error("VPC", vpc_name, project_id)
         return False
 
-    subnet_name = resources.gcp_subnet_ids[
-        0
-    ]  # TODO (congding): multiple subnets provided
-    if len(resources.gcp_subnet_ids) > 1:
+    if not subnet_ids:
+        logger.internal.warning(
+            "No subnets provided. Please provide at least one subnet."
+        )
+        return False
+
+    subnet_name = subnet_ids[0]  # TODO (congding): multiple subnets provided
+    if len(subnet_ids) > 1:
         logger.internal.warning(
             "Multiple subnets provided. Only taking the first subnet and ignoring the rest."
         )
@@ -135,8 +140,8 @@ def _get_proxy_only_subnet_in_vpc(
 
 def verify_gcp_project(  # noqa: PLR0911
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
     project_id: str,
+    enable_memorystore_api: bool,
     logger: GCPLogger,
     strict: bool = False,
 ) -> bool:
@@ -178,7 +183,6 @@ def verify_gcp_project(  # noqa: PLR0911
 
     # Verify that APIs are Enabled
     service_usage_client = factory.build("serviceusage", "v1")
-    enable_memorystore_api = resources.memorystore_instance_config is not None
     if enable_memorystore_api:
         apis = GCP_REQUIRED_APIS + ["redis.googleapis.com"]  # Memorystore for Redis
     else:
@@ -233,7 +237,7 @@ def verify_gcp_project(  # noqa: PLR0911
 
 def verify_gcp_access_service_account(
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    anyscale_access_service_account: Optional[str],
     project_id: str,
     logger: GCPLogger,
 ) -> bool:
@@ -241,8 +245,6 @@ def verify_gcp_access_service_account(
 
     NOTE: We verify that this service account can call signBlob on itself because this is necessary for downloading logs.
     """
-    anyscale_access_service_account = resources.gcp_anyscale_iam_service_account_email
-
     service_account_client = factory.build("iam", "v1").projects().serviceAccounts()
     try:
         service_account_iam_policy = service_account_client.getIamPolicy(
@@ -287,7 +289,7 @@ def verify_gcp_access_service_account(
 
 def verify_gcp_dataplane_service_account(
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    service_account: Optional[str],
     project_id: str,
     logger: GCPLogger,
     strict: bool = False,
@@ -297,7 +299,6 @@ def verify_gcp_dataplane_service_account(
     Compute Engine's ability to use this role
     This relies on the fact that Compute Engine Service Agent has the roles/compute.serviceAgent Role
     """
-    service_account = resources.gcp_cluster_node_service_account_email
     service_account_client = factory.build("iam", "v1").projects().serviceAccounts()
     try:
         resp = service_account_client.get(
@@ -346,7 +347,9 @@ def verify_gcp_dataplane_service_account(
 
 def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    firewall_policy_ids: Optional[List[str]],
+    vpc_name: Optional[str],
+    subnet_ids: Optional[List[str]],
     project_id: str,
     cloud_region: str,
     use_shared_vpc: bool,
@@ -355,16 +358,21 @@ def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
     strict: bool = False,
 ) -> bool:
     """Checks if the given firewall exists at either the Global or Regional level."""
-    firewall_policy = resources.gcp_firewall_policy_ids[
+    if not firewall_policy_ids:
+        logger.internal.warning(
+            "No firewall policies provided. Please provide at least one firewall policy."
+        )
+        return False
+
+    firewall_policy = firewall_policy_ids[
         0
     ]  # TODO (congding): multiple firewall ids provided
-    if len(resources.gcp_firewall_policy_ids) > 1:
+    if len(firewall_policy_ids) > 1:
         logger.internal.warning(
             "Multiple firewall policies provided. Only taking the first firewall policy and ignoring the rest."
         )
         if strict:
             return False
-    vpc_name = resources.gcp_vpc_id
 
     firewall = compute_v1.types.compute.FirewallPolicy()
     try:
@@ -401,8 +409,14 @@ def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
         )
         return False
 
+    if not subnet_ids:
+        logger.internal.warning(
+            "No subnets provided. Please provide at least one subnet."
+        )
+        return False
+
     subnet_obj = factory.compute_v1.SubnetworksClient().get(
-        project=project_id, subnetwork=resources.gcp_subnet_ids[0], region=cloud_region
+        project=project_id, subnetwork=subnet_ids[0], region=cloud_region
     )  # TODO (congding): multiple subnets provided
     subnet = ipaddress.ip_network(subnet_obj.ip_cidr_range)
 
@@ -451,6 +465,10 @@ def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
             return False
 
     if use_shared_vpc and is_private_service_cloud:
+        if not vpc_name:
+            logger.internal.warning("No VPC provided. Please provide a VPC.")
+            return False
+
         proxy_only_subnet = _get_proxy_only_subnet_in_vpc(
             factory, project_id, cloud_region, vpc_name
         )
@@ -515,7 +533,8 @@ def _firewall_rules_from_proto_resp(
 
 def verify_filestore(
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    file_store_instance_name: str,
+    vpc_name: Optional[str],
     cloud_region: str,
     logger: GCPLogger,
     strict: bool = False,
@@ -523,7 +542,6 @@ def verify_filestore(
     """Verify Filestore exists & that it is connected to the correct VPC.
 
     TODO: Warn about Filestore size if it is 'too small'."""
-    file_store_instance_name = resources.gcp_filestore_config.instance_name
     client = factory.filestore_v1.CloudFilestoreManagerClient()
     try:
         file_store = client.get_instance(name=file_store_instance_name)
@@ -552,7 +570,6 @@ def verify_filestore(
         return False
 
     file_store_networks = [v.network for v in file_store.networks]
-    vpc_name = resources.gcp_vpc_id
     if not any(vpc_name == network.split("/")[-1] for network in file_store_networks):
         logger.internal.log_resource_error(
             CloudAnalyticsEventCloudResource.GCP_FILESTORE,
@@ -567,9 +584,11 @@ def verify_filestore(
     return True
 
 
-def verify_cloud_storage(  # noqa: PLR0911, PLR0912
+def verify_cloud_storage(  # noqa: PLR0911, PLR0912, PLR0913
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    bucket_name: Optional[str],
+    controlplane_service_account: Optional[str],
+    dataplane_service_account: Optional[str],
     project_id: str,
     cloud_region: str,
     logger: GCPLogger,
@@ -577,7 +596,6 @@ def verify_cloud_storage(  # noqa: PLR0911, PLR0912
 ):
     """Verify that the Google Cloud Storage Bucket exists & raises warnings about improper configurations."""
     bucket_client = factory.storage.Client(project_id)
-    bucket_name = resources.gcp_cloud_storage_bucket_id
     try:
         bucket = bucket_client.get_bucket(bucket_name)
     except NotFound:
@@ -634,21 +652,19 @@ def verify_cloud_storage(  # noqa: PLR0911, PLR0912
         "We suggest granting the predefined roles of `roles/storage.legacyBucketReader` and `roles/storage.objectAdmin`."
     )
 
-    access_service_account = resources.gcp_anyscale_iam_service_account_email
     if not _verify_service_account_on_bucket(
-        f"serviceAccount:{access_service_account}", iam_bindings
+        f"serviceAccount:{controlplane_service_account}", iam_bindings
     ):
         logger.confirm_missing_permission(
             permission_warning.format(
                 location="Anyscale access",
-                email=access_service_account,
+                email=controlplane_service_account,
                 bucket=bucket_name,
             )
         )
         if strict:
             return False
 
-    dataplane_service_account = resources.gcp_cluster_node_service_account_email
     if not _verify_service_account_on_bucket(
         f"serviceAccount:{dataplane_service_account}", iam_bindings
     ):
@@ -726,15 +742,13 @@ def _check_bucket_region(bucket: Bucket, region: str) -> Tuple[bool, str]:
 
 def verify_memorystore(  # noqa: PLR0911
     factory: GoogleCloudClientFactory,
-    resources: CreateCloudResourceGCP,
+    redis_instance_name: str,
+    cloud_vpc_name: Optional[str],
     logger: GCPLogger,
     strict: bool = False,
 ):
     """Verify that the Google Memorystore exists & raises warnings about improper configurations."""
     client = factory.redis_v1.CloudRedisClient()
-
-    redis_instance_name = resources.memorystore_instance_config.name
-
     try:
         redis_instance = client.get_instance(name=redis_instance_name)
     except (NotFound, PermissionDenied):
@@ -742,7 +756,6 @@ def verify_memorystore(  # noqa: PLR0911
         return False
 
     # Verify memorystore is in the same VPC as the cloud
-    cloud_vpc_name = resources.gcp_vpc_id
     redis_vpc_name = redis_instance.authorized_network.split("/")[-1]
     if cloud_vpc_name != redis_vpc_name:
         logger.internal.log_resource_error(

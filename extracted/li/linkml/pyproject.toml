@@ -39,7 +39,7 @@ classifiers = [
 include = ["linkml"]
 requires-python = ">=3.9"
 dynamic = []
-dependencies = [  # Specifier syntax: https://peps.python.org/pep-0631/
+dependencies = [ # Specifier syntax: https://peps.python.org/pep-0631/
     "antlr4-python3-runtime >= 4.9.0, < 4.10",
     "click >= 7.0",
     "graphviz >= 0.10.1",
@@ -48,7 +48,7 @@ dependencies = [  # Specifier syntax: https://peps.python.org/pep-0631/
     "jinja2 >= 3.1.0",
     "jsonasobj2 >= 1.0.3, < 2.0.0",
     "jsonschema[format] >= 4.0.0",
-    "linkml-runtime >= 1.9.2, < 2.0.0",
+    "linkml-runtime >= 1.9.4, < 2.0.0",
     "openpyxl",
     "parse",
     "prefixcommons >= 0.1.7",
@@ -66,7 +66,7 @@ dependencies = [  # Specifier syntax: https://peps.python.org/pep-0631/
     "typing-extensions >= 4.6.0; python_version < '3.12'",
     "sphinx-click (>=6.0.0)",
 ]
-version = "1.9.2"
+version = "1.9.3"
 
 [project.optional-dependencies]
 black = [
@@ -160,6 +160,7 @@ style = "pep440"
 chardet = "*"
 ipykernel = "*"
 ipython-genutils = "*"
+jupyter = "*"
 nbconvert = "*"
 nbformat = "*"
 coverage = "^6.4.1"
@@ -197,12 +198,41 @@ sphinx-jinja = "^2.0.2"
 sphinxcontrib-programoutput = "^0.17"
 
 [tool.codespell]
-# TODO: bring in tests in too
-skip = '.git,*.pdf,*.svg,./tests,pyproject.toml,*.dill,poetry.lock,./notebooks/DistributedModels.ipynb,./docs/LinkML-logo/LinkML-Revised-Round-Logo-MASTER-FILE.ai'
+skip = [
+  ".git", "*.pdf", "*.svg", "*.dill",
+  "poetry.lock",
+  "./notebooks/DistributedModels.ipynb",
+  "./docs/LinkML-logo/LinkML-Revised-Round-Logo-MASTER-FILE.ai",
+  "./tests/data/hp.ttl",
+  "./tests/data/hp_f.ttl",
+  "tests/test_generators/input/jsonschema_value_constraints.yaml",
+]
 # Ignore table where words could be split across rows
-# Ignore shortcut specifications like [Ff]alse
 ignore-regex = '(\|.*\|.*\|.*\||\[[A-Z][a-z]\][a-z][a-z])'
-ignore-words-list = 'anc,mater,connexion,infarction,thirdparty,linke'
+ignore-words-list = [
+  "acsess",
+  "AGS",
+  "amination",
+  "anc",
+  "brite",
+  "connexion",
+  "EHR",
+  "infarction",
+  "linke",
+  "mater",
+  "mor",
+  "Stye",
+  "TE",
+  "thirdparty",
+  "Vas",
+  # These are temp exemptions because they are coming from
+  # upstream repos linkml-runtime and linkml-model
+  # we should remove these once the upstream repos are fixed
+  # and changes are propagated to linkml
+  "GENERARE",
+  "re-used",
+  "doesnt"
+]
 quiet-level = 3
 
 [tool.black]
@@ -254,6 +284,7 @@ markers = [
   "yamlgen: Tests for the YAML generator"
 ]
 
+# https://docs.astral.sh/ruff/settings/
 [tool.ruff]
 extend-exclude = [
     "tests/output",
@@ -265,6 +296,10 @@ extend-exclude = [
 ]
 force-exclude = true
 line-length = 120
+# Assume Python 3.9
+target-version = "py39"
+
+[tool.ruff.lint]
 extend-ignore = ["E203"]
 select = [
   "E",  # pycodestyle errors
@@ -272,10 +307,8 @@ select = [
   "I",  # isort
   "UP", # pyupgrade
 ]
-# Assume Python 3.9
-target-version = "py39"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # These templates can have long lines
 "linkml/generators/sqlalchemy/sqlalchemy_declarative_template.py" = ["E501"]
 "linkml/generators/sqlalchemy/sqlalchemy_imperative_template.py" = ["E501"]
@@ -283,3 +316,43 @@ target-version = "py39"
 
 # Notebooks can have unsorted imports
 "tests/test_notebooks/input/*" = ["E402"]
+
+[tool.tox]
+requires = ["tox>=4"]
+env_list = ["lint", "py{39,310,311,312,313}"]
+
+[tool.tox.env_run_base]
+allowlist_externals = ["poetry"]
+deps = ["pytest"]
+commands = [
+  ["poetry", "install", "--no-root", "--sync", "--all-extras"],
+  ["poetry", "run", "pytest", "{posargs}"],
+]
+
+[tool.tox.env.codespell]
+description = "Run spell checkers."
+skip_install = true
+deps = [
+  "codespell",
+  "tomli", # required for getting config from pyproject.toml
+]
+commands = [
+  ["codespell", "{posargs}"]
+]
+
+[tool.tox.env.format]
+description = "Run code formatter and code-fixing linter."
+skip_install = true
+deps = ["pre-commit"]
+commands = [
+  ["pre-commit", "run", "--all-files", "--show-diff-on-failure", { replace = "posargs", extend = true }]
+]
+
+[tool.tox.env.lint]
+description = "Run code linter and formatter (no fixes)."
+skip_install = true
+deps = ["ruff==0.11.13"]
+commands = [
+  ["ruff", "check", "{posargs:.}"],
+  ["ruff", "format", "{posargs:.}"],
+]

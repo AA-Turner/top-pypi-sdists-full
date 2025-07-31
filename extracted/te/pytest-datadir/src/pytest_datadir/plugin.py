@@ -3,6 +3,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 
 import pytest
 
@@ -71,7 +72,7 @@ class LazyDataDir:
     original_datadir: Path
     tmp_path: Path
 
-    def joinpath(self, other: str) -> Path:
+    def joinpath(self, other: Union[Path, str]) -> Path:
         """
         Return `other` joined with the temporary directory.
 
@@ -95,7 +96,7 @@ class LazyDataDir:
                 )
         return target
 
-    def __truediv__(self, other: str) -> Path:
+    def __truediv__(self, other: Union[Path, str]) -> Path:
         return self.joinpath(other)
 
 
@@ -114,3 +115,24 @@ def lazy_datadir(original_datadir: Path, tmp_path: Path) -> LazyDataDir:
         tmp_path: Pytest's built-in fixture providing a temporary directory path.
     """
     return LazyDataDir(original_datadir, tmp_path)
+
+
+@pytest.fixture
+def lazy_shared_datadir(request: pytest.FixtureRequest, tmp_path: Path) -> LazyDataDir:
+    """
+    Return a lazy version of the shared data directory.
+
+    Here, "lazy" means that the temporary directory is initially created empty.
+
+    Files and directories are then copied from the data directory only when first
+    accessed via the ``joinpath`` method or the ``/`` operator.
+
+    Args:
+        request: The Pytest fixture request object.
+        tmp_path: Pytest's built-in fixture providing a temporary directory path.
+    """
+    original_shared_path = Path(os.path.join(request.fspath.dirname, "data"))
+    temp_path = tmp_path / "data"
+    temp_path.mkdir(parents=True, exist_ok=False)
+
+    return LazyDataDir(original_shared_path, temp_path)

@@ -25,6 +25,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import smartcard.sw.SWExceptions
 from smartcard.sw.ErrorChecker import ErrorChecker
 
+# pylint: disable=too-few-public-methods
+
 iso7816_4SW1 = {
     0x62: smartcard.sw.SWExceptions.WarningProcessingException,
     0x63: smartcard.sw.SWExceptions.WarningProcessingException,
@@ -77,7 +79,7 @@ class ISO7816_4_SW1ErrorChecker(ErrorChecker):
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of ISO7816_4_SW1ErrorChecker."""
+    # Small sample illustrating the use of ISO7816_4_SW1ErrorChecker.
     ecs = ISO7816_4_SW1ErrorChecker()
     ecs([], 0x90, 0x00)
     try:

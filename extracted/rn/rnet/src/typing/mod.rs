@@ -5,10 +5,14 @@ mod header;
 mod ipaddr;
 mod json;
 mod multipart;
-pub mod param;
 mod proxy;
 mod ssl;
 mod status;
+mod stream;
+
+use pyo3::{prelude::*, pybacked::PyBackedStr};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
+use wreq_util::EmulationOption;
 
 pub use self::{
     body::BodyExtractor,
@@ -20,14 +24,11 @@ pub use self::{
     },
     ipaddr::{IpAddrExtractor, SocketAddr},
     json::Json,
-    multipart::{Multipart, Part},
-    proxy::{Proxy, ProxyExtractor},
+    multipart::{Multipart, MultipartExtractor, Part},
+    proxy::{Proxy, ProxyExtractor, ProxyListExtractor},
     ssl::SslVerify,
     status::StatusCode,
 };
-use pyo3::{prelude::*, pybacked::PyBackedStr};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
-use wreq_util::EmulationOption;
 
 /// A struct to represent the `ImpersonateOption` class.
 #[pyclass(subclass)]

@@ -278,3 +278,44 @@ class GetOfflineQueryResponse(_message.Message):
     OFFLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
     offline_query: OfflineQueryMeta
     def __init__(self, offline_query: _Optional[_Union[OfflineQueryMeta, _Mapping]] = ...) -> None: ...
+
+class ListRelevantJobQueueConsumersRequest(_message.Message):
+    __slots__ = ("environment_id", "mainline_deployment_id")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MAINLINE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    mainline_deployment_id: str
+    def __init__(self, environment_id: _Optional[str] = ..., mainline_deployment_id: _Optional[str] = ...) -> None: ...
+
+class ListRelevantJobQueueConsumersResponse(_message.Message):
+    __slots__ = ("consumer_infos",)
+    CONSUMER_INFOS_FIELD_NUMBER: _ClassVar[int]
+    consumer_infos: _containers.RepeatedCompositeFieldContainer[JobQueueConsumerInfo]
+    def __init__(self, consumer_infos: _Optional[_Iterable[_Union[JobQueueConsumerInfo, _Mapping]]] = ...) -> None: ...
+
+class JobQueueConsumerInfo(_message.Message):
+    __slots__ = ("id", "created_at", "latest_job_id", "latest_job_heartbeat", "pod_phase", "pod_message", "pod_reason")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LATEST_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    LATEST_JOB_HEARTBEAT_FIELD_NUMBER: _ClassVar[int]
+    POD_PHASE_FIELD_NUMBER: _ClassVar[int]
+    POD_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    POD_REASON_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    created_at: _timestamp_pb2.Timestamp
+    latest_job_id: int
+    latest_job_heartbeat: _timestamp_pb2.Timestamp
+    pod_phase: str
+    pod_message: str
+    pod_reason: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        latest_job_id: _Optional[int] = ...,
+        latest_job_heartbeat: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        pod_phase: _Optional[str] = ...,
+        pod_message: _Optional[str] = ...,
+        pod_reason: _Optional[str] = ...,
+    ) -> None: ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guidance
-Version: 0.2.4
+Version: 0.2.5
 Summary: A guidance language for controlling large language models.
 Home-page: https://github.com/guidance-ai/guidance
 Author: Guidance Maintainers
@@ -12,10 +12,10 @@ Requires-Dist: pydantic
 Requires-Dist: requests
 Requires-Dist: psutil
 Requires-Dist: guidance-stitch==0.1.5
-Requires-Dist: llguidance==1.0.1
+Requires-Dist: llguidance==1.1.0
 Provides-Extra: all
-Requires-Dist: openai>=1.0; extra == "all"
 Requires-Dist: azure-ai-inference; extra == "all"
+Requires-Dist: openai>=1.0; extra == "all"
 Provides-Extra: unittest
 Requires-Dist: anytree; extra == "unittest"
 Requires-Dist: jsonschema; extra == "unittest"

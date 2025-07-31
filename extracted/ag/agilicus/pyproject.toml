@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.296.0"
+version = "1.296.1"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"
@@ -32,7 +32,7 @@ xdg = "^5.1.1"
 #"stomp.py" = { git = "https://github.com/mfmarche/stomp.py", branch = "fix_ws_shutdown" }
 
 "keyrings.alt" = ">=4.2,<6.0"
-dateparser = "1.2.0"
+dateparser = "1.2.2"
 pem = "^23.1.0"
 babel = "^2.13.1"
 click-shell = "^2.1"

@@ -71,7 +71,7 @@ middleware.extend(
                 allow_credentials=True,
                 allow_methods=["*"],
                 allow_headers=["*"],
-                expose_headers=["x-pagination-total"],
+                expose_headers=["x-pagination-total", "x-pagination-next"],
             )
             if config.CORS_CONFIG is None
             else Middleware(

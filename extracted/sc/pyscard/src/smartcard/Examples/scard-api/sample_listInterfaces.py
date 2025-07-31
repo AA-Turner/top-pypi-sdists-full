@@ -26,13 +26,27 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
-import platform
 import sys
 
 import smartcard.guid
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardReleaseContext,
+    error,
+    resourceManager,
+)
 
 if "winscard" == resourceManager:
+
+    # pylint: disable=no-name-in-module
+    from smartcard.scard import (
+        SCardForgetCardType,
+        SCardIntroduceCardType,
+        SCardListInterfaces,
+    )
 
     znewcardName = "dummy-card"
     znewcardATR = [
@@ -69,11 +83,10 @@ if "winscard" == resourceManager:
     znewcardSecGuid = smartcard.guid.strToGUID("{EB7F69EA-BA20-47d0-8C50-11CFDEB63BBE}")
 
     def main():
+        """main"""
         hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
         if hresult != SCARD_S_SUCCESS:
-            raise scard.error(
-                "Failed to establish context: " + SCardGetErrorMessage(hresult)
-            )
+            raise error("Failed to establish context: " + SCardGetErrorMessage(hresult))
         print("Context established!")
 
         try:
@@ -82,7 +95,7 @@ if "winscard" == resourceManager:
             expectedCard = "Schlumberger Cryptoflex 8k v2"
             hresult, interfaces = SCardListInterfaces(hcontext, expectedCard)
             if hresult != SCARD_S_SUCCESS:
-                raise scard.error(
+                raise error(
                     "Failed to list interfaces: " + SCardGetErrorMessage(hresult)
                 )
             print("Interfaces for ", expectedCard, ":", interfaces)

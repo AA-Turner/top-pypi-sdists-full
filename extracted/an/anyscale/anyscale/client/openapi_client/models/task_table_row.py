@@ -47,7 +47,8 @@ class TaskTableRow(object):
         'worker_id': 'str',
         'worker_pid': 'str',
         'parent_task_id': 'str',
-        'ray_session_name': 'str'
+        'ray_session_name': 'str',
+        'exception_type': 'str'
     }
 
     attribute_map = {
@@ -65,10 +66,11 @@ class TaskTableRow(object):
         'worker_id': 'worker_id',
         'worker_pid': 'worker_pid',
         'parent_task_id': 'parent_task_id',
-        'ray_session_name': 'ray_session_name'
+        'ray_session_name': 'ray_session_name',
+        'exception_type': 'exception_type'
     }
 
-    def __init__(self, id=None, attempt_number=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, end_time_ns=None, required_resources=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, attempt_number=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, end_time_ns=None, required_resources=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, local_vars_configuration=None):  # noqa: E501
         """TaskTableRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +91,7 @@ class TaskTableRow(object):
         self._worker_pid = None
         self._parent_task_id = None
         self._ray_session_name = None
+        self._exception_type = None
         self.discriminator = None
 
         self.id = id
@@ -114,6 +117,8 @@ class TaskTableRow(object):
         if parent_task_id is not None:
             self.parent_task_id = parent_task_id
         self.ray_session_name = ray_session_name
+        if exception_type is not None:
+            self.exception_type = exception_type
 
     @property
     def id(self):
@@ -443,6 +448,27 @@ class TaskTableRow(object):
             raise ValueError("Invalid value for `ray_session_name`, must not be `None`")  # noqa: E501
 
         self._ray_session_name = ray_session_name
+
+    @property
+    def exception_type(self):
+        """Gets the exception_type of this TaskTableRow.  # noqa: E501
+
+
+        :return: The exception_type of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._exception_type
+
+    @exception_type.setter
+    def exception_type(self, exception_type):
+        """Sets the exception_type of this TaskTableRow.
+
+
+        :param exception_type: The exception_type of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._exception_type = exception_type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

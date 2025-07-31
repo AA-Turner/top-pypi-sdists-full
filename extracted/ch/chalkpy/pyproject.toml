@@ -29,10 +29,8 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "aiotools",
     "attrs>=21.3.0", # first version with `import attrs`
     "cattrs>=22.1.0,<25",
-    "cloudpickle==2.2.1",
     "dataclasses_json>=0.5.7",
     "executing>=1.2.0,<3",
     "grpcio>=1.59.2,<2",
@@ -59,7 +57,6 @@ base = []
 dev = [
     "boto3-stubs[s3]",
     "grpc-stubs",
-    "mypy",
     "pendulum",
     "pre-commit",
     "pytest-asyncio>=0.24.0",
@@ -529,7 +526,6 @@ markers = [
 [tool.pyright]
 typeCheckingMode = "basic"
 ignore = [
-    "chalk/mypy_plugin.py",
     "chalk/_gen/",
     "chalk/_monitoring/",
 ]

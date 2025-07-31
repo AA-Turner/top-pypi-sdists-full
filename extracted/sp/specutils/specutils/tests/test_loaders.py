@@ -402,21 +402,35 @@ def test_iraf_linear(remote_data_path):
     spectrum_1d = Spectrum.read(remote_data_path, format='iraf')
 
     assert isinstance(spectrum_1d, Spectrum)
-    assert quantity_allclose(spectrum_1d.wavelength[0],
-                             u.Quantity(3514.56625402, unit='Angstrom'))
-    assert quantity_allclose(spectrum_1d.wavelength[100],
-                             u.Quantity(3514.56625402, unit='Angstrom') +
-                             u.Quantity(0.653432383823 * 100, unit='Angstrom'))
+    assert quantity_allclose(
+        spectrum_1d.wavelength[0], u.Quantity(3514.56625402, unit="Angstrom")
+    )
+    assert quantity_allclose(
+        spectrum_1d.wavelength[100],
+        u.Quantity(3514.56625402, unit="Angstrom")
+        + u.Quantity(0.653432383823 * 100, unit="Angstrom"),
+    )
 
 
-@pytest.mark.filterwarnings('ignore:linear Solution')
+@pytest.mark.filterwarnings("ignore:Flux unit was not provided")
+@pytest.mark.filterwarnings("ignore:FITSFixedWarning")
+@pytest.mark.filterwarnings("ignore:linear Solution")
 @pytest.mark.filterwarnings('ignore:non-ASCII characters are present in the FITS file header')
 @remote_access([{'id': '3359180', 'filename': 'log-linear_fits_solution.fits'}])
 def test_iraf_log_linear(remote_data_path):
-    """Non-linear wavelength solution for DTYPE=1 (log-linear) encoded IRAF-style (not implemented).
-    """
-    with pytest.raises(NotImplementedError):
-        assert Spectrum.read(remote_data_path, format='iraf')
+    """Non-linear wavelength solution for DTYPE=1 (log-linear) encoded IRAF-style."""
+    spectrum_1d = Spectrum.read(remote_data_path, format="iraf")
+
+    assert isinstance(spectrum_1d, Spectrum)
+    assert quantity_allclose(
+        spectrum_1d.wavelength[0], u.Quantity(4619.77720706116, unit="Angstrom")
+    )
+    assert quantity_allclose(
+        spectrum_1d.wavelength[100],
+        u.Quantity(
+            10 ** (3.66462103181651 + 100 * 3.31047113835551e-5), unit="Angstrom"
+        ),
+    )
 
 
 @pytest.mark.filterwarnings('ignore:Flux unit was not provided')
@@ -870,6 +884,19 @@ def test_tabular_fits_compressed(compress, tmp_path):
     assert quantity_allclose(spec.flux, spectrum.flux)
 
 
+@pytest.mark.remote_data
+def test_tabular_fits_jwst():
+    """Test reading of tabular FITS file of a JWST spectrum."""
+    spec = Spectrum.read("https://bdnyc.s3.us-east-1.amazonaws.com/Beiler24/SDSSpJ1346-00NIR.fits")
+    assert isinstance(spec, Spectrum)
+    assert spec.flux.shape == (376,)
+    assert spec.spectral_axis.shape == (376,)
+    assert spec.flux.unit == u.Jy
+    assert spec.spectral_axis.unit == u.micron
+    assert spec.uncertainty.unit == u.Jy
+    assert spec.meta['header']['TELESCOP'] == 'JWST'
+
+
 @pytest.mark.parametrize("spectral_axis", ['WAVE', 'FREQ', 'ENER', 'WAVN'])
 @pytest.mark.parametrize("uncertainty",
                          [None, StdDevUncertainty, VarianceUncertainty, InverseVariance])
@@ -1316,7 +1343,7 @@ def test_aspcapstar_loader():
 def test_muscles_loader():
     """Test remote read and automatic recognition of muscles spec from URL.
     """
-    url = ("https://archive.stsci.edu/missions/hlsp/muscles/gj1214/"
+    url = ("https://archive.stsci.edu/missions/hlsp/muscles/v22/gj1214/"
            "hlsp_muscles_multi_multi_gj1214_broadband_v22_const-res-sed.fits")
     spec = Spectrum.read(url)
 

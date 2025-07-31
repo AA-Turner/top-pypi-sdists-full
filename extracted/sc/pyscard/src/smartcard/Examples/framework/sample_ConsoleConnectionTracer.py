@@ -1,4 +1,8 @@
 #! /usr/bin/env python3
+
+# pylint: disable=invalid-name
+# pylint: disable=duplicate-code
+
 """
 Sample script that monitors card connection events.
 
@@ -23,6 +27,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
+import sys
+
 from smartcard.CardConnectionObserver import ConsoleCardConnectionObserver
 from smartcard.CardRequest import CardRequest
 from smartcard.CardType import AnyCardType
@@ -56,8 +62,6 @@ if sw1 == 0x9F:
 
 cardservice.connection.disconnect()
 cardservice.connection.release()
-
-import sys
 
 if "win32" == sys.platform:
     print("press Enter to continue")

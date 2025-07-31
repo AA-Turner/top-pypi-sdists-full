@@ -51,7 +51,7 @@ def module_path():
     return os.path.dirname(__file__)
 
 
-def main(argv):
+def main():
     app = SimpleSCardApp(
         appname="A tool to send apdu to a card",
         apppanel=SampleAPDUManagerPanel,
@@ -63,6 +63,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    import sys
-
-    main(sys.argv)
+    main()

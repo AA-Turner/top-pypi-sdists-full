@@ -16,20 +16,23 @@
 [project]
 name = "neo4j-rust-ext"
 description = "Rust Extensions for a Faster Neo4j Bolt Driver for Python"
-license = {text = "Apache License, Version 2.0"}
+license = "Apache-2.0 AND MIT"
+license-files = [
+    "LICENSE*.txt",
+    "NOTICE*.txt",
+]
 readme = "README.md"
 authors = [
     {name = "Neo4j, Inc.", email = "drivers@neo4j.com"},
 ]
 dependencies = [
-    "neo4j == 5.28.1"
+    "neo4j == 5.28.2"
 ]
 requires-python = ">=3.7"
 keywords = ["neo4j", "graph", "database"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
@@ -42,7 +45,7 @@ classifiers = [
     "Topic :: Database",
     "Topic :: Software Development",
 ]
-version = "5.28.1.0"
+version = "5.28.2.0"
 
 [project.urls]
 Homepage = "https://neo4j.com/"
@@ -58,7 +61,7 @@ pandas = ["neo4j[pandas]"]
 pyarrow = ["neo4j[pyarrow]"]
 
 [build-system]
-requires = ["maturin ~= 1.6.0"]
+requires = ["maturin ~= 1.9.1"]
 build-backend = "maturin"
 
 [tool.maturin]
@@ -77,6 +80,51 @@ exclude = [
     "tox.ini",
     { path = "neo4j/**/.keep", format = "wheel" }
 ]
+
+[tool.towncrier]
+directory = "changelog.d"
+version = "5.28.2.0"
+filename = "CHANGELOG.md"
+title_format = "## [{version}](https://github.com/neo4j/neo4j-python-driver-rust-ext/tree/{version}) ({project_date})\n***"
+issue_format = "[#{issue}]: https://github.com/neo4j/neo4j-python-driver-rust-ext/pull/{issue}"
+template = "changelog.d/template.md"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "⭐️ New Features"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "preview"
+name = "🔮️ New Preview Features"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "fix"
+name = "🔧️ Fixes"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "improve"
+name = "👏️ Improvements"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "doc"
+name = "📚️ Docs"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "mature"
+name = "🌳️ Maturing"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "clean"
+name = "🧹️ Clean-up"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "pkg"
+name = "📦️ Packaging"
+showcontent = true
+[[tool.towncrier.type]]
+directory = "dev"
+name = "🧑️‍💻️ Development"
+showcontent = true
 
 [tool.isort]
 combine_as_imports = true

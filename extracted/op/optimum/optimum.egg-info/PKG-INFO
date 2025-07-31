@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: optimum
-Version: 1.26.1
+Version: 1.27.0
 Summary: Optimum Library is an extension of the Hugging Face Transformers library, providing a framework to integrate third-party libraries from Hardware Partners and interface with their specific functionality.
 Home-page: https://github.com/huggingface/optimum
 Author: HuggingFace Inc. Special Ops Team
@@ -31,36 +31,33 @@ Requires-Dist: onnx; extra == "onnxruntime"
 Requires-Dist: datasets>=1.2.1; extra == "onnxruntime"
 Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime"
 Requires-Dist: onnxruntime>=1.11.0; extra == "onnxruntime"
-Requires-Dist: transformers<4.53.0,>=4.36; extra == "onnxruntime"
+Requires-Dist: transformers<4.54.0,>=4.36; extra == "onnxruntime"
 Provides-Extra: onnxruntime-gpu
 Requires-Dist: onnx; extra == "onnxruntime-gpu"
 Requires-Dist: datasets>=1.2.1; extra == "onnxruntime-gpu"
 Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime-gpu"
 Requires-Dist: onnxruntime-gpu>=1.11.0; extra == "onnxruntime-gpu"
-Requires-Dist: transformers<4.53.0,>=4.36; extra == "onnxruntime-gpu"
+Requires-Dist: transformers<4.54.0,>=4.36; extra == "onnxruntime-gpu"
 Provides-Extra: onnxruntime-training
 Requires-Dist: evaluate; extra == "onnxruntime-training"
 Requires-Dist: torch-ort; extra == "onnxruntime-training"
 Requires-Dist: accelerate; extra == "onnxruntime-training"
 Requires-Dist: datasets>=1.2.1; extra == "onnxruntime-training"
 Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime-training"
-Requires-Dist: transformers<4.53.0,>=4.36; extra == "onnxruntime-training"
+Requires-Dist: transformers<4.54.0,>=4.36; extra == "onnxruntime-training"
 Requires-Dist: onnxruntime-training>=1.11.0; extra == "onnxruntime-training"
 Provides-Extra: exporters
 Requires-Dist: onnx; extra == "exporters"
-Requires-Dist: timm; extra == "exporters"
 Requires-Dist: onnxruntime; extra == "exporters"
 Requires-Dist: protobuf>=3.20.1; extra == "exporters"
-Requires-Dist: transformers<4.53.0,>=4.36; extra == "exporters"
+Requires-Dist: transformers<4.54.0,>=4.36; extra == "exporters"
 Provides-Extra: exporters-gpu
 Requires-Dist: onnx; extra == "exporters-gpu"
-Requires-Dist: timm; extra == "exporters-gpu"
 Requires-Dist: onnxruntime-gpu; extra == "exporters-gpu"
 Requires-Dist: protobuf>=3.20.1; extra == "exporters-gpu"
-Requires-Dist: transformers<4.53.0,>=4.36; extra == "exporters-gpu"
+Requires-Dist: transformers<4.54.0,>=4.36; extra == "exporters-gpu"
 Provides-Extra: exporters-tf
 Requires-Dist: onnx; extra == "exporters-tf"
-Requires-Dist: timm; extra == "exporters-tf"
 Requires-Dist: h5py; extra == "exporters-tf"
 Requires-Dist: tf2onnx; extra == "exporters-tf"
 Requires-Dist: onnxruntime; extra == "exporters-tf"
@@ -138,6 +135,19 @@ Requires-Dist: torchvision; extra == "benchmark"
 Requires-Dist: evaluate>=0.2.0; extra == "benchmark"
 Provides-Extra: doc-build
 Requires-Dist: accelerate; extra == "doc-build"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <!---
 Copyright 2025 The HuggingFace Team. All rights reserved.

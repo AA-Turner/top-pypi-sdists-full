@@ -5606,6 +5606,9 @@ EmbedContentMetadataOrDict = Union[
 class EmbedContentResponse(_common.BaseModel):
   """Response for the embed_content method."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   embeddings: Optional[list[ContentEmbedding]] = Field(
       default=None,
       description="""The embeddings for each request, in the same order as provided in
@@ -5621,6 +5624,9 @@ class EmbedContentResponse(_common.BaseModel):
 
 class EmbedContentResponseDict(TypedDict, total=False):
   """Response for the embed_content method."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   embeddings: Optional[list[ContentEmbeddingDict]]
   """The embeddings for each request, in the same order as provided in
@@ -6111,6 +6117,9 @@ GeneratedImageOrDict = Union[GeneratedImage, GeneratedImageDict]
 class GenerateImagesResponse(_common.BaseModel):
   """The output images response."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   generated_images: Optional[list[GeneratedImage]] = Field(
       default=None,
       description="""List of generated images.
@@ -6123,9 +6132,23 @@ class GenerateImagesResponse(_common.BaseModel):
       """,
   )
 
+  @property
+  def images(self) -> list[Optional[Image]]:
+    """Returns the list of all generated images.
+
+    A convenience method for accessing the images. Some attributes of the
+    generated image are only available through the ``GeneratedImage`` object.
+    """
+    if not self.generated_images:
+      return []
+    return [generated_image.image for generated_image in self.generated_images]
+
 
 class GenerateImagesResponseDict(TypedDict, total=False):
   """The output images response."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   generated_images: Optional[list[GeneratedImageDict]]
   """List of generated images.
@@ -6537,6 +6560,9 @@ _EditImageParametersOrDict = Union[
 class EditImageResponse(_common.BaseModel):
   """Response for the request to edit an image."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   generated_images: Optional[list[GeneratedImage]] = Field(
       default=None, description="""Generated images."""
   )
@@ -6544,6 +6570,9 @@ class EditImageResponse(_common.BaseModel):
 
 class EditImageResponseDict(TypedDict, total=False):
   """Response for the request to edit an image."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   generated_images: Optional[list[GeneratedImageDict]]
   """Generated images."""
@@ -6678,12 +6707,18 @@ _UpscaleImageAPIParametersOrDict = Union[
 
 class UpscaleImageResponse(_common.BaseModel):
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   generated_images: Optional[list[GeneratedImage]] = Field(
       default=None, description="""Generated images."""
   )
 
 
 class UpscaleImageResponseDict(TypedDict, total=False):
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   generated_images: Optional[list[GeneratedImageDict]]
   """Generated images."""
@@ -7383,6 +7418,9 @@ _CountTokensParametersOrDict = Union[
 class CountTokensResponse(_common.BaseModel):
   """Response for counting tokens."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   total_tokens: Optional[int] = Field(
       default=None, description="""Total number of tokens."""
   )
@@ -7394,6 +7432,9 @@ class CountTokensResponse(_common.BaseModel):
 
 class CountTokensResponseDict(TypedDict, total=False):
   """Response for counting tokens."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   total_tokens: Optional[int]
   """Total number of tokens."""
@@ -7495,6 +7536,9 @@ TokensInfoOrDict = Union[TokensInfo, TokensInfoDict]
 class ComputeTokensResponse(_common.BaseModel):
   """Response for computing tokens."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   tokens_info: Optional[list[TokensInfo]] = Field(
       default=None,
       description="""Lists of tokens info from the input. A ComputeTokensRequest could have multiple instances with a prompt in each instance. We also need to return lists of tokens info for the request with multiple instances.""",
@@ -7503,6 +7547,9 @@ class ComputeTokensResponse(_common.BaseModel):
 
 class ComputeTokensResponseDict(TypedDict, total=False):
   """Response for computing tokens."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   tokens_info: Optional[list[TokensInfoDict]]
   """Lists of tokens info from the input. A ComputeTokensRequest could have multiple instances with a prompt in each instance. We also need to return lists of tokens info for the request with multiple instances."""
@@ -8775,6 +8822,9 @@ DistillationSpecOrDict = Union[DistillationSpec, DistillationSpecDict]
 class TuningJob(_common.BaseModel):
   """A tuning job."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   name: Optional[str] = Field(
       default=None,
       description="""Output only. Identifier. Resource name of a TuningJob. Format: `projects/{project}/locations/{location}/tuningJobs/{tuning_job}`""",
@@ -8873,6 +8923,9 @@ class TuningJob(_common.BaseModel):
 
 class TuningJobDict(TypedDict, total=False):
   """A tuning job."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   name: Optional[str]
   """Output only. Identifier. Resource name of a TuningJob. Format: `projects/{project}/locations/{location}/tuningJobs/{tuning_job}`"""
@@ -9228,6 +9281,9 @@ _CreateTuningJobParametersOrDict = Union[
 class TuningOperation(_common.BaseModel):
   """A long-running operation."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   name: Optional[str] = Field(
       default=None,
       description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
@@ -9248,6 +9304,9 @@ class TuningOperation(_common.BaseModel):
 
 class TuningOperationDict(TypedDict, total=False):
   """A long-running operation."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   name: Optional[str]
   """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""

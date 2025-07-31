@@ -18,7 +18,7 @@ import setuptools
 
 name = "google-pso-data-validator"
 description = "A package to enable easy data validation"
-version = "7.7.0"
+version = "8.0.0"
 release_status = "Development Status :: 4 - Beta"
 
 with open("README.md", "r") as fh:
@@ -43,7 +43,7 @@ dependencies = [
     "pydata-google-auth>=1.8.2",
     "PyMySQL>=1.1.1",
     "PyYAML>=6.0.2",
-    "SQLAlchemy==1.4.49",  # Pinned to 1.4.49, encountered SQL syntax errors above this version
+    "SQLAlchemy==2.0.41",  # Need 2.0 or higher for oracledb
     "tabulate>=0.9.0",
 ]
 

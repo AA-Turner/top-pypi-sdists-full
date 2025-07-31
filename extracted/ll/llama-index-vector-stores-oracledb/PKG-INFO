@@ -1,19 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-vector-stores-oracledb
-Version: 0.2.1
+Version: 0.3.0
 Summary: llama-index vector_stores oracle database integration
-License: MIT
-Author: Your Name
-Author-email: you@example.com
-Requires-Python: >=3.9,<3.13
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
-Requires-Dist: oracledb (>=2.2)
+Author-email: Your Name <you@example.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <3.13,>=3.9
+Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: oracledb>=2.2
 Description-Content-Type: text/markdown
 
 # LlamaIndex VectorStore Integration for Oracle
@@ -172,4 +166,3 @@ print(
     )
 )
 ```
-

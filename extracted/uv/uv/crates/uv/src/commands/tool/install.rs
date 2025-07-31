@@ -8,7 +8,7 @@ use tracing::{debug, trace};
 use uv_cache::{Cache, Refresh};
 use uv_cache_info::Timestamp;
 use uv_client::BaseClientBuilder;
-use uv_configuration::{Concurrency, Constraints, DryRun, PreviewMode, Reinstall, Upgrade};
+use uv_configuration::{Concurrency, Constraints, DryRun, Preview, Reinstall, Upgrade};
 use uv_distribution_types::{
     NameRequirementSpecification, Requirement, RequirementSource,
     UnresolvedRequirementSpecification,
@@ -23,7 +23,7 @@ use uv_requirements::{RequirementsSource, RequirementsSpecification};
 use uv_settings::{PythonInstallMirrors, ResolverInstallerOptions, ToolOptions};
 use uv_tool::InstalledTools;
 use uv_warnings::warn_user;
-use uv_workspace::WorkspaceCache;
+use uv_workspace::{WorkspaceCache, pyproject::ExtraBuildDependencies};
 
 use crate::commands::ExitStatus;
 use crate::commands::pip::loggers::{DefaultInstallLogger, DefaultResolveLogger};
@@ -62,7 +62,7 @@ pub(crate) async fn install(
     concurrency: Concurrency,
     cache: Cache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<ExitStatus> {
     let client_builder = BaseClientBuilder::new()
         .retries_from_env()?
@@ -439,6 +439,7 @@ pub(crate) async fn install(
             spec,
             Modifications::Exact,
             Constraints::from_requirements(build_constraints.iter().cloned()),
+            uv_distribution::ExtraBuildRequires::from_lowered(ExtraBuildDependencies::default()),
             &settings,
             &network_settings,
             &state,

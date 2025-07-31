@@ -1589,6 +1589,7 @@ class OriginShieldTypeDef(TypedDict):
 
 class S3OriginConfigTypeDef(TypedDict):
     OriginAccessIdentity: str
+    OriginReadTimeout: NotRequired[int]
 
 
 class VpcOriginConfigTypeDef(TypedDict):
@@ -2717,6 +2718,7 @@ class OriginOutputTypeDef(TypedDict):
     VpcOriginConfig: NotRequired[VpcOriginConfigTypeDef]
     ConnectionAttempts: NotRequired[int]
     ConnectionTimeout: NotRequired[int]
+    ResponseCompletionTimeout: NotRequired[int]
     OriginShield: NotRequired[OriginShieldTypeDef]
     OriginAccessControlId: NotRequired[str]
 
@@ -3660,6 +3662,7 @@ class OriginTypeDef(TypedDict):
     VpcOriginConfig: NotRequired[VpcOriginConfigTypeDef]
     ConnectionAttempts: NotRequired[int]
     ConnectionTimeout: NotRequired[int]
+    ResponseCompletionTimeout: NotRequired[int]
     OriginShield: NotRequired[OriginShieldTypeDef]
     OriginAccessControlId: NotRequired[str]
 

@@ -5,6 +5,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import qwak.administration.runtime_configuration.v0.container_registry_config_pb2
 import qwak.administration.runtime_configuration.v0.data_catalog_config_pb2
 import qwak.administration.runtime_configuration.v0.feature_store_config_pb2
 import qwak.administration.runtime_configuration.v0.hosting_config_pb2
@@ -33,6 +34,7 @@ class RuntimeConfiguration(google.protobuf.message.Message):
     SQL_ENGINE_CONFIGURATION_FIELD_NUMBER: builtins.int
     MODEL_ANALYTICS_STORAGE_CONFIGURATION_FIELD_NUMBER: builtins.int
     OBSERVABILITY_CONFIGURATION_FIELD_NUMBER: builtins.int
+    CONTAINER_REGISTRY_CONFIGURATION_FIELD_NUMBER: builtins.int
     @property
     def hosting_configuration(self) -> qwak.administration.runtime_configuration.v0.hosting_config_pb2.HostingConfiguration: ...
     @property
@@ -49,6 +51,8 @@ class RuntimeConfiguration(google.protobuf.message.Message):
     def model_analytics_storage_configuration(self) -> qwak.administration.runtime_configuration.v0.model_analytics_storage_config_pb2.ModelAnalyticsStorageConfiguration: ...
     @property
     def observability_configuration(self) -> qwak.administration.runtime_configuration.v0.observability_config_pb2.ObservabilityConfiguration: ...
+    @property
+    def container_registry_configuration(self) -> qwak.administration.runtime_configuration.v0.container_registry_config_pb2.ContainerRegistryConfiguration: ...
     def __init__(
         self,
         *,
@@ -60,8 +64,9 @@ class RuntimeConfiguration(google.protobuf.message.Message):
         sql_engine_configuration: qwak.administration.runtime_configuration.v0.sql_engine_config_pb2.SqlEngineConfiguration | None = ...,
         model_analytics_storage_configuration: qwak.administration.runtime_configuration.v0.model_analytics_storage_config_pb2.ModelAnalyticsStorageConfiguration | None = ...,
         observability_configuration: qwak.administration.runtime_configuration.v0.observability_config_pb2.ObservabilityConfiguration | None = ...,
+        container_registry_configuration: qwak.administration.runtime_configuration.v0.container_registry_config_pb2.ContainerRegistryConfiguration | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["data_catalog_configuration", b"data_catalog_configuration", "feature_store_configuration", b"feature_store_configuration", "hosting_configuration", b"hosting_configuration", "logs_storage_configuration", b"logs_storage_configuration", "model_analytics_storage_configuration", b"model_analytics_storage_configuration", "object_storage_configuration", b"object_storage_configuration", "observability_configuration", b"observability_configuration", "sql_engine_configuration", b"sql_engine_configuration"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["data_catalog_configuration", b"data_catalog_configuration", "feature_store_configuration", b"feature_store_configuration", "hosting_configuration", b"hosting_configuration", "logs_storage_configuration", b"logs_storage_configuration", "model_analytics_storage_configuration", b"model_analytics_storage_configuration", "object_storage_configuration", b"object_storage_configuration", "observability_configuration", b"observability_configuration", "sql_engine_configuration", b"sql_engine_configuration"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["container_registry_configuration", b"container_registry_configuration", "data_catalog_configuration", b"data_catalog_configuration", "feature_store_configuration", b"feature_store_configuration", "hosting_configuration", b"hosting_configuration", "logs_storage_configuration", b"logs_storage_configuration", "model_analytics_storage_configuration", b"model_analytics_storage_configuration", "object_storage_configuration", b"object_storage_configuration", "observability_configuration", b"observability_configuration", "sql_engine_configuration", b"sql_engine_configuration"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_registry_configuration", b"container_registry_configuration", "data_catalog_configuration", b"data_catalog_configuration", "feature_store_configuration", b"feature_store_configuration", "hosting_configuration", b"hosting_configuration", "logs_storage_configuration", b"logs_storage_configuration", "model_analytics_storage_configuration", b"model_analytics_storage_configuration", "object_storage_configuration", b"object_storage_configuration", "observability_configuration", b"observability_configuration", "sql_engine_configuration", b"sql_engine_configuration"]) -> None: ...
 
 global___RuntimeConfiguration = RuntimeConfiguration

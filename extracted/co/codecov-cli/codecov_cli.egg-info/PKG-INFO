@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codecov-cli
-Version: 11.0.3
+Version: 11.1.0
 Summary: Codecov Command Line Interface
 Author-email: Tom Hu <thomas.hu@sentry.io>
 Maintainer-email: Codecov Support <support@codecov.io>

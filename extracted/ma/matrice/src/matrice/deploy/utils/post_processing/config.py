@@ -23,6 +23,11 @@ APP_NAME_TO_USECASE = {
     "flower_segmentation": "flower_segmentation",
     "shopping_cart_analysis": "shopping_cart_analysis",
     "car_part_segmentation": "car_part_segmentation",
+    "weld_defect_detection" : "weld_defect_detection",
+    "fruit_monitoring" : "fruit_monitoring",
+    "concrete_crack_detection": "concrete_crack_detection",
+    "lane_detection" : "lane_detection",
+    "shelf_inventory" :"shelf_inventory",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -49,7 +54,12 @@ APP_NAME_TO_CATEGORY = {
     "warehouse_object_segmentation": "retail",
     "flower_segmentation": "agriculture",
     "shopping_cart_analysis": "retail",
-    "car_part_segmentation": "automobile"
+    "car_part_segmentation": "automobile",
+    "weld_defect_detection" : "weld",
+    "fruit_monitoring" : "agriculture",
+    "concrete_crack_detection": "general",
+    "lane_detection" : "traffic",
+    "shelf_inventory" : "retail",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

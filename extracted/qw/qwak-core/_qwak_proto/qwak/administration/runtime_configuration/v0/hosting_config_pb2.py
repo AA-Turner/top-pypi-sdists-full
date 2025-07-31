@@ -12,9 +12,10 @@ _sym_db = _symbol_database.Default()
 
 
 from _qwak_proto.qwak.administration.runtime_configuration.v0.creds import secret_pb2 as qwak_dot_administration_dot_runtime__configuration_dot_v0_dot_creds_dot_secret__pb2
+from _qwak_proto.qwak.administration.runtime_configuration.v0.hosting.aws import auth_pb2 as qwak_dot_administration_dot_runtime__configuration_dot_v0_dot_hosting_dot_aws_dot_auth__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nAqwak/administration/runtime_configuration/v0/hosting_config.proto\x12;qwak.administration.runtime_configuration.v0.hosting_config\x1a?qwak/administration/runtime_configuration/v0/creds/secret.proto\"\x8e\x02\n\x14HostingConfiguration\x12v\n\x16\x61ws_host_configuration\x18\x01 \x01(\x0b\x32T.qwak.administration.runtime_configuration.v0.hosting_config.AWSHostingConfigurationH\x00\x12v\n\x16gcp_host_configuration\x18\x02 \x01(\x0b\x32T.qwak.administration.runtime_configuration.v0.hosting_config.GCPHostingConfigurationH\x00\x42\x06\n\x04type\"\xa0\x01\n\x17\x41WSHostingConfiguration\x12m\n\x13iam_service_account\x18\x01 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccountH\x00\x12\x0e\n\x06region\x18\x02 \x01(\tB\x06\n\x04\x61uth\"\xb8\x01\n\x17GCPHostingConfiguration\x12q\n\x13gcp_service_account\x18\x01 \x01(\x0b\x32R.qwak.administration.runtime_configuration.v0.hosting_config.GCPServiceAccountAuthH\x00\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x12\n\nproject_id\x18\x03 \x01(\tB\x06\n\x04\x61uth\"\xe7\x01\n\x15GCPServiceAccountAuth\x12g\n\x0fservice_account\x18\x01 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccount\x12\x65\n\x14service_account_json\x18\x02 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRef\"&\n\x11IAMServiceAccount\x12\x11\n\trole_name\x18\x01 \x01(\tB\xdb\x01\n4com.jfrog.ml.runtime_configuration.v0.hosting_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nAqwak/administration/runtime_configuration/v0/hosting_config.proto\x12;qwak.administration.runtime_configuration.v0.hosting_config\x1a?qwak/administration/runtime_configuration/v0/creds/secret.proto\x1a\x43qwak/administration/runtime_configuration/v0/hosting/aws/auth.proto\"\x8e\x02\n\x14HostingConfiguration\x12v\n\x16\x61ws_host_configuration\x18\x01 \x01(\x0b\x32T.qwak.administration.runtime_configuration.v0.hosting_config.AWSHostingConfigurationH\x00\x12v\n\x16gcp_host_configuration\x18\x02 \x01(\x0b\x32T.qwak.administration.runtime_configuration.v0.hosting_config.GCPHostingConfigurationH\x00\x42\x06\n\x04type\"\x8e\x02\n\x17\x41WSHostingConfiguration\x12m\n\x13iam_service_account\x18\x01 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccountH\x00\x12l\n\x12scoped_permissions\x18\x03 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting.aws.AWSScopedPermissionsH\x00\x12\x0e\n\x06region\x18\x02 \x01(\tB\x06\n\x04\x61uth\"\xb8\x01\n\x17GCPHostingConfiguration\x12q\n\x13gcp_service_account\x18\x01 \x01(\x0b\x32R.qwak.administration.runtime_configuration.v0.hosting_config.GCPServiceAccountAuthH\x00\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x12\n\nproject_id\x18\x03 \x01(\tB\x06\n\x04\x61uth\"\xe7\x01\n\x15GCPServiceAccountAuth\x12g\n\x0fservice_account\x18\x01 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccount\x12\x65\n\x14service_account_json\x18\x02 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRef\"&\n\x11IAMServiceAccount\x12\x11\n\trole_name\x18\x01 \x01(\tB\xdb\x01\n4com.jfrog.ml.runtime_configuration.v0.hosting_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,14 +24,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n4com.jfrog.ml.runtime_configuration.v0.hosting_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _globals['_HOSTINGCONFIGURATION']._serialized_start=196
-  _globals['_HOSTINGCONFIGURATION']._serialized_end=466
-  _globals['_AWSHOSTINGCONFIGURATION']._serialized_start=469
-  _globals['_AWSHOSTINGCONFIGURATION']._serialized_end=629
-  _globals['_GCPHOSTINGCONFIGURATION']._serialized_start=632
-  _globals['_GCPHOSTINGCONFIGURATION']._serialized_end=816
-  _globals['_GCPSERVICEACCOUNTAUTH']._serialized_start=819
-  _globals['_GCPSERVICEACCOUNTAUTH']._serialized_end=1050
-  _globals['_IAMSERVICEACCOUNT']._serialized_start=1052
-  _globals['_IAMSERVICEACCOUNT']._serialized_end=1090
+  _globals['_HOSTINGCONFIGURATION']._serialized_start=265
+  _globals['_HOSTINGCONFIGURATION']._serialized_end=535
+  _globals['_AWSHOSTINGCONFIGURATION']._serialized_start=538
+  _globals['_AWSHOSTINGCONFIGURATION']._serialized_end=808
+  _globals['_GCPHOSTINGCONFIGURATION']._serialized_start=811
+  _globals['_GCPHOSTINGCONFIGURATION']._serialized_end=995
+  _globals['_GCPSERVICEACCOUNTAUTH']._serialized_start=998
+  _globals['_GCPSERVICEACCOUNTAUTH']._serialized_end=1229
+  _globals['_IAMSERVICEACCOUNT']._serialized_start=1231
+  _globals['_IAMSERVICEACCOUNT']._serialized_end=1269
 # @@protoc_insertion_point(module_scope)

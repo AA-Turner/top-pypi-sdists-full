@@ -35,7 +35,13 @@ class SmartcardException(Exception):
 
     """
 
-    def __init__(self, message="", hresult=-1, *args):
+    def __init__(self, *args, message="", hresult=-1):
+        if not message and len(args) > 0:
+            message = args[0]
+            args = args[1:]
+        if -1 == hresult and len(args) > 0:
+            hresult = args[0]
+            args = args[1:]
         super().__init__(message, *args)
         self.hresult = int(hresult)
 
@@ -56,19 +62,18 @@ class SmartcardException(Exception):
 class CardConnectionException(SmartcardException):
     """Raised when a CardConnection class method fails."""
 
-    pass
-
 
 class CardRequestException(SmartcardException):
     """Raised when a CardRequest wait fails."""
-
-    pass
 
 
 class CardRequestTimeoutException(SmartcardException):
     """Raised when a CardRequest times out."""
 
-    def __init__(self, hresult=-1, *args):
+    def __init__(self, *args, hresult=-1):
+        if -1 == hresult and len(args) > 0:
+            hresult = args[0]
+            args = args[1:]
         SmartcardException.__init__(
             self, "Time-out during card request", hresult=hresult, *args
         )
@@ -77,33 +82,27 @@ class CardRequestTimeoutException(SmartcardException):
 class CardServiceException(SmartcardException):
     """Raised when a CardService class method fails."""
 
-    pass
-
 
 class CardServiceStoppedException(SmartcardException):
     """Raised when the CardService was stopped"""
 
-    pass
-
 
 class CardServiceNotFoundException(SmartcardException):
     """Raised when the CardService is not found"""
-
-    pass
 
 
 class InvalidATRMaskLengthException(SmartcardException):
     """Raised when an ATR mask does not match an ATR length."""
 
     def __init__(self, mask):
-        SmartcardException.__init__(self, "Invalid ATR mask length: %s" % mask)
+        SmartcardException.__init__(self, f"Invalid ATR mask length: {mask}")
 
 
 class InvalidReaderException(SmartcardException):
     """Raised when trying to access an invalid smartcard reader."""
 
     def __init__(self, readername):
-        SmartcardException.__init__(self, "Invalid reader: %s" % readername)
+        SmartcardException.__init__(self, f"Invalid reader: {readername}")
 
 
 class ListReadersException(SmartcardException):

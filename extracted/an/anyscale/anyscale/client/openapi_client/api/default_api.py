@@ -11730,6 +11730,127 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get(self, cloud_id, cloud_deployment_id, **kwargs):  # noqa: E501
+        """Get Cloud Deployment  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get(cloud_id, cloud_deployment_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cloud_deployment_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ClouddeploymentResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get_with_http_info(cloud_id, cloud_deployment_id, **kwargs)  # noqa: E501
+
+    def get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get_with_http_info(self, cloud_id, cloud_deployment_id, **kwargs):  # noqa: E501
+        """Get Cloud Deployment  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get_with_http_info(cloud_id, cloud_deployment_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cloud_deployment_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ClouddeploymentResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cloud_deployment_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get`")  # noqa: E501
+        # verify the required parameter 'cloud_deployment_id' is set
+        if self.api_client.client_side_validation and ('cloud_deployment_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_deployment_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_deployment_id` when calling `get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+        if 'cloud_deployment_id' in local_var_params and local_var_params['cloud_deployment_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_deployment_id', local_var_params['cloud_deployment_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/deployment', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ClouddeploymentResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_cloud_deployment_config_api_v2_clouds_cloud_id_deployment_cloud_deployment_id_config_get(self, cloud_id, cloud_deployment_id, **kwargs):  # noqa: E501
         """Get Cloud Deployment Config  # noqa: E501
 
@@ -25216,6 +25337,7 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str email:
         :param str name:
+        :param CollaboratorType collaborator_type:
         :param bool is_service_account:
         :param str paging_token:
         :param int count:
@@ -25245,6 +25367,7 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str email:
         :param str name:
+        :param CollaboratorType collaborator_type:
         :param bool is_service_account:
         :param str paging_token:
         :param int count:
@@ -25267,6 +25390,7 @@ class DefaultApi(object):
         all_params = [
             'email',
             'name',
+            'collaborator_type',
             'is_service_account',
             'paging_token',
             'count'
@@ -25302,6 +25426,8 @@ class DefaultApi(object):
             query_params.append(('email', local_var_params['email']))  # noqa: E501
         if 'name' in local_var_params and local_var_params['name'] is not None:  # noqa: E501
             query_params.append(('name', local_var_params['name']))  # noqa: E501
+        if 'collaborator_type' in local_var_params and local_var_params['collaborator_type'] is not None:  # noqa: E501
+            query_params.append(('collaborator_type', local_var_params['collaborator_type']))  # noqa: E501
         if 'is_service_account' in local_var_params and local_var_params['is_service_account'] is not None:  # noqa: E501
             query_params.append(('is_service_account', local_var_params['is_service_account']))  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
@@ -29028,6 +29154,127 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='AnyscaledcredentialresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete(self, cloud_id, cloud_deployment_name, **kwargs):  # noqa: E501
+        """Remove Cloud Deployment  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete(cloud_id, cloud_deployment_name, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cloud_deployment_name: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete_with_http_info(cloud_id, cloud_deployment_name, **kwargs)  # noqa: E501
+
+    def remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete_with_http_info(self, cloud_id, cloud_deployment_name, **kwargs):  # noqa: E501
+        """Remove Cloud Deployment  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete_with_http_info(cloud_id, cloud_deployment_name, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cloud_deployment_name: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cloud_deployment_name'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete`")  # noqa: E501
+        # verify the required parameter 'cloud_deployment_name' is set
+        if self.api_client.client_side_validation and ('cloud_deployment_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_deployment_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_deployment_name` when calling `remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+        if 'cloud_deployment_name' in local_var_params and local_var_params['cloud_deployment_name'] is not None:  # noqa: E501
+            query_params.append(('cloud_deployment_name', local_var_params['cloud_deployment_name']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/remove_deployment', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

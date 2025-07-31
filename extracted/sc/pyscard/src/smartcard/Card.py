@@ -47,8 +47,8 @@ class Card:
         Return False otherwise."""
         if isinstance(other, Card):
             return self.atr == other.atr and repr(self.reader) == repr(other.reader)
-        else:
-            return False
+
+        return False
 
     def __ne__(self, other):
         """Return True if self!=other (same reader and same atr).Returns
@@ -64,14 +64,14 @@ class Card:
         readerobj = None
         if isinstance(self.reader, Reader):
             readerobj = self.reader
-        elif type(self.reader) == str:
+        elif isinstance(self.reader, str):
             for reader in readers():
                 if self.reader == str(reader):
                     readerobj = reader
 
         if readerobj:
             return readerobj.createConnection()
-        else:
-            # raise CardConnectionException(
-            # 'not a valid reader: ' + str(self.reader))
-            return None
+
+        # raise CardConnectionException(
+        # 'not a valid reader: ' + str(self.reader))
+        return None

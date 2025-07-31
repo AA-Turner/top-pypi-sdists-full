@@ -36,22 +36,19 @@ class Reader:
 
     def addtoreadergroup(self, groupname):
         """Add reader to a reader group."""
-        pass
 
     def removefromreadergroup(self, groupname):
         """Remove reader from a reader group."""
-        pass
 
     def createConnection(self):
         """Returns a card connection thru reader."""
-        pass
 
     def __eq__(self, other):
         """Returns True if self==other (same name)."""
-        if type(other) == type(self):
+        if isinstance(other, type(self)):
             return self.name == other.name
-        else:
-            return False
+
+        return False
 
     def __hash__(self):
         """Returns a hash value for this object (self.name is unique)."""
@@ -59,7 +56,7 @@ class Reader:
 
     def __repr__(self):
         """Returns card reader name string for `object` calls."""
-        return "'%s'" % self.name
+        return f"'{self.name}'"
 
     def __str__(self):
         """Returns card reader name string for str(object) calls."""

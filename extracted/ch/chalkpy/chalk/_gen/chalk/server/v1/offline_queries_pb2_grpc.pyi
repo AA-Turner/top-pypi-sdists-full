@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     GetOfflineQueryResponse,
     ListOfflineQueriesRequest,
     ListOfflineQueriesResponse,
+    ListRelevantJobQueueConsumersRequest,
+    ListRelevantJobQueueConsumersResponse,
 )
 from chalk._gen.chalk.server.v1.performance_summary_pb2 import (
     ListOfflineQueryShardPerformanceSummariesRequest,
@@ -25,15 +27,6 @@ from grpc import (
 )
 
 class OfflineQueryMetadataServiceStub:
-    """message GetOfflineQueryShardsRequest {
-     string offline_query_id = 1;
-    }
-
-    message GetOfflineQueryShardsResponse {
-     repeated OfflineQueryShard offline_query_shards = 1;
-    }
-    """
-
     def __init__(self, channel: Channel) -> None: ...
     ListOfflineQueries: UnaryUnaryMultiCallable[
         ListOfflineQueriesRequest,
@@ -52,17 +45,12 @@ class OfflineQueryMetadataServiceStub:
        option idempotency_level = NO_SIDE_EFFECTS;
      }
     """
+    ListRelevantJobQueueConsumers: UnaryUnaryMultiCallable[
+        ListRelevantJobQueueConsumersRequest,
+        ListRelevantJobQueueConsumersResponse,
+    ]
 
 class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
-    """message GetOfflineQueryShardsRequest {
-     string offline_query_id = 1;
-    }
-
-    message GetOfflineQueryShardsResponse {
-     repeated OfflineQueryShard offline_query_shards = 1;
-    }
-    """
-
     @abstractmethod
     def ListOfflineQueries(
         self,
@@ -86,6 +74,12 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
           option idempotency_level = NO_SIDE_EFFECTS;
         }
         """
+    @abstractmethod
+    def ListRelevantJobQueueConsumers(
+        self,
+        request: ListRelevantJobQueueConsumersRequest,
+        context: ServicerContext,
+    ) -> ListRelevantJobQueueConsumersResponse: ...
 
 def add_OfflineQueryMetadataServiceServicer_to_server(
     servicer: OfflineQueryMetadataServiceServicer, server: Server

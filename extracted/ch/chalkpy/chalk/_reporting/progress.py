@@ -27,8 +27,6 @@ from rich.progress import (
 from rich.style import Style
 from rich.table import Table
 from rich.text import Text
-from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
-from tenacity.wait import wait_exponential_jitter
 
 import chalk
 from chalk import EnvironmentId
@@ -47,14 +45,6 @@ _logger = get_logger(__name__)
 
 _MAX_ERRORS_TO_DISPLAY = 10
 _TTableRow = Tuple[str, str]
-
-try:
-    from IPython import get_ipython  # noqa  # pyright: ignore
-
-    # n.b. sometimes this is the `ipython` shell, not a notebook.
-    _running_in_jupyter_notebook = get_ipython() is not None
-except ImportError:
-    _running_in_jupyter_notebook = False
 
 
 class MofOptionalNCompleteColumn(MofNCompleteColumn):
@@ -104,6 +94,14 @@ class ProgressService:
         self._operation_kind: Optional[BatchOpKind] = None
         self._num_computers = num_computers
         self._shard_id = 0
+
+        try:
+            from IPython import get_ipython  # noqa  # pyright: ignore
+
+            # n.b. sometimes this is the `ipython` shell, not a notebook.
+            _running_in_jupyter_notebook = get_ipython() is not None
+        except ImportError:
+            _running_in_jupyter_notebook = False
         if show_progress and not (_running_in_jupyter_notebook or sys.stdout.isatty()):
             _logger.warning("Progress display is not supported in dumb terminals. Progress will not be shown.")
             show_progress = False
@@ -255,11 +253,11 @@ class ProgressService:
         for i, e in enumerate(errors):
             grouped_details[i].append((f"Error {i + 1}", e.message) if len(errors) > 1 else ("Error", e.message))
             if e.exception and e.exception.message:
-                grouped_details[i].append((f"Exception", e.exception.message))
+                grouped_details[i].append(("Exception", e.exception.message))
             if e.exception and e.exception.stacktrace:
-                grouped_details[i].append((f"Stacktrace", e.exception.stacktrace))
+                grouped_details[i].append(("Stacktrace", e.exception.stacktrace))
             if val := self._get_pkey_display_value(e):
-                grouped_details[i].append((f"Pkey", val))
+                grouped_details[i].append(("Pkey", val))
 
         flattened_details = sum(list(grouped_details.values()), [])
         if truncated_from:
@@ -365,6 +363,9 @@ class ProgressService:
         while datetime.now() < must_receive_next_report_by and datetime.now() < completion_deadline:
             time.sleep(0.5)
 
+            from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
+            from tenacity.wait import wait_exponential_jitter
+
             for attempt in Retrying(
                 stop=stop_after_attempt(5),
                 wait=wait_exponential_jitter(),
@@ -378,15 +379,14 @@ class ProgressService:
                             must_receive_next_report_by = datetime.now() + timeout
                         self._operation_kind = batch_report.operation_kind
                         yield batch_report
+        if datetime.now() >= completion_deadline:
+            raise TimeoutError(
+                f"Timed out waiting ({completion_timeout}) for completion of operation with id '{self.operation_id}' (chalkpy=={chalk.__version__})"
+            )
         else:
-            if datetime.now() >= completion_deadline:
-                raise TimeoutError(
-                    f"Timed out waiting ({completion_timeout}) for completion of operation with id '{self.operation_id}' (chalkpy=={chalk.__version__})"
-                )
-            else:
-                raise TimeoutError(
-                    f"Timed out waiting ({timeout}) for next status report for operation with id '{self.operation_id}' (chalkpy=={chalk.__version__})"
-                )
+            raise TimeoutError(
+                f"Timed out waiting ({timeout}) for next status report for operation with id '{self.operation_id}' (chalkpy=={chalk.__version__})"
+            )
 
     def await_operation(self, must_fail_on_resolver_error: bool, timeout: float | timedelta | None) -> None:
         fqn_to_task_id: dict[str, TaskID] = {}
@@ -403,7 +403,6 @@ class ProgressService:
         context = ChalkLive(self.enclosure_panel, auto_refresh=True) if self.show_progress else nullcontext()
         with context:
             for batch_report in self.poll_report(timeout, completion_timeout=self.client.default_job_timeout):
-
                 # Update main progress text
                 if main_task_id is not None:
                     assert self.main_progress is not None

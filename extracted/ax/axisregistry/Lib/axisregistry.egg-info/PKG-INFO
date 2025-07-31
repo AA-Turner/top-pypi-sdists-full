@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: axisregistry
-Version: 0.4.12
+Version: 0.4.16
 Summary: A python API to access data from the Google Fonts variable fonts axis registry.
 Home-page: https://github.com/googlefonts/axisregistry/
 Author: Felipe Sanches
@@ -23,6 +23,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

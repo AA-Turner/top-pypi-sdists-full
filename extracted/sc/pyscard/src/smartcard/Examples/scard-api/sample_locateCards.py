@@ -28,9 +28,38 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import sys
 
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_STATE_ATRMATCH,
+    SCARD_STATE_CHANGED,
+    SCARD_STATE_EMPTY,
+    SCARD_STATE_EXCLUSIVE,
+    SCARD_STATE_IGNORE,
+    SCARD_STATE_INUSE,
+    SCARD_STATE_MUTE,
+    SCARD_STATE_PRESENT,
+    SCARD_STATE_UNAVAILABLE,
+    SCARD_STATE_UNAWARE,
+    SCARD_STATE_UNKNOWN,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardListReaders,
+    SCardReleaseContext,
+    error,
+    resourceManager,
+)
 
 if "winscard" == resourceManager:
+
+    # pylint: disable=no-name-in-module
+    from smartcard.scard import (
+        ERROR_ALREADY_EXISTS,
+        SCardForgetCardType,
+        SCardIntroduceCardType,
+        SCardListCards,
+        SCardLocateCards,
+    )
 
     znewcardName = "dummy-card"
     znewcardATR = [
@@ -65,17 +94,13 @@ if "winscard" == resourceManager:
     try:
         hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
         if hresult != SCARD_S_SUCCESS:
-            raise scard.error(
-                "Failed to establish context: " + SCardGetErrorMessage(hresult)
-            )
+            raise error("Failed to establish context: " + SCardGetErrorMessage(hresult))
         print("Context established!")
 
         try:
             hresult, readers = SCardListReaders(hcontext, [])
             if hresult != SCARD_S_SUCCESS:
-                raise scard.error(
-                    "Failed to list readers: " + SCardGetErrorMessage(hresult)
-                )
+                raise error("Failed to list readers: " + SCardGetErrorMessage(hresult))
             print("PCSC Readers:", readers)
 
             # introduce a card (forget first in case it is already present)
@@ -99,8 +124,8 @@ if "winscard" == resourceManager:
             print("Cards:", cards)
 
             readerstates = []
-            for i in range(len(readers)):
-                readerstates += [(readers[i], SCARD_STATE_UNAWARE)]
+            for reader in readers:
+                readerstates += [(reader, SCARD_STATE_UNAWARE)]
             print(readerstates)
 
             hresult, newstates = SCardLocateCards(hcontext, cards, readerstates)
@@ -108,7 +133,7 @@ if "winscard" == resourceManager:
                 reader, eventstate, atr = i
                 print(reader, end=" ")
                 for b in atr:
-                    print("0x%.2X" % b, end=" ")
+                    print(f"0x{b:02X}", end=" ")
                 print("")
                 if eventstate & SCARD_STATE_ATRMATCH:
                     print("Card found")

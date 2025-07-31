@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: clerk-backend-api
-Version: 3.1.7
+Version: 3.1.11
 Summary: Python Client SDK for clerk.dev
 Author: Clerk
 Requires-Python: >=3.9.2
@@ -9,7 +9,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: cryptography (>=44.0.1,<45.0.0)
+Requires-Dist: cryptography (>=45.0.0,<46.0.0)
 Requires-Dist: httpcore (>=1.0.9)
 Requires-Dist: httpx (>=0.28.1)
 Requires-Dist: pydantic (>=2.11.2)

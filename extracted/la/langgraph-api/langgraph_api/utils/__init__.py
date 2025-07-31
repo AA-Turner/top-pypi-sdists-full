@@ -1,6 +1,6 @@
 import contextvars
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Protocol, TypeAlias, TypeVar
@@ -127,3 +127,19 @@ class SchemaGenerator(BaseSchemaGenerator):
             schema["paths"][endpoint.path][endpoint.http_method] = parsed
 
         return schema
+
+
+async def get_pagination_headers(
+    resource: AsyncGenerator[T],
+    next_offset: int | None,
+    offset: int,
+) -> tuple[list[T], dict[str, str]]:
+    resources = [r async for r in resource]
+    if next_offset is None:
+        response_headers = {"X-Pagination-Total": str(len(resources) + offset)}
+    else:
+        response_headers = {
+            "X-Pagination-Total": str(next_offset + 1),  # Next offset will be "n"
+            "X-Pagination-Next": str(next_offset),
+        }
+    return resources, response_headers

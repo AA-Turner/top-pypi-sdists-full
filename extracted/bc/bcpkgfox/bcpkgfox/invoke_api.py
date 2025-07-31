@@ -1,6 +1,10 @@
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
 from typing import Optional
 from threading import Thread
 import time
+import os
 
 def invoke_api_list(link: str, token: str, method: Optional[str] = "GET", headers: Optional[str] = None, print_response: Optional[bool] = False) -> dict:
     import requests
@@ -164,18 +168,9 @@ def invoke_api_proc_log(link, id_robo, token):
     print(f"\n{responseinsert.json()}")
 
 def login_2fac(driver, certificate, system, token, code_timeout=60):
-
-    from . import mostrar_mensagem
-    import bcpkgfox as bc
     import requests
-    import time
     import pyautogui
-    import os
-
-    from threading import Thread
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
+    from . import mostrar_mensagem
 
     class login_2fac:
         def __init__(self):
@@ -474,30 +469,29 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                     raise ValueError('Mais de um sistema encontrado, verifique o nome')
 
             # Verifies if the system was opened
-            num_windows = len(self.driver.window_handles)
-            for _ in range(5):
+            for _ in range(30):
                 time.sleep(1)
-                if len(self.driver.window_handles) == num_windows:
+                if len(self.driver.window_handles) == 1:
                     try:
                         tools.find_element_with_wait(By.XPATH, "//button[text()='Acessar']", timeout=1).click()
                     except:
-                        break
+                        time.sleep(1)
                 else:
+                    time.sleep(3)
                     break
 
-            handles = self.driver.window_handles
-            self.driver.switch_to.window(handles[-1])
-            protection.stop()
-
+            self.driver.switch_to.window(self.driver.window_handles[-1])
             attempt = 0
             while 'whoom' in self.driver.title.strip().lower() and attempt <= 180:
                 time.sleep(1)
                 attempt += 1
+            time.sleep(5)
 
             if attempt >= 180:
                 mostrar_mensagem('Whoom congelou no conectar com site.')
                 raise SystemError('Whoom congelou no conectar com site.')
 
+            protection.stop()
             if len(self.driver.window_handles) > 1:
                 self.driver.switch_to.window(self.driver.window_handles[0])
                 self.driver.close()

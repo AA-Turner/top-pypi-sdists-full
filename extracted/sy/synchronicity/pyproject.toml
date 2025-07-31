@@ -1,12 +1,12 @@
 [project]
 name = "synchronicity"
-version = "0.10.1"
+version = "0.10.2"
 description = "Export blocking and async library versions from a single async implementation"
 readme = "README.md"
 authors = [
     { name = "Modal Labs" }
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "sigtools>=4.0.1",
     "typing-extensions>=4.12.2",

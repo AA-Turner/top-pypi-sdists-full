@@ -61,11 +61,6 @@ class FeatureJsonConverter:
             )
 
         def _structure_dicts(obj: Any, typ: Type):
-            # try to treat the incoming 'val' as a dict if typ is a dict
-            # ie: if typ == typing.Dict[str, typing.Optional[str]], treat value of [["a","b"],["c","d"]] as {"a": "b", "c": "d"}
-            if isinstance(obj, list):
-                obj = dict(obj)
-
             args = get_args(typ)
             if len(args) == 0:
                 raise TypeError(
@@ -73,7 +68,12 @@ class FeatureJsonConverter:
                 )
             elif len(args) != 2:
                 raise TypeError(f"{typ} should be parameterized with two types, found: {typ}")
-
+            if obj is None:
+                return None
+            if isinstance(obj, list):
+                # try to treat the incoming 'val' as a dict if typ is a dict
+                # ie: if typ == typing.Dict[str, typing.Optional[str]], treat value of [["a","b"],["c","d"]] as {"a": "b", "c": "d"}
+                obj = dict(obj)
             return {k: self._json_converter.structure(v, args[1]) for k, v in obj.items()}
 
         def _is_dict(typ: Type):

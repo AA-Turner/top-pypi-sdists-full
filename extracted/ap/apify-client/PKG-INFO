@@ -1,13 +1,14 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 1.12.0
+Version: 1.12.1
 Summary: Apify API client for Python
+Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/
-Project-URL: Apify homepage, https://apify.com
-Project-URL: Changelog, https://github.com/apify/apify-client-python/blob/master/CHANGELOG.md
-Project-URL: Documentation, https://docs.apify.com/api/client/python/
-Project-URL: Issue tracker, https://github.com/apify/apify-client-python/issues
-Project-URL: Repository, https://github.com/apify/apify-client-python
+Project-URL: Changelog, https://docs.apify.com/api/client/python/docs/changelog
+Project-URL: Discord, https://discord.com/invite/jyEM2PRvMU
+Project-URL: Documentation, https://docs.apify.com/api/client/python/docs/overview/introduction
+Project-URL: Issue Tracker, https://github.com/apify/apify-client-python/issues
+Project-URL: Source Code, https://github.com/apify/apify-client-python
 Author-email: "Apify Technologies s.r.o." <support@apify.com>
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -213,6 +214,7 @@ License:                                  Apache License
 License-File: LICENSE
 Keywords: api,apify,automation,client,crawling,scraping
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -223,8 +225,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
-Requires-Dist: apify-shared>=1.4.1
-Requires-Dist: colorama~=0.4.0
+Requires-Dist: apify-shared<2.0.0
+Requires-Dist: colorama>=0.4.0
 Requires-Dist: httpx>=0.25
 Requires-Dist: more-itertools>=10.0.0
 Description-Content-Type: text/markdown

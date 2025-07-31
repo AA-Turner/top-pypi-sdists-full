@@ -34,12 +34,34 @@ from smartcard.Exceptions import (
     ListReadersException,
 )
 from smartcard.pcsc.PCSCReader import PCSCReader
-from smartcard.scard import *
+from smartcard.scard import (
+    INFINITE,
+    SCARD_E_CANCELLED,
+    SCARD_E_NO_READERS_AVAILABLE,
+    SCARD_E_NO_SERVICE,
+    SCARD_E_SERVICE_STOPPED,
+    SCARD_E_SYSTEM_CANCELLED,
+    SCARD_E_TIMEOUT,
+    SCARD_E_UNKNOWN_READER,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_STATE_CHANGED,
+    SCARD_STATE_PRESENT,
+    SCARD_STATE_UNAWARE,
+    SCardCancel,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardGetStatusChange,
+    SCardListReaders,
+    SCardReleaseContext,
+)
 
 
 class PCSCCardRequest(AbstractCardRequest):
     """PCSC CardRequest class."""
 
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(
         self,
         newcardonly=False,
@@ -93,6 +115,7 @@ class PCSCCardRequest(AbstractCardRequest):
         self.release()
 
     def release(self):
+        """Release the PCSC context"""
         if self.hcontext is not None:
             hresult = SCardReleaseContext(self.hcontext)
             if hresult != SCARD_S_SUCCESS:
@@ -146,6 +169,11 @@ class PCSCCardRequest(AbstractCardRequest):
 
     def waitforcard(self):
         """Wait for card insertion and returns a card service."""
+
+        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-branches
+
         AbstractCardRequest.waitforcard(self)
         cardfound = False
 
@@ -160,7 +188,7 @@ class PCSCCardRequest(AbstractCardRequest):
                 readerstates[reader] = (reader, SCARD_STATE_UNAWARE)
 
         # call SCardGetStatusChange only if we have some readers
-        if {} != readerstates:
+        if readerstates:
             hresult, newstates = SCardGetStatusChange(
                 self.hcontext, 0, list(readerstates.values())
             )
@@ -171,11 +199,7 @@ class PCSCCardRequest(AbstractCardRequest):
         # we can expect normally time-outs or reader
         # disappearing just before the call
         # otherwise, raise exception on error
-        if (
-            SCARD_S_SUCCESS != hresult
-            and SCARD_E_TIMEOUT != hresult
-            and SCARD_E_UNKNOWN_READER != hresult
-        ):
+        if hresult not in (SCARD_S_SUCCESS, SCARD_E_TIMEOUT, SCARD_E_UNKNOWN_READER):
             raise CardRequestException(
                 "Failed to SCardGetStatusChange " + SCardGetErrorMessage(hresult),
                 hresult=hresult,
@@ -225,13 +249,13 @@ class PCSCCardRequest(AbstractCardRequest):
             # the main thread handles a possible KeyboardInterrupt
             try:
                 waitThread.join()
-            except KeyboardInterrupt:
+            except KeyboardInterrupt as exc:
                 hresult = SCardCancel(self.hcontext)
                 if hresult != SCARD_S_SUCCESS:
                     raise CardRequestException(
                         "Failed to SCardCancel " + SCardGetErrorMessage(hresult),
                         hresult=hresult,
-                    )
+                    ) from exc
 
             # wait for the thread to finish in case of KeyboardInterrupt
             self.evt.wait(timeout=None)
@@ -244,15 +268,15 @@ class PCSCCardRequest(AbstractCardRequest):
             if self.timeout != INFINITE:
                 delta = datetime.now() - startDate
                 self.timeout -= int(delta.total_seconds() * 1000)
-                if self.timeout < 0:
-                    self.timeout = 0
+                # timeout cant be < 0
+                self.timeout = max(self.timeout, 0)
 
             # time-out
             if hresult in (SCARD_E_TIMEOUT, SCARD_E_CANCELLED):
                 raise CardRequestTimeoutException(hresult=hresult)
 
             # reader vanished before or during the call
-            elif SCARD_E_UNKNOWN_READER == hresult:
+            if SCARD_E_UNKNOWN_READER == hresult:
                 pass
 
             # this happens on Windows when the last reader is disconnected
@@ -274,7 +298,7 @@ class PCSCCardRequest(AbstractCardRequest):
                 # or if a new card is requested, and there is a change+present
                 for state in newstates:
                     readername, eventstate, atr = state
-                    r, oldstate = readerstates[readername]
+                    _, oldstate = readerstates[readername]
 
                     # the status can change on a card already inserted, e.g.
                     # unpowered, in use, ...
@@ -300,15 +324,22 @@ class PCSCCardRequest(AbstractCardRequest):
                     # update state dictionary
                     readerstates[readername] = (readername, eventstate)
 
+        # should not happen
+        return None
+
     def waitforcardevent(self):
         """Wait for card insertion or removal."""
+
+        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-branches
+
         AbstractCardRequest.waitforcardevent(self)
         presentcards = []
 
         startDate = datetime.now()
         eventfound = False
         self.timeout = self.timeout_init
-        previous_readernames = self.getReaderNames()
         while not eventfound:
 
             # get states from previous run
@@ -328,14 +359,6 @@ class PCSCCardRequest(AbstractCardRequest):
                 for reader in readernames:
                     # create a dictionary entry for new readers
                     readerstates[reader] = (reader, SCARD_STATE_UNAWARE)
-
-                hresult, newstates = SCardGetStatusChange(
-                    self.hcontext, 0, list(readerstates.values())
-                )
-
-                # init readerstates
-                for reader, state, _ in newstates:
-                    readerstates[reader] = (reader, state)
 
             # check if a new reader with a card has just been connected
             for reader in _readernames:
@@ -377,9 +400,6 @@ class PCSCCardRequest(AbstractCardRequest):
             if eventfound:
                 break
 
-            # update previous readers list (without PnP special reader)
-            previous_readernames = _readernames
-
             # wait for card insertion
             self.readerstates = readerstates
             waitThread = threading.Thread(target=self.__getStatusChange)
@@ -388,13 +408,13 @@ class PCSCCardRequest(AbstractCardRequest):
             # the main thread handles a possible KeyboardInterrupt
             try:
                 waitThread.join()
-            except KeyboardInterrupt:
+            except KeyboardInterrupt as exc:
                 hresult = SCardCancel(self.hcontext)
                 if hresult != SCARD_S_SUCCESS:
                     raise CardRequestException(
                         "Failed to SCardCancel " + SCardGetErrorMessage(hresult),
                         hresult=hresult,
-                    )
+                    ) from exc
 
             # wait for the thread to finish in case of KeyboardInterrupt
             self.evt.wait(timeout=None)
@@ -407,15 +427,15 @@ class PCSCCardRequest(AbstractCardRequest):
             if self.timeout != INFINITE:
                 delta = datetime.now() - startDate
                 self.timeout -= int(delta.total_seconds() * 1000)
-                if self.timeout < 0:
-                    self.timeout = 0
+                # timeout cant be < 0
+                self.timeout = max(self.timeout, 0)
 
             # time-out
             if hresult in (SCARD_E_TIMEOUT, SCARD_E_CANCELLED):
                 raise CardRequestTimeoutException(hresult=hresult)
 
             # the reader was unplugged during the loop
-            elif SCARD_E_UNKNOWN_READER == hresult:
+            if SCARD_E_UNKNOWN_READER == hresult:
                 pass
 
             # this happens on Windows when the last reader is disconnected
@@ -458,7 +478,7 @@ class PCSCCardRequest(AbstractCardRequest):
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of PCSCCardRequest.py."""
+    # Small sample illustrating the use of PCSCCardRequest.py.
 
     from smartcard.util import toHexString
 

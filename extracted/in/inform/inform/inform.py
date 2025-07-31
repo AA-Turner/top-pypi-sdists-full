@@ -4,7 +4,7 @@
 # Utilities for communicating directly with the user.
 # Documentation can be found at inform.readthedocs.io.
 #
-# Copyright (c) 2014-2024 Kenneth S. Kundert
+# Copyright (c) 2014-2025 Kenneth S. Kundert
 # This software is licensed under the `MIT Licents <https://mit-license.org>`_.
 
 # Imports {{{1
@@ -17,8 +17,8 @@ from codecs import open
 from textwrap import dedent as tw_dedent, fill
 
 # Globals {{{1
-__version__ = '1.34'
-__released__ = '2025-05-10'
+__version__ = '1.35'
+__released__ = '2025-07-30'
 INFORMER = None
 NOTIFIER = 'notify-send'
 STREAM_POLICIES = {
@@ -1307,10 +1307,10 @@ class plural:
     The format string has one to four sections separated by '/' with the various
     section being included in the output depending on the count.
 
-        ALWAYS
-        ALWAYS/MANY
-        ALWAYS/ONE/MANY
-        ALWAYS/ONE/MANY/NONE
+    |   ALWAYS
+    |   ALWAYS/MANY
+    |   ALWAYS/ONE/MANY
+    |   ALWAYS/ONE/MANY/NONE
 
     The first section, ALWAYS, is always included, the rest are appended to
     ALWAYS as appropriate based on the count.  If no other sections are given,
@@ -1501,10 +1501,10 @@ class truth:
     Python string expansion or can be specified using the *formatter* argument.
     For example:
 
-        >>> f"{truth(True):aye/no}"
+        >>> f"{truth(True):aye/nay}"
         'aye'
 
-        >>> response = truth(True, formatter="aye/no")
+        >>> response = truth(True, formatter="aye/nay")
         >>> str(response)
         'aye'
 
@@ -1712,8 +1712,129 @@ def columns(
 
 
 # render bar {{{2
-def render_bar(value, width=72, full_width=False):
+class bar:
     """Render graphic representation of a value in the form of a bar
+
+    Args:
+        value (real): Should be normalized (fall between 0 and 1)
+
+        width (int): The width of the bar in characters when value is 1.
+
+        pad (bool):
+            Whether bar should be rendered to fill the whole width using
+            trailing spaces.  This is useful if anything follows the bar on its
+            line, such as if you wish to mark the end of the bar.
+
+        clip (real):
+            Maximum allowed value.
+            If value is larger than clip, it is plotted as if it equals clip
+            except bar is terminated with the overflow marker.
+
+        overflow (str):
+            The overflow marker.  If value is greater than clip the overflow
+            marker is appended to the bar.  If False, no marker is used.
+            Common values are '➔', '∎', '►', '▞', '▋▍▎▏' or '>>>'.
+
+    When rendered within a string you can specify a format that overrides the
+    above arguments.  The format strings take the form *WPCO* where:
+
+    - *W* is an integer that overrides *width*.
+    - *P* is either 'p' or 'P' overrides *pad*; is true if capitalized.
+    - *C* is a simple real number, 1 or greater.
+    - *O* is an arbitrary string that becomes the overflow marker.
+
+    The format fields are optional, but if you want to specify *W* and *C* you
+    also need to also specify *P* to separate them.
+
+    **Examples**::
+
+        >>> from inform import bar
+
+        >>> assets = {'property': 13_194, 'cash': 2846, 'equities': 19_301}
+        >>> total = sum(assets.values())
+        >>> for key, value in assets.items():
+        ...     display(f"{key:>8}: ❭{bar(value/total):60P}❬")
+        property: ❭██████████████████████▍                                     ❬
+            cash: ❭████▊                                                       ❬
+        equities: ❭████████████████████████████████▊                           ❬
+
+    In this second example a clipping value of 2 and an overflow marker is added
+    to the end of the end of the format string.  When the life exceeds 2× the
+    maximum life the overflow marker is added to the end of the bar, which adds
+    a few vertical bars, a newline, and 20 spaced of indent.
+
+        >>> hours = dict(unit_1=6, unit_2=34, unit_3=89, unit_4=57)
+        >>> max_life = 40
+        >>> for name, life in hours.items():
+        ...     print(f"{bar(life/max_life):20P2▋▍▎▏\n                    }", name)
+        ███                  unit_1
+        █████████████████    unit_2
+        ████████████████████████████████████████▋▍▎▏
+                             unit_3
+        ████████████████████████████▌ unit_4
+
+    """
+    def __init__(self, value, width=72, pad=False, clip=1, overflow=False):
+        self.value = value
+        self.width = width
+        self.pad = pad
+        self.clip = clip
+        self.overflow = overflow or ''
+
+    def render(self, value=None, width=None, pad=None, clip=None, overflow=None):
+        """Render bar to string
+
+        Arguments given override those specified when class was instantiated.
+        """
+        value = self.value if value is None else value
+        width = self.width if width is None else width
+        pad = self.pad if pad is None else pad
+        clip = self.clip if clip is None else clip
+        overflow = self.overflow if overflow is None else overflow
+
+        scaled = max(min(value, clip), 0)*width
+        buckets = int(scaled)
+        frac = int((NUM_BAR_CHARS*scaled) % NUM_BAR_CHARS)
+        if value > clip:
+            last = overflow
+        else:
+            last = BAR_CHARS[frac-1:frac]
+        bar = buckets*BAR_CHARS[-1] + last
+        if pad:
+            bar += (width - len(bar))*' '
+        return bar
+
+    def __format__(self, formatter):
+        # format strings take the form WPCO where:
+        #     W is an integer indicating desired width
+        #     P is either 'p' or 'P' for pad, cap is true
+        #     C is a simple real number, 1 or greater.
+        #     O is an arbitrary string that will be used as overflow marker
+        value = width = pad = clip = overflow = None
+        if formatter:
+            match = re.match(r'(\d*)([pP]?)(\d\.?\d*)?(.*)\Z', formatter, re.S)
+            try:
+                if match[1]:
+                    width = int(match[1])
+                if 'p' in match[2]:
+                    pad = False
+                if 'P' in match[2]:
+                    pad = True
+                clip = float(match[3]) if match[3] else None
+                overflow = match[4] or None
+            except (TypeError, ValueError):
+                warn('invalid format string')
+        return self.render(value, width, pad, clip, overflow)
+
+    def __str__(self):
+        return self.render()
+
+def render_bar(value, width=72, full_width=False, clip=1):
+    """Render graphic representation of a value in the form of a bar
+
+    This function is deprecated.  You should instead use::
+
+        bar(value, width, full_width, clip).render()
 
     Args:
         value (real): Should be normalized (fall between 0 and 1)
@@ -1722,35 +1843,15 @@ def render_bar(value, width=72, full_width=False):
 
         full_width (bool):
             Whether bar should be rendered to fill the whole width using
-            trailing spaces,.  This is useful if you plan to mark the end of the
-            bar.
-    **Examples**::
+            trailing spaces.  This is useful if you plan to mark the end of
+            the bar.
 
-        >>> from inform import render_bar
-
-        >>> assets = {'property': 13_194, 'cash': 2846, 'equities': 19_301}
-        >>> total = sum(assets.values())
-        >>> for key, value in assets.items():
-        ...     display(f"{key:>8}: ❭{render_bar(value/total, full_width=True)}❬")
-        property: ❭██████████████████████████▉                                             ❬
-            cash: ❭█████▊                                                                  ❬
-        equities: ❭███████████████████████████████████████▎                                ❬
-
-
+        clip (real):
+            Maximum allowed value.
+            If value is larger than clip, it is plotted as if it equals clip
+            except bar is terminated with the overflow marker.
     """
-    scaled = value*width
-    if scaled > width:
-        scaled = width
-    if scaled < 0:
-        scaled = 0
-    buckets = int(scaled)
-    frac = int((NUM_BAR_CHARS*scaled) % NUM_BAR_CHARS)
-    extra = BAR_CHARS[frac-1:frac]
-    bar = buckets*BAR_CHARS[-1] + extra
-    if full_width:
-        bar += (width - len(bar))*' '
-    return bar
-
+    return bar(value, width, full_width, clip).render()
 
 # tree {{{2
 # _gen_connectors {{{3
@@ -1905,6 +2006,10 @@ class ProgressBar:
             The maximum width of the bar, the largest factor of 10 that
             is less than or equal to this value is used.  If width is less than
             or equal to zero, it is added to the current width of the terminal.
+            The width includes the width of the prefix.  If you are displaying a
+            succession of progress bars with prefixes, you should make the all
+            the prefixes the same width if you wish to avoid ragged left and
+            right boundaries on the bars.
 
         informant (informant):
             Which informant to use when outputting the progress bar.  By
@@ -1989,7 +2094,10 @@ class ProgressBar:
             try:
                 width = os.get_terminal_size().columns + width
             except OSError:
-                width=79
+                width = 79
+        width -= len(prefix or '')
+        if width < 10:
+            width = 79
 
         self.override_limits(stop, start, log)
 

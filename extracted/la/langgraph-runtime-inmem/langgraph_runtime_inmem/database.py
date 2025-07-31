@@ -182,6 +182,8 @@ async def start_pool() -> None:
         for a in GLOBAL_STORE["assistants"]:
             if a["metadata"].get("created_by") == "system":
                 GLOBAL_STORE["assistants"].remove(a)
+            if "context" not in a:
+                a["context"] = {}
     for k in ["crons"]:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = {}

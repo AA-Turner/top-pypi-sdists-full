@@ -4048,6 +4048,30 @@ class LibraryInterpreter(BaseInterpreter):
         self.check_for_error(error_code)
         return value.value
 
+    def internal_get_last_created_chan(self):
+        cfunc = lib_importer.windll.DAQmxInternalGetLastCreatedChan
+        if cfunc.argtypes is None:
+            with cfunc.arglock:
+                if cfunc.argtypes is None:
+                    cfunc.argtypes = [
+                        ctypes.c_char_p, ctypes.c_uint]
+
+        temp_size = 0
+        while True:
+            value = ctypes.create_string_buffer(temp_size)
+            size_or_code = cfunc(
+                value, temp_size)
+            if is_string_buffer_too_small(size_or_code):
+                # Buffer size must have changed between calls; check again.
+                temp_size = 0
+            elif size_or_code > 0 and temp_size == 0:
+                # Buffer size obtained, use to retrieve data.
+                temp_size = size_or_code
+            else:
+                break
+        self.check_for_error(size_or_code)
+        return value.value.decode(lib_importer.encoding)
+
     def is_task_done(self, task):
         is_task_done = c_bool32()
 
@@ -5819,7 +5843,7 @@ class LibraryInterpreter(BaseInterpreter):
                         ctypes.POINTER(ctypes.c_void_p)]
 
         options = 0
-        callback_method_ptr = DAQmxDoneEventCallbackPtr()  # type: ignore  # typeshed is missing no-argument constructor overload
+        callback_method_ptr = DAQmxDoneEventCallbackPtr()
         callback_data = None
 
         error_code = cfunc(
@@ -5843,7 +5867,7 @@ class LibraryInterpreter(BaseInterpreter):
 
         n_samples = 0
         options = 0
-        callback_method_ptr = DAQmxEveryNSamplesEventCallbackPtr()  # type: ignore  # typeshed is missing no-argument constructor overload
+        callback_method_ptr = DAQmxEveryNSamplesEventCallbackPtr()
         callback_data = None
 
         error_code = cfunc(
@@ -5866,7 +5890,7 @@ class LibraryInterpreter(BaseInterpreter):
                         ctypes.POINTER(ctypes.c_void_p)]
 
         options = 0
-        callback_method_ptr = DAQmxSignalEventCallbackPtr()  # type: ignore  # typeshed is missing no-argument constructor overload
+        callback_method_ptr = DAQmxSignalEventCallbackPtr()
         callback_data = None
 
         error_code = cfunc(

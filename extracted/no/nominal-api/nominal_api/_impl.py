@@ -5876,6 +5876,7 @@ class event_EventOrigin(ConjureUnionType):
     _template: Optional["event_TemplateEventOrigin"] = None
     _api: Optional["event_ApiEventOrigin"] = None
     _data_review: Optional["event_DataReviewEventOrigin"] = None
+    _procedure: Optional["event_ProcedureEventOrigin"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -5883,7 +5884,8 @@ class event_EventOrigin(ConjureUnionType):
             'workbook': ConjureFieldDefinition('workbook', event_WorkbookEventOrigin),
             'template': ConjureFieldDefinition('template', event_TemplateEventOrigin),
             'api': ConjureFieldDefinition('api', event_ApiEventOrigin),
-            'data_review': ConjureFieldDefinition('dataReview', event_DataReviewEventOrigin)
+            'data_review': ConjureFieldDefinition('dataReview', event_DataReviewEventOrigin),
+            'procedure': ConjureFieldDefinition('procedure', event_ProcedureEventOrigin)
         }
 
     def __init__(
@@ -5892,10 +5894,11 @@ class event_EventOrigin(ConjureUnionType):
             template: Optional["event_TemplateEventOrigin"] = None,
             api: Optional["event_ApiEventOrigin"] = None,
             data_review: Optional["event_DataReviewEventOrigin"] = None,
+            procedure: Optional["event_ProcedureEventOrigin"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (workbook is not None) + (template is not None) + (api is not None) + (data_review is not None) != 1:
+            if (workbook is not None) + (template is not None) + (api is not None) + (data_review is not None) + (procedure is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if workbook is not None:
@@ -5910,6 +5913,9 @@ class event_EventOrigin(ConjureUnionType):
             if data_review is not None:
                 self._data_review = data_review
                 self._type = 'dataReview'
+            if procedure is not None:
+                self._procedure = procedure
+                self._type = 'procedure'
 
         elif type_of_union == 'workbook':
             if workbook is None:
@@ -5931,6 +5937,11 @@ class event_EventOrigin(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._data_review = data_review
             self._type = 'dataReview'
+        elif type_of_union == 'procedure':
+            if procedure is None:
+                raise ValueError('a union value must not be None')
+            self._procedure = procedure
+            self._type = 'procedure'
 
     @builtins.property
     def workbook(self) -> Optional["event_WorkbookEventOrigin"]:
@@ -5956,6 +5967,12 @@ class event_EventOrigin(ConjureUnionType):
         """
         return self._data_review
 
+    @builtins.property
+    def procedure(self) -> Optional["event_ProcedureEventOrigin"]:
+        """This event was created automatically from a procedure execution.
+        """
+        return self._procedure
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, event_EventOriginVisitor):
             raise ValueError('{} is not an instance of event_EventOriginVisitor'.format(visitor.__class__.__name__))
@@ -5967,6 +5984,8 @@ class event_EventOrigin(ConjureUnionType):
             return visitor._api(self.api)
         if self._type == 'dataReview' and self.data_review is not None:
             return visitor._data_review(self.data_review)
+        if self._type == 'procedure' and self.procedure is not None:
+            return visitor._procedure(self.procedure)
 
 
 event_EventOrigin.__name__ = "EventOrigin"
@@ -5990,6 +6009,10 @@ class event_EventOriginVisitor:
 
     @abstractmethod
     def _data_review(self, data_review: "event_DataReviewEventOrigin") -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure(self, procedure: "event_ProcedureEventOrigin") -> Any:
         pass
 
 
@@ -7001,6 +7024,35 @@ event_HistogramFilterQueryVisitor.__qualname__ = "HistogramFilterQueryVisitor"
 event_HistogramFilterQueryVisitor.__module__ = "nominal_api.event"
 
 
+class event_ProcedureEventOrigin(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'procedure_execution_rid': ConjureFieldDefinition('procedureExecutionRid', api_rids_ProcedureExecutionRid),
+            'step_node_id': ConjureFieldDefinition('stepNodeId', str)
+        }
+
+    __slots__: List[str] = ['_procedure_execution_rid', '_step_node_id']
+
+    def __init__(self, procedure_execution_rid: str, step_node_id: str) -> None:
+        self._procedure_execution_rid = procedure_execution_rid
+        self._step_node_id = step_node_id
+
+    @builtins.property
+    def procedure_execution_rid(self) -> str:
+        return self._procedure_execution_rid
+
+    @builtins.property
+    def step_node_id(self) -> str:
+        return self._step_node_id
+
+
+event_ProcedureEventOrigin.__name__ = "ProcedureEventOrigin"
+event_ProcedureEventOrigin.__qualname__ = "ProcedureEventOrigin"
+event_ProcedureEventOrigin.__module__ = "nominal_api.event"
+
+
 class event_SearchEventOriginType(ConjureEnumType):
 
     WORKBOOK = 'WORKBOOK'
@@ -7011,6 +7063,8 @@ class event_SearchEventOriginType(ConjureEnumType):
     '''API'''
     DATA_REVIEW = 'DATA_REVIEW'
     '''DATA_REVIEW'''
+    PROCEDURE = 'PROCEDURE'
+    '''PROCEDURE'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -38275,19 +38329,28 @@ class scout_compute_api_ArrowBucketedEnumPlot(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
         }
 
-    __slots__: List[str] = ['_arrow_binary']
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
 
-    def __init__(self, arrow_binary: Any) -> None:
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
         self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
 
     @builtins.property
     def arrow_binary(self) -> Any:
         """The raw binary containing Arrow IPC stream for BucketedEnumPlot
         """
         return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
 
 
 scout_compute_api_ArrowBucketedEnumPlot.__name__ = "ArrowBucketedEnumPlot"
@@ -38300,19 +38363,28 @@ class scout_compute_api_ArrowBucketedNumericPlot(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
         }
 
-    __slots__: List[str] = ['_arrow_binary']
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
 
-    def __init__(self, arrow_binary: Any) -> None:
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
         self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
 
     @builtins.property
     def arrow_binary(self) -> Any:
         """The raw binary containing Arrow IPC stream for BucketedNumericPlot
         """
         return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
 
 
 scout_compute_api_ArrowBucketedNumericPlot.__name__ = "ArrowBucketedNumericPlot"
@@ -39057,19 +39129,28 @@ indicate the index of the array that the bucket corresponds to.
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
         }
 
-    __slots__: List[str] = ['_arrow_binary']
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
 
-    def __init__(self, arrow_binary: Any) -> None:
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
         self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
 
     @builtins.property
     def arrow_binary(self) -> Any:
         """The raw binary containing Arrow IPC stream for a bucketed N-dimensional enum array plot.
         """
         return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
 
 
 scout_compute_api_BucketedEnumArrayPlot.__name__ = "BucketedEnumArrayPlot"
@@ -39178,19 +39259,28 @@ indicate the index of the array that the bucket corresponds to.
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
         }
 
-    __slots__: List[str] = ['_arrow_binary']
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
 
-    def __init__(self, arrow_binary: Any) -> None:
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
         self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
 
     @builtins.property
     def arrow_binary(self) -> Any:
         """The raw binary containing Arrow IPC stream for a bucketed N-dimensional numeric array plot.
         """
         return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
 
 
 scout_compute_api_BucketedNumericArrayPlot.__name__ = "BucketedNumericArrayPlot"
@@ -47264,13 +47354,15 @@ class scout_compute_api_PagedEnumArrayPlot(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[scout_compute_api_PageToken])
         }
 
-    __slots__: List[str] = ['_arrow_binary', '_next_page_token']
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys', '_next_page_token']
 
-    def __init__(self, arrow_binary: Any, next_page_token: Optional["scout_compute_api_PageToken"] = None) -> None:
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None, next_page_token: Optional["scout_compute_api_PageToken"] = None) -> None:
         self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
         self._next_page_token = next_page_token
 
     @builtins.property
@@ -47278,6 +47370,13 @@ class scout_compute_api_PagedEnumArrayPlot(ConjureBeanType):
         """The raw binary containing Arrow IPC stream for a page of an N-dimensional enum array plot.
         """
         return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
 
     @builtins.property
     def next_page_token(self) -> Optional["scout_compute_api_PageToken"]:
@@ -47338,13 +47437,15 @@ class scout_compute_api_PagedNumericArrayPlot(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[scout_compute_api_PageToken])
         }
 
-    __slots__: List[str] = ['_arrow_binary', '_next_page_token']
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys', '_next_page_token']
 
-    def __init__(self, arrow_binary: Any, next_page_token: Optional["scout_compute_api_PageToken"] = None) -> None:
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None, next_page_token: Optional["scout_compute_api_PageToken"] = None) -> None:
         self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
         self._next_page_token = next_page_token
 
     @builtins.property
@@ -47352,6 +47453,13 @@ class scout_compute_api_PagedNumericArrayPlot(ConjureBeanType):
         """The raw binary containing Arrow IPC stream for a page of an N-dimensional numeric array plot.
         """
         return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
 
     @builtins.property
     def next_page_token(self) -> Optional["scout_compute_api_PageToken"]:

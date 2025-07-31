@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.82.4
+Version: 2.83.0
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -20,10 +20,8 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: aiotools
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: cattrs<25,>=22.1.0
-Requires-Dist: cloudpickle==2.2.1
 Requires-Dist: dataclasses_json>=0.5.7
 Requires-Dist: executing<3,>=1.2.0
 Requires-Dist: grpcio<2,>=1.59.2
@@ -46,7 +44,6 @@ Provides-Extra: base
 Provides-Extra: dev
 Requires-Dist: boto3-stubs[s3]; extra == "dev"
 Requires-Dist: grpc-stubs; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pendulum; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"

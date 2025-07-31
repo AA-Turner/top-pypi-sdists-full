@@ -28,6 +28,8 @@ class JobQueueKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     JOB_QUEUE_KIND_UNSPECIFIED: _ClassVar[JobQueueKind]
     JOB_QUEUE_KIND_ASYNC_OFFLINE_QUERY: _ClassVar[JobQueueKind]
+    JOB_QUEUE_KIND_SCHEDULED_QUERY: _ClassVar[JobQueueKind]
+    JOB_QUEUE_KIND_SCRIPT_TASK: _ClassVar[JobQueueKind]
 
 JOB_QUEUE_STATE_UNSPECIFIED: JobQueueState
 JOB_QUEUE_STATE_SCHEDULED: JobQueueState
@@ -38,6 +40,8 @@ JOB_QUEUE_STATE_CANCELED: JobQueueState
 JOB_QUEUE_STATE_NOT_READY: JobQueueState
 JOB_QUEUE_KIND_UNSPECIFIED: JobQueueKind
 JOB_QUEUE_KIND_ASYNC_OFFLINE_QUERY: JobQueueKind
+JOB_QUEUE_KIND_SCHEDULED_QUERY: JobQueueKind
+JOB_QUEUE_KIND_SCRIPT_TASK: JobQueueKind
 
 class JobQueueItem(_message.Message):
     __slots__ = (
@@ -57,6 +61,9 @@ class JobQueueItem(_message.Message):
         "attempted_by",
         "last_heartbeat_at",
         "operation_id",
+        "cancelation_requested_at",
+        "max_attempts",
+        "mainline_deployment_id",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -74,6 +81,9 @@ class JobQueueItem(_message.Message):
     ATTEMPTED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_HEARTBEAT_AT_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    CANCELATION_REQUESTED_AT_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    MAINLINE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     id: int
     created_at: _timestamp_pb2.Timestamp
     environment_id: str
@@ -90,6 +100,9 @@ class JobQueueItem(_message.Message):
     attempted_by: _containers.RepeatedScalarFieldContainer[str]
     last_heartbeat_at: _timestamp_pb2.Timestamp
     operation_id: str
+    cancelation_requested_at: _timestamp_pb2.Timestamp
+    max_attempts: int
+    mainline_deployment_id: str
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -108,6 +121,9 @@ class JobQueueItem(_message.Message):
         attempted_by: _Optional[_Iterable[str]] = ...,
         last_heartbeat_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         operation_id: _Optional[str] = ...,
+        cancelation_requested_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        max_attempts: _Optional[int] = ...,
+        mainline_deployment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetDataPlaneJobQueueRequest(_message.Message):
@@ -123,19 +139,21 @@ class GetDataPlaneJobQueueResponse(_message.Message):
     def __init__(self, job: _Optional[_Union[JobQueueItem, _Mapping]] = ...) -> None: ...
 
 class ListDataPlaneJobQueueRequest(_message.Message):
-    __slots__ = ("environment_id", "deployment_id", "state", "kind", "limit", "offset")
+    __slots__ = ("environment_id", "deployment_id", "state", "kind", "limit", "offset", "operation_id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     OFFSET_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
     deployment_id: str
     state: JobQueueState
     kind: JobQueueKind
     limit: int
     offset: int
+    operation_id: str
     def __init__(
         self,
         environment_id: _Optional[str] = ...,
@@ -144,6 +162,7 @@ class ListDataPlaneJobQueueRequest(_message.Message):
         kind: _Optional[_Union[JobQueueKind, str]] = ...,
         limit: _Optional[int] = ...,
         offset: _Optional[int] = ...,
+        operation_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListDataPlaneJobQueueResponse(_message.Message):

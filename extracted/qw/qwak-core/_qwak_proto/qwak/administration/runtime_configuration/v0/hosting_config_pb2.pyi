@@ -6,6 +6,7 @@ import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
 import qwak.administration.runtime_configuration.v0.creds.secret_pb2
+import qwak.administration.runtime_configuration.v0.hosting.aws.auth_pb2
 import sys
 
 if sys.version_info >= (3, 8):
@@ -40,19 +41,23 @@ class AWSHostingConfiguration(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     IAM_SERVICE_ACCOUNT_FIELD_NUMBER: builtins.int
+    SCOPED_PERMISSIONS_FIELD_NUMBER: builtins.int
     REGION_FIELD_NUMBER: builtins.int
     @property
     def iam_service_account(self) -> global___IAMServiceAccount: ...
+    @property
+    def scoped_permissions(self) -> qwak.administration.runtime_configuration.v0.hosting.aws.auth_pb2.AWSScopedPermissions: ...
     region: builtins.str
     def __init__(
         self,
         *,
         iam_service_account: global___IAMServiceAccount | None = ...,
+        scoped_permissions: qwak.administration.runtime_configuration.v0.hosting.aws.auth_pb2.AWSScopedPermissions | None = ...,
         region: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["auth", b"auth", "iam_service_account", b"iam_service_account"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["auth", b"auth", "iam_service_account", b"iam_service_account", "region", b"region"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth", b"auth"]) -> typing_extensions.Literal["iam_service_account"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["auth", b"auth", "iam_service_account", b"iam_service_account", "scoped_permissions", b"scoped_permissions"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["auth", b"auth", "iam_service_account", b"iam_service_account", "region", b"region", "scoped_permissions", b"scoped_permissions"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth", b"auth"]) -> typing_extensions.Literal["iam_service_account", "scoped_permissions"] | None: ...
 
 global___AWSHostingConfiguration = AWSHostingConfiguration
 

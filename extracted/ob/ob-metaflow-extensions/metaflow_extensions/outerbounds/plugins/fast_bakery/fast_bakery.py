@@ -122,6 +122,7 @@ class FastBakery:
             "responseMaxAgeSeconds": 0,
             "layerMaxAgeSeconds": 0,
             "baseImageMaxAgeSeconds": 0,
+            "overwriteExistingLayers": True,  # Used primarily to rewrite possibly corrupted layers.
         }
         return self
 

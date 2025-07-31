@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonmap",
-    version="0.3.48",
+    version="0.3.49",
     packages=find_packages(),
     install_requires=[
         "python-dotenv",

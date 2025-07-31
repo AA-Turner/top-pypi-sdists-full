@@ -15,7 +15,7 @@ from _qwak_proto.qwak.user_application.common.v0 import resources_pb2 as qwak_do
 from _qwak_proto.qwak.fitness_service import fitness_pb2 as qwak_dot_fitness__service_dot_fitness__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17qwak/builds/build.proto\x12\x18qwak.builds.orchestrator\x1a/qwak/user_application/common/v0/resources.proto\x1a\"qwak/fitness_service/fitness.proto\"\xbf\x06\n\x0fRemoteBuildSpec\x12\x43\n\x10\x62uild_properties\x18\x01 \x01(\x0b\x32).qwak.builds.orchestrator.BuildProperties\x12\x35\n\tbuild_env\x18\x02 \x01(\x0b\x32\".qwak.builds.orchestrator.BuildEnv\x12\x43\n\rcpu_resources\x18\x03 \x01(\x0b\x32&.qwak.builds.orchestrator.CpuResourcesB\x02\x18\x01H\x00\x12\x43\n\rgpu_resources\x18\x07 \x01(\x0b\x32&.qwak.builds.orchestrator.GpuResourcesB\x02\x18\x01H\x00\x12\x62\n\x1c\x63lient_pod_compute_resources\x18\r \x01(\x0b\x32:.qwak.user_application.common.v0.ClientPodComputeResourcesH\x00\x12\x0f\n\x07verbose\x18\x04 \x01(\x05\x12\x17\n\x0f\x62uild_code_path\x18\x05 \x01(\t\x12\x14\n\x0c\x62uild_config\x18\x06 \x01(\t\x12\x15\n\rbuild_v1_flag\x18\x08 \x01(\x08\x12H\n\x13\x62uild_properties_v1\x18\t \x01(\x0b\x32+.qwak.builds.orchestrator.BuildPropertiesV1\x12\x13\n\x0b\x62uild_steps\x18\n \x03(\t\x12\x16\n\x0e\x65nvironment_id\x18\x0b \x01(\t\x12\x13\n\x0bsdk_version\x18\x0c \x01(\t\x12=\n\x0fpurchase_option\x18\x0e \x01(\x0e\x32$.qwak.fitness.service.PurchaseOption\x12\x1c\n\x14\x62uild_destined_image\x18\x0f \x01(\t\x12\"\n\x1aprovision_instance_timeout\x18\x10 \x01(\x05\x12\x16\n\x0ejfrog_token_id\x18\x11 \x01(\t\x12\x1f\n\x17\x61rtifactory_project_key\x18\x12 \x01(\t\x12\x18\n\x10model_version_id\x18\x13 \x01(\tB\x0b\n\tResources\"g\n\x11\x42uildPropertiesV1\x12\x18\n\x10\x62uild_config_url\x18\x01 \x01(\t\x12\x1a\n\x12qwak_sdk_wheel_url\x18\x02 \x01(\t\x12\x1c\n\x14qwak_sdk_version_url\x18\x03 \x01(\t\"\xba\x01\n\x0f\x42uildProperties\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x0e\n\x06\x62ranch\x18\x02 \x01(\t\x12\x10\n\x08model_id\x18\x03 \x01(\t\x12\x0c\n\x04tags\x18\x04 \x03(\t\x12\x39\n\tmodel_uri\x18\x05 \x01(\x0b\x32&.qwak.builds.orchestrator.ModelUriSpec\x12\x16\n\x0egpu_compatible\x18\x06 \x01(\x08\x12\x12\n\nbuild_name\x18\x07 \x01(\t\"\xb2\x01\n\x0cModelUriSpec\x12\x0b\n\x03uri\x18\x01 \x01(\t\x12\x12\n\ngit_branch\x18\x02 \x01(\t\x12\x17\n\x0fgit_credentials\x18\x03 \x01(\t\x12\x1e\n\x16git_credentials_secret\x18\x04 \x01(\t\x12\x11\n\tcommit_id\x18\x05 \x01(\t\x12\x10\n\x08main_dir\x18\x06 \x01(\t\x12#\n\x1b\x64\x65pendency_required_folders\x18\x07 \x03(\t\"|\n\x08\x42uildEnv\x12\x37\n\ndocker_env\x18\x01 \x01(\x0b\x32#.qwak.builds.orchestrator.DockerEnv\x12\x37\n\npython_env\x18\x02 \x01(\x0b\x32#.qwak.builds.orchestrator.PythonEnv\"\x8a\x01\n\tDockerEnv\x12\x12\n\nbase_image\x18\x01 \x01(\t\x12\x10\n\x08\x65nv_vars\x18\x02 \x03(\t\x12\x10\n\x08no_cache\x18\x03 \x01(\x08\x12\x1c\n\x14\x61ssumed_iam_role_arn\x18\x04 \x01(\t\x12\'\n\x1fservice_account_key_secret_name\x18\x05 \x01(\t\"|\n\tPythonEnv\x12\x17\n\x0fgit_credentials\x18\x01 \x01(\t\x12\x1e\n\x16git_credentials_secret\x18\x02 \x01(\t\x12\x18\n\x10qwak_sdk_version\x18\x03 \x01(\t\x12\x1c\n\x14qwak_sdk_extra_index\x18\x04 \x01(\t\"n\n\x0c\x43puResources\x12\x0b\n\x03\x63pu\x18\x01 \x01(\x02\x12\x15\n\rmemory_amount\x18\x02 \x01(\x05\x12:\n\x0cmemory_units\x18\x03 \x01(\x0e\x32$.qwak.builds.orchestrator.MemoryUnit\"W\n\x0cGpuResources\x12\x33\n\x08gpu_type\x18\x01 \x01(\x0e\x32!.qwak.builds.orchestrator.GpuType\x12\x12\n\ngpu_amount\x18\x02 \x01(\x05\"\x91\x01\n\x13\x44\x61taTableDefinition\x12?\n\x07\x63olumns\x18\x01 \x03(\x0b\x32..qwak.builds.orchestrator.DataColumnDefinition\x12\x39\n\x0b\x64\x61ta_format\x18\x02 \x01(\x0b\x32$.qwak.builds.orchestrator.DataFormat\"\\\n\x14\x44\x61taColumnDefinition\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x36\n\x04type\x18\x02 \x01(\x0e\x32(.qwak.builds.orchestrator.DataColumnType\"J\n\nDataFormat\x12\x32\n\x03\x63sv\x18\x01 \x01(\x0b\x32#.qwak.builds.orchestrator.CsvFormatH\x00\x42\x08\n\x06\x66ormat\"G\n\tCsvFormat\x12\x11\n\tdelimiter\x18\x01 \x01(\t\x12\x12\n\nquote_char\x18\x02 \x01(\t\x12\x13\n\x0b\x65scape_char\x18\x03 \x01(\t\"\xa5\x01\n\x0e\x42uildInitiator\x12<\n\x04user\x18\x01 \x01(\x0b\x32,.qwak.builds.orchestrator.UserBuildInitiatorH\x00\x12H\n\nautomation\x18\x02 \x01(\x0b\x32\x32.qwak.builds.orchestrator.AutomationBuildInitiatorH\x00\x42\x0b\n\tInitiator\"\x14\n\x12UserBuildInitiator\"`\n\x18\x41utomationBuildInitiator\x12\x15\n\rautomation_id\x18\x01 \x01(\t\x12\x14\n\x0c\x65xecution_id\x18\x02 \x01(\t\x12\x17\n\x0f\x61utomation_name\x18\x03 \x01(\t*7\n\nMemoryUnit\x12\x17\n\x13UNKNOWN_MEMORY_UNIT\x10\x00\x12\x07\n\x03MIB\x10\x01\x12\x07\n\x03GIB\x10\x02*\x8c\x02\n\x07GpuType\x12\x0b\n\x07INVALID\x10\x00\x12\x0e\n\nNVIDIA_K80\x10\x01\x12\x0f\n\x0bNVIDIA_V100\x10\x02\x12\x0f\n\x0bNVIDIA_A100\x10\x03\x12\r\n\tNVIDIA_T4\x10\x04\x12\x0f\n\x0bNVIDIA_A10G\x10\x05\x12\r\n\tNVIDIA_L4\x10\x06\x12\x14\n\x10NVIDIA_T4_1_4_15\x10\x07\x12\x14\n\x10NVIDIA_T4_1_8_30\x10\x08\x12\x15\n\x11NVIDIA_T4_1_16_60\x10\t\x12\x1e\n\x1aNVIDIA_A100_80GB_8_96_1360\x10\n\x12\x16\n\x12NVIDIA_V100_1_8_52\x10\x0b\x12\x18\n\x14NVIDIA_V100_4_32_208\x10\x0c*d\n\x0e\x44\x61taColumnType\x12\x17\n\x13INVALID_COLUMN_TYPE\x10\x00\x12\n\n\x06OBJECT\x10\x01\x12\x07\n\x03INT\x10\x02\x12\t\n\x05\x46LOAT\x10\x03\x12\x0b\n\x07\x42OOLEAN\x10\x04\x12\x0c\n\x08\x44\x41TETIME\x10\x05*K\n\x13\x42\x61seDockerImageType\x12\"\n\x1eUNKNOWN_BASE_DOCKER_IMAGE_TYPE\x10\x00\x12\x07\n\x03\x43PU\x10\x01\x12\x07\n\x03GPU\x10\x02\x42\'\n#com.qwak.ai.builds.orchestrator.apiP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17qwak/builds/build.proto\x12\x18qwak.builds.orchestrator\x1a/qwak/user_application/common/v0/resources.proto\x1a\"qwak/fitness_service/fitness.proto\"\xbf\x06\n\x0fRemoteBuildSpec\x12\x43\n\x10\x62uild_properties\x18\x01 \x01(\x0b\x32).qwak.builds.orchestrator.BuildProperties\x12\x35\n\tbuild_env\x18\x02 \x01(\x0b\x32\".qwak.builds.orchestrator.BuildEnv\x12\x43\n\rcpu_resources\x18\x03 \x01(\x0b\x32&.qwak.builds.orchestrator.CpuResourcesB\x02\x18\x01H\x00\x12\x43\n\rgpu_resources\x18\x07 \x01(\x0b\x32&.qwak.builds.orchestrator.GpuResourcesB\x02\x18\x01H\x00\x12\x62\n\x1c\x63lient_pod_compute_resources\x18\r \x01(\x0b\x32:.qwak.user_application.common.v0.ClientPodComputeResourcesH\x00\x12\x0f\n\x07verbose\x18\x04 \x01(\x05\x12\x17\n\x0f\x62uild_code_path\x18\x05 \x01(\t\x12\x14\n\x0c\x62uild_config\x18\x06 \x01(\t\x12\x15\n\rbuild_v1_flag\x18\x08 \x01(\x08\x12H\n\x13\x62uild_properties_v1\x18\t \x01(\x0b\x32+.qwak.builds.orchestrator.BuildPropertiesV1\x12\x13\n\x0b\x62uild_steps\x18\n \x03(\t\x12\x16\n\x0e\x65nvironment_id\x18\x0b \x01(\t\x12\x13\n\x0bsdk_version\x18\x0c \x01(\t\x12=\n\x0fpurchase_option\x18\x0e \x01(\x0e\x32$.qwak.fitness.service.PurchaseOption\x12\x1c\n\x14\x62uild_destined_image\x18\x0f \x01(\t\x12\"\n\x1aprovision_instance_timeout\x18\x10 \x01(\x05\x12\x16\n\x0ejfrog_token_id\x18\x11 \x01(\t\x12\x1f\n\x17\x61rtifactory_project_key\x18\x12 \x01(\t\x12\x18\n\x10model_version_id\x18\x13 \x01(\tB\x0b\n\tResources\"g\n\x11\x42uildPropertiesV1\x12\x18\n\x10\x62uild_config_url\x18\x01 \x01(\t\x12\x1a\n\x12qwak_sdk_wheel_url\x18\x02 \x01(\t\x12\x1c\n\x14qwak_sdk_version_url\x18\x03 \x01(\t\"\xba\x01\n\x0f\x42uildProperties\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x0e\n\x06\x62ranch\x18\x02 \x01(\t\x12\x10\n\x08model_id\x18\x03 \x01(\t\x12\x0c\n\x04tags\x18\x04 \x03(\t\x12\x39\n\tmodel_uri\x18\x05 \x01(\x0b\x32&.qwak.builds.orchestrator.ModelUriSpec\x12\x16\n\x0egpu_compatible\x18\x06 \x01(\x08\x12\x12\n\nbuild_name\x18\x07 \x01(\t\"\xb2\x01\n\x0cModelUriSpec\x12\x0b\n\x03uri\x18\x01 \x01(\t\x12\x12\n\ngit_branch\x18\x02 \x01(\t\x12\x17\n\x0fgit_credentials\x18\x03 \x01(\t\x12\x1e\n\x16git_credentials_secret\x18\x04 \x01(\t\x12\x11\n\tcommit_id\x18\x05 \x01(\t\x12\x10\n\x08main_dir\x18\x06 \x01(\t\x12#\n\x1b\x64\x65pendency_required_folders\x18\x07 \x03(\t\"|\n\x08\x42uildEnv\x12\x37\n\ndocker_env\x18\x01 \x01(\x0b\x32#.qwak.builds.orchestrator.DockerEnv\x12\x37\n\npython_env\x18\x02 \x01(\x0b\x32#.qwak.builds.orchestrator.PythonEnv\"\x8a\x01\n\tDockerEnv\x12\x12\n\nbase_image\x18\x01 \x01(\t\x12\x10\n\x08\x65nv_vars\x18\x02 \x03(\t\x12\x10\n\x08no_cache\x18\x03 \x01(\x08\x12\x1c\n\x14\x61ssumed_iam_role_arn\x18\x04 \x01(\t\x12\'\n\x1fservice_account_key_secret_name\x18\x05 \x01(\t\"\xb8\x01\n\tPythonEnv\x12\x17\n\x0fgit_credentials\x18\x01 \x01(\t\x12\x1e\n\x16git_credentials_secret\x18\x02 \x01(\t\x12\x18\n\x10qwak_sdk_version\x18\x03 \x01(\t\x12\x1c\n\x14qwak_sdk_extra_index\x18\x04 \x01(\t\x12\x1a\n\x12\x66rogml_cli_version\x18\x05 \x01(\t\x12\x1e\n\x16\x66rogml_cli_extra_index\x18\x06 \x01(\t\"n\n\x0c\x43puResources\x12\x0b\n\x03\x63pu\x18\x01 \x01(\x02\x12\x15\n\rmemory_amount\x18\x02 \x01(\x05\x12:\n\x0cmemory_units\x18\x03 \x01(\x0e\x32$.qwak.builds.orchestrator.MemoryUnit\"W\n\x0cGpuResources\x12\x33\n\x08gpu_type\x18\x01 \x01(\x0e\x32!.qwak.builds.orchestrator.GpuType\x12\x12\n\ngpu_amount\x18\x02 \x01(\x05\"\x91\x01\n\x13\x44\x61taTableDefinition\x12?\n\x07\x63olumns\x18\x01 \x03(\x0b\x32..qwak.builds.orchestrator.DataColumnDefinition\x12\x39\n\x0b\x64\x61ta_format\x18\x02 \x01(\x0b\x32$.qwak.builds.orchestrator.DataFormat\"\\\n\x14\x44\x61taColumnDefinition\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x36\n\x04type\x18\x02 \x01(\x0e\x32(.qwak.builds.orchestrator.DataColumnType\"J\n\nDataFormat\x12\x32\n\x03\x63sv\x18\x01 \x01(\x0b\x32#.qwak.builds.orchestrator.CsvFormatH\x00\x42\x08\n\x06\x66ormat\"G\n\tCsvFormat\x12\x11\n\tdelimiter\x18\x01 \x01(\t\x12\x12\n\nquote_char\x18\x02 \x01(\t\x12\x13\n\x0b\x65scape_char\x18\x03 \x01(\t\"\xa5\x01\n\x0e\x42uildInitiator\x12<\n\x04user\x18\x01 \x01(\x0b\x32,.qwak.builds.orchestrator.UserBuildInitiatorH\x00\x12H\n\nautomation\x18\x02 \x01(\x0b\x32\x32.qwak.builds.orchestrator.AutomationBuildInitiatorH\x00\x42\x0b\n\tInitiator\"\x14\n\x12UserBuildInitiator\"`\n\x18\x41utomationBuildInitiator\x12\x15\n\rautomation_id\x18\x01 \x01(\t\x12\x14\n\x0c\x65xecution_id\x18\x02 \x01(\t\x12\x17\n\x0f\x61utomation_name\x18\x03 \x01(\t*7\n\nMemoryUnit\x12\x17\n\x13UNKNOWN_MEMORY_UNIT\x10\x00\x12\x07\n\x03MIB\x10\x01\x12\x07\n\x03GIB\x10\x02*\x8c\x02\n\x07GpuType\x12\x0b\n\x07INVALID\x10\x00\x12\x0e\n\nNVIDIA_K80\x10\x01\x12\x0f\n\x0bNVIDIA_V100\x10\x02\x12\x0f\n\x0bNVIDIA_A100\x10\x03\x12\r\n\tNVIDIA_T4\x10\x04\x12\x0f\n\x0bNVIDIA_A10G\x10\x05\x12\r\n\tNVIDIA_L4\x10\x06\x12\x14\n\x10NVIDIA_T4_1_4_15\x10\x07\x12\x14\n\x10NVIDIA_T4_1_8_30\x10\x08\x12\x15\n\x11NVIDIA_T4_1_16_60\x10\t\x12\x1e\n\x1aNVIDIA_A100_80GB_8_96_1360\x10\n\x12\x16\n\x12NVIDIA_V100_1_8_52\x10\x0b\x12\x18\n\x14NVIDIA_V100_4_32_208\x10\x0c*d\n\x0e\x44\x61taColumnType\x12\x17\n\x13INVALID_COLUMN_TYPE\x10\x00\x12\n\n\x06OBJECT\x10\x01\x12\x07\n\x03INT\x10\x02\x12\t\n\x05\x46LOAT\x10\x03\x12\x0b\n\x07\x42OOLEAN\x10\x04\x12\x0c\n\x08\x44\x41TETIME\x10\x05*K\n\x13\x42\x61seDockerImageType\x12\"\n\x1eUNKNOWN_BASE_DOCKER_IMAGE_TYPE\x10\x00\x12\x07\n\x03\x43PU\x10\x01\x12\x07\n\x03GPU\x10\x02\x42\'\n#com.qwak.ai.builds.orchestrator.apiP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -28,14 +28,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _REMOTEBUILDSPEC.fields_by_name['cpu_resources']._serialized_options = b'\030\001'
   _REMOTEBUILDSPEC.fields_by_name['gpu_resources']._options = None
   _REMOTEBUILDSPEC.fields_by_name['gpu_resources']._serialized_options = b'\030\001'
-  _globals['_MEMORYUNIT']._serialized_start=2720
-  _globals['_MEMORYUNIT']._serialized_end=2775
-  _globals['_GPUTYPE']._serialized_start=2778
-  _globals['_GPUTYPE']._serialized_end=3046
-  _globals['_DATACOLUMNTYPE']._serialized_start=3048
-  _globals['_DATACOLUMNTYPE']._serialized_end=3148
-  _globals['_BASEDOCKERIMAGETYPE']._serialized_start=3150
-  _globals['_BASEDOCKERIMAGETYPE']._serialized_end=3225
+  _globals['_MEMORYUNIT']._serialized_start=2781
+  _globals['_MEMORYUNIT']._serialized_end=2836
+  _globals['_GPUTYPE']._serialized_start=2839
+  _globals['_GPUTYPE']._serialized_end=3107
+  _globals['_DATACOLUMNTYPE']._serialized_start=3109
+  _globals['_DATACOLUMNTYPE']._serialized_end=3209
+  _globals['_BASEDOCKERIMAGETYPE']._serialized_start=3211
+  _globals['_BASEDOCKERIMAGETYPE']._serialized_end=3286
   _globals['_REMOTEBUILDSPEC']._serialized_start=139
   _globals['_REMOTEBUILDSPEC']._serialized_end=970
   _globals['_BUILDPROPERTIESV1']._serialized_start=972
@@ -48,24 +48,24 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_BUILDENV']._serialized_end=1571
   _globals['_DOCKERENV']._serialized_start=1574
   _globals['_DOCKERENV']._serialized_end=1712
-  _globals['_PYTHONENV']._serialized_start=1714
-  _globals['_PYTHONENV']._serialized_end=1838
-  _globals['_CPURESOURCES']._serialized_start=1840
-  _globals['_CPURESOURCES']._serialized_end=1950
-  _globals['_GPURESOURCES']._serialized_start=1952
-  _globals['_GPURESOURCES']._serialized_end=2039
-  _globals['_DATATABLEDEFINITION']._serialized_start=2042
-  _globals['_DATATABLEDEFINITION']._serialized_end=2187
-  _globals['_DATACOLUMNDEFINITION']._serialized_start=2189
-  _globals['_DATACOLUMNDEFINITION']._serialized_end=2281
-  _globals['_DATAFORMAT']._serialized_start=2283
-  _globals['_DATAFORMAT']._serialized_end=2357
-  _globals['_CSVFORMAT']._serialized_start=2359
-  _globals['_CSVFORMAT']._serialized_end=2430
-  _globals['_BUILDINITIATOR']._serialized_start=2433
-  _globals['_BUILDINITIATOR']._serialized_end=2598
-  _globals['_USERBUILDINITIATOR']._serialized_start=2600
-  _globals['_USERBUILDINITIATOR']._serialized_end=2620
-  _globals['_AUTOMATIONBUILDINITIATOR']._serialized_start=2622
-  _globals['_AUTOMATIONBUILDINITIATOR']._serialized_end=2718
+  _globals['_PYTHONENV']._serialized_start=1715
+  _globals['_PYTHONENV']._serialized_end=1899
+  _globals['_CPURESOURCES']._serialized_start=1901
+  _globals['_CPURESOURCES']._serialized_end=2011
+  _globals['_GPURESOURCES']._serialized_start=2013
+  _globals['_GPURESOURCES']._serialized_end=2100
+  _globals['_DATATABLEDEFINITION']._serialized_start=2103
+  _globals['_DATATABLEDEFINITION']._serialized_end=2248
+  _globals['_DATACOLUMNDEFINITION']._serialized_start=2250
+  _globals['_DATACOLUMNDEFINITION']._serialized_end=2342
+  _globals['_DATAFORMAT']._serialized_start=2344
+  _globals['_DATAFORMAT']._serialized_end=2418
+  _globals['_CSVFORMAT']._serialized_start=2420
+  _globals['_CSVFORMAT']._serialized_end=2491
+  _globals['_BUILDINITIATOR']._serialized_start=2494
+  _globals['_BUILDINITIATOR']._serialized_end=2659
+  _globals['_USERBUILDINITIATOR']._serialized_start=2661
+  _globals['_USERBUILDINITIATOR']._serialized_end=2681
+  _globals['_AUTOMATIONBUILDINITIATOR']._serialized_start=2683
+  _globals['_AUTOMATIONBUILDINITIATOR']._serialized_end=2779
 # @@protoc_insertion_point(module_scope)

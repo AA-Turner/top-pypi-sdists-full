@@ -25,6 +25,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 from smartcard.Exceptions import SmartcardException
 from smartcard.ulist import ulist
 
+# pylint: disable=too-few-public-methods
+
 
 class BadReaderGroupException(SmartcardException):
     """Raised when trying to add an invalid reader group."""
@@ -80,17 +82,15 @@ class innerreadergroups(ulist):
 
     def addreadertogroup(self, readername, groupname):
         """Add a reader to a reader group"""
-        pass
 
     def removereaderfromgroup(self, readername, groupname):
         """Remove a reader from a reader group"""
-        pass
 
 
 class readergroups:
     """ReadersGroups organizes smart card reader as groups."""
 
-    """The single instance of __readergroups"""
+    # The single instance of __readergroups
     instance = None
     innerclazz = innerreadergroups
 
@@ -99,7 +99,7 @@ class readergroups:
         if readergroups.instance is None:
             readergroups.instance = self.innerclazz(initlist)
 
-    """All operators redirected to inner class."""
+    # All operators redirected to inner class.
 
     def __getattr__(self, name):
         return getattr(self.instance, name)

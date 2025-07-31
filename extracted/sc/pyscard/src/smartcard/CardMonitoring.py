@@ -39,6 +39,8 @@ from smartcard.scard import SCARD_E_NO_SERVICE
 
 _START_ON_DEMAND_ = False
 
+# pylint: disable=too-few-public-methods
+
 
 # CardObserver interface
 class CardObserver(Observer):
@@ -58,7 +60,6 @@ class CardObserver(Observer):
           - addedcards: list of inserted smart cards causing notification
           - removedcards: list of removed smart cards causing notification
         """
-        pass
 
 
 class CardMonitor:
@@ -151,6 +152,7 @@ class CardMonitoringThread:
             self.stopEvent.clear()
             self.cards = []
             self.daemon = True
+            self.cardrequest = None
 
         # the actual monitoring thread
         def run(self):
@@ -158,21 +160,21 @@ class CardMonitoringThread:
             observers of all card insertion/removal.
             """
             self.cardrequest = CardRequest(timeout=60)
-            while self.stopEvent.is_set() != 1:
+            while not self.stopEvent.is_set():
                 try:
                     currentcards = self.cardrequest.waitforcardevent()
 
                     addedcards = []
                     for card in currentcards:
-                        if not self.cards.__contains__(card):
+                        if card not in self.cards:
                             addedcards.append(card)
 
                     removedcards = []
                     for card in self.cards:
-                        if not currentcards.__contains__(card):
+                        if card not in currentcards:
                             removedcards.append(card)
 
-                    if addedcards != [] or removedcards != []:
+                    if addedcards or removedcards:
                         self.cards = currentcards
                         self.observable.setChanged()
                         self.observable.notifyObservers((addedcards, removedcards))
@@ -181,7 +183,6 @@ class CardMonitoringThread:
                     pass
 
                 except SmartcardException as exc:
-                    # FIXME Tighten the exceptions caught by this block
                     traceback.print_exc()
                     # Most likely raised during interpreter shutdown due
                     # to unclean exit which failed to remove all observers.
@@ -190,45 +191,52 @@ class CardMonitoringThread:
                     if exc.hresult == SCARD_E_NO_SERVICE:
                         self.stopEvent.set()
 
-        # stop the thread by signaling stopEvent
         def stop(self):
+            """stop the thread by signaling stopEvent"""
             self.stopEvent.set()
 
     # the singleton
     instance = None
+    lock = Lock()
 
     def __init__(self, observable):
-        if not CardMonitoringThread.instance:
-            CardMonitoringThread.instance = (
-                CardMonitoringThread.__CardMonitoringThreadSingleton(observable)
-            )
-            CardMonitoringThread.instance.start()
+        with CardMonitoringThread.lock:
+            if not CardMonitoringThread.instance:
+                CardMonitoringThread.instance = (
+                    CardMonitoringThread.__CardMonitoringThreadSingleton(observable)
+                )
+                CardMonitoringThread.instance.start()
 
     def join(self, *args, **kwargs):
-        if self.instance:
-            self.instance.join(*args, **kwargs)
-            CardMonitoringThread.instance = None
+        """wait for the CardMonitoringThread thread"""
+        with CardMonitoringThread.lock:
+            if self.instance:
+                self.instance.join(*args, **kwargs)
+                CardMonitoringThread.instance = None
 
     def __getattr__(self, name):
         if self.instance:
             return getattr(self.instance, name)
 
+        raise SmartcardException(".instance is not set")
+
 
 if __name__ == "__main__":
     print("insert or remove cards in the next 10 seconds")
 
-    # a simple card observer that prints added/removed cards
     class printobserver(CardObserver):
+        """a simple card observer that prints added/removed cards"""
 
         def __init__(self, obsindex):
             self.obsindex = obsindex
 
         def update(self, observable, handlers):
             addedcards, removedcards = handlers
-            print("%d - added:   %s" % (self.obsindex, str(addedcards)))
-            print("%d - removed: %s" % (self.obsindex, str(removedcards)))
+            print(f"{self.obsindex} - added:   {str(addedcards)}")
+            print(f"{self.obsindex} - removed: {str(removedcards)}")
 
     class testthread(Thread):
+        """Test class"""
 
         def __init__(self, obsindex):
             Thread.__init__(self)

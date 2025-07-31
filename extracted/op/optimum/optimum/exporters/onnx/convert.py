@@ -642,6 +642,11 @@ def export_tensorflow(
         `Tuple[List[str], List[str]]`: A tuple with an ordered list of the model's inputs, and the named outputs from
         the ONNX configuration.
     """
+
+    logger.warning(
+        "The TensorFlow ONNX export is deprecated and will be removed in the next major release of Optimum."
+    )
+
     # This is needed to import onnx and tf2onnx because onnx is also the name of the current directory.
     import sys
 
@@ -993,9 +998,9 @@ def onnx_export_from_model(
     TasksManager.standardize_model_attributes(model)
 
     if hasattr(model.config, "export_model_type"):
-        model_type = model.config.export_model_type.replace("_", "-")
+        model_type = model.config.export_model_type
     else:
-        model_type = model.config.model_type.replace("_", "-")
+        model_type = model.config.model_type
 
     library_name = TasksManager.infer_library_from_model(model)
 

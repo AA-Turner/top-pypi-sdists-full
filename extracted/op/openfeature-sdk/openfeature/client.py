@@ -1,6 +1,6 @@
 import logging
 import typing
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 
 from openfeature import _event_support
@@ -19,6 +19,7 @@ from openfeature.flag_evaluation import (
     FlagEvaluationOptions,
     FlagResolutionDetails,
     FlagType,
+    FlagValueType,
     Reason,
 )
 from openfeature.hook import Hook, HookContext, HookHints, get_hooks
@@ -342,10 +343,12 @@ class OpenFeatureClient:
     def get_object_value(
         self,
         flag_key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
-    ) -> typing.Union[dict, list]:
+    ) -> typing.Union[Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]:
         return self.get_object_details(
             flag_key,
             default_value,
@@ -356,10 +359,12 @@ class OpenFeatureClient:
     async def get_object_value_async(
         self,
         flag_key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
-    ) -> typing.Union[dict, list]:
+    ) -> typing.Union[Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]:
         details = await self.get_object_details_async(
             flag_key,
             default_value,
@@ -371,10 +376,14 @@ class OpenFeatureClient:
     def get_object_details(
         self,
         flag_key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
-    ) -> FlagEvaluationDetails[typing.Union[dict, list]]:
+    ) -> FlagEvaluationDetails[
+        typing.Union[Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]:
         return self.evaluate_flag_details(
             FlagType.OBJECT,
             flag_key,
@@ -386,10 +395,14 @@ class OpenFeatureClient:
     async def get_object_details_async(
         self,
         flag_key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
-    ) -> FlagEvaluationDetails[typing.Union[dict, list]]:
+    ) -> FlagEvaluationDetails[
+        typing.Union[Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]:
         return await self.evaluate_flag_details_async(
             FlagType.OBJECT,
             flag_key,
@@ -402,7 +415,7 @@ class OpenFeatureClient:
         self,
         flag_type: FlagType,
         flag_key: str,
-        default_value: typing.Any,
+        default_value: FlagValueType,
         evaluation_context: typing.Optional[EvaluationContext],
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions],
     ) -> tuple[
@@ -422,11 +435,20 @@ class OpenFeatureClient:
         evaluation_hooks = flag_evaluation_options.hooks
         hook_hints = flag_evaluation_options.hook_hints
 
+        # Merge transaction context into evaluation context before creating hook_context
+        # This ensures hooks have access to the complete context including transaction context
+        merged_eval_context = (
+            get_evaluation_context()
+            .merge(get_transaction_context())
+            .merge(self.context)
+            .merge(evaluation_context)
+        )
+
         hook_context = HookContext(
             flag_key=flag_key,
             flag_type=flag_type,
             default_value=default_value,
-            evaluation_context=evaluation_context,
+            evaluation_context=merged_eval_context,
             client_metadata=self.get_metadata(),
             provider_metadata=provider.get_metadata(),
         )
@@ -452,7 +474,7 @@ class OpenFeatureClient:
             return ProviderFatalError()
         return None
 
-    def _before_hooks_and_merge_context(
+    def _run_before_hooks_and_update_context(
         self,
         flag_type: FlagType,
         hook_context: HookContext,
@@ -464,29 +486,84 @@ class OpenFeatureClient:
         # Any resulting evaluation context from a before hook will overwrite
         # duplicate fields defined globally, on the client, or in the invocation.
         # Requirement 3.2.2, 4.3.4: API.context->client.context->invocation.context
-        invocation_context = before_hooks(
+        before_hooks_context = before_hooks(
             flag_type, hook_context, merged_hooks, hook_hints
         )
-        if evaluation_context:
-            invocation_context = invocation_context.merge(ctx2=evaluation_context)
 
-        # Requirement 3.2.2 merge: API.context->transaction.context->client.context->invocation.context
-        merged_context = (
-            get_evaluation_context()
-            .merge(get_transaction_context())
-            .merge(self.context)
-            .merge(invocation_context)
-        )
+        # The hook_context.evaluation_context already contains the merged context from
+        # _establish_hooks_and_provider, so we just need to merge with the before hooks result
+        merged_context = hook_context.evaluation_context.merge(before_hooks_context)
+
         return merged_context
+
+    @typing.overload
+    async def evaluate_flag_details_async(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: bool,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[bool]: ...
+
+    @typing.overload
+    async def evaluate_flag_details_async(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: int,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[int]: ...
+
+    @typing.overload
+    async def evaluate_flag_details_async(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: float,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[float]: ...
+
+    @typing.overload
+    async def evaluate_flag_details_async(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: str,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[str]: ...
+
+    @typing.overload
+    async def evaluate_flag_details_async(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: Sequence["FlagValueType"],
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[Sequence["FlagValueType"]]: ...
+
+    @typing.overload
+    async def evaluate_flag_details_async(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: typing.Mapping[str, "FlagValueType"],
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[typing.Mapping[str, "FlagValueType"]]: ...
 
     async def evaluate_flag_details_async(
         self,
         flag_type: FlagType,
         flag_key: str,
-        default_value: typing.Any,
+        default_value: FlagValueType,
         evaluation_context: typing.Optional[EvaluationContext] = None,
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
-    ) -> FlagEvaluationDetails[typing.Any]:
+    ) -> FlagEvaluationDetails[FlagValueType]:
         """
         Evaluate the flag requested by the user from the clients provider.
 
@@ -526,7 +603,7 @@ class OpenFeatureClient:
                 )
                 return flag_evaluation
 
-            merged_context = self._before_hooks_and_merge_context(
+            merged_context = self._run_before_hooks_and_update_context(
                 flag_type,
                 hook_context,
                 merged_hooks,
@@ -595,14 +672,74 @@ class OpenFeatureClient:
                 hook_hints,
             )
 
+    @typing.overload
     def evaluate_flag_details(
         self,
         flag_type: FlagType,
         flag_key: str,
-        default_value: typing.Any,
+        default_value: bool,
         evaluation_context: typing.Optional[EvaluationContext] = None,
         flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
-    ) -> FlagEvaluationDetails[typing.Any]:
+    ) -> FlagEvaluationDetails[bool]: ...
+
+    @typing.overload
+    def evaluate_flag_details(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: int,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[int]: ...
+
+    @typing.overload
+    def evaluate_flag_details(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: float,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[float]: ...
+
+    @typing.overload
+    def evaluate_flag_details(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: str,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[str]: ...
+
+    @typing.overload
+    def evaluate_flag_details(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: Sequence["FlagValueType"],
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[Sequence["FlagValueType"]]: ...
+
+    @typing.overload
+    def evaluate_flag_details(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: typing.Mapping[str, "FlagValueType"],
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[typing.Mapping[str, "FlagValueType"]]: ...
+
+    def evaluate_flag_details(
+        self,
+        flag_type: FlagType,
+        flag_key: str,
+        default_value: FlagValueType,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+        flag_evaluation_options: typing.Optional[FlagEvaluationOptions] = None,
+    ) -> FlagEvaluationDetails[FlagValueType]:
         """
         Evaluate the flag requested by the user from the clients provider.
 
@@ -642,7 +779,7 @@ class OpenFeatureClient:
                 )
                 return flag_evaluation
 
-            merged_context = self._before_hooks_and_merge_context(
+            merged_context = self._run_before_hooks_and_update_context(
                 flag_type,
                 hook_context,
                 merged_hooks,
@@ -718,9 +855,9 @@ class OpenFeatureClient:
         provider: FeatureProvider,
         flag_type: FlagType,
         flag_key: str,
-        default_value: typing.Any,
+        default_value: FlagValueType,
         evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagEvaluationDetails[typing.Any]:
+    ) -> FlagEvaluationDetails[FlagValueType]:
         get_details_callables_async: typing.Mapping[
             FlagType, ResolveDetailsCallableAsync
         ] = {
@@ -765,9 +902,9 @@ class OpenFeatureClient:
         provider: FeatureProvider,
         flag_type: FlagType,
         flag_key: str,
-        default_value: typing.Any,
+        default_value: FlagValueType,
         evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagEvaluationDetails[typing.Any]:
+    ) -> FlagEvaluationDetails[FlagValueType]:
         """
         Encapsulated method to create a FlagEvaluationDetail from a specific provider.
 

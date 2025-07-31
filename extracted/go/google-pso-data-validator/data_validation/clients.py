@@ -73,11 +73,11 @@ except Exception:
     msg = "pip install teradatasql (requires Teradata licensing)"
     teradata_connect = _raise_missing_client_error(msg)
 
-# Oracle requires cx_Oracle driver
+# Oracle requires python-oracldb driver
 try:
     from third_party.ibis.ibis_oracle.api import oracle_connect
 except Exception:
-    oracle_connect = _raise_missing_client_error("pip install cx_Oracle")
+    oracle_connect = _raise_missing_client_error("pip install oracledb")
 
 # Snowflake requires snowflake-connector-python and snowflake-sqlalchemy
 try:
@@ -90,7 +90,8 @@ except Exception:
 # DB2 requires ibm_db_sa
 try:
     from third_party.ibis.ibis_db2.api import db2_connect
-except Exception:
+except Exception as e:
+    logging.error(f"Exception {str(e)} while importing db2_connect")
     db2_connect = _raise_missing_client_error("pip install ibm_db_sa")
 
 
@@ -261,7 +262,7 @@ def list_tables(client, schema_name, tables_only=True):
         if tables_only and client.name != "pandas"
         else client.list_tables
     )
-    if client.name in ["db2", "mssql", "redshift", "snowflake", "pandas"]:
+    if client.name in ["db2", "redshift", "snowflake", "pandas"]:
         return fn()
     return fn(database=schema_name)
 
@@ -319,6 +320,14 @@ def get_data_client(connection_config):
             ] = google.oauth2.service_account.Credentials.from_service_account_file(
                 key_path
             )
+
+    # Oracle no longer supports the url option, so check and warn users
+    if (
+        source_type == consts.SOURCE_TYPE_ORACLE
+        and "url" in decrypted_connection_config
+    ):
+        msg = f"Connection Configuration Error: url parameter no longer supported for {source_type}.\nRecreate connection with --connect-args parameter."
+        raise Exception(msg)
 
     if source_type not in CLIENT_LOOKUP:
         msg = 'ConfigurationError: Source type "{source_type}" is not supported'.format(

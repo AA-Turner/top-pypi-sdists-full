@@ -12,8 +12,8 @@ use uv_cache::{Cache, CacheBucket};
 use uv_cache_key::cache_digest;
 use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
-    Concurrency, Constraints, DependencyGroupsWithDefaults, DryRun, ExtrasSpecification,
-    PreviewMode, Reinstall, SourceStrategy, Upgrade,
+    Concurrency, Constraints, DependencyGroupsWithDefaults, DryRun, ExtrasSpecification, Preview,
+    PreviewFeatures, Reinstall, Upgrade,
 };
 use uv_dispatch::{BuildDispatch, SharedState};
 use uv_distribution::{DistributionDatabase, LoweredRequirement};
@@ -46,6 +46,7 @@ use uv_types::{BuildIsolation, EmptyInstalledPackages, HashStrategy};
 use uv_virtualenv::remove_virtualenv;
 use uv_warnings::{warn_user, warn_user_once};
 use uv_workspace::dependency_groups::DependencyGroupError;
+use uv_workspace::pyproject::ExtraBuildDependencies;
 use uv_workspace::pyproject::PyProjectToml;
 use uv_workspace::{RequiresPythonSources, Workspace, WorkspaceCache};
 
@@ -647,7 +648,7 @@ impl ScriptInterpreter {
         active: Option<bool>,
         cache: &Cache,
         printer: Printer,
-        preview: PreviewMode,
+        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // For now, we assume that scripts are never evaluated in the context of a workspace.
         let workspace = None;
@@ -887,7 +888,7 @@ impl ProjectInterpreter {
         active: Option<bool>,
         cache: &Cache,
         printer: Printer,
-        preview: PreviewMode,
+        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // Resolve the Python request and requirement for the workspace.
         let WorkspacePython {
@@ -1269,7 +1270,7 @@ impl ProjectEnvironment {
         cache: &Cache,
         dry_run: DryRun,
         printer: Printer,
-        preview: PreviewMode,
+        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // Lock the project environment to avoid synchronization issues.
         let _lock = ProjectInterpreter::lock(workspace)
@@ -1279,7 +1280,7 @@ impl ProjectEnvironment {
             })
             .ok();
 
-        let upgradeable = preview.is_enabled()
+        let upgradeable = preview.is_enabled(PreviewFeatures::PYTHON_UPGRADE)
             && python
                 .as_ref()
                 .is_none_or(|request| !request.includes_patch());
@@ -1501,7 +1502,7 @@ impl ScriptEnvironment {
         cache: &Cache,
         dry_run: DryRun,
         printer: Printer,
-        preview: PreviewMode,
+        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // Lock the script environment to avoid synchronization issues.
         let _lock = ScriptInterpreter::lock(script)
@@ -1658,7 +1659,7 @@ pub(crate) async fn resolve_names(
     cache: &Cache,
     workspace_cache: &WorkspaceCache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<Vec<Requirement>, uv_requirements::Error> {
     // Partition the requirements into named and unnamed requirements.
     let (mut requirements, unnamed): (Vec<_>, Vec<_>) =
@@ -1692,6 +1693,7 @@ pub(crate) async fn resolve_names(
                 link_mode,
                 no_build_isolation,
                 no_build_isolation_package,
+                extra_build_dependencies,
                 prerelease: _,
                 resolution: _,
                 sources,
@@ -1740,6 +1742,8 @@ pub(crate) async fn resolve_names(
     let build_hasher = HashStrategy::default();
 
     // Create a build dispatch.
+    let extra_build_requires =
+        uv_distribution::ExtraBuildRequires::from_lowered(extra_build_dependencies.clone());
     let build_dispatch = BuildDispatch::new(
         &client,
         cache,
@@ -1753,10 +1757,11 @@ pub(crate) async fn resolve_names(
         config_setting,
         config_settings_package,
         build_isolation,
+        &extra_build_requires,
         *link_mode,
         build_options,
         &build_hasher,
-        *exclude_newer,
+        exclude_newer.clone(),
         *sources,
         workspace_cache.clone(),
         concurrency,
@@ -1829,7 +1834,7 @@ pub(crate) async fn resolve_environment(
     concurrency: Concurrency,
     cache: &Cache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<ResolverOutput, ProjectError> {
     warn_on_requirements_txt_setting(&spec.requirements, settings);
 
@@ -1845,6 +1850,7 @@ pub(crate) async fn resolve_environment(
         config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
+        extra_build_dependencies,
         exclude_newer,
         link_mode,
         upgrade: _,
@@ -1901,7 +1907,7 @@ pub(crate) async fn resolve_environment(
         .resolution_mode(*resolution)
         .prerelease_mode(*prerelease)
         .fork_strategy(*fork_strategy)
-        .exclude_newer(*exclude_newer)
+        .exclude_newer(exclude_newer.clone())
         .index_strategy(*index_strategy)
         .build_options(build_options.clone())
         .build();
@@ -1948,6 +1954,8 @@ pub(crate) async fn resolve_environment(
     let workspace_cache = WorkspaceCache::default();
 
     // Create a build dispatch.
+    let extra_build_requires =
+        uv_distribution::ExtraBuildRequires::from_lowered(extra_build_dependencies.clone());
     let resolve_dispatch = BuildDispatch::new(
         &client,
         cache,
@@ -1961,10 +1969,11 @@ pub(crate) async fn resolve_environment(
         config_setting,
         config_settings_package,
         build_isolation,
+        &extra_build_requires,
         *link_mode,
         build_options,
         &build_hasher,
-        *exclude_newer,
+        exclude_newer.clone(),
         *sources,
         workspace_cache,
         concurrency,
@@ -2017,7 +2026,7 @@ pub(crate) async fn sync_environment(
     concurrency: Concurrency,
     cache: &Cache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<PythonEnvironment, ProjectError> {
     let InstallerSettingsRef {
         index_locations,
@@ -2028,6 +2037,7 @@ pub(crate) async fn sync_environment(
         config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
+        extra_build_dependencies,
         exclude_newer,
         link_mode,
         compile_bytecode,
@@ -2086,6 +2096,8 @@ pub(crate) async fn sync_environment(
     };
 
     // Create a build dispatch.
+    let extra_build_requires =
+        uv_distribution::ExtraBuildRequires::from_lowered(extra_build_dependencies.clone());
     let build_dispatch = BuildDispatch::new(
         &client,
         cache,
@@ -2099,6 +2111,7 @@ pub(crate) async fn sync_environment(
         config_setting,
         config_settings_package,
         build_isolation,
+        &extra_build_requires,
         link_mode,
         build_options,
         &build_hasher,
@@ -2164,6 +2177,7 @@ pub(crate) async fn update_environment(
     spec: RequirementsSpecification,
     modifications: Modifications,
     build_constraints: Constraints,
+    extra_build_requires: uv_distribution::ExtraBuildRequires,
     settings: &ResolverInstallerSettings,
     network_settings: &NetworkSettings,
     state: &SharedState,
@@ -2175,7 +2189,7 @@ pub(crate) async fn update_environment(
     workspace_cache: WorkspaceCache,
     dry_run: DryRun,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<EnvironmentUpdate, ProjectError> {
     warn_on_requirements_txt_setting(&spec, &settings.resolver);
 
@@ -2194,6 +2208,7 @@ pub(crate) async fn update_environment(
                 link_mode,
                 no_build_isolation,
                 no_build_isolation_package,
+                extra_build_dependencies: _,
                 prerelease,
                 resolution,
                 sources,
@@ -2283,7 +2298,7 @@ pub(crate) async fn update_environment(
         .resolution_mode(*resolution)
         .prerelease_mode(*prerelease)
         .fork_strategy(*fork_strategy)
-        .exclude_newer(*exclude_newer)
+        .exclude_newer(exclude_newer.clone())
         .index_strategy(*index_strategy)
         .build_options(build_options.clone())
         .build();
@@ -2323,10 +2338,11 @@ pub(crate) async fn update_environment(
         config_setting,
         config_settings_package,
         build_isolation,
+        &extra_build_requires,
         *link_mode,
         build_options,
         &build_hasher,
-        *exclude_newer,
+        exclude_newer.clone(),
         *sources,
         workspace_cache,
         concurrency,
@@ -2416,7 +2432,7 @@ pub(crate) async fn init_script_python_requirement(
     client_builder: &BaseClientBuilder<'_>,
     cache: &Cache,
     reporter: &PythonDownloadReporter,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> anyhow::Result<RequiresPython> {
     let python_request = if let Some(request) = python {
         // (1) Explicit request from user
@@ -2537,40 +2553,9 @@ pub(crate) fn script_specification(
         return Ok(None);
     };
 
-    // Determine the working directory for the script.
-    let script_dir = match &script {
-        Pep723ItemRef::Script(script) => std::path::absolute(&script.path)?
-            .parent()
-            .expect("script path has no parent")
-            .to_owned(),
-        Pep723ItemRef::Stdin(..) | Pep723ItemRef::Remote(..) => std::env::current_dir()?,
-    };
-
-    // Collect any `tool.uv.index` from the script.
-    let empty = Vec::default();
-    let script_indexes = match settings.sources {
-        SourceStrategy::Enabled => script
-            .metadata()
-            .tool
-            .as_ref()
-            .and_then(|tool| tool.uv.as_ref())
-            .and_then(|uv| uv.top_level.index.as_deref())
-            .unwrap_or(&empty),
-        SourceStrategy::Disabled => &empty,
-    };
-
-    // Collect any `tool.uv.sources` from the script.
-    let empty = BTreeMap::default();
-    let script_sources = match settings.sources {
-        SourceStrategy::Enabled => script
-            .metadata()
-            .tool
-            .as_ref()
-            .and_then(|tool| tool.uv.as_ref())
-            .and_then(|uv| uv.sources.as_ref())
-            .unwrap_or(&empty),
-        SourceStrategy::Disabled => &empty,
-    };
+    let script_dir = script.directory()?;
+    let script_indexes = script.indexes(settings.sources);
+    let script_sources = script.sources(settings.sources);
 
     let requirements = dependencies
         .iter()
@@ -2632,6 +2617,51 @@ pub(crate) fn script_specification(
         constraints,
         overrides,
     )))
+}
+
+/// Determine the extra build requires for a script.
+#[allow(clippy::result_large_err)]
+pub(crate) fn script_extra_build_requires(
+    script: Pep723ItemRef<'_>,
+    settings: &ResolverSettings,
+) -> Result<uv_distribution::ExtraBuildRequires, ProjectError> {
+    let script_dir = script.directory()?;
+    let script_indexes = script.indexes(settings.sources);
+    let script_sources = script.sources(settings.sources);
+
+    // Collect any `tool.uv.extra-build-dependencies` from the script.
+    let empty = BTreeMap::default();
+    let script_extra_build_dependencies = script
+        .metadata()
+        .tool
+        .as_ref()
+        .and_then(|tool| tool.uv.as_ref())
+        .and_then(|uv| uv.extra_build_dependencies.as_ref())
+        .unwrap_or(&empty);
+
+    // Lower the extra build dependencies
+    let mut extra_build_dependencies = ExtraBuildDependencies::default();
+    for (name, requirements) in script_extra_build_dependencies {
+        let lowered_requirements: Vec<_> = requirements
+            .iter()
+            .cloned()
+            .flat_map(|requirement| {
+                LoweredRequirement::from_non_workspace_requirement(
+                    requirement,
+                    script_dir.as_ref(),
+                    script_sources,
+                    script_indexes,
+                    &settings.index_locations,
+                )
+                .map_ok(|req| req.into_inner().into())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        extra_build_dependencies.insert(name.clone(), lowered_requirements);
+    }
+
+    Ok(uv_distribution::ExtraBuildRequires::from_lowered(
+        extra_build_dependencies,
+    ))
 }
 
 /// Warn if the user provides (e.g.) an `--index-url` in a requirements file.

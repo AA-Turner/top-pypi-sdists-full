@@ -1,21 +1,22 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: logfmter
-Version: 0.0.9
+Version: 0.0.10
 Summary: A Python package which supports global logfmt formatted logging.
-Home-page: https://github.com/jteppinette/python-logfmter
+Home-page: https://github.com/josheppinette/python-logfmter
 Author: Joshua Taylor Eppinette
-Author-email: jteppinette@jteppinette.com
+Author-email: josheppinette@gmail.com
 License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: license-file
 
 ![python logfmter](./banner.png)
 
 <div align="center">
 
-[![pre-commit](https://github.com/jteppinette/python-logfmter/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/jteppinette/python-logfmter/actions/workflows/pre-commit.yml)
-[![test](https://github.com/jteppinette/python-logfmter/actions/workflows/test.yml/badge.svg)](https://github.com/jteppinette/python-logfmter/actions/workflows/test.yml)
+[![pre-commit](https://github.com/josheppinette/python-logfmter/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/josheppinette/python-logfmter/actions/workflows/pre-commit.yml)
+[![test](https://github.com/josheppinette/python-logfmter/actions/workflows/test.yml/badge.svg)](https://github.com/josheppinette/python-logfmter/actions/workflows/test.yml)
 [![python-3.9-3.10-3.11-3.12-3.13](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11|%203.12|%203.13-blue.svg)](.github/workflows/test.yml)
 
 Add [logfmt](https://www.brandur.org/logfmt) structured logging using the stdlib logging module and without changing a single log call.
@@ -37,10 +38,12 @@ at=WARNING msg="user created" first_name=John last_name=Doe age=25
    2. [Configuration](#configuration)
    3. [Extension](#extension)
    4. [Guides](#guides)
+   5. [Gotchas](#gotchas)
 4. [Development](#development)
    1. [Required Software](#required-software)
    2. [Getting Started](#getting-started)
-   3. [Publishing](#publishing)
+   3. [Contributing](#contributing)
+   4. [Publishing](#publishing)
 
 # Why
 
@@ -60,6 +63,8 @@ This package exposes a single `Logfmter` class that can be integrated into
 the [standard library logging system](https://docs.python.org/3/howto/logging.html) like any [`logging.Formatter`](https://docs.python.org/3/howto/logging.html#formatters).
 
 ## Integration
+
+Simply use the standard logger's `basicConfig` or `dictConfig` initialization systems to get started. Examples are provided below.
 
 **[basicConfig](https://docs.python.org/3/library/logging.html#logging.basicConfig)**
 
@@ -123,6 +128,10 @@ items after `"()"`:_
 Using logfmter via fileConfig is not supported, because fileConfig does not support custom formatter initialization. There may be some hacks to make this work in the future. Let me know if you have ideas or really need this.
 
 ## Configuration
+
+There is no additional configuration necessary to get started using Logfmter.
+However, if desired, you can modify the functionality using the following
+initialization parameters.
 
 **keys**
 
@@ -245,6 +254,26 @@ logging.setLogRecordFactory(record_factory)
 This will cause all logs to have the `trace_id=123` pair regardless of including
 `trace_id` in keys or manually adding `trace_id` to the `extra` parameter or the `msg` object.
 
+## Gotchas
+
+**Reserved Keys**
+
+The standard library logging system restricts the ability to pass internal [log record attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes) via the log call's `extra` parameter.
+
+```py
+> logging.error("invalid", extra={"filename": "alpha.txt"})
+Traceback (most recent call last):
+  ...
+```
+
+This can be circumvented by utilizing logfmter's ability to pass extras
+via the log call's `msg` argument.
+
+```py
+> logging.error({"msg": "valid", "filename": "alpha.txt"})
+at=ERROR msg=valid filename=alpha.txt
+```
+
 # Development
 
 ## Required Software
@@ -254,6 +283,10 @@ If you are using [nix](https://zero-to-nix.com/start/install/) & [direnv](https:
 - [direnv](https://direnv.net)
 - [git](https://git-scm.com/)
 - [pyenv](https://github.com/pyenv/pyenv#installation)
+
+> Additionally, if you aren't using nix, then you will need to manually build
+> the "external" tools found in `external`. These are used during testing to
+> verify compatibility with libraries from different ecosystems. Alternatively, you can exclude those tests with `pytest -m "not external"`, but this is not recommended.
 
 ## Getting Started
 
@@ -288,6 +321,16 @@ _Run the test suite against all supported python versions._
 ```sh
 $ tox
 ```
+
+## Contributing
+
+1. Create an issue with all necessary details.
+2. Create a branch off from `main`.
+3. Make changes.
+4. Verify tests pass in all supported python versions: `tox`.
+5. Verify code conventions are maintained: `git add --all && pre-commit run -a`.
+6. Create your commit following the [conventionalcommits](https://www.conventionalcommits.org/en/v1.0.0/#summary).
+7. Create a pull request with all necessary details: description, testing notes, resolved issues.
 
 ## Publishing
 

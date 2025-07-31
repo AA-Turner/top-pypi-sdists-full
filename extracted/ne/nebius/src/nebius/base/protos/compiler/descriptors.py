@@ -1,9 +1,26 @@
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from logging import getLogger
 
 import google.protobuf.descriptor_pb2 as pb
 
 import nebius.base.protos.pythonic_names as names
+from nebius.api.nebius import (
+    EnumPySDKSettings,
+    EnumValuePySDKSettings,
+    FieldPySDKSettings,
+    MessagePySDKSettings,
+    MethodPySDKSettings,
+    OneofPySDKSettings,
+    ServicePySDKSettings,
+    enum_py_sdk,
+    enum_value_py_sdk,
+    field_py_sdk,
+    message_py_sdk,
+    method_py_sdk,
+    oneof_py_sdk,
+    service_py_sdk,
+)
 from nebius.base.protos.compiler.pygen import ImportedSymbol, ImportPath
 
 log = getLogger(__name__)
@@ -77,6 +94,35 @@ class Descriptor:
     def name(self) -> str:
         return self.descriptor.name  # type: ignore
 
+    @property
+    def pythonic_name(self) -> str:
+        raise NotImplementedError("Subclasses must implement pythonic_name property")
+
+
+class DescriptorNameError(DescriptorError):
+    def __init__(self, descriptor: Descriptor, error: Exception) -> None:
+        super().__init__(f"{descriptor!r} has error with name: {error}")
+
+
+class DuplicatesError(DescriptorError):
+    def __init__(
+        self,
+        descriptor: Descriptor,
+        duplicates: Iterable[list[Descriptor]],
+        inner_errors: list["DuplicatesError"] | None = None,
+    ) -> None:
+        lines = "\n".join(
+            f"{group[0].pythonic_name}: {group!r}" for group in duplicates
+        )
+        if lines != "":
+            lines = f"{descriptor!r} has duplicate names for children:\n{lines}"
+        if inner_errors is not None and len(inner_errors) > 0:
+            if len(lines) != 0:
+                lines += "\n"
+            lines += "\n".join(str(e) for e in inner_errors)
+
+        super().__init__(lines)
+
 
 class EnumValue(Descriptor):
     def __init__(
@@ -90,6 +136,9 @@ class EnumValue(Descriptor):
         self._pythonic_name = ""
         self._index = index
         self._path_in_file: Sequence[int] | None = None
+        self._settings = EnumValuePySDKSettings(
+            descriptor.options.Extensions[enum_value_py_sdk]  # type: ignore
+        )
 
     @property
     def source_info(self) -> SourceInfo:
@@ -116,7 +165,15 @@ class EnumValue(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.enum_value(self.name, self.containing_enum.name)
+            try:
+                self._pythonic_name = names.enum_value(
+                    self.name,
+                    self.containing_enum.name,
+                    self._settings.name,
+                    self.containing_enum.full_type_name + "." + self.name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
     @property
@@ -148,6 +205,24 @@ class Enum(Descriptor):
         self._pythonic_name = ""
         self._index = index
         self._path_in_file: Sequence[int] | None = None
+        self._settings = EnumPySDKSettings(
+            descriptor.options.Extensions[enum_py_sdk]  # type: ignore
+        )
+        self._checked = False
+
+    def check_names(self) -> None:
+        if self._checked:
+            return
+        val_names = defaultdict[str, list[Descriptor]](list[Descriptor])
+        for val in self.values:
+            val_names[val.pythonic_name].append(val)
+
+        duplicates: list[list[Descriptor]] = [
+            group for group in val_names.values() if len(group) > 1
+        ]
+        if duplicates:
+            raise DuplicatesError(self, duplicates)
+        self._checked = True
 
     @property
     def source_info(self) -> SourceInfo:
@@ -183,7 +258,13 @@ class Enum(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.enum(self.full_type_name)
+            try:
+                self._pythonic_name = names.enum(
+                    self.full_type_name,
+                    self._settings.name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
     @property
@@ -245,6 +326,9 @@ class Field(Descriptor):
         self._oneof: "OneOf|None|bool" = None
         self._index = index
         self._path_in_file: Sequence[int] | None = None
+        self._settings = FieldPySDKSettings(
+            descriptor.options.Extensions[field_py_sdk]  # type: ignore
+        )
 
     @property
     def source_info(self) -> SourceInfo:
@@ -294,7 +378,15 @@ class Field(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.field(self.name, self.containing_message.name)
+            try:
+                self._pythonic_name = names.field(
+                    self.name,
+                    self.containing_message.name,
+                    self._settings.name,
+                    self.full_type_name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
     @property
@@ -431,6 +523,9 @@ class OneOf(Descriptor):
         self._containing_file = containing_file
         self._fields: "list[Field]|None" = None
         self._path_in_file: Sequence[int] | None = None
+        self._settings = OneofPySDKSettings(
+            descriptor.options.Extensions[oneof_py_sdk]  # type: ignore
+        )
 
     @property
     def source_info(self) -> SourceInfo:
@@ -475,7 +570,15 @@ class OneOf(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.one_of(self.name, self.containing_message.name)
+            try:
+                self._pythonic_name = names.one_of(
+                    self.name,
+                    self.containing_message.name,
+                    self._settings.name,
+                    self.full_type_name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
     @property
@@ -506,6 +609,38 @@ class Message(Descriptor):
         self._pythonic_name = ""
         self._index = index
         self._path_in_file: Sequence[int] | None = None
+        self._settings = MessagePySDKSettings(
+            descriptor.options.Extensions[message_py_sdk]  # type: ignore
+        )
+        self._checked = False
+
+    def check_names(self) -> None:
+        if self._checked:
+            return
+        val_names = defaultdict[str, list[Descriptor]](list[Descriptor])
+        inner_errors: list[DuplicatesError] = []
+        for field in self.fields():
+            val_names[field.pythonic_name].append(field)
+        for msg in self.messages():
+            val_names[msg.pythonic_name].append(msg)
+            try:
+                msg.check_names()
+            except DuplicatesError as e:
+                inner_errors.append(e)
+        for enum in self.enums:
+            val_names[enum.pythonic_name].append(enum)
+            try:
+                enum.check_names()
+            except DuplicatesError as e:
+                inner_errors.append(e)
+        for oneof in self.oneofs:
+            val_names[oneof.pythonic_name].append(oneof)
+        duplicates: list[list[Descriptor]] = [
+            v for v in val_names.values() if len(v) > 1
+        ]
+        if duplicates or len(inner_errors) > 0:
+            raise DuplicatesError(self, duplicates, inner_errors)
+        self._checked = True
 
     @property
     def source_info(self) -> SourceInfo:
@@ -541,7 +676,13 @@ class Message(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.message(self.full_type_name)
+            try:
+                self._pythonic_name = names.message(
+                    self.full_type_name,
+                    self._settings.name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
     @property
@@ -700,6 +841,9 @@ class Method(Descriptor):
         self._output: Message | None = None
         self._index = index
         self._path_in_file: Sequence[int] | None = None
+        self._settings = MethodPySDKSettings(
+            self.descriptor.options.Extensions[method_py_sdk]  # type: ignore
+        )
 
     @property
     def source_info(self) -> SourceInfo:
@@ -758,10 +902,15 @@ class Method(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.method(
-                self.name,
-                self.containing_service.pythonic_name,
-            )
+            try:
+                self._pythonic_name = names.method(
+                    self.name,
+                    self.containing_service.pythonic_name,
+                    self._settings.name,
+                    self.full_type_name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
 
@@ -778,6 +927,24 @@ class Service(Descriptor):
         self._methods: dict[str, Method] | None = None
         self._index = index
         self._path_in_file: Sequence[int] | None = None
+        self._settings = ServicePySDKSettings(
+            self.descriptor.options.Extensions[service_py_sdk]  # type: ignore
+        )
+        self._checked = False
+
+    def check_names(self) -> None:
+        if self._checked:
+            return
+
+        val_names = defaultdict[str, list[Descriptor]](list[Descriptor])
+        for method in self.methods.values():
+            val_names[method.pythonic_name].append(method)
+        duplicates: list[list[Descriptor]] = [
+            v for v in val_names.values() if len(v) > 1
+        ]
+        if duplicates:
+            raise DuplicatesError(self, duplicates)
+        self._checked = True
 
     @property
     def source_info(self) -> SourceInfo:
@@ -815,7 +982,13 @@ class Service(Descriptor):
     @property
     def pythonic_name(self) -> str:
         if self._pythonic_name == "":
-            self._pythonic_name = names.service(self.full_type_name)
+            try:
+                self._pythonic_name = names.service(
+                    self.full_type_name,
+                    self._settings.name,
+                )
+            except names.NameError as e:
+                raise DescriptorNameError(self, e) from None
         return self._pythonic_name
 
     @property
@@ -871,6 +1044,41 @@ class File(Descriptor):
         self._source_code_info: (
             dict[Sequence[int], pb.SourceCodeInfo.Location] | None
         ) = None
+        self._checked: defaultdict[str, list[Descriptor]] | None = None
+
+    def check_names(self) -> defaultdict[str, list[Descriptor]]:
+        if self._checked is not None:
+            return self._checked
+        val_names = defaultdict[str, list[Descriptor]](list[Descriptor])
+        inner_errors = list[DuplicatesError]()
+        for srv in self.services_dict.values():
+            val_names[srv.pythonic_name].append(srv)
+            try:
+                srv.check_names()
+            except DuplicatesError as e:
+                inner_errors.append(e)
+        for msg in self.messages():
+            val_names[msg.pythonic_name].append(msg)
+            try:
+                msg.check_names()
+            except DuplicatesError as e:
+                inner_errors.append(e)
+        for enum in self.enums:
+            val_names[enum.pythonic_name].append(enum)
+            try:
+                enum.check_names()
+            except DuplicatesError as e:
+                inner_errors.append(e)
+        for ext in self.extensions.values():
+            val_names[ext.pythonic_name].append(ext)
+
+        duplicates: list[list[Descriptor]] = [
+            v for v in val_names.values() if len(v) > 1
+        ]
+        if duplicates or len(inner_errors) > 0:
+            raise DuplicatesError(self, duplicates, inner_errors)
+        self._checked = val_names
+        return self._checked
 
     @property
     def source_code_info(self) -> dict[Sequence[int], pb.SourceCodeInfo.Location]:
@@ -1074,6 +1282,35 @@ class FileSet(Descriptor):
             File(file, self, file.name in self.files_to_generate) for file in file_set
         ]
         self._files_dict: dict[str, File] | None = None
+        self._checked = False
+
+    def check_names(self) -> None:
+        if self._checked:
+            return
+
+        val_names = defaultdict[str, defaultdict[str, list[Descriptor]]](
+            lambda: defaultdict(list[Descriptor])
+        )
+        inner_errors: list[DuplicatesError] = []
+        for file in self.files_generated:
+            try:
+                file_children = file.check_names()
+                for name, child in file_children.items():
+                    val_names[file.package][name].extend(child)
+            except DuplicatesError as e:
+                inner_errors.append(e)
+        for pkg_names in val_names.values():
+            duplicates = [v for v in pkg_names.values() if len(v) > 1]
+            if duplicates:
+                inner_errors.append(
+                    DuplicatesError(
+                        self,
+                        duplicates,
+                    )
+                )
+        if inner_errors:
+            raise DuplicatesError(self, [], inner_errors)
+        self._checked = True
 
     def is_package_skipped(self, package: str) -> bool:
         for pkg in self.skip_packages:

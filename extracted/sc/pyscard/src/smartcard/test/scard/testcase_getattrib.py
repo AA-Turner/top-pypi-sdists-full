@@ -27,15 +27,30 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 
-import struct
-
 # import local_config for reader/card configuration
 # configcheck.py is generating local_config.py in
 # the test suite.
 import sys
 import unittest
 
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_ATTR_ATR_STRING,
+    SCARD_ATTR_DEVICE_SYSTEM_NAME_A,
+    SCARD_PROTOCOL_T0,
+    SCARD_PROTOCOL_T1,
+    SCARD_SCOPE_USER,
+    SCARD_SHARE_SHARED,
+    SCARD_UNPOWER_CARD,
+    SCardConnect,
+    SCardDisconnect,
+    SCardEstablishContext,
+    SCardGetAttrib,
+    SCardListReaders,
+    SCardReleaseContext,
+    SCardStatus,
+    resourceManager,
+    scard,
+)
 
 sys.path += [".."]
 
@@ -61,7 +76,7 @@ class testcase_getAttrib(unittest.TestCase):
 
     def _getAttrib(self, r):
         if r < len(expectedATRs) and [] != expectedATRs[r]:
-            hresult, hcard, dwActiveProtocol = SCardConnect(
+            hresult, hcard, _dwActiveProtocol = SCardConnect(
                 self.hcontext,
                 self.readers[r],
                 SCARD_SHARE_SHARED,
@@ -70,7 +85,7 @@ class testcase_getAttrib(unittest.TestCase):
             self.assertEqual(hresult, 0)
 
             try:
-                hresult, reader, state, protocol, atr = SCardStatus(hcard)
+                hresult, reader, _state, _protocol, atr = SCardStatus(hcard)
                 self.assertEqual(hresult, 0)
                 self.assertEqual(reader, expectedReaders[r])
                 self.assertEqual(atr, expectedATRs[r])
@@ -87,11 +102,7 @@ class testcase_getAttrib(unittest.TestCase):
                     self.assertEqual(hresult, 0)
                     trimmedAttrib = attrib[:-1]
                     self.assertEqual(
-                        expectedReaders[r],
-                        apply(
-                            struct.pack,
-                            ["<" + "B" * len(trimmedAttrib)] + trimmedAttrib,
-                        ),
+                        expectedReaders[r], str(bytes(trimmedAttrib), encoding="utf-8")
                     )
 
             finally:

@@ -1,6 +1,6 @@
 [project]
 name = "codecov-cli"
-version = "11.0.3"
+version = "11.1.0"
 description = "Codecov Command Line Interface"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -23,6 +23,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pre-commit==3.*",
+    "pyinstaller==6.*",
     "pytest==7.*",
     "pytest-asyncio==0.21.1",
     "pytest-cov==4.*",
@@ -42,7 +43,5 @@ build-backend = "setuptools.build_meta"
 packages = ["codecov_cli"]
 
 [tool.pytest.ini_options]
-env = [
-    "CODECOV_ENV=test",
-]
+env = ["CODECOV_ENV=test"]
 

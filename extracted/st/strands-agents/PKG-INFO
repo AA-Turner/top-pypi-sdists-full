@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.1.0
+Version: 1.2.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Requires-Dist: boto3<2.0.0,>=1.26.0
 Requires-Dist: botocore<2.0.0,>=1.29.0
 Requires-Dist: docstring-parser<1.0,>=0.15
-Requires-Dist: mcp<2.0.0,>=1.8.0
+Requires-Dist: mcp<2.0.0,>=1.11.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-threading<1.00b0,>=0.51b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
@@ -32,13 +32,13 @@ Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.16; extra == 'a2a'
+Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.11; extra == 'a2a'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'a2a'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'a2a'
 Requires-Dist: starlette<1.0.0,>=0.46.2; extra == 'a2a'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'a2a'
 Provides-Extra: all
-Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.16; extra == 'all'
+Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.11; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
@@ -92,6 +92,10 @@ Provides-Extra: openai
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'openai'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'
+Provides-Extra: sagemaker
+Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'sagemaker'
+Requires-Dist: boto3<2.0.0,>=1.26.0; extra == 'sagemaker'
+Requires-Dist: botocore<2.0.0,>=1.29.0; extra == 'sagemaker'
 Provides-Extra: writer
 Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'writer'
 Description-Content-Type: text/markdown

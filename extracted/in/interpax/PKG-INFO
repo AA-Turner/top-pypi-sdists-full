@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: interpax
-Version: 0.3.9
+Version: 0.3.10
 Summary: Interpolation and function approximation with JAX
 Home-page: https://github.com/f0uriest/interpax
 Author: Rory Conlin
@@ -26,8 +26,8 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: equinox<0.13,>=0.11.0
-Requires-Dist: jax<0.7,>=0.4.30
+Requires-Dist: equinox<0.14,>=0.11.0
+Requires-Dist: jax<0.8,>=0.4.30
 Requires-Dist: jaxtyping<0.4.0,>=0.2.24
 Requires-Dist: lineax<=0.0.8,>=0.0.5
 Requires-Dist: numpy<2.4,>=1.20.0

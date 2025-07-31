@@ -1,11 +1,11 @@
 # pyproject.toml
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build~=0.8.0"]
+build-backend = "uv_build"
 
 [project]
 name = "openfeature_sdk"
-version = "0.8.1"
+version = "0.8.2"
 description = "Standardizing Feature Flagging for Everyone"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
@@ -27,42 +27,22 @@ requires-python = ">=3.9"
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk"
 
-[tool.hatch]
-
-[tool.hatch.envs.default]
-dependencies = [
+[dependency-groups]
+dev = [
     "behave",
     "coverage[toml]>=6.5",
     "pytest",
-    "pytest-asyncio"
+    "pytest-asyncio",
+    "pre-commit"
 ]
 
-[tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-    "coverage xml",
-]
-cov = [
-    "test-cov",
-    "cov-report",
-]
-e2e = [
-    "git submodule update --init --recursive",
-    "cp spec/specification/assets/gherkin/* tests/features/",
-    "behave tests/features/",
-    "rm tests/features/*.feature",
-]
+[tool.uv]
+required-version = "~=0.8.0"
 
-[tool.hatch.build.targets.sdist]
-exclude = [
-    ".gitignore",
-    "test-harness",
-    "venv",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["openfeature"]
+[tool.uv.build-backend]
+module-name = "openfeature"
+module-root = ""
+namespace = true
 
 [tool.mypy]
 files = "openfeature"
@@ -77,6 +57,12 @@ disallow_any_generics = false
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+]
 
 [tool.ruff]
 exclude = [
@@ -128,3 +114,13 @@ max-statements = 30
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
+
+[project.scripts]
+# workaround while UV doesn't support scripts directly in the pyproject.toml
+# see: https://github.com/astral-sh/uv/issues/5903
+test = "scripts.scripts:test"
+test-cov = "scripts.scripts:test_cov"
+cov-report = "scripts.scripts:cov_report"
+cov = "scripts.scripts:cov"
+e2e = "scripts.scripts:e2e"
+precommit = "scripts.scripts:precommit"

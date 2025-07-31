@@ -46,14 +46,14 @@ from anyscale.client.openapi_client.models import (
     EditableCloudResourceGCP,
     FileStorage,
     GCPConfig,
+    GCPFileStoreConfig,
+    NetworkingMode,
     NFSMountTarget,
+    ObjectStorage,
     SubnetIdWithAvailabilityZoneAWS,
     UpdateCloudWithCloudResource,
     UpdateCloudWithCloudResourceGCP,
     WriteCloud,
-)
-from anyscale.client.openapi_client.models.gcp_file_store_config import (
-    GCPFileStoreConfig,
 )
 from anyscale.cloud_resource import (
     associate_aws_subnets_with_azs,
@@ -1622,6 +1622,7 @@ class CloudController(BaseController):
             return
 
         gcp_config = GCPConfig(**deployment.gcp_config)
+        deployment.gcp_config = gcp_config
         if not deployment.file_storage and not gcp_config.memorystore_instance_name:
             return
 
@@ -1668,7 +1669,11 @@ class CloudController(BaseController):
             deployment.gcp_config = gcp_config
 
     def add_cloud_deployment(
-        self, cloud_name: str, spec_file: str, yes: bool = False,
+        self,
+        cloud_name: str,
+        spec_file: str,
+        skip_verification: bool = False,
+        yes: bool = False,
     ):
         cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
 
@@ -1689,6 +1694,11 @@ class CloudController(BaseController):
             self._preprocess_aws(cloud_id=cloud_id, deployment=new_deployment)
         elif new_deployment.provider == CloudProviders.GCP:
             self._preprocess_gcp(deployment=new_deployment)
+
+        if not skip_verification and not self.verify_cloud_deployment(
+            cloud_id=cloud_id, cloud_deployment=new_deployment
+        ):
+            raise ClickException("Cloud deployment verification failed.")
 
         # Log an additional warning if a new deployment is being added but a deployment with the same AWS/GCP region already exists.
         existing_spec = self.get_cloud_deployments(cloud_id)
@@ -1720,11 +1730,11 @@ class CloudController(BaseController):
             raise ClickException(f"Failed to add cloud deployment: {e}")
 
         self.log.info(
-            f"Successfully added deployment {new_deployment.name} to cloud {existing_spec['name']}!"
+            f"Successfully added deployment{' ' + new_deployment.name if new_deployment.name else ''} to cloud {existing_spec['name']}!"
         )
 
-    def update_cloud_deployments(  # noqa: PLR0912
-        self, spec_file: str, yes: bool = False,
+    def update_cloud_deployments(  # noqa: PLR0912, C901
+        self, spec_file: str, skip_verification: bool = False, yes: bool = False,
     ):
         # Read the spec file.
         path = pathlib.Path(spec_file)
@@ -1777,17 +1787,23 @@ class CloudController(BaseController):
             if deployment != existing_deployments[deployment.cloud_deployment_id]:
                 updated_deployments.append(deployment)
 
-        # Log the diff and confirm.
-        self.log.info(f"Detected the following changes:\n{diff}")
-
-        confirm("Would you like to proceed with updating this cloud?", yes)
-
         # Preprocess the deployments if necessary.
         for deployment in updated_deployments:
             if deployment.provider == CloudProviders.AWS:
                 self._preprocess_aws(cloud_id=spec["id"], deployment=deployment)
             elif deployment.provider == CloudProviders.GCP:
                 self._preprocess_gcp(deployment=deployment)
+            if not skip_verification and not self.verify_cloud_deployment(
+                cloud_id=spec["id"], cloud_deployment=deployment
+            ):
+                raise ClickException(
+                    f"Verification failed for cloud deployment {deployment.name}."
+                )
+
+        # Log the diff and confirm.
+        self.log.info(f"Detected the following changes:\n{diff}")
+
+        confirm("Would you like to proceed with updating this cloud?", yes)
 
         # Update the deployments.
         try:
@@ -1798,6 +1814,31 @@ class CloudController(BaseController):
             raise ClickException(f"Failed to update cloud deployments: {e}")
 
         self.log.info(f"Successfully updated cloud {spec['name']}!")
+
+    def remove_cloud_deployment(
+        self, cloud_name: str, deployment_name: str, yes: bool,
+    ):
+        confirm(
+            f"Please confirm that you would like to remove deployment {deployment_name} from cloud {cloud_name}.",
+            yes,
+        )
+
+        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
+        try:
+            with self.log.spinner("Removing cloud deployment..."):
+                self.api_client.remove_cloud_deployment_api_v2_clouds_cloud_id_remove_deployment_delete(
+                    cloud_id=cloud_id, cloud_deployment_name=deployment_name,
+                )
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(f"Failed to remove cloud deployment: {e}")
+
+        self.log.warning(
+            "The trust policy or service account that provides access to Anyscale's control plane needs to be deleted manually if you no longer wish for Anyscale to have access."
+        )
+
+        self.log.info(
+            f"Successfully removed deployment {deployment_name} from cloud {cloud_name}!"
+        )
 
     def get_cloud_config(
         self, cloud_name: Optional[str] = None, cloud_id: Optional[str] = None,
@@ -1965,7 +2006,7 @@ class CloudController(BaseController):
         if cloud.provider == "AWS":
             if boto3_session is None:
                 boto3_session = boto3.Session(region_name=cloud.region)
-            if not self.verify_aws_cloud_resources(
+            if not self.verify_aws_cloud_resources_for_create_cloud_resource(
                 cloud_resource=cloud_resource,
                 boto3_session=boto3_session,
                 region=cloud.region,
@@ -1987,7 +2028,7 @@ class CloudController(BaseController):
             credentials_dict = json.loads(cloud.credentials)
             project_id = credentials_dict["project_id"]
             host_project_id = credentials_dict.get("host_project_id")
-            if not self.verify_gcp_cloud_resources(
+            if not self.verify_gcp_cloud_resources_from_create_cloud_resource(
                 cloud_resource=cloud_resource,
                 project_id=project_id,
                 host_project_id=host_project_id,
@@ -2025,9 +2066,65 @@ class CloudController(BaseController):
             self.cloud_event_producer, self.log
         ).start_verification(cloud_id, cloud.provider, functions_to_verify, yes=yes)
 
-    def verify_aws_cloud_resources(
+    def verify_cloud_deployment(
+        self, cloud_id: str, cloud_deployment: CloudDeployment
+    ) -> bool:
+        if cloud_deployment.compute_stack != ComputeStack.VM:
+            # Verification is only supported for VM stack.
+            return True
+
+        if cloud_deployment.provider == CloudProviders.AWS:
+            return self.verify_aws_cloud_resources_for_cloud_deployment(
+                cloud_id=cloud_id, cloud_deployment=cloud_deployment,
+            )
+        elif cloud_deployment.provider == CloudProviders.GCP:
+            return self.verify_gcp_cloud_resources_from_cloud_deployment(
+                cloud_id=cloud_id, cloud_deployment=cloud_deployment,
+            )
+        else:
+            raise ValueError(f"Unsupported cloud provider: {cloud_deployment.provider}")
+
+    def verify_aws_cloud_resources_for_cloud_deployment(
+        self, cloud_id: str, cloud_deployment: CloudDeployment,
+    ) -> bool:
+        assert cloud_deployment.region
+        assert cloud_deployment.aws_config
+        aws_config = cloud_deployment.aws_config
+        file_storage = cloud_deployment.file_storage
+        object_storage = (
+            ObjectStorage(**cloud_deployment.object_storage)
+            if cloud_deployment.object_storage
+            else None
+        )
+
+        return self.verify_aws_cloud_resources(
+            aws_vpc_id=aws_config.vpc_id,
+            aws_subnet_ids=aws_config.subnet_ids or [],
+            aws_control_plane_role=aws_config.anyscale_iam_role_id,
+            aws_data_plane_role=aws_config.cluster_iam_role_id,
+            aws_security_groups=aws_config.security_group_ids,
+            aws_s3_id=object_storage.bucket_name[len(S3_STORAGE_PREFIX) :]
+            if object_storage and object_storage.bucket_name
+            else None,
+            aws_efs_id=file_storage.file_storage_id if file_storage else None,
+            aws_efs_mount_target_ip=file_storage.mount_targets[0].address
+            if file_storage and file_storage.mount_targets
+            else None,
+            aws_cloudformation_stack_id=None,
+            memorydb_cluster_config=AWSMemoryDBClusterConfig(
+                id=aws_config.memorydb_cluster_name,
+                endpoint=aws_config.memorydb_cluster_endpoint,
+            ),
+            boto3_session=boto3.Session(region_name=cloud_deployment.region),
+            region=cloud_deployment.region,
+            cloud_id=cloud_id,
+            is_bring_your_own_resource=True,
+            is_private_network=cloud_deployment.networking_mode
+            == NetworkingMode.PRIVATE,
+        )
+
+    def verify_aws_cloud_resources_for_create_cloud_resource(  # noqa: PLR0913
         self,
-        *,
         cloud_resource: CreateCloudResource,
         boto3_session: boto3.Session,
         region: str,
@@ -2038,19 +2135,85 @@ class CloudController(BaseController):
         logger: CloudSetupLogger = None,
         strict: bool = False,
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
-    ):
+    ) -> bool:
+        subnet_ids = (
+            [
+                subnet_id_with_az.subnet_id
+                for subnet_id_with_az in cloud_resource.aws_subnet_ids_with_availability_zones
+            ]
+            if cloud_resource.aws_subnet_ids_with_availability_zones
+            else []
+        )
+        aws_control_plane_role = (
+            cloud_resource.aws_iam_role_arns[0]
+            if cloud_resource.aws_iam_role_arns
+            else None
+        )
+        aws_data_plane_role = (
+            cloud_resource.aws_iam_role_arns[1]
+            if cloud_resource.aws_iam_role_arns
+            and len(cloud_resource.aws_iam_role_arns) > 1
+            else None
+        )
+        return self.verify_aws_cloud_resources(
+            aws_vpc_id=cloud_resource.aws_vpc_id,
+            aws_subnet_ids=subnet_ids,
+            aws_control_plane_role=aws_control_plane_role,
+            aws_data_plane_role=aws_data_plane_role,
+            aws_security_groups=cloud_resource.aws_security_groups,
+            aws_s3_id=cloud_resource.aws_s3_id,
+            aws_efs_id=cloud_resource.aws_efs_id,
+            aws_efs_mount_target_ip=cloud_resource.aws_efs_mount_target_ip,
+            aws_cloudformation_stack_id=cloud_resource.aws_cloudformation_stack_id,
+            memorydb_cluster_config=cloud_resource.memorydb_cluster_config,
+            boto3_session=boto3_session,
+            region=region,
+            cloud_id=cloud_id,
+            is_bring_your_own_resource=is_bring_your_own_resource,
+            ignore_capacity_errors=ignore_capacity_errors,
+            logger=logger,
+            is_private_network=is_private_network,
+            strict=strict,
+            _use_strict_iam_permissions=_use_strict_iam_permissions,
+        )
+
+    def verify_aws_cloud_resources(
+        self,
+        *,
+        aws_vpc_id: Optional[str],
+        aws_subnet_ids: List[str],
+        aws_control_plane_role: Optional[str],
+        aws_data_plane_role: Optional[str],
+        aws_security_groups: Optional[List[str]],
+        aws_s3_id: Optional[str],
+        aws_efs_id: Optional[str],
+        aws_efs_mount_target_ip: Optional[str],
+        aws_cloudformation_stack_id: Optional[str],
+        memorydb_cluster_config: Optional[AWSMemoryDBClusterConfig],
+        boto3_session: boto3.Session,
+        region: str,
+        is_private_network: bool,
+        cloud_id: str,
+        is_bring_your_own_resource: bool = False,
+        ignore_capacity_errors: bool = IGNORE_CAPACITY_ERRORS,
+        logger: CloudSetupLogger = None,
+        strict: bool = False,
+        _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
+    ) -> bool:
         if not logger:
             logger = self.log
 
         verify_aws_vpc_result = verify_aws_vpc(
-            cloud_resource=cloud_resource,
+            aws_vpc_id=aws_vpc_id,
             boto3_session=boto3_session,
             logger=logger,
             ignore_capacity_errors=ignore_capacity_errors,
             strict=strict,
         )
+
         verify_aws_subnets_result = verify_aws_subnets(
-            cloud_resource=cloud_resource,
+            aws_vpc_id=aws_vpc_id,
+            aws_subnet_ids=aws_subnet_ids,
             region=region,
             logger=logger,
             ignore_capacity_errors=ignore_capacity_errors,
@@ -2061,8 +2224,10 @@ class CloudController(BaseController):
         anyscale_aws_account = (
             self.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
         )
+
         verify_aws_iam_roles_result = verify_aws_iam_roles(
-            cloud_resource=cloud_resource,
+            control_plane_role=aws_control_plane_role,
+            data_plane_role=aws_data_plane_role,
             boto3_session=boto3_session,
             anyscale_aws_account=anyscale_aws_account,
             logger=logger,
@@ -2071,22 +2236,29 @@ class CloudController(BaseController):
             _use_strict_iam_permissions=_use_strict_iam_permissions,
         )
         verify_aws_security_groups_result = verify_aws_security_groups(
-            cloud_resource=cloud_resource,
+            aws_security_group_ids=aws_security_groups,
             boto3_session=boto3_session,
             logger=logger,
             strict=strict,
         )
         verify_aws_s3_result = verify_aws_s3(
-            cloud_resource=cloud_resource,
+            aws_s3_id=aws_s3_id,
+            control_plane_role=aws_control_plane_role,
+            data_plane_role=aws_data_plane_role,
             boto3_session=boto3_session,
             region=region,
             logger=logger,
             strict=strict,
         )
         verify_aws_efs_result = True
-        if cloud_resource.aws_efs_id:
+        if aws_efs_id:
             verify_aws_efs_result = verify_aws_efs(
-                cloud_resource=cloud_resource,
+                aws_efs_id=aws_efs_id,
+                aws_efs_mount_target_ips=[aws_efs_mount_target_ip]
+                if aws_efs_mount_target_ip
+                else [],
+                aws_subnet_ids=aws_subnet_ids,
+                aws_security_groups=aws_security_groups,
                 boto3_session=boto3_session,
                 logger=logger,
                 strict=strict,
@@ -2095,14 +2267,19 @@ class CloudController(BaseController):
         verify_aws_cloudformation_stack_result = True
         if not is_bring_your_own_resource:
             verify_aws_cloudformation_stack_result = verify_aws_cloudformation_stack(
-                cloud_resource=cloud_resource,
+                aws_cloudformation_stack_id=aws_cloudformation_stack_id,
                 boto3_session=boto3_session,
                 logger=logger,
                 strict=strict,
             )
-        if cloud_resource.memorydb_cluster_config is not None:
+        if memorydb_cluster_config is not None:
+            assert aws_security_groups
+            assert aws_vpc_id
             verify_aws_memorydb_cluster_result = verify_aws_memorydb_cluster(
-                cloud_resource=cloud_resource,
+                memorydb_cluster_config=memorydb_cluster_config,
+                aws_security_groups=aws_security_groups,
+                aws_vpc_id=aws_vpc_id,
+                aws_subnet_ids=aws_subnet_ids,
                 boto3_session=boto3_session,
                 logger=logger,
                 strict=strict,
@@ -2122,11 +2299,11 @@ class CloudController(BaseController):
             f"s3: {self._passed_or_failed_str_from_bool(verify_aws_s3_result)}",
             f"cloudformation stack: {self._passed_or_failed_str_from_bool(verify_aws_cloudformation_stack_result) if not is_bring_your_own_resource else 'N/A'}",
         ]
-        if cloud_resource.aws_efs_id:
+        if aws_efs_id:
             verification_result_summary.append(
                 f"efs: {self._passed_or_failed_str_from_bool(verify_aws_efs_result)}"
             )
-        if cloud_resource.memorydb_cluster_config is not None:
+        if memorydb_cluster_config is not None:
             verification_result_summary.append(
                 f"memorydb cluster: {self._passed_or_failed_str_from_bool(verify_aws_memorydb_cluster_result)}"
             )
@@ -2536,14 +2713,17 @@ class CloudController(BaseController):
                 with self.log.spinner("Verifying cloud resources...") as spinner:
                     if boto3_session is None:
                         boto3_session = boto3.Session(region_name=region)
-                    if not skip_verifications and not self.verify_aws_cloud_resources(
-                        cloud_resource=create_cloud_resource,
-                        boto3_session=boto3_session,
-                        region=region,
-                        is_bring_your_own_resource=True,
-                        is_private_network=private_network,
-                        cloud_id=cloud_id,
-                        logger=CloudSetupLogger(spinner_manager=spinner),
+                    if (
+                        not skip_verifications
+                        and not self.verify_aws_cloud_resources_for_create_cloud_resource(
+                            cloud_resource=create_cloud_resource,
+                            boto3_session=boto3_session,
+                            region=region,
+                            is_bring_your_own_resource=True,
+                            is_private_network=private_network,
+                            cloud_id=cloud_id,
+                            logger=CloudSetupLogger(spinner_manager=spinner),
+                        )
                     ):
                         raise ClickException(
                             "Please make sure all the resources provided meet the requirements and try again."
@@ -2647,7 +2827,42 @@ class CloudController(BaseController):
                 self.cloud_event_producer, self.log
             ).start_verification(cloud_id, CloudProviders.AWS, functions_to_verify, yes)
 
-    def verify_gcp_cloud_resources(
+    def verify_gcp_cloud_resources_from_cloud_deployment(
+        self, cloud_id: str, cloud_deployment: CloudDeployment,
+    ) -> bool:
+        assert cloud_deployment.region
+        assert cloud_deployment.gcp_config
+        gcp_config = cloud_deployment.gcp_config
+        file_storage = cloud_deployment.file_storage
+        object_storage = (
+            ObjectStorage(**cloud_deployment.object_storage)
+            if cloud_deployment.object_storage
+            else None
+        )
+        return self.verify_gcp_cloud_resources(
+            project_id=gcp_config.project_id,
+            vpc_id=gcp_config.vpc_name,
+            subnet_ids=gcp_config.subnet_names,
+            firewall_policy_ids=gcp_config.firewall_policy_names,
+            control_plane_service_account=gcp_config.anyscale_service_account_email,
+            data_plane_service_account=gcp_config.cluster_service_account_email,
+            cloud_storage_bucket_name=object_storage.bucket_name[
+                len(GCS_STORAGE_PREFIX) :
+            ]
+            if object_storage and object_storage.bucket_name
+            else None
+            if object_storage
+            else None,
+            filestore_instance_name=file_storage.file_storage_id
+            if file_storage
+            else None,
+            memorystore_instance_name=gcp_config.memorystore_instance_name,
+            region=cloud_deployment.region,
+            cloud_id=cloud_id,
+            host_project_id=gcp_config.host_project_id,
+        )
+
+    def verify_gcp_cloud_resources_from_create_cloud_resource(
         self,
         *,
         cloud_resource: CreateCloudResourceGCP,
@@ -2655,6 +2870,49 @@ class CloudController(BaseController):
         region: str,
         cloud_id: str,
         yes: bool,
+        host_project_id: Optional[str] = None,
+        factory: Any = None,
+        strict: bool = False,
+        is_private_service_cloud: bool = False,
+    ) -> bool:
+        return self.verify_gcp_cloud_resources(
+            project_id=project_id,
+            vpc_id=cloud_resource.gcp_vpc_id,
+            subnet_ids=cloud_resource.gcp_subnet_ids,
+            firewall_policy_ids=cloud_resource.gcp_firewall_policy_ids,
+            control_plane_service_account=cloud_resource.gcp_anyscale_iam_service_account_email,
+            data_plane_service_account=cloud_resource.gcp_cluster_node_service_account_email,
+            cloud_storage_bucket_name=cloud_resource.gcp_cloud_storage_bucket_id,
+            filestore_instance_name=cloud_resource.gcp_filestore_config.instance_name
+            if cloud_resource.gcp_filestore_config
+            else None,
+            memorystore_instance_name=cloud_resource.memorystore_instance_config.name
+            if cloud_resource.memorystore_instance_config
+            else None,
+            region=region,
+            cloud_id=cloud_id,
+            yes=yes,
+            host_project_id=host_project_id,
+            factory=factory,
+            strict=strict,
+            is_private_service_cloud=is_private_service_cloud,
+        )
+
+    def verify_gcp_cloud_resources(
+        self,
+        *,
+        project_id: str,
+        vpc_id: Optional[str],
+        subnet_ids: Optional[List[str]],
+        firewall_policy_ids: Optional[List[str]],
+        control_plane_service_account: Optional[str],
+        data_plane_service_account: Optional[str],
+        cloud_storage_bucket_name: Optional[str],
+        filestore_instance_name: Optional[str],
+        memorystore_instance_name: Optional[str],
+        region: str,
+        cloud_id: str,
+        yes: bool = False,
         host_project_id: Optional[str] = None,
         factory: Any = None,
         strict: bool = False,
@@ -2672,51 +2930,78 @@ class CloudController(BaseController):
         with self.log.spinner("Verifying cloud resources...") as spinner:
             gcp_logger = GCPLogger(self.log, project_id, spinner, yes)
             verify_gcp_project_result = verify_lib.verify_gcp_project(
-                factory, cloud_resource, project_id, gcp_logger, strict=strict
+                factory=factory,
+                project_id=project_id,
+                enable_memorystore_api=memorystore_instance_name is not None,
+                logger=gcp_logger,
+                strict=strict,
             )
             verify_gcp_access_service_account_result = verify_lib.verify_gcp_access_service_account(
-                factory, cloud_resource, project_id, gcp_logger
+                factory=factory,
+                anyscale_access_service_account=control_plane_service_account,
+                project_id=project_id,
+                logger=gcp_logger,
             )
             verify_gcp_dataplane_service_account_result = verify_lib.verify_gcp_dataplane_service_account(
-                factory, cloud_resource, project_id, gcp_logger, strict=strict
+                factory=factory,
+                service_account=data_plane_service_account,
+                project_id=project_id,
+                logger=gcp_logger,
+                strict=strict,
             )
             verify_gcp_networking_result = verify_lib.verify_gcp_networking(
-                factory,
-                cloud_resource,
-                network_project_id,
-                region,
-                gcp_logger,
+                factory=factory,
+                vpc_name=vpc_id,
+                subnet_ids=subnet_ids,
+                project_id=network_project_id,
+                cloud_region=region,
+                logger=gcp_logger,
                 strict=strict,
                 is_private_service_cloud=is_private_service_cloud,
             )
             verify_firewall_policy_result = verify_lib.verify_firewall_policy(
-                factory,
-                cloud_resource,
-                network_project_id,
-                region,
-                use_shared_vpc,
-                is_private_service_cloud,
-                gcp_logger,
+                factory=factory,
+                firewall_policy_ids=firewall_policy_ids,
+                vpc_name=vpc_id,
+                subnet_ids=subnet_ids,
+                project_id=network_project_id,
+                cloud_region=region,
+                use_shared_vpc=use_shared_vpc,
+                is_private_service_cloud=is_private_service_cloud,
+                logger=gcp_logger,
                 strict=strict,
             )
             verify_cloud_storage_result = verify_lib.verify_cloud_storage(
-                factory, cloud_resource, project_id, region, gcp_logger, strict=strict,
+                factory=factory,
+                bucket_name=cloud_storage_bucket_name,
+                controlplane_service_account=control_plane_service_account,
+                dataplane_service_account=data_plane_service_account,
+                project_id=project_id,
+                cloud_region=region,
+                logger=gcp_logger,
+                strict=strict,
             )
             verify_anyscale_access_result = verify_anyscale_access(
                 self.api_client, cloud_id, CloudProviders.GCP, self.log
             )
             verify_filestore_result = True
-            if (
-                cloud_resource.gcp_filestore_config
-                and cloud_resource.gcp_filestore_config.instance_name
-            ):
+            if filestore_instance_name:
                 verify_filestore_result = verify_lib.verify_filestore(
-                    factory, cloud_resource, region, gcp_logger, strict=strict
+                    factory=factory,
+                    file_store_instance_name=filestore_instance_name,
+                    vpc_name=vpc_id,
+                    cloud_region=region,
+                    logger=gcp_logger,
+                    strict=strict,
                 )
             verify_memorystore_result = True
-            if cloud_resource.memorystore_instance_config is not None:
+            if memorystore_instance_name:
                 verify_memorystore_result = verify_lib.verify_memorystore(
-                    factory, cloud_resource, gcp_logger, strict=strict,
+                    factory=factory,
+                    redis_instance_name=memorystore_instance_name,
+                    cloud_vpc_name=vpc_id,
+                    logger=gcp_logger,
+                    strict=strict,
                 )
 
         verification_results = [
@@ -2730,14 +3015,11 @@ class CloudController(BaseController):
             f"cloud storage: {self._passed_or_failed_str_from_bool(verify_cloud_storage_result)}",
         ]
 
-        if (
-            cloud_resource.gcp_filestore_config
-            and cloud_resource.gcp_filestore_config.instance_name
-        ):
+        if filestore_instance_name:
             verification_results.append(
                 f"filestore: {self._passed_or_failed_str_from_bool(verify_filestore_result)}"
             )
-        if cloud_resource.memorystore_instance_config is not None:
+        if memorystore_instance_name:
             verification_results.append(
                 f"memorystore: {self._passed_or_failed_str_from_bool(verify_memorystore_result)}"
             )
@@ -2940,15 +3222,18 @@ class CloudController(BaseController):
             # Verification is only performed for VM compute stack.
             # TODO (shomilj): Add verification to the K8S compute stack as well.
             if compute_stack == ComputeStack.VM:
-                if not skip_verifications and not self.verify_gcp_cloud_resources(
-                    cloud_resource=create_cloud_resource_gcp,
-                    project_id=project_id,
-                    host_project_id=host_project_id,
-                    region=region,
-                    cloud_id=cloud_id,
-                    yes=yes,
-                    factory=factory,
-                    is_private_service_cloud=is_private_service_cloud,
+                if (
+                    not skip_verifications
+                    and not self.verify_gcp_cloud_resources_from_create_cloud_resource(
+                        cloud_resource=create_cloud_resource_gcp,
+                        project_id=project_id,
+                        host_project_id=host_project_id,
+                        region=region,
+                        cloud_id=cloud_id,
+                        yes=yes,
+                        factory=factory,
+                        is_private_service_cloud=is_private_service_cloud,
+                    )
                 ):
                     raise ClickException(
                         "Please make sure all the resources provided meet the requirements and try again."
@@ -3545,7 +3830,7 @@ class CloudController(BaseController):
         if memorydb_cluster_id:
             new_cloud_resource.memorydb_cluster_config = memorydb_cluster_config
 
-        if not self.verify_aws_cloud_resources(
+        if not self.verify_aws_cloud_resources_for_create_cloud_resource(
             cloud_resource=new_cloud_resource,
             boto3_session=boto3_session,
             region=cloud.region,
@@ -3892,7 +4177,7 @@ class CloudController(BaseController):
             )
         if memorystore_instance_config:
             new_cloud_resource.memorystore_instance_config = memorystore_instance_config
-        if not self.verify_gcp_cloud_resources(
+        if not self.verify_gcp_cloud_resources_from_create_cloud_resource(
             cloud_resource=new_cloud_resource,
             project_id=project_id,
             host_project_id=host_project_id,

@@ -12,7 +12,7 @@ from typing import Any, Optional
 import click
 
 import marimo._cli.cli_validators as validators
-from marimo import __version__, _loggers
+from marimo import _loggers
 from marimo._ast import codegen
 from marimo._ast.load import get_notebook_status
 from marimo._cli.config.commands import config
@@ -39,6 +39,7 @@ from marimo._tutorials import (
 )  # type: ignore
 from marimo._utils.marimo_path import MarimoPath, create_temp_notebook_file
 from marimo._utils.platform import is_windows
+from marimo._version import __version__
 
 
 def helpful_usage_error(self: Any, file: Any = None) -> None:
@@ -70,7 +71,21 @@ def check_app_correctness(filename: str) -> None:
         click.echo(f"Failed to parse notebook: {filename}\n", err=True)
         raise click.ClickException(traceback.format_exc(limit=0)) from None
 
-    if status == "invalid":
+    if status == "invalid" and filename.endswith(".py"):
+        # fail for python scripts, almost certainly do not want to override contents
+        import os
+
+        stem = os.path.splitext(os.path.basename(filename))[0]
+        raise click.ClickException(
+            f"Python script not recognized as a marimo notebook.\n\n"
+            f"  {green('Tip:')} Try converting with"
+            "\n\n"
+            f"    marimo convert {filename} -o {stem}_nb.py\n\n"
+            f"  then open with marimo edit {stem}_nb.py"
+        ) from None
+
+    # Only show the tip if we're in an interactive terminal
+    if status == "invalid" and sys.stdin.isatty():
         click.echo(
             green("tip")
             + ": Use `"
@@ -86,6 +101,7 @@ def check_app_correctness(filename: str) -> None:
             default=False,
             abort=True,
         )
+
     if status == "has_errors":
         # Provide a warning, but allow the user to open the notebook
         _loggers.marimo_logger().warning(
@@ -627,7 +643,7 @@ def new(
         try:
             _maybe_path = Path(prompt)
             if _maybe_path.is_file():
-                prompt = _maybe_path.read_text()
+                prompt = _maybe_path.read_text(encoding="utf-8")
         except OSError:
             # is_file() fails when, for example, the "filename" (prompt) is too long
             pass

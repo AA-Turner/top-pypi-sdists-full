@@ -12,7 +12,7 @@
 from openai import AsyncOpenAI
 
 from meutils.pipe import *
-from meutils.io.files_utils import to_url
+from meutils.io.files_utils import to_url, to_bytes
 from meutils.llm.clients import AsyncOpenAI
 from meutils.llm.openai_utils import to_openai_params
 from meutils.llm.check_utils import get_valid_token_for_fal
@@ -47,21 +47,23 @@ from fal_client.client import AsyncClient, SyncClient, Status, FalClientError
 
 # "fal-ai/minimax/speech-02-turbo"
 async def text_to_speech(request: TTSRequest, api_key: Optional[str] = None):
+    if isinstance(api_key, str) and api_key.startswith("oneapi:"):
+        api_key = api_key.removeprefix("oneapi:")
+
     api_key = api_key or await get_valid_token_for_fal()
 
+    payload = request.model_dump(exclude_none=True)
     payload = {
-
         "text": request.input,
-        "voice_setting": {
-            "speed": 1,
-            "vol": 1,
-            "voice_id": request.voice or "Voice904740431752642196",  #
-            "pitch": 0,
-            "english_normalization": False
-        },
-        "output_format": "hex"
-
-        # **request.model_dump(exclude_none=True)
+        "stream": False,
+        "output_format": request.response_format if request.response_format in {"url", "hex"} else "hex",
+        "voice_setting":
+            {
+                "speed": request.speed or 1,
+                "voice_id": request.voice or "wumei_yujie",
+                "emotion": "happy"
+            },
+        **payload
     }
 
     try:
@@ -70,7 +72,12 @@ async def text_to_speech(request: TTSRequest, api_key: Optional[str] = None):
             application=request.model,
             arguments=payload,
         )
+        # {'audio': {'url': 'https://v3.fal.media/files/zebra/wTM2HIdYkQTl0q5qdTDl9_speech.mp3', 'content_type': 'audio/mpeg', 'file_name': 'speech.mp3', 'file_size': 64034}, 'duration_ms': 3888}
         logger.debug(data)
+
+        if request.response_format not in {"url", "hex"}:
+            _ = await to_bytes(data["audio"]["url"])
+            return _
 
     except Exception as exc:  #
         logger.error(exc)
@@ -88,7 +95,7 @@ if __name__ == '__main__':
         "input": "根据 prompt audio url克隆音色",
         # "response_format": "url"
 
-        "voice": "Wise_Woman"
+        # "voice": "Wise_Woman"
     }
 
     request = TTSRequest(**data)

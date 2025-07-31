@@ -157,9 +157,6 @@ class Assistants(Authenticated):
             and (not filters or _check_filter_match(assistant["metadata"], filters))
         ]
 
-        # Get total count before sorting and pagination
-        total_count = len(filtered_assistants)
-
         # Sort based on sort_by and sort_order
         sort_by = sort_by.lower() if sort_by else None
         if sort_by and sort_by in (
@@ -186,12 +183,13 @@ class Assistants(Authenticated):
 
         # Apply pagination
         paginated_assistants = filtered_assistants[offset : offset + limit]
+        cur = offset + limit if len(filtered_assistants) > offset + limit else None
 
         async def assistant_iterator() -> AsyncIterator[Assistant]:
             for assistant in paginated_assistants:
                 yield assistant
 
-        return assistant_iterator(), total_count
+        return assistant_iterator(), cur
 
     @staticmethod
     async def get(
@@ -378,7 +376,7 @@ class Assistants(Authenticated):
             "version": new_version,
             "graph_id": graph_id if graph_id is not None else assistant["graph_id"],
             "config": config if config is not None else assistant["config"],
-            "context": context if context is not None else assistant["context"],
+            "context": context if context is not None else assistant.get("context", {}),
             "metadata": metadata if metadata is not None else assistant["metadata"],
             "created_at": now,
             "name": name if name is not None else assistant["name"],
@@ -649,9 +647,9 @@ def _patch_interrupt(
             interrupt = Interrupt(**interrupt)
 
         return {
-            "id": interrupt.interrupt_id
-            if hasattr(interrupt, "interrupt_id")
-            else None,
+            "id": (
+                interrupt.interrupt_id if hasattr(interrupt, "interrupt_id") else None
+            ),
             "value": interrupt.value,
             "resumable": interrupt.resumable,
             "ns": interrupt.ns,
@@ -710,8 +708,6 @@ class Threads(Authenticated):
                 continue
 
             filtered_threads.append(thread)
-        # Get total count before pagination
-        total_count = len(filtered_threads)
 
         if sort_by and sort_by in [
             "thread_id",
@@ -731,13 +727,13 @@ class Threads(Authenticated):
 
         # Apply limit and offset
         paginated_threads = sorted_threads[offset : offset + limit]
+        cursor = offset + limit if len(sorted_threads) > offset + limit else None
 
         async def thread_iterator() -> AsyncIterator[Thread]:
             for thread in paginated_threads:
                 yield thread
 
-        # Return both the iterator and the total count
-        return thread_iterator(), total_count
+        return thread_iterator(), cursor
 
     @staticmethod
     async def _get_with_filters(

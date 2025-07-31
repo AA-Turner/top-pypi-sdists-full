@@ -3,6 +3,7 @@ from typing import Any, Generator, List, Tuple
 
 import grpc
 import pytest
+
 from _qwak_proto.qwak.administration.v0.authentication.authentication_service_pb2_grpc import (
     add_AuthenticationServiceServicer_to_server,
 )
@@ -33,9 +34,6 @@ from _qwak_proto.qwak.build_settings.build_settings_api_pb2_grpc import (
 )
 from _qwak_proto.qwak.builds.builds_orchestrator_service_pb2_grpc import (
     add_BuildsOrchestratorServiceServicer_to_server,
-)
-from _qwak_proto.qwak.builds.builds_pb2_grpc import (
-    add_BuildsManagementServiceServicer_to_server,
 )
 from _qwak_proto.qwak.builds.internal_builds_orchestrator_service_pb2_grpc import (
     add_InternalBuildsOrchestratorServiceServicer_to_server,
@@ -133,7 +131,6 @@ from qwak_services_mock.mocks.automation_management_service import (
 )
 from qwak_services_mock.mocks.autoscaling_service_api import AutoscalingServiceApiMock
 from qwak_services_mock.mocks.batch_job_manager_service import BatchJobManagerService
-from qwak_services_mock.mocks.build_management import BuildsManagementServiceMock
 from qwak_services_mock.mocks.build_orchestrator_build_api import (
     BuildOrchestratorBuildApiMock,
 )
@@ -233,7 +230,6 @@ def qwak_container():
         automation_management,
         autoscaling,
         batch_job_management,
-        build_management,
         build_orchestrator,
         data_versioning,
         deployment,
@@ -265,7 +261,6 @@ def qwak_container():
             autoscaling,
             analytics,
             batch_job_management,
-            build_management,
             build_orchestrator,
             data_versioning,
             deployment,
@@ -344,11 +339,6 @@ def attach_servicers(free_port, server):
                 "internal_build_orchestrator_service",
                 InternalBuildOrchestratorServiceMock,
                 add_InternalBuildsOrchestratorServiceServicer_to_server,
-            ),
-            (
-                "build_management_service_mock",
-                BuildsManagementServiceMock,
-                add_BuildsManagementServiceServicer_to_server,
             ),
             (
                 "alert_manager_service_mock",

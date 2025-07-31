@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rnet
-Version: 2.4.0
+Version: 2.4.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -22,7 +22,6 @@ Classifier: Operating System :: MacOS
 License-File: LICENSE
 Summary: A blazing-fast Python HTTP client with TLS fingerprint
 Keywords: http,client,websocket,ja3,ja4
-Author: 0x676e67 <gngppz@gmail.com>
 Author-email: 0x676e67 <gngppz@gmail.com>
 License: GPL-3.0
 Requires-Python: >=3.7

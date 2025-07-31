@@ -9,6 +9,7 @@ from anyscale.client.openapi_client.models import (
     AnyscaleServiceAccount,
     Cloud,
     ClusteroperationResponse,
+    CollaboratorType,
     ComputeTemplateConfig,
     CreateCloudCollaborator,
     CreateExperimentalWorkspace,
@@ -770,6 +771,7 @@ class AnyscaleClientInterface(ABC):
         self,
         email: Optional[str] = None,
         name: Optional[str] = None,
+        collaborator_type: Optional[CollaboratorType] = None,
         is_service_account: Optional[bool] = None,
     ) -> List[OrganizationCollaborator]:
         """Get organization collaborators."""

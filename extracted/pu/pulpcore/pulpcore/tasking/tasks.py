@@ -9,12 +9,11 @@ import traceback
 import tempfile
 import threading
 from asgiref.sync import sync_to_async
-from datetime import timedelta
 from gettext import gettext as _
 
 from django.conf import settings
 from django.db import connection, transaction
-from django.db.models import Model, Max
+from django.db.models import Model
 from django_guid import get_guid
 from pulpcore.app.apps import MODULE_PLUGIN_VERSIONS
 from pulpcore.app.models import Task, TaskGroup
@@ -23,8 +22,8 @@ from pulpcore.constants import (
     TASK_FINAL_STATES,
     TASK_INCOMPLETE_STATES,
     TASK_STATES,
-    TASK_DISPATCH_LOCK,
     IMMEDIATE_TIMEOUT,
+    TASK_WAKEUP_UNBLOCK,
 )
 from pulpcore.middleware import x_task_diagnostics_var
 from pulpcore.tasking.kafka import send_task_notification
@@ -47,10 +46,10 @@ def _validate_and_get_resources(resources):
     return list(resource_set)
 
 
-def wakeup_worker():
+def wakeup_worker(reason="unknown"):
     # Notify workers
     with connection.connection.cursor() as cursor:
-        cursor.execute("NOTIFY pulp_worker_wakeup")
+        cursor.execute("SELECT pg_notify('pulp_worker_wakeup', %s)", (reason,))
 
 
 def execute_task(task):
@@ -228,13 +227,6 @@ def dispatch(
     notify_workers = False
     with contextlib.ExitStack() as stack:
         with transaction.atomic():
-            # Task creation need to be serialized so that pulp_created will provide a stable order
-            # at every time. We specifically need to ensure that each task, when committed to the
-            # task table will be the newest with respect to `pulp_created`.
-            with connection.cursor() as cursor:
-                # Wait for exclusive access and release automatically after transaction.
-                cursor.execute("SELECT pg_advisory_xact_lock(%s, %s)", [0, TASK_DISPATCH_LOCK])
-            newest_created = Task.objects.aggregate(Max("pulp_created"))["pulp_created__max"]
             task = Task.objects.create(
                 state=TASK_STATES.WAITING,
                 logging_cid=(get_guid()),
@@ -250,23 +242,6 @@ def dispatch(
                 profile_options=x_task_diagnostics_var.get(None),
             )
             task.refresh_from_db()  # The database may have assigned a timestamp for us.
-            if newest_created and task.pulp_created <= newest_created:
-                # Let this workaround not row forever into the future.
-                if newest_created - task.pulp_created > timedelta(seconds=1):
-                    # Do not commit the transaction if this condition is not met.
-                    # If we ever hit this, think about delegating the timestamping to PostgresQL.
-                    raise RuntimeError("Clockscrew detected. Task dispatching would be dangerous.")
-                # Try to work around the smaller glitch
-                task.pulp_created = newest_created + timedelta(milliseconds=1)
-                task.save()
-            if task_group:
-                task_group.refresh_from_db()
-                if task_group.all_tasks_dispatched:
-                    task.set_canceling()
-                    task.set_canceled(
-                        TASK_STATES.CANCELED, "All tasks in group have been dispatched/canceled."
-                    )
-                    return task
             if immediate:
                 # Grab the advisory lock before the task hits the db.
                 stack.enter_context(task)
@@ -308,7 +283,7 @@ def dispatch(
                 task.set_canceling()
                 task.set_canceled(TASK_STATES.CANCELED, "Resources temporarily unavailable.")
     if notify_workers:
-        wakeup_worker()
+        wakeup_worker(TASK_WAKEUP_UNBLOCK)
     return task
 
 

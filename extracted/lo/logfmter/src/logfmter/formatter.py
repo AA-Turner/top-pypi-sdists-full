@@ -1,10 +1,8 @@
-import io
 import logging
 import numbers
 import traceback
-from contextlib import closing
 from types import TracebackType
-from typing import Dict, List, Optional, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 ExcInfo = Tuple[Type[BaseException], BaseException, TracebackType]
 
@@ -47,7 +45,11 @@ class Logfmter(logging.Formatter):
         """
         needs_dquote_escaping = '"' in value
         needs_newline_escaping = "\n" in value
-        needs_quoting = " " in value or "=" in value
+        needs_quoting = " " in value or "=" in value or needs_dquote_escaping
+        needs_backslash_escaping = "\\" in value and needs_quoting
+
+        if needs_backslash_escaping:
+            value = value.replace("\\", "\\\\")
 
         if needs_dquote_escaping:
             value = value.replace('"', '\\"')
@@ -58,7 +60,7 @@ class Logfmter(logging.Formatter):
         if needs_quoting:
             value = '"{}"'.format(value)
 
-        return value if value else '""'
+        return value if value else ""
 
     @classmethod
     def format_value(cls, value) -> str:
@@ -88,14 +90,8 @@ class Logfmter(logging.Formatter):
             except Exception:
                 logging.exception()
         """
-        _type, exc, tb = exc_info
-
-        with closing(io.StringIO()) as sio:
-            traceback.print_exception(_type, exc, tb, None, sio)
-            value = sio.getvalue()
-
         # Tracebacks have a single trailing newline that we don't need.
-        value = value.rstrip("\n")
+        value = "".join(traceback.format_exception(*exc_info)).rstrip("\n")
 
         return cls.format_string(value)
 
@@ -134,11 +130,38 @@ class Logfmter(logging.Formatter):
         """
         Return a dictionary of logger extra parameters by filtering any reserved keys.
         """
-        return {
-            cls.normalize_key(key): value
-            for key, value in record.__dict__.items()
-            if key not in RESERVED
-        }
+        extras = {}
+
+        for key, value in record.__dict__.items():
+            key = cls.normalize_key(key)
+
+            if key in RESERVED:
+                continue
+
+            if isinstance(value, dict):
+                extras.update(cls.flatten_dict(value, key))
+            else:
+                extras[key] = value
+
+        return extras
+
+    @classmethod
+    def flatten_dict(cls, v: dict, root: str = "") -> dict[str, Any]:
+        """
+        Return a dictionary whereby the input dictionary is converted to
+        depth equal to one with keys that are joined via periods.
+        """
+        flattened = {}
+
+        for key, value in v.items():
+            key = f"{root}.{cls.normalize_key(key)}" if root else cls.normalize_key(key)
+
+            if isinstance(value, dict):
+                flattened.update(cls.flatten_dict(value, key))
+            else:
+                flattened[key] = value
+
+        return flattened
 
     def __init__(
         self,
@@ -158,9 +181,7 @@ class Logfmter(logging.Formatter):
             record.asctime = self.formatTime(record, self.datefmt)
 
         if isinstance(record.msg, dict):
-            params = {
-                self.normalize_key(key): value for key, value in record.msg.items()
-            }
+            params = self.flatten_dict(record.msg)
         else:
             params = {"msg": record.getMessage()}
 
@@ -175,7 +196,6 @@ class Logfmter(logging.Formatter):
         # available under a different attribute name, then the formatter's mapping will
         # be used to lookup these attributes. e.g. 'at' from 'levelname'
         for key in self.keys:
-
             attribute = key
 
             # If there is a mapping for this key's attribute, then use it to lookup

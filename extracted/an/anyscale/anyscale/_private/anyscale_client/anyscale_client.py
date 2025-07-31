@@ -47,6 +47,7 @@ from anyscale.client.openapi_client.models import (
     CloudDataBucketPresignedUrlScheme,
     CloudNameOptions,
     ClusteroperationResponse,
+    CollaboratorType,
     ComputeTemplate,
     ComputeTemplateConfig,
     ComputeTemplateQuery,
@@ -2078,10 +2079,11 @@ class AnyscaleClient(AnyscaleClientInterface):
         self,
         email: Optional[str] = None,
         name: Optional[str] = None,
-        is_service_account: Optional[bool] = None,
+        collaborator_type: Optional[CollaboratorType] = None,
+        is_service_account: Optional[bool] = None,  # noqa: ARG002
     ) -> List[OrganizationCollaborator]:
         results = self._internal_api_client.list_organization_collaborators_api_v2_organization_collaborators_get(
-            email=email, name=name, is_service_account=is_service_account
+            email=email, name=name, collaborator_type=collaborator_type
         ).results
 
         return results

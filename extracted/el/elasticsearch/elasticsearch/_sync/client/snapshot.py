@@ -50,7 +50,7 @@ class SnapshotClient(NamespacedClient):
           Trigger the review of the contents of a snapshot repository and delete any stale data not referenced by existing snapshots.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-cleanup-repository>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-cleanup-repository>`_
 
         :param name: The name of the snapshot repository to clean up.
         :param master_timeout: The period to wait for a connection to the master node.
@@ -114,7 +114,7 @@ class SnapshotClient(NamespacedClient):
           Clone part of all of a snapshot into another snapshot in the same repository.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-clone>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-clone>`_
 
         :param repository: The name of the snapshot repository that both source and target
             snapshot belong to.
@@ -211,7 +211,7 @@ class SnapshotClient(NamespacedClient):
           Take a snapshot of a cluster or of data streams and indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-create>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-create>`_
 
         :param repository: The name of the repository for the snapshot.
         :param snapshot: The name of the snapshot. It supportes date math. It must be
@@ -338,7 +338,7 @@ class SnapshotClient(NamespacedClient):
           If both parameters are specified, only the query parameter is used.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-create-repository>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-create-repository>`_
 
         :param name: The name of the snapshot repository to register or update.
         :param repository:
@@ -403,6 +403,7 @@ class SnapshotClient(NamespacedClient):
         human: t.Optional[bool] = None,
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
+        wait_for_completion: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -410,7 +411,7 @@ class SnapshotClient(NamespacedClient):
           <p>Delete snapshots.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-delete>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-delete>`_
 
         :param repository: The name of the repository to delete a snapshot from.
         :param snapshot: A comma-separated list of snapshot names to delete. It also
@@ -418,6 +419,9 @@ class SnapshotClient(NamespacedClient):
         :param master_timeout: The period to wait for the master node. If the master
             node is not available before the timeout expires, the request fails and returns
             an error. To indicate that the request should never timeout, set it to `-1`.
+        :param wait_for_completion: If `true`, the request returns a response when the
+            matching snapshots are all deleted. If `false`, the request returns a response
+            as soon as the deletes are scheduled.
         """
         if repository in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'repository'")
@@ -439,6 +443,8 @@ class SnapshotClient(NamespacedClient):
             __query["master_timeout"] = master_timeout
         if pretty is not None:
             __query["pretty"] = pretty
+        if wait_for_completion is not None:
+            __query["wait_for_completion"] = wait_for_completion
         __headers = {"accept": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "DELETE",
@@ -469,7 +475,7 @@ class SnapshotClient(NamespacedClient):
           The snapshots themselves are left untouched and in place.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-delete-repository>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-delete-repository>`_
 
         :param name: The ame of the snapshot repositories to unregister. Wildcard (`*`)
             patterns are supported.
@@ -544,6 +550,28 @@ class SnapshotClient(NamespacedClient):
                 ],
             ]
         ] = None,
+        state: t.Optional[
+            t.Union[
+                t.Sequence[
+                    t.Union[
+                        str,
+                        t.Literal[
+                            "FAILED",
+                            "INCOMPATIBLE",
+                            "IN_PROGRESS",
+                            "PARTIAL",
+                            "SUCCESS",
+                        ],
+                    ]
+                ],
+                t.Union[
+                    str,
+                    t.Literal[
+                        "FAILED", "INCOMPATIBLE", "IN_PROGRESS", "PARTIAL", "SUCCESS"
+                    ],
+                ],
+            ]
+        ] = None,
         verbose: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -555,7 +583,7 @@ class SnapshotClient(NamespacedClient):
           Snapshots concurrently created may be seen during an iteration.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-get>`_
 
         :param repository: A comma-separated list of snapshot repository names used to
             limit the request. Wildcard (`*`) expressions are supported.
@@ -602,6 +630,8 @@ class SnapshotClient(NamespacedClient):
             all snapshots without an SLM policy.
         :param sort: The sort order for the result. The default behavior is sorting by
             snapshot start time stamp.
+        :param state: Only return snapshots with a state found in the given comma-separated
+            list of snapshot states. The default is all snapshot states.
         :param verbose: If `true`, returns additional information about each snapshot
             such as the version of Elasticsearch which took the snapshot, the start and
             end times of the snapshot, and the number of shards snapshotted. NOTE: The
@@ -651,6 +681,8 @@ class SnapshotClient(NamespacedClient):
             __query["slm_policy_filter"] = slm_policy_filter
         if sort is not None:
             __query["sort"] = sort
+        if state is not None:
+            __query["state"] = state
         if verbose is not None:
             __query["verbose"] = verbose
         __headers = {"accept": "application/json"}
@@ -681,7 +713,7 @@ class SnapshotClient(NamespacedClient):
           <p>Get snapshot repository information.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-get-repository>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-get-repository>`_
 
         :param name: A comma-separated list of snapshot repository names used to limit
             the request. Wildcard (`*`) expressions are supported including combining
@@ -749,20 +781,28 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Analyze a snapshot repository.
-          Analyze the performance characteristics and any incorrect behaviour found in a repository.</p>
-          <p>The response exposes implementation details of the analysis which may change from version to version.
-          The response body format is therefore not considered stable and may be different in newer versions.</p>
+          <p>Analyze a snapshot repository.</p>
+          <p>Performs operations on a snapshot repository in order to check for incorrect behaviour.</p>
           <p>There are a large number of third-party storage systems available, not all of which are suitable for use as a snapshot repository by Elasticsearch.
-          Some storage systems behave incorrectly, or perform poorly, especially when accessed concurrently by multiple clients as the nodes of an Elasticsearch cluster do. This API performs a collection of read and write operations on your repository which are designed to detect incorrect behaviour and to measure the performance characteristics of your storage system.</p>
+          Some storage systems behave incorrectly, or perform poorly, especially when accessed concurrently by multiple clients as the nodes of an Elasticsearch cluster do.
+          This API performs a collection of read and write operations on your repository which are designed to detect incorrect behaviour and to measure the performance characteristics of your storage system.</p>
           <p>The default values for the parameters are deliberately low to reduce the impact of running an analysis inadvertently and to provide a sensible starting point for your investigations.
           Run your first analysis with the default parameter values to check for simple problems.
-          If successful, run a sequence of increasingly large analyses until you encounter a failure or you reach a <code>blob_count</code> of at least <code>2000</code>, a <code>max_blob_size</code> of at least <code>2gb</code>, a <code>max_total_data_size</code> of at least <code>1tb</code>, and a <code>register_operation_count</code> of at least <code>100</code>.
+          Some repositories may behave correctly when lightly loaded but incorrectly under production-like workloads.
+          If the first analysis is successful, run a sequence of increasingly large analyses until you encounter a failure or you reach a <code>blob_count</code> of at least <code>2000</code>, a <code>max_blob_size</code> of at least <code>2gb</code>, a <code>max_total_data_size</code> of at least <code>1tb</code>, and a <code>register_operation_count</code> of at least <code>100</code>.
           Always specify a generous timeout, possibly <code>1h</code> or longer, to allow time for each analysis to run to completion.
+          Some repositories may behave correctly when accessed by a small number of Elasticsearch nodes but incorrectly when accessed concurrently by a production-scale cluster.
           Perform the analyses using a multi-node cluster of a similar size to your production cluster so that it can detect any problems that only arise when the repository is accessed by many nodes at once.</p>
           <p>If the analysis fails, Elasticsearch detected that your repository behaved unexpectedly.
           This usually means you are using a third-party storage system with an incorrect or incompatible implementation of the API it claims to support.
           If so, this storage system is not suitable for use as a snapshot repository.
+          Repository analysis triggers conditions that occur only rarely when taking snapshots in a production system.
+          Snapshotting to unsuitable storage may appear to work correctly most of the time despite repository analysis failures.
+          However your snapshot data is at risk if you store it in a snapshot repository that does not reliably pass repository analysis.
+          You can demonstrate that the analysis failure is due to an incompatible storage implementation by verifying that Elasticsearch does not detect the same problem when analysing the reference implementation of the storage protocol you are using.
+          For instance, if you are using storage that offers an API which the supplier claims to be compatible with AWS S3, verify that repositories in AWS S3 do not fail repository analysis.
+          This allows you to demonstrate to your storage supplier that a repository analysis failure must only be caused by an incompatibility with AWS S3 and cannot be attributed to a problem in Elasticsearch.
+          Please do not report Elasticsearch issues involving third-party storage systems unless you can demonstrate that the same issue exists when analysing a repository that uses the reference implementation of the same storage protocol.
           You will need to work with the supplier of your storage system to address the incompatibilities that Elasticsearch detects.</p>
           <p>If the analysis is successful, the API returns details of the testing process, optionally including how long each operation took.
           You can use this information to determine the performance of your storage system.
@@ -790,14 +830,17 @@ class SnapshotClient(NamespacedClient):
           This consumes bandwidth on the network between the cluster and the repository, and storage space and I/O bandwidth on the repository itself.
           You must ensure this load does not affect other users of these systems.
           Analyses respect the repository settings <code>max_snapshot_bytes_per_sec</code> and <code>max_restore_bytes_per_sec</code> if available and the cluster setting <code>indices.recovery.max_bytes_per_sec</code> which you can use to limit the bandwidth they consume.</p>
-          <p>NOTE: This API is intended for exploratory use by humans. You should expect the request parameters and the response format to vary in future versions.</p>
+          <p>NOTE: This API is intended for exploratory use by humans.
+          You should expect the request parameters and the response format to vary in future versions.
+          The response exposes immplementation details of the analysis which may change from version to version.</p>
           <p>NOTE: Different versions of Elasticsearch may perform different checks for repository compatibility, with newer versions typically being stricter than older ones.
           A storage system that passes repository analysis with one version of Elasticsearch may fail with a different version.
           This indicates it behaves incorrectly in ways that the former version did not detect.
           You must work with the supplier of your storage system to address the incompatibilities detected by the repository analysis API in any version of Elasticsearch.</p>
           <p>NOTE: This API may not work correctly in a mixed-version cluster.</p>
           <p><em>Implementation details</em></p>
-          <p>NOTE: This section of documentation describes how the repository analysis API works in this version of Elasticsearch, but you should expect the implementation to vary between versions. The request parameters and response format depend on details of the implementation so may also be different in newer versions.</p>
+          <p>NOTE: This section of documentation describes how the repository analysis API works in this version of Elasticsearch, but you should expect the implementation to vary between versions.
+          The request parameters and response format depend on details of the implementation so may also be different in newer versions.</p>
           <p>The analysis comprises a number of blob-level tasks, as set by the <code>blob_count</code> parameter and a number of compare-and-exchange operations on linearizable registers, as set by the <code>register_operation_count</code> parameter.
           These tasks are distributed over the data and master-eligible nodes in the cluster for execution.</p>
           <p>For most blob-level tasks, the executing node first writes a blob to the repository and then instructs some of the other nodes in the cluster to attempt to read the data it just wrote.
@@ -825,7 +868,7 @@ class SnapshotClient(NamespacedClient):
           Some operations also verify the behavior on small blobs with sizes other than 8 bytes.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-repository-analyze>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-repository-analyze>`_
 
         :param name: The name of the repository.
         :param blob_count: The total number of blobs to write to the repository during
@@ -958,7 +1001,7 @@ class SnapshotClient(NamespacedClient):
           The response body format is therefore not considered stable and may be different in newer versions.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-repository-verify-integrity>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-repository-verify-integrity>`_
 
         :param name: The name of the snapshot repository.
         :param blob_thread_pool_concurrency: If `verify_blob_contents` is `true`, this
@@ -1080,7 +1123,7 @@ class SnapshotClient(NamespacedClient):
           <p>If your snapshot contains data from App Search or Workplace Search, you must restore the Enterprise Search encryption key before you restore the snapshot.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-restore>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-restore>`_
 
         :param repository: The name of the repository to restore a snapshot from.
         :param snapshot: The name of the snapshot to restore.
@@ -1230,7 +1273,7 @@ class SnapshotClient(NamespacedClient):
           These requests can also tax machine resources and, when using cloud storage, incur high processing costs.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-status>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-status>`_
 
         :param repository: The snapshot repository name used to limit the request. It
             supports wildcards (`*`) if `<snapshot>` isn't specified.
@@ -1298,7 +1341,7 @@ class SnapshotClient(NamespacedClient):
           Check for common misconfigurations in a snapshot repository.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-snapshot-verify-repository>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-verify-repository>`_
 
         :param name: The name of the snapshot repository to verify.
         :param master_timeout: The period to wait for the master node. If the master

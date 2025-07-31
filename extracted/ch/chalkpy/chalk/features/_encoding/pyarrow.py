@@ -302,9 +302,8 @@ def pyarrow_to_primitive(pyarrow_typ: pa.DataType, name: str) -> Type[TPrimitive
         schema = pa.schema(pyarrow_typ)
         for sub_name, sub_typ in zip(schema.names, schema.types):
             field_type = pyarrow_to_primitive(sub_typ, name=f"{name}.{sub_name}")
-            # TODO: CHA-2850
-            # if pyarrow_typ.field(sub_name).nullable:
-            #     field_type = typing.Optional[field_type]
+            if pyarrow_typ.field(sub_name).nullable:
+                field_type = typing.Optional[field_type]
             annotations[sub_name] = field_type
         struct_type = ChalkStructType(f"__chalk_struct__{name}", (object,), annotations)
         return cast("type[ChalkStructType]", struct_type)

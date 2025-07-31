@@ -25,6 +25,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import smartcard.sw.SWExceptions
 from smartcard.sw.ErrorChecker import ErrorChecker
 
+# pylint: disable=too-few-public-methods
+
 iso7816_4SW = {
     0x62: (
         smartcard.sw.SWExceptions.WarningProcessingException,
@@ -158,9 +160,12 @@ class ISO7816_4ErrorChecker(ErrorChecker):
         @param sw1:        apdu data status words
         @param sw2:        apdu data status words
         """
+
+        # pylint: disable=duplicate-code
+
         if sw1 in iso7816_4SW:
             exception, sw2dir = iso7816_4SW[sw1]
-            if type(sw2dir) == type({}):
+            if isinstance(sw2dir, dict):
                 try:
                     message = sw2dir[sw2]
                     raise exception(data, sw1, sw2, message)
@@ -169,7 +174,7 @@ class ISO7816_4ErrorChecker(ErrorChecker):
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of ISO7816_4ErrorChecker."""
+    # Small sample illustrating the use of ISO7816_4ErrorChecker.
     ecs = ISO7816_4ErrorChecker()
     ecs([], 0x90, 0x00)
     try:

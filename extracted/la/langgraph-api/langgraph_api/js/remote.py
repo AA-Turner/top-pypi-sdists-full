@@ -239,6 +239,7 @@ class RemotePregel(BaseRemotePregel):
                         task.get("error"),
                         tuple(interrupts),
                         state,
+                        task.get("result"),
                     )
                 )
             return tuple(result)
@@ -699,10 +700,12 @@ async def run_remote_checkpointer():
                 payload = orjson.loads(await request.body())
                 return ApiResponse(await cb(payload))
             except ValueError as exc:
-                await logger.error(exc)
+                await logger.aexception(
+                    "ValueError calling remote handler", exc_info=exc
+                )
                 return ApiResponse({"error": str(exc)}, status_code=400)
             except Exception as exc:
-                await logger.error(exc)
+                await logger.aexception("Error calling remote handler", exc_info=exc)
                 return ApiResponse({"error": str(exc)}, status_code=500)
 
         return wrapped
@@ -855,7 +858,7 @@ class CustomJsAuthBackend(AuthenticationBackend):
                 raise ValueError(
                     f"LANGGRAPH_AUTH.cache.cache_keys must be a list. Got: {keys}"
                 )
-            self.cache_keys = keys
+            self.cache_keys = [key.lower() for key in keys]
             self.ttl_cache = LRUCache(
                 max_size=cache.get("max_size", 1000),
                 ttl=cache.get("ttl_seconds", 60),
@@ -877,9 +880,7 @@ class CustomJsAuthBackend(AuthenticationBackend):
         headers["x-langgraph-auth-method"] = conn.scope.get("method")
         cache_key = None
         if self.cache_keys:
-            cache_key = tuple(
-                (k, headers.get(k)) for k in self.cache_keys if headers.get(k)
-            )
+            cache_key = tuple((k, headers[k]) for k in self.cache_keys if k in headers)
             if cache_key:
                 if self.ttl_cache is not None:
                     cached = self.ttl_cache.get(cache_key)

@@ -1,6 +1,7 @@
 import ast
 from abc import ABC
 from dataclasses import dataclass
+from io import StringIO
 from typing import TYPE_CHECKING, List
 
 from _qwak_proto.qwak.feature_store.features.feature_set_pb2 import (
@@ -87,8 +88,9 @@ class ValidationResponseFactory:
             success: ProtoValidationSuccessResponse = (
                 validation_response.success_response
             )
+
             pd_sample: pd.DataFrame = pd.read_json(
-                path_or_buf=ast.literal_eval(success.sample),
+                path_or_buf=StringIO(ast.literal_eval(success.sample)),
                 dtype=success.spark_column_description,
             )
 

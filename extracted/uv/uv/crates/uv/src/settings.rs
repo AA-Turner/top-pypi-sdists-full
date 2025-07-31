@@ -23,9 +23,9 @@ use uv_client::Connectivity;
 use uv_configuration::{
     BuildOptions, Concurrency, ConfigSettings, DependencyGroups, DryRun, EditableMode,
     ExportFormat, ExtrasSpecification, HashCheckingMode, IndexStrategy, InstallOptions,
-    KeyringProviderType, NoBinary, NoBuild, PackageConfigSettings, PreviewMode,
-    ProjectBuildBackend, Reinstall, RequiredVersion, SourceStrategy, TargetTriple, TrustedHost,
-    TrustedPublishing, Upgrade, VersionControlSystem,
+    KeyringProviderType, NoBinary, NoBuild, PackageConfigSettings, Preview, ProjectBuildBackend,
+    Reinstall, RequiredVersion, SourceStrategy, TargetTriple, TrustedHost, TrustedPublishing,
+    Upgrade, VersionControlSystem,
 };
 use uv_distribution_types::{DependencyMetadata, Index, IndexLocations, IndexUrl, Requirement};
 use uv_install_wheel::LinkMode;
@@ -35,7 +35,8 @@ use uv_pypi_types::SupportedEnvironments;
 use uv_python::{Prefix, PythonDownloads, PythonPreference, PythonVersion, Target};
 use uv_redacted::DisplaySafeUrl;
 use uv_resolver::{
-    AnnotationStyle, DependencyMode, ExcludeNewer, ForkStrategy, PrereleaseMode, ResolutionMode,
+    AnnotationStyle, DependencyMode, ExcludeNewer, ExcludeNewerPackage, ForkStrategy,
+    PrereleaseMode, ResolutionMode,
 };
 use uv_settings::{
     Combine, EnvironmentOptions, FilesystemOptions, Options, PipOptions, PublishOptions,
@@ -44,7 +45,7 @@ use uv_settings::{
 use uv_static::EnvVars;
 use uv_torch::TorchMode;
 use uv_warnings::warn_user_once;
-use uv_workspace::pyproject::DependencyType;
+use uv_workspace::pyproject::{DependencyType, ExtraBuildDependencies};
 use uv_workspace::pyproject_mut::AddBoundsKind;
 
 use crate::commands::ToolRunCommand;
@@ -63,7 +64,7 @@ pub(crate) struct GlobalSettings {
     pub(crate) network_settings: NetworkSettings,
     pub(crate) concurrency: Concurrency,
     pub(crate) show_settings: bool,
-    pub(crate) preview: PreviewMode,
+    pub(crate) preview: Preview,
     pub(crate) python_preference: PythonPreference,
     pub(crate) python_downloads: PythonDownloads,
     pub(crate) no_progress: bool,
@@ -117,10 +118,12 @@ impl GlobalSettings {
                     .unwrap_or_else(Concurrency::threads),
             },
             show_settings: args.show_settings,
-            preview: PreviewMode::from(
+            preview: Preview::from_args(
                 flag(args.preview, args.no_preview, "preview")
                     .combine(workspace.and_then(|workspace| workspace.globals.preview))
                     .unwrap_or(false),
+                args.no_preview,
+                &args.preview_features,
             ),
             python_preference,
             python_downloads: flag(
@@ -721,6 +724,7 @@ impl ToolUpgradeSettings {
             compile_bytecode,
             no_compile_bytecode,
             no_sources,
+            exclude_newer_package,
             build,
         } = args;
 
@@ -752,6 +756,7 @@ impl ToolUpgradeSettings {
             no_build_isolation_package,
             build_isolation,
             exclude_newer,
+            exclude_newer_package,
             link_mode,
             compile_bytecode,
             no_compile_bytecode,
@@ -2664,6 +2669,7 @@ impl VenvSettings {
             link_mode,
             refresh,
             compat_args: _,
+            exclude_newer_package,
         } = args;
 
         Self {
@@ -2683,6 +2689,8 @@ impl VenvSettings {
                     index_strategy,
                     keyring_provider,
                     exclude_newer,
+                    exclude_newer_package: exclude_newer_package
+                        .map(ExcludeNewerPackage::from_iter),
                     link_mode,
                     ..PipOptions::from(index_args)
                 },
@@ -2706,7 +2714,8 @@ pub(crate) struct InstallerSettingsRef<'a> {
     pub(crate) config_settings_package: &'a PackageConfigSettings,
     pub(crate) no_build_isolation: bool,
     pub(crate) no_build_isolation_package: &'a [PackageName],
-    pub(crate) exclude_newer: Option<ExcludeNewer>,
+    pub(crate) extra_build_dependencies: &'a ExtraBuildDependencies,
+    pub(crate) exclude_newer: ExcludeNewer,
     pub(crate) link_mode: LinkMode,
     pub(crate) compile_bytecode: bool,
     pub(crate) reinstall: &'a Reinstall,
@@ -2724,7 +2733,7 @@ pub(crate) struct ResolverSettings {
     pub(crate) config_setting: ConfigSettings,
     pub(crate) config_settings_package: PackageConfigSettings,
     pub(crate) dependency_metadata: DependencyMetadata,
-    pub(crate) exclude_newer: Option<ExcludeNewer>,
+    pub(crate) exclude_newer: ExcludeNewer,
     pub(crate) fork_strategy: ForkStrategy,
     pub(crate) index_locations: IndexLocations,
     pub(crate) index_strategy: IndexStrategy,
@@ -2732,6 +2741,7 @@ pub(crate) struct ResolverSettings {
     pub(crate) link_mode: LinkMode,
     pub(crate) no_build_isolation: bool,
     pub(crate) no_build_isolation_package: Vec<PackageName>,
+    pub(crate) extra_build_dependencies: ExtraBuildDependencies,
     pub(crate) prerelease: PrereleaseMode,
     pub(crate) resolution: ResolutionMode,
     pub(crate) sources: SourceStrategy,
@@ -2784,6 +2794,7 @@ impl From<ResolverOptions> for ResolverSettings {
             config_settings_package: value.config_settings_package.unwrap_or_default(),
             no_build_isolation: value.no_build_isolation.unwrap_or_default(),
             no_build_isolation_package: value.no_build_isolation_package.unwrap_or_default(),
+            extra_build_dependencies: value.extra_build_dependencies.unwrap_or_default(),
             exclude_newer: value.exclude_newer,
             link_mode: value.link_mode.unwrap_or_default(),
             sources: SourceStrategy::from_args(value.no_sources.unwrap_or_default()),
@@ -2865,7 +2876,15 @@ impl From<ResolverInstallerOptions> for ResolverInstallerSettings {
                 dependency_metadata: DependencyMetadata::from_entries(
                     value.dependency_metadata.into_iter().flatten(),
                 ),
-                exclude_newer: value.exclude_newer,
+                exclude_newer: ExcludeNewer::from_args(
+                    value.exclude_newer,
+                    value
+                        .exclude_newer_package
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                ),
                 fork_strategy: value.fork_strategy.unwrap_or_default(),
                 index_locations,
                 index_strategy: value.index_strategy.unwrap_or_default(),
@@ -2873,6 +2892,7 @@ impl From<ResolverInstallerOptions> for ResolverInstallerSettings {
                 link_mode: value.link_mode.unwrap_or_default(),
                 no_build_isolation: value.no_build_isolation.unwrap_or_default(),
                 no_build_isolation_package: value.no_build_isolation_package.unwrap_or_default(),
+                extra_build_dependencies: value.extra_build_dependencies.unwrap_or_default(),
                 prerelease: value.prerelease.unwrap_or_default(),
                 resolution: value.resolution.unwrap_or_default(),
                 sources: SourceStrategy::from_args(value.no_sources.unwrap_or_default()),
@@ -2915,6 +2935,7 @@ pub(crate) struct PipSettings {
     pub(crate) torch_backend: Option<TorchMode>,
     pub(crate) no_build_isolation: bool,
     pub(crate) no_build_isolation_package: Vec<PackageName>,
+    pub(crate) extra_build_dependencies: ExtraBuildDependencies,
     pub(crate) build_options: BuildOptions,
     pub(crate) allow_empty_requirements: bool,
     pub(crate) strict: bool,
@@ -2935,7 +2956,7 @@ pub(crate) struct PipSettings {
     pub(crate) python_version: Option<PythonVersion>,
     pub(crate) python_platform: Option<TargetTriple>,
     pub(crate) universal: bool,
-    pub(crate) exclude_newer: Option<ExcludeNewer>,
+    pub(crate) exclude_newer: ExcludeNewer,
     pub(crate) no_emit_package: Vec<PackageName>,
     pub(crate) emit_index_url: bool,
     pub(crate) emit_find_links: bool,
@@ -2982,6 +3003,7 @@ impl PipSettings {
             only_binary,
             no_build_isolation,
             no_build_isolation_package,
+            extra_build_dependencies,
             strict,
             extra,
             all_extras,
@@ -3022,6 +3044,7 @@ impl PipSettings {
             upgrade_package,
             reinstall,
             reinstall_package,
+            exclude_newer_package,
         } = pip.unwrap_or_default();
 
         let ResolverInstallerOptions {
@@ -3040,6 +3063,7 @@ impl PipSettings {
             config_settings_package: top_level_config_settings_package,
             no_build_isolation: top_level_no_build_isolation,
             no_build_isolation_package: top_level_no_build_isolation_package,
+            extra_build_dependencies: top_level_extra_build_dependencies,
             exclude_newer: top_level_exclude_newer,
             link_mode: top_level_link_mode,
             compile_bytecode: top_level_compile_bytecode,
@@ -3052,6 +3076,7 @@ impl PipSettings {
             no_build_package: top_level_no_build_package,
             no_binary: top_level_no_binary,
             no_binary_package: top_level_no_binary_package,
+            exclude_newer_package: top_level_exclude_newer_package,
         } = top_level;
 
         // Merge the top-level options (`tool.uv`) with the pip-specific options (`tool.uv.pip`),
@@ -3075,7 +3100,17 @@ impl PipSettings {
         let no_build_isolation = no_build_isolation.combine(top_level_no_build_isolation);
         let no_build_isolation_package =
             no_build_isolation_package.combine(top_level_no_build_isolation_package);
-        let exclude_newer = exclude_newer.combine(top_level_exclude_newer);
+        let extra_build_dependencies =
+            extra_build_dependencies.combine(top_level_extra_build_dependencies);
+        let exclude_newer = args
+            .exclude_newer
+            .combine(exclude_newer)
+            .combine(top_level_exclude_newer);
+        let exclude_newer_package = args
+            .exclude_newer_package
+            .combine(exclude_newer_package)
+            .combine(top_level_exclude_newer_package)
+            .unwrap_or_default();
         let link_mode = link_mode.combine(top_level_link_mode);
         let compile_bytecode = compile_bytecode.combine(top_level_compile_bytecode);
         let no_sources = no_sources.combine(top_level_no_sources);
@@ -3170,6 +3205,10 @@ impl PipSettings {
                 .no_build_isolation_package
                 .combine(no_build_isolation_package)
                 .unwrap_or_default(),
+            extra_build_dependencies: args
+                .extra_build_dependencies
+                .combine(extra_build_dependencies)
+                .unwrap_or_default(),
             config_setting: args
                 .config_settings
                 .combine(config_settings)
@@ -3182,7 +3221,10 @@ impl PipSettings {
             python_version: args.python_version.combine(python_version),
             python_platform: args.python_platform.combine(python_platform),
             universal: args.universal.combine(universal).unwrap_or_default(),
-            exclude_newer: args.exclude_newer.combine(exclude_newer),
+            exclude_newer: ExcludeNewer::from_args(
+                exclude_newer,
+                exclude_newer_package.into_iter().map(Into::into).collect(),
+            ),
             no_emit_package: args
                 .no_emit_package
                 .combine(no_emit_package)
@@ -3274,7 +3316,8 @@ impl<'a> From<&'a ResolverInstallerSettings> for InstallerSettingsRef<'a> {
             config_settings_package: &settings.resolver.config_settings_package,
             no_build_isolation: settings.resolver.no_build_isolation,
             no_build_isolation_package: &settings.resolver.no_build_isolation_package,
-            exclude_newer: settings.resolver.exclude_newer,
+            extra_build_dependencies: &settings.resolver.extra_build_dependencies,
+            exclude_newer: settings.resolver.exclude_newer.clone(),
             link_mode: settings.resolver.link_mode,
             compile_bytecode: settings.compile_bytecode,
             reinstall: &settings.reinstall,

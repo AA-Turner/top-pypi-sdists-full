@@ -10,12 +10,12 @@ dtypes = ["float32", "float64", "complex64", "complex128"]
 
 class TestMatrixProductState:
     def test_matrix_product_state(self):
-        tensors = (
+        arrays = (
             [np.random.rand(5, 2)]
             + [np.random.rand(5, 5, 2) for _ in range(3)]
             + [np.random.rand(5, 2)]
         )
-        mps = qtn.MatrixProductState(tensors)
+        mps = qtn.MatrixProductState(arrays)
         mps.check()
         assert len(mps.tensors) == 5
         nmps = mps.reindex_sites("foo{}", inplace=False, where=slice(0, 3))
@@ -787,6 +787,23 @@ class TestMatrixProductState:
         xb = psi.compute_local_expectation(terms, method="envs")
         assert xb == pytest.approx(ex)
 
+    def test_single_site_constructor(self):
+        arrays = [np.random.randn(2)]
+        mps = qtn.MatrixProductState(arrays)
+        mps.check()
+        assert mps.L == 1
+        assert mps.num_tensors == 1
+        assert mps.num_indices == 1
+        assert not mps.cyclic
+
+        arrays = [np.random.randn(3, 3, 2)]
+        mps = qtn.MatrixProductState(arrays)
+        mps.check()
+        assert mps.L == 1
+        assert mps.num_tensors == 1
+        assert mps.num_indices == 2
+        assert mps.cyclic
+
 
 class TestMatrixProductOperator:
     @pytest.mark.parametrize("cyclic", [False, True])
@@ -1021,6 +1038,23 @@ class TestMatrixProductOperator:
             mps.gate_with_op_lazy(mpo).to_dense(),
             Ak,
         )
+
+    def test_single_site_constructor(self):
+        arrays = [np.random.randn(2, 2)]
+        mpo = qtn.MatrixProductOperator(arrays)
+        mpo.check()
+        assert mpo.L == 1
+        assert mpo.num_tensors == 1
+        assert mpo.num_indices == 2
+        assert not mpo.cyclic
+
+        arrays = [np.random.randn(3, 3, 2, 2)]
+        mpo = qtn.MatrixProductOperator(arrays)
+        mpo.check()
+        assert mpo.L == 1
+        assert mpo.num_tensors == 1
+        assert mpo.num_indices == 3
+        assert mpo.cyclic
 
 
 # --------------------------------------------------------------------------- #

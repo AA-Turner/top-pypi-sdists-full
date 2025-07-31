@@ -148,6 +148,7 @@ class ORTModel(ORTSessionMixin, OptimizedModel):
 
     model_type = "onnx_model"
     auto_model_class = AutoModel
+    _library_name: Optional[str] = None
 
     def __init__(
         self,
@@ -431,6 +432,7 @@ class ORTModel(ORTSessionMixin, OptimizedModel):
             local_files_only=local_files_only,
             force_download=force_download,
             trust_remote_code=trust_remote_code,
+            library_name=cls._library_name,
         )
         maybe_save_preprocessors(model_id, model_save_path, src_subfolder=subfolder)
 
@@ -628,6 +630,7 @@ class ORTModelForFeatureExtraction(ORTModel):
     """
 
     auto_model_class = AutoModel
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_TEXT_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -749,10 +752,11 @@ MASKED_LM_EXAMPLE = r"""
 @add_end_docstrings(ONNX_MODEL_END_DOCSTRING)
 class ORTModelForMaskedLM(ORTModel):
     """
-    ONNX Model with a MaskedLMOutput for masked language modeling tasks. This class officially supports albert, bert, camembert, convbert, data2vec_text, deberta, deberta_v2, distilbert, electra, flaubert, ibert, mobilebert, roberta, roformer, squeezebert, xlm, xlm_roberta.
+    ONNX Model with a MaskedLMOutput for masked language modeling tasks. This class officially supports albert, bert, camembert, convbert, data2vec-text, deberta, deberta_v2, distilbert, electra, flaubert, ibert, mobilebert, roberta, roformer, squeezebert, xlm, xlm_roberta.
     """
 
     auto_model_class = AutoModelForMaskedLM
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_TEXT_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -851,10 +855,11 @@ QUESTION_ANSWERING_EXAMPLE = r"""
 @add_end_docstrings(ONNX_MODEL_END_DOCSTRING)
 class ORTModelForQuestionAnswering(ORTModel):
     """
-    ONNX Model with a QuestionAnsweringModelOutput for extractive question-answering tasks like SQuAD. This class officially supports albert, bart, bert, camembert, convbert, data2vec_text, deberta, deberta_v2, distilbert, electra, flaubert, gptj, ibert, mbart, mobilebert, nystromformer, roberta, roformer, squeezebert, xlm, xlm_roberta.
+    ONNX Model with a QuestionAnsweringModelOutput for extractive question-answering tasks like SQuAD. This class officially supports albert, bart, bert, camembert, convbert, data2vec-text, deberta, deberta_v2, distilbert, electra, flaubert, gptj, ibert, mbart, mobilebert, nystromformer, roberta, roformer, squeezebert, xlm, xlm_roberta.
     """
 
     auto_model_class = AutoModelForQuestionAnswering
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_TEXT_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -970,10 +975,11 @@ SEQUENCE_CLASSIFICATION_EXAMPLE = r"""
 class ORTModelForSequenceClassification(ORTModel):
     """
     ONNX Model with a sequence classification/regression head on top (a linear layer on top of the
-    pooled output) e.g. for GLUE tasks. This class officially supports albert, bart, bert, camembert, convbert, data2vec_text, deberta, deberta_v2, distilbert, electra, flaubert, ibert, mbart, mobilebert, nystromformer, roberta, roformer, squeezebert, xlm, xlm_roberta.
+    pooled output) e.g. for GLUE tasks. This class officially supports albert, bart, bert, camembert, convbert, data2vec-text, deberta, deberta_v2, distilbert, electra, flaubert, ibert, mbart, mobilebert, nystromformer, roberta, roformer, squeezebert, xlm, xlm_roberta.
     """
 
     auto_model_class = AutoModelForSequenceClassification
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_TEXT_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1072,11 +1078,12 @@ TOKEN_CLASSIFICATION_EXAMPLE = r"""
 class ORTModelForTokenClassification(ORTModel):
     """
     ONNX Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g.
-    for Named-Entity-Recognition (NER) tasks. This class officially supports albert, bert, bloom, camembert, convbert, data2vec_text, deberta, deberta_v2, distilbert, electra, flaubert, gpt2, ibert, mobilebert, roberta, roformer, squeezebert, xlm, xlm_roberta.
+    for Named-Entity-Recognition (NER) tasks. This class officially supports albert, bert, bloom, camembert, convbert, data2vec-text, deberta, deberta_v2, distilbert, electra, flaubert, gpt2, ibert, mobilebert, roberta, roformer, squeezebert, xlm, xlm_roberta.
 
     """
 
     auto_model_class = AutoModelForTokenClassification
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_TEXT_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1169,10 +1176,11 @@ MULTIPLE_CHOICE_EXAMPLE = r"""
 class ORTModelForMultipleChoice(ORTModel):
     """
     ONNX Model with a multiple choice classification head on top (a linear layer on top of the pooled output and a
-    softmax) e.g. for RocStories/SWAG tasks. This class officially supports albert, bert, camembert, convbert, data2vec_text, deberta_v2, distilbert, electra, flaubert, ibert, mobilebert, nystromformer, roberta, roformer, squeezebert, xlm, xlm_roberta.
+    softmax) e.g. for RocStories/SWAG tasks. This class officially supports albert, bert, camembert, convbert, data2vec-text, deberta_v2, distilbert, electra, flaubert, ibert, mobilebert, nystromformer, roberta, roformer, squeezebert, xlm, xlm_roberta.
     """
 
     auto_model_class = AutoModelForMultipleChoice
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_TEXT_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1274,7 +1282,7 @@ IMAGE_CLASSIFICATION_EXAMPLE = r"""
 @add_end_docstrings(ONNX_MODEL_END_DOCSTRING)
 class ORTModelForImageClassification(ORTModel):
     """
-    ONNX Model for image-classification tasks. This class officially supports beit, convnext, convnextv2, data2vec_vision, deit, dinov2, levit, mobilenet_v1, mobilenet_v2, mobilevit, poolformer, resnet, segformer, swin, swinv2, vit.
+    ONNX Model for image-classification tasks. This class officially supports beit, convnext, convnextv2, data2vec-vision, deit, dinov2, levit, mobilenet_v1, mobilenet_v2, mobilevit, poolformer, resnet, segformer, swin, swinv2, vit.
     """
 
     auto_model_class = AutoModelForImageClassification
@@ -1376,6 +1384,7 @@ class ORTModelForSemanticSegmentation(ORTModel):
     """
 
     auto_model_class = AutoModelForSemanticSegmentation
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_IMAGE_INPUTS_DOCSTRING.format("batch_size, num_channels, height, width")
@@ -1475,10 +1484,11 @@ AUDIO_CLASSIFICATION_EXAMPLE = r"""
 class ORTModelForAudioClassification(ORTModel):
     """
     ONNX Model for audio-classification, with a sequence classification head on top (a linear layer over the pooled output) for tasks like
-    SUPERB Keyword Spotting. This class officially supports audio_spectrogram_transformer, data2vec_audio, hubert, sew, sew_d, unispeech, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
+    SUPERB Keyword Spotting. This class officially supports audio_spectrogram_transformer, data2vec-audio, hubert, sew, sew-d, unispeech, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
     """
 
     auto_model_class = AutoModelForAudioClassification
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_AUDIO_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1573,10 +1583,11 @@ CTC_EXAMPLE = r"""
 @add_end_docstrings(ONNX_MODEL_END_DOCSTRING)
 class ORTModelForCTC(ORTModel):
     """
-    ONNX Model with a language modeling head on top for Connectionist Temporal Classification (CTC). This class officially supports data2vec_audio, hubert, sew, sew_d, unispeech, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
+    ONNX Model with a language modeling head on top for Connectionist Temporal Classification (CTC). This class officially supports data2vec-audio, hubert, sew, sew-d, unispeech, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
     """
 
     auto_model_class = AutoModelForCTC
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_AUDIO_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1677,10 +1688,11 @@ AUDIO_XVECTOR_EXAMPLE = r"""
 @add_end_docstrings(ONNX_MODEL_END_DOCSTRING)
 class ORTModelForAudioXVector(ORTModel):
     """
-    ONNX Model with an XVector feature extraction head on top for tasks like Speaker Verification. This class officially supports data2vec_audio, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
+    ONNX Model with an XVector feature extraction head on top for tasks like Speaker Verification. This class officially supports data2vec-audio, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
     """
 
     auto_model_class = AutoModelForAudioXVector
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_AUDIO_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1766,10 +1778,11 @@ AUDIO_FRAME_CLASSIFICATION_EXAMPLE = r"""
 @add_end_docstrings(ONNX_MODEL_END_DOCSTRING)
 class ORTModelForAudioFrameClassification(ORTModel):
     """
-    ONNX Model with a frame classification head on top for tasks like Speaker Diarization. This class officially supports data2vec_audio, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
+    ONNX Model with a frame classification head on top for tasks like Speaker Diarization. This class officially supports data2vec-audio, unispeech_sat, wavlm, wav2vec2, wav2vec2-conformer.
     """
 
     auto_model_class = AutoModelForAudioFrameClassification
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_AUDIO_INPUTS_DOCSTRING.format("batch_size, sequence_length")
@@ -1850,6 +1863,7 @@ class ORTModelForImageToImage(ORTModel):
     """
 
     auto_model_class = AutoModelForImageToImage
+    _library_name: Optional[str] = "transformers"
 
     @add_start_docstrings_to_model_forward(
         ONNX_IMAGE_INPUTS_DOCSTRING.format("batch_size, num_channels, height, width")

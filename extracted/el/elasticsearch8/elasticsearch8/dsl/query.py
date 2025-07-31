@@ -1382,7 +1382,49 @@ class MoreLikeThis(Query):
         min_term_freq: Union[int, "DefaultType"] = DEFAULT,
         min_word_length: Union[int, "DefaultType"] = DEFAULT,
         routing: Union[str, "DefaultType"] = DEFAULT,
-        stop_words: Union[str, Sequence[str], "DefaultType"] = DEFAULT,
+        stop_words: Union[
+            Literal[
+                "_arabic_",
+                "_armenian_",
+                "_basque_",
+                "_bengali_",
+                "_brazilian_",
+                "_bulgarian_",
+                "_catalan_",
+                "_cjk_",
+                "_czech_",
+                "_danish_",
+                "_dutch_",
+                "_english_",
+                "_estonian_",
+                "_finnish_",
+                "_french_",
+                "_galician_",
+                "_german_",
+                "_greek_",
+                "_hindi_",
+                "_hungarian_",
+                "_indonesian_",
+                "_irish_",
+                "_italian_",
+                "_latvian_",
+                "_lithuanian_",
+                "_norwegian_",
+                "_persian_",
+                "_portuguese_",
+                "_romanian_",
+                "_russian_",
+                "_serbian_",
+                "_sorani_",
+                "_spanish_",
+                "_swedish_",
+                "_thai_",
+                "_turkish_",
+                "_none_",
+            ],
+            Sequence[str],
+            "DefaultType",
+        ] = DEFAULT,
         unlike: Union[
             Union[str, "types.LikeDocument"],
             Sequence[Union[str, "types.LikeDocument"]],
@@ -1992,8 +2034,9 @@ class Regexp(Query):
 class Rule(Query):
     """
     :arg organic: (required)
-    :arg ruleset_ids: (required)
     :arg match_criteria: (required)
+    :arg ruleset_ids:
+    :arg ruleset_id:
     :arg boost: Floating point number used to decrease or increase the
         relevance scores of the query. Boost values are relative to the
         default value of 1.0. A boost value between 0 and 1.0 decreases
@@ -2011,16 +2054,18 @@ class Rule(Query):
         self,
         *,
         organic: Union[Query, "DefaultType"] = DEFAULT,
-        ruleset_ids: Union[Sequence[str], "DefaultType"] = DEFAULT,
         match_criteria: Any = DEFAULT,
+        ruleset_ids: Union[str, Sequence[str], "DefaultType"] = DEFAULT,
+        ruleset_id: Union[str, "DefaultType"] = DEFAULT,
         boost: Union[float, "DefaultType"] = DEFAULT,
         _name: Union[str, "DefaultType"] = DEFAULT,
         **kwargs: Any,
     ):
         super().__init__(
             organic=organic,
-            ruleset_ids=ruleset_ids,
             match_criteria=match_criteria,
+            ruleset_ids=ruleset_ids,
+            ruleset_id=ruleset_id,
             boost=boost,
             _name=_name,
             **kwargs,

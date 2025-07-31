@@ -30,8 +30,6 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
-from smartcard.scard import *
-
 
 class CardService:
     """Card service abstract class."""
@@ -60,11 +58,11 @@ class CardService:
 
     @staticmethod
     def supports(cardname):
-        pass
+        """Returns True if the cardname is supported by the card service."""
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of CardService."""
+    # Small sample illustrating the use of CardService.
     SELECT = [0xA0, 0xA4, 0x00, 0x00, 0x02]
     DF_TELECOM = [0x7F, 0x10]
     from smartcard.System import readers

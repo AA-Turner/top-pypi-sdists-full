@@ -7252,6 +7252,7 @@ class RouteTypeDef(TypedDict):
     VpcPeeringConnectionId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
     OdbNetworkArn: NotRequired[str]
+    IpAddress: NotRequired[str]
 
 class S3StorageOutputTypeDef(TypedDict):
     AWSAccessKeyId: NotRequired[str]

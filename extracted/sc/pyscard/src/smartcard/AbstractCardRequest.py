@@ -33,6 +33,8 @@ class AbstractCardRequest:
     A CardRequest is used for waitForCard() invocations and specifies what
     kind of smart card an application is waited for."""
 
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(
         self,
         newcardonly=False,
@@ -82,13 +84,10 @@ class AbstractCardRequest:
         # if readers not given, use all readers
         if self.readersAsked is None:
             return smartcard.System.readers()
-        else:
-            return self.readersAsked
+        return self.readersAsked
 
     def waitforcard(self):
         """Wait for card insertion and returns a card service."""
-        pass
 
     def waitforcardevent(self):
         """Wait for card insertion or removal."""
-        pass

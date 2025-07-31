@@ -102,3 +102,22 @@ class CreateRepositoriesForModelGroupResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["artifactory_repository_details", b"artifactory_repository_details"]) -> None: ...
 
 global___CreateRepositoriesForModelGroupResponse = CreateRepositoriesForModelGroupResponse
+
+class GetModelGroupInfoRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    JFROG_PROJECT_KEY_FIELD_NUMBER: builtins.int
+    model_group_name: builtins.str
+    """Model group name"""
+    jfrog_project_key: builtins.str
+    """Artifactory project key used for repository organization"""
+    def __init__(
+        self,
+        *,
+        model_group_name: builtins.str = ...,
+        jfrog_project_key: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["jfrog_project_key", b"jfrog_project_key", "model_group_name", b"model_group_name"]) -> None: ...
+
+global___GetModelGroupInfoRequest = GetModelGroupInfoRequest

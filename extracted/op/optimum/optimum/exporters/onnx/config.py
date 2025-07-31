@@ -34,7 +34,6 @@ from ...utils import (
 )
 from .base import ConfigBehavior, OnnxConfig, OnnxConfigWithPast, OnnxSeq2SeqConfigWithPast
 from .constants import ONNX_DECODER_MERGED_NAME, ONNX_DECODER_NAME, ONNX_DECODER_WITH_PAST_NAME
-from .model_patcher import DecoderModelPatcher
 
 
 # TODO : moved back onnx imports applied in https://github.com/huggingface/optimum/pull/2114/files after refactorization
@@ -42,8 +41,6 @@ from .model_patcher import DecoderModelPatcher
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel
-
-    from .model_patcher import ModelPatcher
 
     if is_tf_available():
         from transformers import TFPreTrainedModel
@@ -97,13 +94,14 @@ class TextDecoderOnnxConfig(OnnxConfigWithPast):
     def inputs(self) -> Dict[str, Dict[int, str]]:
         if self.use_past_in_inputs:
             common_inputs = {"input_ids": {0: "batch_size", 1: "sequence_length"}}
+            common_inputs["attention_mask"] = {0: "batch_size", 1: "past_sequence_length + sequence_length"}
             self.add_past_key_values(common_inputs, direction="inputs")
-            common_inputs["attention_mask"] = {0: "batch_size", 1: "past_sequence_length + 1"}
         else:
             common_inputs = {
                 "input_ids": {0: "batch_size", 1: "sequence_length"},
                 "attention_mask": {0: "batch_size", 1: "sequence_length"},
             }
+
         return common_inputs
 
     @property
@@ -159,12 +157,6 @@ class TextDecoderOnnxConfig(OnnxConfigWithPast):
             models_and_onnx_configs[ONNX_DECODER_WITH_PAST_NAME][1].is_merged = True
 
         return models_and_onnx_configs, onnx_files_subpaths
-
-    def patch_model_for_export(
-        self, model: Union["PreTrainedModel", "TFPreTrainedModel"], model_kwargs: Optional[Dict[str, Any]] = None
-    ) -> "ModelPatcher":
-        # Refer to DecoderModelPatcher.
-        return DecoderModelPatcher(self, model, model_kwargs=model_kwargs)
 
 
 class TextDecoderWithPositionIdsOnnxConfig(TextDecoderOnnxConfig):

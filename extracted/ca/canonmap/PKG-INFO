@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canonmap
-Version: 0.3.48
+Version: 0.3.49
 Summary: CanonMap - A Python library for entity canonicalization and mapping with enhanced configuration and response models
 Home-page: https://github.com/vinceberry/canonmap
 Author: Vince Berry

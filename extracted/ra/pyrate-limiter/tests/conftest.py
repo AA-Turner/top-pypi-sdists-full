@@ -1,5 +1,4 @@
 """Pytest config & fixtures"""
-import sqlite3
 from logging import basicConfig
 from logging import getLogger
 from os import getenv
@@ -13,12 +12,12 @@ import pytest
 from pyrate_limiter import Duration
 from pyrate_limiter import id_generator
 from pyrate_limiter import InMemoryBucket
+from pyrate_limiter import limiter_factory
 from pyrate_limiter import MonotonicClock
+from pyrate_limiter import MultiprocessBucket
 from pyrate_limiter import PostgresBucket
 from pyrate_limiter import Rate
 from pyrate_limiter import RedisBucket
-from pyrate_limiter import SQLiteBucket
-from pyrate_limiter import SQLiteQueries as Queries
 from pyrate_limiter import TimeAsyncClock
 from pyrate_limiter import TimeClock
 
@@ -32,9 +31,9 @@ logger.setLevel(getenv("LOG_LEVEL", "INFO"))
 DEFAULT_RATES = [Rate(3, 1000), Rate(4, 1500)]
 
 clocks = [
-    MonotonicClock(),
-    TimeClock(),
-    TimeAsyncClock(),
+    pytest.param(MonotonicClock(), marks=pytest.mark.monotonic),
+    pytest.param(TimeClock(), marks=pytest.mark.timeclock),
+    pytest.param(TimeAsyncClock(), marks=pytest.mark.asyncclock),
 ]
 
 ClockSet = Union[
@@ -82,31 +81,24 @@ async def create_async_redis_bucket(rates: List[Rate]):
     return bucket
 
 
-async def create_sqlite_bucket(rates: List[Rate], file_lock: bool = False):
-    temp_dir = Path(gettempdir())
-    default_db_path = temp_dir / f"pyrate_limiter_{id_generator(size=5)}.sqlite"
-    logger.info("SQLite db path: %s", default_db_path)
-    table_name = f"pyrate-test-bucket-{id_generator(size=10)}"
-    index_name = table_name + "__timestamp_index"
-
-    conn = sqlite3.connect(
-        default_db_path,
-        isolation_level="EXCLUSIVE",
-        check_same_thread=False,
-    )
-    drop_table_query = Queries.DROP_TABLE.format(table=table_name)
-    drop_index_query = Queries.DROP_INDEX.format(index=index_name)
-
-    cur = conn.execute(drop_table_query)
-    cur.execute(drop_index_query)
-    cur.close()
-    conn.commit()
-
-    bucket = SQLiteBucket.init_from_file(
-        rates, table_name, db_path=str(default_db_path), use_file_lock=file_lock
-    )
+async def create_mp_bucket(rates: List[Rate]):
+    bucket = MultiprocessBucket.init(rates)
 
     return bucket
+
+
+async def create_sqlite_bucket(rates: List[Rate], file_lock: bool = False):
+
+    temp_dir = Path(gettempdir())
+    default_db_path = temp_dir / f"pyrate_limiter_{id_generator(size=5)}.sqlite"
+    table_name = f"pyrate-test-bucket-{id_generator(size=10)}"
+
+    logger.info("SQLite db path: %s", default_db_path)
+
+    return limiter_factory.create_sqlite_bucket(rates=rates,
+                                                db_path=str(default_db_path),
+                                                table_name=table_name,
+                                                use_file_lock=file_lock)
 
 
 async def create_filelocksqlite_bucket(rates: List[Rate]):
@@ -131,6 +123,7 @@ async def create_postgres_bucket(rates: List[Rate]):
         create_async_redis_bucket,
         create_postgres_bucket,
         create_filelocksqlite_bucket,
+        pytest.param(create_mp_bucket, marks=pytest.mark.mpbucket)
     ]
 )
 def create_bucket(request):

@@ -1,9 +1,16 @@
+"""
+Road Lane Detection Use Case for Post-Processing
+
+This module provides road lane detection functionality with lane type classification,
+zone analysis, and alert generation.
+"""
+
 from typing import Any, Dict, List, Optional
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 import time
 from datetime import datetime, timezone
 
-from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
+from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
 from ..utils import (
     filter_by_confidence,
     filter_by_categories,
@@ -16,31 +23,24 @@ from ..utils import (
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
-from dataclasses import dataclass, field
 from ..core.config import BaseConfig, AlertConfig, ZoneConfig
-
 
 @dataclass
 class LaneDetectionConfig(BaseConfig):
-    """Configuration for lane detection use case in road lane monitoring."""
+    """Configuration for road lane detection use case."""
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-
     confidence_threshold: float = 0.6
-
     usecase_categories: List[str] = field(
         default_factory=lambda: ['Divider-Line', 'Dotted-Line', 'Double-Line', 'Random-Line', 'Road-Sign-Line', 'Solid-Line']
     )
-
     target_categories: List[str] = field(
         default_factory=lambda: ['Divider-Line', 'Dotted-Line', 'Double-Line', 'Random-Line', 'Road-Sign-Line', 'Solid-Line']
     )
-
     alert_config: Optional[AlertConfig] = None
-
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
             0: "Divider-Line",
@@ -52,14 +52,355 @@ class LaneDetectionConfig(BaseConfig):
         }
     )
 
-
 class LaneDetectionUseCase(BaseProcessor):
+    CATEGORY_DISPLAY = {
+        "Divider-Line": "Divider Line",
+        "Dotted-Line": "Dotted Line",
+        "Double-Line": "Double Line",
+        "Random-Line": "Random Line",
+        "Road-Sign-Line": "Road Sign Line",
+        "Solid-Line": "Solid Line"
+    }
+
+    def __init__(self):
+        super().__init__("lane_detection")
+        self.category = "traffic"
+        self.CASE_TYPE: Optional[str] = 'lane_detection'
+        self.CASE_VERSION: Optional[str] = '1.0'
+        self.target_categories = ['Divider-Line', 'Dotted-Line', 'Double-Line', 'Random-Line', 'Road-Sign-Line', 'Solid-Line']
+        self.smoothing_tracker = None
+        self.tracker = None
+        self._total_frame_counter = 0
+        self._global_frame_offset = 0
+        self._tracking_start_time = None
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        self._track_merge_iou_threshold: float = 0.05
+        self._track_merge_time_window: float = 7.0
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
+
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        start_time = time.time()
+        if not isinstance(config, LaneDetectionConfig):
+            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
+        if context is None:
+            context = ProcessingContext()
+
+        input_format = match_results_structure(data)
+        context.input_format = input_format
+        context.confidence_threshold = config.confidence_threshold
+
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+        else:
+            processed_data = data
+            self.logger.debug("No confidence filtering applied")
+
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+            self.logger.debug("Applied category mapping")
+
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            self.logger.debug("Applied category filtering")
+
+        if config.enable_smoothing:
+            if self.smoothing_tracker is None:
+                smoothing_config = BBoxSmoothingConfig(
+                    smoothing_algorithm=config.smoothing_algorithm,
+                    window_size=config.smoothing_window_size,
+                    cooldown_frames=config.smoothing_cooldown_frames,
+                    confidence_threshold=config.confidence_threshold,
+                    confidence_range_factor=config.smoothing_confidence_range_factor,
+                    enable_smoothing=True
+                )
+                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+
+        try:
+            from ..advanced_tracker import AdvancedTracker
+            from ..advanced_tracker.config import TrackerConfig
+            if self.tracker is None:
+                tracker_config = TrackerConfig()
+                self.tracker = AdvancedTracker(tracker_config)
+                self.logger.info("Initialized AdvancedTracker for Lane Detection")
+            processed_data = self.tracker.update(processed_data)
+        except Exception as e:
+            self.logger.warning(f"AdvancedTracker failed: {e}")
+
+        self._update_tracking_state(processed_data)
+        self._total_frame_counter += 1
+
+        frame_number = None
+        if stream_info:
+            input_settings = stream_info.get("input_settings", {})
+            start_frame = input_settings.get("start_frame")
+            end_frame = input_settings.get("end_frame")
+            if start_frame is not None and end_frame is not None and start_frame == end_frame:
+                frame_number = start_frame
+
+        general_counting_summary = calculate_counting_summary(data)
+        counting_summary = self._count_categories(processed_data, config)
+        total_counts = self.get_total_counts()
+        counting_summary['total_counts'] = total_counts
+        alerts = self._check_alerts(counting_summary, frame_number, config)
+        predictions = self._extract_predictions(processed_data)
+
+        incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
+        business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, stream_info, is_empty=True)
+        summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
+
+        incidents = incidents_list[0] if incidents_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        business_analytics = business_analytics_list[0] if business_analytics_list else {}
+        summary = summary_list[0] if summary_list else {}
+        agg_summary = {str(frame_number): {
+            "incidents": incidents,
+            "tracking_stats": tracking_stats,
+            "business_analytics": business_analytics,
+            "alerts": alerts,
+            "human_text": summary}
+        }
+
+        context.mark_completed()
+        result = self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
+        return result
+
+    def _check_alerts(self, summary: dict, frame_number: Any, config: LaneDetectionConfig) -> List[Dict]:
+        def get_trend(data, lookback=900, threshold=0.6):
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            ratio = increasing / total
+            return ratio >= threshold
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        alerts = []
+        total_detections = summary.get("total_count", 0)
+        total_counts_dict = summary.get("total_counts", {})
+        per_category_count = summary.get("per_category_count", {})
+
+        if not config.alert_config:
+            return alerts
+
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category == "all" and total_detections > threshold:
+                    alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                        "alert_id": f"alert_{category}_{frame_key}",
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                         getattr(config.alert_config, 'alert_value', ['JSON']))}
+                    })
+                elif category in per_category_count and per_category_count[category] > threshold:
+                    alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                        "alert_id": f"alert_{category}_{frame_key}",
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                         getattr(config.alert_config, 'alert_value', ['JSON']))}
+                    })
+        return alerts
+
+    def _generate_incidents(self, counting_summary: Dict, alerts: List, config: LaneDetectionConfig,
+                           frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        incidents = []
+        total_detections = counting_summary.get("total_count", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+
+        if total_detections > 0:
+            level = "low"
+            intensity = 5.0
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            if start_timestamp and self.current_incident_end_timestamp == 'N/A':
+                self.current_incident_end_timestamp = 'Incident still active'
+            elif start_timestamp and self.current_incident_end_timestamp == 'Incident still active':
+                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                    self.current_incident_end_timestamp = current_timestamp
+            elif self.current_incident_end_timestamp != 'Incident still active' and self.current_incident_end_timestamp != 'N/A':
+                self.current_incident_end_timestamp = 'N/A'
+
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                intensity = min(10.0, (total_detections / threshold) * 10)
+                if intensity >= 9:
+                    level = "critical"
+                    self._ascending_alert_list.append(3)
+                elif intensity >= 7:
+                    level = "significant"
+                    self._ascending_alert_list.append(2)
+                elif intensity >= 5:
+                    level = "medium"
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    self._ascending_alert_list.append(0)
+            else:
+                if total_detections > 30:
+                    level = "critical"
+                    intensity = 10.0
+                    self._ascending_alert_list.append(3)
+                elif total_detections > 25:
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
+                elif total_detections > 15:
+                    level = "medium"
+                    intensity = 7.0
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    intensity = min(10.0, total_detections / 3.0)
+                    self._ascending_alert_list.append(0)
+
+            human_text_lines = [f"LANE INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
+            human_text = "\n".join(human_text_lines)
+
+            alert_settings = []
+            if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+                alert_settings.append({
+                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                    "ascending": True,
+                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                     getattr(config.alert_config, 'alert_value', ['JSON']))}
+                })
+
+            event = self.create_incident(
+                incident_id=f"{self.CASE_TYPE}_{frame_number}",
+                incident_type=self.CASE_TYPE,
+                severity_level=level,
+                human_text=human_text,
+                camera_info=camera_info,
+                alerts=alerts,
+                alert_settings=alert_settings,
+                start_time=start_timestamp,
+                end_time=self.current_incident_end_timestamp,
+                level_settings={"low": 1, "medium": 3, "significant": 4, "critical": 7}
+            )
+            incidents.append(event)
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+
+        return incidents
+
+    def _generate_tracking_stats(self, counting_summary: Dict, alerts: List, config: LaneDetectionConfig,
+                                frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        tracking_stats = []
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts_dict = counting_summary.get("total_counts", {})
+        per_category_count = counting_summary.get("per_category_count", {})
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        total_counts = [{"category": cat, "count": count} for cat, count in total_counts_dict.items() if count > 0]
+        current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items() if count > 0 or total_detections > 0]
+
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "lane")
+            if detection.get("masks"):
+                segmentation = detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation = detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation = detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
+
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
+                                                 getattr(config.alert_config, 'alert_value', ['JSON']))}
+            })
+
+        human_text_lines = [f"Tracking Statistics:"]
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
+        for cat, count in per_category_count.items():
+            human_text_lines.append(f"\t{cat}: {count}")
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
+        for cat, count in total_counts_dict.items():
+            if count > 0:
+                human_text_lines.append(f"\t{cat}: {count}")
+        human_text_lines.append(f"Alerts: {alerts[0].get('settings', {})} sent @ {current_timestamp}" if alerts else "Alerts: None")
+        human_text = "\n".join(human_text_lines)
+
+        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        tracking_stat = self.create_tracking_stats(
+            total_counts=total_counts,
+            current_counts=current_counts,
+            detections=detections,
+            human_text=human_text,
+            camera_info=camera_info,
+            alerts=alerts,
+            alert_settings=alert_settings,
+            reset_settings=reset_settings,
+            start_time=high_precision_start_timestamp,
+            reset_time=high_precision_reset_timestamp
+        )
+        tracking_stats.append(tracking_stat)
+        return tracking_stats
+
+    def _generate_business_analytics(self, counting_summary: Dict, alerts: Any, config: LaneDetectionConfig,
+                                    stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+        if is_empty:
+            return []
+
+    def _generate_summary(self, summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if incidents:
+            lines["Incidents:"] = f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if tracking_stats:
+            lines["Tracking Statistics:"] = f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if business_analytics:
+            lines["Business Analytics:"] = f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+        if not incidents and not tracking_stats and not business_analytics:
+            lines["Summary"] = "No Summary Data"
+        return [lines]
+
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
-        frame_track_ids = set()
-        for det in detections:
-            tid = det.get('track_id')
-            if tid is not None:
-                frame_track_ids.add(tid)
+        frame_track_ids = {det.get('track_id') for det in detections if det.get('track_id') is not None}
         total_track_ids = set()
         for s in getattr(self, '_per_category_total_track_ids', {}).values():
             total_track_ids.update(s)
@@ -91,315 +432,61 @@ class LaneDetectionUseCase(BaseProcessor):
     def get_total_counts(self):
         return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
 
-    def _format_timestamp_for_video(self, timestamp: float) -> str:
-        hours = int(timestamp // 3600)
-        minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
-
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60), 2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str] = None) -> str:
         if not stream_info:
-            return "00:00:00.00"
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
-        else:
-            stream_time_str = stream_info.get("stream_time", "")
+            return "00:00:00.00" if precision else "00:00:00"
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                start_time = (int(frame_id) if frame_id else stream_info.get("input_settings", {}).get("start_frame", 30)) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                return self._format_timestamp_for_video(start_time)
+            return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            start_time = (int(frame_id) if frame_id else stream_info.get("input_settings", {}).get("start_frame", 30)) / stream_info.get("input_settings", {}).get("original_fps", 30)
+            return self._format_timestamp_for_video(start_time)
+        stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+        if stream_time_str:
+            try:
+                timestamp_str = stream_time_str.replace(" UTC", "")
+                dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                return self._format_timestamp_for_stream(timestamp)
+            except:
+                return self._format_timestamp_for_stream(time.time())
+        return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        if not stream_info:
+            return "00:00:00" if not precision else "00:00:00.00"
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                return "00:00:00.00"
+            return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            return "00:00:00"
+        if self._tracking_start_time is None:
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-                    return self._format_timestamp_for_stream(timestamp)
+                    self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
                 except:
-                    return self._format_timestamp_for_stream(time.time())
-            else:
-                return self._format_timestamp_for_stream(time.time())
-
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        if not stream_info:
-            return "00:00:00"
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        if is_video_chunk or stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            return "00:00:00"
-        else:
-            if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("stream_time", "")
-                if stream_time_str:
-                    try:
-                        timestamp_str = stream_time_str.replace(" UTC", "")
-                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except:
-                        self._tracking_start_time = time.time()
-                else:
                     self._tracking_start_time = time.time()
-            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-            dt = dt.replace(minute=0, second=0, microsecond=0)
-            return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-    def __init__(self):
-        super().__init__("lane_detection")
-        self.category = "traffic"
-        self.target_categories = ["Divider-Line", "Dotted-Line", "Double-Line", "Random-Line", "Road-Sign-Line", "Solid-Line"]
-        self.smoothing_tracker = None
-        self.tracker = None
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self._tracking_start_time = None
-        self._track_aliases: Dict[Any, Any] = {}
-        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
-        self._track_merge_iou_threshold: float = 0.05
-        self._track_merge_time_window: float = 7.0
-
-    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
-                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        start_time = time.time()
-        if not isinstance(config, LaneDetectionConfig):
-            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
-        if context is None:
-            context = ProcessingContext()
-
-        input_format = match_results_structure(data)
-        context.input_format = input_format
-        context.confidence_threshold = config.confidence_threshold
-
-        if config.confidence_threshold is not None:
-            processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
-        else:
-            processed_data = data
-            self.logger.debug("Did not apply confidence filtering")
-
-        if config.index_to_category:
-            processed_data = apply_category_mapping(processed_data, config.index_to_category)
-            self.logger.debug("Applied category mapping")
-
-        if config.target_categories:
-            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
-            self.logger.debug("Applied category filtering")
-
-        if config.enable_smoothing:
-            if self.smoothing_tracker is None:
-                smoothing_config = BBoxSmoothingConfig(
-                    smoothing_algorithm=config.smoothing_algorithm,
-                    window_size=config.smoothing_window_size,
-                    cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,
-                    confidence_range_factor=config.smoothing_confidence_range_factor,
-                    enable_smoothing=True
-                )
-                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-
-        try:
-            from ..advanced_tracker import AdvancedTracker
-            from ..advanced_tracker.config import TrackerConfig
-            if self.tracker is None:
-                tracker_config = TrackerConfig()
-                self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for Lane Monitoring")
-            processed_data = self.tracker.update(processed_data)
-        except Exception as e:
-            self.logger.warning(f"AdvancedTracker failed: {e}")
-
-        self._update_tracking_state(processed_data)
-        self._total_frame_counter += 1
-
-        frame_number = None
-        if stream_info:
-            input_settings = stream_info.get("input_settings", {})
-            start_frame = input_settings.get("start_frame")
-            end_frame = input_settings.get("end_frame")
-            if start_frame is not None and end_frame is not None and start_frame == end_frame:
-                frame_number = start_frame
-
-        general_counting_summary = calculate_counting_summary(data)
-        counting_summary = self._count_categories(processed_data, config)
-        total_counts = self.get_total_counts()
-        counting_summary['total_counts'] = total_counts
-        insights = self._generate_insights(counting_summary, config)
-        alerts = self._check_alerts(counting_summary, config)
-        predictions = self._extract_predictions(processed_data)
-        summary = self._generate_summary(counting_summary, alerts)
-
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
-
-        events = events_list[0] if events_list else {}
-        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
-
-        context.mark_completed()
-        result = self.create_result(
-            data={
-                "counting_summary": counting_summary,
-                "general_counting_summary": general_counting_summary,
-                "alerts": alerts,
-                "total_detections": counting_summary.get("total_count", 0),
-                "events": events,
-                "tracking_stats": tracking_stats,
-            },
-            usecase=self.name,
-            category=self.category,
-            context=context
-        )
-        result.summary = summary
-        result.insights = insights
-        result.predictions = predictions
-        return result
-
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: LaneDetectionConfig,
-                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = [{frame_key: []}]
-        frame_events = events[0][frame_key]
-        total_detections = counting_summary.get("total_count", 0)
-
-        if total_detections > 0:
-            level = "info"
-            intensity = 5.0
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
-                intensity = min(10.0, (total_detections / threshold) * 10)
-                if intensity >= 7:
-                    level = "critical"
-                elif intensity >= 5:
-                    level = "warning"
-                else:
-                    level = "info"
             else:
-                if total_detections > 25:
-                    level = "critical"
-                    intensity = 9.0
-                elif total_detections > 15:
-                    level = "warning"
-                    intensity = 7.0
-                else:
-                    level = "info"
-                    intensity = min(10.0, total_detections / 3.0)
-
-            human_text_lines = ["EVENTS DETECTED:"]
-            human_text_lines.append(f"    - {total_detections} lanes detected [INFO]")
-            human_text = "\n".join(human_text_lines)
-
-            event = {
-                "type": "lane_detection",
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": level,
-                "intensity": round(intensity, 1),
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Lane Detection System",
-                "application_version": "1.2",
-                "location_info": None,
-                "human_text": human_text
-            }
-            frame_events.append(event)
-
-        for alert in alerts:
-            total_detections = counting_summary.get("total_count", 0)
-            intensity_message = "ALERT: Low lane density in the scene"
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
-                percentage = (total_detections / threshold) * 100 if threshold > 0 else 0
-                if percentage < 20:
-                    intensity_message = "ALERT: Low lane density in the scene"
-                elif percentage <= 50:
-                    intensity_message = "ALERT: Moderate lane density in the scene"
-                elif percentage <= 70:
-                    intensity_message = "ALERT: High lane density in the scene"
-                else:
-                    intensity_message = "ALERT: Very high lane density in the scene"
-            else:
-                if total_detections > 15:
-                    intensity_message = "ALERT: High lane density in the scene"
-                elif total_detections == 1:
-                    intensity_message = "ALERT: Low lane density in the scene"
-                else:
-                    intensity_message = "ALERT: Moderate lane density in the scene"
-
-            alert_event = {
-                "type": alert.get("type", "lane_density_alert"),
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": alert.get("severity", "warning"),
-                "intensity": 8.0,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Lane Density Alert System",
-                "application_version": "1.2",
-                "location_info": alert.get("zone"),
-                "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
-            }
-            frame_events.append(alert_event)
-
-        return events
-
-    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: LaneDetectionConfig,
-                                frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
-
-        total_detections = counting_summary.get("total_count", 0)
-        total_counts = counting_summary.get("total_counts", {})
-        cumulative_total = sum(total_counts.values()) if total_counts else 0
-        per_category_count = counting_summary.get("per_category_count", {})
-
-        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        start_timestamp = self._get_start_timestamp_str(stream_info)
-
-        human_text_lines = []
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if total_detections > 0:
-            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
-            if len(category_counts) == 1:
-                detection_text = category_counts[0] + " detected"
-            elif len(category_counts) == 2:
-                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
-            else:
-                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
-            human_text_lines.append(f"\t- {detection_text}")
-        else:
-            human_text_lines.append(f"\t- No detections")
-
-        human_text_lines.append("")
-        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"\t- Total Lanes Detected: {cumulative_total}")
-        if total_counts:
-            for cat, count in total_counts.items():
-                if count > 0:
-                    human_text_lines.append(f"\t- {cat}: {count}")
-
-        human_text = "\n".join(human_text_lines)
-
-        tracking_stat = {
-            "type": "lane_detection",
-            "category": "traffic",
-            "count": total_detections,
-            "insights": insights,
-            "summary": summary,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": human_text,
-            "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key,
-            "detections": counting_summary.get("detections", [])
-        }
-
-        frame_tracking_stats.append(tracking_stat)
-        return tracking_stats
+                self._tracking_start_time = time.time()
+        dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+        dt = dt.replace(minute=0, second=0, microsecond=0)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _count_categories(self, detections: list, config: LaneDetectionConfig) -> dict:
         counts = {}
@@ -421,74 +508,6 @@ class LaneDetectionUseCase(BaseProcessor):
             ]
         }
 
-    CATEGORY_DISPLAY = {
-        "Divider-Line": "divider-line",
-        "Dotted-Line": "dotted-line",
-        "Double-Line": "double-line",
-        "Random-Line": "random-line",
-        "Road-Sign-Line": "road-sign-line",
-        "Solid-Line": "solid-line"
-    }
-
-    def _generate_insights(self, summary: dict, config: LaneDetectionConfig) -> List[str]:
-        insights = []
-        per_cat = summary.get("per_category_count", {})
-        total_detections = summary.get("total_count", 0)
-
-        if total_detections == 0:
-            insights.append("No lane detections in the scene")
-            return insights
-        insights.append(f"EVENT: Detected {total_detections} lanes in the scene")
-
-        intensity_threshold = None
-        if config.alert_config and config.alert_config.count_thresholds and "all" in config.alert_config.count_thresholds:
-            intensity_threshold = config.alert_config.count_thresholds["all"]
-
-        if intensity_threshold is not None:
-            percentage = (total_detections / intensity_threshold) * 100
-            if percentage < 20:
-                insights.append(f"INTENSITY: Low lane density ({percentage:.1f}% of capacity)")
-            elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate lane density ({percentage:.1f}% of capacity)")
-            elif percentage <= 70:
-                insights.append(f"INTENSITY: High lane density ({percentage:.1f}% of capacity)")
-            else:
-                insights.append(f"INTENSITY: Very high lane density ({percentage:.1f}% of capacity)")
-
-        for cat, count in per_cat.items():
-            display = self.CATEGORY_DISPLAY.get(cat, cat)
-            insights.append(f"{display}: {count}")
-        return insights
-
-    def _check_alerts(self, summary: dict, config: LaneDetectionConfig) -> List[Dict]:
-        alerts = []
-        if not config.alert_config:
-            return alerts
-        total = summary.get("total_count", 0)
-        if config.alert_config.count_thresholds:
-            for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total >= threshold:
-                    alerts.append({
-                        "type": "count_threshold",
-                        "severity": "warning",
-                        "message": f"Total lane detections ({total}) exceeds threshold ({threshold})",
-                        "category": category,
-                        "current_count": total,
-                        "threshold": threshold
-                    })
-                elif category in summary.get("per_category_count", {}):
-                    count = summary.get("per_category_count", {})[category]
-                    if count >= threshold:
-                        alerts.append({
-                            "type": "count_threshold",
-                            "severity": "warning",
-                            "message": f"{category} count ({count}) exceeds threshold ({threshold})",
-                            "category": category,
-                            "current_count": count,
-                            "threshold": threshold
-                        })
-        return alerts
-
     def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
         return [
             {
@@ -498,25 +517,6 @@ class LaneDetectionUseCase(BaseProcessor):
             }
             for det in detections
         ]
-
-    def _generate_summary(self, summary: dict, alerts: List) -> str:
-        total = summary.get("total_count", 0)
-        per_cat = summary.get("per_category_count", {})
-        cumulative = summary.get("total_counts", {})
-        cumulative_total = sum(cumulative.values()) if cumulative else 0
-        lines = []
-        if total > 0:
-            lines.append(f"{total} lane detections")
-            if per_cat:
-                lines.append("detections:")
-                for cat, count in per_cat.items():
-                    lines.append(f"\t{cat}: {count}")
-        else:
-            lines.append("No lane detections")
-        lines.append(f"Total lane detections: {cumulative_total}")
-        if alerts:
-            lines.append(f"{len(alerts)} alert(s)")
-        return "\n".join(lines)
 
     def _compute_iou(self, box1: Any, box2: Any) -> float:
         def _bbox_to_list(bbox):
@@ -539,31 +539,25 @@ class LaneDetectionUseCase(BaseProcessor):
             return 0.0
         x1_min, y1_min, x1_max, y1_max = l1
         x2_min, y2_min, x2_max, y2_max = l2
-
         x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
         y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
         x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
         y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
-
         inter_x_min = max(x1_min, x2_min)
         inter_y_min = max(y1_min, y2_min)
         inter_x_max = min(x1_max, x2_max)
         inter_y_max = min(y1_max, y2_max)
-
         inter_w = max(0.0, inter_x_max - inter_x_min)
         inter_h = max(0.0, inter_y_max - inter_y_min)
         inter_area = inter_w * inter_h
-
         area1 = (x1_max - x1_min) * (y1_max - y1_min)
         area2 = (x2_max - x2_min) * (y2_max - y2_min)
         union_area = area1 + area2 - inter_area
-
         return (inter_area / union_area) if union_area > 0 else 0.0
 
     def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
         if raw_id is None or bbox is None:
             return raw_id
-
         now = time.time()
         if raw_id in self._track_aliases:
             canonical_id = self._track_aliases[raw_id]
@@ -573,7 +567,6 @@ class LaneDetectionUseCase(BaseProcessor):
                 track_info["last_update"] = now
                 track_info["raw_ids"].add(raw_id)
             return canonical_id
-
         for canonical_id, info in self._canonical_tracks.items():
             if now - info["last_update"] > self._track_merge_time_window:
                 continue
@@ -584,13 +577,12 @@ class LaneDetectionUseCase(BaseProcessor):
                 info["last_update"] = now
                 info["raw_ids"].add(raw_id)
                 return canonical_id
-
         canonical_id = raw_id
         self._track_aliases[raw_id] = canonical_id
         self._canonical_tracks[canonical_id] = {
             "last_bbox": bbox,
             "last_update": now,
-            "raw_ids": {raw_id},
+            "raw_ids": {raw_id}
         }
         return canonical_id
 

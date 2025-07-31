@@ -11,7 +11,8 @@ use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
     BuildOptions, Concurrency, ConfigSettings, Constraints, DependencyGroups, IndexStrategy,
-    KeyringProviderType, NoBinary, NoBuild, PackageConfigSettings, PreviewMode, SourceStrategy,
+    KeyringProviderType, NoBinary, NoBuild, PackageConfigSettings, Preview, PreviewFeatures,
+    SourceStrategy,
 };
 use uv_dispatch::{BuildDispatch, SharedState};
 use uv_distribution_types::Requirement;
@@ -28,6 +29,7 @@ use uv_shell::{Shell, shlex_posix, shlex_windows};
 use uv_types::{AnyErrorBuild, BuildContext, BuildIsolation, BuildStack, HashStrategy};
 use uv_virtualenv::OnExisting;
 use uv_warnings::warn_user;
+use uv_workspace::pyproject::ExtraBuildDependencies;
 use uv_workspace::{DiscoveryOptions, VirtualProject, WorkspaceCache, WorkspaceError};
 
 use crate::commands::ExitStatus;
@@ -74,14 +76,14 @@ pub(crate) async fn venv(
     system_site_packages: bool,
     seed: bool,
     on_existing: OnExisting,
-    exclude_newer: Option<ExcludeNewer>,
+    exclude_newer: ExcludeNewer,
     concurrency: Concurrency,
     no_config: bool,
     no_project: bool,
     cache: &Cache,
     printer: Printer,
     relocatable: bool,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<ExitStatus> {
     let workspace_cache = WorkspaceCache::default();
     let project = if no_project {
@@ -198,7 +200,7 @@ pub(crate) async fn venv(
         path.user_display().cyan()
     )?;
 
-    let upgradeable = preview.is_enabled()
+    let upgradeable = preview.is_enabled(PreviewFeatures::PYTHON_UPGRADE)
         && python_request
             .as_ref()
             .is_none_or(|request| !request.includes_patch());
@@ -265,7 +267,8 @@ pub(crate) async fn venv(
 
         // Do not allow builds
         let build_options = BuildOptions::new(NoBinary::None, NoBuild::All);
-
+        let extra_build_requires =
+            uv_distribution::ExtraBuildRequires::from_lowered(ExtraBuildDependencies::default());
         // Prep the build context.
         let build_dispatch = BuildDispatch::new(
             &client,
@@ -280,6 +283,7 @@ pub(crate) async fn venv(
             &config_settings,
             &config_settings_package,
             BuildIsolation::Isolated,
+            &extra_build_requires,
             link_mode,
             &build_options,
             &build_hasher,

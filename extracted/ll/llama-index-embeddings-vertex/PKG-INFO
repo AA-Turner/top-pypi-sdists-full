@@ -1,19 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-embeddings-vertex
-Version: 0.3.2
+Version: 0.4.0
 Summary: llama-index embeddings vertex integration
-License: MIT
-Author: Henry Jiang
-Author-email: h243jian@uwaterloo.ca
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: google-cloud-aiplatform (>=1.43.0)
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
+Author-email: Henry Jiang <h243jian@uwaterloo.ca>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.9
+Requires-Dist: google-cloud-aiplatform>=1.43.0
+Requires-Dist: llama-index-core<0.14,>=0.13.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex Embeddings Integration: Vertex
@@ -75,4 +69,3 @@ embedding = VertexTextEmbedding(
     private_key="your-private-key",
 )
 ```
-

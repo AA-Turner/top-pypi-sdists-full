@@ -51,7 +51,7 @@ CONFIG_CALCULATED_TARGET_COLUMNS = "target_calculated_columns"
 CONFIG_USE_RANDOM_ROWS = "use_random_rows"
 CONFIG_RANDOM_ROW_BATCH_SIZE = "random_row_batch_size"
 CONFIG_PRIMARY_KEYS = "primary_keys"
-CONFIG_TRIM_STRING_PKS = "trim_string_pks"
+CONFIG_TRIM_STRING_PKS = "trim_string_pks"  # now deprecated
 CONFIG_CASE_INSENSITIVE_MATCH = "case_insensitive_match"
 CONFIG_ROW_CONCAT = "concat"
 CONFIG_ROW_HASH = "hash"
@@ -86,7 +86,12 @@ CONFIG_FILTER_STATUS = "filter_status"
 
 CONFIG_RESULT_HANDLER = "result_handler"
 
+CONFIG_TYPE_AVG = "avg"
+CONFIG_TYPE_BIT_XOR = "bit_xor"
 CONFIG_TYPE_COUNT = "count"
+CONFIG_TYPE_MAX = "max"
+CONFIG_TYPE_MIN = "min"
+CONFIG_TYPE_STD = "std"
 CONFIG_TYPE_SUM = "sum"
 
 # Default values

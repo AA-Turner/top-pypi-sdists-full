@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorzero
-Version: 2025.7.4
+Version: 2025.7.5
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -12,7 +12,7 @@ Requires-Dist: uuid-utils>=0.9.0
 Summary: The Python client for TensorZero
 Keywords: artificial intelligence,ai,machine learning,ml,large language model,large language models,llm,llms,natural language processing,NLP,generative ai,genai
 Author-email: Viraj Mehta <viraj@tensorzero.com>, Gabriel Bianconi <gabriel@tensorzero.com>, Aaron Hill <aaron@tensorzero.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://tensorzero.com/

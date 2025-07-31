@@ -11,14 +11,17 @@
 from meutils.pipe import *
 
 
-def create_fal_models(model: str, request: dict):
-    if model == "pika":
+def make_billing_model(model: str, request: dict):
+    _model = model.removeprefix("fal-")
+    if _model.startswith(("pika", "fal-pika")):
         duration = request.get("duration")
         resolution = request.get("resolution")
 
         billing_model = f"{duration}s_{resolution}"
-        return billing_model
 
-    elif model == "ideogram":
+        return f"{model}_{billing_model}"
+
+    elif _model.startswith(("ideogram", "fal-ideogram")):
         billing_model = request.get("rendering_speed", "BALANCED").lower()
-        return billing_model
+
+        return f"{model}_{billing_model}"

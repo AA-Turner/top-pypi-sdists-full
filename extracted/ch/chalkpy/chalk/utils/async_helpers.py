@@ -1,28 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import collections.abc
 import contextlib
 import functools
 import queue
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import (
-    Any,
-    AsyncIterable,
-    AsyncIterator,
-    Callable,
-    Coroutine,
-    Generic,
-    Iterable,
-    Mapping,
-    Sequence,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Generic, Iterable, TypeVar, overload
 
-import aiotools
 from typing_extensions import ParamSpec
 
 from chalk.utils.tracing import safe_activate_trace_context, safe_current_trace_context
@@ -220,50 +205,3 @@ class to_async_iterable(Generic[T]):
             q.get_nowait()
         except asyncio.QueueEmpty:
             pass
-
-
-@overload
-async def wait_for_futures(
-    futures: Iterable[Coroutine[Any, Any, T]],
-) -> Sequence[T]:
-    ...
-
-
-@overload
-async def wait_for_futures(
-    futures: Mapping[K, Coroutine[Any, Any, T]],
-) -> Mapping[K, T]:
-    ...
-
-
-async def wait_for_futures(
-    futures: Mapping[K, Coroutine[Any, Any, T]] | Iterable[Coroutine[Any, Any, T]],
-) -> Mapping[K, T] | Sequence[T]:
-    """Run all the provided coroutines, and at the end, raise exceptions that might have occurred.
-
-    This method will greedily cancel any coroutines if there is an exception."""
-    if isinstance(futures, collections.abc.Mapping):
-        was_mapping = True
-        futs_map = cast(Mapping[K, Coroutine[Any, Any, T]], futures)
-    else:
-        was_mapping = False
-        futs_map = {cast(K, i): fut for (i, fut) in enumerate(futures)}
-
-    if len(futs_map) == 0:
-        if was_mapping:
-            return {}
-        else:
-            return []
-    ans: dict[K, T] = {}
-    if len(futs_map) == 1:
-        # If a single future, skipping the asyncio.gather because spawning asyncio tasks is slow
-        for k, v in futs_map.items():
-            ans[k] = await v
-    else:
-        async with aiotools.TaskGroup() as tg:
-            tasks = tuple((k, tg.create_task(v)) for (k, v) in futs_map.items())
-        for task_name, t in tasks:
-            ans[task_name] = t.result()
-    if not was_mapping:
-        return [ans[cast(K, i)] for i in range(len(ans))]
-    return ans

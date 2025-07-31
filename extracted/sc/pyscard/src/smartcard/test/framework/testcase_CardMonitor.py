@@ -46,6 +46,7 @@ except ImportError:
 
 # a simple card observer that prints inserted/removed cards
 class printobserver(CardObserver):
+    # pylint: disable=too-few-public-methods
     """print observer"""
 
     def __init__(self, obsindex, testcase):

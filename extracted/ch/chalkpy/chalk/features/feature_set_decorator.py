@@ -1299,6 +1299,24 @@ def _process_class(
     return cls
 
 
+def _can_overwrite_feature(cls: Type[Features], key: str, existing_feature: Optional[Feature] = None) -> bool:
+    """
+    Note: Can't really distinguish between features declared like this in a notebook cell
+    vs. features declared like this in code imported from a notebook cell (e.g. customer code)
+    Gonna treat both the same since this code only runs in a notebook context
+    (e.g. customers can't use this pattern as part of their deployment code)
+    """
+    from chalk.features.feature_set import FeatureSetBase
+
+    if notebook.is_defined_in_module(cls) and key not in FeatureSetBase.__chalk_notebook_defined_feature_fields__.get(
+        cls.namespace, set()
+    ):
+        if existing_feature is not None:
+            return False
+
+    return True
+
+
 def _class_setattr(
     cls: Type[Features],
     key: str,
@@ -1319,53 +1337,51 @@ def _class_setattr(
         type.__setattr__(cls, key, value)
         return
     f = None
+    existing_feature = None
     is_notebook_defined_feature = False
     if isinstance(value, Underscore):
+        # Handle the case of `User.new_feat: typ = ....` in a notebook
         from chalk.df.ast_parser import parse_inline_setattr_annotation
 
         fqn = build_namespaced_name(name=f"{cls.namespace}.{key}")
-        existing_feature = next((f for f in cls.features if f.fqn == fqn), None)
+        existing_feature = next((ff for ff in cls.features if ff.fqn == fqn), None)
         typ = parse_inline_setattr_annotation(key)
-        is_notebook_expression: bool = notebook.is_notebook()
+        is_notebook_defined_feature: bool = notebook.is_notebook()
+
+        if is_notebook_defined_feature and not _can_overwrite_feature(cls, key, existing_feature):
+            raise ValueError(
+                f"Can't overwrite feature '{cls.namespace}.{key}' because it already exists in the deployment source."
+            )
 
         if typ is None:
-            # Notebook defined features require a type annotation
-            if is_notebook_expression or existing_feature is None:
-                raise TypeError(f"Please define a type annotation for feature '{fqn}'")
+            if is_notebook_defined_feature or existing_feature is None:
+                raise TypeError(
+                    f"Please define a type annotation for feature '{fqn}', like so: User.new_feature: typ = _.a + _.b"
+                )
             else:
                 parsed_annotation = ParsedAnnotation(underlying=existing_feature.typ.parsed_annotation)
         else:
             parsed_annotation = ParsedAnnotation(underlying=typ)
 
-        if existing_feature is not None:
-            existing_feature.typ = parsed_annotation
-            existing_feature.underscore_expression = value
-        else:
-            f = Feature(
-                namespace=cls.namespace,
-                name=key,
-                attribute_name=key,
-                features_cls=cls,
-                typ=parsed_annotation,
-                underscore_expression=value,
-            )
+        # Always create a new feature to avoid type initialization issues
+        f = Feature(
+            namespace=cls.namespace,
+            name=key,
+            attribute_name=key,
+            features_cls=cls,
+            typ=parsed_annotation,
+            underscore_expression=value,
+        )
     elif isinstance(value, Feature):
         # Handle the case of `User.new_feat = feature(....)` in a notebook
         f = value
         if notebook.is_notebook():
-            # Note: Can't really distinguish between features declared like this in a notebook cell
-            # vs. features declared like this in code imported from a notebook cell (e.g. customer code)
-            # Gonna treat both the same since this code only runs in a notebook context
-            # (e.g. customers can't use this pattern as part of their deployment code)
             is_notebook_defined_feature = True
             existing_feature = next((ff for ff in cls.features if ff.unversioned_attribute_name == key), None)
-            if notebook.is_defined_in_module(
-                cls
-            ) and key not in FeatureSetBase.__chalk_notebook_defined_feature_fields__.get(cls.namespace, set()):
-                if existing_feature is not None:
-                    raise ValueError(
-                        f"Can't overwrite feature '{cls.namespace}.{key}' because it already exists in the deployment source."
-                    )
+            if not _can_overwrite_feature(cls, key, existing_feature):
+                raise ValueError(
+                    f"Can't overwrite feature '{cls.namespace}.{key}' because it already exists in the deployment source."
+                )
             if hasattr(f, "max_staleness") and f.max_staleness.total_seconds() > 0:
                 raise ValueError(
                     "Cannot set `max_staleness` on a notebook defined feature: persistence is not supported for notebook defined features"
@@ -1403,24 +1419,29 @@ def _class_setattr(
                 f"For example, `{cls.__name__}.{key}: int = _.a + _.b`."
             )
         )
-    if f is not None:
-        # Process feature field
-        f.features_cls = cls
-        _process_field(
-            f=f,
-            error_builder=cls.__chalk_error_builder__,
-            comments={},
-            class_owner=cls.__chalk_owner__,
-            class_tags=tuple(cls.__chalk_tags__),
-            class_etl_offline_to_online=cls.__chalk_etl_offline_to_online__,
-            class_max_staleness=cls.__chalk_max_staleness__,
-        )
-        cls.features.append(f)
-        wrapped_feature = FeatureWrapper(f)
-        type.__setattr__(cls, key, wrapped_feature)
-        if is_notebook_defined_feature:
-            assert f.unversioned_attribute_name is not None  # for pyright
-            FeatureSetBase.__chalk_notebook_defined_feature_fields__[cls.namespace].add(f.unversioned_attribute_name)
+
+    # Clear the cache so that the new feature definition propagates
+    Feature._from_root_fqn.cache_clear()
+
+    # Process feature field
+    f.features_cls = cls
+    _process_field(
+        f=f,
+        error_builder=cls.__chalk_error_builder__,
+        comments={},
+        class_owner=cls.__chalk_owner__,
+        class_tags=tuple(cls.__chalk_tags__),
+        class_etl_offline_to_online=cls.__chalk_etl_offline_to_online__,
+        class_max_staleness=cls.__chalk_max_staleness__,
+    )
+    if existing_feature is not None:
+        cls.features.remove(existing_feature)
+    cls.features.append(f)
+    wrapped_feature = FeatureWrapper(f)
+    type.__setattr__(cls, key, wrapped_feature)
+    if is_notebook_defined_feature:
+        assert f.unversioned_attribute_name is not None  # for pyright
+        FeatureSetBase.__chalk_notebook_defined_feature_fields__[cls.namespace].add(f.unversioned_attribute_name)
 
 
 def parse_quoted_window_feature(annotation_str: str, module_str: str) -> Type[Windowed]:

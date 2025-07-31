@@ -23,11 +23,35 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 from smartcard.CardConnectionDecorator import CardConnectionDecorator
-from smartcard.Exceptions import *
+from smartcard.Exceptions import (
+    CardServiceNotFoundException,
+    CardServiceStoppedException,
+    NoCardException,
+)
 from smartcard.pcsc.PCSCCardConnection import PCSCCardConnection
-from smartcard.pcsc.PCSCExceptions import *
+from smartcard.pcsc.PCSCExceptions import (
+    AddReaderToGroupException,
+    EstablishContextException,
+    IntroduceReaderException,
+    ListReadersException,
+    ReleaseContextException,
+    RemoveReaderFromGroupException,
+)
 from smartcard.reader.Reader import Reader
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_E_DUPLICATE_READER,
+    SCARD_E_NO_READERS_AVAILABLE,
+    SCARD_E_NO_SERVICE,
+    SCARD_E_SERVICE_STOPPED,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCardAddReaderToGroup,
+    SCardEstablishContext,
+    SCardIntroduceReader,
+    SCardListReaders,
+    SCardReleaseContext,
+    SCardRemoveReaderFromGroup,
+)
 
 
 def __PCSCreaders__(hcontext, groups=None):
@@ -69,7 +93,7 @@ class PCSCReader(Reader):
             raise EstablishContextException(hresult)
         try:
             hresult = SCardIntroduceReader(hcontext, self.name, self.name)
-            if SCARD_S_SUCCESS != hresult and SCARD_E_DUPLICATE_READER != hresult:
+            if hresult not in (SCARD_S_SUCCESS, SCARD_E_DUPLICATE_READER):
                 raise IntroduceReaderException(hresult, self.name)
             hresult = SCardAddReaderToGroup(hcontext, self.name, groupname)
             if SCARD_S_SUCCESS != hresult:
@@ -99,12 +123,18 @@ class PCSCReader(Reader):
         return CardConnectionDecorator(PCSCCardConnection(self.name))
 
     class Factory:
+        """Factory to create PCSCReader objects"""
+
+        # pylint: disable=too-few-public-methods
+
         @staticmethod
         def create(readername):
+            """Return a PCSCReader object"""
             return PCSCReader(readername)
 
     @staticmethod
     def readers(groups=None):
+        """Return the list of readers"""
         if groups is None:
             groups = []
         creaders = []
@@ -124,16 +154,16 @@ class PCSCReader(Reader):
 
 
 if __name__ == "__main__":
-    from smartcard.util import *
+    from smartcard.util import toHexString
 
     SELECT = [0xA0, 0xA4, 0x00, 0x00, 0x02]
     DF_TELECOM = [0x7F, 0x10]
 
-    creaders = PCSCReader.readers()
-    for reader in creaders:
+    _creaders = PCSCReader.readers()
+    for _reader in _creaders:
         try:
-            print(reader.name)
-            connection = reader.createConnection()
+            print(_reader.name)
+            connection = _reader.createConnection()
             connection.connect()
             print(toHexString(connection.getATR()))
             data, sw1, sw2 = connection.transmit(SELECT + DF_TELECOM)

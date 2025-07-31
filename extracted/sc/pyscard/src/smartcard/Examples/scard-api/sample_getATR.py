@@ -29,7 +29,22 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import sys
 
 import smartcard.util
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_PROTOCOL_T0,
+    SCARD_PROTOCOL_T1,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_SHARE_SHARED,
+    SCARD_UNPOWER_CARD,
+    SCardConnect,
+    SCardDisconnect,
+    SCardEstablishContext,
+    SCardGetErrorMessage,
+    SCardListReaders,
+    SCardReleaseContext,
+    SCardStatus,
+    error,
+)
 
 if __name__ == "__main__":
     hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
@@ -42,7 +57,7 @@ if __name__ == "__main__":
         if hresult != SCARD_S_SUCCESS:
             raise error("Failed to list readers: " + SCardGetErrorMessage(hresult))
         if len(readers) < 1:
-            raise Exception("No smart card readers")
+            raise error("No smart card readers")
         print("PCSC Readers:", readers)
 
         for reader in readers:

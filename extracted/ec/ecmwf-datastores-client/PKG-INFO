@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ecmwf-datastores-client
-Version: 0.2.0
+Version: 0.4.0
 Summary: ECMWF Data Stores Service (DSS) API Python client
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -213,18 +213,17 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs
-Requires-Dist: multiurl>=0.3.2
+Requires-Dist: multiurl>=0.3.7
 Requires-Dist: requests
 Requires-Dist: typing-extensions
 Provides-Extra: legacy
@@ -322,8 +321,8 @@ Retrieve data:
 ...     "time": ["00:00"],
 ...     "pressure_level": ["1000"],
 ...     "data_format": "grib",
-...     "download_format": "unarchived"
-...     }
+...     "download_format": "unarchived",
+... }
 
 >>> client.retrieve(collection_id, request, target="target_1.grib")  # blocks
 'target_1.grib'
@@ -359,6 +358,7 @@ List all collection IDs sorted by last update:
 >>> while collections is not None:  # Loop over pages
 ...     collection_ids.extend(collections.collection_ids)
 ...     collections = collections.next  # Move to the next page
+...
 
 >>> collection_ids
 [...]
@@ -425,6 +425,7 @@ List all successful jobs, sorted by newest first:
 >>> while jobs is not None:  # Loop over pages
 ...     request_ids.extend(jobs.request_ids)
 ...     jobs = jobs.next  # Move to the next page
+...
 
 >>> request_ids
 [...]

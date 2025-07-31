@@ -1,20 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-callbacks-arize-phoenix
-Version: 0.5.1
+Version: 0.6.0
 Summary: llama-index callbacks arize-phoenix integration
-License: MIT
-Author: Arize AI
-Author-email: phoenix-devs@arize.com
-Requires-Python: >=3.9,<3.14
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
-Requires-Dist: openinference-instrumentation-llama-index (>=4.1.0)
+Author-email: Arize AI <phoenix-devs@arize.com>, OpenInference Authors <oss@arize.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <3.14,>=3.9
+Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: openinference-instrumentation-llama-index>=4.1.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex Callbacks Integration: Arize Phoenix
-

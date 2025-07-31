@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: chia_puzzles_py
-Version: 0.20.1
+Version: 0.20.2
 Summary: A collection of the currently deployed ChiaLisp puzzles.
 Author: Matt Howard
 Author-email: matt@chia.net

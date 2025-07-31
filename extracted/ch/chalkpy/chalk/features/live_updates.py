@@ -70,8 +70,10 @@ def build_overlay_graph() -> graph_pb2.OverlayGraph | None:
         # Not throwing here since this will interrupt running queries in notebook, which will be
         # very hard to recover from for the customer
         msg = (
-            f"An exception was raised while trying to collect notebook-generated features & resolvers. This means that if new features or resolvers were defined in the current notebook session, "
-            f"they will not used when executing queries against the Chalk server. The exception was: {e}"
+            "An exception was raised while trying to collect notebook-generated features & resolvers."
+            "\nThis means that if new features or resolvers were defined in the current notebook session, "
+            "they will not used when executing queries against the Chalk server."
+            f"\n\nThe exception was: {e}"
         )
         warnings.warn(msg, OverlayGraphWarning)
         return None

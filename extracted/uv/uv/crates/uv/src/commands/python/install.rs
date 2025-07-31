@@ -10,12 +10,13 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use indexmap::IndexSet;
 use itertools::{Either, Itertools};
-use owo_colors::OwoColorize;
+use owo_colors::{AnsiColors, OwoColorize};
 use rustc_hash::{FxHashMap, FxHashSet};
 use tracing::{debug, trace};
 
-use uv_configuration::PreviewMode;
+use uv_configuration::{Preview, PreviewFeatures};
 use uv_fs::Simplified;
+use uv_platform::{Arch, Libc};
 use uv_python::downloads::{
     self, ArchRequest, DownloadResult, ManagedPythonDownload, PythonDownloadRequest,
 };
@@ -23,14 +24,13 @@ use uv_python::managed::{
     ManagedPythonInstallation, ManagedPythonInstallations, PythonMinorVersionLink,
     create_link_to_executable, python_executable_dir,
 };
-use uv_python::platform::{Arch, Libc};
 use uv_python::{
     PythonDownloads, PythonInstallationKey, PythonInstallationMinorVersionKey, PythonRequest,
     PythonVersionFile, VersionFileDiscoveryOptions, VersionFilePreference, VersionRequest,
 };
 use uv_shell::Shell;
 use uv_trampoline_builder::{Launcher, LauncherKind};
-use uv_warnings::warn_user;
+use uv_warnings::{warn_user, write_error_chain};
 
 use crate::commands::python::{ChangeEvent, ChangeEventKind};
 use crate::commands::reporters::PythonDownloadReporter;
@@ -139,7 +139,7 @@ impl Changelog {
 enum InstallErrorKind {
     DownloadUnpack,
     Bin,
-    #[cfg(windows)]
+    #[cfg_attr(not(windows), allow(dead_code))]
     Registry,
 }
 
@@ -161,7 +161,7 @@ pub(crate) async fn install(
     default: bool,
     python_downloads: PythonDownloads,
     no_config: bool,
-    preview: PreviewMode,
+    preview: Preview,
     printer: Printer,
 ) -> Result<ExitStatus> {
     let start = std::time::Instant::now();
@@ -170,15 +170,17 @@ pub(crate) async fn install(
     // `--default` is used. It's not clear how this overlaps with a global Python pin, but I'd be
     // surprised if `uv python find` returned the "newest" Python version rather than the one I just
     // installed with the `--default` flag.
-    if default && !preview.is_enabled() {
+    if default && !preview.is_enabled(PreviewFeatures::PYTHON_INSTALL_DEFAULT) {
         warn_user!(
-            "The `--default` option is experimental and may change without warning. Pass `--preview` to disable this warning"
+            "The `--default` option is experimental and may change without warning. Pass `--preview-features {}` to disable this warning",
+            PreviewFeatures::PYTHON_INSTALL_DEFAULT
         );
     }
 
-    if upgrade && preview.is_disabled() {
+    if upgrade && !preview.is_enabled(PreviewFeatures::PYTHON_UPGRADE) {
         warn_user!(
-            "`uv python upgrade` is experimental and may change without warning. Pass `--preview` to disable this warning"
+            "`uv python upgrade` is experimental and may change without warning. Pass `--preview-features {}` to disable this warning",
+            PreviewFeatures::PYTHON_UPGRADE
         );
     }
 
@@ -665,7 +667,6 @@ pub(crate) async fn install(
         // to warn
         let fatal = !errors.iter().all(|(kind, _, _)| match kind {
             InstallErrorKind::Bin => bin.is_none(),
-            #[cfg(windows)]
             InstallErrorKind::Registry => registry.is_none(),
             InstallErrorKind::DownloadUnpack => false,
         });
@@ -674,40 +675,45 @@ pub(crate) async fn install(
             .into_iter()
             .sorted_unstable_by(|(_, key_a, _), (_, key_b, _)| key_a.cmp(key_b))
         {
-            let (level, verb) = match kind {
-                InstallErrorKind::DownloadUnpack => ("error".red().bold().to_string(), "install"),
+            match kind {
+                InstallErrorKind::DownloadUnpack => {
+                    write_error_chain(
+                        err.context(format!("Failed to install {key}")).as_ref(),
+                        printer.stderr(),
+                        "error",
+                        AnsiColors::Red,
+                    )?;
+                }
                 InstallErrorKind::Bin => {
-                    let level = match bin {
-                        None => "warning".yellow().bold().to_string(),
+                    let (level, color) = match bin {
+                        None => ("warning", AnsiColors::Yellow),
                         Some(false) => continue,
-                        Some(true) => "error".red().bold().to_string(),
+                        Some(true) => ("error", AnsiColors::Red),
                     };
-                    (level, "install executable for")
-                }
-                #[cfg(windows)]
-                InstallErrorKind::Registry => {
-                    let level = match registry {
-                        None => "warning".yellow().bold().to_string(),
-                        Some(false) => continue,
-                        Some(true) => "error".red().bold().to_string(),
-                    };
-                    (level, "install registry entry for")
-                }
-            };
 
-            writeln!(
-                printer.stderr(),
-                "{level}{} Failed to {verb} {}",
-                ":".bold(),
-                key.green()
-            )?;
-            for err in err.chain() {
-                writeln!(
-                    printer.stderr(),
-                    "  {}: {}",
-                    "Caused by".red().bold(),
-                    err.to_string().trim()
-                )?;
+                    write_error_chain(
+                        err.context(format!("Failed to install executable for {key}"))
+                            .as_ref(),
+                        printer.stderr(),
+                        level,
+                        color,
+                    )?;
+                }
+                InstallErrorKind::Registry => {
+                    let (level, color) = match registry {
+                        None => ("warning", AnsiColors::Yellow),
+                        Some(false) => continue,
+                        Some(true) => ("error", AnsiColors::Red),
+                    };
+
+                    write_error_chain(
+                        err.context(format!("Failed to create registry entry for {key}"))
+                            .as_ref(),
+                        printer.stderr(),
+                        level,
+                        color,
+                    )?;
+                }
             }
         }
 
@@ -737,12 +743,13 @@ fn create_bin_links(
     installations: &[&ManagedPythonInstallation],
     changelog: &mut Changelog,
     errors: &mut Vec<(InstallErrorKind, PythonInstallationKey, Error)>,
-    preview: PreviewMode,
+    preview: Preview,
 ) {
     // TODO(zanieb): We want more feedback on the `is_default_install` behavior before stabilizing
     // it. In particular, it may be confusing because it does not apply when versions are loaded
     // from a `.python-version` file.
-    let targets = if (default || (is_default_install && preview.is_enabled()))
+    let targets = if (default
+        || (is_default_install && preview.is_enabled(PreviewFeatures::PYTHON_INSTALL_DEFAULT)))
         && first_request.matches_installation(installation)
     {
         vec![

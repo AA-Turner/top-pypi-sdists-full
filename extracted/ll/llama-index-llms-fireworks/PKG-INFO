@@ -1,18 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-llms-fireworks
-Version: 0.3.2
+Version: 0.4.0
 Summary: llama-index llms fireworks integration
-License: MIT
 Author: benjibc
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
-Requires-Dist: llama-index-llms-openai (>=0.3.0,<0.4.0)
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.9
+Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-llms-openai<0.6,>=0.5.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex Llms Integration: Fireworks
@@ -153,4 +148,3 @@ print(resp)
 ### LLM Implementation example
 
 https://docs.llamaindex.ai/en/stable/examples/llm/fireworks/
-

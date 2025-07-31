@@ -1,12 +1,15 @@
 Metadata-Version: 2.4
 Name: m24842_ml
-Version: 1.3.6
+Version: 1.3.9
 Summary: Collection of ML models and benchmarking tools
 Requires-Python: >=3.8
 Requires-Dist: torch
+Requires-Dist: torchvision
 Requires-Dist: transformers
+Requires-Dist: numpy
 Requires-Dist: einops
 Requires-Dist: opt_einsum
 Requires-Dist: rotary_embedding_torch
 Requires-Dist: wandb
 Requires-Dist: pyyaml
+Requires-Dist: tqdm

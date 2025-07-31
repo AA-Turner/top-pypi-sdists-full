@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icechunk
-Version: 1.0.3
+Version: 1.1.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -71,14 +71,10 @@ Provides-Extra: benchmark
 Provides-Extra: docs
 License-File: LICENSE
 Summary: Icechunk Python
-Keywords: zarr,xarray,database
 Home-Page: https://icechunk.io
-Author: Earthmover PBC
 Author-email: Earthmover <info@earthmover.io>
-License: Apache-2.0
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/earth-mover/icechunk
 
 # Icechunk
 

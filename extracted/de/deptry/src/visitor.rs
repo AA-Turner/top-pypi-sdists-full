@@ -1,4 +1,4 @@
-use ruff_python_ast::visitor::{walk_stmt, Visitor};
+use ruff_python_ast::visitor::{Visitor, walk_stmt};
 use ruff_python_ast::{
     self, Expr, ExprAttribute, ExprName, Stmt, StmtExpr, StmtIf, StmtImport, StmtImportFrom,
 };
@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 pub struct ImportVisitor {
     imports: HashMap<String, Vec<TextRange>>,
     import_module_names: HashSet<String>,
+    typing_aliases: HashSet<String>,
 }
 
 /// Visitor for tracking Python imports in AST.
@@ -18,11 +19,15 @@ pub struct ImportVisitor {
 /// `import_module_names`: Tracks import names (including aliases) that
 /// refer to the `importlib.import_module` function itself, i.e. the import
 /// alias for `importlib` package and/or the `importlib.import_module` function.
+///
+/// `typing_aliases`: Tracks aliases of the `typing` module, so we can
+/// detect `if <alias>.TYPE_CHECKING` blocks.
 impl ImportVisitor {
     pub fn new() -> Self {
         Self {
             imports: HashMap::new(),
             import_module_names: HashSet::new(),
+            typing_aliases: HashSet::new(),
         }
     }
 
@@ -55,6 +60,15 @@ impl ImportVisitor {
                 self.import_module_names
                     .insert(format!("{name}.import_module"));
             }
+
+            if alias.name.as_str() == "typing" {
+                let name = alias
+                    .asname
+                    .as_ref()
+                    .map_or("typing", ruff_python_ast::Identifier::as_str);
+
+                self.typing_aliases.insert(name.to_string());
+            }
         }
     }
 
@@ -85,6 +99,10 @@ impl ImportVisitor {
                             self.import_module_names.insert(name.to_string());
                         }
                     }
+                }
+
+                if module_name == "typing" {
+                    self.typing_aliases.insert("typing".to_string());
                 }
             }
         }
@@ -132,7 +150,7 @@ impl<'a> Visitor<'a> for ImportVisitor {
             Stmt::Import(import_stmt) => self.handle_import(import_stmt),
             Stmt::ImportFrom(import_from_stmt) => self.handle_import_from(import_from_stmt),
             Stmt::Expr(expr_stmt) => self.handle_expr(expr_stmt),
-            Stmt::If(if_stmt) if is_guarded_by_type_checking(if_stmt) => {
+            Stmt::If(if_stmt) if is_guarded_by_type_checking(if_stmt, &self.typing_aliases) => {
                 // Avoid parsing imports that are only evaluated by type checkers.
             }
             _ => walk_stmt(self, stmt), // Delegate other statements to walk_stmt
@@ -150,12 +168,12 @@ fn get_top_level_module_name(module_name: &str) -> String {
         .to_owned()
 }
 
-/// Checks if we are in a block guarded by `typing.TYPE_CHECKING`.
-fn is_guarded_by_type_checking(if_stmt: &StmtIf) -> bool {
+/// Checks if we are in a block guarded by `typing.TYPE_CHECKING` or an alias thereof.
+fn is_guarded_by_type_checking(if_stmt: &StmtIf, typing_aliases: &HashSet<String>) -> bool {
     match &if_stmt.test.as_ref() {
         Expr::Attribute(ExprAttribute { value, attr, .. }) => {
             if let Expr::Name(ExprName { id, .. }) = value.as_ref() {
-                if id.as_str() == "typing" && attr.as_str() == "TYPE_CHECKING" {
+                if typing_aliases.contains(id.as_str()) && attr.as_str() == "TYPE_CHECKING" {
                     return true;
                 }
             }

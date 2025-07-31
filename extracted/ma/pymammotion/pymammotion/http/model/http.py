@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import Generic, Literal, TypeVar
+from typing import Annotated, Generic, Literal, TypeVar
 
 from mashumaro import DataClassDictMixin
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
+from mashumaro.types import Alias
 
 DataT = TypeVar("DataT")
 
@@ -103,3 +104,47 @@ class LoginResponseData(DataClassORJSONMixin):
 
     class Config(BaseConfig):
         omit_none = True
+
+
+@dataclass
+class FirmwareVersions(DataClassORJSONMixin):
+    firmware_version: Annotated[str, Alias("firmwareVersion")] = ""
+    firmware_code: Annotated[str, Alias("firmwareCode")] = ""
+    firmware_latest_version: Annotated[str, Alias("firmwareLatestVersion")] = ""
+    firmware_type: Annotated[str, Alias("firmwareType")] = ""
+
+
+@dataclass
+class ProductVersionInfo(DataClassORJSONMixin):
+    release_note: Annotated[str, Alias("releaseNote")] = ""
+    release_version: Annotated[str, Alias("releaseVersion")] = ""
+    data_location: str | None = None
+
+
+@dataclass
+class CheckDeviceVersion(DataClassORJSONMixin):
+    cause_code: Annotated[int, Alias("causeCode")] = 0
+    product_version_info_vo: Annotated[ProductVersionInfo | None, Alias("productVersionInfoVo")] = None
+    progress: int | None = 0
+    upgradeable: bool = False
+    device_id: Annotated[str, Alias("deviceId")] = ""
+    device_name: Annotated[str | None, Alias("deviceName")] = ""
+    current_version: Annotated[str, Alias("currentVersion")] = ""
+    isupgrading: bool | None = False
+    cause_msg: Annotated[str, Alias("causeMsg")] = ""
+
+    def __eq__(self, other):
+        if not isinstance(other, CheckDeviceVersion):
+            return NotImplemented
+
+        if self.device_id != other.device_id or self.current_version != other.current_version:
+            return False
+
+        if self.product_version_info_vo and other.product_version_info_vo:
+            if self.product_version_info_vo.release_version != other.product_version_info_vo.release_version:
+                return False
+            return True
+        elif self.product_version_info_vo is None and other.product_version_info_vo is None:
+            return False
+        else:
+            return True

@@ -44,13 +44,11 @@ class Session:
     >>> print(`s`)
     """
 
-    def __init__(self, readerName=None, cardServiceClass=None):
+    def __init__(self, readerName=None):
         """Session constructor. Initializes a smart card session and
         connect to the card.
 
         @param readerName: reader to connect to; default is first PCSC reader
-        @param cardServiceClass: card service to bind the session to; default
-                            is None
         """
 
         # if reader name not given, select first reader
@@ -71,8 +69,8 @@ class Session:
 
         try:
             self.reader
-        except AttributeError:
-            raise InvalidReaderException(self.readerName)
+        except AttributeError as exc:
+            raise InvalidReaderException(self.readerName) from exc
 
         # open card connection and bind PassThruCardService
         cc = self.reader.createConnection()
@@ -108,9 +106,9 @@ class Session:
 
     def __repr__(self):
         """Returns a string representation of the session."""
-        return "<Session instance: readerName=%s>" % self.readerName
+        return f"<Session instance: readerName={self.readerName}>"
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of Session.py."""
+    # Small sample illustrating the use of Session.py.
     pass

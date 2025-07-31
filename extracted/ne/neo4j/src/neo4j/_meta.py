@@ -33,7 +33,7 @@ if t.TYPE_CHECKING:
 
 # Can be automatically overridden in builds
 package = "neo4j"
-version = "5.28.1"
+version = "5.28.2"
 deprecated_package = False
 
 
@@ -170,6 +170,8 @@ class PreviewWarning(Warning):
 
     It might be changed without following the deprecation policy.
     See also https://github.com/neo4j/neo4j-python-driver/wiki/preview-features
+
+    .. versionadded:: 5.8
     """
 
 

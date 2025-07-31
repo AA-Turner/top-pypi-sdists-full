@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: truss
-Version: 0.9.116
+Version: 0.9.117
 Summary: A seamless bridge from model development to model delivery
 License: MIT
 Keywords: MLOps,AI,Model Serving,Model Deployment,Machine Learning
@@ -38,7 +38,7 @@ Requires-Dist: requests (>=2.31)
 Requires-Dist: rich (>=13.4.2,<14.0.0)
 Requires-Dist: rich-click (>=1.6.1,<2.0.0)
 Requires-Dist: ruff (>=0.4.8)
-Requires-Dist: tenacity (>=8.0.1,<9.0.0)
+Requires-Dist: tenacity (>=8.0.1)
 Requires-Dist: tomlkit (>=0.13.2)
 Requires-Dist: truss_transfer (==0.0.17)
 Requires-Dist: watchfiles (>=0.19.0,<0.20.0)

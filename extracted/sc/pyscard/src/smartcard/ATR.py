@@ -37,6 +37,9 @@ class ATR:
     Answer to Reset sequences are defined in ISO 7816-3, section 8.
     """
 
+    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
+
     clockrateconversion: list[int | str] = [
         372,
         372,
@@ -95,8 +98,10 @@ class ATR:
           - N: extra guard time
         """
 
+        # pylint: disable=too-many-statements
+
         if len(atr) < 2:
-            raise SmartcardException(f"ATR sequences must be at least 2 bytes long")
+            raise SmartcardException("ATR sequences must be at least 2 bytes long")
         if atr[0] not in {0x3B, 0x3F}:
             raise SmartcardException(f"invalid TS 0x{atr[0]:02x}")
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: polyline
-Version: 2.0.2
+Version: 2.0.3
 Summary: A Python implementation of Google's Encoded Polyline Algorithm Format.
 Author: Frederick Jansen, Bruno M. Custódio
 License: Copyright (c) 2023 Frederick Jansen
@@ -35,10 +35,12 @@ Requires-Dist: pytest-cov~=4.0; extra == "dev"
 Requires-Dist: pylint~=3.0.3; extra == "dev"
 Requires-Dist: sphinx~=5.3.0; extra == "dev"
 Requires-Dist: sphinx-rtd-theme~=1.2.0; extra == "dev"
-Requires-Dist: toml~=0.10.2; extra == "dev"
+Requires-Dist: standard-imghdr; python_version > "3.12" and extra == "dev"
+Requires-Dist: tomli; python_version < "3.11" and extra == "dev"
 Provides-Extra: publish
 Requires-Dist: build~=0.8; extra == "publish"
 Requires-Dist: twine~=4.0; extra == "publish"
+Dynamic: license-file
 
 polyline
 ========

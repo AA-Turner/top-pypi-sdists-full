@@ -1,11 +1,15 @@
-# canonmap/utils/logger.py
 
 import logging
 import os
+import json
 from rich.logging import RichHandler
 from rich.text import Text
 from datetime import datetime
+from dotenv import load_dotenv
 
+load_dotenv(override=True)
+
+# --- Configuration for Rich Handler ---
 LEVEL_COLORS = {
     "debug": "cyan",
     "info": "green",
@@ -13,23 +17,16 @@ LEVEL_COLORS = {
     "error": "red",
     "critical": "bold red"
 }
+MAX_PATH_DISPLAY_LEN = 40
 
-MAX_PATH_DISPLAY_LEN = 40  # max characters for dotted paths
-
+# --- Handler for Development (Human-Readable) ---
 class TruncatingRichHandler(RichHandler):
     """
-    RichHandler that truncates file paths intelligently and styles them:
-    - First segment in bold cyan
-    - Middle segments in cyan
-    - Ellipsis in dim
-    - Final segment (filename) in bold magenta
+    RichHandler that truncates file paths intelligently for development consoles.
     """
     def render_message(self, record, message: str) -> Text:
-        # Format timestamp and level
         timestamp = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
         level = f"{record.levelname:<8}"
-
-        # Build the styled log message
         path = self.truncate_path(record.pathname)
         text = Text()
         text.append(f"[{timestamp}] ", style="dim")
@@ -37,7 +34,6 @@ class TruncatingRichHandler(RichHandler):
         text.append(" ")
         text.append_text(path)
         text.append(": ")
-        # apply level-based style to message
         level_key = record.levelname.lower()
         message_style = LEVEL_COLORS.get(level_key)
         if message_style:
@@ -47,20 +43,15 @@ class TruncatingRichHandler(RichHandler):
         return text
 
     def truncate_path(self, full_path: str) -> Text:
-        # Compute project root two levels above this file
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         rel_path = os.path.relpath(full_path, start=project_root) if full_path.startswith(project_root) else full_path
-
         parts = rel_path.split(os.sep)
         text = Text()
         if len(parts) == 1:
             text.append(parts[0], style="bold magenta")
             return text
-
-        # Otherwise, truncate middle segments
         first, last = parts[0], parts[-1]
-        reserved = len(first) + len(last) + len("...") + 2  # two dots around ellipsis
-
+        reserved = len(first) + len(last) + len("...") + 2
         kept, length = [], 0
         for p in parts[1:-1]:
             seg_len = len(p) + 1
@@ -68,8 +59,6 @@ class TruncatingRichHandler(RichHandler):
                 break
             kept.append(p)
             length += seg_len
-
-        # Build styled truncated path
         text.append(first, style="bold cyan")
         for part in kept:
             text.append(f".{part}", style="cyan")
@@ -77,19 +66,53 @@ class TruncatingRichHandler(RichHandler):
         text.append(f".{last}", style="bold magenta")
         return text
 
+# --- Formatter for Production (Machine-Readable JSON) ---
+class JsonFormatter(logging.Formatter):
+    """Formats log records as a single-line JSON string for Cloud Logging."""
+    def format(self, record: logging.LogRecord) -> str:
+        log_object = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "severity": record.levelname,
+            "message": record.getMessage(),
+            "logger_name": record.name,
+            "pathname": record.pathname,
+            "lineno": record.lineno,
+        }
+        if record.exc_info:
+            log_object['exception'] = self.formatException(record.exc_info)
+        
+        # This handles messages that are already JSON strings (from structured logging calls)
+        try:
+            # If the message is a valid JSON string, parse it and merge it
+            msg_data = json.loads(record.getMessage())
+            if isinstance(msg_data, dict):
+                log_object['message'] = msg_data.pop('message', record.getMessage())
+                log_object.update(msg_data)
+        except (json.JSONDecodeError, TypeError):
+            pass # Message is just a plain string
+
+        return json.dumps(log_object)
+
+# --- Handler Factory with Conditional Logic ---
 def make_console_handler(level: str = "INFO", set_root: bool = False) -> logging.Handler:
     """
-    Factory for TruncatingRichHandler. Application code should:
-        import logging
-        from canonmap.utils.logger import make_console_handler
-
-        handler = make_console_handler("DEBUG", set_root=True)
+    Factory that returns a RichHandler for 'dev' environments
+    and a JSON handler for the 'prod' environment.
     """
-    handler = TruncatingRichHandler(show_time=False, markup=True)
+    # Check the environment variable to decide the format
+    if os.getenv("ENV") == "prod":
+        # ☁️ In Production: Use the JSON formatter for Google Cloud Logging
+        handler = logging.StreamHandler()
+        handler.setFormatter(JsonFormatter())
+    else:
+        # 💻 In Development (or if ENV is not set): Use the nice Rich handler
+        handler = TruncatingRichHandler(show_time=False, markup=True)
+
     handler.setLevel(level)
     if set_root:
         root = logging.getLogger()
         root.handlers.clear()
         root.addHandler(handler)
         root.setLevel(level)
+
     return handler

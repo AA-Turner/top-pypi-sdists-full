@@ -389,6 +389,8 @@ class PythonEnv(google.protobuf.message.Message):
     GIT_CREDENTIALS_SECRET_FIELD_NUMBER: builtins.int
     QWAK_SDK_VERSION_FIELD_NUMBER: builtins.int
     QWAK_SDK_EXTRA_INDEX_FIELD_NUMBER: builtins.int
+    FROGML_CLI_VERSION_FIELD_NUMBER: builtins.int
+    FROGML_CLI_EXTRA_INDEX_FIELD_NUMBER: builtins.int
     git_credentials: builtins.str
     """Git credentials"""
     git_credentials_secret: builtins.str
@@ -397,6 +399,10 @@ class PythonEnv(google.protobuf.message.Message):
     """Qwak sdk version of calling user"""
     qwak_sdk_extra_index: builtins.str
     """Pip extra index url to install qwak-sdk from"""
+    frogml_cli_version: builtins.str
+    """FrogML cli version of calling user"""
+    frogml_cli_extra_index: builtins.str
+    """Pip extra index url to install frogml-cli from"""
     def __init__(
         self,
         *,
@@ -404,8 +410,10 @@ class PythonEnv(google.protobuf.message.Message):
         git_credentials_secret: builtins.str = ...,
         qwak_sdk_version: builtins.str = ...,
         qwak_sdk_extra_index: builtins.str = ...,
+        frogml_cli_version: builtins.str = ...,
+        frogml_cli_extra_index: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["git_credentials", b"git_credentials", "git_credentials_secret", b"git_credentials_secret", "qwak_sdk_extra_index", b"qwak_sdk_extra_index", "qwak_sdk_version", b"qwak_sdk_version"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["frogml_cli_extra_index", b"frogml_cli_extra_index", "frogml_cli_version", b"frogml_cli_version", "git_credentials", b"git_credentials", "git_credentials_secret", b"git_credentials_secret", "qwak_sdk_extra_index", b"qwak_sdk_extra_index", "qwak_sdk_version", b"qwak_sdk_version"]) -> None: ...
 
 global___PythonEnv = PythonEnv
 

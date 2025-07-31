@@ -22,7 +22,7 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
-from smartcard.scard import *
+from smartcard.scard import SCARD_CTL_CODE, SCARD_SHARE_DIRECT
 
 # constants defined in PC/SC v2 Part 10
 CM_IOCTL_GET_FEATURE_REQUEST = SCARD_CTL_CODE(3400)
@@ -85,7 +85,7 @@ PCSCv2_PART10_PROPERTY_wIdProduct = 12
 
 Properties = {
     "PCSCv2_PART10_PROPERTY_wLcdLayout": PCSCv2_PART10_PROPERTY_wLcdLayout,
-    "PCSCv2_PART10_PROPERTY_bEntryValidationCondition": PCSCv2_PART10_PROPERTY_bEntryValidationCondition,
+    "PCSCv2_PART10_PROPERTY_bEntryValidationCondition": PCSCv2_PART10_PROPERTY_bEntryValidationCondition,  # pylint: disable=line-too-long
     "PCSCv2_PART10_PROPERTY_bTimeOut2": PCSCv2_PART10_PROPERTY_bTimeOut2,
     "PCSCv2_PART10_PROPERTY_wLcdMaxCharacters": PCSCv2_PART10_PROPERTY_wLcdMaxCharacters,
     "PCSCv2_PART10_PROPERTY_wLcdMaxLines": PCSCv2_PART10_PROPERTY_wLcdMaxLines,
@@ -150,8 +150,10 @@ def hasFeature(featureList, feature):
     @return: feature value or None
     """
     for f in featureList:
-        if f[0] == feature or Features[f[0]] == feature:
+        if feature in (f[0], Features[f[0]]):
             return f[1]
+
+    return None
 
 
 def getPinProperties(cardConnection, featureList=None, controlCode=None):
@@ -219,20 +221,20 @@ def parseTlvProperties(response):
     tmp = list(response)
     while tmp:
         tag = tmp[0]
-        len = tmp[1]
-        data = tmp[2 : 2 + len]
+        length = tmp[1]
+        data = tmp[2 : 2 + length]
 
         if PCSCv2_PART10_PROPERTY_sFirmwareID == tag:
             # convert to a string
             data = "".join([chr(c) for c in data])
         # we now suppose the value is an integer
-        elif 1 == len:
+        elif 1 == length:
             # byte
             data = data[0]
-        elif 2 == len:
+        elif 2 == length:
             # 16 bits value
             data = data[1] * 256 + data[0]
-        elif 4 == len:
+        elif 4 == length:
             # 32 bits value
             data = ((data[3] * 256 + data[2]) * 256 + data[1]) * 256 + data[0]
 
@@ -242,24 +244,24 @@ def parseTlvProperties(response):
         except KeyError:
             d["UNKNOWN"] = data
 
-        del tmp[0 : 2 + len]
+        del tmp[0 : 2 + length]
 
     return d
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of PCSCPart10."""
+    # Small sample illustrating the use of PCSCPart10.
     from smartcard.pcsc.PCSCReader import PCSCReader
 
     cc = PCSCReader.readers()[0].createConnection()
     cc.connect(mode=SCARD_SHARE_DIRECT)
 
     # print(cc.control(CM_IOCTL_GET_FEATURE_REQUEST))
-    features = getFeatureRequest(cc)
-    print(features)
+    _features = getFeatureRequest(cc)
+    print(_features)
 
-    print(hasFeature(features, FEATURE_VERIFY_PIN_START))
-    print(hasFeature(features, FEATURE_VERIFY_PIN_DIRECT))
+    print(hasFeature(_features, FEATURE_VERIFY_PIN_START))
+    print(hasFeature(_features, FEATURE_VERIFY_PIN_DIRECT))
 
     properties = getPinProperties(cc)
     print("\nPinProperties:")

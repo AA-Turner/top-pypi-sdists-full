@@ -253,7 +253,9 @@ class ViewerModel(
     def _get_scale_factor(self, margin: float) -> float:
         """Get the scale factor for camera zoom with a valid margin."""
 
-    def _get_scene_parameters(self):
+    def _get_scene_parameters(
+        self,
+    ) -> tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]:
         """Get the scene parameters for the current grid mode.
 
         Returns
@@ -278,7 +280,7 @@ class ViewerModel(
         Update layer help text base on layer mode.
         """
 
-    def _new_labels(self):
+    def _new_labels(self) -> None:
         """Create new labels layer filling full world coordinates space."""
 
     def _on_active_layer(self, event):
@@ -435,7 +437,7 @@ class ViewerModel(
         name=None,
         opacity=1.0,
         plane=None,
-        projection_mode='none',
+        projection_mode='mean',
         rendering='mip',
         rgb=None,
         rotate=None,
@@ -744,7 +746,7 @@ class ViewerModel(
         name=None,
         opacity=1.0,
         out_of_slice_display=False,
-        projection_mode='none',
+        projection_mode='all',
         properties=None,
         property_choices=None,
         rotate=None,
@@ -1346,7 +1348,7 @@ class ViewerModel(
         ndim=None,
         opacity=0.7,
         out_of_slice_display=False,
-        projection_mode='none',
+        projection_mode='all',
         properties=None,
         property_choices=None,
         rotate=None,

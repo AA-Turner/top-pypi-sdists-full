@@ -1,7 +1,7 @@
 use futures::sink::SinkExt;
 use http_body_util::BodyExt;
 use hyper::{StatusCode, header::SERVER as HK_SERVER, http::response::Builder as ResponseBuilder};
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::{Notify, mpsc};
 
 use super::{
@@ -10,8 +10,9 @@ use super::{
 };
 use crate::{
     callbacks::ArcCBScheduler,
-    http::{HTTPRequest, HTTPResponse, HV_SERVER, empty_body, response_500},
-    runtime::RuntimeRef,
+    http::{HTTPProto, HTTPRequest, HTTPResponse, HV_SERVER, empty_body, response_500},
+    net::SockAddr,
+    runtime::{Runtime, RuntimeRef},
     ws::{UpgradeData, is_upgrade_request as is_ws_upgrade, upgrade_intent as ws_upgrade},
 };
 
@@ -49,10 +50,10 @@ macro_rules! handle_request {
             rt: RuntimeRef,
             disconnect_guard: Arc<Notify>,
             callback: ArcCBScheduler,
-            server_addr: SocketAddr,
-            client_addr: SocketAddr,
+            server_addr: SockAddr,
+            client_addr: SockAddr,
             req: HTTPRequest,
-            scheme: &str,
+            scheme: HTTPProto,
         ) -> HTTPResponse {
             let (parts, body) = req.into_parts();
             let scope = build_scope!(HTTPScope, server_addr, client_addr, parts, scheme);
@@ -68,10 +69,10 @@ macro_rules! handle_request_with_ws {
             rt: RuntimeRef,
             disconnect_guard: Arc<Notify>,
             callback: ArcCBScheduler,
-            server_addr: SocketAddr,
-            client_addr: SocketAddr,
+            server_addr: SockAddr,
+            client_addr: SockAddr,
             mut req: HTTPRequest,
-            scheme: &str,
+            scheme: HTTPProto,
         ) -> HTTPResponse {
             if is_ws_upgrade(&req) {
                 match ws_upgrade(&mut req, None) {
@@ -79,11 +80,12 @@ macro_rules! handle_request_with_ws {
                         let (parts, _) = req.into_parts();
                         let scope = build_scope!(WebsocketScope, server_addr, client_addr, parts, scheme);
                         let (restx, mut resrx) = mpsc::channel(1);
+                        let rth = rt.clone();
 
-                        tokio::task::spawn(async move {
+                        rt.spawn(async move {
                             let tx_ref = restx.clone();
 
-                            match $handler_ws(callback, rt, ws, UpgradeData::new(res, restx), scope).await {
+                            match $handler_ws(callback, rth, ws, UpgradeData::new(res, restx), scope).await {
                                 Ok((status, consumed, stream)) => match (consumed, stream) {
                                     (false, _) => {
                                         let _ = tx_ref

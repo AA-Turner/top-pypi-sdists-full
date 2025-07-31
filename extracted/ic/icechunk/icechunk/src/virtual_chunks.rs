@@ -56,6 +56,12 @@ pub type VirtualChunkCredentialsError = String;
 
 impl VirtualChunkContainer {
     pub fn new(url_prefix: String, store: ObjectStoreConfig) -> Result<Self, String> {
+        if !url_prefix.ends_with('/') {
+            return Err(
+                "VirtualChunkContainer url_prefix must end in a / character".to_string()
+            );
+        }
+
         let url = Url::parse(url_prefix.as_str()).map_err(|e| e.to_string())?;
         match (url.scheme(), &store) {
             (
@@ -249,13 +255,17 @@ impl VirtualChunkResolver {
         credentials: HashMap<String, Option<Credentials>>,
         settings: storage::Settings,
     ) -> Self {
+        fn add_trailing(s: String) -> String {
+            if s.ends_with('/') { s } else { format!("{}/", s) }
+        }
+
         // we need to validate the containers because they can come from persisted config
         // they can be manipulated to have invalid url prefixes
         // We chose to silently filter out invalid containers
 
         let mut containers = containers
             .filter_map(|cont| {
-                VirtualChunkContainer::new(cont.url_prefix, cont.store)
+                VirtualChunkContainer::new(add_trailing(cont.url_prefix), cont.store)
                     .inspect_err(|err| {
                         tracing::warn!(
                             "Invalid virtual chunk container, ignoring it: {err}"
@@ -265,6 +275,8 @@ impl VirtualChunkResolver {
             })
             .collect::<Vec<_>>();
         sort_containers(&mut containers);
+        let credentials =
+            credentials.into_iter().map(|(k, v)| (add_trailing(k), v)).collect();
         VirtualChunkResolver { containers, credentials, settings, fetchers: new_cache() }
     }
 
@@ -279,7 +291,8 @@ impl VirtualChunkResolver {
         &self,
         chunk_location: &Url,
     ) -> Result<Arc<dyn ChunkFetcher>, VirtualReferenceError> {
-        let cont = find_container(chunk_location.to_string().as_str(), &self.containers)
+        let cont = self
+            .matching_container(chunk_location.to_string().as_str())
             .ok_or_else(|| {
                 VirtualReferenceErrorKind::NoContainerForUrl(chunk_location.to_string())
             })?;
@@ -303,8 +316,12 @@ impl VirtualChunkResolver {
         checksum: Option<&Checksum>,
     ) -> Result<Bytes, VirtualReferenceError> {
         // this resolves things like /../
-        let url = Url::parse(chunk_location)
-            .map_err(VirtualReferenceErrorKind::CannotParseUrl)?;
+        let url = Url::parse(chunk_location).map_err(|e| {
+            VirtualReferenceErrorKind::CannotParseUrl {
+                cause: e,
+                url: chunk_location.to_string(),
+            }
+        })?;
         let fetcher = self.get_fetcher(&url).await?;
         fetcher.fetch_chunk(&url, range, checksum).await
     }
@@ -813,7 +830,7 @@ mod tests {
     #[tokio::test]
     async fn test_cannot_resolve_for_nonexistent_container() {
         let container = VirtualChunkContainer::new(
-            "file:///foo".to_string(),
+            "file:///foo/".to_string(),
             ObjectStoreConfig::LocalFileSystem("/example".into()),
         )
         .unwrap();
@@ -837,7 +854,7 @@ mod tests {
     #[tokio::test]
     async fn test_cannot_resolve_for_unauthorized_container() {
         let container = VirtualChunkContainer::new(
-            "file:///example".to_string(),
+            "file:///example/".to_string(),
             ObjectStoreConfig::LocalFileSystem("/example".into()),
         )
         .unwrap();
@@ -854,7 +871,7 @@ mod tests {
             Err(VirtualReferenceError {
                 kind: VirtualReferenceErrorKind::UnauthorizedVirtualChunkContainer(cont),
                 ..
-            }) if cont.url_prefix() == "file:///example"
+            }) if cont.url_prefix() == "file:///example/"
         ));
     }
 

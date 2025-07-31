@@ -37,6 +37,7 @@ use super::{
     SnapshotRef, SnapshotRetention, SortOrder, SortOrderRef, StatisticsFile, StructType,
 };
 use crate::error::{Result, timestamp_ms_to_utc};
+use crate::io::FileIO;
 use crate::{Error, ErrorKind};
 
 static MAIN_BRANCH: &str = "main";
@@ -98,6 +99,26 @@ pub const RESERVED_PROPERTIES: [&str; 9] = [
     PROPERTY_DEFAULT_SORT_ORDER,
 ];
 
+/// Property key for number of commit retries.
+pub const PROPERTY_COMMIT_NUM_RETRIES: &str = "commit.retry.num-retries";
+/// Default value for number of commit retries.
+pub const PROPERTY_COMMIT_NUM_RETRIES_DEFAULT: usize = 4;
+
+/// Property key for minimum wait time (ms) between retries.
+pub const PROPERTY_COMMIT_MIN_RETRY_WAIT_MS: &str = "commit.retry.min-wait-ms";
+/// Default value for minimum wait time (ms) between retries.
+pub const PROPERTY_COMMIT_MIN_RETRY_WAIT_MS_DEFAULT: u64 = 100;
+
+/// Property key for maximum wait time (ms) between retries.
+pub const PROPERTY_COMMIT_MAX_RETRY_WAIT_MS: &str = "commit.retry.max-wait-ms";
+/// Default value for maximum wait time (ms) between retries.
+pub const PROPERTY_COMMIT_MAX_RETRY_WAIT_MS_DEFAULT: u64 = 60 * 1000; // 1 minute
+
+/// Property key for total maximum retry time (ms).
+pub const PROPERTY_COMMIT_TOTAL_RETRY_TIME_MS: &str = "commit.retry.total-timeout-ms";
+/// Default value for total maximum retry time (ms).
+pub const PROPERTY_COMMIT_TOTAL_RETRY_TIME_MS_DEFAULT: u64 = 30 * 60 * 1000; // 30 minutes
+
 /// Reference to [`TableMetadata`].
 pub type TableMetadataRef = Arc<TableMetadata>;
 
@@ -156,7 +177,7 @@ pub struct TableMetadata {
     /// that encodes changes to the previous metadata files for the table.
     /// Each time a new metadata file is created, a new entry of the
     /// previous metadata file location should be added to the list.
-    /// Tables can be configured to remove oldest metadata log entries and
+    /// Tables can be configured to remove the oldest metadata log entries and
     /// keep a fixed-size log of the most recent entries after a commit.
     pub(crate) metadata_log: Vec<MetadataLog>,
 
@@ -225,6 +246,18 @@ impl TableMetadata {
             FormatVersion::V1 => INITIAL_SEQUENCE_NUMBER,
             _ => self.last_sequence_number + 1,
         }
+    }
+
+    /// Returns the last column id.
+    #[inline]
+    pub fn last_column_id(&self) -> i32 {
+        self.last_column_id
+    }
+
+    /// Returns the last partition_id
+    #[inline]
+    pub fn last_partition_id(&self) -> i32 {
+        self.last_partition_id
     }
 
     /// Returns last updated time.
@@ -430,6 +463,29 @@ impl TableMetadata {
     #[inline]
     pub fn encryption_key(&self, key_id: &str) -> Option<&String> {
         self.encryption_keys.get(key_id)
+    }
+
+    /// Read table metadata from the given location.
+    pub async fn read_from(
+        file_io: &FileIO,
+        metadata_location: impl AsRef<str>,
+    ) -> Result<TableMetadata> {
+        let input_file = file_io.new_input(metadata_location)?;
+        let metadata_content = input_file.read().await?;
+        let metadata = serde_json::from_slice::<TableMetadata>(&metadata_content)?;
+        Ok(metadata)
+    }
+
+    /// Write table metadata to the given location.
+    pub async fn write_to(
+        &self,
+        file_io: &FileIO,
+        metadata_location: impl AsRef<str>,
+    ) -> Result<()> {
+        file_io
+            .new_output(metadata_location)?
+            .write(serde_json::to_vec(self)?.into())
+            .await
     }
 
     /// Normalize this partition spec.
@@ -1323,10 +1379,12 @@ mod tests {
 
     use anyhow::Result;
     use pretty_assertions::assert_eq;
+    use tempfile::TempDir;
     use uuid::Uuid;
 
     use super::{FormatVersion, MetadataLog, SnapshotLog, TableMetadataBuilder};
     use crate::TableCreation;
+    use crate::io::FileIOBuilder;
     use crate::spec::table_metadata::TableMetadata;
     use crate::spec::{
         BlobMetadata, NestedField, NullOrder, Operation, PartitionSpec, PartitionStatisticsFile,
@@ -3017,5 +3075,50 @@ mod tests {
                 })
             )])
         );
+    }
+
+    #[tokio::test]
+    async fn test_table_metadata_read_write() {
+        // Create a temporary directory for our test
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
+
+        // Create a FileIO instance
+        let file_io = FileIOBuilder::new_fs_io().build().unwrap();
+
+        // Use an existing test metadata from the test files
+        let original_metadata: TableMetadata = get_test_table_metadata("TableMetadataV2Valid.json");
+
+        // Define the metadata location
+        let metadata_location = format!("{}/metadata.json", temp_path);
+
+        // Write the metadata
+        original_metadata
+            .write_to(&file_io, &metadata_location)
+            .await
+            .unwrap();
+
+        // Verify the file exists
+        assert!(fs::metadata(&metadata_location).is_ok());
+
+        // Read the metadata back
+        let read_metadata = TableMetadata::read_from(&file_io, &metadata_location)
+            .await
+            .unwrap();
+
+        // Verify the metadata matches
+        assert_eq!(read_metadata, original_metadata);
+    }
+
+    #[tokio::test]
+    async fn test_table_metadata_read_nonexistent_file() {
+        // Create a FileIO instance
+        let file_io = FileIOBuilder::new_fs_io().build().unwrap();
+
+        // Try to read a non-existent file
+        let result = TableMetadata::read_from(&file_io, "/nonexistent/path/metadata.json").await;
+
+        // Verify it returns an error
+        assert!(result.is_err());
     }
 }

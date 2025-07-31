@@ -28,7 +28,33 @@ from smartcard.Exceptions import (
     NoCardException,
     SmartcardException,
 )
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_E_INVALID_VALUE,
+    SCARD_E_NO_SMARTCARD,
+    SCARD_PCI_RAW,
+    SCARD_PCI_T0,
+    SCARD_PCI_T1,
+    SCARD_PROTOCOL_RAW,
+    SCARD_PROTOCOL_T0,
+    SCARD_PROTOCOL_T1,
+    SCARD_PROTOCOL_T15,
+    SCARD_RESET_CARD,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_SHARE_SHARED,
+    SCARD_UNPOWER_CARD,
+    SCARD_W_REMOVED_CARD,
+    SCardConnect,
+    SCardControl,
+    SCardDisconnect,
+    SCardEstablishContext,
+    SCardGetAttrib,
+    SCardGetErrorMessage,
+    SCardReconnect,
+    SCardReleaseContext,
+    SCardStatus,
+    SCardTransmit,
+)
 
 
 def translateprotocolmask(protocol):
@@ -80,6 +106,7 @@ class PCSCCardConnection(CardConnection):
         """
         CardConnection.__init__(self, reader)
         self.hcard = None
+        self.disposition = None
         hresult, self.hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
         if hresult != SCARD_S_SUCCESS:
             raise CardConnectionException(
@@ -99,7 +126,7 @@ class PCSCCardConnection(CardConnection):
             CardConnection.release(self)
             self.disconnect()
             hresult = SCardReleaseContext(self.hcontext)
-            if hresult != SCARD_S_SUCCESS and hresult != SCARD_E_INVALID_VALUE:
+            if hresult not in (SCARD_S_SUCCESS, SCARD_E_INVALID_VALUE):
                 raise CardConnectionException(
                     "Failed to release context: " + SCardGetErrorMessage(hresult),
                     hresult=hresult,
@@ -128,6 +155,9 @@ class PCSCCardConnection(CardConnection):
             disposition = SCARD_UNPOWER_CARD
         self.disposition = disposition
 
+        if self.hcontext is None:
+            raise CardConnectionException("Context already released")
+
         hresult, self.hcard, dwActiveProtocol = SCardConnect(
             self.hcontext, str(self.reader), mode, pcscprotocol
         )
@@ -135,14 +165,14 @@ class PCSCCardConnection(CardConnection):
             self.hcard = None
             if hresult in (SCARD_W_REMOVED_CARD, SCARD_E_NO_SMARTCARD):
                 raise NoCardException("Unable to connect", hresult=hresult)
-            else:
-                raise CardConnectionException(
-                    "Unable to connect with protocol: "
-                    + dictProtocol[pcscprotocol]
-                    + ". "
-                    + SCardGetErrorMessage(hresult),
-                    hresult=hresult,
-                )
+
+            raise CardConnectionException(
+                "Unable to connect with protocol: "
+                + dictProtocol[pcscprotocol]
+                + ". "
+                + SCardGetErrorMessage(hresult),
+                hresult=hresult,
+            )
 
         protocol = 0
         if dwActiveProtocol == SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1:
@@ -151,9 +181,9 @@ class PCSCCardConnection(CardConnection):
             # then negotiated with the card
             protocol = CardConnection.T0_protocol | CardConnection.T1_protocol
         else:
-            for p in dictProtocol:
+            for p, p_name in dictProtocol.items():
                 if p == dwActiveProtocol:
-                    protocol = eval("CardConnection.%s_protocol" % dictProtocol[p])
+                    protocol = getattr(CardConnection, f"{p_name}_protocol")
         PCSCCardConnection.setProtocol(self, protocol)
 
     def reconnect(self, protocol=None, mode=None, disposition=None):
@@ -190,14 +220,14 @@ class PCSCCardConnection(CardConnection):
             self.hcard = None
             if hresult in (SCARD_W_REMOVED_CARD, SCARD_E_NO_SMARTCARD):
                 raise NoCardException("Unable to reconnect", hresult=hresult)
-            else:
-                raise CardConnectionException(
-                    "Unable to reconnect with protocol: "
-                    + dictProtocol[pcscprotocol]
-                    + ". "
-                    + SCardGetErrorMessage(hresult),
-                    hresult=hresult,
-                )
+
+            raise CardConnectionException(
+                "Unable to reconnect with protocol: "
+                + dictProtocol[pcscprotocol]
+                + ". "
+                + SCardGetErrorMessage(hresult),
+                hresult=hresult,
+            )
 
         protocol = 0
         if dwActiveProtocol == SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1:
@@ -206,9 +236,9 @@ class PCSCCardConnection(CardConnection):
             # then negotiated with the card
             protocol = CardConnection.T0_protocol | CardConnection.T1_protocol
         else:
-            for p in dictProtocol:
+            for p, p_name in dictProtocol.items():
                 if p == dwActiveProtocol:
-                    protocol = eval("CardConnection.%s_protocol" % dictProtocol[p])
+                    protocol = getattr(CardConnection, f"{p_name}_protocol")
         PCSCCardConnection.setProtocol(self, protocol)
 
     def disconnect(self):
@@ -237,7 +267,7 @@ class PCSCCardConnection(CardConnection):
         CardConnection.getATR(self)
         if self.hcard is None:
             raise CardConnectionException("Card not connected")
-        hresult, reader, state, protocol, atr = SCardStatus(self.hcard)
+        hresult, _reader, _state, _protocol, atr = SCardStatus(self.hcard)
         if hresult != SCARD_S_SUCCESS:
             raise CardConnectionException(
                 "Failed to get status: " + SCardGetErrorMessage(hresult),
@@ -328,17 +358,3 @@ class PCSCCardConnection(CardConnection):
                 "Failed to getAttrib " + SCardGetErrorMessage(hresult), hresult=hresult
             )
         return response
-
-
-if __name__ == "__main__":
-    """Small sample illustrating the use of CardConnection."""
-    SELECT = [0xA0, 0xA4, 0x00, 0x00, 0x02]
-    DF_TELECOM = [0x7F, 0x10]
-    from smartcard.pcsc.PCSCPart10 import CM_IOCTL_GET_FEATURE_REQUEST
-    from smartcard.pcsc.PCSCReader import PCSCReader
-
-    cc = PCSCReader.readers()[0].createConnection()
-    cc.connect()
-    print("%r %x %x" % cc.transmit(SELECT + DF_TELECOM))
-
-    print(cc.control(CM_IOCTL_GET_FEATURE_REQUEST, []))

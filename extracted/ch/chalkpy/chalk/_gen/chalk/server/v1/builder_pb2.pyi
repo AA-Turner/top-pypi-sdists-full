@@ -546,7 +546,17 @@ class EnvoyGatewaySpecs(_message.Message):
         "include_chalk_node_selector",
         "ip_allowlist",
         "tls_certificate",
+        "service_annotations",
+        "load_balancer_class",
     )
+    class ServiceAnnotationsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_NAME_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -555,6 +565,8 @@ class EnvoyGatewaySpecs(_message.Message):
     INCLUDE_CHALK_NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     IP_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
     TLS_CERTIFICATE_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
+    LOAD_BALANCER_CLASS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     gateway_name: str
     gateway_class_name: str
@@ -563,6 +575,8 @@ class EnvoyGatewaySpecs(_message.Message):
     include_chalk_node_selector: bool
     ip_allowlist: _containers.RepeatedScalarFieldContainer[str]
     tls_certificate: TLSCertificateConfig
+    service_annotations: _containers.ScalarMap[str, str]
+    load_balancer_class: str
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -573,6 +587,8 @@ class EnvoyGatewaySpecs(_message.Message):
         include_chalk_node_selector: bool = ...,
         ip_allowlist: _Optional[_Iterable[str]] = ...,
         tls_certificate: _Optional[_Union[TLSCertificateConfig, _Mapping]] = ...,
+        service_annotations: _Optional[_Mapping[str, str]] = ...,
+        load_balancer_class: _Optional[str] = ...,
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):

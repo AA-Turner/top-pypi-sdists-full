@@ -93,18 +93,18 @@ class ulist(list):
 
         # remove items already in self
         newother = []
-        for i in range(0, len(other)):
+        for _ in range(0, len(other)):
             item = other.pop(0)
             if not list.__contains__(self, item):
                 newother.append(item)
 
         # remove duplicate items in other
         other = []
-        if newother != []:
+        if newother:
             other.append(newother[0])
-            for i in range(1, len(newother)):
+            for _ in range(1, len(newother)):
                 item = newother.pop()
-                if not other.__contains__(item):
+                if item not in other:
                     other.append(item)
         return other
 
@@ -116,9 +116,7 @@ class ulist(list):
     def __onadditem__(self, item):
         """Called for each item added. Override in subclasses for adding
         custom action."""
-        pass
 
     def __onremoveitem__(self, item):
         """Called for each item removed. Override in subclasses for
         adding custom action."""
-        pass

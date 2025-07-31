@@ -21,7 +21,7 @@ import os
 import time
 import urllib.parse
 import warnings
-from typing import Any, Callable, Type, TypedDict, TypeVar
+from typing import Any, Callable, TypedDict, TypeVar
 
 try:
     from typing import Self
@@ -144,7 +144,7 @@ class ApiResponse:
 
     @classmethod
     def from_request(
-        cls: Type[T_ApiResponse],
+        cls: type[T_ApiResponse],
         method: str,
         url: str,
         headers: dict[str, str],
@@ -467,7 +467,7 @@ class Remote:
             return True
         if status in ("accepted", "running"):
             return False
-        if status == "failed":
+        if status in ("failed", "rejected"):
             results = self._make_results(wait=False)
             raise ProcessingFailedError(error_json_to_message(results._json_dict))
         if status in ("dismissed", "deleted"):
@@ -620,13 +620,16 @@ class Results(ApiResponse):
     def _download(self, url: str, target: str) -> requests.Response:
         download_options = {"stream": True, "resume_transfers": True}
         download_options.update(self.download_options)
-        multiurl.download(
-            url,
-            target=target,
-            **self.retry_options,
-            **self.request_options,
-            **download_options,
-        )
+        try:
+            multiurl.download(
+                url,
+                target=target,
+                maximum_retries=0,
+                **self.request_options,
+                **download_options,
+            )
+        except requests.HTTPError as exc:
+            return exc.response
         return requests.Response()  # mutliurl robust needs a response
 
     def download(
@@ -661,7 +664,7 @@ class Results(ApiResponse):
     @property
     def location(self) -> str:
         """File location."""
-        result_href = self.asset["href"]
+        result_href: str = self.asset["href"]
         return urllib.parse.urljoin(self.response.url, result_href)
 
     @property
@@ -704,6 +707,13 @@ class Processing:
             cleanup=self.cleanup,
             log_callback=self.log_callback,
         )
+
+    def delete(self, *job_ids: str) -> dict[str, Any]:
+        url = f"{self.url}/jobs/delete"
+        response = ApiResponse.from_request(
+            "post", url, json={"job_ids": job_ids}, **self._request_kwargs
+        )
+        return response._json_dict
 
     def get_processes(self, **params: Any) -> Processes:
         url = f"{self.url}/processes"

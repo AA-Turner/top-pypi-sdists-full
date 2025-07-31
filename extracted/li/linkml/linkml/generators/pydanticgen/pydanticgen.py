@@ -832,8 +832,7 @@ class PydanticGenerator(OOCodeGenerator, LifecycleMixin):
             meta = remove_empty_items(source)
         else:
             raise ValueError(
-                f"Unknown metadata mode '{self.metadata_mode}', needs to be one of "
-                f"{[mode for mode in MetadataMode]}"
+                f"Unknown metadata mode '{self.metadata_mode}', needs to be one of {[mode for mode in MetadataMode]}"
             )
 
         model.meta = meta
@@ -1196,7 +1195,7 @@ Available templates to override:
 )
 @click.option(
     "--meta",
-    type=click.Choice([k for k in MetadataMode]),
+    type=click.Choice([k.value for k in MetadataMode]),
     default="auto",
     help="How to include linkml schema metadata in generated pydantic classes. "
     "See docs for MetadataMode for full description of choices. "

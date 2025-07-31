@@ -1,17 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-embeddings-ibm
-Version: 0.3.1
+Version: 0.4.0
 Summary: llama-index embeddings IBM watsonx.ai integration
-License: MIT
 Author: IBM
-Requires-Python: >=3.10,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: ibm-watsonx-ai (>=1.0.1)
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.10
+Requires-Dist: ibm-watsonx-ai>=1.0.1
+Requires-Dist: llama-index-core<0.14,>=0.13.0
 Requires-Dist: pyarrow
 Description-Content-Type: text/markdown
 
@@ -121,4 +117,3 @@ texts = ["This is a content of one document", "This is another document"]
 doc_result = watsonx_embedding.get_text_embedding_batch(texts)
 print(doc_result[0][:5])
 ```
-

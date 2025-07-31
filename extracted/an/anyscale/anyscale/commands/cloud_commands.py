@@ -266,11 +266,47 @@ def cloud_config_group() -> None:
     "--file", "-f", help="YAML file containing the deployment spec.", required=True,
 )
 @click.option(
+    "--skip-verification",
+    is_flag=True,
+    default=False,
+    help="Skip cloud deployment verification.",
+)
+@click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
-def cloud_add_deployment(cloud_name: str, file: str, yes: bool,) -> None:
+def cloud_add_deployment(
+    cloud_name: str, file: str, skip_verification: bool, yes: bool,
+) -> None:
     try:
-        CloudController().add_cloud_deployment(cloud_name, file, yes)
+        CloudController().add_cloud_deployment(cloud_name, file, skip_verification, yes)
+    except click.ClickException as e:
+        print(e)
+
+
+@cloud_cli.command(
+    name="remove-deployment",
+    help="Remove a cloud deployment from an existing cloud.",
+    cls=AnyscaleCommand,
+    example=command_examples.CLOUD_REMOVE_DEPLOYMENT_EXAMPLE,
+)
+@click.option(
+    "--cloud",
+    help="The name of the cloud to remove the deployment from.",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--deployment",
+    help="The name of the deployment to remove.",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
+)
+def cloud_remove_deployment(cloud: str, deployment: str, yes: bool,) -> None:
+    try:
+        CloudController().remove_cloud_deployment(cloud, deployment, yes)
     except click.ClickException as e:
         print(e)
 
@@ -324,6 +360,12 @@ def cloud_add_deployment(cloud_name: str, file: str, yes: bool,) -> None:
     required=False,
     hidden=True,
 )
+@click.option(
+    "--skip-verification",
+    is_flag=True,
+    default=False,
+    help="Skip cloud deployment verification.",
+)
 def cloud_update(  # noqa: PLR0913
     cloud_name: Optional[str],
     name: Optional[str],
@@ -333,10 +375,11 @@ def cloud_update(  # noqa: PLR0913
     yes: bool,
     enable_auto_add_user: Optional[bool],
     file: Optional[str],
+    skip_verification: bool,
 ) -> None:
     if file:
         try:
-            CloudController().update_cloud_deployments(file)
+            CloudController().update_cloud_deployments(file, skip_verification)
         except click.ClickException as e:
             print(e)
         return

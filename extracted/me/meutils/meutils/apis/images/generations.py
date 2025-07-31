@@ -16,6 +16,7 @@ from meutils.schemas.image_types import ImageRequest
 
 from meutils.apis.fal.images import generate as fal_generate
 
+from meutils.apis.gitee.image_to_3d import generate as image_to_3d_generate
 
 async def generate(
         request: ImageRequest,
@@ -28,6 +29,9 @@ async def generate(
 
     if request.model.startswith("fal-ai"):
         return await fal_generate(request, api_key)
+
+    if request.model in {"Hunyuan3D-2", "Hi3DGen", "Step1X-3D"}:
+        return await image_to_3d_generate(request, api_key)
 
 
 if __name__ == '__main__':

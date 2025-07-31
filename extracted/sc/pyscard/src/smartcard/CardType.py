@@ -26,6 +26,8 @@ from smartcard.Exceptions import InvalidATRMaskLengthException
 from smartcard.System import readers
 from smartcard.util import toHexString
 
+# pylint: disable=too-few-public-methods
+
 
 class CardType:
     """Abstract base class for CardTypes.
@@ -35,7 +37,6 @@ class CardType:
 
     def __init__(self):
         """CardType constructor."""
-        pass
 
     def matches(self, atr, reader=None):
         """Returns true if atr and card connected match the L{CardType}.
@@ -45,14 +46,10 @@ class CardType:
 
         The reader can be used in some subclasses to do advanced
         matching that require connecting to the card."""
-        pass
 
 
 class AnyCardType(CardType):
     """The AnyCardType matches any card."""
-
-    def __init__(self):
-        super().__init__()
 
     def matches(self, atr, reader=None):
         """Always returns true, i.e. AnyCardType matches any card.
@@ -102,7 +99,7 @@ class ATRCardType(CardType):
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of CardType.py."""
+    # Small sample illustrating the use of CardType.py.
     r = readers()
     print(r)
     connection = r[0].createConnection()

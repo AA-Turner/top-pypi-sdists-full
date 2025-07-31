@@ -26,8 +26,8 @@ pc = cast(Any, pyarrow.compute)
 
 # For small tables, no need to construct a sequential index list for each join
 # Instead, we'll use this preallocated list, and slice from it
-# By using 32 bit integers, this list will take up 4 * (2**24) bytes ~= 67 MB
-_PREALLOCATED_INDEX_ARRAY_LEN = 2**24
+# By using 32 bit integers, this list will take up 4 * (2**20) bytes ~= 4 MB
+_PREALLOCATED_INDEX_ARRAY_LEN = 2**20
 _PREALLOCATED_INDEX_ARRAY = pc.subtract_checked(
     pc.cumulative_sum_checked(pa.nulls(_PREALLOCATED_INDEX_ARRAY_LEN, pa.int32()).fill_null(1)),
     pa.scalar(1, pa.int32()),

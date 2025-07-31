@@ -74,8 +74,8 @@ def _verify_identity_based_s3_access(
         iam_role,
         lambda statement: statement["Effect"] == "Allow"
         and (
-            "*" in _coerce_to_list(statement["Resource"])
-            or s3_bucket.name in str(statement["Resource"])
+            "*" in _coerce_to_list(statement.get("Resource"))
+            or s3_bucket.name in str(statement.get("Resource"))
         ),
     )
     if len(allow_actions_on_role) == 0:

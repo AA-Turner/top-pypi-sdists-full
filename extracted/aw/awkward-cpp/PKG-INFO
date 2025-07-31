@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awkward_cpp
-Version: 47
+Version: 48
 Summary: CPU kernels and compiled extensions for Awkward Array
 Author-Email: Jim Pivarski <jpivarski@gmail.com>
 Maintainer-Email: Scikit-HEP <scikit-hep-admins@googlegroups.com>
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics

@@ -26,7 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import os.path
 import sys
 
-from smartcard.wx.SimpleSCardApp import *
+from smartcard.wx.SimpleSCardApp import TR_READER, SimpleSCardApp
 
 
 def we_are_frozen():
@@ -47,7 +47,7 @@ def module_path():
     return os.path.dirname(__file__)
 
 
-def main(argv):
+def main():
     app = SimpleSCardApp(
         appname="A simple reader monitoring tool",
         apppanel=None,
@@ -59,6 +59,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    import sys
-
-    main(sys.argv)
+    main()

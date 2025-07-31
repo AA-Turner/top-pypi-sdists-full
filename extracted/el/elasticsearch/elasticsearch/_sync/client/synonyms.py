@@ -53,7 +53,7 @@ class SynonymsClient(NamespacedClient):
           When the synonyms set is not used in analyzers, you will be able to delete it.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-delete-synonym>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-delete-synonym>`_
 
         :param id: The synonyms set identifier to delete.
         """
@@ -90,6 +90,7 @@ class SynonymsClient(NamespacedClient):
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
+        refresh: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -98,10 +99,13 @@ class SynonymsClient(NamespacedClient):
           Delete a synonym rule from a synonym set.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-delete-synonym-rule>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-delete-synonym-rule>`_
 
         :param set_id: The ID of the synonym set to update.
         :param rule_id: The ID of the synonym rule to delete.
+        :param refresh: If `true`, the request will refresh the analyzers with the deleted
+            synonym rule and wait for the new synonyms to be available before returning.
+            If `false`, analyzers will not be reloaded with the deleted synonym rule
         """
         if set_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'set_id'")
@@ -121,6 +125,8 @@ class SynonymsClient(NamespacedClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
+        if refresh is not None:
+            __query["refresh"] = refresh
         __headers = {"accept": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "DELETE",
@@ -151,7 +157,7 @@ class SynonymsClient(NamespacedClient):
           <p>Get a synonym set.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-get-synonym>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-get-synonym>`_
 
         :param id: The synonyms set identifier to retrieve.
         :param from_: The starting offset for query rules to retrieve.
@@ -202,7 +208,7 @@ class SynonymsClient(NamespacedClient):
           Get a synonym rule from a synonym set.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-get-synonym-rule>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-get-synonym-rule>`_
 
         :param set_id: The ID of the synonym set to retrieve the synonym rule from.
         :param rule_id: The ID of the synonym rule to retrieve.
@@ -255,7 +261,7 @@ class SynonymsClient(NamespacedClient):
           Get a summary of all defined synonym sets.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-get-synonym>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-get-synonym>`_
 
         :param from_: The starting offset for synonyms sets to retrieve.
         :param size: The maximum number of synonyms sets to retrieve.
@@ -299,6 +305,7 @@ class SynonymsClient(NamespacedClient):
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
+        refresh: t.Optional[bool] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -309,12 +316,16 @@ class SynonymsClient(NamespacedClient):
           If you need to manage more synonym rules, you can create multiple synonym sets.</p>
           <p>When an existing synonyms set is updated, the search analyzers that use the synonyms set are reloaded automatically for all indices.
           This is equivalent to invoking the reload search analyzers API for all indices that use the synonyms set.</p>
+          <p>For practical examples of how to create or update a synonyms set, refer to the External documentation.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-put-synonym>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-put-synonym>`_
 
         :param id: The ID of the synonyms set to be created or updated.
         :param synonyms_set: The synonym rules definitions for the synonyms set.
+        :param refresh: If `true`, the request will refresh the analyzers with the new
+            synonyms set and wait for the new synonyms to be available before returning.
+            If `false`, analyzers will not be reloaded with the new synonym set
         """
         if id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'id'")
@@ -332,6 +343,8 @@ class SynonymsClient(NamespacedClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
+        if refresh is not None:
+            __query["refresh"] = refresh
         if not __body:
             if synonyms_set is not None:
                 __body["synonyms_set"] = synonyms_set
@@ -359,6 +372,7 @@ class SynonymsClient(NamespacedClient):
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
+        refresh: t.Optional[bool] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -370,12 +384,15 @@ class SynonymsClient(NamespacedClient):
           <p>When you update a synonym rule, all analyzers using the synonyms set will be reloaded automatically to reflect the new rule.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-synonyms-put-synonym-rule>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-put-synonym-rule>`_
 
         :param set_id: The ID of the synonym set.
         :param rule_id: The ID of the synonym rule to be updated or created.
         :param synonyms: The synonym rule information definition, which must be in Solr
             format.
+        :param refresh: If `true`, the request will refresh the analyzers with the new
+            synonym rule and wait for the new synonyms to be available before returning.
+            If `false`, analyzers will not be reloaded with the new synonym rule
         """
         if set_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'set_id'")
@@ -398,6 +415,8 @@ class SynonymsClient(NamespacedClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
+        if refresh is not None:
+            __query["refresh"] = refresh
         if not __body:
             if synonyms is not None:
                 __body["synonyms"] = synonyms

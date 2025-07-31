@@ -21,8 +21,8 @@ base_url = "https://api.ppinfra.com/v3"
 feishu_url = "https://xchatllm.feishu.cn/sheets/Z59Js10DbhT8wdt72LachSDlnlf?sheet=b0e241"
 
 
-async def get_valid_token():
-    _ = await get_next_token(feishu_url, check_token, min_points=18000, ttl=600)
+async def get_valid_token(min_points=18000):
+    _ = await get_next_token(feishu_url, check_token, min_points=min_points, ttl=600)
     logger.debug(_)
     return _
 

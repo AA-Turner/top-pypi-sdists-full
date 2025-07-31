@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_eks
-Version: 4.0.0
+Version: 4.0.1
 Summary: Pulumi Amazon Web Services (AWS) EKS Components.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com

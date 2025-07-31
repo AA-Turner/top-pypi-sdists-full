@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai
-Version: 0.150.0
+Version: 0.152.0
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -51,7 +51,7 @@ Requires-Dist: pandas>=2.2.3; extra == 'pandas'
 Provides-Extra: pdfplumber
 Requires-Dist: pdfplumber>=0.11.4; extra == 'pdfplumber'
 Provides-Extra: tools
-Requires-Dist: crewai-tools~=0.58.0; extra == 'tools'
+Requires-Dist: crewai-tools~=0.59.0; extra == 'tools'
 Description-Content-Type: text/markdown
 
 <p align="center">

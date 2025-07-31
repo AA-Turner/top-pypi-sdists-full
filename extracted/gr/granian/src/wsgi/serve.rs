@@ -1,571 +1,20 @@
-use futures::FutureExt;
 use pyo3::prelude::*;
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 
 use super::http::handle;
 
-use crate::callbacks::CallbackScheduler;
-use crate::conversion::{worker_http1_config_from_py, worker_http2_config_from_py};
-use crate::tcp::SocketHolder;
-use crate::workers::{WorkerConfig, WorkerSignalSync};
+use crate::{
+    callbacks::CallbackScheduler,
+    conversion::{worker_http1_config_from_py, worker_http2_config_from_py},
+    http::HTTPProto,
+    net::SocketHolder,
+    workers::{Worker, WorkerAcceptor, WorkerConfig, WorkerSignalSync, gen_serve_match},
+};
 
 #[pyclass(frozen, module = "granian._granian")]
 pub struct WSGIWorker {
     config: WorkerConfig,
-}
-
-macro_rules! serve_mtr {
-    ($func_name:ident, $http_mode:tt, $conn_method:ident, $ctx:ty, $svc:ident) => {
-        fn $func_name(
-            &self,
-            py: Python,
-            callback: Py<crate::callbacks::CallbackScheduler>,
-            event_loop: &Bound<PyAny>,
-            signal: Py<WorkerSignalSync>,
-        ) {
-            _ = pyo3_log::try_init();
-
-            let worker_id = self.config.id;
-            log::info!("Started worker-{}", worker_id);
-
-            let tcp_listener = self.config.tcp_listener();
-            #[allow(unused_variables)]
-            let http1_opts = self.config.http1_opts.clone();
-            #[allow(unused_variables)]
-            let http2_opts = self.config.http2_opts.clone();
-            let backpressure = self.config.backpressure.clone();
-
-            let ctxw: Box<dyn crate::workers::WorkerCTX<CTX=$ctx>> = Box::new(crate::workers::Worker::new(<$ctx>::new(callback, self.config.static_files.clone())));
-            let ctx = ctxw.get_ctx();
-
-            let rtpyloop = std::sync::Arc::new(event_loop.clone().unbind());
-            let rt = py.allow_threads(|| crate::runtime::init_runtime_mt(
-                self.config.threads,
-                self.config.blocking_threads,
-                self.config.py_threads,
-                self.config.py_threads_idle_timeout,
-                rtpyloop,
-            ));
-            let rth = rt.handler();
-            let tasks = tokio_util::task::TaskTracker::new();
-            let (stx, mut srx) = tokio::sync::watch::channel(false);
-
-            let main_loop = rt.inner.spawn(async move {
-                crate::workers::gen_accept!(
-                    plain
-                    $http_mode
-                    $conn_method,
-                    ctx,
-                    handle,
-                    $svc,
-                    tcp_listener,
-                    srx,
-                    backpressure,
-                    rth,
-                    |task| tasks.spawn(task),
-                    hyper_util::rt::TokioExecutor::new,
-                    http1_opts,
-                    http2_opts,
-                    hyper_util::rt::TokioIo::new
-                );
-
-                log::info!("Stopping worker-{}", worker_id);
-
-                tasks.close();
-                tasks.wait().await;
-
-                Python::with_gil(|_| drop(ctx));
-            });
-
-            let pysig = signal.clone_ref(py);
-            std::thread::spawn(move || {
-                let pyrx = pysig.get().rx.lock().unwrap().take().unwrap();
-                _ = pyrx.recv();
-                stx.send(true).unwrap();
-
-                while !main_loop.is_finished() {
-                    std::thread::sleep(std::time::Duration::from_millis(1));
-                }
-
-                Python::with_gil(|py| {
-                    _ = pysig.get().release(py);
-                    drop(pysig);
-                });
-            });
-
-            _ = signal.get().qs.call_method0(py, pyo3::intern!(py, "wait"));
-        }
-    };
-}
-
-macro_rules! serve_mtr_ssl {
-    ($func_name:ident, $http_mode:tt, $conn_method:ident, $ctx:ty, $svc:ident) => {
-        fn $func_name(
-            &self,
-            py: Python,
-            callback: Py<crate::callbacks::CallbackScheduler>,
-            event_loop: &Bound<PyAny>,
-            signal: Py<WorkerSignalSync>,
-        ) {
-            _ = pyo3_log::try_init();
-
-            let worker_id = self.config.id;
-            log::info!("Started worker-{}", worker_id);
-
-            let tcp_listener = self.config.tcp_listener();
-            #[allow(unused_variables)]
-            let http1_opts = self.config.http1_opts.clone();
-            #[allow(unused_variables)]
-            let http2_opts = self.config.http2_opts.clone();
-            let backpressure = self.config.backpressure.clone();
-            let tls_cfg = self.config.tls_cfg();
-
-            let ctxw: Box<dyn crate::workers::WorkerCTX<CTX=$ctx>> = Box::new(crate::workers::Worker::new(<$ctx>::new(callback, self.config.static_files.clone())));
-            let ctx = ctxw.get_ctx();
-
-            let rtpyloop = std::sync::Arc::new(event_loop.clone().unbind());
-            let rt = py.allow_threads(|| crate::runtime::init_runtime_mt(
-                self.config.threads,
-                self.config.blocking_threads,
-                self.config.py_threads,
-                self.config.py_threads_idle_timeout,
-                rtpyloop,
-            ));
-            let rth = rt.handler();
-            let tasks = tokio_util::task::TaskTracker::new();
-            let (stx, mut srx) = tokio::sync::watch::channel(false);
-
-            let main_loop = rt.inner.spawn(async move {
-                crate::workers::gen_accept!(
-                    tls
-                    $http_mode
-                    $conn_method,
-                    tls_cfg,
-                    ctx,
-                    handle,
-                    $svc,
-                    tcp_listener,
-                    srx,
-                    backpressure,
-                    rth,
-                    |task| tasks.spawn(task),
-                    hyper_util::rt::TokioExecutor::new,
-                    http1_opts,
-                    http2_opts,
-                    hyper_util::rt::TokioIo::new
-                );
-
-                log::info!("Stopping worker-{}", worker_id);
-
-                tasks.close();
-                tasks.wait().await;
-
-                Python::with_gil(|_| drop(ctx));
-            });
-
-            let pysig = signal.clone_ref(py);
-            std::thread::spawn(move || {
-                let pyrx = pysig.get().rx.lock().unwrap().take().unwrap();
-                _ = pyrx.recv();
-                stx.send(true).unwrap();
-
-                while !main_loop.is_finished() {
-                    std::thread::sleep(std::time::Duration::from_millis(1));
-                }
-
-                Python::with_gil(|py| {
-                    _ = pysig.get().release(py);
-                    drop(pysig);
-                });
-            });
-
-            _ = signal.get().qs.call_method0(py, pyo3::intern!(py, "wait"));
-        }
-    };
-}
-
-macro_rules! serve_str {
-    ($func_name:ident, $http_mode:tt, $conn_method:ident, $ctx:ty, $svc:ident) => {
-        fn $func_name(
-            &self,
-            py: Python,
-            callback: Py<crate::callbacks::CallbackScheduler>,
-            event_loop: &Bound<PyAny>,
-            signal: Py<WorkerSignalSync>,
-        ) {
-            _ = pyo3_log::try_init();
-
-            let worker_id = self.config.id;
-            log::info!("Started worker-{}", worker_id);
-
-            let (stx, srx) = tokio::sync::watch::channel(false);
-            let mut workers = vec![];
-            crate::workers::serve_str_inner!(
-                $http_mode,
-                $conn_method,
-                handle,
-                $ctx,
-                $svc,
-                self,
-                callback,
-                event_loop,
-                worker_id,
-                workers,
-                srx
-            );
-
-            let pysig = signal.clone_ref(py);
-            std::thread::spawn(move || {
-                let pyrx = pysig.get().rx.lock().unwrap().take().unwrap();
-                _ = pyrx.recv();
-                stx.send(true).unwrap();
-                log::info!("Stopping worker-{worker_id}");
-                while let Some(worker) = workers.pop() {
-                    worker.join().unwrap();
-                }
-
-                Python::with_gil(|py| {
-                    _ = pysig.get().release(py);
-                    drop(pysig);
-                });
-            });
-
-            _ = signal.get().qs.call_method0(py, pyo3::intern!(py, "wait"));
-        }
-    };
-}
-
-macro_rules! serve_str_ssl {
-    ($func_name:ident, $http_mode:tt, $conn_method:ident, $ctx:ty, $svc:ident) => {
-        fn $func_name(
-            &self,
-            py: Python,
-            callback: Py<crate::callbacks::CallbackScheduler>,
-            event_loop: &Bound<PyAny>,
-            signal: Py<WorkerSignalSync>,
-        ) {
-            _ = pyo3_log::try_init();
-
-            let worker_id = self.config.id;
-            log::info!("Started worker-{}", worker_id);
-
-            let (stx, srx) = tokio::sync::watch::channel(false);
-            let mut workers = vec![];
-            crate::workers::serve_str_ssl_inner!(
-                $http_mode,
-                $conn_method,
-                handle,
-                $ctx,
-                $svc,
-                self,
-                callback,
-                event_loop,
-                worker_id,
-                workers,
-                srx
-            );
-
-            let pysig = signal.clone_ref(py);
-            std::thread::spawn(move || {
-                let pyrx = pysig.get().rx.lock().unwrap().take().unwrap();
-                _ = pyrx.recv();
-                stx.send(true).unwrap();
-                log::info!("Stopping worker-{worker_id}");
-                while let Some(worker) = workers.pop() {
-                    worker.join().unwrap();
-                }
-
-                Python::with_gil(|py| {
-                    _ = pysig.get().release(py);
-                    drop(pysig);
-                });
-            });
-
-            _ = signal.get().qs.call_method0(py, pyo3::intern!(py, "wait"));
-        }
-    };
-}
-
-impl WSGIWorker {
-    serve_mtr!(
-        _serve_mtr_http_plain_auto_base,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_auto_file,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_autou_base,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_autou_file,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_1_base,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_1_file,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_1u_base,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_1u_file,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_2_base,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr!(
-        _serve_mtr_http_plain_2_file,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_auto_base,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_auto_file,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_autou_base,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_autou_file,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_1_base,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_1_file,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_1u_base,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_1u_file,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_2_base,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_mtr_ssl!(
-        _serve_mtr_http_tls_2_file,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str!(
-        _serve_str_http_plain_auto_base,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str!(
-        _serve_str_http_plain_auto_file,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str!(
-        _serve_str_http_plain_autou_base,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str!(
-        _serve_str_http_plain_autou_file,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str!(
-        _serve_str_http_plain_1_base,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str!(
-        _serve_str_http_plain_1_file,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str!(
-        _serve_str_http_plain_1u_base,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str!(
-        _serve_str_http_plain_1u_file,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str!(
-        _serve_str_http_plain_2_base,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str!(
-        _serve_str_http_plain_2_file,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_auto_base,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_auto_file,
-        auto,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_autou_base,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_autou_file,
-        auto,
-        serve_connection_with_upgrades,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_1_base,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_1_file,
-        1,
-        connection_builder_h1,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_1u_base,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_1u_file,
-        1,
-        connection_builder_h1u,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_2_base,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXBase,
-        service_app
-    );
-    serve_str_ssl!(
-        _serve_str_http_tls_2_file,
-        2,
-        serve_connection,
-        crate::workers::WorkerCTXFiles,
-        service_files
-    );
 }
 
 #[pymethods]
@@ -605,7 +54,7 @@ impl WSGIWorker {
         http_mode: &str,
         http1_opts: Option<PyObject>,
         http2_opts: Option<PyObject>,
-        static_files: Option<(String, String, String)>,
+        static_files: Option<(String, String, Option<String>)>,
         ssl_enabled: bool,
         ssl_cert: Option<String>,
         ssl_key: Option<String>,
@@ -646,25 +95,18 @@ impl WSGIWorker {
         event_loop: &Bound<PyAny>,
         signal: Py<WorkerSignalSync>,
     ) {
-        match (
-            &self.config.http_mode[..],
-            self.config.tls_opts.is_some(),
-            self.config.static_files.is_some(),
-        ) {
-            ("auto", false, false) => self._serve_mtr_http_plain_auto_base(py, callback, event_loop, signal),
-            ("auto", false, true) => self._serve_mtr_http_plain_auto_file(py, callback, event_loop, signal),
-            ("auto", true, false) => self._serve_mtr_http_tls_auto_base(py, callback, event_loop, signal),
-            ("auto", true, true) => self._serve_mtr_http_tls_auto_file(py, callback, event_loop, signal),
-            ("1", false, false) => self._serve_mtr_http_plain_1_base(py, callback, event_loop, signal),
-            ("1", false, true) => self._serve_mtr_http_plain_1_file(py, callback, event_loop, signal),
-            ("1", true, false) => self._serve_mtr_http_tls_1_base(py, callback, event_loop, signal),
-            ("1", true, true) => self._serve_mtr_http_tls_1_file(py, callback, event_loop, signal),
-            ("2", false, false) => self._serve_mtr_http_plain_2_base(py, callback, event_loop, signal),
-            ("2", false, true) => self._serve_mtr_http_plain_2_file(py, callback, event_loop, signal),
-            ("2", true, false) => self._serve_mtr_http_tls_2_base(py, callback, event_loop, signal),
-            ("2", true, true) => self._serve_mtr_http_tls_2_file(py, callback, event_loop, signal),
-            _ => unreachable!(),
-        }
+        gen_serve_match!(
+            serve_mt,
+            WorkerAcceptorTcpPlain,
+            WorkerAcceptorTcpTls,
+            self,
+            py,
+            callback,
+            event_loop,
+            signal,
+            handle,
+            handle
+        );
     }
 
     fn serve_str(
@@ -674,24 +116,243 @@ impl WSGIWorker {
         event_loop: &Bound<PyAny>,
         signal: Py<WorkerSignalSync>,
     ) {
-        match (
-            &self.config.http_mode[..],
-            self.config.tls_opts.is_some(),
-            self.config.static_files.is_some(),
-        ) {
-            ("auto", false, false) => self._serve_str_http_plain_auto_base(py, callback, event_loop, signal),
-            ("auto", false, true) => self._serve_str_http_plain_auto_file(py, callback, event_loop, signal),
-            ("auto", true, false) => self._serve_str_http_tls_auto_base(py, callback, event_loop, signal),
-            ("auto", true, true) => self._serve_str_http_tls_auto_file(py, callback, event_loop, signal),
-            ("1", false, false) => self._serve_str_http_plain_1_base(py, callback, event_loop, signal),
-            ("1", false, true) => self._serve_str_http_plain_1_file(py, callback, event_loop, signal),
-            ("1", true, false) => self._serve_str_http_tls_1_base(py, callback, event_loop, signal),
-            ("1", true, true) => self._serve_str_http_tls_1_file(py, callback, event_loop, signal),
-            ("2", false, false) => self._serve_str_http_plain_2_base(py, callback, event_loop, signal),
-            ("2", false, true) => self._serve_str_http_plain_2_file(py, callback, event_loop, signal),
-            ("2", true, false) => self._serve_str_http_tls_2_base(py, callback, event_loop, signal),
-            ("2", true, true) => self._serve_str_http_tls_2_file(py, callback, event_loop, signal),
-            _ => unreachable!(),
-        }
+        gen_serve_match!(
+            serve_st,
+            WorkerAcceptorTcpPlain,
+            WorkerAcceptorTcpTls,
+            self,
+            py,
+            callback,
+            event_loop,
+            signal,
+            handle,
+            handle
+        );
+    }
+
+    #[cfg(unix)]
+    fn serve_mtr_uds(
+        &self,
+        py: Python,
+        callback: Py<CallbackScheduler>,
+        event_loop: &Bound<PyAny>,
+        signal: Py<WorkerSignalSync>,
+    ) {
+        gen_serve_match!(
+            serve_mt_uds,
+            WorkerAcceptorUdsPlain,
+            WorkerAcceptorUdsTls,
+            self,
+            py,
+            callback,
+            event_loop,
+            signal,
+            handle,
+            handle
+        );
+    }
+
+    #[cfg(unix)]
+    fn serve_str_uds(
+        &self,
+        py: Python,
+        callback: Py<CallbackScheduler>,
+        event_loop: &Bound<PyAny>,
+        signal: Py<WorkerSignalSync>,
+    ) {
+        gen_serve_match!(
+            serve_st_uds,
+            WorkerAcceptorUdsPlain,
+            WorkerAcceptorUdsTls,
+            self,
+            py,
+            callback,
+            event_loop,
+            signal,
+            handle,
+            handle
+        );
     }
 }
+
+macro_rules! serve_fn {
+    (mt $name:ident, $listener:ty, $listener_gen:ident) => {
+        pub(crate) fn $name<C, A, H, F, Ret>(
+            cfg: &WorkerConfig,
+            py: Python,
+            event_loop: &Bound<PyAny>,
+            signal: Py<WorkerSignalSync>,
+            ctx: C,
+            acceptor: A,
+            handler: H,
+            target: F,
+        ) where
+            F: Fn(
+                    crate::runtime::RuntimeRef,
+                    Arc<tokio::sync::Notify>,
+                    crate::callbacks::ArcCBScheduler,
+                    crate::net::SockAddr,
+                    crate::net::SockAddr,
+                    crate::http::HTTPRequest,
+                    HTTPProto,
+                ) -> Ret
+                + Copy,
+            Ret: Future<Output = crate::http::HTTPResponse>,
+            Worker<C, A, H, F>: WorkerAcceptor<$listener> + Clone + Send + 'static,
+        {
+            _ = pyo3_log::try_init();
+
+            let worker_id = cfg.id;
+            log::info!("Started worker-{worker_id}");
+
+            let listener = cfg.$listener_gen();
+            let backpressure = cfg.backpressure;
+
+            let rtpyloop = Arc::new(event_loop.clone().unbind());
+            let rt = py.allow_threads(|| {
+                crate::runtime::init_runtime_mt(
+                    cfg.threads,
+                    cfg.blocking_threads,
+                    cfg.py_threads,
+                    cfg.py_threads_idle_timeout,
+                    rtpyloop,
+                )
+            });
+            let rth = rt.handler();
+
+            let wrk = crate::workers::Worker::new(ctx, acceptor, handler, rth, target);
+            let (stx, srx) = tokio::sync::watch::channel(false);
+
+            let main_loop: JoinHandle<anyhow::Result<()>> = rt.inner.spawn(async move {
+                wrk.clone().listen(srx, listener, backpressure).await;
+
+                log::info!("Stopping worker-{worker_id}");
+
+                wrk.tasks.close();
+                wrk.tasks.wait().await;
+
+                Python::with_gil(|_| drop(wrk));
+                Ok(())
+            });
+
+            let pysig = signal.clone_ref(py);
+            std::thread::spawn(move || {
+                let pyrx = pysig.get().rx.lock().unwrap().take().unwrap();
+                _ = pyrx.recv();
+                stx.send(true).unwrap();
+
+                while !main_loop.is_finished() {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+
+                Python::with_gil(|py| {
+                    _ = pysig.get().release(py);
+                    drop(pysig);
+                });
+            });
+
+            _ = signal.get().qs.call_method0(py, pyo3::intern!(py, "wait"));
+        }
+    };
+    (st $name:ident, $listener:ty, $listener_gen:ident) => {
+        pub(crate) fn $name<C, A, H, F, Ret>(
+            cfg: &WorkerConfig,
+            py: Python,
+            event_loop: &Bound<PyAny>,
+            signal: Py<WorkerSignalSync>,
+            ctx: C,
+            acceptor: A,
+            handler: H,
+            target: F,
+        ) where
+            F: Fn(
+                    crate::runtime::RuntimeRef,
+                    Arc<tokio::sync::Notify>,
+                    crate::callbacks::ArcCBScheduler,
+                    crate::net::SockAddr,
+                    crate::net::SockAddr,
+                    crate::http::HTTPRequest,
+                    HTTPProto,
+                ) -> Ret
+                + Copy
+                + Send,
+            Ret: Future<Output = crate::http::HTTPResponse>,
+            C: Clone + Send + 'static,
+            A: Clone + Send + 'static,
+            H: Clone + Send + 'static,
+            Worker<C, A, H, F>: WorkerAcceptor<$listener> + Clone + Send + 'static,
+        {
+            _ = pyo3_log::try_init();
+
+            let worker_id = cfg.id;
+            log::info!("Started worker-{worker_id}");
+
+            let (stx, srx) = tokio::sync::watch::channel(false);
+            let mut workers = vec![];
+
+            let py_loop = Arc::new(event_loop.clone().unbind());
+
+            for thread_id in 0..cfg.threads {
+                log::info!("Started worker-{} runtime-{}", worker_id, thread_id + 1);
+
+                let tcp_listener = cfg.$listener_gen();
+                let blocking_threads = cfg.blocking_threads;
+                let py_threads = cfg.py_threads;
+                let py_threads_idle_timeout = cfg.py_threads_idle_timeout;
+                let backpressure = cfg.backpressure;
+                let ctx = ctx.clone();
+                let acceptor = acceptor.clone();
+                let handler = handler.clone();
+                let target = target.clone();
+                let py_loop = py_loop.clone();
+                let srx = srx.clone();
+
+                workers.push(std::thread::spawn(move || {
+                    let rt =
+                        crate::runtime::init_runtime_st(blocking_threads, py_threads, py_threads_idle_timeout, py_loop);
+                    let rth = rt.handler();
+                    let wrk = crate::workers::Worker::new(ctx, acceptor, handler, rth, target);
+                    let local = tokio::task::LocalSet::new();
+
+                    crate::runtime::block_on_local(&rt, local, async move {
+                        wrk.clone().listen(srx, tcp_listener, backpressure).await;
+
+                        log::info!("Stopping worker-{} runtime-{}", worker_id, thread_id + 1);
+
+                        wrk.tasks.close();
+                        wrk.tasks.wait().await;
+
+                        Python::with_gil(|_| drop(wrk));
+                    });
+
+                    Python::with_gil(|_| drop(rt));
+                }));
+            }
+
+            let pysig = signal.clone_ref(py);
+            std::thread::spawn(move || {
+                let pyrx = pysig.get().rx.lock().unwrap().take().unwrap();
+                _ = pyrx.recv();
+                stx.send(true).unwrap();
+                log::info!("Stopping worker-{worker_id}");
+                while let Some(worker) = workers.pop() {
+                    worker.join().unwrap();
+                }
+
+                Python::with_gil(|py| {
+                    _ = pysig.get().release(py);
+                    drop(pysig);
+                });
+            });
+
+            _ = signal.get().qs.call_method0(py, pyo3::intern!(py, "wait"));
+        }
+    };
+}
+
+serve_fn!(mt serve_mt, std::net::TcpListener, tcp_listener);
+serve_fn!(st serve_st, std::net::TcpListener, tcp_listener);
+#[cfg(unix)]
+serve_fn!(mt serve_mt_uds, std::os::unix::net::UnixListener, uds_listener);
+#[cfg(unix)]
+serve_fn!(st serve_st_uds, std::os::unix::net::UnixListener, uds_listener);

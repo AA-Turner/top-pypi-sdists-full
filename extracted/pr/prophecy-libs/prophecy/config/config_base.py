@@ -395,7 +395,7 @@ class ConfigBase:
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
 
-    def add_config_fields(self, config_record, config_values: dict):
+    def add_config_fields(self, spark_variable, config_record, config_values: dict):
         """
         Add configuration fields to this ConfigBase instance based on a ConfigurationRecord
         and a dictionary of key-value pairs.
@@ -447,7 +447,7 @@ class ConfigBase:
                 if isinstance(value, dict):
                     # Create a nested ConfigBase instance for record types
                     nested_config = type('NestedConfig', (ConfigBase,), {})()
-                    nested_config.add_config_fields(data_element, value)
+                    nested_config.add_config_fields(spark_variable, data_element, value)
                     return nested_config
                 else:
                     return value
@@ -460,7 +460,12 @@ class ConfigBase:
             elif element_type == "secret":
                 # For secrets, create a SecretValue instance
                 if isinstance(value, dict):
-                    return self.SecretValue(**value)
+                    return self.get_secret_config_object(
+                        spark_variable,
+                        ConfigBase.SecretValue(prophecy_spark=spark_variable),
+                        value,
+                        ConfigBase.SecretValue
+                    )
                 else:
                     return value
             else:
@@ -501,7 +506,7 @@ class ConfigBase:
             # Start with project config values
             merged_values = ProjectConfig.get_resolved_project_config_values(project_config.config_values, overridden_values)
             # Call add_config_fields with the merged values
-            self.add_config_fields(project_config.config_schema, merged_values)
+            self.add_config_fields(self.find_spark(self), project_config.config_schema, merged_values)
 
     def add_project_config(self, overridden_values: dict):
         # Assumption here is that the `prophecy_project_config` is already part of the class variable.
@@ -512,7 +517,7 @@ class ConfigBase:
             return None
         return project_config.with_pipeline_overrides(overridden_values)
 
-    def update_and_add_project_config(self, project_config: ProjectConfig=None, overridden_values: dict=None):
+    def update_and_add_project_config(self, prophecy_spark=None, project_config: ProjectConfig=None, overridden_values: dict=None):
         """
         This will merge the overridden values with the project config values and then assign the new values along with
         schema to `prophecy_project_config`.
@@ -523,12 +528,12 @@ class ConfigBase:
         self.prophecy_project_config = project_config
         if project_config is not None:
             if overridden_values is None:
-                self.add_config_fields(project_config.config_schema, config_values=project_config.config_values)
+                self.add_config_fields(prophecy_spark, project_config.config_schema, config_values=project_config.config_values)
             else:
                 # Merge project_config.config_values with overridden_values
                 # Start with project config values
                 merged_values = ProjectConfig.get_resolved_project_config_values(project_config.config_values, overridden_values)
-                self.add_config_fields(project_config.config_schema, merged_values)
+                self.add_config_fields(prophecy_spark, project_config.config_schema, merged_values)
 
     def update_project_config_fields(self, source_config):
         """

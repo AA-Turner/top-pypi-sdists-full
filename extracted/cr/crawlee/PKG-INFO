@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 0.6.11
+Version: 0.6.12
 Summary: Crawlee for Python
 Project-URL: Homepage, https://crawlee.dev/python
 Project-URL: Apify homepage, https://apify.com
@@ -283,6 +283,10 @@ Description-Content-Type: text/markdown
     <br>
     <small>A web scraping and browser automation library</small>
 </h1>
+
+<p align=center>
+    <a href="https://trendshift.io/repositories/11169" target="_blank"><img src="https://trendshift.io/api/badge/repositories/11169" alt="apify%2Fcrawlee-python | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
 
 <p align=center>
     <a href="https://badge.fury.io/py/crawlee" rel="nofollow">

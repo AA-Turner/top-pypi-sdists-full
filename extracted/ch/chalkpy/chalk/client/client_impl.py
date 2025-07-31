@@ -46,8 +46,6 @@ import requests.structures
 from dateutil import parser
 from requests import HTTPError
 from requests.adapters import DEFAULT_POOLBLOCK, DEFAULT_POOLSIZE, DEFAULT_RETRIES, HTTPAdapter
-from tenacity.wait import wait_exponential_jitter
-from tqdm import tqdm
 from typing_extensions import NoReturn, override
 from urllib3 import Retry
 
@@ -183,7 +181,6 @@ else:
     except ImportError:
         from pydantic import BaseModel, ValidationError
 
-from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
 
 _logger = get_logger(__name__)
 
@@ -1290,6 +1287,8 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
                 print(
                     "The branch server is offline. Starting the server is expected to take 2 minutes but could take longer.\n"
                 )
+                from tqdm import tqdm
+
                 with tqdm(total=0, desc="Starting branch server") as pbar:
                     for _ in range(90):
                         r = self.session.request(
@@ -3753,6 +3752,9 @@ https://docs.chalk.ai/cli/apply
     def get_job_status_v4(
         self, request: DatasetJobStatusRequest, environment: Optional[EnvironmentId], branch: Optional[BranchId]
     ) -> GetOfflineQueryJobResponse:
+        from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
+        from tenacity.wait import wait_exponential_jitter
+
         for attempt in Retrying(
             stop=stop_after_attempt(5),
             wait=wait_exponential_jitter(),

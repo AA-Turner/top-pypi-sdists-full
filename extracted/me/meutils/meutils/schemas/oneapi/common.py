@@ -221,10 +221,12 @@ MODEL_PRICE = {
 
     "tts-pro": 0.03,
 
-    # 官方api
+    # 官方apit todo 免费模型
     "cogvideox-flash": 0.05,
     "cogvideox": 0.1,
     "cogvideox-2": 0.2,
+    "cogvideox-3": 0.5,
+    "cogvideox-3-flash": 0.1,
 
     "official-api-cogvideox": 0.1,
     "official-api-kling-video": 0.5,
@@ -261,6 +263,8 @@ MODEL_PRICE = {
     "ideogram-ai/ideogram-v2": 0.2,
     "ideogram-ai/ideogram-v2-turbo": 0.1,
 
+    "imagen3": 0.05 * 3,
+    "imagen3-fast": 0.025 * 3,
     "imagen4": 0.05 * 3,
     "imagen4-fast": 0.02 * 3,
     "imagen4-ultra": 0.075 * 3,
@@ -548,9 +552,9 @@ MODEL_RATIO = {
     "bge-large-en-v1.5": 0.1,
     "BAAI/bge-large-en-v1.5": 0.1,
 
-    "text-embedding-3-large": 0.5,
-    "text-embedding-3-small": 0.5,
-    "text-embedding-ada-002": 0.5,
+    "text-embedding-3-large": 0.1,
+    "text-embedding-3-small": 0.1,
+    "text-embedding-ada-002": 0.1,
 
     # 百川
     'baichuan4-turbo': 7.5,
@@ -625,6 +629,12 @@ MODEL_RATIO = {
     "glm-4.1v-thinking-flash": 0.1,
     "glm-4.1v-thinking-flashx": 1,
 
+    "glm-4.5-flash": 0.1,
+    "glm-4.5-air": 0.2,
+    "glm-4.5-airx": 1,
+    "glm-4.5": 0.5,
+    "glm-4.5-x": 2,
+
     # 阿里千问 https://dashscope.console.aliyun.com/billing
     "qwen-long": 0.25,
     "qwen-turbo": 0.05,
@@ -644,8 +654,6 @@ MODEL_RATIO = {
     "qwen2.5-vl-32b-instruct": 0.5,
     "qwen2.5-vl-72b-instruct": 1.5,
 
-
-
     "qwen2.5-coder-7b-instruct": 0.05,
     "qwen2.5-7b-instruct": 0.05,
     "qwen2.5-14b-instruct": 0.25,
@@ -661,10 +669,13 @@ MODEL_RATIO = {
     "qwen3-14b": 0.5,
     "qwen3-32b": 2,
     "qwen3-30b-a3b": 0.75,
+    "qwen3-30b-a3b-instruct-2507": 0.75,
     "qwen3-235b-a22b": 1,
     "qwen-math-plus": 2,
     "qwen3-coder-480b-a35b-instruct": 3,
     "qwen3-235b-a22b-instruct-2507": 1,
+    "qwen3-235b-a22b-thinking-2507": 3,
+
     "qwen3-coder-plus": 2,
     "qwen3-coder-plus-2025-07-22": 2,
 
@@ -1091,6 +1102,7 @@ MODEL_RATIO = {
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": 0.1,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 0.2,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo": 0.2,
+    "llama-4-maverick": 0.5,
 
     # groq https://console.groq.com/docs/models
     "llama3-8b-8192": 0.01,
@@ -1246,6 +1258,7 @@ COMPLETION_RATIO = {
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": 4,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 4,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo": 4,
+    "llama-4-maverick": 4,
 
     "llama-3.1-8b-instruct": 3,
     "meta-llama/Meta-Llama-3.1-8B-Instruct": 3,
@@ -1383,10 +1396,13 @@ COMPLETION_RATIO = {
     "qwen3-14b": 4,
     "qwen3-32b": 4,
     "qwen3-30b-a3b": 4,
+    "qwen3-30b-a3b-instruct-2507": 4,
     "qwen3-235b-a22b": 4,
     "qwenlong-l1-32b": 4,
     "qwen3-235b-a22b-instruct-2507": 4,
+    "qwen3-235b-a22b-thinking-2507": 4,
     "qwen3-coder-480b-a35b-instruct": 4,
+
 
     "qwen3-coder-plus": 4,
     "qwen3-coder-plus-2025-07-22": 4,
@@ -1507,6 +1523,12 @@ COMPLETION_RATIO = {
     "glm-4v-flash": 5,
     "glm-4.1v-thinking-flash": 2,
     "glm-4.1v-thinking-flashx": 4,
+
+    "glm-4.5-flash": 3,
+    "glm-4.5-air": 3,
+    "glm-4.5-airx": 3,
+    "glm-4.5": 4,
+    "glm-4.5-x": 4,
 
     "step-1-flash": 5,
     "step-1-8k": 5,
@@ -1723,6 +1745,9 @@ if __name__ == '__main__':
     print([k for k in MODEL_RATIO if k.startswith('qwen3')] | xjoin(","))
 
     print([k for k in MODEL_RATIO if k.startswith(('deepseek', 'doubao', 'moon'))] | xjoin(","))
+
+    print('\n\n')
+    print([k for k in MODEL_RATIO if k.startswith(('glm-4.'))] | xjoin(","))
 
     print([k for k in MODEL_PRICE if k.startswith(('chat-',))] | xjoin(","))
 

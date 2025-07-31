@@ -1,5 +1,6 @@
 from .ai_mind_tool.ai_mind_tool import AIMindTool
 from .apify_actors_tool.apify_actors_tool import ApifyActorsTool
+from .arxiv_paper_tool.arxiv_paper_tool import ArxivPaperTool
 from .brave_search_tool.brave_search_tool import BraveSearchTool
 from .browserbase_load_tool.browserbase_load_tool import BrowserbaseLoadTool
 from .code_docs_search_tool.code_docs_search_tool import CodeDocsSearchTool
@@ -88,6 +89,8 @@ from .snowflake_search_tool import (
 from .spider_tool.spider_tool import SpiderTool
 from .stagehand_tool.stagehand_tool import StagehandTool
 from .txt_search_tool.txt_search_tool import TXTSearchTool
+from .tavily_extractor_tool.tavily_extractor_tool import TavilyExtractorTool
+from .tavily_search_tool.tavily_search_tool import TavilySearchTool
 from .vision_tool.vision_tool import VisionTool
 from .weaviate_tool.vector_search import WeaviateVectorSearchTool
 from .website_search.website_search_tool import WebsiteSearchTool

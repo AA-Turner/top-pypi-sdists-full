@@ -28,6 +28,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 from smartcard.Observer import Observer
 from smartcard.util import toHexString
 
+# pylint: disable=too-few-public-methods
+
 
 # ReaderObserver interface
 class CardConnectionObserver(Observer):
@@ -36,43 +38,40 @@ class CardConnectionObserver(Observer):
     upon L{CardConnection} events.
     """
 
-    def update(self, cardconnection, cardconnectionevent):
+    def update(self, observable, handlers):
         """Called upon CardConnection event.
 
-        @param cardconnection:         the observed card connection object
-        @param cardconnectionevent:    the CardConnectionEvent sent by the connection
+        @param observable:         the observed card connection object
+        @param handlers:    the CardConnectionEvent sent by the connection
         """
-        pass
 
 
 class ConsoleCardConnectionObserver(CardConnectionObserver):
+    """CardConnectionObserver output to the console"""
 
-    def update(self, cardconnection, ccevent):
+    def update(self, observable, handlers):
 
-        if "connect" == ccevent.type:
-            print("connecting to " + cardconnection.getReader())
+        if "connect" == handlers.type:
+            print("connecting to " + observable.getReader())
 
-        elif "reconnect" == ccevent.type:
-            print("reconnecting to " + cardconnection.getReader())
+        elif "reconnect" == handlers.type:
+            print("reconnecting to " + observable.getReader())
 
-        elif "disconnect" == ccevent.type:
-            print("disconnecting from " + cardconnection.getReader())
+        elif "disconnect" == handlers.type:
+            print("disconnecting from " + observable.getReader())
 
-        elif "release" == ccevent.type:
-            print("release from " + cardconnection.getReader())
+        elif "release" == handlers.type:
+            print("release from " + observable.getReader())
 
-        elif "command" == ccevent.type:
-            print("> " + toHexString(ccevent.args[0]))
+        elif "command" == handlers.type:
+            print("> " + toHexString(handlers.args[0]))
 
-        elif "response" == ccevent.type:
-            if [] == ccevent.args[0]:
-                print("<  [] %02X %02X" % tuple(ccevent.args[-2:]))
+        elif "response" == handlers.type:
+            sw1, sw2 = handlers.args[-2:]
+            SW = f" {sw1:2X} {sw2:02X}"
+            if [] == handlers.args[0]:
+                print("<  []" + SW)
             else:
-                print(
-                    "< "
-                    + toHexString(ccevent.args[0])
-                    + " "
-                    + "%02X %02X" % tuple(ccevent.args[-2:])
-                )
+                print("< " + toHexString(handlers.args[0]) + SW)
         else:
-            print("unknown event:", ccevent.type)
+            print("unknown event:", handlers.type)

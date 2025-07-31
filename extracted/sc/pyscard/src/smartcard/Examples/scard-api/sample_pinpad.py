@@ -26,9 +26,33 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
 import sys
+import traceback
 
-from smartcard.pcsc.PCSCExceptions import *
-from smartcard.scard import *
+from smartcard.pcsc.PCSCExceptions import (
+    BaseSCardException,
+    EstablishContextException,
+    ListReadersException,
+    ReleaseContextException,
+)
+from smartcard.scard import (
+    SCARD_CTL_CODE,
+    SCARD_PROTOCOL_T0,
+    SCARD_PROTOCOL_T1,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCARD_SHARE_SHARED,
+    SCARD_UNPOWER_CARD,
+    SCardConnect,
+    SCardControl,
+    SCardDisconnect,
+    SCardEstablishContext,
+    SCardListReaders,
+    SCardReleaseContext,
+    SCardTransmit,
+    error,
+)
+
+# pylint: disable=missing-function-docstring
 
 
 def can_do_verify_pin(hCard):
@@ -44,7 +68,7 @@ def can_do_modify_pin(hCard):
 def parse_get_feature_request(hCard, feature):
     # check the reader can do a verify pin
     CM_IOCTL_GET_FEATURE_REQUEST = SCARD_CTL_CODE(3400)
-    hresult, response = SCardControl(hcard, CM_IOCTL_GET_FEATURE_REQUEST, [])
+    hresult, response = SCardControl(hCard, CM_IOCTL_GET_FEATURE_REQUEST, [])
     if hresult != SCARD_S_SUCCESS:
         raise BaseSCardException(hresult)
     print(response)
@@ -56,18 +80,20 @@ def parse_get_feature_request(hCard, feature):
             ) + response[5]
         response = response[6:]
 
+    return None
+
 
 def verifypin(hCard, control=None):
     if control is None:
         control = can_do_verify_pin(hCard)
         if control is None:
-            raise Exception("Not a pinpad")
+            raise BaseSCardException(message="Not a pinpad")
 
     command = [
         0x00,  # bTimerOut
         0x00,  # bTimerOut2
         0x82,  # bmFormatString
-        0x04,  # bmPINBlockString
+        0x08,  # bmPINBlockString
         0x00,  # bmPINLengthFormat
         0x08,
         0x04,  # wPINMaxExtraDigit
@@ -97,90 +123,100 @@ def verifypin(hCard, control=None):
         0x30,
         0x30,
     ]  # abData
-    hresult, response = SCardControl(hcard, control, command)
+    hresult, response = SCardControl(hCard, control, command)
     if hresult != SCARD_S_SUCCESS:
         raise BaseSCardException(hresult)
     return hresult, response
 
 
-try:
-    hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
-    if hresult != SCARD_S_SUCCESS:
-        raise EstablishContextException(hresult)
-    print("Context established!")
-
+def main():
+    # pylint: disable=too-many-nested-blocks
+    # pylint: disable=too-many-branches
     try:
-        hresult, readers = SCardListReaders(hcontext, [])
+        hresult, hcontext = SCardEstablishContext(SCARD_SCOPE_USER)
         if hresult != SCARD_S_SUCCESS:
-            raise ListReadersException(hresult)
-        print("PCSC Readers:", readers)
+            raise EstablishContextException(hresult)
+        print("Context established!")
 
-        if len(readers) < 1:
-            raise Exception("No smart card readers")
+        try:
+            hresult, readers = SCardListReaders(hcontext, [])
+            if hresult != SCARD_S_SUCCESS:
+                raise ListReadersException(hresult)
+            print("PCSC Readers:", readers)
 
-        for zreader in readers:
+            if len(readers) < 1:
+                raise BaseSCardException(message="No smart card readers")
 
-            print("Trying to Control reader:", zreader)
+            for zreader in readers:
 
-            try:
-                hresult, hcard, dwActiveProtocol = SCardConnect(
-                    hcontext,
-                    zreader,
-                    SCARD_SHARE_SHARED,
-                    SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1,
-                )
-                if hresult != SCARD_S_SUCCESS:
-                    raise BaseSCardException(hresult)
-                print("Connected with active protocol", dwActiveProtocol)
+                print("Trying to Control reader:", zreader)
 
                 try:
-                    SELECT = [
-                        0x00,
-                        0xA4,
-                        0x04,
-                        0x00,
-                        0x06,
-                        0xA0,
-                        0x00,
-                        0x00,
-                        0x00,
-                        0x18,
-                        0xFF,
-                    ]
-                    hresult, response = SCardTransmit(hcard, dwActiveProtocol, SELECT)
+                    hresult, hcard, dwActiveProtocol = SCardConnect(
+                        hcontext,
+                        zreader,
+                        SCARD_SHARE_SHARED,
+                        SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1,
+                    )
                     if hresult != SCARD_S_SUCCESS:
                         raise BaseSCardException(hresult)
+                    print("Connected with active protocol", dwActiveProtocol)
 
-                    cmd_verify = can_do_verify_pin(hcard)
-                    if cmd_verify:
-                        print("can do verify pin: 0x%08X" % cmd_verify)
+                    try:
+                        SELECT = [
+                            0x00,
+                            0xA4,
+                            0x04,
+                            0x00,
+                            0x06,
+                            0xA0,
+                            0x00,
+                            0x00,
+                            0x00,
+                            0x18,
+                            0xFF,
+                        ]
+                        hresult, response = SCardTransmit(
+                            hcard, dwActiveProtocol, SELECT
+                        )
+                        if hresult != SCARD_S_SUCCESS:
+                            raise BaseSCardException(hresult)
 
-                    cmd_modify = can_do_modify_pin(hcard)
-                    if cmd_modify:
-                        print("can do modify pin: 0x%08X" % cmd_modify)
+                        cmd_verify = can_do_verify_pin(hcard)
+                        if cmd_verify:
+                            print(f"can do verify pin: 0x{cmd_verify:08X}")
 
-                    hresult, response = verifypin(hcard, cmd_verify)
-                    print("Control:", response)
-                except Exception as ex:
-                    print("Exception:", ex)
-                finally:
-                    hresult = SCardDisconnect(hcard, SCARD_UNPOWER_CARD)
-                    if hresult != SCARD_S_SUCCESS:
-                        raise BaseSCardException(hresult)
-                    print("Disconnected")
+                        cmd_modify = can_do_modify_pin(hcard)
+                        if cmd_modify:
+                            print(f"can do modify pin: 0x{cmd_modify:08X}")
 
-            except BaseSCardException as ex:
-                print("SCard Exception:", ex)
+                        hresult, response = verifypin(hcard, cmd_verify)
+                        print("Control:", response)
+                    except BaseSCardException as ex:
+                        print("Exception:", ex)
+                        traceback.print_exc()
+                    finally:
+                        hresult = SCardDisconnect(hcard, SCARD_UNPOWER_CARD)
+                        if hresult != SCARD_S_SUCCESS:
+                            raise BaseSCardException(hresult)
+                        print("Disconnected")
 
-    finally:
-        hresult = SCardReleaseContext(hcontext)
-        if hresult != SCARD_S_SUCCESS:
-            raise ReleaseContextException(hresult)
-        print("Released context.")
+                except BaseSCardException as ex:
+                    print("SCard Exception:", ex)
 
-except error as e:
-    print(e)
+        finally:
+            hresult = SCardReleaseContext(hcontext)
+            if hresult != SCARD_S_SUCCESS:
+                raise ReleaseContextException(hresult)
+            print("Released context.")
 
-if "win32" == sys.platform:
-    print("press Enter to continue")
-    sys.stdin.read(1)
+    except error as e:
+        print(e)
+
+
+if __name__ == "__main__":
+    main()
+
+    if "win32" == sys.platform:
+        print("press Enter to continue")
+        sys.stdin.read(1)

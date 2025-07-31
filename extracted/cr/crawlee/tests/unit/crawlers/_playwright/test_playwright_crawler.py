@@ -149,7 +149,7 @@ async def test_enqueue_links_with_transform_request_function(server_url: URL) ->
 
 
 async def test_nonexistent_url_invokes_error_handler() -> None:
-    crawler = PlaywrightCrawler(max_request_retries=4, request_handler=mock.AsyncMock())
+    crawler = PlaywrightCrawler(max_request_retries=3, request_handler=mock.AsyncMock())
 
     error_handler = mock.AsyncMock(return_value=None)
     crawler.error_handler(error_handler)
@@ -422,6 +422,32 @@ async def test_save_cookies_after_handler_processing(server_url: URL) -> None:
         assert session_cookies == {'check': 'test'}
 
 
+async def test_read_write_cookies(server_url: URL) -> None:
+    """Test that cookies are reloaded correctly."""
+    async with SessionPool(max_pool_size=1) as session_pool:
+        crawler = PlaywrightCrawler(session_pool=session_pool)
+
+        playwright_cookies = []
+        session_cookies = []
+
+        # Check that no errors occur when reading and writing cookies.
+        @crawler.router.default_handler
+        async def request_handler(context: PlaywrightCrawlingContext) -> None:
+            cookies = await context.page.context.cookies()
+            playwright_cookies.extend(cookies)
+
+            if context.session:
+                context.session.cookies.set_cookies_from_playwright_format(cookies)
+                session_cookies.extend(context.session.cookies.get_cookies_as_dicts())
+
+        await crawler.run([str(server_url / 'set_complex_cookies')])
+
+        # Check that the cookie was received with `partitionKey`
+        assert any('partitionKey' in cookie for cookie in playwright_cookies)
+
+        assert len(playwright_cookies) == len(session_cookies)
+
+
 async def test_custom_fingerprint_uses_generator_options(server_url: URL) -> None:
     min_width = 300
     max_width = 600
@@ -610,7 +636,7 @@ async def test_error_snapshot_through_statistics(server_url: URL) -> None:
             assert kvs_content[key_info.key] == HELLO_WORLD.decode('utf-8')
 
     # Three errors twice retried errors, but only 2 unique -> 4 (2 x (html and jpg)) artifacts expected.
-    assert crawler.statistics.error_tracker.total == 3 * max_retries
+    assert crawler.statistics.error_tracker.total == 3 * (max_retries + 1)
     assert crawler.statistics.error_tracker.unique_error_count == 2
     assert len(list(kvs_content.keys())) == 4
 

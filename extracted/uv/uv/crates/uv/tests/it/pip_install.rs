@@ -522,66 +522,6 @@ fn install_package() {
     context.assert_command("import flask").success();
 }
 
-#[tokio::test]
-async fn install_http_retries() {
-    let context = TestContext::new("3.12");
-
-    let server = MockServer::start().await;
-
-    // Create a server that always fails, so we can see the number of retries used
-    Mock::given(method("GET"))
-        .respond_with(ResponseTemplate::new(503))
-        .mount(&server)
-        .await;
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index")
-        .arg(server.uri())
-        .env(EnvVars::UV_HTTP_RETRIES, "foo"), @r"
-    success: false
-    exit_code: 2
-    ----- stdout -----
-
-    ----- stderr -----
-    error: Failed to parse `UV_HTTP_RETRIES`
-      Caused by: invalid digit found in string
-    "
-    );
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index")
-        .arg(server.uri())
-        .env(EnvVars::UV_HTTP_RETRIES, "999999999999"), @r"
-    success: false
-    exit_code: 2
-    ----- stdout -----
-
-    ----- stderr -----
-    error: Failed to parse `UV_HTTP_RETRIES`
-      Caused by: number too large to fit in target type
-    "
-    );
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index")
-        .arg(server.uri())
-        .env(EnvVars::UV_HTTP_RETRIES, "5")
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true"), @r"
-    success: false
-    exit_code: 2
-    ----- stdout -----
-
-    ----- stderr -----
-    error: Request failed after 5 retries
-      Caused by: Failed to fetch: `http://[LOCALHOST]/anyio/`
-      Caused by: HTTP status server error (503 Service Unavailable) for url (http://[LOCALHOST]/anyio/)
-    "
-    );
-}
-
 /// Install a package from a `requirements.txt` into a virtual environment.
 #[test]
 fn install_requirements_txt() -> Result<()> {
@@ -2479,8 +2419,7 @@ fn install_git_private_https_pat_not_authorized() {
       ├─▶ failed to clone into: [CACHE_DIR]/git-v0/db/8401f5508e3e612d
       ╰─▶ process didn't exit successfully: `git fetch --force --update-head-ok 'https://git:***@github.com/astral-test/uv-private-pypackage' '+HEAD:refs/remotes/origin/HEAD'` (exit status: 128)
           --- stderr
-          remote: Support for password authentication was removed on August 13, 2021.
-          remote: Please see https://docs.github.com/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.
+          remote: Invalid username or token. Password authentication is not supported for Git operations.
           fatal: Authentication failed for 'https://github.com/astral-test/uv-private-pypackage/'
     ");
 }
@@ -3981,16 +3920,17 @@ fn config_settings_registry() {
         .arg("iniconfig")
         .arg("--no-binary")
         .arg("iniconfig")
-        .arg("-C=global-option=build_ext"), @r###"
+        .arg("-C=global-option=build_ext"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
     Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
     Installed 1 package in [TIME]
      + iniconfig==2.0.0
-    "###
+    "
     );
 
     // Uninstall the package.
@@ -11843,7 +11783,7 @@ fn strip_shebang_arguments() -> Result<()> {
 
         [tool.setuptools]
         packages = ["shebang_test"]
-        
+
         [tool.setuptools.data-files]
         "scripts" = ["scripts/custom_script", "scripts/custom_gui_script"]
     "#})?;

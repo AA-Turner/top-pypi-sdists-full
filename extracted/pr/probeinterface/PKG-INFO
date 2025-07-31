@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: probeinterface
-Version: 0.2.28
+Version: 0.3.0
 Summary: Python package to handle probe layout, geometry and wiring to device.
 Project-URL: homepage, https://github.com/SpikeInterface/probeinterface
 Project-URL: repository, https://github.com/SpikeInterface/probeinterface

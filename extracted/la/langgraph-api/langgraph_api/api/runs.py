@@ -12,7 +12,7 @@ from langgraph_api.asyncio import ValueEvent, aclosing
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.sse import EventSourceResponse
-from langgraph_api.utils import fetchone, validate_uuid
+from langgraph_api.utils import fetchone, get_pagination_headers, validate_uuid
 from langgraph_api.validation import (
     CronCreate,
     CronSearch,
@@ -568,20 +568,21 @@ async def search_crons(request: ApiRequest):
     if thread_id := payload.get("thread_id"):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
+    offset = int(payload.get("offset", 0))
     async with connect() as conn:
-        crons_iter, total = await Crons.search(
+        crons_iter, next_offset = await Crons.search(
             conn,
             assistant_id=assistant_id,
             thread_id=thread_id,
             limit=int(payload.get("limit", 10)),
-            offset=int(payload.get("offset", 0)),
+            offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
         )
-    return ApiResponse(
-        [cron async for cron in crons_iter],
-        headers={"X-Pagination-Total": str(total)},
+    crons, response_headers = await get_pagination_headers(
+        crons_iter, next_offset, offset
     )
+    return ApiResponse(crons, headers=response_headers)
 
 
 runs_routes = [

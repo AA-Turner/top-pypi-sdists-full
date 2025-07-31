@@ -1,3 +1,7 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=too-few-public-methods
+
 import unittest.mock
 
 import pytest
@@ -92,7 +96,8 @@ def test_registered_observers_are_always_notified():
 
     # Create a fair observable and notify the observers of a change.
     fair_observable = smartcard.Observer.Observable()
-    [fair_observable.addObserver(observer) for observer in observers]
+    for observer in observers:
+        fair_observable.addObserver(observer)
     fair_observable.setChanged()
     fair_observable.notifyObservers()
 

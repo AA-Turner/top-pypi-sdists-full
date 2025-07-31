@@ -22,6 +22,7 @@ from anyscale.client.openapi_client.models import (
     ClusterOperation,
     ClusteroperationResponse,
     ClusterState,
+    CollaboratorType,
     ComputeTemplateConfig,
     CreateCloudCollaborator,
     CreateExperimentalWorkspace,
@@ -934,7 +935,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_schedule(
         self,
         *,
-        name: Optional[str],
+        name: Optional[str] = None,
         id: Optional[str],  # noqa: A002
         cloud: Optional[str],
         project: Optional[str],
@@ -1305,8 +1306,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self,
         email: Optional[str] = None,
         name: Optional[str] = None,
+        collaborator_type: Optional[CollaboratorType] = None,  # noqa: ARG002
         is_service_account: Optional[bool] = None,  # noqa: ARG002
     ) -> List[OrganizationCollaborator]:
+        """Give the list of collaborators for the organization."""
         # Since organization collaborator doesn't include whether it's a service account or not, we'll just return all
         results = []
         for organization_collaborator in self._organization_collaborators:

@@ -30,6 +30,8 @@ class CardRequest:
     kind of smart card an application is waited for.
     """
 
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(
         self,
         newcardonly=False,
@@ -88,7 +90,7 @@ class CardRequest:
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of CardRequest.py."""
+    # Small sample illustrating the use of CardRequest.py.
 
     from smartcard.util import toHexString
 

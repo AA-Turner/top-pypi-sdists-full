@@ -12,29 +12,27 @@ from ..common import *
 
 class MultiheadAttention(nn.Module):
     """
-    Vanilla Multihead Attention.
-    Slight difference: the typical 1/sqrt(d_model) attention score scale is now a per head learnable parameter beta initialized at 1/sqrt(d_model).
+    Vanilla Softmax Attention.
     """
-    def __init__(self, d_model, n_heads, dropout=0.0, bias=True,
-                 attn_sink=False, batch_first=False, device="cpu"):
+    def __init__(self, d_model, n_heads, bias=True,
+                 qk_dim=None, dropout=0.0, attn_sink=False,
+                 batch_first=False, device="cpu"):
         super().__init__()
         self.d_model = d_model
+        self.qk_dim = d_model if qk_dim is None else qk_dim
         self.n_heads = n_heads
         self.dropout = dropout
         self.batch_first = batch_first
         self.d_head = d_model // n_heads
+        self.attn_sink = attn_sink
         self.device = device
-        
-        assert self.d_head * n_heads == self.d_model, "d_model must be divisible by n_heads"
-        
-        self.beta = nn.Parameter(torch.empty(self.n_heads, device=device))
+                
+        self.beta = nn.Parameter(torch.empty(n_heads, device=device))
         self.beta._no_weight_decay = True
-        self.q_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
-        self.k_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
+        self.q_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
+        self.k_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
         self.v_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         self.out_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
-        
-        self.attn_sink = attn_sink
         
         self._reset_parameters()
         
@@ -76,7 +74,6 @@ class MultiheadAttention(nn.Module):
                 k = rope.rotate_queries_or_keys(k)
         
         beta = torch.exp(self.beta).reshape(1, self.n_heads, 1, 1)
-        # beta = F.softplus(self.beta).reshape(1, self.n_heads, 1, 1)
         q = q / (math.sqrt(self.d_head) * beta)
         
         q = q.flatten(0, 1)
@@ -95,21 +92,23 @@ class MultiheadAttention(nn.Module):
 class LinearAttention(nn.Module):
     """
     Vanilla Linear Attention.
-    Kernel function is softplus.
     """
-    def __init__(self, d_model, n_heads, bias=True, attn_sink=False, batch_first=False, device="cpu"):
+    def __init__(self, d_model, n_heads, bias=True,
+                 qk_dim=None, attn_sink=False,
+                 batch_first=False, device="cpu"):
         super().__init__()
         self.d_model = d_model
+        self.qk_dim = d_model if qk_dim is None else qk_dim
         self.n_heads = n_heads
         self.d_head = d_model // n_heads
         self.attn_sink = attn_sink
         self.batch_first = batch_first
         self.device = device
         
-        self.beta = nn.Parameter(torch.empty(self.n_heads, device=device))
+        self.beta = nn.Parameter(torch.empty(n_heads, device=device))
         self.beta._no_weight_decay = True
-        self.q_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
-        self.k_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
+        self.q_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
+        self.k_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
         self.v_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         self.out_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         
@@ -154,17 +153,12 @@ class LinearAttention(nn.Module):
                 k = rope.rotate_queries_or_keys(k)
         
         beta = torch.exp(self.beta).reshape(1, self.n_heads, 1, 1)
-        # beta = F.softplus(self.beta).reshape(1, self.n_heads, 1, 1)
         q = q / (math.sqrt(self.d_head) * beta)
         k = k / (math.sqrt(self.d_head) * beta)
         
         q = q.flatten(0, 1).contiguous()
         k = k.flatten(0, 1).contiguous()
         
-        # q = torch.exp(q)
-        # k = torch.exp(k)
-        # q = F.elu(q) + 1
-        # k = F.elu(k) + 1
         q = F.softplus(q)
         k = F.softplus(k)
         
@@ -172,11 +166,10 @@ class LinearAttention(nn.Module):
             kv = torch.cumsum(torch.matmul(k.unsqueeze(-1), v.unsqueeze(-2)), dim=1)
             kn = torch.cumsum(k, dim=1)
         else:
-            kv = torch.einsum('zsD, zsd -> zDd', k, v).unsqueeze(1)
+            kv = torch.einsum('zsk, zsv -> zkv', k, v).unsqueeze(1)
             kn = k.sum(dim=1, keepdim=True)
-        
         out = torch.matmul(q.unsqueeze(-2), kv).squeeze(-2) / torch.matmul(q.unsqueeze(-2), kn.unsqueeze(-1)).squeeze(-1)
-        out = rearrange(out, '(b h) s d -> b s (h d)', h=self.n_heads)
+        out = rearrange(out, '(b h) s d -> s b (h d)', h=self.n_heads)
         out = self.out_proj(out)
         
         if self.batch_first:
@@ -188,19 +181,22 @@ class OrthoLinearAttention(nn.Module):
     Orthogonal Linear Attention.
     A derivative of linear attention that orthogonalizes queries and keys for each head to reduce crossterm interference.
     """
-    def __init__(self, d_model, n_heads, bias=True, attn_sink=False, batch_first=False, device="cpu"):
+    def __init__(self, d_model, n_heads, bias=True,
+                 qk_dim=None, attn_sink=False,
+                 batch_first=False, device="cpu"):
         super().__init__()
         self.d_model = d_model
+        self.qk_dim = d_model if qk_dim is None else qk_dim
         self.n_heads = n_heads
         self.d_head = d_model // n_heads
         self.attn_sink = attn_sink
         self.batch_first = batch_first
         self.device = device
         
-        self.beta = nn.Parameter(torch.empty(self.n_heads, device=device))
+        self.beta = nn.Parameter(torch.empty(n_heads, device=device))
         self.beta._no_weight_decay = True
-        self.q_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
-        self.k_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
+        self.q_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
+        self.k_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
         self.v_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         self.out_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         
@@ -230,8 +226,8 @@ class OrthoLinearAttention(nn.Module):
         tgt_len = src_len
         q = rearrange(self.q_proj(x), 's b (h d) -> b h s d', h=self.n_heads)
         k = rearrange(self.k_proj(x), 's b (h d) -> b h s d', h=self.n_heads)
-        v = rearrange(self.v_proj(x), 's b (h d) -> (b h) s d', h=self.n_heads).contiguous()
-        
+        v = rearrange(self.v_proj(x), 's b (h d) -> (b h) s d', h=self.n_heads)
+                
         if self.attn_sink:
             src_len += 1
             k = torch.cat([k, torch.zeros((bsz, self.n_heads, 1, self.d_head), dtype=x.dtype, device=self.device)], dim=2)
@@ -243,9 +239,8 @@ class OrthoLinearAttention(nn.Module):
             else:
                 q = rope.rotate_queries_or_keys(q)
                 k = rope.rotate_queries_or_keys(k)
-                
+        
         beta = torch.exp(self.beta).reshape(1, self.n_heads, 1, 1)
-        # beta = F.softplus(self.beta).reshape(1, self.n_heads, 1, 1)
         q = q * beta
         k = k * beta
         
@@ -259,11 +254,10 @@ class OrthoLinearAttention(nn.Module):
             kv = torch.cumsum(torch.matmul(k.unsqueeze(-1), v.unsqueeze(-2)), dim=1)
             kn = torch.cumsum(k, dim=1)
         else:
-            kv = torch.einsum('zsD, zsd -> zDd', k, v).unsqueeze(1)
+            kv = torch.einsum('zsk, zsv -> zkv', k, v).unsqueeze(1)
             kn = k.sum(1, keepdim=True)
-        
         out = torch.matmul(q.unsqueeze(-2), kv).squeeze(-2) / torch.matmul(q.unsqueeze(-2), kn.unsqueeze(-1)).squeeze(-1)
-        out = rearrange(out, '(b h) s d -> b s (h d)', h=self.n_heads)
+        out = rearrange(out, '(b h) s d -> s b (h d)', h=self.n_heads)
         out = self.out_proj(out)
         
         if self.batch_first:
@@ -274,12 +268,14 @@ class CompressionAttention(nn.Module):
     """
     Compression Attention.
     A derivative of softmax attention that compresses input sequences to a fixed length before expanding back to the original length.
-    Achieved by two linear with sequence length attention operations.
+    Achieved by two attention operations of linear complexity with respect to sequence length.
     """
-    def __init__(self, d_model, n_heads, compressed_len, attn_sink=False,
-                 dropout=0.0, bias=True, batch_first=False, device="cpu"):
+    def __init__(self, d_model, n_heads, compressed_len,
+                 qk_dim=None, attn_sink=False, dropout=0.0,
+                 bias=True, batch_first=False, device="cpu"):
         super().__init__()
         self.d_model = d_model
+        self.qk_dim = d_model if qk_dim is None else qk_dim
         self.n_heads = n_heads
         self.d_head = d_model // n_heads
         self.compressed_len = compressed_len
@@ -288,19 +284,16 @@ class CompressionAttention(nn.Module):
         self.dropout = dropout
         self.device = device
         
-        self.q_c = nn.Parameter(torch.empty((compressed_len, d_model), device=device))
+        self.q_c = nn.Parameter(torch.empty((compressed_len, self.qk_dim), device=device))
         self.q_c._no_weight_decay = True
-        self.beta = nn.Parameter(torch.empty(self.n_heads, device=device))
+        self.beta = nn.Parameter(torch.empty(n_heads, device=device))
         self.beta._no_weight_decay = True
-        self.q_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
-        self.k_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
+        self.q_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
+        self.k_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
         self.v_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         self.out_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
 
         self._reset_parameters()
-        
-        if device == "mps":
-            warnings.warn("Kernelized attention with q_dim != v_dim is broken on MPS. Falling back to PyTorch implementation")
         
     def _reset_parameters(self):
         nn.init.constant_(self.beta, 0.)
@@ -351,7 +344,6 @@ class CompressionAttention(nn.Module):
                 k_s = rope.rotate_queries_or_keys(k_s)
         
         beta = torch.exp(self.beta).reshape(1, self.n_heads, 1, 1)
-        # beta = F.softplus(self.beta).reshape(1, self.n_heads, 1, 1)
         q_s = q_s / (math.sqrt(self.d_head) * beta)
         
         q_c = q_c.flatten(0, 1)
@@ -395,10 +387,11 @@ class SlidingWindowAttention(nn.Module):
     Applies softmax attention over a dilated sliding window of fixed length.
     """
     def __init__(self, d_model, n_heads, window_len, dilation=1,
-                 attn_sink=False, dropout=0.0, bias=True, batch_first=False,
-                 use_flex_attn=True, device="cpu"):
+                 qk_dim=None, attn_sink=False, dropout=0.0, bias=True,
+                 batch_first=False, use_flex_attn=True, device="cpu"):
         super().__init__()
         self.d_model = d_model
+        self.qk_dim = d_model if qk_dim is None else qk_dim
         self.n_heads = n_heads
         self.window_len = window_len
         self.dilation = dilation
@@ -409,10 +402,10 @@ class SlidingWindowAttention(nn.Module):
         self.attn_sink = attn_sink
         self.device = device
         
-        self.beta = nn.Parameter(torch.empty(self.n_heads, device=device))
+        self.beta = nn.Parameter(torch.empty(n_heads, device=device))
         self.beta._no_weight_decay = True
-        self.q_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
-        self.k_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
+        self.q_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
+        self.k_proj = nn.Linear(d_model, self.qk_dim, bias=bias, device=device)
         self.v_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         self.out_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         
@@ -517,7 +510,6 @@ class SlidingWindowAttention(nn.Module):
                 k = rope.rotate_queries_or_keys(k)
         
         beta = torch.exp(self.beta).reshape(1, self.n_heads, 1, 1)
-        # beta = F.softplus(self.beta).reshape(1, self.n_heads, 1, 1)
         q = q / (math.sqrt(self.d_head) * beta)
         
         if not self.use_flex_attn:

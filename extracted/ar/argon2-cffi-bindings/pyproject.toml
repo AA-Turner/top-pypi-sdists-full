@@ -1,25 +1,139 @@
 [build-system]
-requires = ["setuptools>=45",  "setuptools_scm>=6.2", "wheel", "cffi>=1.0.1"]
+requires = [
+    "setuptools>=77",
+    "setuptools_scm[toml]>=6.2",
+    "cffi>=1.0.1; python_version < '3.14'",
+    "cffi>=2.0.0b1; python_version >= '3.14'",
+]
 build-backend = "setuptools.build_meta"
 
 
+[project]
+dynamic = ["version"]
+name = "argon2-cffi-bindings"
+description = "Low-level CFFI bindings for Argon2"
+readme = { content-type = "text/markdown", file = "README.md" }
+authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["password", "hash", "hashing", "security", "bindings", "cffi"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "cffi>=1.0.1; python_version < '3.14'",
+    "cffi>=2.0.0b1; python_version >= '3.14'",
+]
+
+[dependency-groups]
+tests = ["pytest"]
+dev = [{ include-group = "tests" }, "cogapp", "pre-commit"]
+
+
+[project.urls]
+Tidelift = "https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek"
+Changelog = "https://github.com/hynek/argon2-cffi-bindings/blob/main/CHANGELOG.md"
+GitHub = "https://github.com/hynek/argon2-cffi-bindings"
+Funding = "https://github.com/sponsors/hynek"
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
 [tool.setuptools_scm]
-# Dev versions are PREVIOUS.post1.devXYZ
-version_scheme = "no-guess-dev"
+# Dev versions are PREVIOUS.devN with N being the # of commits since PREVIOUS.
+local_scheme = "no-local-version"
+
+
+[tool.cibuildwheel]
+build = [
+    "cp39-*",   # We have portable abi3 wheels.
+    "cp314t-*", # Free-threading / nogil.
+    "pp310-*",  # PyPy 3.9 is EOL and doesn't build on Windows anymore.
+]
+enable = ["pypy"]
+before-all = "uname -a"
+test-command = 'python -Ic "from _argon2_cffi_bindings import ffi, lib; print(lib.ARGON2_VERSION_NUMBER)"'
+
+[tool.cibuildwheel.macos]
+# PyPy has no universal2, so let's build them all, always.
+archs = ["all"]
 
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-markers --capture=no"
+addopts = ["-ra", "--strict-markers", "--strict-config", "--capture=no"]
 xfail_strict = true
 testpaths = "tests"
-filterwarnings = [
-    "once::Warning",
-]
+filterwarnings = ["once::Warning"]
 
 
-[tool.black]
+[tool.interrogate]
+omit-covered-files = true
+verbose = 2
+fail-under = 100
+whitelist-regex = ["test_.*"]
+
+
+[tool.ruff]
+src = ["src", "tests"]
 line-length = 79
 
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "A001",    # shadowing is fine
+    "A002",    # shadowing is fine
+    "A003",    # shadowing is fine
+    "ANN",     # Mypy is better at this
+    "ARG001",  # unused arguments are normal when implementing interfaces
+    "COM",     # Formatter takes care of our commas
+    "D",       # We prefer our own docstring style.
+    "E501",    # leave line-length enforcement to formatter
+    "ERA001",  # Dead code detection is overly eager.
+    "FBT",     # we have one function that takes one bool; c'mon!
+    "FIX",     # Yes, we want XXX as a marker.
+    "INP001",  # sometimes we want Python files outside of packages
+    "ISC001",  # conflicts with ruff format
+    "PLC0415", # sometimes, imports must live elsewhere
+    "PLR2004", # numbers are sometimes fine
+    "PLW2901", # re-assigning within loop bodies is fine
+    "RUF001",  # leave my smart characters alone
+    "SLF001",  # private members are accessed by friendly functions
+    "TCH",     # TYPE_CHECKING blocks break autodocs
+    "TD",      # we don't follow other people's todo style
+]
 
-[tool.isort]
-profile = "attrs"
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "ARG",    # stubs don't care about arguments
+    "S101",   # assert
+    "SIM300", # Yoda rocks in asserts
+    "PT005",  # we always add underscores and explicit name
+    "PT011",  # broad is fine
+    "TRY002", # stock exceptions are fine in tests
+    "EM101",  # no need for exception msg hygiene in tests
+]
+
+[tool.ruff.lint.isort]
+lines-between-types = 1
+lines-after-imports = 2

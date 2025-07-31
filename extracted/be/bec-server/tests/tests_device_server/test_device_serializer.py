@@ -66,6 +66,18 @@ class DummyDeviceWithConflictingSubDevice(Device):
     sub_device = Cpt(DummyDeviceWithConflictingSignalNames)
 
 
+class DummyDeviceWithConflictingDuplicateSignalNames(Device):
+    """This device will be assigned a protected name"""
+
+    signal = Cpt(MyDevice, "signal", lazy=True)
+    signal_custom = Cpt(MyDevice, "custom", lazy=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Imitate Positioner behavior with conflicting signal names
+        self.signal_custom.custom.name = self.signal_custom.name
+
+
 @pytest.mark.parametrize(
     "obj",
     [
@@ -98,3 +110,10 @@ def test_get_device_info_lazy_signal():
     _ = get_device_info(device, connect=False)
     assert device.lazy_sub_device_no_lazy.lazy_wait_for_connection is False
     assert device.lazy_sub_device.lazy_wait_for_connection is True
+
+
+def test_get_device_info_USER_ACCESS():
+    device = DummyDeviceWithConflictingDuplicateSignalNames(name="test")
+    _ = get_device_info(device, connect=False)
+    with pytest.raises(DeviceConfigError):
+        _ = get_device_info(device, connect=True)

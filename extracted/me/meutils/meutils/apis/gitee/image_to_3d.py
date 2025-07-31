@@ -10,8 +10,12 @@
 
 from meutils.pipe import *
 from meutils.db.redis_db import redis_aclient
+from meutils.io.files_utils import to_bytes
+
 from meutils.apis.utils import make_request_httpx
 from meutils.schemas.gitee_types import FEISHU_URL, BASE_URL
+from meutils.schemas.image_types import ImageRequest, ImagesResponse
+
 from meutils.config_utils.lark_utils import get_next_token_for_polling
 
 """
@@ -23,6 +27,9 @@ curl https://ai.gitee.com/v1/async/image-to-3d \
 	-F "model=Hi3DGen" \
 	-F "seed=1234" \
 	-F "file_format=glb"
+	
+	
+texture=true 带纹理
 """
 
 
@@ -58,12 +65,7 @@ async def create_task(image, data: Optional[dict] = None, api_key: Optional[str]
         "Authorization": f"Bearer {api_key}",
     }
 
-    data = data or {
-        "type": "glb",
-        "model": "Hi3DGen",
-        "seed": 1234,
-        "file_format": "glb",
-    }
+    # (filename, file_bytes, mime_type) = image
 
     response = await make_request_httpx(
         base_url=BASE_URL,
@@ -84,15 +86,65 @@ async def create_task(image, data: Optional[dict] = None, api_key: Optional[str]
 {'task_id': 'GB84DX8LK6NUJ0WHZLUNRCXDBFKMVVFH'}
 
     """
+    logger.debug(response)
     if task_id := response.get("task_id"):
         await redis_aclient.set(task_id, api_key, ex=24 * 3600)
         return {"task_id": response.get("task_id")}
 
 
-async def generate(request):
-    pass
+async def generate(request: ImageRequest, api_key: Optional[str] = None):
+    payload = request.model_dump(exclude_none=True, exclude={"extra_fields", "controls"})
+
+    payload = {
+        "type": "glb",
+        "model": request.model,
+        "file_format": request.response_format if request.response_format in ["glb", "stl"] else "glb",
+
+        **payload,
+        **(request.extra_fields or {})
+    }
+
+    image = await to_bytes(payload.pop('image'))
+
+    logger.debug(payload)
+    response = await create_task(image=image, data=payload)
+    if response:
+        for i in range(100):
+            await asyncio.sleep(3)
+            _ = await get_task(response['task_id'])
+            logger.debug(bjson(_))
+            if file_url := (_.get("output") or {}).get("file_url"):
+                return ImagesResponse(data=[{"url": file_url}])
+
 
 if __name__ == '__main__':
     image = "/Users/betterme/PycharmProjects/AI/test.png"
-    # arun(create_task(image=open(image, 'rb')))
-    arun(get_task('GB84DX8LK6NUJ0WHZLUNRCXDBFKMVVFH'))
+    # arun(get_task('GB84DX8LK6NUJ0WHZLUNRCXDBFKMVVFH'))
+    # image = ('x.png', open(image, 'rb').read(), 'image/png')
+    image = open(image, 'rb').read()
+    image = "https://s3.ffire.cc/files/christmas-tree.png"
+
+    # arun(
+    #     create_task(
+    #         # image=open(image, 'rb'),
+    #         image=image,
+    #
+    #         data={
+    #             "type": "glb",
+    #             "model": "Hunyuan3D-2",
+    #             "file_format": "glb",
+    #         }
+    #     ))
+    #
+    arun(generate(
+        ImageRequest(
+            model="Hunyuan3D-2",
+            response_format="glb",
+            extra_fields={
+                "image": image,
+
+                "texture": True,
+            }
+        )
+    )
+    )

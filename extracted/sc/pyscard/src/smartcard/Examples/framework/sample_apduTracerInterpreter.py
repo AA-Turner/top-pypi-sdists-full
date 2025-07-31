@@ -1,4 +1,9 @@
 #! /usr/bin/env python3
+
+# pylint: disable=invalid-name
+# pylint: disable=too-few-public-methods
+# pylint: disable=duplicate-code
+
 """
 Sample script that defines a custom card connection observer.
 
@@ -23,6 +28,9 @@ You should have received a copy of the GNU Lesser General Public License
 along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
+
+import sys
+
 from smartcard.CardConnectionObserver import CardConnectionObserver
 from smartcard.CardRequest import CardRequest
 from smartcard.CardType import AnyCardType
@@ -33,35 +41,33 @@ class TracerAndSELECTInterpreter(CardConnectionObserver):
     """This observer will interprer SELECT and GET RESPONSE bytes
     and replace them with a human readable string."""
 
-    def update(self, cardconnection, ccevent):
+    def update(self, observable, handlers):
 
-        if "connect" == ccevent.type:
-            print("connecting to " + cardconnection.getReader())
+        if "connect" == handlers.type:
+            print("connecting to " + observable.getReader())
 
-        elif "disconnect" == ccevent.type:
-            print("disconnecting from " + cardconnection.getReader())
+        elif "disconnect" == handlers.type:
+            print("disconnecting from " + observable.getReader())
 
-        elif "release" == ccevent.type:
-            print("release from " + cardconnection.getReader())
+        elif "release" == handlers.type:
+            print("release from " + observable.getReader())
 
-        elif "command" == ccevent.type:
-            str = toHexString(ccevent.args[0])
-            str = str.replace("A0 A4 00 00 02", "SELECT")
-            str = str.replace("A0 C0 00 00", "GET RESPONSE")
-            print(">", str)
+        elif "command" == handlers.type:
+            output_str = toHexString(handlers.args[0])
+            output_str = output_str.replace("A0 A4 00 00 02", "SELECT")
+            output_str = output_str.replace("A0 C0 00 00", "GET RESPONSE")
+            print(">", output_str)
 
-        elif "response" == ccevent.type:
-            if [] == ccevent.args[0]:
-                print("<  []", "%-2X %-2X" % tuple(ccevent.args[-2:]))
+        elif "response" == handlers.type:
+            _sw1, _sw2 = handlers.args[-2:]
+            SW = f"{_sw1:02X} {_sw2:02X}"
+            if [] == handlers.args[0]:
+                print("<  []", SW)
             else:
-                print(
-                    "<",
-                    toHexString(ccevent.args[0]),
-                    "%-2X %-2X" % tuple(ccevent.args[-2:]),
-                )
+                print("<", toHexString(handlers.args[0]), SW)
 
         else:
-            print("Unknown event:", ccevent.type)
+            print("Unknown event:", handlers.type)
 
 
 # define the apdus used in this script
@@ -94,8 +100,6 @@ else:
 
 cardservice.connection.disconnect()
 cardservice.connection.release()
-
-import sys
 
 if "win32" == sys.platform:
     print("press Enter to continue")

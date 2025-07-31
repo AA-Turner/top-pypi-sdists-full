@@ -111,11 +111,10 @@ class LockedRepository(BaseRepository):
                     req_dict["url"] = archive.get("url")
                     req_dict["path"] = archive.get("path")
                     req_dict["subdirectory"] = archive.get("subdirectory")
-                candidate = Candidate(
-                    req=Requirement.from_req_dict(package_name, req_dict),
-                    name=package_name,
-                    version=package.get("version"),
-                )
+                req = Requirement.from_req_dict(package_name, req_dict)
+                if req.is_file_or_url and req.path and not req.url:  # type: ignore[attr-defined]
+                    req.url = root.joinpath(req.path).as_uri()  # type: ignore[attr-defined]
+                candidate = Candidate(req=req, name=package_name, version=package.get("version"))
                 candidate.requires_python = package.get("requires-python", "")
                 for artifact in itertools.chain(
                     package.get("wheels", []), [sdist] if (sdist := package.get("sdist")) else []
@@ -253,11 +252,11 @@ class LockedRepository(BaseRepository):
     def get_hashes(self, candidate: Candidate) -> list[FileHash]:
         return candidate.hashes
 
-    def evaluate_candidates(self, groups: Collection[str]) -> Iterable[Package]:
+    def evaluate_candidates(self, groups: Collection[str], evaluate_markers: bool = True) -> Iterable[Package]:
         extras, dependency_groups = self.environment.project.split_extras_groups(list(groups))
         for package in self.packages.values():
             can = package.candidate
-            if can.req.marker and not can.req.marker.matches(self.env_spec):
+            if evaluate_markers and can.req.marker and not can.req.marker.matches(self.env_spec):
                 continue
             if not package.marker.evaluate({"extras": set(extras), "dependency_groups": set(dependency_groups)}):
                 continue

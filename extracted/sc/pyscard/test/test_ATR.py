@@ -1,3 +1,7 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=invalid-name
+# pylint: disable=missing-function-docstring
+
 import re
 import textwrap
 
@@ -187,7 +191,7 @@ def test_atr_get():
     assert a.getTB1() == 0x12
     assert a.getTC1() == 0x34
     assert a.getTD1() == 0x01
-    assert a.getHistoricalBytes(), [0x36 == 0x06]
+    assert a.getHistoricalBytes() == [0x36, 0x06]
     assert a.isT15Supported() is False
     assert str(a) == atr
 

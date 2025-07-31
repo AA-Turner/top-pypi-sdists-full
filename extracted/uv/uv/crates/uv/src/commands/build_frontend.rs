@@ -16,7 +16,7 @@ use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
     BuildKind, BuildOptions, BuildOutput, Concurrency, ConfigSettings, Constraints,
     DependencyGroupsWithDefaults, HashCheckingMode, IndexStrategy, KeyringProviderType,
-    PackageConfigSettings, PreviewMode, SourceStrategy,
+    PackageConfigSettings, Preview, SourceStrategy,
 };
 use uv_dispatch::{BuildDispatch, SharedState};
 use uv_distribution_filename::{
@@ -38,6 +38,7 @@ use uv_requirements::RequirementsSource;
 use uv_resolver::{ExcludeNewer, FlatIndex};
 use uv_settings::PythonInstallMirrors;
 use uv_types::{AnyErrorBuild, BuildContext, BuildIsolation, BuildStack, HashStrategy};
+use uv_workspace::pyproject::ExtraBuildDependencies;
 use uv_workspace::{DiscoveryOptions, Workspace, WorkspaceCache, WorkspaceError};
 
 use crate::commands::ExitStatus;
@@ -117,7 +118,7 @@ pub(crate) async fn build_frontend(
     concurrency: Concurrency,
     cache: &Cache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<ExitStatus> {
     let build_result = build_impl(
         project_dir,
@@ -185,7 +186,7 @@ async fn build_impl(
     concurrency: Concurrency,
     cache: &Cache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<BuildResult> {
     // Extract the resolver settings.
     let ResolverSettings {
@@ -200,6 +201,7 @@ async fn build_impl(
         config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
+        extra_build_dependencies,
         exclude_newer,
         link_mode,
         upgrade: _,
@@ -346,9 +348,10 @@ async fn build_impl(
             build_constraints,
             *no_build_isolation,
             no_build_isolation_package,
+            extra_build_dependencies,
             *index_strategy,
             *keyring_provider,
-            *exclude_newer,
+            exclude_newer.clone(),
             *sources,
             concurrency,
             build_options,
@@ -424,9 +427,10 @@ async fn build_package(
     build_constraints: &[RequirementsSource],
     no_build_isolation: bool,
     no_build_isolation_package: &[PackageName],
+    extra_build_dependencies: &ExtraBuildDependencies,
     index_strategy: IndexStrategy,
     keyring_provider: KeyringProviderType,
-    exclude_newer: Option<ExcludeNewer>,
+    exclude_newer: ExcludeNewer,
     sources: SourceStrategy,
     concurrency: Concurrency,
     build_options: &BuildOptions,
@@ -437,7 +441,7 @@ async fn build_package(
     link_mode: LinkMode,
     config_setting: &ConfigSettings,
     config_settings_package: &PackageConfigSettings,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<Vec<BuildMessage>, Error> {
     let output_dir = if let Some(output_dir) = output_dir {
         Cow::Owned(std::path::absolute(output_dir)?)
@@ -560,6 +564,8 @@ async fn build_package(
     let workspace_cache = WorkspaceCache::default();
 
     // Create a build dispatch.
+    let extra_build_requires =
+        uv_distribution::ExtraBuildRequires::from_lowered(extra_build_dependencies.clone());
     let build_dispatch = BuildDispatch::new(
         &client,
         cache,
@@ -573,6 +579,7 @@ async fn build_package(
         config_setting,
         config_settings_package,
         build_isolation,
+        &extra_build_requires,
         link_mode,
         build_options,
         &hasher,

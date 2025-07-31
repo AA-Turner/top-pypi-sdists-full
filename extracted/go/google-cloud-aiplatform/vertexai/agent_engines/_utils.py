@@ -16,6 +16,7 @@
 import dataclasses
 import inspect
 import json
+import os
 import sys
 import types
 import typing
@@ -359,6 +360,8 @@ def parse_constraints(
     result = {}
     for constraint in constraints:
         try:
+            if constraint.endswith(".whl"):
+                constraint = os.path.basename(constraint)
             requirement = requirements.Requirement(constraint)
         except Exception as e:
             LOGGER.warning(f"Failed to parse constraint: {constraint}. Exception: {e}")
@@ -619,10 +622,7 @@ def is_noop_or_proxy_tracer_provider(tracer_provider) -> bool:
 
 def dump_event_for_json(event: BaseModel) -> Dict[str, Any]:
     """Dumps an ADK event to a JSON-serializable dictionary."""
-    return event.model_dump(
-        exclude_none=True,
-        exclude={"content": {"parts": {"__all__": {"thought_signature"}}}},
-    )
+    return json.loads(event.model_dump_json(exclude_none=True))
 
 
 def _import_cloud_storage_or_raise() -> types.ModuleType:

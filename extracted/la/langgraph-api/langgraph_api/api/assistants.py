@@ -17,7 +17,7 @@ from langgraph_api.graph import get_assistant_id, get_graph
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.serde import ajson_loads
-from langgraph_api.utils import fetchone, validate_uuid
+from langgraph_api.utils import fetchone, get_pagination_headers, validate_uuid
 from langgraph_api.validation import (
     AssistantCreate,
     AssistantPatch,
@@ -172,20 +172,21 @@ async def search_assistants(
 ) -> ApiResponse:
     """List assistants."""
     payload = await request.json(AssistantSearchRequest)
+    offset = int(payload.get("offset") or 0)
     async with connect() as conn:
-        assistants_iter, total = await Assistants.search(
+        assistants_iter, next_offset = await Assistants.search(
             conn,
             graph_id=payload.get("graph_id"),
             metadata=payload.get("metadata"),
             limit=int(payload.get("limit") or 10),
-            offset=int(payload.get("offset") or 0),
+            offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
         )
-    return ApiResponse(
-        [assistant async for assistant in assistants_iter],
-        headers={"X-Pagination-Total": str(total)},
+    assistants, response_headers = await get_pagination_headers(
+        assistants_iter, next_offset, offset
     )
+    return ApiResponse(assistants, headers=response_headers)
 
 
 @retry_db

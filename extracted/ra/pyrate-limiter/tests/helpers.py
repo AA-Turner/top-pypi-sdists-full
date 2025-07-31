@@ -1,8 +1,8 @@
 """Duh....
 """
+from asyncio import sleep
 from concurrent.futures import ThreadPoolExecutor
 from inspect import isawaitable
-from time import sleep
 from time import time
 from typing import List
 from typing import Tuple
@@ -52,10 +52,7 @@ async def concurrent_acquire(limiter: Limiter, items: List[str]):
 
 async def async_acquire(limiter: Limiter, item: str, weight: int = 1) -> Tuple[bool, int]:
     start = time()
-    acquire = limiter.try_acquire(item, weight=weight)
-
-    if isawaitable(acquire):
-        acquire = await acquire
+    acquire = await limiter.try_acquire_async(item, weight=weight)
 
     time_cost_in_ms = int((time() - start) * 1000)
     assert isinstance(acquire, bool)
@@ -82,13 +79,13 @@ async def prefilling_bucket(limiter: Limiter, sleep_interval: float, item: str):
     logger.info("cost = %s", cost)
     assert cost <= 50
     assert acquire_ok
-    sleep(sleep_interval)
+    await sleep(sleep_interval)
 
     acquire_ok, cost = await async_acquire(limiter, item)
     logger.info("cost = %s", cost)
     assert cost <= 50
     assert acquire_ok
-    sleep(sleep_interval)
+    await sleep(sleep_interval)
 
     acquire_ok, cost = await async_acquire(limiter, item)
     logger.info("cost = %s", cost)

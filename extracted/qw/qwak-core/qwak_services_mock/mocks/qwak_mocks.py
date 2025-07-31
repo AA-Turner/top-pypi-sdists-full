@@ -15,7 +15,6 @@ from qwak_services_mock.mocks.automation_management_service import (
 )
 from qwak_services_mock.mocks.autoscaling_service_api import AutoscalingServiceApiMock
 from qwak_services_mock.mocks.batch_job_manager_service import BatchJobManagerService
-from qwak_services_mock.mocks.build_management import BuildsManagementServiceMock
 from qwak_services_mock.mocks.build_orchestrator_build_api import (
     BuildOrchestratorBuildApiMock,
 )
@@ -90,7 +89,6 @@ class QwakMocks:
     build_orchestrator_service_api: BuildOrchestratorServiceApiMock
     build_orchestrator_build_settings_api: BuildOrchestratorBuildSettingsApiMock
     internal_build_orchestrator_service: InternalBuildOrchestratorServiceMock
-    build_management_service_mock: BuildsManagementServiceMock
     alert_manager_service_mock: AlertManagerServiceApiMock
     automation_management_service_mock: AutomationManagementServiceMock
     job_registry_service_mock: JobRegistryServiceApiMock

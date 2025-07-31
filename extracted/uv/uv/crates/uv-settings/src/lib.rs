@@ -211,8 +211,8 @@ fn validate_uv_toml(path: &Path, options: &Options) -> Result<(), Error> {
         override_dependencies: _,
         constraint_dependencies: _,
         build_constraint_dependencies: _,
-        environments: _,
-        required_environments: _,
+        environments,
+        required_environments,
         conflicts,
         workspace,
         sources,
@@ -265,6 +265,18 @@ fn validate_uv_toml(path: &Path, options: &Options) -> Result<(), Error> {
             "build-backend",
         ));
     }
+    if environments.is_some() {
+        return Err(Error::PyprojectOnlyField(
+            path.to_path_buf(),
+            "environments",
+        ));
+    }
+    if required_environments.is_some() {
+        return Err(Error::PyprojectOnlyField(
+            path.to_path_buf(),
+            "required-environments",
+        ));
+    }
     Ok(())
 }
 
@@ -305,7 +317,9 @@ fn warn_uv_toml_masked_fields(options: &Options) {
                 config_settings_package,
                 no_build_isolation,
                 no_build_isolation_package,
+                extra_build_dependencies,
                 exclude_newer,
+                exclude_newer_package,
                 link_mode,
                 compile_bytecode,
                 no_sources,
@@ -336,8 +350,8 @@ fn warn_uv_toml_masked_fields(options: &Options) {
         override_dependencies,
         constraint_dependencies,
         build_constraint_dependencies,
-        environments,
-        required_environments,
+        environments: _,
+        required_environments: _,
         conflicts: _,
         workspace: _,
         sources: _,
@@ -432,8 +446,14 @@ fn warn_uv_toml_masked_fields(options: &Options) {
     if no_build_isolation_package.is_some() {
         masked_fields.push("no-build-isolation-package");
     }
+    if extra_build_dependencies.is_some() {
+        masked_fields.push("extra-build-dependencies");
+    }
     if exclude_newer.is_some() {
         masked_fields.push("exclude-newer");
+    }
+    if exclude_newer_package.is_some() {
+        masked_fields.push("exclude-newer-package");
     }
     if link_mode.is_some() {
         masked_fields.push("link-mode");
@@ -503,12 +523,6 @@ fn warn_uv_toml_masked_fields(options: &Options) {
     }
     if build_constraint_dependencies.is_some() {
         masked_fields.push("build-constraint-dependencies");
-    }
-    if environments.is_some() {
-        masked_fields.push("environments");
-    }
-    if required_environments.is_some() {
-        masked_fields.push("required-environments");
     }
     if !masked_fields.is_empty() {
         let field_listing = masked_fields.join("\n- ");

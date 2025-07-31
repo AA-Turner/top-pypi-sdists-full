@@ -3,7 +3,7 @@
 # flake8: noqa
 
 
-__version__ = "v1.2.0"
+__version__ = "v1.2.1"
 __author__ = "Tomer Nosrati"
 __contact__ = "tomer.nosrati@gmail.com"
 __homepage__ = "https://pytest-celery.readthedocs.io/"

@@ -486,6 +486,14 @@ class CliArgs:
             action="store_true",
             help="list all the rules",
         )
+        advanced.add_argument(
+            "-L",
+            "--list-templates",
+            dest="listtemplates",
+            default=False,
+            action="store_true",
+            help="List all the templates would have linted",
+        )
         standard.add_argument(
             "-r",
             "--regions",
@@ -660,17 +668,17 @@ class TemplateArgs:
 
             if isinstance(configs, dict):
                 for key, value in {
-                    "append_rules": (list),
-                    "configure_rules": (dict),
-                    "custom_rules": (str),
-                    "ignore_bad_template": (bool),
-                    "ignore_checks": (list),
-                    "include_checks": (list),
-                    "include_experimental": (bool),
-                    "override_spec": (str),
-                    "parameters": (list),
-                    "parameter_files": (list),
-                    "regions": (list),
+                    "append_rules": list,
+                    "configure_rules": dict,
+                    "custom_rules": str,
+                    "ignore_bad_template": bool,
+                    "ignore_checks": list,
+                    "include_checks": list,
+                    "include_experimental": bool,
+                    "override_spec": str,
+                    "parameters": list,
+                    "parameter_files": list,
+                    "regions": list,
                 }.items():
                     if key in configs:
                         if isinstance(configs[key], value):
@@ -1026,6 +1034,13 @@ class ConfigMixIn(TemplateArgs, CliArgs, ConfigFileArgs):
                 )
 
         return results
+
+    @property
+    def listtemplates(self):
+        """
+        Get the listtemplates from the CLI arguments or config file.
+        """
+        return self._get_argument_value("listtemplates", False, False)
 
     @property
     def override_spec(self):

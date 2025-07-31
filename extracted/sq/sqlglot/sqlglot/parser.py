@@ -380,6 +380,7 @@ class Parser(metaclass=_Parser):
         TokenType.BIGDECIMAL,
         TokenType.UUID,
         TokenType.GEOGRAPHY,
+        TokenType.GEOGRAPHYPOINT,
         TokenType.GEOMETRY,
         TokenType.POINT,
         TokenType.RING,
@@ -1136,7 +1137,14 @@ class Parser(metaclass=_Parser):
         "TRUNCATE": lambda self: self._parse_partitioned_by_bucket_or_truncate(),
     }
 
-    def _parse_partitioned_by_bucket_or_truncate(self) -> exp.Expression:
+    def _parse_partitioned_by_bucket_or_truncate(self) -> t.Optional[exp.Expression]:
+        if not self._match(TokenType.L_PAREN, advance=False):
+            # Partitioning by bucket or truncate follows the syntax:
+            # PARTITION BY (BUCKET(..) | TRUNCATE(..))
+            # If we don't have parenthesis after each keyword, we should instead parse this as an identifier
+            self._retreat(self._index - 1)
+            return None
+
         klass = (
             exp.PartitionedByBucket
             if self._prev.text.upper() == "BUCKET"
@@ -5767,6 +5775,7 @@ class Parser(metaclass=_Parser):
             return None
 
         comments = self._curr.comments
+        prev = self._prev
         token = self._curr
         token_type = self._curr.token_type
         this = self._curr.text
@@ -5798,12 +5807,19 @@ class Parser(metaclass=_Parser):
         else:
             subquery_predicate = self.SUBQUERY_PREDICATES.get(token_type)
 
-            if subquery_predicate and self._curr.token_type in (TokenType.SELECT, TokenType.WITH):
-                this = self.expression(
-                    subquery_predicate, comments=comments, this=self._parse_select()
-                )
-                self._match_r_paren()
-                return this
+            if subquery_predicate:
+                expr = None
+                if self._curr.token_type in (TokenType.SELECT, TokenType.WITH):
+                    expr = self._parse_select()
+                    self._match_r_paren()
+                elif prev and prev.token_type in (TokenType.LIKE, TokenType.ILIKE):
+                    # Backtrack one token since we've consumed the L_PAREN here. Instead, we'd like
+                    # to parse "LIKE [ANY | ALL] (...)" as a whole into an exp.Tuple or exp.Paren
+                    self._advance(-1)
+                    expr = self._parse_bitwise()
+
+                if expr:
+                    return self.expression(subquery_predicate, comments=comments, this=expr)
 
             if functions is None:
                 functions = self.FUNCTIONS
@@ -6194,7 +6210,7 @@ class Parser(metaclass=_Parser):
         return self._parse_id_var(any_token=False)
 
     def _parse_unique(self) -> exp.UniqueColumnConstraint:
-        self._match_text_seq("KEY")
+        self._match_texts(("KEY", "INDEX"))
         return self.expression(
             exp.UniqueColumnConstraint,
             nulls=self._match_text_seq("NULLS", "NOT", "DISTINCT"),

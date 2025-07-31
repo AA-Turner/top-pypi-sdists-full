@@ -1,9 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use std::{
-    net::SocketAddr,
-    sync::{Arc, OnceLock},
-};
+use std::sync::{Arc, OnceLock};
 use tokio::sync::{Notify, oneshot};
 
 use super::{
@@ -12,7 +9,8 @@ use super::{
 };
 use crate::{
     callbacks::ArcCBScheduler,
-    http::{HTTPResponse, response_500},
+    http::{HTTPProto, HTTPResponse, response_500},
+    net::SockAddr,
     runtime::{Runtime, RuntimeRef},
     utils::log_application_callable_exception,
     ws::{HyperWebsocket, UpgradeData},
@@ -149,18 +147,17 @@ pub(crate) fn call_http(
     cb: ArcCBScheduler,
     rt: RuntimeRef,
     disconnect_guard: Arc<Notify>,
-    server_addr: SocketAddr,
-    client_addr: SocketAddr,
-    scheme: &str,
+    server_addr: SockAddr,
+    client_addr: SockAddr,
+    scheme: HTTPProto,
     req: hyper::http::request::Parts,
     body: hyper::body::Incoming,
 ) -> oneshot::Receiver<HTTPResponse> {
     let (tx, rx) = oneshot::channel();
     let protocol = HTTPProtocol::new(rt.clone(), body, tx, disconnect_guard);
-    let scheme: Box<str> = scheme.into();
 
     rt.spawn_blocking(move |py| {
-        if let Ok(scope) = build_scope_http(py, req, server_addr, client_addr, &scheme) {
+        if let Ok(scope) = build_scope_http(py, req, server_addr, client_addr, scheme) {
             if let Ok(watcher) = CallbackWatcherHTTP::new(py, protocol, scope) {
                 cb.get().schedule(py, watcher);
             }
@@ -174,19 +171,18 @@ pub(crate) fn call_http(
 pub(crate) fn call_ws(
     cb: ArcCBScheduler,
     rt: RuntimeRef,
-    server_addr: SocketAddr,
-    client_addr: SocketAddr,
-    scheme: &str,
+    server_addr: SockAddr,
+    client_addr: SockAddr,
+    scheme: HTTPProto,
     ws: HyperWebsocket,
     req: hyper::http::request::Parts,
     upgrade: UpgradeData,
 ) -> oneshot::Receiver<WebsocketDetachedTransport> {
     let (tx, rx) = oneshot::channel();
     let protocol = WebsocketProtocol::new(rt.clone(), tx, ws, upgrade);
-    let scheme: Box<str> = scheme.into();
 
     rt.spawn_blocking(move |py| {
-        if let Ok(scope) = build_scope_ws(py, req, server_addr, client_addr, &scheme) {
+        if let Ok(scope) = build_scope_ws(py, req, server_addr, client_addr, scheme) {
             if let Ok(watcher) = CallbackWatcherWebsocket::new(py, protocol, scope) {
                 cb.get().schedule(py, watcher);
             }

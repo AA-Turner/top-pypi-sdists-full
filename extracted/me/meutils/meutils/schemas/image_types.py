@@ -97,7 +97,7 @@ class ImageRequest(BaseModel):  # openai
     # 测试默认值 Optional[Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"]]
     size: Optional[str] = '1024x1024'  # null auto
 
-    response_format: Optional[Literal["oss_url", "url", "b64_json"]] = "url"
+    response_format: Optional[Literal["url", "b64_json", "oss_url", "glb", "stl"]] = "url"
 
     seed: Optional[int] = None
 
@@ -108,7 +108,7 @@ class ImageRequest(BaseModel):  # openai
     guidance: Optional[float] = None
     steps: Optional[int] = None
 
-    controls: Optional[dict] = {}  # 额外参数
+    controls: Optional[dict] = None # 额外参数
 
     safety_tolerance: Optional[int] = None
 

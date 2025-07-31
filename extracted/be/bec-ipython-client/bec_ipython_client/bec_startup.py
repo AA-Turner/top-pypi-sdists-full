@@ -32,9 +32,12 @@ except (BECAuthenticationError, KeyboardInterrupt) as exc:
 except Exception:
     sys.excepthook(*sys.exc_info())
 else:
-    if bec.started and not _main_dict["args"].nogui and BECGuiClient is not None:
+    if bec.started and BECGuiClient is not None:
         gui = bec.gui = BECGuiClient()
-        gui.start()
+        if _main_dict["args"].gui_id:
+            gui.connect_to_gui_server(_main_dict["args"].gui_id)
+        if not _main_dict["args"].nogui:
+            gui.start()
 
     _available_plugins = plugin_helper.get_ipython_client_startup_plugins(state="post")
     if _available_plugins:

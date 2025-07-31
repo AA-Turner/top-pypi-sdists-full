@@ -12,6 +12,8 @@ from _qwak_proto.qwak.feature_store.sources.data_source_pb2 import (
 from qwak.exceptions import QwakException
 from qwak.feature_store.data_sources.batch._batch import BaseBatchSource
 
+warnings.simplefilter("once", DeprecationWarning)
+
 
 @dataclass
 class SnowflakeSource(BaseBatchSource):

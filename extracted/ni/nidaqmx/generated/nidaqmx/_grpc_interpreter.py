@@ -5,7 +5,7 @@ import logging
 import threading
 import typing
 import warnings
-from typing import Callable, Generic, Optional, TypeVar
+from typing import Callable, Generic, TypeVar
 
 import google.protobuf.message
 from google.protobuf.timestamp_pb2 import Timestamp as GrpcTimestamp
@@ -45,14 +45,14 @@ class GrpcEventHandler(BaseEventHandler, Generic[TEventResponse]):
         self,
         event_name: str,
         interpreter: GrpcStubInterpreter,
-        event_stream: grpc.CallIterator[TEventResponse],
+        event_stream: grpc._CallIterator[TEventResponse],
         event_callback: Callable[[TEventResponse], None],
     ) -> None:
         self._event_name = event_name
         self._interpreter = interpreter
         self._event_stream = event_stream
         self._event_callback = event_callback
-        self._event_stream_exception: Optional[Exception] = None
+        self._event_stream_exception: Exception | None = None
         self._thread = threading.Thread(target=self._thread_main, name=f"nidaqmx {event_name} thread")
 
         self._thread.start()
@@ -3595,6 +3595,9 @@ class GrpcStubInterpreter(BaseInterpreter):
 
     def set_runtime_environment(
             self, environment, environment_version, reserved_1, reserved_2):
+        raise NotImplementedError
+
+    def internal_get_last_created_chan(self):
         raise NotImplementedError
 
 

@@ -8,7 +8,6 @@ from _qwak_proto.qwak.build.v1.build_pb2 import DESCRIPTOR
 from qwak.clients.analytics.client import AnalyticsEngineClient
 from qwak.clients.automation_management.client import AutomationsManagementClient
 from qwak.clients.batch_job_management.client import BatchJobManagerClient
-from qwak.clients.build_management.client import BuildsManagementClient
 from qwak.clients.build_orchestrator.client import BuildFilter, BuildOrchestratorClient
 from qwak.clients.data_versioning.client import DataVersioningManagementClient
 from qwak.clients.data_versioning.data_tag_filter import DataTagFilter
@@ -57,10 +56,6 @@ class QwakClient:
     @lru_cache(maxsize=1)
     def _get_model_management(self):
         return ModelsManagementClient()
-
-    @lru_cache(maxsize=1)
-    def _get_build_management(self):
-        return BuildsManagementClient()
 
     @lru_cache(maxsize=1)
     def _get_build_orchestrator(self):

@@ -22,9 +22,25 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
-from smartcard.pcsc.PCSCExceptions import *
+from smartcard.pcsc.PCSCExceptions import (
+    EstablishContextException,
+    ListReadersException,
+    ReleaseContextException,
+)
 from smartcard.reader.ReaderGroups import innerreadergroups, readergroups
-from smartcard.scard import *
+from smartcard.scard import (
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCardEstablishContext,
+    SCardForgetReaderGroup,
+    SCardGetErrorMessage,
+    SCardIntroduceReaderGroup,
+    SCardListReaderGroups,
+    SCardReleaseContext,
+    error,
+)
+
+# pylint: disable=too-few-public-methods
 
 
 class pcscinnerreadergroups(innerreadergroups):
@@ -66,8 +82,8 @@ class pcscinnerreadergroups(innerreadergroups):
                 raise error(
                     "Unable to introduce reader group: " + SCardGetErrorMessage(hresult)
                 )
-            else:
-                innerreadergroups.addreadergroup(self, newgroup)
+
+            innerreadergroups.addreadergroup(self, newgroup)
 
         finally:
             hresult = SCardReleaseContext(hcontext)
@@ -88,8 +104,8 @@ class pcscinnerreadergroups(innerreadergroups):
                 raise error(
                     "Unable to forget reader group: " + SCardGetErrorMessage(hresult)
                 )
-            else:
-                innerreadergroups.removereadergroup(self, group)
+
+            innerreadergroups.removereadergroup(self, group)
 
         finally:
             hresult = SCardReleaseContext(hcontext)

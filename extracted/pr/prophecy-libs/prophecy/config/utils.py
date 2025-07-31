@@ -51,6 +51,16 @@ def parse_args():
         help="Path to project config directory containing config.metadata.json. Ex.: -pc /path/to/project/config",
         required=False
     )
+    parser.add_argument(
+        "-pj",
+        "--projectConfigDirJson",
+        help="""
+        This is the json of the directory content of project configs. 
+        Format : {"file_name1": "file_content1", "file_name2": "file_content2", ....}
+        Ex: {"config.metadata.json": "....", "default.json": "....", "instance1.json": "....", ....}
+        """,
+        required=False
+    )
     args = parser.parse_args()
 
     return args
@@ -151,45 +161,78 @@ def parse_project_config(args):
     project_config_instance_name = args.projectConfInstance
     
     # Get the project config path from projectConfig argument
-    if not hasattr(args, 'projectConfig') or args.projectConfig is None:
-        raise ValueError("projectConfig path (-pc) is required when projectConfInstance (-pi) is provided")
-    
-    project_config_path = args.projectConfig
-    
-    # Construct file paths
-    schema_file_path = os.path.join(project_config_path, "config.metadata.json")
-    project_instance_json_path = os.path.join(project_config_path, f"{project_config_instance_name}.json")
-    default_json_path = os.path.join(project_config_path, "default.json")
-    
-    # Check if required files exist
-    if not os.path.exists(schema_file_path):
-        raise FileNotFoundError(f"config.metadata.json not found at path: {schema_file_path}")
-    
-    if not os.path.exists(project_instance_json_path):
-        raise FileNotFoundError(f"File: {project_config_instance_name}.json not found at path: {project_instance_json_path}")
-    
-    try:
-        # Read and parse the config.metadata.json file
-        with open(schema_file_path, 'r') as schema_file:
-            schema_data = json.load(schema_file)
-        
-        # Read filename.json
-        with open(project_instance_json_path, 'r') as filename_file:
-            project_instance_config_values = json.load(filename_file)
-        
-        # Read default.json if it exists
-        project_default_config_values = {}
-        if os.path.exists(default_json_path):
-            with open(default_json_path, 'r') as default_file:
-                project_default_config_values = json.load(default_file)
-        
-        # Create and return ProjectConfig instance
-        return get_project_config(schema_data, project_default_config_values, project_instance_config_values)
-        
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in configuration file: {e}")
-    except Exception as e:
-        raise Exception(f"Error reading project config from {project_config_path}: {e}")
+    if (hasattr(args, 'projectConfig') and args.projectConfig is not None):
+        project_config_path = args.projectConfig
+
+        # Construct file paths
+        schema_file_path = os.path.join(project_config_path, "config.metadata.json")
+        project_instance_json_path = os.path.join(project_config_path, f"{project_config_instance_name}.json")
+        default_json_path = os.path.join(project_config_path, "default.json")
+
+        # Check if required files exist
+        if not os.path.exists(schema_file_path):
+            raise FileNotFoundError(f"config.metadata.json not found at path: {schema_file_path}")
+
+        if not os.path.exists(project_instance_json_path):
+            raise FileNotFoundError(f"File: {project_config_instance_name}.json not found at path: {project_instance_json_path}")
+
+        try:
+            # Read and parse the config.metadata.json file
+            with open(schema_file_path, 'r') as schema_file:
+                schema_data = json.load(schema_file)
+
+            # Read filename.json
+            with open(project_instance_json_path, 'r') as filename_file:
+                project_instance_config_values = json.load(filename_file)
+
+            # Read default.json if it exists
+            project_default_config_values = {}
+            if os.path.exists(default_json_path):
+                with open(default_json_path, 'r') as default_file:
+                    project_default_config_values = json.load(default_file)
+
+            # Create and return ProjectConfig instance
+            return get_project_config(schema_data, project_default_config_values, project_instance_config_values)
+
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in configuration file: {e}")
+        except Exception as e:
+            raise Exception(f"Error reading project config from {project_config_path}: {e}")
+
+    elif (hasattr(args, 'projectConfigDirJson') and (args.projectConfigDirJson is not None)):
+        # Case when the directory content is passed as a json string
+        # This can be used as a fallback for project configs when the read from directory isn't
+        # working fine.
+        try:
+            # Parse the projectConfigDirJson string
+            project_config_files = json.loads(args.projectConfigDirJson)
+            
+            # Check if required files are present
+            if "config.metadata.json" not in project_config_files:
+                raise FileNotFoundError("config.metadata.json not found in projectConfigDirJson")
+            
+            instance_file_name = f"{project_config_instance_name}.json"
+            if instance_file_name not in project_config_files:
+                raise FileNotFoundError(f"File: {instance_file_name} not found in projectConfigDirJson")
+            
+            # Parse the file contents
+            schema_data = json.loads(project_config_files["config.metadata.json"])
+            project_instance_config_values = json.loads(project_config_files[instance_file_name])
+            
+            # Read default.json if it exists
+            project_default_config_values = {}
+            if "default.json" in project_config_files:
+                project_default_config_values = json.loads(project_config_files["default.json"])
+            
+            # Create and return ProjectConfig instance
+            return get_project_config(schema_data, project_default_config_values, project_instance_config_values)
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in projectConfigDirJson or configuration file content: {e}")
+        except Exception as e:
+            raise Exception(f"Error parsing project config from projectConfigDirJson: {e}")
+    else:
+        raise ValueError("projectConfig path (-pc) or projectConfigDirJson (-pj) is required when projectConfInstance (-pi) is provided")
 
 
 """

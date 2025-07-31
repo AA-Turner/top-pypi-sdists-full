@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-bigquery
-Version: 1.10.0
+Version: 1.10.1
 Summary: The BigQuery adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-bigquery
 Project-URL: Documentation, https://docs.getdbt.com

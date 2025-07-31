@@ -25,6 +25,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import smartcard.sw.SWExceptions
 from smartcard.sw.ErrorChecker import ErrorChecker
 
+# pylint: disable=too-few-public-methods
+
 op21_SW = {
     0x62: (
         smartcard.sw.SWExceptions.WarningProcessingException,
@@ -118,7 +120,7 @@ class op21_ErrorChecker(ErrorChecker):
         """
         if sw1 in op21_SW:
             exception, sw2dir = op21_SW[sw1]
-            if type(sw2dir) == type({}):
+            if isinstance(sw2dir, dict):
                 try:
                     message = sw2dir[sw2]
                     raise exception(data, sw1, sw2, message)
@@ -127,7 +129,7 @@ class op21_ErrorChecker(ErrorChecker):
 
 
 if __name__ == "__main__":
-    """Small sample illustrating the use of op21_ErrorChecker."""
+    # Small sample illustrating the use of op21_ErrorChecker.
     ecs = op21_ErrorChecker()
     ecs([], 0x90, 0x00)
     ecs([], 0x94, 0x81)

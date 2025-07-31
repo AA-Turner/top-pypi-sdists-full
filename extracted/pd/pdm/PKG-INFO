@@ -1,10 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pdm
-Version: 2.25.4
+Version: 2.25.5
 Summary: A modern Python package and dependency manager supporting the latest PEP standards
 Keywords: packaging,dependency,workflow
 Author-Email: Frost Ming <mianghong@gmail.com>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -25,7 +26,7 @@ Requires-Dist: virtualenv>=20
 Requires-Dist: pyproject-hooks
 Requires-Dist: unearth>=0.17.5
 Requires-Dist: dep-logic>=0.5
-Requires-Dist: findpython<1.0.0a0,>=0.6.0
+Requires-Dist: findpython<1.0.0a0,>=0.7.0
 Requires-Dist: tomlkit<1,>=0.11.1
 Requires-Dist: shellingham>=1.3.2
 Requires-Dist: python-dotenv>=0.15
@@ -65,7 +66,7 @@ Requires-Dist: dep-logic==0.5.1; extra == "locked"
 Requires-Dist: distlib==0.3.9; extra == "locked"
 Requires-Dist: exceptiongroup==1.3.0; python_version < "3.11" and extra == "locked"
 Requires-Dist: filelock==3.18.0; extra == "locked"
-Requires-Dist: findpython==0.6.3; extra == "locked"
+Requires-Dist: findpython==0.7.0; extra == "locked"
 Requires-Dist: h11==0.16.0; extra == "locked"
 Requires-Dist: hishel==0.1.2; extra == "locked"
 Requires-Dist: httpcore==1.0.9; extra == "locked"
@@ -78,7 +79,7 @@ Requires-Dist: installer==0.7.0; extra == "locked"
 Requires-Dist: markdown-it-py==3.0.0; extra == "locked"
 Requires-Dist: mdurl==0.1.2; extra == "locked"
 Requires-Dist: packaging==25.0; extra == "locked"
-Requires-Dist: pbs-installer==2025.6.6; extra == "locked"
+Requires-Dist: pbs-installer==2025.6.30; extra == "locked"
 Requires-Dist: platformdirs==4.3.8; extra == "locked"
 Requires-Dist: pygments==2.19.1; extra == "locked"
 Requires-Dist: pyproject-hooks==1.2.0; extra == "locked"

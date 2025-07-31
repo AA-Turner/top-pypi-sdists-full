@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: vonage-video
-Version: 1.2.0
+Version: 1.3.0
 Summary: Vonage video package
 Author-email: Vonage <devrel@vonage.com>
 Project-URL: homepage, https://github.com/Vonage/vonage-python-sdk
@@ -303,7 +303,7 @@ sip_request_params = InitiateSipRequest(
         uri=f'sip:{vonage_number}@sip.nexmo.com;transport=tls',
         from_=f'test@vonage.com',
         headers={'header_key': 'header_value'},
-        auth=SipAuth(username='1485b9e6', password='fL8jvi4W2FmS9som'),
+        auth=SipAuth(username='your_username', password='your_password'),
         secure=False,
         video=False,
         observe_force_mute=True,

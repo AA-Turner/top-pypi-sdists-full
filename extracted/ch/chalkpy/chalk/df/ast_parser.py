@@ -172,6 +172,12 @@ def _parse_annotation_for_ast(node: ast.AnnAssign, globals_dict: dict[str, Any])
             if any(x is _NOT_FOUND for x in union_elts):
                 return None
             return container[tuple(union_elts)]
+    if isinstance(node.annotation, ast.Attribute):
+        if isinstance(node.annotation.value, ast.Name):
+            module = _get_obj_by_name(node.annotation.value.id)
+            if isinstance(module, _NotFound):
+                return None
+            return getattr(module, node.annotation.attr)
 
     return None
 
@@ -194,7 +200,7 @@ def parse_inline_setattr_annotation(key: str) -> Optional[Type[Any]]:
             attribute_name = node.attr
             if attribute_name == key:
                 return _parse_annotation_for_ast(parent_node, frame.f_globals)
-    except:
+    except Exception as _:
         raise TypeError(f"Failed to parse type annotation for feature {key}.")
     return None
 

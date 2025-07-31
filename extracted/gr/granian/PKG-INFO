@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: granian
-Version: 2.4.2
+Version: 2.5.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -36,7 +36,6 @@ License-File: LICENSE
 Summary: A Rust HTTP server for Python applications
 Keywords: web,asyncio
 Home-Page: https://github.com/emmett-framework/granian
-Author: Giovanni Barillari <g@baro.dev>
 Author-email: Giovanni Barillari <g@baro.dev>
 License: BSD-3-Clause
 Requires-Python: >=3.9
@@ -155,7 +154,7 @@ and serve it using Granian CLI:
 
     $ granian --interface wsgi main:app
 
-## Extra dependecies
+## Extra dependencies
 
 Mind that Granian also provides several extra dependencies you might be interested into, in particular:
 
@@ -186,6 +185,8 @@ Options:
                                   GRANIAN_HOST; default: (127.0.0.1)]
   --port INTEGER                  Port to bind to.  [env var: GRANIAN_PORT;
                                   default: 8000]
+  --uds PATH                      Unix Domain Socket to bind to.  [env var:
+                                  GRANIAN_UDS]
   --interface [asgi|asginl|rsgi|wsgi]
                                   Application interface type  [env var:
                                   GRANIAN_INTERFACE; default: (rsgi)]
@@ -198,10 +199,10 @@ Options:
   --blocking-threads INTEGER RANGE
                                   Number of blocking threads (per worker)
                                   [env var: GRANIAN_BLOCKING_THREADS; x>=1]
-  --blocking-threads-idle-timeout INTEGER RANGE
-                                  The maximum amount of time in seconds an
-                                  idle blocking thread will be kept alive
-                                  [env var:
+  --blocking-threads-idle-timeout DURATION
+                                  The maximum amount of time in seconds (or a
+                                  human-readable duration) an idle blocking
+                                  thread will be kept alive  [env var:
                                   GRANIAN_BLOCKING_THREADS_IDLE_TIMEOUT;
                                   default: 30; 10<=x<=600]
   --runtime-threads INTEGER RANGE
@@ -268,8 +269,9 @@ Options:
                                   connection alive  [env var:
                                   GRANIAN_HTTP2_KEEP_ALIVE_INTERVAL;
                                   1<=x<=60000]
-  --http2-keep-alive-timeout INTEGER RANGE
-                                  Sets a timeout (in seconds) for receiving an
+  --http2-keep-alive-timeout DURATION
+                                  Sets a timeout (in seconds or a human-
+                                  readable duration) for receiving an
                                   acknowledgement of the HTTP2 keep-alive ping
                                   [env var: GRANIAN_HTTP2_KEEP_ALIVE_TIMEOUT;
                                   default: 20; x>=1]
@@ -324,16 +326,24 @@ Options:
   --respawn-interval FLOAT        The number of seconds to sleep between
                                   workers respawn  [env var:
                                   GRANIAN_RESPAWN_INTERVAL; default: 3.5]
-  --workers-lifetime INTEGER RANGE
-                                  The maximum amount of time in seconds a
-                                  worker will be kept alive before respawn
-                                  [env var: GRANIAN_WORKERS_LIFETIME; x>=60]
-  --workers-kill-timeout INTEGER RANGE
-                                  The amount of time in seconds to wait for
-                                  killing workers that refused to gracefully
-                                  stop  [env var:
-                                  GRANIAN_WORKERS_KILL_TIMEOUT; default:
-                                  (disabled); 1<=x<=1800]
+  --rss-sample-interval DURATION  The sample rate in seconds (or a human-
+                                  readable duration) for the resource monitor
+                                  [env var: GRANIAN_RSS_SAMPLE_INTERVAL;
+                                  default: 30; 10<=x<=300]
+  --workers-lifetime DURATION     The maximum amount of time in seconds (or a
+                                  human-readable duration) a worker will be
+                                  kept alive before respawn  [env var:
+                                  GRANIAN_WORKERS_LIFETIME; x>=60]
+  --workers-max-rss INTEGER RANGE
+                                  The maximum amount of memory (in MiB) a
+                                  worker can consume before respawn  [env var:
+                                  GRANIAN_WORKERS_MAX_RSS; x>=1]
+  --workers-kill-timeout DURATION
+                                  The amount of time in seconds (or a human-
+                                  readable duration) to wait for killing
+                                  workers that refused to gracefully stop
+                                  [env var: GRANIAN_WORKERS_KILL_TIMEOUT;
+                                  default: (disabled); 1<=x<=1800]
   --factory / --no-factory        Treat target as a factory function, that
                                   should be invoked to build the actual target
                                   [env var: GRANIAN_FACTORY; default:
@@ -348,11 +358,11 @@ Options:
                                   (/static)]
   --static-path-mount DIRECTORY   Path to mount for static file serving  [env
                                   var: GRANIAN_STATIC_PATH_MOUNT]
-  --static-path-expires INTEGER RANGE
-                                  Cache headers expiration (in seconds) for
-                                  static file serving  [env var:
+  --static-path-expires DURATION  Cache headers expiration (in seconds or a
+                                  human-readable duration) for static file
+                                  serving. 0 to disable.  [env var:
                                   GRANIAN_STATIC_PATH_EXPIRES; default: 86400;
-                                  x>=60]
+                                  x>=0]
   --reload / --no-reload          Enable auto reload on application's files
                                   changes (requires granian[reload] extra)
                                   [env var: GRANIAN_RELOAD; default:
@@ -430,12 +440,12 @@ Granian offers different options to configure the number of workers and threads 
 In general, Granian will try its best to automatically pick proper values for the threading configuration, leaving to you the responsibility to choose the number of workers you need.    
 There is no *golden rule* here, as these numbers will vastly depend both on your application behavior and the deployment target, but we can list some suggestions:
 - matching the amount of CPU cores for the workers is generally the best starting point; on containerized environments like docker or k8s is best to have 1 worker per container though and scale your containers using the relevant orchestrator;
-- the default number of runtime threads and runtime blocking threads is fine for the vast majority of applications out there; you might want to increase the first for applications dealing with several concurrently opened websockets, and lowering the second only if you serve the same few files to a lot of connections;
+- the default number of **runtime threads** and **runtime blocking threads** is fine for the vast majority of applications out there; you might want to increase the first for applications dealing with several concurrently opened websockets or if you primarily use HTTP/2, and lowering the second only if you serve the same few files to a lot of connections;
 
 In regards of blocking threads, the option is irrelevant on asynchronous protocols, as all the interop will happen with the AsyncIO event loop which will also be the one holding the GIL for the vast majority of the time, and thus the value is fixed to a single thread; on synchronous protocols like WSGI instead, it will be the maximum amount of threads interacting – and thus trying to acquire the GIL – with your application code. All those threads will be spawned on-demand depending on the amount of concurrency, and they'll be shutdown after the amount of inactivity time specified with the relevant setting.    
 In general, and unless you have a very specific use-case to do so (for example, if your application have an average millisecond response, a very limited amount of blocking threads usually delivers better throughput) you should avoid to tune this threadpool size and configure a backpressure value that suits your needs instead. In that regards, please check the next section.
 
-Also, you should generally avoid to configure workers and threads based on numbers suggested for other servers, as Granian architecture is quite different from projects like Gunicorn or Uvicorn.
+Also, **you should generally avoid to configure workers and threads based on numbers suggested for other servers**, as Granian architecture is quite different from projects like Gunicorn or Uvicorn.
 
 ### Backpressure
 
@@ -543,11 +553,13 @@ To embed Granian in your project, you can import the server from the relevant mo
 ```python
 from granian.server.embed import Server
 
-server = Server(...)
+server = Server(my_app, interface="asgi")
 
 async def my_main():
     await server.serve()
 ```
+
+> **Note:** as you might already figured out, the embed server accepts the application object as its first argument, instead of the import target string of the standard servers.
 
 Given the `serve` method is now async, the embeddable server also provides two methods to manage its lifecycle, specifically:
 

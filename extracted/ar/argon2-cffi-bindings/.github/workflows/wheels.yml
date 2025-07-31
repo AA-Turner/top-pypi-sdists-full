@@ -4,8 +4,13 @@ name: Wheels
 on:
   push:
     tags:
-      - '*'
+      - "*"
+  pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "30 4 15 * *"
+
+permissions: {}
 
 
 jobs:
@@ -15,35 +20,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS-11 has no Python 3.6.
-        os: [ubuntu-latest, windows-latest, macOS-10.15]
+        os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2022, windows-11-arm, macOS-14]
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          submodules: "recursive"
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
 
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v1
+      # See pyproject.toml for config.
+      - uses: pypa/cibuildwheel@v3.1
+
+      - uses: actions/upload-artifact@v4
         with:
-          platforms: arm64
-
-      - uses: pypa/cibuildwheel@v2.3.0
-        env:
-          # Only build CPython 3.6, because we have portable abi3 wheels.
-          # Windows arm64 is only available on 3.9 and later, Apple Silicon on
-          # 3.8 and later.
-          CIBW_BUILD: "cp36-* pp37-* pp38-* cp39-win_arm64 cp38-macosx_universal2"
-          CIBW_ARCHS_LINUX: "auto aarch64"
-          CIBW_ARCHS_MACOS: "auto universal2"
-          CIBW_TEST_COMMAND: python -c "from _argon2_cffi_bindings import ffi, lib; print(lib.ARGON2_VERSION_NUMBER)"
-          # Silence warning we can't do anything about.
-          CIBW_TEST_SKIP: "*-macosx_universal2:arm64"
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: wheels
-          path: wheelhouse/*.whl
-          if-no-files-found: error
-
+          name: wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
 ...

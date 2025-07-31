@@ -317,7 +317,7 @@ def main_export(
             force_download=force_download,
             trust_remote_code=trust_remote_code,
         )
-        model_type = config.model_type.replace("_", "-")
+        model_type = config.model_type
 
         if model_type not in TasksManager._SUPPORTED_MODEL_TYPE:
             custom_architecture = True
@@ -338,6 +338,10 @@ def main_export(
         # TODO: Fix in Transformers so that SdpaAttention class can be exported to ONNX.
         # This was fixed in transformers 4.42.0, we can remve it when minimum transformers version is updated to 4.42
         if model_type in SDPA_ARCHS_ONNX_EXPORT_NOT_SUPPORTED and is_transformers_version("<", "4.42"):
+            loading_kwargs["attn_implementation"] = "eager"
+
+        # Only eager attention implementation returns attentions
+        if model_kwargs is not None and model_kwargs.get("output_attentions", False):
             loading_kwargs["attn_implementation"] = "eager"
 
     with DisableCompileContextManager():
@@ -373,9 +377,9 @@ def main_export(
             model.config.pad_token_id = pad_token_id
 
     if hasattr(model.config, "export_model_type"):
-        model_type = model.config.export_model_type.replace("_", "-")
+        model_type = model.config.export_model_type
     else:
-        model_type = model.config.model_type.replace("_", "-")
+        model_type = model.config.model_type
 
     if (
         not custom_architecture

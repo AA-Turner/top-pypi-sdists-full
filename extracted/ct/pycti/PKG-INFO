@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycti
-Version: 6.7.7
+Version: 6.7.8
 Summary: Python API client for OpenCTI.
 Home-page: https://github.com/OpenCTI-Platform/client-python
 Author: Filigran
@@ -30,13 +30,13 @@ Requires-Dist: python_json_logger~=3.3.0
 Requires-Dist: PyYAML~=6.0
 Requires-Dist: requests~=2.32.3
 Requires-Dist: setuptools~=80.9.0
-Requires-Dist: cachetools~=5.5.0
-Requires-Dist: prometheus-client~=0.21.1
-Requires-Dist: opentelemetry-api~=1.32.0
-Requires-Dist: opentelemetry-sdk~=1.32.0
+Requires-Dist: cachetools~=5.5.2
+Requires-Dist: prometheus-client~=0.22.1
+Requires-Dist: opentelemetry-api~=1.35.0
+Requires-Dist: opentelemetry-sdk~=1.35.0
 Requires-Dist: deprecation~=2.1.0
 Requires-Dist: fastapi<0.117.0,>=0.116.1
-Requires-Dist: uvicorn[standard]<0.35.0,>=0.33.0
+Requires-Dist: uvicorn[standard]<0.36.0,>=0.35.0
 Requires-Dist: filigran-sseclient>=1.0.2
 Requires-Dist: stix2~=3.0.1
 Provides-Extra: dev
@@ -45,7 +45,7 @@ Requires-Dist: build~=1.2.1; extra == "dev"
 Requires-Dist: isort~=6.0.0; extra == "dev"
 Requires-Dist: types-pytz~=2025.2.0.20250326; extra == "dev"
 Requires-Dist: pre-commit~=4.2.0; extra == "dev"
-Requires-Dist: pytest-cases~=3.8.0; extra == "dev"
+Requires-Dist: pytest-cases~=3.9.1; extra == "dev"
 Requires-Dist: pytest-cov~=6.2.1; extra == "dev"
 Requires-Dist: pytest_randomly~=3.16.0; extra == "dev"
 Requires-Dist: pytest~=8.4.1; extra == "dev"

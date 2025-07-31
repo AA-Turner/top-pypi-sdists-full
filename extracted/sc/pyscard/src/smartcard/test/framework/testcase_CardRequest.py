@@ -141,6 +141,23 @@ class testcase_CardRequest(unittest.TestCase):
             cr = CardRequest(newcardonly=True, timeout=1, readers=[reader], cardType=ct)
             self.assertRaises(CardRequestTimeoutException, cr.waitforcard)
 
+    def testcase_context(self):
+        """Test context."""
+
+        ct = AnyCardType()
+        for index, reader in enumerate(expectedReaders):
+            with CardRequest(timeout=10, readers=[reader], cardType=ct) as cr:
+                with cr.waitforcard() as cs:
+                    cs.connection.connect()
+                    atr = cs.connection.getATR()
+                    self.assertEqual(expectedATRs[index], atr)
+                    self.assertEqual(cs.connection.getReader(), reader)
+                    self.assertEqual(
+                        cs.connection.getReader(),
+                        expectedReaderForATR[toHexString(atr)],
+                    )
+                    # .disconnect() and .reader() are automatic
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

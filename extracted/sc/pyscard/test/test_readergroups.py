@@ -1,3 +1,6 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-function-docstring
+
 import pytest
 
 import smartcard.reader.ReaderGroups
@@ -57,6 +60,7 @@ def test_demonstrate_initlist_values_may_be_silently_ignored():
 
     smartcard.reader.ReaderGroups.readergroups(["a"])
     reader_group = smartcard.reader.ReaderGroups.readergroups(["b"])
+    # pylint: disable=unsupported-membership-test
     assert "b" in reader_group.instance
 
 
@@ -80,6 +84,7 @@ def test_demonstrate_removing_is_impossible():
     assert reader_group.instance == ["a"]
     with pytest.raises(ValueError, match="x not in list"):
         reader_group.removereadergroup("a")
+    # pylint: disable=use-implicit-booleaness-not-comparison
     assert reader_group.instance == []
 
 

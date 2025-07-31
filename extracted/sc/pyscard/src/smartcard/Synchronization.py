@@ -16,6 +16,8 @@ import threading
 from collections.abc import Iterable
 from typing import Any, Callable, Protocol, TypeVar
 
+# pylint: disable=too-few-public-methods
+
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
@@ -27,6 +29,8 @@ P = ParamSpec("P")
 
 
 def synchronized(method: Callable[P, T]) -> Callable[P, T]:
+    """Synchronize methods with the same mutex"""
+
     @functools.wraps(method)
     def f(self: _SynchronizationProtocol, *args: Any, **kwargs: Any) -> Any:
         with self.mutex:
@@ -52,7 +56,7 @@ class _SynchronizationProtocol(Protocol):
 
 
 class Synchronization(_SynchronizationProtocol):
-    # You can create your own self.mutex, or inherit from this class:
+    """You can create your own self.mutex, or inherit from this class"""
 
     def __init__(self):
         self.mutex = threading.RLock()

@@ -51,10 +51,11 @@ class ClusterClient(NamespacedClient):
           Get explanations for shard allocations in the cluster.
           For unassigned shards, it provides an explanation for why the shard is unassigned.
           For assigned shards, it provides an explanation for why the shard is remaining on its current node and has not moved or rebalanced to another node.
-          This API can be very useful when attempting to diagnose why a shard is unassigned or why a shard continues to remain on its current node when you might expect otherwise.</p>
+          This API can be very useful when attempting to diagnose why a shard is unassigned or why a shard continues to remain on its current node when you might expect otherwise.
+          Refer to the linked documentation for examples of how to troubleshoot allocation issues using this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-allocation-explain>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-allocation-explain>`_
 
         :param current_node: Specifies the node ID or the name of the node to only explain
             a shard that is currently located on the specified node.
@@ -130,7 +131,7 @@ class ClusterClient(NamespacedClient):
           Component templates are building blocks for constructing index templates that specify index mappings, settings, and aliases.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-put-component-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-component-template>`_
 
         :param name: Comma-separated list or wildcard expression of component template
             names used to limit the request.
@@ -185,7 +186,7 @@ class ClusterClient(NamespacedClient):
           Remove master-eligible nodes from the voting configuration exclusion list.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-post-voting-config-exclusions>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-post-voting-config-exclusions>`_
 
         :param master_timeout: Period to wait for a connection to the master node.
         :param wait_for_removal: Specifies whether to wait for all excluded nodes to
@@ -239,7 +240,7 @@ class ClusterClient(NamespacedClient):
           Returns information about whether a particular component template exists.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-put-component-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-component-template>`_
 
         :param name: Comma-separated list of component template names used to limit the
             request. Wildcard (*) expressions are supported.
@@ -290,6 +291,7 @@ class ClusterClient(NamespacedClient):
         local: t.Optional[bool] = None,
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
+        settings_filter: t.Optional[t.Union[str, t.Sequence[str]]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -298,7 +300,7 @@ class ClusterClient(NamespacedClient):
           Get information about component templates.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-put-component-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-component-template>`_
 
         :param name: Comma-separated list of component template names used to limit the
             request. Wildcard (`*`) expressions are supported.
@@ -310,6 +312,8 @@ class ClusterClient(NamespacedClient):
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
+        :param settings_filter: Filter out results, for example to filter out sensitive
+            information. Supports wildcards or full settings keys
         """
         __path_parts: t.Dict[str, str]
         if name not in SKIP_IN_PATH:
@@ -335,6 +339,8 @@ class ClusterClient(NamespacedClient):
             __query["master_timeout"] = master_timeout
         if pretty is not None:
             __query["pretty"] = pretty
+        if settings_filter is not None:
+            __query["settings_filter"] = settings_filter
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "GET",
@@ -361,11 +367,11 @@ class ClusterClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get cluster-wide settings.
-          By default, it returns only settings that have been explicitly defined.</p>
+          <p>Get cluster-wide settings.</p>
+          <p>By default, it returns only settings that have been explicitly defined.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-get-settings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-get-settings>`_
 
         :param flat_settings: If `true`, returns settings in flat format.
         :param include_defaults: If `true`, returns default cluster settings from the
@@ -441,7 +447,7 @@ class ClusterClient(NamespacedClient):
         wait_for_no_relocating_shards: t.Optional[bool] = None,
         wait_for_nodes: t.Optional[t.Union[int, str]] = None,
         wait_for_status: t.Optional[
-            t.Union[str, t.Literal["green", "red", "yellow"]]
+            t.Union[str, t.Literal["green", "red", "unavailable", "unknown", "yellow"]]
         ] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -457,7 +463,7 @@ class ClusterClient(NamespacedClient):
           The cluster status is controlled by the worst index status.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-health>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-health>`_
 
         :param index: Comma-separated list of data streams, indices, and index aliases
             used to limit the request. Wildcard expressions (`*`) are supported. To target
@@ -565,7 +571,7 @@ class ClusterClient(NamespacedClient):
           Returns basic information about the cluster.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-info>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-info>`_
 
         :param target: Limits the information returned to the specific target. Supports
             a comma-separated list, such as http,ingest.
@@ -614,7 +620,7 @@ class ClusterClient(NamespacedClient):
           However, if a user-initiated task such as a create index command causes a cluster state update, the activity of this task might be reported by both task api and pending cluster tasks API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-pending-tasks>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-pending-tasks>`_
 
         :param local: If `true`, the request retrieves information from the local node
             only. If `false`, information is retrieved from the master node.
@@ -680,7 +686,7 @@ class ClusterClient(NamespacedClient):
           They are not required when removing master-ineligible nodes or when removing fewer than half of the master-eligible nodes.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-post-voting-config-exclusions>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-post-voting-config-exclusions>`_
 
         :param master_timeout: Period to wait for a connection to the master node.
         :param node_ids: A comma-separated list of the persistent ids of the nodes to
@@ -731,6 +737,7 @@ class ClusterClient(NamespacedClient):
         *,
         name: str,
         template: t.Optional[t.Mapping[str, t.Any]] = None,
+        cause: t.Optional[str] = None,
         create: t.Optional[bool] = None,
         deprecated: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
@@ -761,7 +768,7 @@ class ClusterClient(NamespacedClient):
           To be applied, a component template must be included in an index template's <code>composed_of</code> list.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-put-component-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-component-template>`_
 
         :param name: Name of the component template to create. Elasticsearch includes
             the following built-in component templates: `logs-mappings`; `logs-settings`;
@@ -774,6 +781,7 @@ class ClusterClient(NamespacedClient):
             update settings API.
         :param template: The template to be applied which includes mappings, settings,
             or aliases configuration.
+        :param cause: User defined reason for create the component template.
         :param create: If `true`, this request cannot replace or update existing component
             templates.
         :param deprecated: Marks this index template as deprecated. When creating or
@@ -798,6 +806,8 @@ class ClusterClient(NamespacedClient):
         __path = f'/_component_template/{__path_parts["name"]}'
         __query: t.Dict[str, t.Any] = {}
         __body: t.Dict[str, t.Any] = body if body is not None else {}
+        if cause is not None:
+            __query["cause"] = cause
         if create is not None:
             __query["create"] = create
         if error_trace is not None:
@@ -866,13 +876,13 @@ class ClusterClient(NamespacedClient):
           If a cluster becomes unstable, transient settings can clear unexpectedly, resulting in a potentially undesired cluster configuration.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-put-settings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-settings>`_
 
         :param flat_settings: Return settings in flat format (default: false)
         :param master_timeout: Explicit operation timeout for connection to master node
-        :param persistent:
+        :param persistent: The settings that persist after the cluster restarts.
         :param timeout: Explicit operation timeout
-        :param transient:
+        :param transient: The settings that do not persist after the cluster restarts.
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cluster/settings"
@@ -932,7 +942,7 @@ class ClusterClient(NamespacedClient):
           </blockquote>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-remote-info>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-remote-info>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_remote/info"
@@ -989,7 +999,7 @@ class ClusterClient(NamespacedClient):
           <p>Once the problem has been corrected, allocation can be manually retried by calling the reroute API with the <code>?retry_failed</code> URI query parameter, which will attempt a single retry round for these shards.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-reroute>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-reroute>`_
 
         :param commands: Defines the commands to perform.
         :param dry_run: If true, then the request simulates the operation. It will calculate
@@ -1094,7 +1104,7 @@ class ClusterClient(NamespacedClient):
           Instead, obtain the information you require using other more stable cluster APIs.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-state>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-state>`_
 
         :param metric: Limit the information returned to the specified metrics
         :param index: A comma-separated list of index names; use `_all` or empty string
@@ -1182,7 +1192,7 @@ class ClusterClient(NamespacedClient):
           Get basic index metrics (shard numbers, store size, memory usage) and information about the current nodes that form the cluster (number, roles, os, jvm versions, memory usage, cpu and installed plugins).</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-cluster-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-stats>`_
 
         :param node_id: Comma-separated list of node filters used to limit returned information.
             Defaults to all nodes in the cluster.

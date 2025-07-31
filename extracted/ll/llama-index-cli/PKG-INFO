@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: llama-index-cli
-Version: 0.4.4
+Version: 0.5.0
 Summary: llama-index cli
 Author: llamaindex
 Maintainer-email: Andrei Fajardo <andrei@runllama.ai>, Haotian Zhang <ht@runllama.ai>, Jerry Liu <jerry@llamaindex.ai>, Logan Markewich <logan@llamaindex.ai>, Simon Suo <simon@llamaindex.ai>, Sourabh Desai <sourabh@llamaindex.ai>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
-Requires-Dist: llama-index-core<0.13,>=0.12.0
-Requires-Dist: llama-index-embeddings-openai<0.4,>=0.3.1
-Requires-Dist: llama-index-llms-openai<0.5,>=0.4.0
+Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-embeddings-openai<0.6,>=0.5.0
+Requires-Dist: llama-index-llms-openai<0.6,>=0.5.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex CLI

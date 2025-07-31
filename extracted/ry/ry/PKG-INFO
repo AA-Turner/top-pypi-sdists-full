@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ry
-Version: 0.0.51
+Version: 0.0.52
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -19,13 +19,12 @@ Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 License-File: LICENSE-APACHE
 License-File: LICENSE-MIT
-Summary: ry = rust + python kitchen sink utils (WIP)
-Keywords: pyo3,rust
+Summary: ry = rust + python
+Keywords: datetime,http,jiff,json,pyo3,reqwest,rust,tokio,xxhash,zstd
 Home-Page: https://github.com/jessekrubin/ry
-Author: Jesse K. Rubin <jessekrubin@gmail.com>
 Author-email: jesse rubin <jessekrubin@gmail.com>
 Maintainer-email: jesse rubin <jessekrubin@gmail.com>
-License: MIT OR Apache-2.0
+License-Expression: MIT OR Apache-2.0
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/jessekrubin/ry/blob/main/CHANGELOG.md
@@ -49,7 +48,7 @@ ergonomic.
 
 **API:** [ryo3.dev/api](https://ryo3.dev/api)
 
-**This is a work in progress — feedback and PRs are welcome.**
+**This is a work in progress ~ feedback and PRs are welcome.**
 
 ## Highlights
 
@@ -68,7 +67,7 @@ ergonomic.
 - **Designed for ergonomics:** Async where it matters. Simple where possible.
   Python-native behavior with minimal friction.
 - **Type Annotated:** Type annotations for all public APIs, with `mypy` support.
-- **Performant:** Speed without “blazingly fast.” [^1]
+- **Performant:** Speed without 'blazingly fast.' [^1]
 
 ## Install
 
@@ -164,8 +163,7 @@ _(aka: questions that I have been asking myself)_
 
 - utiles (web-map tile utils): https://github.com/jessekrubin/utiles
 
-[^1]:
-    Release‑version benchmarks of `ry` (via `pytest‑benchmark`) showed no real
-    performance variance, regardless of whether “blazing fast” appeared in
-    README/docs.
+[^1]: Release‑version benchmarks of `ry` (via `pytest-benchmark`) showed no real
+    performance variance, regardless of whether "blazingly fast" appeared in the
+    README or docs.
 

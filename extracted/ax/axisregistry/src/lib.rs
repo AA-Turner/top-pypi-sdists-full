@@ -1,13 +1,14 @@
 use std::{collections::HashSet, ops::Index};
 
-use indexmap::IndexMap;
-use skrifa::string::StringId;
 #[cfg(feature = "fontations")]
-use write_fonts::{
+use fontations::skrifa::string::StringId;
+#[cfg(feature = "fontations")]
+use fontations::{
     read::FontRef,
     read::{ReadError, TableProvider},
-    FontBuilder,
+    write::FontBuilder,
 };
+use indexmap::IndexMap;
 
 include!(concat!(env!("OUT_DIR"), "/_.rs"));
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
@@ -42,6 +43,7 @@ const GF_STATIC_STYLES: [(&str, u16); 18] = [
     ("Black Italic", 900),
 ];
 
+#[cfg(feature = "fontations")]
 const PROTECTED_IDS: [StringId; 9] = [
     StringId::FAMILY_NAME,
     StringId::SUBFAMILY_NAME,
@@ -222,25 +224,27 @@ mod nametable;
 #[cfg(feature = "fontations")]
 mod stat;
 #[cfg(feature = "fontations")]
-mod fontations {
+mod fontations_impl {
     use super::*;
+    use fontations::{
+        skrifa::{string::StringId, MetadataProvider, Tag},
+        write::{
+            from_obj::ToOwnedTable,
+            tables::{
+                fvar::{Fvar, InstanceRecord},
+                name::{Name, NameRecord},
+                os2::Os2,
+                stat::Stat,
+            },
+            types::Fixed,
+        },
+    };
     use monkeypatching::{AxisValueNameId, SetAxisValueNameId};
     use nametable::{
         add_name, best_familyname, best_subfamilyname, find_or_add_name, rewrite_or_insert,
     };
-    use skrifa::{string::StringId, MetadataProvider, Tag};
     use stat::{AxisLocation, AxisRecord, AxisValue, StatBuilder};
     use std::{cmp::Reverse, collections::HashMap};
-    use write_fonts::{
-        from_obj::ToOwnedTable,
-        tables::{
-            fvar::{Fvar, InstanceRecord},
-            name::{Name, NameRecord},
-            os2::Os2,
-            stat::Stat,
-        },
-        types::Fixed,
-    };
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub enum RenameAggressiveness {
@@ -264,7 +268,7 @@ mod fontations {
             .map(|x| x.to_string())
             .unwrap_or_else(|| best_subfamilyname(&font).unwrap_or("Regular".to_string()));
 
-        let new_name = if font.table_data(Tag::new(b"fvar")).is_some() {
+        let mut new_name = if font.table_data(Tag::new(b"fvar")).is_some() {
             build_vf_name_table(&mut new_font, &font, &family_name, siblings, aggressive)?
         } else {
             build_static_name_table_v1(&mut new_font, &font, &family_name, &style_name, aggressive)?
@@ -281,6 +285,7 @@ mod fontations {
             }
         }
         // Set RIBBI bits
+        new_name.name_record.sort();
         new_font.add_table(&new_name)?;
         Ok(new_font.copy_missing_tables(font).build())
     }
@@ -314,7 +319,7 @@ mod fontations {
         build_variations_ps_name(&mut new_name, font, Some(family_name));
 
         // Ensure table records are sorted
-        new_name.name_record.sort_by_key(|record| record.name_id);
+        new_name.name_record.sort();
         Ok(new_name)
     }
 
@@ -490,7 +495,7 @@ mod fontations {
             }
         }
         name.name_record = records;
-        name.name_record.sort_by_key(|record| record.name_id);
+        name.name_record.sort();
         Ok(name)
     }
 
@@ -705,7 +710,7 @@ mod fontations {
         fvar.axis_instance_arrays.instances = instances;
 
         new_font.add_table(&fvar)?;
-        name_table.name_record.sort_by_key(|record| record.name_id);
+        name_table.name_record.sort();
         new_font.add_table(&name_table)?;
         Ok(new_font.copy_missing_tables(font).build())
     }
@@ -878,27 +883,55 @@ mod fontations {
             values,
         };
         let stat = stat_builder.build(&mut name.name_record);
-        name.name_record.sort_by_key(|record| record.name_id);
+        name.name_record.sort();
         new_font.add_table(&name)?;
         new_font.add_table(&stat)?;
         Ok(new_font.copy_missing_tables(font).build())
     }
+
+    pub fn build_filename(font: FontRef, extension: &str) -> String {
+        let family_name = best_familyname(&font)
+            .unwrap_or("New Font".to_string())
+            .replace(" ", "");
+        let style_name = best_subfamilyname(&font).unwrap_or("Regular".to_string());
+        if font.table_data(Tag::new(b"fvar")).is_some() {
+            let is_italic = style_name.contains("Italic");
+            let axes = font_axes(&font).unwrap_or_default();
+            // Sort uppercase axes first, then lowercase axes
+            let mut axes = axes
+                .iter()
+                .map(|axis| axis.tag.to_string())
+                .collect::<Vec<_>>();
+            axes.sort();
+            let axes = axes.join(",");
+            return format!(
+                "{}{}[{}].{}",
+                family_name,
+                if is_italic { "-Italic" } else { "" },
+                axes,
+                extension
+            );
+        }
+        format!("{family_name}-{style_name}.{extension}").replace(" ", "")
+    }
 }
 
 #[cfg(feature = "fontations")]
-pub use fontations::*;
+pub use fontations_impl::*;
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_eq;
-    use skrifa::{string::StringId, MetadataProvider, Tag};
-    use write_fonts::{
-        from_obj::ToOwnedTable,
-        tables::{
-            name::Name,
-            stat::{AxisValue, Stat},
+    use fontations::{
+        skrifa::{string::StringId, MetadataProvider, Tag},
+        write::{
+            from_obj::ToOwnedTable,
+            tables::{
+                name::Name,
+                stat::{AxisValue, Stat},
+            },
         },
     };
+    use pretty_assertions::assert_eq;
 
     use super::*;
 
@@ -1444,5 +1477,35 @@ mod tests {
                 value("ital", "Italic", 1.0, None),
             ]
         )
+    }
+
+    #[test]
+    fn test_build_filename() {
+        let maven_pro = FontRef::new(MAVEN_PRO).unwrap();
+        assert_eq!(build_filename(maven_pro, "ttf"), "MavenPro-Regular.ttf");
+        let open_sans = FontRef::new(OPEN_SANS).unwrap();
+        assert_eq!(build_filename(open_sans, "ttf"), "OpenSans[wdth,wght].ttf");
+        let open_sans_italic = FontRef::new(OPEN_SANS_ITALIC).unwrap();
+        assert_eq!(
+            build_filename(open_sans_italic, "ttf"),
+            "OpenSans-Italic[wdth,wght].ttf"
+        );
+        let open_sans_condensed = FontRef::new(OPEN_SANS_CONDENSED).unwrap();
+        assert_eq!(
+            build_filename(open_sans_condensed, "ttf"),
+            "OpenSansCondensed[wght].ttf"
+        );
+        let open_sans_condensed_italic = FontRef::new(OPEN_SANS_CONDENSED_ITALIC).unwrap();
+        assert_eq!(
+            build_filename(open_sans_condensed_italic, "ttf"),
+            "OpenSansCondensed-Italic[wght].ttf"
+        );
+        let wonky = FontRef::new(WONKY).unwrap();
+        assert_eq!(build_filename(wonky, "ttf"), "Wonky[wdth,wght].ttf");
+        let playfair = FontRef::new(PLAYFAIR).unwrap();
+        assert_eq!(
+            build_filename(playfair, "ttf"),
+            "Playfair[opsz,wdth,wght].ttf"
+        );
     }
 }

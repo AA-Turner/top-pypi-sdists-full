@@ -109,6 +109,9 @@ upstream = [
   "xarray @ git+https://github.com/pydata/xarray.git",
   "zarr @ git+https://github.com/zarr-developers/zarr.git",
 ]
+dev = [
+  { include-group = "upstream" }
+]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
@@ -116,6 +119,16 @@ module-name = "icechunk._icechunk_python"
 python-source = "python"
 exclude = ["README.md"]
 manifest-path = "icechunk-python/Cargo.toml"
+
+[tool.uv]
+# Rebuild package when any Rust files change
+cache-keys = [
+  {file = "pyproject.toml"},
+  {file = "Cargo.toml"},
+  {file = "src/**/*.rs"},
+  {file = "../icechunk/Cargo.toml"},
+  {file = "../icechunk/src/**/*.rs"},
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

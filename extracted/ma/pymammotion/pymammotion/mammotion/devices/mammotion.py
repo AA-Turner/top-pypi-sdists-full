@@ -32,7 +32,6 @@ class MammotionMixedDeviceManager:
         name: str,
         iot_id: str,
         cloud_client: CloudIOTGateway,
-        mammotion_http: MammotionHTTP,
         cloud_device: Device,
         ble_device: BLEDevice | None = None,
         mqtt: MammotionCloud | None = None,
@@ -48,16 +47,22 @@ class MammotionMixedDeviceManager:
         self._device: Device = cloud_device
         self.add_ble(ble_device)
         self.add_cloud(mqtt)
-        self.mammotion_http = mammotion_http
+        self.mammotion_http = cloud_client.mammotion_http
         self.preference = preference
         self._state_manager.preference = preference
 
     @property
-    def mower_state(self):
+    def state_manager(self) -> StateManager:
+        """Return the state manager."""
+        return self._state_manager
+
+    @property
+    def state(self):
+        """Return the state of the device."""
         return self._state_manager.get_device()
 
-    @mower_state.setter
-    def mower_state(self, value: MowingDevice) -> None:
+    @state.setter
+    def state(self, value: MowingDevice) -> None:
         self._state_manager.set_device(value)
 
     def ble(self) -> MammotionBaseBLEDevice | None:
@@ -219,13 +224,12 @@ class Mammotion:
                     name=device.deviceName,
                     iot_id=device.iotId,
                     cloud_client=mqtt_client.cloud_client,
-                    mammotion_http=mqtt_client.cloud_client.mammotion_http,
                     cloud_device=device,
                     mqtt=mqtt_client,
                     preference=ConnectionPreference.WIFI,
                 )
-                mixed_device.mower_state.mower_state.product_key = device.productKey
-                mixed_device.mower_state.mower_state.model = (
+                mixed_device.state.mower_state.product_key = device.productKey
+                mixed_device.state.mower_state.model = (
                     device.productName if device.productModel is None else device.productModel
                 )
                 self.device_manager.add_device(mixed_device)
@@ -266,6 +270,18 @@ class Mammotion:
     def get_device_by_name(self, name: str) -> MammotionMixedDeviceManager:
         return self.device_manager.get_device(name)
 
+    def get_or_create_device_by_name(self, device: Device, mqtt_client: MammotionCloud) -> MammotionMixedDeviceManager:
+        if mow_device := self.device_manager.get_device(device.deviceName):
+            return mow_device
+        return MammotionMixedDeviceManager(
+            name=device.deviceName,
+            iot_id=device.iotId,
+            cloud_client=mqtt_client.cloud_client,
+            mqtt=mqtt_client,
+            cloud_device=device,
+            ble_device=None,
+        )
+
     async def send_command(self, name: str, key: str):
         """Send a command to the device."""
         device = self.get_device_by_name(name)
@@ -275,6 +291,7 @@ class Mammotion:
             if device.preference is ConnectionPreference.WIFI:
                 return await device.cloud().command(key)
             # TODO work with both with EITHER
+        return None
 
     async def send_command_with_args(self, name: str, key: str, **kwargs: Any):
         """Send a command with args to the device."""
@@ -285,6 +302,7 @@ class Mammotion:
             if device.preference is ConnectionPreference.WIFI:
                 return await device.cloud().command(key, **kwargs)
             # TODO work with both with EITHER
+        return None
 
     async def start_sync(self, name: str, retry: int):
         device = self.get_device_by_name(name)
@@ -294,6 +312,7 @@ class Mammotion:
             if device.preference is ConnectionPreference.WIFI:
                 return await device.cloud().start_sync(retry)
             # TODO work with both with EITHER
+        return None
 
     async def start_map_sync(self, name: str):
         device = self.get_device_by_name(name)
@@ -303,6 +322,7 @@ class Mammotion:
             if device.preference is ConnectionPreference.WIFI:
                 return await device.cloud().start_map_sync()
             # TODO work with both with EITHER
+        return None
 
     async def get_stream_subscription(self, name: str, iot_id: str) -> Response[StreamSubscriptionResponse] | Any:
         device = self.get_device_by_name(name)
@@ -329,4 +349,5 @@ class Mammotion:
     def mower(self, name: str) -> MowingDevice | None:
         device = self.get_device_by_name(name)
         if device:
-            return device.mower_state
+            return device.state
+        return None

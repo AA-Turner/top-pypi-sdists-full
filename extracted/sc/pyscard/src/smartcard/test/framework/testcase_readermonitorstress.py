@@ -111,6 +111,7 @@ class readerRemovalThread(threading.Thread):
 
 
 class countobserver(ReaderObserver):
+    # pylint: disable=too-few-public-methods
     """A simple reader observer that counts added/removed readers."""
 
     def __init__(self, obsindex):

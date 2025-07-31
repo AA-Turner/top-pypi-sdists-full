@@ -676,6 +676,14 @@ aws_config:
   memorydb_cluster_name: my-memorydb-cluster
 """
 
+
+CLOUD_REMOVE_DEPLOYMENT_EXAMPLE = """\
+$ anyscale cloud remove-deployment --cloud my-cloud --deployment my-deployment
+Output
+Please confirm that you would like to remove deployment my-deployment from cloud my-cloud. [y/N]: y
+(anyscale +3.5s) Successfully removed deployment my-deployment from cloud my-cloud!
+"""
+
 CLOUD_GET_CLOUD_EXAMPLE = """\
 $ anyscale cloud get --name my-cloud
 id: cld_123

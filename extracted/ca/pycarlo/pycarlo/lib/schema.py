@@ -11640,6 +11640,7 @@ class AccountNotificationSetting(sgqlc.types.Type):
         "matching_incidents",
         "custom_message",
         "integration_id",
+        "channel_url",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -11775,6 +11776,11 @@ class AccountNotificationSetting(sgqlc.types.Type):
 
     integration_id = sgqlc.types.Field(UUID, graphql_name="integrationId")
     """Integration ID for the recipient"""
+
+    channel_url = sgqlc.types.Field(String, graphql_name="channelUrl")
+    """URL of the channel if this is a channel-based notification.
+    Currently only Slack and MS Teams is supported.
+    """
 
 
 class AccountSecretOutput(sgqlc.types.Type):
@@ -12971,6 +12977,14 @@ class AssignmentWithProperties(sgqlc.types.Type):
 
     object_type = sgqlc.types.Field(String, graphql_name="objectType")
     """Type of object assigned to a domain"""
+
+
+class Audience(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("uuid", "label")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
 
 
 class AudienceMonitorConnection(sgqlc.types.relay.Connection):
@@ -14959,6 +14973,112 @@ class ContractCommitResults(sgqlc.types.Type):
         sgqlc.types.list_of(ContractCommit), graphql_name="contractCommits"
     )
     """List of commits for all contracts"""
+
+
+class ConversionResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "account_name",
+        "account_uuid",
+        "use_cbp_v2",
+        "table_monitor_specs",
+        "job_routing_rules_specs",
+        "unconvertible_routing_rules",
+        "unconvertible_monitoring_rules",
+        "warnings",
+        "warehouse_count",
+        "converted_monitor_uuids",
+        "monitored_tables_count",
+        "selected_tables_count",
+        "top_mcons_by_monitor_count",
+        "sample_covered_not_monitored",
+        "sample_monitored_not_covered",
+        "text_output",
+        "summary_text",
+        "table_monitor_specs_text",
+        "job_routing_rules_text",
+        "unconvertible_rules_text",
+        "warnings_text",
+        "full_output_text",
+    )
+    account_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountName")
+
+    account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
+
+    use_cbp_v2 = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="useCbpV2")
+
+    table_monitor_specs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TableMonitorSpec"))),
+        graphql_name="tableMonitorSpecs",
+    )
+
+    job_routing_rules_specs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("JobRoutingRuleSpec"))),
+        graphql_name="jobRoutingRulesSpecs",
+    )
+
+    unconvertible_routing_rules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("RoutingRuleData"))),
+        graphql_name="unconvertibleRoutingRules",
+    )
+
+    unconvertible_monitoring_rules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MonitoringRuleData"))),
+        graphql_name="unconvertibleMonitoringRules",
+    )
+
+    warnings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="warnings",
+    )
+
+    warehouse_count = sgqlc.types.Field(Int, graphql_name="warehouseCount")
+
+    converted_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="convertedMonitorUuids",
+    )
+
+    monitored_tables_count = sgqlc.types.Field(Int, graphql_name="monitoredTablesCount")
+
+    selected_tables_count = sgqlc.types.Field(Int, graphql_name="selectedTablesCount")
+
+    top_mcons_by_monitor_count = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconCountPair"))),
+        graphql_name="topMconsByMonitorCount",
+    )
+
+    sample_covered_not_monitored = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconMonitorPair"))),
+        graphql_name="sampleCoveredNotMonitored",
+    )
+
+    sample_monitored_not_covered = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconRuleIdPair"))),
+        graphql_name="sampleMonitoredNotCovered",
+    )
+
+    text_output = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="textOutput")
+
+    summary_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summaryText")
+
+    table_monitor_specs_text = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="tableMonitorSpecsText"
+    )
+
+    job_routing_rules_text = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="jobRoutingRulesText"
+    )
+
+    unconvertible_rules_text = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="unconvertibleRulesText"
+    )
+
+    warnings_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="warningsText")
+
+    full_output_text = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="fullOutputText"
+    )
 
 
 class ConvertConfigTemplateToUiMonitors(sgqlc.types.Type):
@@ -21806,6 +21926,36 @@ class JobPerformanceSummaryEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class JobRoutingRuleSpec(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "original_rule_uuid",
+        "audience",
+        "job_anomaly_types",
+        "job_asset_rules",
+        "description",
+        "domain_restrictions",
+    )
+    original_rule_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="originalRuleUuid"
+    )
+
+    audience = sgqlc.types.Field(Audience, graphql_name="audience")
+
+    job_anomaly_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="jobAnomalyTypes",
+    )
+
+    job_asset_rules = sgqlc.types.Field(GenericScalar, graphql_name="jobAssetRules")
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+
+    domain_restrictions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainRestrictions"
+    )
+
+
 class JobsPerformanceFacetOption(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("display_name", "value", "match_count")
@@ -22794,6 +22944,32 @@ class McSqlResult(sgqlc.types.Type):
     fragments = sgqlc.types.Field(GenericScalar, graphql_name="fragments")
 
 
+class MconCountPair(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "count")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+
+
+class MconMonitorPair(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "monitor_name")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    monitor_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorName")
+
+
+class MconRuleIdPair(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "monitoring_rule_id")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    monitoring_rule_id = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="monitoringRuleId"
+    )
+
+
 class MergeAlerts(sgqlc.types.Type):
     """Merge alerts together"""
 
@@ -23607,6 +23783,57 @@ class MonitoredTableRuleObject(sgqlc.types.Type):
 
     monitored_rule_type = sgqlc.types.Field(MonitoredRuleType, graphql_name="monitoredRuleType")
     """Monitoring rule type"""
+
+
+class MonitoringRuleData(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "warehouse_uuid",
+        "warehouse_name",
+        "project_name",
+        "dataset",
+        "is_exclude",
+        "rule_type",
+        "table_rule_attribute",
+        "table_rule_text",
+        "is_disabled",
+        "source",
+        "monitored_rule_type",
+        "created_by_id",
+        "last_update_user_id",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="id")
+
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="warehouseUuid")
+
+    warehouse_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="warehouseName")
+
+    project_name = sgqlc.types.Field(String, graphql_name="projectName")
+
+    dataset = sgqlc.types.Field(String, graphql_name="dataset")
+
+    is_exclude = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isExclude")
+
+    rule_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ruleType")
+
+    table_rule_attribute = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="tableRuleAttribute"
+    )
+
+    table_rule_text = sgqlc.types.Field(String, graphql_name="tableRuleText")
+
+    is_disabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDisabled")
+
+    source = sgqlc.types.Field(String, graphql_name="source")
+
+    monitored_rule_type = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="monitoredRuleType"
+    )
+
+    created_by_id = sgqlc.types.Field(Int, graphql_name="createdById")
+
+    last_update_user_id = sgqlc.types.Field(Int, graphql_name="lastUpdateUserId")
 
 
 class MonteCarloConfigTemplateConnection(sgqlc.types.relay.Connection):
@@ -41773,6 +42000,7 @@ class Query(sgqlc.types.Type):
         "get_pagerduty_service_integrations",
         "get_volume_change_table_monitor",
         "get_ucs_table_monitor",
+        "migrate_to_table_monitors",
         "get_freshness_table_monitor",
         "get_servicenow_incident_fields",
         "get_servicenow_users",
@@ -44626,6 +44854,35 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String`): MC unique identifier of the object
+    """
+
+    migrate_to_table_monitors = sgqlc.types.Field(
+        ConversionResult,
+        graphql_name="migrateToTableMonitors",
+        args=sgqlc.types.ArgDict(
+            (
+                ("load_path", sgqlc.types.Arg(String, graphql_name="loadPath", default=None)),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=True)),
+                ("coverage", sgqlc.types.Arg(Boolean, graphql_name="coverage", default=False)),
+            )
+        ),
+    )
+    """(experimental) Migrate notification routing rules and monitoring
+    rules to table monitors.
+
+    Arguments:
+
+    * `load_path` (`String`): Load migration data from a previously
+      created dump instead of querying the database. Pass empty string
+      to use default location based on user's account. Only available
+      during unit tests.
+    * `dry_run` (`Boolean`): Only analyze and show what would be
+      created without actually creating table monitors (default:
+      True). Non-dry-run migrations require system user
+      authentication. (default: `true`)
+    * `coverage` (`Boolean`): Calculate expensive coverage statistics
+      such as distinct tables covered and top MCONs by monitor count
+      (default: False). (default: `false`)
     """
 
     get_freshness_table_monitor = sgqlc.types.Field(
@@ -58106,6 +58363,59 @@ class RoleOutput(sgqlc.types.Type):
     """
 
 
+class RoutingRuleData(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "anomaly_types",
+        "incident_sub_types",
+        "table_rules",
+        "table_id_rules",
+        "tag_rules",
+        "table_stats_rules",
+        "asset_rules",
+        "domain_rules",
+        "digest_settings_id",
+        "audience_uuid",
+        "audience_label",
+        "created_by_id",
+        "last_update_user_id",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="uuid")
+
+    anomaly_types = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="anomalyTypes"
+    )
+
+    incident_sub_types = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="incidentSubTypes"
+    )
+
+    table_rules = sgqlc.types.Field(String, graphql_name="tableRules")
+
+    table_id_rules = sgqlc.types.Field(GenericScalar, graphql_name="tableIdRules")
+
+    tag_rules = sgqlc.types.Field(GenericScalar, graphql_name="tagRules")
+
+    table_stats_rules = sgqlc.types.Field(GenericScalar, graphql_name="tableStatsRules")
+
+    asset_rules = sgqlc.types.Field(GenericScalar, graphql_name="assetRules")
+
+    domain_rules = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domainRules"
+    )
+
+    digest_settings_id = sgqlc.types.Field(String, graphql_name="digestSettingsId")
+
+    audience_uuid = sgqlc.types.Field(String, graphql_name="audienceUuid")
+
+    audience_label = sgqlc.types.Field(String, graphql_name="audienceLabel")
+
+    created_by_id = sgqlc.types.Field(Int, graphql_name="createdById")
+
+    last_update_user_id = sgqlc.types.Field(Int, graphql_name="lastUpdateUserId")
+
+
 class RowCountResponseType(sgqlc.types.Type):
     """Row count info"""
 
@@ -60753,6 +61063,54 @@ class TableMonitorEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class TableMonitorSpec(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "warehouse_uuid",
+        "asset_selection",
+        "audiences",
+        "description",
+        "monitor_name",
+        "domain_restrictions",
+        "source_notification_rules",
+        "source_monitored_table_rules",
+        "created_by_id",
+        "distinct_mcons_count",
+    )
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+
+    asset_selection = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetSelection), graphql_name="assetSelection"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Audience))),
+        graphql_name="audiences",
+    )
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+
+    monitor_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorName")
+
+    domain_restrictions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainRestrictions"
+    )
+
+    source_notification_rules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RoutingRuleData))),
+        graphql_name="sourceNotificationRules",
+    )
+
+    source_monitored_table_rules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MonitoringRuleData))),
+        graphql_name="sourceMonitoredTableRules",
+    )
+
+    created_by_id = sgqlc.types.Field(Int, graphql_name="createdById")
+
+    distinct_mcons_count = sgqlc.types.Field(Int, graphql_name="distinctMconsCount")
 
 
 class TableMonitorStatus(sgqlc.types.Type):

@@ -309,7 +309,7 @@ impl Session {
         &self,
         chunk_location: &VirtualChunkLocation,
     ) -> Option<&VirtualChunkContainer> {
-        self.virtual_resolver.matching_container(chunk_location.0.as_str())
+        self.virtual_resolver.matching_container(chunk_location.url())
     }
 
     /// Compute an overview of the current session changes
@@ -745,11 +745,7 @@ impl Session {
                 Ok(Some(
                     async move {
                         resolver
-                            .fetch_chunk(
-                                location.0.as_str(),
-                                &byte_range,
-                                checksum.as_ref(),
-                            )
+                            .fetch_chunk(location.url(), &byte_range, checksum.as_ref())
                             .await
                             .map_err(|e| e.into())
                     }
@@ -907,7 +903,9 @@ impl Session {
     ) -> SessionResult<impl Stream<Item = SessionResult<String>> + '_> {
         let stream =
             self.all_chunks().await?.try_filter_map(|(_, info)| match info.payload {
-                ChunkPayload::Virtual(reference) => ready(Ok(Some(reference.location.0))),
+                ChunkPayload::Virtual(reference) => {
+                    ready(Ok(Some(reference.location.url().to_string())))
+                }
                 _ => ready(Ok(None)),
             });
         Ok(stream)
@@ -1067,7 +1065,7 @@ impl Session {
 
     pub async fn commit_rebasing<F1, F2, Fut1, Fut2>(
         &mut self,
-        solver: &dyn ConflictSolver,
+        solver: &(dyn ConflictSolver + Send + Sync),
         rebase_attempts: u16,
         message: &str,
         properties: Option<SnapshotProperties>,
@@ -1161,7 +1159,10 @@ impl Session {
     /// `Repository` in a consistent state, that would successfully commit on top
     /// of the latest successfully fast-forwarded commit.
     #[instrument(skip(self, solver))]
-    pub async fn rebase(&mut self, solver: &dyn ConflictSolver) -> SessionResult<()> {
+    pub async fn rebase(
+        &mut self,
+        solver: &(dyn ConflictSolver + Send + Sync),
+    ) -> SessionResult<()> {
         let Some(branch_name) = &self.branch_name else {
             return Err(SessionErrorKind::ReadOnlySession.into());
         };

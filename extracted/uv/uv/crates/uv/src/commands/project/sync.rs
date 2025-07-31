@@ -14,7 +14,7 @@ use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
     Concurrency, Constraints, DependencyGroups, DependencyGroupsWithDefaults, DryRun, EditableMode,
     ExtrasSpecification, ExtrasSpecificationWithDefaults, HashCheckingMode, InstallOptions,
-    PreviewMode, TargetTriple,
+    Preview, PreviewFeatures, TargetTriple, Upgrade,
 };
 use uv_dispatch::BuildDispatch;
 use uv_distribution_types::{
@@ -26,11 +26,11 @@ use uv_normalize::{DefaultExtras, DefaultGroups, PackageName};
 use uv_pep508::{MarkerTree, VersionOrUrl};
 use uv_pypi_types::{ParsedArchiveUrl, ParsedGitUrl, ParsedUrl};
 use uv_python::{PythonDownloads, PythonEnvironment, PythonPreference, PythonRequest};
-use uv_resolver::{FlatIndex, Installable, Lock};
-use uv_scripts::{Pep723ItemRef, Pep723Script};
+use uv_resolver::{FlatIndex, ForkStrategy, Installable, Lock, PrereleaseMode, ResolutionMode};
+use uv_scripts::Pep723Script;
 use uv_settings::PythonInstallMirrors;
 use uv_types::{BuildIsolation, HashStrategy};
-use uv_warnings::warn_user;
+use uv_warnings::{warn_user, warn_user_once};
 use uv_workspace::pyproject::Source;
 use uv_workspace::{DiscoveryOptions, MemberDiscovery, VirtualProject, Workspace, WorkspaceCache};
 
@@ -43,11 +43,14 @@ use crate::commands::project::lock::{LockMode, LockOperation, LockResult};
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
     PlatformState, ProjectEnvironment, ProjectError, ScriptEnvironment, UniversalState,
-    default_dependency_groups, detect_conflicts, script_specification, update_environment,
+    default_dependency_groups, detect_conflicts, script_extra_build_requires, script_specification,
+    update_environment,
 };
 use crate::commands::{ExitStatus, diagnostics};
 use crate::printer::Printer;
-use crate::settings::{InstallerSettingsRef, NetworkSettings, ResolverInstallerSettings};
+use crate::settings::{
+    InstallerSettingsRef, NetworkSettings, ResolverInstallerSettings, ResolverSettings,
+};
 
 /// Sync the project environment.
 #[allow(clippy::fn_params_excessive_bools)]
@@ -77,12 +80,14 @@ pub(crate) async fn sync(
     no_config: bool,
     cache: &Cache,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
     output_format: SyncFormat,
 ) -> Result<ExitStatus> {
-    if preview.is_enabled() && matches!(output_format, SyncFormat::Json) {
+    if preview.is_enabled(PreviewFeatures::JSON_OUTPUT) && matches!(output_format, SyncFormat::Json)
+    {
         warn_user!(
-            "The `--output-format json` option is experimental and the schema may change without warning. Pass `--preview` to disable this warning."
+            "The `--output-format json` option is experimental and the schema may change without warning. Pass `--preview-features {}` to disable this warning.",
+            PreviewFeatures::JSON_OUTPUT
         );
     }
 
@@ -162,7 +167,7 @@ pub(crate) async fn sync(
         ),
         SyncTarget::Script(script) => SyncEnvironment::Script(
             ScriptEnvironment::get_or_init(
-                Pep723ItemRef::Script(script),
+                script.into(),
                 python.as_deref().map(PythonRequest::parse),
                 &network_settings,
                 python_preference,
@@ -220,8 +225,9 @@ pub(crate) async fn sync(
             }
 
             // Parse the requirements from the script.
-            let spec = script_specification(Pep723ItemRef::Script(script), &settings.resolver)?
-                .unwrap_or_default();
+            let spec = script_specification(script.into(), &settings.resolver)?.unwrap_or_default();
+            let script_extra_build_requires =
+                script_extra_build_requires(script.into(), &settings.resolver)?;
 
             // Parse the build constraints from the script.
             let build_constraints = script
@@ -246,6 +252,7 @@ pub(crate) async fn sync(
                 spec,
                 modifications,
                 build_constraints.unwrap_or_default(),
+                script_extra_build_requires,
                 &settings,
                 &network_settings,
                 &PlatformState::default(),
@@ -492,6 +499,7 @@ fn identify_installation_target<'a>(
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 enum SyncTarget {
     /// Sync a project environment.
     Project(VirtualProject),
@@ -564,7 +572,7 @@ pub(super) async fn do_sync(
     workspace_cache: WorkspaceCache,
     dry_run: DryRun,
     printer: Printer,
-    preview: PreviewMode,
+    preview: Preview,
 ) -> Result<(), ProjectError> {
     // Extract the project settings.
     let InstallerSettingsRef {
@@ -576,6 +584,7 @@ pub(super) async fn do_sync(
         config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
+        extra_build_dependencies,
         exclude_newer,
         link_mode,
         compile_bytecode,
@@ -583,6 +592,52 @@ pub(super) async fn do_sync(
         build_options,
         sources,
     } = settings;
+
+    if !preview.is_enabled(PreviewFeatures::EXTRA_BUILD_DEPENDENCIES)
+        && !extra_build_dependencies.is_empty()
+    {
+        warn_user_once!(
+            "The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features {}` to disable this warning.",
+            PreviewFeatures::EXTRA_BUILD_DEPENDENCIES
+        );
+    }
+
+    // Lower the extra build dependencies with source resolution
+    let extra_build_requires = match &target {
+        InstallTarget::Workspace { workspace, .. }
+        | InstallTarget::Project { workspace, .. }
+        | InstallTarget::NonProjectWorkspace { workspace, .. } => {
+            uv_distribution::ExtraBuildRequires::from_workspace(
+                extra_build_dependencies.clone(),
+                workspace,
+                index_locations,
+                sources,
+            )?
+        }
+        InstallTarget::Script { script, .. } => {
+            // Try to get extra build dependencies from the script metadata
+            let resolver_settings = ResolverSettings {
+                build_options: build_options.clone(),
+                config_setting: config_setting.clone(),
+                config_settings_package: config_settings_package.clone(),
+                dependency_metadata: dependency_metadata.clone(),
+                exclude_newer: exclude_newer.clone(),
+                fork_strategy: ForkStrategy::default(),
+                index_locations: index_locations.clone(),
+                index_strategy,
+                keyring_provider,
+                link_mode,
+                no_build_isolation,
+                no_build_isolation_package: no_build_isolation_package.to_vec(),
+                extra_build_dependencies: extra_build_dependencies.clone(),
+                prerelease: PrereleaseMode::default(),
+                resolution: ResolutionMode::default(),
+                sources,
+                upgrade: Upgrade::default(),
+            };
+            script_extra_build_requires((*script).into(), &resolver_settings)?
+        }
+    };
 
     let client_builder = BaseClientBuilder::new()
         .retries_from_env()?
@@ -712,10 +767,11 @@ pub(super) async fn do_sync(
         config_setting,
         config_settings_package,
         build_isolation,
+        &extra_build_requires,
         link_mode,
         build_options,
         &build_hasher,
-        exclude_newer,
+        exclude_newer.clone(),
         sources,
         workspace_cache.clone(),
         concurrency,

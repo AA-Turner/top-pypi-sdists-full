@@ -8534,6 +8534,38 @@ def test_comments_in_jinja_query():
         model.render_query()
 
 
+def test_jinja_render_debug_logging(caplog):
+    """Test that rendered Jinja expressions are logged for debugging."""
+    import logging
+
+    # Set log level to DEBUG to capture debug logs
+    caplog.set_level(logging.DEBUG, logger="sqlmesh.core.renderer")
+
+    # Create a model with unparseable Jinja that will be rendered
+    expressions = d.parse(
+        """
+        MODEL (name db.test_model);
+
+        JINJA_QUERY_BEGIN;
+        {{ 'SELECT invalid syntax here!' }}
+        JINJA_END;
+        """
+    )
+
+    model = load_sql_based_model(expressions)
+
+    # Attempt to render - this should fail due to invalid SQL syntax
+    with pytest.raises(ConfigError, match=r"Could not render or parse jinja"):
+        model.render_query()
+
+    # Check that the rendered Jinja was logged
+    assert any(
+        'Rendered Jinja expression for model \'"db"."test_model"\'' in record.message
+        and "SELECT invalid syntax here!" in record.message
+        for record in caplog.records
+    )
+
+
 def test_staged_file_path():
     expressions = d.parse(
         """
@@ -11029,3 +11061,38 @@ def entrypoint(context, **kwargs):
 
     assert model_daily is not None
     assert model_daily.cron == "@daily"
+
+
+def test_render_query_optimize_query_false(assert_exp_eq, sushi_context):
+    snapshots = sushi_context.snapshots
+
+    model = sushi_context.get_model("sushi.top_waiters")
+    model = model.copy(update={"optimize_query": False})
+
+    upstream_model_version = sushi_context.get_snapshot("sushi.waiter_revenue_by_day").version
+
+    assert_exp_eq(
+        model.render_query(snapshots=snapshots).sql(),
+        f"""
+        WITH "test_macros" AS (
+          SELECT
+            2 AS "lit_two",
+            "revenue" * 2.0 AS "sql_exp",
+            CAST("revenue" AS TEXT) AS "sql_lit"
+          FROM "memory"."sqlmesh__sushi"."sushi__waiter_revenue_by_day__{upstream_model_version}" AS "waiter_revenue_by_day" /* memory.sushi.waiter_revenue_by_day */
+        )
+        SELECT
+          CAST("waiter_id" AS INT) AS "waiter_id",
+          CAST("revenue" AS DOUBLE) AS "revenue"
+        FROM "memory"."sqlmesh__sushi"."sushi__waiter_revenue_by_day__{upstream_model_version}" AS "waiter_revenue_by_day" /* memory.sushi.waiter_revenue_by_day */
+        WHERE
+          "event_date" = (
+            SELECT
+              MAX("event_date")
+            FROM "memory"."sqlmesh__sushi"."sushi__waiter_revenue_by_day__{upstream_model_version}" AS "waiter_revenue_by_day" /* memory.sushi.waiter_revenue_by_day */
+          )
+        ORDER BY
+          "revenue" DESC
+        LIMIT 10
+        """,
+    )

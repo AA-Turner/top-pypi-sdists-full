@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mutmut
-Version: 3.3.0
+Version: 3.3.1
 Summary: mutation testing for Python 3
 Home-page: https://github.com/boxed/mutmut
 Author: Anders Hovmöller
@@ -88,6 +88,9 @@ You can also write a mutant to disk from the `browse` interface, or via
 source code control and committed before you apply a mutant!
 
 
+If during the installation you get an error for the `libcst` dependency mentioning the lack of a rust compiler on your system, it is because your architecture does not have a prebuilt binary for `libcst` and it requires both `rustc` and `cargo` from the [rust toolchain](https://www.rust-lang.org/tools/install) to be built. This is known for at least the `x86_64-darwin` architecture.
+
+
 Configuration
 -------------
 
@@ -171,6 +174,20 @@ You can exclude files from mutation in `setup.cfg`:
 
     do_not_mutate=
         *__tests.py
+
+
+Enable debug output (increase verbosity)
+----------------------------------------
+
+By default, mutmut "swallows" all the test output etc. so that you get a nice clean output.
+
+If you want to see all the detail to aid with debugging, you can set `debug` to `true` in your configuration.
+Note that not all displayed errors are necessarily bad. In particular test runs of the mutated code will lead
+to failing tests.
+
+.. code-block::
+
+    debug=true
 
 
 Whitelisting

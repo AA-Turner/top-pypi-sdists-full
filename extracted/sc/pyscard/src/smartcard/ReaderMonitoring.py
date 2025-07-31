@@ -28,13 +28,17 @@ along with pyscard; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 
+import _thread
 import traceback
 from threading import Event, Thread
 from time import sleep
 
 import smartcard.System
+from smartcard.Exceptions import SmartcardException
 from smartcard.Observer import Observable, Observer
-from smartcard.Synchronization import *
+from smartcard.Synchronization import synchronize
+
+# pylint: disable=too-few-public-methods
 
 
 # ReaderObserver interface
@@ -55,7 +59,6 @@ class ReaderObserver(Observer):
           - addedreaders: list of added readers causing notification
           - removedreaders: list of removed readers causing notification
         """
-        pass
 
 
 class ReaderMonitor(Observable):
@@ -105,7 +108,6 @@ class ReaderMonitor(Observable):
                     # avoid a deadlock; addObserver and notifyObservers called
                     # in the ReaderMonitoringThread run() method are
                     # synchronized
-                    import _thread
 
                     _thread.start_new_thread(self.rmthread.start, ())
         else:
@@ -140,6 +142,8 @@ class ReaderMonitoringThread(Thread):
     reader insertion event is available in pcsc.
     """
 
+    # pylint: disable=too-many-instance-attributes
+
     __shared_state = {}
 
     def __init__(self, observable, readerProc, period):
@@ -158,6 +162,9 @@ class ReaderMonitoringThread(Thread):
         """Runs until stopEvent is notified, and notify
         observers of all reader insertion/removal.
         """
+
+        # pylint: disable=too-many-nested-blocks
+
         while not self.stopEvent.is_set():
             try:
                 # no need to monitor if no observers
@@ -187,8 +194,7 @@ class ReaderMonitoringThread(Thread):
                 # wait every second on stopEvent
                 self.stopEvent.wait(self.period)
 
-            except Exception:
-                # FIXME Tighten the exceptions caught by this block
+            except SmartcardException:
                 traceback.print_exc()
                 # Most likely raised during interpreter shutdown due
                 # to unclean exit which failed to remove all observers.
@@ -197,6 +203,7 @@ class ReaderMonitoringThread(Thread):
                 self.stopEvent.set()
 
     def stop(self):
+        """stop the thread by signaling stopEvent"""
         self.stopEvent.set()
         self.join()
 
@@ -204,18 +211,21 @@ class ReaderMonitoringThread(Thread):
 if __name__ == "__main__":
     print("insert or remove readers in the next 20 seconds")
 
-    # a simple reader observer that prints added/removed readers
     class printobserver(ReaderObserver):
+        """a simple reader observer that prints added/removed readers"""
 
         def __init__(self, obsindex):
             self.obsindex = obsindex
 
         def update(self, observable, handlers):
             addedreaders, removedreaders = handlers
-            print("%d - added:   " % self.obsindex, addedreaders)
-            print("%d - removed: " % self.obsindex, removedreaders)
+            print(f"{self.obsindex} - added:   {addedreaders}")
+            print(f"{self.obsindex} - removed: {removedreaders}")
 
     class testthread(Thread):
+        """Test class"""
+
+        # pylint: disable=duplicate-code
 
         def __init__(self, obsindex):
             Thread.__init__(self)

@@ -362,6 +362,7 @@ add_library(
   asn1/posix_time.c
   base64/base64.c
   bio/bio.c
+  bio/bio_addr.c
   bio/bio_mem.c
   bio/connect.c
   bio/dgram.c
@@ -369,6 +370,7 @@ add_library(
   bio/fd.c
   bio/file.c
   bio/hexdump.c
+  bio/md.c
   bio/pair.c
   bio/printf.c
   bio/socket.c
@@ -397,6 +399,7 @@ add_library(
   cipher_extra/e_tls.c
   cipher_extra/tls_cbc.c
   conf/conf.c
+  console/console.c
   crypto.c
   des/des.c
   dh_extra/params.c
@@ -458,7 +461,6 @@ add_library(
   pem/pem_x509.c
   pem/pem_xaux.c
   pkcs7/bio/cipher.c
-  pkcs7/bio/md.c
   pkcs7/pkcs7.c
   pkcs7/pkcs7_asn1.c
   pkcs7/pkcs7_x509.c
@@ -749,6 +751,7 @@ if(BUILD_TESTING)
     abi_self_test.cc
     asn1/asn1_test.cc
     base64/base64_test.cc
+    bio/bio_md_test.cc
     bio/bio_test.cc
     bio/bio_socket_test.cc
     blake2/blake2_test.cc
@@ -759,6 +762,7 @@ if(BUILD_TESTING)
     cipher_extra/cipher_test.cc
     compiler_test.cc
     conf/conf_test.cc
+    console/console_test.cc
     constant_time_test.cc
     crypto_test.cc
     ecdh_extra/ecdh_test.cc
@@ -809,7 +813,6 @@ if(BUILD_TESTING)
     ocsp/ocsp_test.cc
     pem/pem_test.cc
     pkcs7/bio/bio_cipher_test.cc
-    pkcs7/bio/bio_md_test.cc
     pkcs7/pkcs7_test.cc
     pkcs8/pkcs8_test.cc
     pkcs8/pkcs12_test.cc

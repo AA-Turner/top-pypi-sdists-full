@@ -8,13 +8,13 @@ use pyo3::{
     prelude::*,
     types::{PyBytes, PyDict},
 };
-use std::net::SocketAddr;
 use tokio::sync::oneshot;
 
 use super::{io::WSGIProtocol, types::WSGIBody};
 use crate::{
     callbacks::ArcCBScheduler,
-    http::{HTTPResponseBody, empty_body},
+    http::{HTTPProto, HTTPResponseBody, empty_body},
+    net::SockAddr,
     runtime::{Runtime, RuntimeRef},
     utils::log_application_callable_exception,
 };
@@ -32,15 +32,15 @@ macro_rules! environ_set_header {
 }
 
 #[inline(always)]
-fn build_wsgi<'p>(
-    py: Python<'p>,
-    server_addr: SocketAddr,
-    client_addr: SocketAddr,
-    scheme: &'p str,
+fn build_wsgi(
+    py: Python,
+    server_addr: SockAddr,
+    client_addr: SockAddr,
+    scheme: HTTPProto,
     mut req: request::Parts,
     protocol: WSGIProtocol,
     body: WSGIBody,
-) -> PyResult<(Py<WSGIProtocol>, Bound<'p, PyDict>)> {
+) -> PyResult<(Py<WSGIProtocol>, Bound<PyDict>)> {
     let (path, query_string) = req.uri.path_and_query().map_or_else(
         || (vec![], ""),
         |pq| (percent_decode_str(pq.path()).collect_vec(), pq.query().unwrap_or("")),
@@ -60,9 +60,9 @@ fn build_wsgi<'p>(
             _ => "HTTP/1",
         }
     );
-    environ_set!(py, environ, "SERVER_NAME", server_addr.ip().to_string());
+    environ_set!(py, environ, "SERVER_NAME", server_addr.ip());
     environ_set!(py, environ, "SERVER_PORT", server_addr.port().to_string());
-    environ_set!(py, environ, "REMOTE_ADDR", client_addr.ip().to_string());
+    environ_set!(py, environ, "REMOTE_ADDR", client_addr.ip());
     environ_set!(py, environ, "REQUEST_METHOD", req.method.as_str());
     environ_set!(
         py,
@@ -71,7 +71,7 @@ fn build_wsgi<'p>(
         PyBytes::new(py, &path).call_method1(pyo3::intern!(py, "decode"), (pyo3::intern!(py, "latin1"),))?
     );
     environ_set!(py, environ, "QUERY_STRING", query_string);
-    environ_set!(py, environ, "wsgi.url_scheme", scheme);
+    environ_set!(py, environ, "wsgi.url_scheme", scheme.as_str());
     environ_set!(py, environ, "wsgi.input", body);
 
     if let Some(content_type) = req.headers.remove(header::CONTENT_TYPE) {
@@ -109,9 +109,9 @@ fn build_wsgi<'p>(
 pub(crate) fn call_http(
     rt: RuntimeRef,
     cb: ArcCBScheduler,
-    server_addr: SocketAddr,
-    client_addr: SocketAddr,
-    scheme: Box<str>,
+    server_addr: SockAddr,
+    client_addr: SockAddr,
+    scheme: HTTPProto,
     req: request::Parts,
     body: body::Incoming,
 ) -> oneshot::Receiver<(u16, HeaderMap, HTTPResponseBody)> {
@@ -120,7 +120,7 @@ pub(crate) fn call_http(
     let body = WSGIBody::new(rt.clone(), body);
 
     rt.spawn_blocking(move |py| {
-        if let Ok((proto, environ)) = build_wsgi(py, server_addr, client_addr, &scheme, req, protocol, body) {
+        if let Ok((proto, environ)) = build_wsgi(py, server_addr, client_addr, scheme, req, protocol, body) {
             if let Err(err) = cb.get().cb.call1(py, (proto.clone_ref(py), environ)) {
                 log_application_callable_exception(py, &err);
                 if let Some(tx) = proto.get().tx() {

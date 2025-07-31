@@ -1,4 +1,16 @@
-from smartcard.scard import *
+# pylint: disable=missing-module-docstring
+# pylint: disable=invalid-name
+# pylint: disable=missing-function-docstring
+
+from smartcard.scard import (
+    SCARD_E_NO_READERS_AVAILABLE,
+    SCARD_E_NO_SERVICE,
+    SCARD_S_SUCCESS,
+    SCARD_SCOPE_USER,
+    SCardEstablishContext,
+    SCardListReaders,
+    SCardReleaseContext,
+)
 
 
 def test_low_level():

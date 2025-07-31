@@ -45,6 +45,8 @@ class ExclusiveTransmitCardConnection(CardConnectionDecorator):
     def lock(self):
         """Lock card with L{SCardBeginTransaction}."""
 
+        # pylint: disable=duplicate-code
+
         component = self.component
         while True:
             if isinstance(
@@ -56,9 +58,6 @@ class ExclusiveTransmitCardConnection(CardConnectionDecorator):
                         "Failed to lock with SCardBeginTransaction: "
                         + SCardGetErrorMessage(hresult)
                     )
-                else:
-                    # print('locked')
-                    pass
                 break
             if hasattr(component, "component"):
                 component = component.component
@@ -67,6 +66,9 @@ class ExclusiveTransmitCardConnection(CardConnectionDecorator):
 
     def unlock(self):
         """Unlock card with L{SCardEndTransaction}."""
+
+        # pylint: disable=duplicate-code
+
         component = self.component
         while True:
             if isinstance(
@@ -78,9 +80,6 @@ class ExclusiveTransmitCardConnection(CardConnectionDecorator):
                         "Failed to unlock with SCardEndTransaction: "
                         + SCardGetErrorMessage(hresult)
                     )
-                else:
-                    # print('unlocked')
-                    pass
                 break
             if hasattr(component, "component"):
                 component = component.component
