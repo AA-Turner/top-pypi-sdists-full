@@ -63,6 +63,7 @@
 # Copyright 2024 Thomas Cooper <coopernetes@proton.me>                         #
 # Copyright 2024 Thomas Crowley <15927917+thomascrowley@users.noreply.github.com>#
 # Copyright 2025 Bill Napier <napier@pobox.com>                                #
+# Copyright 2025 Dom Heinzeller <dom.heinzeller@icloud.com>                    #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
 #                                                                              #
 # This file is part of PyGithub.                                               #
@@ -104,6 +105,7 @@ import github.OrganizationVariable
 import github.Plan
 import github.Project
 import github.Repository
+import github.SelfHostedActionsRunner
 import github.Team
 from github import Consts
 from github.GithubObject import (
@@ -129,7 +131,7 @@ if TYPE_CHECKING:
     from github.Issue import Issue
     from github.Label import Label
     from github.Migration import Migration
-    from github.NamedUser import NamedUser
+    from github.NamedUser import NamedUser, OrganizationInvitation
     from github.OrganizationCustomProperty import (
         CustomProperty,
         OrganizationCustomProperty,
@@ -142,6 +144,7 @@ if TYPE_CHECKING:
     from github.Project import Project
     from github.PublicKey import PublicKey
     from github.Repository import Repository
+    from github.SelfHostedActionsRunner import SelfHostedActionsRunner
     from github.Team import Team
 
 
@@ -154,6 +157,8 @@ class Organization(CompletableGithubObject):
 
     The OpenAPI schema can be found at
     - /components/schemas/actor
+    - /components/schemas/nullable-organization-simple
+    - /components/schemas/nullable-simple-user
     - /components/schemas/organization-full
     - /components/schemas/organization-simple
     - /components/schemas/team-organization
@@ -1266,12 +1271,12 @@ class Organization(CompletableGithubObject):
         """
         return PaginatedList(github.Team.Team, self._requester, f"{self.url}/teams", None)
 
-    def invitations(self) -> PaginatedList[NamedUser]:
+    def invitations(self) -> PaginatedList[OrganizationInvitation]:
         """
         :calls: `GET /orgs/{org}/invitations <https://docs.github.com/en/rest/reference/orgs#members>`_
         """
         return PaginatedList(
-            github.NamedUser.NamedUser,
+            github.NamedUser.OrganizationInvitation,
             self._requester,
             f"{self.url}/invitations",
             None,
@@ -1318,7 +1323,7 @@ class Organization(CompletableGithubObject):
         """
         :calls: `DELETE /orgs/{org}/invitations/{invitation_id} <https://docs.github.com/en/rest/reference/orgs#cancel-an-organization-invitation>`_
         :param invitee: :class:`github.NamedUser.NamedUser`
-        :rtype: None
+        :rtype: bool
         """
         assert isinstance(invitee, github.NamedUser.NamedUser), invitee
         status, headers, data = self._requester.requestJson("DELETE", f"{self.url}/invitations/{invitee.id}")
@@ -1598,6 +1603,35 @@ class Organization(CompletableGithubObject):
             "properties": [{"property_name": k, "value": v} for k, v in properties.items()],
         }
         self._requester.requestJsonAndCheck("PATCH", f"{self.url}/properties/values", input=patch_parameters)
+
+    def get_self_hosted_runners(self) -> PaginatedList[SelfHostedActionsRunner]:
+        """
+        :calls: `GET /orgs/{org}/actions/runners <https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#list-self-hosted-runners-for-an-organization>`_
+        :rtype: :class:`PaginatedList` of :class:`github.SelfHostedActionsRunner.SelfHostedActionsRunner`
+        """
+        return PaginatedList(
+            github.SelfHostedActionsRunner.SelfHostedActionsRunner,
+            self._requester,
+            f"{self.url}/actions/runners",
+            None,
+            list_item="runners",
+        )
+
+    def delete_self_hosted_runner(self, runner_id: str) -> None:
+        """
+        :calls: `DELETE /orgs/{org}/actions/runners/{runner_id} <https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#delete-a-self-hosted-runner-from-an-organization>`_
+        :param runner_id: string
+        :rtype: None
+        """
+        assert isinstance(runner_id, str), runner_id
+        headers, data = self._requester.requestJsonAndCheck(
+            "DELETE",
+            f"{self.url}/actions/runners/{runner_id}",
+            headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
 
     def get_code_security_configs(self, target_type: Opt[str] = NotSet) -> PaginatedList[CodeSecurityConfig]:
         """

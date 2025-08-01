@@ -614,6 +614,7 @@ class StartFrame(SystemFrame):
         audio_out_sample_rate: Output audio sample rate in Hz.
         allow_interruptions: Whether to allow user interruptions.
         enable_metrics: Whether to enable performance metrics collection.
+        enable_tracing: Whether to enable OpenTelemetry tracing.
         enable_usage_metrics: Whether to enable usage metrics collection.
         interruption_strategies: List of interruption handling strategies.
         report_only_initial_ttfb: Whether to report only initial time-to-first-byte.
@@ -623,6 +624,7 @@ class StartFrame(SystemFrame):
     audio_out_sample_rate: int = 24000
     allow_interruptions: bool = False
     enable_metrics: bool = False
+    enable_tracing: bool = False
     enable_usage_metrics: bool = False
     interruption_strategies: List[BaseInterruptionStrategy] = field(default_factory=list)
     report_only_initial_ttfb: bool = False
@@ -1075,6 +1077,20 @@ class InputImageRawFrame(SystemFrame, ImageRawFrame):
 
 
 @dataclass
+class InputTextRawFrame(SystemFrame, TextFrame):
+    """Raw text input frame from transport.
+
+    Text input usually coming from user typing or programmatic text injection
+    that should be sent to LLM services as input, similar to how InputAudioRawFrame
+    and InputImageRawFrame represent user audio and video input.
+    """
+
+    def __str__(self):
+        pts = format_pts(self.pts)
+        return f"{self.name}(pts: {pts}, source: {self.transport_source}, text: [{self.text}])"
+
+
+@dataclass
 class UserAudioRawFrame(InputAudioRawFrame):
     """Raw audio input frame associated with a specific user.
 
@@ -1189,6 +1205,16 @@ class StopFrame(ControlFrame):
     Indicates that a pipeline should be stopped but that the pipeline
     processors should be kept in a running state. This is normally queued from
     the pipeline task.
+    """
+
+    pass
+
+
+@dataclass
+class OutputTransportReadyFrame(ControlFrame):
+    """Frame indicating that the output transport is ready.
+
+    Indicates that the output transport is ready and able to receive frames.
     """
 
     pass

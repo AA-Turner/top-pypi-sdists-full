@@ -48,6 +48,7 @@ from .literals import (
     ComparisonOperatorType,
     ConfidenceLevelType,
     ConfigNameType,
+    ConfigurationStatusType,
     CustomMetricTypeType,
     DayOfWeekType,
     DetectMitigationActionExecutionStatusType,
@@ -59,6 +60,7 @@ from .literals import (
     DomainTypeType,
     DynamicGroupStatusType,
     DynamoKeyTypeType,
+    EncryptionTypeType,
     EventTypeType,
     FieldTypeType,
     FleetMetricUnitType,
@@ -218,6 +220,7 @@ __all__ = (
     "CommandPayloadTypeDef",
     "CommandPayloadUnionTypeDef",
     "CommandSummaryTypeDef",
+    "ConfigurationDetailsTypeDef",
     "ConfigurationTypeDef",
     "ConfirmTopicRuleDestinationRequestTypeDef",
     "CreateAuditSuppressionRequestTypeDef",
@@ -351,6 +354,7 @@ __all__ = (
     "DescribeDimensionResponseTypeDef",
     "DescribeDomainConfigurationRequestTypeDef",
     "DescribeDomainConfigurationResponseTypeDef",
+    "DescribeEncryptionConfigurationResponseTypeDef",
     "DescribeEndpointRequestTypeDef",
     "DescribeEndpointResponseTypeDef",
     "DescribeEventConfigurationsResponseTypeDef",
@@ -884,6 +888,7 @@ __all__ = (
     "UpdateDomainConfigurationResponseTypeDef",
     "UpdateDynamicThingGroupRequestTypeDef",
     "UpdateDynamicThingGroupResponseTypeDef",
+    "UpdateEncryptionConfigurationRequestTypeDef",
     "UpdateEventConfigurationsRequestTypeDef",
     "UpdateFleetMetricRequestTypeDef",
     "UpdateIndexingConfigurationRequestTypeDef",
@@ -1365,6 +1370,11 @@ class CommandSummaryTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     lastUpdatedAt: NotRequired[datetime]
     pendingDeletion: NotRequired[bool]
+
+class ConfigurationDetailsTypeDef(TypedDict):
+    configurationStatus: NotRequired[ConfigurationStatusType]
+    errorCode: NotRequired[str]
+    errorMessage: NotRequired[str]
 
 class ConfigurationTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -2609,6 +2619,11 @@ class UpdateDimensionRequestTypeDef(TypedDict):
     name: str
     stringValues: Sequence[str]
 
+class UpdateEncryptionConfigurationRequestTypeDef(TypedDict):
+    encryptionType: EncryptionTypeType
+    kmsKeyArn: NotRequired[str]
+    kmsAccessRoleArn: NotRequired[str]
+
 class UpdatePackageRequestTypeDef(TypedDict):
     packageName: str
     description: NotRequired[str]
@@ -3409,6 +3424,14 @@ class ListCommandsResponseTypeDef(TypedDict):
     commands: List[CommandSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class DescribeEncryptionConfigurationResponseTypeDef(TypedDict):
+    encryptionType: EncryptionTypeType
+    kmsKeyArn: str
+    kmsAccessRoleArn: str
+    configurationDetails: ConfigurationDetailsTypeDef
+    lastModifiedDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeEventConfigurationsResponseTypeDef(TypedDict):
     eventConfigurations: Dict[EventTypeType, ConfigurationTypeDef]

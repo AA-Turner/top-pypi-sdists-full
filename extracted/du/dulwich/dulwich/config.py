@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -1212,13 +1212,22 @@ class StackedConfig(Config):
         See git-config(1) for details on the files searched.
         """
         paths = []
-        paths.append(os.path.expanduser("~/.gitconfig"))
-        paths.append(get_xdg_config_home_path("git", "config"))
 
-        if "GIT_CONFIG_NOSYSTEM" not in os.environ:
-            paths.append("/etc/gitconfig")
-            if sys.platform == "win32":
-                paths.extend(get_win_system_paths())
+        # Handle GIT_CONFIG_GLOBAL - overrides user config paths
+        try:
+            paths.append(os.environ["GIT_CONFIG_GLOBAL"])
+        except KeyError:
+            paths.append(os.path.expanduser("~/.gitconfig"))
+            paths.append(get_xdg_config_home_path("git", "config"))
+
+        # Handle GIT_CONFIG_SYSTEM and GIT_CONFIG_NOSYSTEM
+        try:
+            paths.append(os.environ["GIT_CONFIG_SYSTEM"])
+        except KeyError:
+            if "GIT_CONFIG_NOSYSTEM" not in os.environ:
+                paths.append("/etc/gitconfig")
+                if sys.platform == "win32":
+                    paths.extend(get_win_system_paths())
 
         backends = []
         for path in paths:

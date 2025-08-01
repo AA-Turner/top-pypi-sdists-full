@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pip-tools
-Version: 7.4.1
+Version: 7.5.0
 Summary: pip-tools keeps your pinned dependencies fresh.
 Author-email: Vincent Driessen <me@nvie.com>
 License: BSD
@@ -17,10 +17,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python
@@ -49,6 +50,7 @@ Requires-Dist: poetry_core>=1.0.0; extra == "testing"
 Provides-Extra: coverage
 Requires-Dist: covdefaults; extra == "coverage"
 Requires-Dist: pytest-cov; extra == "coverage"
+Dynamic: license-file
 
 [![jazzband-image]][jazzband]
 [![pypi][pypi-image]][pypi]
@@ -692,7 +694,6 @@ This will be indicated in the output with one of the following suffixes:
 - [pip-compile-multi](https://pip-compile-multi.readthedocs.io/en/latest/) - pip-compile command wrapper for multiple cross-referencing requirements files.
 - [pipdeptree](https://github.com/tox-dev/pipdeptree) to print the dependency tree of the installed packages.
 - `requirements.in`/`requirements.txt` syntax highlighting:
-
   - [requirements.txt.vim](https://github.com/raimon49/requirements.txt.vim) for Vim.
   - [Python extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for VS Code.
   - [pip-requirements.el](https://github.com/Wilfred/pip-requirements.el) for Emacs.

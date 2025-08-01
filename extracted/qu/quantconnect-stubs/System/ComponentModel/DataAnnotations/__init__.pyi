@@ -639,6 +639,9 @@ class DataType(Enum):
     UPLOAD = 16
     """File upload data type"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class DisplayFormatAttribute(System.Attribute):
     """

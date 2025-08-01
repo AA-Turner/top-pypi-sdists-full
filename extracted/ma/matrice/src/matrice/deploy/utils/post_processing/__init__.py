@@ -71,11 +71,13 @@ from .usecases.license_plate_detection import LicensePlateConfig
 from .usecases.pothole_segmentation import PotholeConfig
 from .usecases.wound_segmentation import WoundConfig, WoundSegmentationUseCase
 from .usecases.face_emotion import FaceEmotionConfig
+from .usecases.pipeline_detection import PipelineDetectionUseCase
 from .usecases.parking_space_detection import ParkingSpaceConfig
 from .usecases.underwater_pollution_detection import UnderwaterPlasticConfig
 from .usecases.pedestrian_detection import PedestrianDetectionConfig
 from .usecases.age_detection import AgeDetectionConfig
 from .usecases.mask_detection import MaskDetectionConfig
+from .usecases.pipeline_detection import PipelineDetectionConfig
 from .usecases.chicken_pose_detection import ChickenPoseDetectionConfig
 from .usecases.field_mapping import FieldMappingConfig, FieldMappingUseCase
 from .usecases.leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
@@ -117,6 +119,7 @@ from .usecases.leaf import LeafConfig, LeafUseCase
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
 from .usecases.skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
 from .usecases.plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
+from .usecases.smoker_detection import SmokerDetectionUseCase, SmokerDetectionConfig
 
 # Use case implementations
 from .usecases import (
@@ -168,6 +171,7 @@ from .usecases import (
     WindmillMaintenanceUseCase,
     CarPartSegmentationUseCase,
     FlowerUseCase,
+    SmokerDetectionUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -193,6 +197,7 @@ _underwater_pollution_detection = UnderwaterPlasticUseCase()
 _pedestrian_detection = PedestrianDetectionUseCase()
 _age_detection = AgeDetectionUseCase()
 _mask_detection = MaskDetectionUseCase()
+_pipeline_detection = PipelineDetectionUseCase()
 _banana_defect_detection = BananaMonitoringUseCase()
 _chicken_pose_detection = ChickenPoseDetectionUseCase()
 _theft_detection = TheftDetectionUseCase()
@@ -230,6 +235,7 @@ _wound_segmentation = WoundSegmentationUseCase()
 _leaf_disease = LeafDiseaseDetectionUseCase()
 _flower_segmentation = FlowerUseCase()
 _leaf_det = LeafUseCase()
+_smoker_detection = SmokerDetectionUseCase()
 
 #Put all IMAGE based usecases here
 _blood_cancer_detection = BloodCancerDetectionUseCase()
@@ -256,6 +262,7 @@ registry.register_use_case(_age_detection.category, _age_detection.name, AgeDete
 registry.register_use_case(_pricetag_detection.category, _pricetag_detection.name, PriceTagUseCase)
 registry.register_use_case(_weld_defect_detection.category, _weld_defect_detection.name, WeldDefectUseCase  )
 registry.register_use_case(_mask_detection.category, _mask_detection.name, MaskDetectionUseCase)
+registry.register_use_case(_pipeline_detection.category, _pipeline_detection.name, PipelineDetectionUseCase)
 registry.register_use_case(_banana_defect_detection.category, _banana_defect_detection.name, BananaMonitoringUseCase)
 registry.register_use_case(_chicken_pose_detection.category, _chicken_pose_detection.name, ChickenPoseDetectionUseCase)
 registry.register_use_case(_theft_detection.category, _theft_detection.name, TheftDetectionUseCase)
@@ -293,6 +300,7 @@ registry.register_use_case(_leaf_disease.category, _leaf_disease.name, LeafDisea
 registry.register_use_case(_flower_segmentation.category, _flower_segmentation.name, FlowerUseCase)
 registry.register_use_case(_parking_det.category, _parking_det.name, ParkingUseCase)
 registry.register_use_case(_leaf_det.category, _leaf_det.name, LeafUseCase)
+registry.register_use_case(_smoker_detection.category, _smoker_detection.name, SmokerDetectionUseCase)
 
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
@@ -479,6 +487,7 @@ __all__ = [
     'LaneDetectionConfig',
     'WindmillMaintenanceConfig',
     'FlowerConfig',
+    'SmokerDetectionConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -536,6 +545,7 @@ __all__ = [
     'LaneDetectionUseCase',
     'WindmillMaintenanceUseCase',
     'FlowerUseCase',
+    'SmokerDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

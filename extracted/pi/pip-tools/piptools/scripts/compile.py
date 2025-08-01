@@ -12,18 +12,23 @@ import click
 from build import BuildBackendException
 from click.utils import LazyFile, safecall
 from pip._internal.req import InstallRequirement
-from pip._internal.req.constructors import install_req_from_line
 from pip._internal.utils.misc import redact_auth_from_url
 
 from .._compat import parse_requirements
-from ..build import build_project_metadata
+from ..build import ProjectMetadata, build_project_metadata
 from ..cache import DependencyCache
 from ..exceptions import NoCandidateFound, PipToolsError
 from ..logging import log
 from ..repositories import LocalRequirementsRepository, PyPIRepository
 from ..repositories.base import BaseRepository
 from ..resolver import BacktrackingResolver, LegacyResolver
-from ..utils import dedup, drop_extras, is_pinned_requirement, key_from_ireq
+from ..utils import (
+    dedup,
+    drop_extras,
+    install_req_from_line,
+    is_pinned_requirement,
+    key_from_ireq,
+)
 from ..writer import OutputWriter
 from . import options
 from .options import BuildTargetT
@@ -44,6 +49,7 @@ def _determine_linesep(
 ) -> str:
     """
     Determine and return linesep string for OutputWriter to use.
+
     Valid strategies: "LF", "CRLF", "native", "preserve"
     When preserving, files are checked in order for existing newlines.
     """
@@ -164,7 +170,9 @@ def cli(
     only_build_deps: bool,
 ) -> None:
     """
-    Compiles requirements.txt from requirements.in, pyproject.toml, setup.cfg,
+    Compile requirements.txt from source files.
+
+    Valid sources are requirements.in, pyproject.toml, setup.cfg,
     or setup.py specs.
     """
     if color is not None:
@@ -346,7 +354,6 @@ def cli(
             # reading requirements from install_requires in setup.py.
             tmpfile = tempfile.NamedTemporaryFile(mode="wt", delete=False)
             tmpfile.write(sys.stdin.read())
-            comes_from = "-r -"
             tmpfile.flush()
             reqs = list(
                 parse_requirements(
@@ -354,10 +361,9 @@ def cli(
                     finder=repository.finder,
                     session=repository.session,
                     options=repository.options,
+                    comes_from_stdin=True,
                 )
             )
-            for req in reqs:
-                req.comes_from = comes_from
             constraints.extend(reqs)
         elif is_setup_file:
             setup_file_found = True
@@ -365,6 +371,8 @@ def cli(
                 metadata = build_project_metadata(
                     src_file=Path(src_file),
                     build_targets=build_deps_targets,
+                    upgrade_packages=upgrade_packages,
+                    attempt_static_parse=not bool(build_deps_targets),
                     isolated=build_isolation,
                     quiet=log.verbosity <= 0,
                 )
@@ -378,6 +386,7 @@ def cli(
                 if all_extras:
                     extras += metadata.extras
             if build_deps_targets:
+                assert isinstance(metadata, ProjectMetadata)
                 constraints.extend(metadata.build_requirements)
         else:
             constraints.extend(

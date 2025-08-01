@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -28,7 +28,7 @@ the dulwich.client.get_ssh_vendor attribute:
   >>> from dulwich.contrib.paramiko_vendor import ParamikoSSHVendor
   >>> _mod_client.get_ssh_vendor = ParamikoSSHVendor
 
-This implementation is experimental and does not have any tests.
+This implementation has comprehensive tests in tests/contrib/test_paramiko_vendor.py.
 """
 
 import os

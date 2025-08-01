@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "slang/text/SourceLocation.h"
-#include "slang/util/Hash.h"
+#include "slang/util/FlatMap.h"
 #include "slang/util/SmallVector.h"
 #include "slang/util/Util.h"
 
@@ -211,7 +211,7 @@ public:
     /// iterable collection of DiagnosticDirectiveInfos.
     template<typename Func>
     void visitDiagnosticDirectives(Func&& func) const {
-        std::shared_lock lock(mutex);
+        std::shared_lock<std::shared_mutex> lock(mutex);
         for (auto& [buffer, directives] : diagDirectives)
             func(buffer, directives);
     }
@@ -326,6 +326,12 @@ private:
 
     template<IsLock TLock>
     FileInfo* getFileInfo(BufferID buffer, TLock& lock);
+
+    template<IsLock TLock>
+    bool isIncludedFileLocImpl(SourceLocation location, TLock& lock) const;
+
+    template<IsLock TLock>
+    SourceLocation getIncludedFromImpl(BufferID buffer, TLock& lock) const;
 
     template<IsLock TLock>
     const FileInfo* getFileInfo(BufferID buffer, TLock& lock) const;

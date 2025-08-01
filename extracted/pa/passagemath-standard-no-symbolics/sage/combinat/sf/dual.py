@@ -18,11 +18,12 @@ Generic dual bases symmetric functions
 #
 #                  https://www.gnu.org/licenses/
 #*****************************************************************************
-from sage.categories.morphism import SetMorphism
-from sage.categories.homset import Hom
-from sage.matrix.constructor import matrix
 import sage.combinat.partition
 import sage.data_structures.blas_dict as blas
+from sage.categories.homset import Hom
+from sage.categories.morphism import SetMorphism
+from sage.matrix.constructor import matrix
+
 from . import classical
 
 
@@ -92,8 +93,8 @@ class SymmetricFunctionAlgebra_dual(classical.SymmetricFunctionAlgebra_classical
             sage: e = SymmetricFunctions(QQ).e()
             sage: f = e.dual_basis(prefix='m', basis_name="Forgotten symmetric functions"); f
             Symmetric Functions over Rational Field in the Forgotten symmetric functions basis
-            sage: TestSuite(f).run(elements=[f[1,1]+2*f[2], f[1]+3*f[1,1]])             # needs lrcalc
-            sage: TestSuite(f).run() # long time (11s on sage.math, 2011)               # needs lrcalc
+            sage: TestSuite(f).run(elements=[f[1,1]+2*f[2], f[1]+3*f[1,1]])             # needs lrcalc_python
+            sage: TestSuite(f).run() # long time (11s on sage.math, 2011)               # needs lrcalc_python
 
         This class defines canonical coercions between ``self`` and
         ``self^*``, as follow:
@@ -989,6 +990,7 @@ class DualBasisFunctor(SymmetricFunctionsFunctor):
 
 # Backward compatibility for unpickling
 from sage.misc.persist import register_unpickle_override
+
 register_unpickle_override('sage.combinat.sf.dual',
                            'SymmetricFunctionAlgebraElement_dual',
                            SymmetricFunctionAlgebra_dual.Element)

@@ -795,6 +795,9 @@ class TradeConditionFlags(Enum):
     ODD_LOT = ...
     """Denotes the trade is an odd lot less than a 100 shares."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class QuoteConditionFlags(Enum):
     """Flag system for quote conditions"""
@@ -916,6 +919,9 @@ class QuoteConditionFlags(Enum):
 
     ORDER_INFLUX = ...
     """A halt condition used when there is a sudden order influx. To prevent a disorderly market, trading is temporarily suspended by the UTP participant."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFileProvider):

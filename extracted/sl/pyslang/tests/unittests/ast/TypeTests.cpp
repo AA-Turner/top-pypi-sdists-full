@@ -374,7 +374,7 @@ endmodule
     REQUIRE(type.kind == SymbolKind::EnumType);
     CHECK(type.getBitWidth() == 5);
 
-    const Type& s1_t = instance.memberAt<VariableSymbol>(6).getType().getCanonicalType();
+    const Type& s1_t = instance.memberAt<VariableSymbol>(5).getType().getCanonicalType();
     CHECK(s1_t.getBitWidth() == 10);
 
     const auto& s2_t = instance.find<TypeAliasType>("s2_t");
@@ -390,6 +390,7 @@ TEST_CASE("Forwarding typedef errors") {
 module Top;
 
     // These have no actual type and should error.
+    typedef enum e1_t;
     typedef enum e1_t;
     typedef e2;
 
@@ -416,16 +417,16 @@ endmodule
     CHECK(diags[2].code == diag::ForwardTypedefDoesNotMatch);
 
     CHECK(report(diags) ==
-          R"(source:5:18: error: forward typedef 'e1_t' does not resolve to a data type
+          R"(source:6:18: error: forward typedef 'e1_t' does not resolve to a data type
     typedef enum e1_t;
                  ^
-source:6:13: error: forward typedef 'e2' does not resolve to a data type
+source:7:13: error: forward typedef 'e2' does not resolve to a data type
     typedef e2;
             ^
-source:9:20: error: forward typedef basic type 'struct' does not match declaration
+source:10:20: error: forward typedef basic type 'struct' does not match declaration
     typedef struct s1_t;
                    ^
-source:12:26: note: declared here
+source:13:26: note: declared here
     typedef enum { SDF } s1_t;
                          ^
 )");
@@ -1242,7 +1243,7 @@ interface A_Bus( input logic clk );
         input gnt;
         output req, addr;
         inout data;
-        property p1; gnt ##[1:3] data; endproperty
+        property p1; gnt ##[1:3] data > 0; endproperty
     endclocking
 
     modport DUT ( input clk, req, addr,
@@ -1757,7 +1758,7 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 11);
+    REQUIRE(diags.size() == 10);
     CHECK(diags[0].code == diag::UndeclaredIdentifier);
     CHECK(diags[1].code == diag::UndeclaredIdentifier);
     CHECK(diags[2].code == diag::NotASubroutine);
@@ -1768,7 +1769,6 @@ endmodule
     CHECK(diags[7].code == diag::NTResolveClass);
     CHECK(diags[8].code == diag::NTResolveUserDef);
     CHECK(diags[9].code == diag::UndeclaredIdentifier);
-    CHECK(diags[10].code == diag::NTResolveArgModify);
 }
 
 TEST_CASE("Self referential struct / union member types") {

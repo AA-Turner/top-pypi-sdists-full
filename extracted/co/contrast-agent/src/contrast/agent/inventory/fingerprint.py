@@ -1,10 +1,10 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 
 import os
 import pkgutil
 import sys
-from typing import Optional
 from collections.abc import Generator, Iterable
 from zlib import crc32
 
@@ -67,7 +67,7 @@ def module_id(info: pkgutil.ModuleInfo, origin: str):
 
 
 def scan_app_modules(
-    search_locations: Optional[list[str]], prefix=""
+    search_locations: list[str] | None, prefix=""
 ) -> Generator[tuple[pkgutil.ModuleInfo, str], None, None]:
     if not search_locations:
         return

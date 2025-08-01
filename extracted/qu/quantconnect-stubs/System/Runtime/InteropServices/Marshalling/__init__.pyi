@@ -208,6 +208,9 @@ class MarshalMode(Enum):
     ELEMENT_OUT = 9
     """Elements of arrays passed with out or passed by-value with only OutAttribute in interop scenarios."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ComVariant(System.IDisposable):
     """A type that represents an OLE VARIANT in managed code."""

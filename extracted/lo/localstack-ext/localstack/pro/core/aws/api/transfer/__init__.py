@@ -206,6 +206,11 @@ class IdentityProviderType(StrEnum):
     AWS_LAMBDA = "AWS_LAMBDA"
 
 
+class IpAddressType(StrEnum):
+    IPV4 = "IPV4"
+    DUALSTACK = "DUALSTACK"
+
+
 class MapType(StrEnum):
     FILE = "FILE"
     DIRECTORY = "DIRECTORY"
@@ -747,6 +752,7 @@ class CreateServerRequest(ServiceRequest):
     WorkflowDetails: Optional[WorkflowDetails]
     StructuredLogDestinations: Optional[StructuredLogDestinations]
     S3StorageOptions: Optional[S3StorageOptions]
+    IpAddressType: Optional[IpAddressType]
 
 
 class CreateServerResponse(TypedDict, total=False):
@@ -1240,6 +1246,7 @@ class DescribedServer(TypedDict, total=False):
     StructuredLogDestinations: Optional[StructuredLogDestinations]
     S3StorageOptions: Optional[S3StorageOptions]
     As2ServiceManagedEgressIpAddresses: Optional[ServiceManagedEgressIpAddresses]
+    IpAddressType: Optional[IpAddressType]
 
 
 class DescribeServerResponse(TypedDict, total=False):
@@ -1928,6 +1935,7 @@ class UpdateServerRequest(ServiceRequest):
     WorkflowDetails: Optional[WorkflowDetails]
     StructuredLogDestinations: Optional[StructuredLogDestinations]
     S3StorageOptions: Optional[S3StorageOptions]
+    IpAddressType: Optional[IpAddressType]
 
 
 class UpdateServerResponse(TypedDict, total=False):
@@ -2192,6 +2200,7 @@ class TransferApi:
         workflow_details: WorkflowDetails | None = None,
         structured_log_destinations: StructuredLogDestinations | None = None,
         s3_storage_options: S3StorageOptions | None = None,
+        ip_address_type: IpAddressType | None = None,
         **kwargs,
     ) -> CreateServerResponse:
         """Instantiates an auto-scaling virtual server based on the selected file
@@ -2227,6 +2236,8 @@ class TransferApi:
         :param structured_log_destinations: Specifies the log groups to which your server logs are sent.
         :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is
         optimized.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6)
+        for your Transfer Family endpoint.
         :returns: CreateServerResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3833,6 +3844,7 @@ class TransferApi:
         workflow_details: WorkflowDetails | None = None,
         structured_log_destinations: StructuredLogDestinations | None = None,
         s3_storage_options: S3StorageOptions | None = None,
+        ip_address_type: IpAddressType | None = None,
         **kwargs,
     ) -> UpdateServerResponse:
         """Updates the file transfer protocol-enabled server's properties after
@@ -3866,6 +3878,8 @@ class TransferApi:
         :param structured_log_destinations: Specifies the log groups to which your server logs are sent.
         :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is
         optimized.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6)
+        for your Transfer Family endpoint.
         :returns: UpdateServerResponse
         :raises ConflictException:
         :raises ResourceNotFoundException:

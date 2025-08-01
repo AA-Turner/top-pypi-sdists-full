@@ -958,7 +958,7 @@ def is_complete_multipartite(int v, int k, int l, int mu):
 
         sage: from sage.graphs.strongly_regular_db import is_complete_multipartite
         sage: t = is_complete_multipartite(12,8,4,8); t
-        (<cyfunction is_complete_multipartite.<locals>.CompleteMultipartiteSRG at ...>,
+        (<...CompleteMultipartiteSRG...>,
          3,
          4)
         sage: g = t[0](*t[1:]); g
@@ -1199,7 +1199,7 @@ def SRG_from_RSHCD(v, k, l, mu, existence=False, check=True):
         False
         sage: SRG_from_RSHCD(784, 377, 180, 182, existence=True)                        # needs sage.combinat sage.modules
         True
-        sage: SRG_from_RSHCD(144, 65, 28, 30)                                           # needs sage.combinat sage.modules
+        sage: SRG_from_RSHCD(144, 65, 28, 30)                                           # needs database_graphs sage.combinat sage.modules
         Graph on 144 vertices
 
     an example with vertex-transitive automorphism group, found during the
@@ -1493,7 +1493,7 @@ def is_twograph_descendant_of_srg(int v, int k0, int l, int mu):
 
         sage: from sage.graphs.strongly_regular_db import is_twograph_descendant_of_srg
         sage: t = is_twograph_descendant_of_srg(27, 10, 1, 5); t                        # needs database_graphs sage.rings.finite_rings
-        (<cyfunction is_twograph_descendant_of_srg.<locals>.la at...
+        (<...is_twograph_descendant_of_srg...>, (8,))
         sage: g = t[0](*t[1:]); g                                                       # needs database_graphs sage.rings.finite_rings
         descendant of complement(Johnson graph with parameters 8,2) at {0, 1}: Graph on 27 vertices
         sage: g.is_strongly_regular(parameters=True)                                    # needs database_graphs sage.rings.finite_rings
@@ -1502,7 +1502,7 @@ def is_twograph_descendant_of_srg(int v, int k0, int l, int mu):
 
     TESTS::
 
-        sage: graphs.strongly_regular_graph(279, 150, 85, 75, existence=True)           # needs sage.combinat
+        sage: graphs.strongly_regular_graph(279, 150, 85, 75, existence=True)           # needs sage.combinat sage.modules
         True
         sage: graphs.strongly_regular_graph(279, 150, 85, 75).is_strongly_regular(parameters=True)  # optional - gap_package_design internet
         (279, 150, 85, 75)
@@ -1603,7 +1603,7 @@ def is_switch_skewhad(int v, int k, int l, int mu):
 
     EXAMPLES::
 
-        sage: graphs.strongly_regular_graph(226, 105, 48, 49)                           # needs sage.combinat sage.modules
+        sage: graphs.strongly_regular_graph(226, 105, 48, 49)                           # needs database_graphs sage.combinat sage.modules
         switch skewhad^2+*_4: Graph on 226 vertices
 
     TESTS::
@@ -1649,7 +1649,7 @@ def is_switch_OA_srg(int v, int k, int l, int mu):
 
     EXAMPLES::
 
-        sage: graphs.strongly_regular_graph(170, 78, 35, 36)  # indirect doctest        # needs sage.combinat sage.modules
+        sage: graphs.strongly_regular_graph(170, 78, 35, 36)  # indirect doctest        # needs database_graphs sage.combinat sage.modules
         Graph on 170 vertices
 
     TESTS::
@@ -1663,9 +1663,9 @@ def is_switch_OA_srg(int v, int k, int l, int mu):
         sage: t[0](*t[1:]).is_strongly_regular(parameters=True)                         # needs sage.schemes
         (290, 136, 63, 64)
         sage: is_switch_OA_srg(626, 300, 143, 144)                                      # needs sage.schemes
-        (<cyfunction is_switch_OA_srg.<locals>.switch_OA_srg at ..., 12, 25)
+        (<...switch_OA_srg..., 12, 25)
         sage: is_switch_OA_srg(842, 406, 195, 196)                                      # needs sage.schemes
-        (<cyfunction is_switch_OA_srg.<locals>.switch_OA_srg at ..., 14, 29)
+        (<...switch_OA_srg..., 14, 29)
     """
     cdef int n_2_p_1 = v
     cdef int n = <int> floor(sqrt(n_2_p_1 - 1))
@@ -1707,7 +1707,7 @@ def is_nowhere0_twoweight(int v, int k, int l, int mu):
 
     EXAMPLES::
 
-        sage: graphs.strongly_regular_graph(196, 60, 14, 20)                            # needs sage.combinat sage.modules
+        sage: graphs.strongly_regular_graph(196, 60, 14, 20)                            # needs database_graphs sage.combinat sage.modules
         Nowhere0WordsTwoWeightCodeGraph(8): Graph on 196 vertices
 
     TESTS::
@@ -1816,9 +1816,9 @@ def eigenmatrix(int v, int k, int l, int mu):
     strongly regular graph::
 
         sage: # needs sage.modules
-        sage: graphs.strongly_regular_graph(243,220,199,200, existence=True)            # needs sage.combinat
+        sage: graphs.strongly_regular_graph(243,220,199,200, existence=True)            # needs database_graphs sage.combinat
         True
-        sage: graphs.strongly_regular_graph(243,110,37,60, existence=True)              # needs sage.combinat
+        sage: graphs.strongly_regular_graph(243,110,37,60, existence=True)              # needs database_graphs sage.combinat
         True
         sage: P = eigenmatrix(243,220,199,200); P
         [  1 220  22]
@@ -2618,8 +2618,8 @@ def SRG_630_85_20_10():
     hs = HoffmanSingletonGraph()
     P = list(range(5)) + list(range(30, 35))  # a Petersen in hs
     mc = [0, 1, 5, 6, 12, 13, 16, 17, 22, 23, 29, 33, 39, 42, 47]
-    assert(hs.subgraph(mc).is_regular(k=0))  # a maximum coclique
-    assert(hs.subgraph(P).is_regular(k=3))
+    assert hs.subgraph(mc).is_regular(k=0)  # a maximum coclique
+    assert hs.subgraph(P).is_regular(k=3)
     h = hs.automorphism_group().stabilizer(mc, action='OnSets')
     l = h.orbit(tuple((x[0], x[1]) for x in hs.subgraph(P).matching()),
                 "OnSetsSets")
@@ -2696,7 +2696,7 @@ cdef bint seems_feasible(int v, int k, int l, int mu) noexcept:
     :issue:`32306` is fixed::
 
         sage: from sage.graphs.strongly_regular_db import strongly_regular_graph
-        sage: strongly_regular_graph(16384, 8256, 4160, 4160, existence=True)           # needs sage.combinat sage.modules
+        sage: strongly_regular_graph(16384, 8256, 4160, 4160, existence=True)           # needs database_graphs sage.combinat sage.modules
         True
     """
     cdef uint_fast32_t tmp[2]
@@ -2785,7 +2785,7 @@ def strongly_regular_graph(int v, int k, int l, int mu=-1, bint existence=False,
     - ``v``, ``k``, ``l``, ``mu`` -- ``integers`` -- note that ``mu``, if unspecified, is
       automatically determined from ``v``, ``k``, ``l``
 
-    - ``existence`` -- boolean;``False``; instead of building the graph,
+    - ``existence`` -- boolean (default: ``False``); instead of building the graph,
       return:
 
         - ``True`` -- meaning that a `(v,k,\lambda,\mu)`-strongly regular graph
@@ -2825,9 +2825,9 @@ def strongly_regular_graph(int v, int k, int l, int mu=-1, bint existence=False,
 
     A set of parameters proved in a paper to be infeasible::
 
-        sage: graphs.strongly_regular_graph(324,57,0,12,existence=True)                 # needs sage.combinat sage.modules
+        sage: graphs.strongly_regular_graph(324,57,0,12, existence=True)                # needs database_graphs sage.combinat sage.modules
         False
-        sage: graphs.strongly_regular_graph(324,57,0,12)                                # needs sage.combinat sage.modules
+        sage: graphs.strongly_regular_graph(324,57,0,12)                                # needs database_graphs sage.combinat sage.modules
         Traceback (most recent call last):
         ...
         EmptySetError: Andries Brouwer's database reports that no (324, 57, 0,
@@ -2836,9 +2836,9 @@ def strongly_regular_graph(int v, int k, int l, int mu=-1, bint existence=False,
 
     A set of parameters unknown to be realizable in Andries Brouwer's database::
 
-        sage: graphs.strongly_regular_graph(324,95,22,30,existence=True)                # needs sage.combinat
+        sage: graphs.strongly_regular_graph(324,95,22,30, existence=True)               # needs database_graphs sage.combinat sage.modules
         Unknown
-        sage: graphs.strongly_regular_graph(324,95,22,30)                               # needs sage.combinat
+        sage: graphs.strongly_regular_graph(324,95,22,30)                               # needs database_graphs sage.combinat sage.modules
         Traceback (most recent call last):
         ...
         RuntimeError: Andries Brouwer's database reports that no
@@ -2847,9 +2847,9 @@ def strongly_regular_graph(int v, int k, int l, int mu=-1, bint existence=False,
 
     A large unknown set of parameters (not in Andries Brouwer's database)::
 
-        sage: graphs.strongly_regular_graph(1394,175,0,25,existence=True)               # needs sage.combinat
+        sage: graphs.strongly_regular_graph(1394,175,0,25, existence=True)              # needs database_graphs sage.combinat
         Unknown
-        sage: graphs.strongly_regular_graph(1394,175,0,25)                              # needs sage.combinat
+        sage: graphs.strongly_regular_graph(1394,175,0,25)                              # needs database_graphs sage.combinat
         Traceback (most recent call last):
         ...
         RuntimeError: Sage cannot figure out if a (1394, 175, 0, 25)-strongly
@@ -2864,9 +2864,9 @@ def strongly_regular_graph(int v, int k, int l, int mu=-1, bint existence=False,
 
     Check that :issue:`26513` is fixed::
 
-        sage: graphs.strongly_regular_graph(539, 288, 162, 144)                         # needs sage.combinat
+        sage: graphs.strongly_regular_graph(539, 288, 162, 144)                         # needs database_graphs sage.combinat
         descendant of (540, 264, 138, 120)-strongly regular graph at ... 539 vertices
-        sage: graphs.strongly_regular_graph(539, 250, 105, 125)                         # needs sage.combinat
+        sage: graphs.strongly_regular_graph(539, 250, 105, 125)                         # needs database_graphs sage.combinat
         descendant of (540, 275, 130, 150)-strongly regular graph at ... 539 vertices
         sage: graphs.strongly_regular_graph(209, 100, 45, 50)                           # needs database_graphs sage.libs.pari
         descendant of complement(merging of S_7 on Circulant(6,[1,4])s) at ... 209 vertices
@@ -2923,21 +2923,21 @@ def strongly_regular_graph_lazy(int v, int k, int l, int mu=-1, bint existence=F
         sage: # needs database_graphs
         sage: from sage.graphs.strongly_regular_db import strongly_regular_graph_lazy
         sage: g,p=strongly_regular_graph_lazy(10,6,3); g,p
-        (<cyfunction is_johnson.<locals>.<lambda> at ...>, 5)
+        (<...is_johnson...>, 5)
         sage: g(p)
         Johnson graph with parameters 5,2: Graph on 10 vertices
         sage: g,p=strongly_regular_graph_lazy(10,3,0,1); g,p
-        (<cyfunction strongly_regular_graph_lazy.<locals>.<lambda> at...>,
+        (<...strongly_regular_graph_lazy...>,
          (5,))
         sage: g(p)
         complement(Johnson graph with parameters 5,2): Graph on 10 vertices
         sage: g,p=strongly_regular_graph_lazy(12,3,2); g,p
-        (<cyfunction strongly_regular_graph_lazy.<locals>.<lambda> at...>,
+        (<...strongly_regular_graph_lazy...>,
          (3, 4))
         sage: g(p)
         complement(Multipartite Graph with set sizes [4, 4, 4]): Graph on 12 vertices
         sage: g = strongly_regular_graph_lazy(539,250,105); g                           # needs sage.combinat sage.modules
-        (<cyfunction is_twograph_descendant_of_srg.<locals>.la at...>,
+        (<...is_twograph_descendant_of_srg...>,
          5,
          11)
         sage: g[0](*g[1:])                                                              # needs sage.combinat sage.modules
@@ -3120,11 +3120,11 @@ def _build_small_srg_database():
         complement(two-intersection set in PG(4,3)): Graph on 81 vertices
         sage: graphs.strongly_regular_graph(243, 220, 199, 200)                 # long time, needs sage.rings.finite_rings
         two-weight code: [55, 5] linear code over GF(3): Graph on 243 vertices
-        sage: graphs.strongly_regular_graph(256, 153, 92, 90)                           # needs sage.combinat
+        sage: graphs.strongly_regular_graph(256, 153, 92, 90)                           # needs sage.combinat sage.modules
         complement(two-intersection set in PG(4,4)): Graph on 256 vertices
-        sage: graphs.strongly_regular_graph(256, 170, 114, 110)                         # needs sage.combinat
+        sage: graphs.strongly_regular_graph(256, 170, 114, 110)                         # needs sage.combinat sage.modules
         complement(two-intersection set in PG(8,2)): Graph on 256 vertices
-        sage: graphs.strongly_regular_graph(256, 187, 138, 132)                         # needs sage.combinat
+        sage: graphs.strongly_regular_graph(256, 187, 138, 132)                         # needs sage.combinat sage.modules
         complement(two-intersection set in PG(8,2)): Graph on 256 vertices
         sage: graphs.strongly_regular_graph(512, 73, 12, 10)                    # not tested (too long), needs sage.rings.finite_rings
         two-weight code: [219, 9] linear code over GF(2): Graph on 512 vertices
@@ -3299,11 +3299,11 @@ def _check_database():
         if _brouwer_database[params]['status'] != "impossible":
             raise RuntimeError("Brouwer's db does not seem to know that {} in unfeasible".format(params))
         comment = _brouwer_database[params]['comments']
-        if ('Krein'    in comment or
+        if ('Krein' in comment or
             'Absolute' in comment or
-            'Conf'     in comment or
-            'mu=1'     in comment or
-            '&mu;=2'   in comment):
+            'Conf' in comment or
+            'mu=1' in comment or
+            '&mu;=2' in comment):
             continue
         raise RuntimeError("We detected that {} was unfeasible, but maybe we should not have".format(params))
 

@@ -11,7 +11,7 @@ using namespace slang;
 using namespace slang::ast;
 
 namespace always_comb_named {
-struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, false> {
+struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, false, false, true> {
     explicit MainVisitor(Diagnostics& diagnostics) : TidyVisitor(diagnostics) {}
 
     void handle(const ProceduralBlockSymbol& symbol) {
@@ -35,16 +35,18 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, false> {
 using namespace always_comb_named;
 class AlwaysCombBlockNamed : public TidyCheck {
 public:
-    [[maybe_unused]] explicit AlwaysCombBlockNamed(TidyKind kind) : TidyCheck(kind) {}
+    [[maybe_unused]] explicit AlwaysCombBlockNamed(
+        TidyKind kind, std::optional<slang::DiagnosticSeverity> severity) :
+        TidyCheck(kind, severity) {}
 
-    bool check(const ast::RootSymbol& root) override {
+    bool check(const ast::RootSymbol& root, const slang::analysis::AnalysisManager&) override {
         MainVisitor visitor(diagnostics);
         root.visit(visitor);
         return diagnostics.empty();
     }
 
     DiagCode diagCode() const override { return diag::AlwaysCombBlockNamed; }
-    DiagnosticSeverity diagSeverity() const override { return DiagnosticSeverity::Warning; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override { return "definition of an unnamed always_comb block"; }
     std::string name() const override { return "AlwaysCombBlockNamed"; }
     std::string description() const override { return shortDescription(); }

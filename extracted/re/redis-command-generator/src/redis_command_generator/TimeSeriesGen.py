@@ -245,14 +245,18 @@ class TimeSeriesGen(BaseGen):
     def tsmadd(self, pipe: redis.client.Pipeline, key: str) -> None:
         """Add multiple samples to multiple time series"""
         samples = []
+        hash_tag = self._rand_str(10)  # Generate a hash tag
+        use_same_htag = random.random() < 0.8
         
         # Generate 2-5 samples for different keys
-        num_samples = random.randint(2, 5)
-        for i in range(num_samples):
-            sample_key = f"{key}_{i}" if i > 0 else key
+        for i in range(random.randint(2, 5)):
+            sample_key = f"{{{hash_tag}}}:{key}_{i}"
             timestamp = random.randint(0, 1000000)
             value = random.uniform(1, self.max_float)
             samples.append((sample_key, timestamp, value))
+            
+            if not use_same_htag:
+                hash_tag = self._rand_str(10)
         
         pipe.ts().madd(samples)
 

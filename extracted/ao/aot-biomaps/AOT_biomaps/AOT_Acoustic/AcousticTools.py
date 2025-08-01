@@ -95,7 +95,6 @@ def CPU_hilbert(signal, axis=0):
     analytic_signal = np.fft.ifftn(fft_signal * h, axes=[axis])
     return analytic_signal
 
-
 def GPU_hilbert(signal, axis=0):
     """
     Compute the Hilbert transform of a real signal using PyTorch.
@@ -195,7 +194,6 @@ def calculate_envelope_squared(field, isGPU):
     except Exception as e:
         print(f"Error in calculate_envelope_squared method: {e}")
         raise
-
 
 def getPattern(pathFile):
     """

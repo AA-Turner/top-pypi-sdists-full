@@ -98,7 +98,7 @@ public:
     /// tree does not have a parent (will be nullptr).
     SyntaxNode* parent = nullptr;
 
-    /// @brief An potional pointer to a syntax node tha can be useful
+    /// @brief An optional pointer to a syntax node that can be useful
     /// to know ahead of time when visiting this node.
     ///
     /// The node, if set, is underneath this node in the syntax tree.
@@ -187,12 +187,12 @@ public:
     /// Applies a visitor object to this node by dispatching based on the
     /// dynamic kind. The given @a args are forwarded to the visitor.
     template<typename TVisitor, typename... Args>
-    decltype(auto) visit(TVisitor& visitor, Args&&... args);
+    decltype(auto) visit(TVisitor&& visitor, Args&&... args);
 
     /// Applies a visitor object to this node by dispatching based on the
     /// dynamic kind. The given @a args are forwarded to the visitor.
     template<typename TVisitor, typename... Args>
-    decltype(auto) visit(TVisitor& visitor, Args&&... args) const;
+    decltype(auto) visit(TVisitor&& visitor, Args&&... args) const;
 
     /// A base implemention of the method that checks correctness of dynamic casting.
     /// Derived nodes should reimplement this and return true if the provided syntax kind
@@ -272,6 +272,11 @@ private:
     mutable SourceRange range;
     mutable PointerIntPair<const SyntaxNode*, 1, 1, bool> node;
 };
+
+#if defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
 
 /// A base class for syntax nodes that represent a list of items.
 class SLANG_EXPORT SyntaxListBase : public SyntaxNode {
@@ -472,6 +477,10 @@ private:
 
     std::span<TokenOrSyntax> elements;
 };
+
+#if defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
 
 template<typename T>
 SeparatedSyntaxList<T>* deepClone(const SeparatedSyntaxList<T>& node, BumpAllocator& alloc) {

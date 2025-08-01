@@ -5,6 +5,7 @@ import time
 
 from fireworks._const import FIREWORKS_API_BASE_URL
 from fireworks.evaluator.evaluator import Evaluator
+from fireworks.llm._types import WandbConfigParam
 from fireworks.reinforcement_fine_tuning_job.reinforcement_fine_tuning_job import ReinforcementFineTuningJob
 from fireworks.client.api_client import FireworksClient
 from functools import cache as sync_cache
@@ -48,7 +49,6 @@ from fireworks.control_plane.generated.protos.gateway import (
     Deployment,
     DeploymentState,
     InferenceParameters,
-    WandbConfig,
 )
 from fireworks._util import generate_model_resource_name, is_valid_resource_name
 import sysconfig
@@ -303,7 +303,11 @@ class LLM:
             return None
         if self._id.startswith("accounts/"):
             return self._id
-        if self.is_peft_addon():
+        if (
+            self.is_peft_addon()
+            and self.deployment_strategy == "on-demand-lora"
+            or self.deployment_strategy == "serverless-lora"
+        ):
             return f"accounts/{self._gateway.account_id()}/deployedModels/{self._id}"
         return f"accounts/{self._gateway.account_id()}/deployments/{self._id}"
 
@@ -762,7 +766,9 @@ class LLM:
         3. If model is a PEFT model, return and deployed model with the same model
         4. Otherwise, look for deployment by model and display name
         """
-        if self.is_peft_addon():
+        if self.is_peft_addon() and (
+            self.deployment_strategy == "on-demand-lora" or self.deployment_strategy == "serverless-lora"
+        ):
             if self.deployment_name is not None:
                 deployed_model = self._gateway.get_deployed_model_sync(self.deployment_name)
                 if deployed_model is None:
@@ -1423,6 +1429,7 @@ class LLM:
         id: str,
         dataset_or_id: Union[Dataset, str],
         reward_function: Callable,
+        evaluation_dataset_or_id: Optional[Union[Dataset, str]] = None,
         # BaseTrainingConfig fields
         output_model: Optional[str] = None,
         jinja_template: Optional[str] = None,
@@ -1437,12 +1444,7 @@ class LLM:
         batch_size: Optional[int] = 32768,
         is_intermediate: Optional[bool] = None,
         # WandbConfig fields
-        wandb_enabled: Optional[bool] = None,
-        wandb_api_key: Optional[str] = None,
-        wandb_project: Optional[str] = None,
-        wandb_entity: Optional[str] = None,
-        wandb_run_id: Optional[str] = None,
-        wandb_url: Optional[str] = None,
+        wandb_config: Optional[WandbConfigParam] = None,
         # InferenceParameters fields with defaults from command
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = 1.0,
@@ -1455,7 +1457,14 @@ class LLM:
             raise ValueError("id must only contain lowercase a-z, 0-9, and hyphen (-)")
 
         dataset = dataset_or_id if isinstance(dataset_or_id, Dataset) else Dataset.from_id(dataset_or_id)
-        dataset.sync()
+
+        evaluation_dataset = (
+            evaluation_dataset_or_id
+            if isinstance(evaluation_dataset_or_id, Dataset)
+            else Dataset.from_id(evaluation_dataset_or_id) if evaluation_dataset_or_id is not None else None
+        )
+        if evaluation_dataset is not None:
+            evaluation_dataset.sync()
 
         evaluator = Evaluator(
             gateway=self._gateway,
@@ -1485,12 +1494,9 @@ class LLM:
         else:
             training_config.base_model = self.model
         wandb_config = SyncWandbConfig(
-            enabled=wandb_enabled if wandb_enabled is not None else False,
-            api_key=wandb_api_key,
-            project=wandb_project,
-            entity=wandb_entity,
-            run_id=wandb_run_id,
-            url=wandb_url,
+            api_key=wandb_config["api_key"],
+            project=wandb_config["project"],
+            entity=wandb_config["entity"],
         )
         inference_parameters = SyncInferenceParameters(
             max_tokens=max_tokens,
@@ -1503,6 +1509,7 @@ class LLM:
         proto = SyncReinforcementFineTuningJob(
             display_name=id,
             dataset=dataset.name,
+            evaluation_dataset=evaluation_dataset.name if evaluation_dataset is not None else None,
             evaluator=evaluator.name,
             training_config=training_config,
             wandb_config=wandb_config,
@@ -1513,6 +1520,7 @@ class LLM:
             llm=self,
             proto=proto,
             dataset_or_id=dataset_or_id,
+            evaluation_dataset_or_id=evaluation_dataset_or_id,
             api_key=self._gateway._api_key,
             id=id,
         )
@@ -1524,6 +1532,7 @@ class LLM:
         self,
         display_name: str,
         dataset_or_id: Union[Dataset, str],
+        evaluation_dataset_or_id: Optional[Union[Dataset, str]] = None,
         epochs: Optional[int] = None,
         learning_rate: Optional[float] = None,
         lora_rank: Optional[int] = None,
@@ -1531,8 +1540,7 @@ class LLM:
         early_stop: Optional[bool] = None,
         max_context_length: Optional[int] = None,
         base_model_weight_precision: Optional[WeightPrecisionLiteral] = None,
-        wandb_config: Optional[WandbConfig] = None,
-        evaluation_dataset: Optional[Union[Dataset, str]] = None,
+        wandb_config: Optional[WandbConfigParam] = None,
         accelerator_type: Optional[AcceleratorTypeLiteral] = None,
         accelerator_count: Optional[int] = None,
         is_turbo: Optional[bool] = None,
@@ -1578,12 +1586,19 @@ class LLM:
         if not is_valid_resource_name(display_name):
             raise ValueError("job name must only contain lowercase a-z, 0-9, and hyphen (-)")
 
-        dataset = dataset_or_id.name if isinstance(dataset_or_id, Dataset) else Dataset.from_id(dataset_or_id).name
-        evaluation_dataset_name = (
-            evaluation_dataset.name
-            if isinstance(evaluation_dataset, Dataset)
-            else Dataset.from_id(evaluation_dataset).name if evaluation_dataset is not None else None
+        dataset = dataset_or_id if isinstance(dataset_or_id, Dataset) else Dataset.from_id(dataset_or_id)
+        evaluation_dataset = (
+            evaluation_dataset_or_id
+            if isinstance(evaluation_dataset_or_id, Dataset)
+            else Dataset.from_id(evaluation_dataset_or_id) if evaluation_dataset_or_id is not None else None
         )
+
+        if wandb_config is not None:
+            wandb_config = SyncWandbConfig(
+                api_key=wandb_config["api_key"],
+                project=wandb_config["project"],
+                entity=wandb_config["entity"],
+            )
         proto = SyncSupervisedFineTuningJob(
             display_name=display_name,
             epochs=epochs,
@@ -1592,8 +1607,9 @@ class LLM:
             jinja_template=jinja_template,
             max_context_length=max_context_length,
             base_model_weight_precision=base_model_weight_precision,
-            dataset=dataset,
-            evaluation_dataset=evaluation_dataset_name,
+            wandb_config=wandb_config,
+            dataset=dataset.name,
+            evaluation_dataset=evaluation_dataset.name if evaluation_dataset is not None else None,
             accelerator_type=accelerator_type,
             accelerator_count=accelerator_count,
             region=region,
@@ -1607,10 +1623,6 @@ class LLM:
             proto.base_model = self.model
         if early_stop is not None:
             proto.early_stop = early_stop
-        if wandb_config is not None:
-            proto.wandb_config = SyncWandbConfig(
-                **wandb_config.to_dict(),
-            )
         if is_turbo is not None:
             proto.is_turbo = is_turbo
         if eval_auto_carveout is not None:
@@ -1620,7 +1632,7 @@ class LLM:
             llm=self,
             proto=proto,
             dataset_or_id=dataset_or_id,
-            evaluation_dataset=evaluation_dataset,
+            evaluation_dataset_or_id=evaluation_dataset_or_id,
             api_key=self._gateway._api_key,
         )
         job = job.sync()

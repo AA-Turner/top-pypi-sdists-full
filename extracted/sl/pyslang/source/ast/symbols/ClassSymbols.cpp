@@ -185,32 +185,19 @@ void ClassType::populate(const Scope& scope, const ClassDeclarationSyntax& synta
     auto& int_t = comp.getIntType();
     auto& string_t = comp.getStringType();
 
-    auto checkOverride = [](auto& s) {
-        return s.subroutineKind == SubroutineKind::Function && s.getArguments().empty() &&
-               s.getReturnType().isVoid() && s.visibility == Visibility::Public &&
-               s.flags == MethodFlags::None;
-    };
-
     auto& scopeNameMap = getUnelaboratedNameMap();
     auto makeFunc = [&](std::string_view funcName, const Type& returnType, bool allowOverride,
                         bitmask<MethodFlags> extraFlags = MethodFlags::None,
                         SubroutineKind subroutineKind =
                             SubroutineKind::Function) -> std::optional<MethodBuilder> {
         if (auto it = scopeNameMap.find(funcName); it != scopeNameMap.end()) {
-            auto existing = it->second;
-            if (allowOverride) {
-                bool ok = false;
-                if (existing->kind == SymbolKind::Subroutine)
-                    ok = checkOverride(existing->as<SubroutineSymbol>());
-                else if (existing->kind == SymbolKind::MethodPrototype)
-                    ok = checkOverride(existing->as<MethodPrototypeSymbol>());
+            // If the function already exists, check if it can be overridden.
+            // If not we error. If so, we defer further checking until elaboration time.
+            if (!allowOverride)
+                scope.addDiag(diag::InvalidMethodOverride, it->second->location) << funcName;
+            else
+                setNeedElaboration();
 
-                if (!ok)
-                    scope.addDiag(diag::InvalidRandomizeOverride, existing->location) << funcName;
-            }
-            else {
-                scope.addDiag(diag::InvalidMethodOverride, existing->location) << funcName;
-            }
             return {};
         }
 
@@ -258,6 +245,34 @@ void ClassType::populate(const Scope& scope, const ClassDeclarationSyntax& synta
 }
 
 void ClassType::inheritMembers(function_ref<void(const Symbol&)> insertCB) const {
+    // Check for invalid overrides of the special pre and post randomize methods.
+    auto checkOverride = [](auto& s) {
+        return s.subroutineKind == SubroutineKind::Function && s.getArguments().empty() &&
+               s.getReturnType().isVoid() && s.visibility == Visibility::Public &&
+               s.flags == MethodFlags::None;
+    };
+
+    auto checkPrePost = [&](std::string_view funcName) {
+        auto sym = find(funcName);
+        SLANG_ASSERT(sym);
+
+        if (sym->kind == SymbolKind::Subroutine) {
+            auto& s = sym->as<SubroutineSymbol>();
+            if (s.flags.has(MethodFlags::BuiltIn) || checkOverride(s))
+                return;
+        }
+        else if (sym->kind == SymbolKind::MethodPrototype) {
+            auto& s = sym->as<MethodPrototypeSymbol>();
+            if (checkOverride(s))
+                return;
+        }
+
+        addDiag(diag::InvalidRandomizeOverride, sym->location) << funcName;
+    };
+
+    checkPrePost("pre_randomize");
+    checkPrePost("post_randomize");
+
     auto syntax = getSyntax();
     SLANG_ASSERT(syntax);
 
@@ -901,16 +916,14 @@ const Symbol& GenericClassDefSymbol::fromSyntax(const Scope& scope,
     return *result;
 }
 
-const Type* GenericClassDefSymbol::getDefaultSpecialization() const {
+const Type* GenericClassDefSymbol::getDefaultSpecialization(const Scope& scope) const {
     if (defaultSpecialization)
         return *defaultSpecialization;
 
-    auto scope = getParentScope();
-    SLANG_ASSERT(scope);
-
-    auto result = getSpecializationImpl(ASTContext(*scope, LookupLocation::max), location,
+    auto result = getSpecializationImpl(ASTContext(scope, LookupLocation::max), location,
                                         /* forceInvalidParams */ false, nullptr);
-    defaultSpecialization = result;
+    if (!scope.isUninstantiated())
+        defaultSpecialization = result;
     return result;
 }
 
@@ -955,12 +968,13 @@ const Type* GenericClassDefSymbol::getSpecializationImpl(
     // have this specialization cached we'll throw it away, but that's not a big deal.
     auto classType = comp.emplace<ClassType>(comp, name, location);
     classType->genericClass = this;
+    classType->isUninstantiated = forceInvalidParams || context.scope->isUninstantiated();
     classType->setParent(*scope, getIndex());
 
     // If this is for the default specialization, `syntax` will be null.
     // We want to suppress errors about params not having values and just
     // return null so that the caller can figure out if this is actually a problem.
-    bool isForDefault = syntax == nullptr;
+    const bool isForDefault = syntax == nullptr;
 
     ParameterBuilder paramBuilder(*context.scope, name, paramDecls);
     paramBuilder.setForceInvalidValues(forceInvalidParams);
@@ -971,6 +985,7 @@ const Type* GenericClassDefSymbol::getSpecializationImpl(
 
     SourceRange instRange = {instanceLoc, instanceLoc + 1};
 
+    SmallVector<const Symbol*> paramSymbols;
     SmallVector<const ConstantValue*> paramValues;
     SmallVector<const Type*> typeParams;
     for (auto& decl : paramDecls) {
@@ -985,6 +1000,8 @@ const Type* GenericClassDefSymbol::getSpecializationImpl(
 
         if (!param.isLocalParam()) {
             auto& sym = param.symbol;
+            paramSymbols.push_back(&sym);
+
             if (sym.kind == SymbolKind::Parameter) {
                 auto& ps = sym.as<ParameterSymbol>();
                 paramValues.push_back(&ps.getValue(instRange));
@@ -996,11 +1013,23 @@ const Type* GenericClassDefSymbol::getSpecializationImpl(
         }
     }
 
-    detail::ClassSpecializationKey key(*this, paramValues.copy(comp), typeParams.copy(comp));
-    if (auto it = specMap.find(key); it != specMap.end())
-        return it->second;
-    if (auto it = uninstantiatedSpecMap.find(key); it != uninstantiatedSpecMap.end())
-        return it->second;
+    if (!forceInvalidParams) {
+        classType->genericParameters = paramSymbols.copy(comp);
+        detail::ClassSpecializationKey key(paramValues.copy(comp), typeParams.copy(comp));
+        if (classType->isUninstantiated) {
+            // If we're in an uninstantiated scope we save this specialization
+            // in a separate map so that we don't try to elaborate it further
+            // and potentially cause spurious errors to be issued.
+            auto [it, inserted] = uninstantiatedSpecMap.emplace(key, classType);
+            if (!inserted)
+                return it->second;
+        }
+        else {
+            auto [it, inserted] = specMap.emplace(key, classType);
+            if (!inserted)
+                return it->second;
+        }
+    }
 
     // Not found, so this is a new entry. Fill in its members and store the
     // specialization for later lookup. If we have a specialization function,
@@ -1009,16 +1038,6 @@ const Type* GenericClassDefSymbol::getSpecializationImpl(
         specializeFunc(comp, *classType, instanceLoc);
     else
         classType->populate(*scope, getSyntax()->as<ClassDeclarationSyntax>());
-
-    if (!forceInvalidParams) {
-        // If we're in an uninstantiated scope we save this specialization
-        // in a separate map so that we don't try to elaborate it further
-        // and potentially cause spurious errors to be issued.
-        if (context.scope->isUninstantiated())
-            uninstantiatedSpecMap.emplace(key, classType);
-        else
-            specMap.emplace(key, classType);
-    }
 
     return classType;
 }
@@ -1054,14 +1073,12 @@ void GenericClassDefSymbol::serializeTo(ASTSerializer& serializer) const {
 
 namespace detail {
 
-ClassSpecializationKey::ClassSpecializationKey(const GenericClassDefSymbol& def,
-                                               std::span<const ConstantValue* const> paramValues,
+ClassSpecializationKey::ClassSpecializationKey(std::span<const ConstantValue* const> paramValues,
                                                std::span<const Type* const> typeParams) :
-    definition(&def), paramValues(paramValues), typeParams(typeParams) {
+    paramValues(paramValues), typeParams(typeParams) {
 
     // Precompute the hash.
     size_t h = 0;
-    hash_combine(h, definition);
     for (auto val : paramValues)
         hash_combine(h, val ? val->hash() : 0);
     for (auto type : typeParams)
@@ -1070,8 +1087,7 @@ ClassSpecializationKey::ClassSpecializationKey(const GenericClassDefSymbol& def,
 }
 
 bool ClassSpecializationKey::operator==(const ClassSpecializationKey& other) const {
-    if (savedHash != other.savedHash || definition != other.definition ||
-        paramValues.size() != other.paramValues.size() ||
+    if (savedHash != other.savedHash || paramValues.size() != other.paramValues.size() ||
         typeParams.size() != other.typeParams.size()) {
         return false;
     }

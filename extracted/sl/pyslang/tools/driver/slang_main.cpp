@@ -9,14 +9,13 @@
 #include <fstream>
 #include <iostream>
 
+#include "slang/analysis/AnalysisManager.h"
 #include "slang/ast/ASTSerializer.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
 #include "slang/driver/Driver.h"
-#include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
-#include "slang/util/String.h"
 #include "slang/util/TimeTrace.h"
 #include "slang/util/VersionInfo.h"
 
@@ -32,6 +31,7 @@ void printJson(Compilation& compilation, const std::string& fileName,
     ASTSerializer serializer(compilation, writer);
     serializer.setIncludeSourceInfo(includeSourceInfo);
     serializer.setDetailedTypeInfo(detailedTypes);
+    serializer.setTryConstantFold(false);
 
     if (scopes.empty()) {
         serializer.startObject();
@@ -75,12 +75,16 @@ int driverMain(int argc, TArgs argv) {
         std::optional<bool> onlyPreprocess;
         std::optional<bool> onlyParse;
         std::optional<bool> onlyMacros;
+        std::optional<bool> disableAnalysis;
         driver.cmdLine.add("-E,--preprocess", onlyPreprocess,
                            "Only run the preprocessor (and print preprocessed files to stdout)");
         driver.cmdLine.add("--macros-only", onlyMacros, "Print a list of found macros and exit");
         driver.cmdLine.add(
             "--parse-only", onlyParse,
             "Stop after parsing input files, don't perform elaboration or type checking");
+        driver.cmdLine.add("--disable-analysis", disableAnalysis,
+                           "Disables post-elaboration analysis passes,"
+                           "which prevents some diagnostics from being issued");
 
         std::optional<bool> includeComments;
         std::optional<bool> includeDirectives;
@@ -111,6 +115,28 @@ int driverMain(int argc, TArgs argv) {
         std::optional<bool> serializeDetailedTypes;
         driver.cmdLine.add("--ast-json-detailed-types", serializeDetailedTypes,
                            "When dumping AST to JSON, expand out all type information");
+
+        std::optional<std::string> depfileTarget;
+        driver.cmdLine.add("--depfile-target", depfileTarget,
+                           "Output depfile lists in makefile format, creating the file with "
+                           "`<target>:` as the make target");
+
+        std::optional<std::string> allDepfile;
+        driver.cmdLine.add("--Mall,--all-deps", allDepfile,
+                           "Generate dependency file list of all files used during parsing",
+                           "<file>", CommandLineFlags::FilePath);
+
+        std::optional<std::string> includeDepfile;
+        driver.cmdLine.add(
+            "--Minclude,--include-deps", includeDepfile,
+            "Generate dependency file list of just include files that were used during parsing",
+            "<file>", CommandLineFlags::FilePath);
+
+        std::optional<std::string> moduleDepfile;
+        driver.cmdLine.add(
+            "--Mmodule,--module-deps", moduleDepfile,
+            "Generate dependency file list of source files parsed, excluding include files",
+            "<file>", CommandLineFlags::FilePath);
 
         std::optional<std::string> timeTrace;
         driver.cmdLine.add("--time-trace", timeTrace,
@@ -146,44 +172,79 @@ int driverMain(int argc, TArgs argv) {
             return 3;
         }
 
+        if ((onlyPreprocess || onlyMacros) && (includeDepfile || moduleDepfile || allDepfile)) {
+            OS::printE(fg(driver.textDiagClient->errorColor), "error: ");
+            OS::printE("cannot use dependency file options with --preprocess or --macros-only");
+            return 3;
+        }
+
         if (timeTrace)
             TimeTrace::initialize();
 
+        auto runStages = [&]() {
+            bool ok = true;
+            if (onlyPreprocess == true) {
+                return driver.runPreprocessor(includeComments == true, includeDirectives == true,
+                                              obfuscateIds == true);
+            }
+
+            if (onlyMacros == true) {
+                driver.reportMacros();
+                return true;
+            }
+
+            {
+                TimeTraceScope timeScope("parseAllSources"sv, ""sv);
+                ok = driver.parseAllSources();
+            }
+
+            if (includeDepfile) {
+                OS::writeFile(*includeDepfile,
+                              driver.serializeDepfiles(driver.getDepfiles(true), depfileTarget));
+            }
+
+            if (moduleDepfile) {
+                OS::writeFile(*moduleDepfile,
+                              driver.serializeDepfiles(driver.sourceLoader.getFilePaths(),
+                                                       depfileTarget));
+            }
+
+            if (allDepfile) {
+                OS::writeFile(*allDepfile,
+                              driver.serializeDepfiles(driver.getDepfiles(), depfileTarget));
+            }
+
+            if (onlyParse == true)
+                return ok && driver.reportParseDiags();
+
+            std::unique_ptr<Compilation> compilation;
+            {
+                TimeTraceScope timeScope("elaboration"sv, ""sv);
+                compilation = driver.createCompilation();
+                driver.reportCompilation(*compilation, quiet == true);
+            }
+
+            if (!disableAnalysis.value_or(false)) {
+                TimeTraceScope timeScope("semanticAnalysis"sv, ""sv);
+                driver.runAnalysis(*compilation);
+            }
+
+            ok &= driver.reportDiagnostics(quiet == true);
+
+            if (astJsonFile) {
+                TimeTraceScope timeScope("serialization"sv, ""sv);
+                printJson(*compilation, *astJsonFile, astJsonScopes, includeSourceInfo == true,
+                          serializeDetailedTypes == true);
+            }
+            return ok;
+        };
+
         bool ok = true;
         SLANG_TRY {
-            if (onlyPreprocess == true) {
-                ok = driver.runPreprocessor(includeComments == true, includeDirectives == true,
-                                            obfuscateIds == true);
-            }
-            else if (onlyMacros == true) {
-                driver.reportMacros();
-            }
-            else if (onlyParse == true) {
-                ok = driver.parseAllSources();
-                ok &= driver.reportParseDiags();
-            }
-            else {
-                {
-                    TimeTraceScope timeScope("parseAllSources"sv, ""sv);
-                    ok = driver.parseAllSources();
-                }
-
-                {
-                    TimeTraceScope timeScope("elaboration"sv, ""sv);
-                    auto compilation = driver.createCompilation();
-                    ok &= driver.reportCompilation(*compilation, quiet == true);
-
-                    if (astJsonFile) {
-                        printJson(*compilation, *astJsonFile, astJsonScopes,
-                                  includeSourceInfo == true, serializeDetailedTypes == true);
-                    }
-                }
-            }
+            ok = runStages();
         }
         SLANG_CATCH(const std::exception& e) {
-#if __cpp_exceptions
-            OS::printE(fmt::format("internal compiler error: {}\n", e.what()));
-#endif
+            SLANG_REPORT_EXCEPTION(e, "internal compiler error: {}\n");
             return 4;
         }
 
@@ -199,11 +260,9 @@ int driverMain(int argc, TArgs argv) {
         return ok ? 0 : 5;
     }
     SLANG_CATCH(const std::exception& e) {
-#if __cpp_exceptions
-        OS::printE(fmt::format("{}\n", e.what()));
-#endif
-        return 6;
+        SLANG_REPORT_EXCEPTION(e, "{}\n");
     }
+    return 6;
 }
 
 #ifndef FUZZ_TARGET
@@ -228,7 +287,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     auto diagClient = std::make_shared<TextDiagnosticClient>();
     diagEngine.addClient(diagClient);
 
-    Compilation compilation;
+    CompilationOptions options;
+    options.maxInstanceDepth = 16;
+    options.maxDefParamSteps = 32;
+
+    Compilation compilation(options);
     compilation.addSyntaxTree(tree);
     for (auto& diag : compilation.getAllDiagnostics())
         diagEngine.issue(diag);

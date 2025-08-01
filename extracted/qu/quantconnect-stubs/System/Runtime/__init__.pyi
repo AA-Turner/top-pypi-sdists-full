@@ -27,6 +27,9 @@ class GCLargeObjectHeapCompactionMode(Enum):
 
     COMPACT_ONCE = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class GCLatencyMode(Enum):
     """This class has no documentation."""
@@ -40,6 +43,9 @@ class GCLatencyMode(Enum):
     SUSTAINED_LOW_LATENCY = 3
 
     NO_GC_REGION = 4
+
+    def __int__(self) -> int:
+        ...
 
 
 class GCSettings(System.Object):

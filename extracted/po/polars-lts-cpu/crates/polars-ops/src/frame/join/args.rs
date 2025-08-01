@@ -19,7 +19,7 @@ pub type ChunkJoinIds = Vec<IdxSize>;
 use serde::{Deserialize, Serialize};
 use strum_macros::IntoStaticStr;
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash, Default)]
+#[derive(Clone, PartialEq, Debug, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "dsl-schema", derive(schemars::JsonSchema))]
 pub struct JoinArgs {
@@ -38,7 +38,7 @@ impl JoinArgs {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Default, IntoStaticStr)]
+#[derive(Clone, PartialEq, Hash, Default, IntoStaticStr)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "dsl-schema", derive(schemars::JsonSchema))]
 pub enum JoinType {
@@ -47,8 +47,9 @@ pub enum JoinType {
     Left,
     Right,
     Full,
+    // Box is okay because this is inside a `Arc<JoinOptionsIR>`
     #[cfg(feature = "asof_join")]
-    AsOf(AsOfOptions),
+    AsOf(Box<AsOfOptions>),
     #[cfg(feature = "semi_anti_join")]
     Semi,
     #[cfg(feature = "semi_anti_join")]

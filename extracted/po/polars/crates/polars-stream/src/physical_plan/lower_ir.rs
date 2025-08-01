@@ -10,7 +10,8 @@ use polars_expr::state::ExecutionState;
 use polars_mem_engine::create_physical_plan;
 use polars_plan::dsl::deletion::DeletionFilesList;
 use polars_plan::dsl::{
-    ExtraColumnsPolicy, FileScan, FileSinkType, PartitionSinkTypeIR, PartitionVariantIR, SinkTypeIR,
+    ExtraColumnsPolicy, FileScanIR, FileSinkType, PartitionSinkTypeIR, PartitionVariantIR,
+    SinkTypeIR,
 };
 use polars_plan::plans::expr_ir::{ExprIR, OutputName};
 use polars_plan::plans::{
@@ -26,6 +27,7 @@ use slotmap::SlotMap;
 
 use super::{PhysNode, PhysNodeKey, PhysNodeKind, PhysStream};
 use crate::nodes::io_sources::multi_file_reader;
+use crate::nodes::io_sources::multi_file_reader::extra_ops::ForbidExtraColumns;
 use crate::nodes::io_sources::multi_file_reader::reader_interface::builder::FileReaderBuilder;
 use crate::physical_plan::lower_expr::{
     ExprCache, build_length_preserving_select_stream, build_select_stream,
@@ -72,7 +74,7 @@ fn build_filter_stream(
     expr_cache: &mut ExprCache,
     ctx: StreamingLowerIRContext,
 ) -> PolarsResult<PhysStream> {
-    let predicate = predicate.clone();
+    let predicate = predicate;
     let cols_and_predicate = phys_sm[input.node]
         .output_schema
         .iter_names()
@@ -318,7 +320,7 @@ pub fn lower_ir(
 
                         let select_output_schema = Arc::new(select_output_schema);
                         let node = phys_sm.insert(PhysNode {
-                            output_schema: select_output_schema.clone(),
+                            output_schema: select_output_schema,
                             kind: PhysNodeKind::Select {
                                 input,
                                 selectors: key_exprs.clone(),
@@ -480,7 +482,6 @@ pub fn lower_ir(
                 scan_type,
                 predicate,
                 unified_scan_args,
-                id: _,
             } = v.clone()
             else {
                 unreachable!();
@@ -504,7 +505,7 @@ pub fn lower_ir(
             } else {
                 let file_reader_builder = match &*scan_type {
                     #[cfg(feature = "parquet")]
-                    FileScan::Parquet {
+                    FileScanIR::Parquet {
                         options,
                         metadata: first_metadata,
                     } => Arc::new(
@@ -515,7 +516,7 @@ pub fn lower_ir(
                     ) as Arc<dyn FileReaderBuilder>,
 
                     #[cfg(feature = "ipc")]
-                    FileScan::Ipc {
+                    FileScanIR::Ipc {
                         options: polars_io::ipc::IpcScanOptions {},
                         metadata: first_metadata,
                     } => Arc::new(crate::nodes::io_sources::ipc::builder::IpcReaderBuilder {
@@ -523,37 +524,33 @@ pub fn lower_ir(
                     }) as Arc<dyn FileReaderBuilder>,
 
                     #[cfg(feature = "csv")]
-                    FileScan::Csv { options } => {
+                    FileScanIR::Csv { options } => {
                         Arc::new(Arc::new(options.clone())) as Arc<dyn FileReaderBuilder>
                     },
 
                     #[cfg(feature = "json")]
-                    FileScan::NDJson { options } => {
+                    FileScanIR::NDJson { options } => {
                         Arc::new(Arc::new(options.clone())) as Arc<dyn FileReaderBuilder>
                     },
 
                     #[cfg(feature = "python")]
-                    FileScan::PythonDataset {
+                    FileScanIR::PythonDataset {
                         dataset_object: _,
                         cached_ir,
                     } => {
                         use crate::physical_plan::io::python_dataset::python_dataset_scan_to_reader_builder;
                         let guard = cached_ir.lock().unwrap();
 
-                        let (scan_name, scan_fn, python_source_type) = guard
+                        let expanded_scan = guard
                             .as_ref()
                             .expect("python dataset should be resolved")
                             .python_scan()
                             .expect("should be python scan");
 
-                        python_dataset_scan_to_reader_builder(
-                            scan_name,
-                            scan_fn.clone(),
-                            python_source_type,
-                        )
+                        python_dataset_scan_to_reader_builder(expanded_scan)
                     },
 
-                    FileScan::Anonymous { .. } => todo!("unimplemented: AnonymousScan"),
+                    FileScanIR::Anonymous { .. } => todo!("unimplemented: AnonymousScan"),
                 };
 
                 {
@@ -566,9 +563,9 @@ pub fn lower_ir(
                         };
 
                     let cloud_options = cloud_options.clone().map(Arc::new);
-                    let file_schema = file_info.schema.clone();
+                    let file_schema = file_info.schema;
 
-                    let (projected_file_schema, file_schema) =
+                    let (file_projection_builder, file_schema) =
                         multi_file_reader::initialization::projection::resolve_projections(
                             &output_schema,
                             &file_schema,
@@ -581,13 +578,14 @@ pub fn lower_ir(
                                 .include_file_paths
                                 .as_ref()
                                 .map(|x| x.as_str()),
+                            unified_scan_args.column_mapping.as_ref(),
                         );
 
                     // TODO: We ignore the parameter for some scan types to maintain old behavior,
                     // as they currently don't expose an API for it to be configured.
                     let extra_columns_policy = match &*scan_type {
                         #[cfg(feature = "parquet")]
-                        FileScan::Parquet { .. } => unified_scan_args.extra_columns_policy,
+                        FileScanIR::Parquet { .. } => unified_scan_args.extra_columns_policy,
 
                         _ => {
                             if unified_scan_args.projection.is_some() {
@@ -598,11 +596,17 @@ pub fn lower_ir(
                         },
                     };
 
+                    let forbid_extra_columns = ForbidExtraColumns::opt_new(
+                        &extra_columns_policy,
+                        &file_schema,
+                        unified_scan_args.column_mapping.as_ref(),
+                    );
+
                     let mut multi_scan_node = PhysNodeKind::MultiScan {
                         scan_sources,
                         file_reader_builder,
                         cloud_options,
-                        projected_file_schema,
+                        file_projection_builder,
                         output_schema: output_schema.clone(),
                         row_index: None,
                         pre_slice: None,
@@ -610,7 +614,7 @@ pub fn lower_ir(
                         hive_parts,
                         cast_columns_policy: unified_scan_args.cast_columns_policy,
                         missing_columns_policy: unified_scan_args.missing_columns_policy,
-                        extra_columns_policy,
+                        forbid_extra_columns,
                         include_file_paths: unified_scan_args.include_file_paths,
                         // Set to None if empty for performance.
                         deletion_files: DeletionFilesList::filter_empty(
@@ -634,7 +638,7 @@ pub fn lower_ir(
 
                     let mut row_index_post = unified_scan_args.row_index;
                     let mut pre_slice_post = pre_slice.clone();
-                    let mut predicate_post = predicate.clone();
+                    let mut predicate_post = predicate;
 
                     // Always send predicate and slice to multiscan as they can be used to prune files. If the
                     // underlying reader does not support predicates, multiscan will apply it in post.
@@ -749,7 +753,7 @@ pub fn lower_ir(
                         };
 
                         let node_key = phys_sm.insert(PhysNode {
-                            output_schema: schema_after_row_index_post.clone(),
+                            output_schema: schema_after_row_index_post,
                             kind: node,
                         });
 
@@ -791,7 +795,7 @@ pub fn lower_ir(
             id,
             cache_hits: _,
         } => {
-            let id = id.clone();
+            let id = *id;
             if let Some(cached) = cache_nodes.get(&id) {
                 return Ok(*cached);
             }
@@ -825,7 +829,7 @@ pub fn lower_ir(
                 &aggs,
                 output_schema,
                 maintain_order,
-                options.clone(),
+                options,
                 apply,
                 expr_arena,
                 phys_sm,
@@ -956,7 +960,7 @@ pub fn lower_ir(
                 let input_schema = phys_sm[phys_input.node].output_schema.clone();
                 let lmdf = Arc::new(LateMaterializedDataFrame::default());
                 let mut lp_arena = Arena::default();
-                let input_lp_node = lp_arena.add(lmdf.clone().as_ir_node(input_schema.clone()));
+                let input_lp_node = lp_arena.add(lmdf.clone().as_ir_node(input_schema));
                 let distinct_lp_node = lp_arena.add(IR::Distinct {
                     input: input_lp_node,
                     options,

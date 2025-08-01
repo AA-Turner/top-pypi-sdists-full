@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index
-Version: 0.12.52
+Version: 0.13.0
 Summary: Interface between LLMs and your data
 Project-URL: Documentation, https://docs.llamaindex.ai/en/stable/
 Project-URL: Homepage, https://llamaindex.ai
@@ -14,16 +14,12 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.9
-Requires-Dist: llama-index-agent-openai<0.5,>=0.4.0
-Requires-Dist: llama-index-cli<0.5,>=0.4.2
-Requires-Dist: llama-index-core<0.13,>=0.12.52.post1
-Requires-Dist: llama-index-embeddings-openai<0.4,>=0.3.0
+Requires-Dist: llama-index-cli<0.6,>=0.5.0
+Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-embeddings-openai<0.6,>=0.5.0
 Requires-Dist: llama-index-indices-managed-llama-cloud>=0.4.0
-Requires-Dist: llama-index-llms-openai<0.5,>=0.4.0
-Requires-Dist: llama-index-multi-modal-llms-openai<0.6,>=0.5.0
-Requires-Dist: llama-index-program-openai<0.4,>=0.3.0
-Requires-Dist: llama-index-question-gen-openai<0.4,>=0.3.0
-Requires-Dist: llama-index-readers-file<0.5,>=0.4.0
+Requires-Dist: llama-index-llms-openai<0.6,>=0.5.0
+Requires-Dist: llama-index-readers-file<0.6,>=0.5.0
 Requires-Dist: llama-index-readers-llama-parse>=0.4.0
 Requires-Dist: nltk>3.8.1
 Description-Content-Type: text/markdown

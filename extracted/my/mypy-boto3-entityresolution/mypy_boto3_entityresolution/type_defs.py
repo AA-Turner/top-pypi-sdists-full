@@ -173,6 +173,9 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RuleBasedPropertiesOutputTypeDef",
     "RuleBasedPropertiesTypeDef",
+    "RuleConditionPropertiesOutputTypeDef",
+    "RuleConditionPropertiesTypeDef",
+    "RuleConditionTypeDef",
     "RuleOutputTypeDef",
     "RuleTypeDef",
     "RuleUnionTypeDef",
@@ -536,6 +539,11 @@ class PutPolicyInputTypeDef(TypedDict):
     token: NotRequired[str]
 
 
+class RuleConditionTypeDef(TypedDict):
+    ruleName: str
+    condition: str
+
+
 class StartMatchingJobInputTypeDef(TypedDict):
     workflowName: str
 
@@ -867,6 +875,14 @@ class ProviderEndpointConfigurationTypeDef(TypedDict):
     marketplaceConfiguration: NotRequired[ProviderMarketplaceConfigurationTypeDef]
 
 
+class RuleConditionPropertiesOutputTypeDef(TypedDict):
+    rules: List[RuleConditionTypeDef]
+
+
+class RuleConditionPropertiesTypeDef(TypedDict):
+    rules: Sequence[RuleConditionTypeDef]
+
+
 class IdNamespaceIdMappingWorkflowPropertiesOutputTypeDef(TypedDict):
     idMappingType: IdMappingTypeType
     ruleBasedProperties: NotRequired[NamespaceRuleBasedPropertiesOutputTypeDef]
@@ -892,21 +908,9 @@ class IdMappingTechniquesOutputTypeDef(TypedDict):
     providerProperties: NotRequired[ProviderPropertiesOutputTypeDef]
 
 
-class ResolutionTechniquesOutputTypeDef(TypedDict):
-    resolutionType: ResolutionTypeType
-    ruleBasedProperties: NotRequired[RuleBasedPropertiesOutputTypeDef]
-    providerProperties: NotRequired[ProviderPropertiesOutputTypeDef]
-
-
 class IdMappingTechniquesTypeDef(TypedDict):
     idMappingType: IdMappingTypeType
     ruleBasedProperties: NotRequired[IdMappingRuleBasedPropertiesTypeDef]
-    providerProperties: NotRequired[ProviderPropertiesTypeDef]
-
-
-class ResolutionTechniquesTypeDef(TypedDict):
-    resolutionType: ResolutionTypeType
-    ruleBasedProperties: NotRequired[RuleBasedPropertiesTypeDef]
     providerProperties: NotRequired[ProviderPropertiesTypeDef]
 
 
@@ -934,6 +938,20 @@ class GetProviderServiceOutputTypeDef(TypedDict):
     providerIntermediateDataAccessConfiguration: ProviderIntermediateDataAccessConfigurationTypeDef
     providerComponentSchema: ProviderComponentSchemaTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ResolutionTechniquesOutputTypeDef(TypedDict):
+    resolutionType: ResolutionTypeType
+    ruleBasedProperties: NotRequired[RuleBasedPropertiesOutputTypeDef]
+    ruleConditionProperties: NotRequired[RuleConditionPropertiesOutputTypeDef]
+    providerProperties: NotRequired[ProviderPropertiesOutputTypeDef]
+
+
+class ResolutionTechniquesTypeDef(TypedDict):
+    resolutionType: ResolutionTypeType
+    ruleBasedProperties: NotRequired[RuleBasedPropertiesTypeDef]
+    ruleConditionProperties: NotRequired[RuleConditionPropertiesTypeDef]
+    providerProperties: NotRequired[ProviderPropertiesTypeDef]
 
 
 CreateIdNamespaceOutputTypeDef = TypedDict(
@@ -1024,6 +1042,11 @@ class UpdateIdMappingWorkflowOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+IdMappingTechniquesUnionTypeDef = Union[
+    IdMappingTechniquesTypeDef, IdMappingTechniquesOutputTypeDef
+]
+
+
 class CreateMatchingWorkflowOutputTypeDef(TypedDict):
     workflowName: str
     workflowArn: str
@@ -1062,9 +1085,6 @@ class UpdateMatchingWorkflowOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-IdMappingTechniquesUnionTypeDef = Union[
-    IdMappingTechniquesTypeDef, IdMappingTechniquesOutputTypeDef
-]
 ResolutionTechniquesUnionTypeDef = Union[
     ResolutionTechniquesTypeDef, ResolutionTechniquesOutputTypeDef
 ]

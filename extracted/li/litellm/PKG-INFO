@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.74.9.post1
+Version: 1.74.12
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: caching
 Provides-Extra: extra-proxy
+Provides-Extra: mlflow
 Provides-Extra: proxy
 Provides-Extra: semantic-router
 Provides-Extra: utils
@@ -37,8 +38,9 @@ Requires-Dist: importlib-metadata (>=6.8.0)
 Requires-Dist: jinja2 (>=3.1.2,<4.0.0)
 Requires-Dist: jsonschema (>=4.22.0,<5.0.0)
 Requires-Dist: litellm-enterprise (==0.1.16) ; extra == "proxy"
-Requires-Dist: litellm-proxy-extras (==0.2.12) ; extra == "proxy"
-Requires-Dist: mcp (==1.10.0) ; (python_version >= "3.10") and (extra == "proxy")
+Requires-Dist: litellm-proxy-extras (==0.2.14) ; extra == "proxy"
+Requires-Dist: mcp (>=1.10.0,<2.0.0) ; (python_version >= "3.10") and (extra == "proxy")
+Requires-Dist: mlflow (>3.1.4) ; (python_version >= "3.10") and (extra == "mlflow")
 Requires-Dist: numpydoc ; extra == "utils"
 Requires-Dist: openai (>=1.68.2)
 Requires-Dist: orjson (>=3.9.7,<4.0.0) ; extra == "proxy"

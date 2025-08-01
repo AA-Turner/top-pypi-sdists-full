@@ -109,6 +109,5 @@ class CmdInjection(BaseRule):
         # TODO: PYT-3088
         #  deserialization_rule = Settings().protect_rules[Deserialization.RULE_NAME]
         #  deserialization_rule.check_for_deserialization()
-        pass
 
         super()._infilter(match_string, **kwargs)

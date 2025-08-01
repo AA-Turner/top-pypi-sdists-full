@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-sesv2
-Version: 1.39.9
-Summary: Type annotations for boto3 SESV2 1.39.9 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.0
+Summary: Type annotations for boto3 SESV2 1.40.0 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SESV2 1.39.9](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SESV2 1.40.0](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.39.9' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SESV2` service.
 4. Use provided commands to install generated packages.
@@ -351,7 +351,13 @@ paginators.
 from boto3.session import Session
 
 from mypy_boto3_sesv2 import SESV2Client
-from mypy_boto3_sesv2.paginator import ListMultiRegionEndpointsPaginator
+from mypy_boto3_sesv2.paginator import (
+    ListMultiRegionEndpointsPaginator,
+    ListReputationEntitiesPaginator,
+    ListResourceTenantsPaginator,
+    ListTenantResourcesPaginator,
+    ListTenantsPaginator,
+)
 
 client: SESV2Client = Session().client("sesv2")
 
@@ -360,6 +366,16 @@ client: SESV2Client = Session().client("sesv2")
 list_multi_region_endpoints_paginator: ListMultiRegionEndpointsPaginator = client.get_paginator(
     "list_multi_region_endpoints"
 )
+list_reputation_entities_paginator: ListReputationEntitiesPaginator = client.get_paginator(
+    "list_reputation_entities"
+)
+list_resource_tenants_paginator: ListResourceTenantsPaginator = client.get_paginator(
+    "list_resource_tenants"
+)
+list_tenant_resources_paginator: ListTenantResourcesPaginator = client.get_paginator(
+    "list_tenant_resources"
+)
+list_tenants_paginator: ListTenantsPaginator = client.get_paginator("list_tenants")
 ```
 
 <a id="literals"></a>

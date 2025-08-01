@@ -4,21 +4,16 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-setuptools"
-version = "80.9.0.20250529"
+version = "80.9.0.20250801"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for setuptools"
 readme = { text = """\
 ## Typing stubs for setuptools
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`setuptools`](https://github.com/pypa/setuptools) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `setuptools`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`setuptools`](https://github.com/pypa/setuptools) package. It can be used by type checkers
+to check code that uses `setuptools`. This version of
 `types-setuptools` aims to provide accurate annotations for
 `setuptools==80.9.*`.
 
@@ -31,12 +26,11 @@ for more details. The source for this package can be found in the
 [`stubs/setuptools`](https://github.com/python/typeshed/tree/main/stubs/setuptools)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
 It was generated from typeshed commit
-[`c30f63140c4c81124e44baaf997b67f88e8febb4`](https://github.com/python/typeshed/commit/c30f63140c4c81124e44baaf997b67f88e8febb4).
+[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

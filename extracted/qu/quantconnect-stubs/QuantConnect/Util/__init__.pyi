@@ -1136,6 +1136,9 @@ class CurrencyPairUtil(System.Object):
         INVERSE_MATCH = 2
         """The two currency pairs are the inverse of each other"""
 
+        def __int__(self) -> int:
+            ...
+
     @staticmethod
     def compare_pair(pair_a: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], base_currency_b: str, quote_currency_b: str) -> QuantConnect.Util.CurrencyPairUtil.Match:
         """
@@ -1602,6 +1605,9 @@ class ComparisonOperatorTypes(Enum):
 
     LESS_OR_EQUAL = 5
     """Checks left-hand operand is less or equal to its right-hand operand"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class SecurityExtensions(System.Object):

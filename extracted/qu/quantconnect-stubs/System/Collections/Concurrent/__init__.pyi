@@ -1054,6 +1054,9 @@ class EnumerablePartitionerOptions(Enum):
     that it, itself, is responsible for processing).
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
     """Represents a particular manner of splitting a data source into multiple partitions."""

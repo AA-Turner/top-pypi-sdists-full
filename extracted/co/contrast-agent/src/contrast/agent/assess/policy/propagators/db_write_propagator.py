@@ -58,7 +58,6 @@ class DBWritePropagator(BasePropagator):
         an instance of an ORM model, such as django's Model class. If it
         were a string instead, we would track it.
         """
-        pass
 
     def add_tags_and_properties(self, ret):
         """
@@ -67,7 +66,6 @@ class DBWritePropagator(BasePropagator):
         work inside self.propagate(). Later on we could refactor
         to move the work here.
         """
-        pass
 
     def propagate(self):
         from contrast.agent.policy.applicator import apply_patch_to_dynamic_property

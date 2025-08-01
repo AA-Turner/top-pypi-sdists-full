@@ -11,7 +11,7 @@ import functools
 from typing import Callable
 from localstack import config,constants
 from localstack.aws.forwarder import HttpFallbackDispatcher
-from localstack.pro.core import config as config_ext
+from localstack.pro.core import config as pro_config
 from localstack.services.moto import MotoFallbackDispatcher
 from localstack.services.plugins import PLUGIN_NAMESPACE,Service,ServicePluginAdapter
 from plux import PluginSpec
@@ -90,7 +90,7 @@ def codeconnections():from localstack.pro.core.services.codeconnections.provider
 def cognito_identity():from localstack.pro.core.services.cognito_identity.provider import CognitoIdentityProvider as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
 @pro_aws_provider(api='cognito-idp')
 def cognito_idp():from localstack.pro.core.services.cognito_idp.provider import CognitoIdpProvider as A;B=A();return Service.for_provider(B)
-@pro_aws_provider(should_load=lambda:is_pro_activated()and config_ext.ENABLE_DMS)
+@pro_aws_provider(should_load=lambda:is_pro_activated()and pro_config.ENABLE_DMS)
 def dms():from localstack.pro.core.services.dms.provider import DmsProvider as A;B=A();return Service.for_provider(B)
 @pro_aws_provider()
 def docdb():from localstack.pro.core.services.docdb import docdb_api as A;return Service('docdb',start=A.start_docdb)
@@ -161,7 +161,7 @@ def mwaa():from localstack.pro.core.services.mwaa.provider import MwaaProvider a
 @pro_aws_provider()
 def neptune():from localstack.pro.core.services.neptune import neptune_api as A;return Service('neptune',start=A.start_neptune)
 @pro_aws_provider()
-def organizations():from localstack.pro.core.services.organizations.provider import OrganizationsProvider as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
+def organizations():from localstack.pro.core.services.organizations.provider import OrganizationsProvider as A;B=A();return Service.for_provider(B)
 @pro_aws_provider(api='pinpoint')
 def pinpoint():from localstack.pro.core.services.pinpoint.provider import PinpointProvider as A;from localstack.services.moto import MotoFallbackDispatcher as B;C=A();return Service.for_provider(C,dispatch_table_factory=B)
 @pro_aws_provider()

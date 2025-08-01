@@ -192,6 +192,8 @@ ExperimentEntityNameOrArn = str
 ExperimentSourceArn = str
 ExpiresInSeconds = int
 ExplainabilityLocation = str
+FSxLustrePerUnitStorageThroughput = int
+FSxLustreSizeInGiB = int
 FailureReason = str
 FairShareWeight = int
 FeatureDescription = str
@@ -310,6 +312,8 @@ LineageGroupArn = str
 LineageGroupNameOrArn = str
 ListMaxResults = int
 ListTagsMaxResults = int
+LocalPath = str
+LongS3Uri = str
 MLFramework = str
 ManagedInstanceScalingMaxInstanceCount = int
 ManagedInstanceScalingMinInstanceCount = int
@@ -419,6 +423,8 @@ PipelineExecutionName = str
 PipelineName = str
 PipelineNameOrArn = str
 PipelineParameterName = str
+PipelineVersionDescription = str
+PipelineVersionName = str
 PlatformIdentifier = str
 PolicyString = str
 PresignedDomainUrl = str
@@ -476,6 +482,7 @@ ResourceCatalogArn = str
 ResourceCatalogDescription = str
 ResourceCatalogName = str
 ResourceId = str
+ResourceIdentifier = str
 ResourcePolicyString = str
 ResourcePropertyName = str
 ResourceRetainedBillableTimeInSeconds = int
@@ -484,6 +491,7 @@ RoleArn = str
 RuleConfigurationName = str
 S3ModelUri = str
 S3OutputPath = str
+S3SchemaUri = str
 S3Uri = str
 SageMakerImageVersionAlias = str
 SageMakerPublicHubContentArn = str
@@ -498,6 +506,7 @@ ServerlessMemorySizeInMB = int
 ServerlessProvisionedConcurrency = int
 ServiceCatalogEntityId = str
 SessionExpirationDurationInSeconds = int
+SessionId = str
 SingleSignOnApplicationArn = str
 SingleSignOnUserIdentifier = str
 SnsTopicArn = str
@@ -513,6 +522,7 @@ StatusMessage = str
 StepDescription = str
 StepDisplayName = str
 StepName = str
+StreamUrl = str
 String = str
 String1024 = str
 String128 = str
@@ -551,6 +561,7 @@ TextGenerationHyperParameterKey = str
 TextGenerationHyperParameterValue = str
 ThingName = str
 TimestampAttributeName = str
+TokenValue = str
 TotalInstanceCount = int
 TrackingServerArn = str
 TrackingServerName = str
@@ -3008,6 +3019,7 @@ class ReservedCapacityInstanceType(StrEnum):
     ml_trn1_32xlarge = "ml.trn1.32xlarge"
     ml_trn2_48xlarge = "ml.trn2.48xlarge"
     ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
+    ml_p4de_24xlarge = "ml.p4de.24xlarge"
 
 
 class ReservedCapacityStatus(StrEnum):
@@ -3051,6 +3063,7 @@ class ResourceType(StrEnum):
     Project = "Project"
     HyperParameterTuningJob = "HyperParameterTuningJob"
     ModelCard = "ModelCard"
+    PipelineVersion = "PipelineVersion"
 
 
 class RetentionType(StrEnum):
@@ -3806,6 +3819,11 @@ class WarmPoolResourceStatus(StrEnum):
     Terminated = "Terminated"
     Reused = "Reused"
     InUse = "InUse"
+
+
+class WorkforceIpAddressType(StrEnum):
+    ipv4 = "ipv4"
+    dualstack = "dualstack"
 
 
 class WorkforceStatus(StrEnum):
@@ -4654,9 +4672,7 @@ class IamIdentity(TypedDict, total=False):
 
 
 class UserContext(TypedDict, total=False):
-    """Information about the user who created or modified an experiment, trial,
-    trial component, lineage group, project, or model card.
-    """
+    """Information about the user who created or modified a SageMaker resource."""
 
     UserProfileArn: Optional[String]
     UserProfileName: Optional[String]
@@ -4742,6 +4758,18 @@ class AthenaDatasetDefinition(TypedDict, total=False):
 AuthenticationRequestExtraParams = Dict[
     AuthenticationRequestExtraParamsKey, AuthenticationRequestExtraParamsValue
 ]
+
+
+class AuthorizedUrl(TypedDict, total=False):
+    """Contains a presigned URL and its associated local file path for
+    downloading hub content artifacts.
+    """
+
+    Url: Optional[LongS3Uri]
+    LocalPath: Optional[LocalPath]
+
+
+AuthorizedUrlConfigs = List[AuthorizedUrl]
 AutoMLAlgorithms = List[AutoMLAlgorithm]
 
 
@@ -5272,7 +5300,7 @@ ClusterNodeIds = List[ClusterNodeId]
 
 class BatchDeleteClusterNodesRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    NodeIds: ClusterNodeIds
+    NodeIds: Optional[ClusterNodeIds]
 
 
 class BatchDeleteClusterNodesResponse(TypedDict, total=False):
@@ -5815,7 +5843,7 @@ class ClusterEbsVolumeConfig(TypedDict, total=False):
     2024 <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-release-notes.html#sagemaker-hyperpod-release-notes-20240620>`__.
     """
 
-    VolumeSizeInGB: ClusterEbsVolumeSizeInGB
+    VolumeSizeInGB: Optional[ClusterEbsVolumeSizeInGB]
 
 
 class RollingDeploymentPolicy(TypedDict, total=False):
@@ -5973,6 +6001,73 @@ class ClusterOrchestrator(TypedDict, total=False):
     """The type of orchestrator used for the SageMaker HyperPod cluster."""
 
     Eks: ClusterOrchestratorEksConfig
+
+
+class FSxLustreConfig(TypedDict, total=False):
+    """Configuration settings for an Amazon FSx for Lustre file system to be
+    used with the cluster.
+    """
+
+    SizeInGiB: FSxLustreSizeInGiB
+    PerUnitStorageThroughput: FSxLustrePerUnitStorageThroughput
+
+
+class EnvironmentConfigDetails(TypedDict, total=False):
+    """The configuration details for the restricted instance groups (RIG)
+    environment.
+    """
+
+    FSxLustreConfig: Optional[FSxLustreConfig]
+    S3OutputPath: Optional[S3Uri]
+
+
+class ClusterRestrictedInstanceGroupDetails(TypedDict, total=False):
+    """The instance group details of the restricted instance group (RIG)."""
+
+    CurrentCount: Optional[ClusterNonNegativeInstanceCount]
+    TargetCount: Optional[ClusterInstanceCount]
+    InstanceGroupName: Optional[ClusterInstanceGroupName]
+    InstanceType: Optional[ClusterInstanceType]
+    ExecutionRole: Optional[RoleArn]
+    ThreadsPerCore: Optional[ClusterThreadsPerCore]
+    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
+    OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
+    Status: Optional[InstanceGroupStatus]
+    TrainingPlanArn: Optional[TrainingPlanArn]
+    TrainingPlanStatus: Optional[InstanceGroupTrainingPlanStatus]
+    OverrideVpcConfig: Optional[VpcConfig]
+    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
+    EnvironmentConfig: Optional[EnvironmentConfigDetails]
+
+
+ClusterRestrictedInstanceGroupDetailsList = List[ClusterRestrictedInstanceGroupDetails]
+
+
+class EnvironmentConfig(TypedDict, total=False):
+    """The configuration for the restricted instance groups (RIG) environment."""
+
+    FSxLustreConfig: Optional[FSxLustreConfig]
+
+
+class ClusterRestrictedInstanceGroupSpecification(TypedDict, total=False):
+    """The specifications of a restricted instance group that you need to
+    define.
+    """
+
+    InstanceCount: ClusterInstanceCount
+    InstanceGroupName: ClusterInstanceGroupName
+    InstanceType: ClusterInstanceType
+    ExecutionRole: RoleArn
+    ThreadsPerCore: Optional[ClusterThreadsPerCore]
+    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
+    OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
+    TrainingPlanArn: Optional[TrainingPlanArn]
+    OverrideVpcConfig: Optional[VpcConfig]
+    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
+    EnvironmentConfig: EnvironmentConfig
+
+
+ClusterRestrictedInstanceGroupSpecifications = List[ClusterRestrictedInstanceGroupSpecification]
 
 
 class ClusterSchedulerConfigSummary(TypedDict, total=False):
@@ -6152,7 +6247,7 @@ class ComputeQuotaResourceConfig(TypedDict, total=False):
     """
 
     InstanceType: ClusterInstanceType
-    Count: InstanceCount
+    Count: Optional[InstanceCount]
 
 
 ComputeQuotaResourceConfigList = List[ComputeQuotaResourceConfig]
@@ -6491,7 +6586,8 @@ class CreateAutoMLJobV2Response(TypedDict, total=False):
 
 class CreateClusterRequest(ServiceRequest):
     ClusterName: ClusterName
-    InstanceGroups: ClusterInstanceGroupSpecifications
+    InstanceGroups: Optional[ClusterInstanceGroupSpecifications]
+    RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupSpecifications]
     VpcConfig: Optional[VpcConfig]
     Tags: Optional[TagList]
     Orchestrator: Optional[ClusterOrchestrator]
@@ -6804,6 +6900,13 @@ class CreateDeviceFleetRequest(ServiceRequest):
     EnableIotRoleAlias: Optional[EnableIotRoleAlias]
 
 
+class S3FileSystemConfig(TypedDict, total=False):
+    """Configuration for the custom Amazon S3 file system."""
+
+    MountPath: Optional[String1024]
+    S3Uri: Optional[S3SchemaUri]
+
+
 class FSxLustreFileSystemConfig(TypedDict, total=False):
     """The settings for assigning a custom Amazon FSx for Lustre file system to
     a user profile or space for an Amazon SageMaker Domain.
@@ -6830,6 +6933,7 @@ class CustomFileSystemConfig(TypedDict, total=False):
 
     EFSFileSystemConfig: Optional[EFSFileSystemConfig]
     FSxLustreFileSystemConfig: Optional[FSxLustreFileSystemConfig]
+    S3FileSystemConfig: Optional[S3FileSystemConfig]
 
 
 CustomFileSystemConfigs = List[CustomFileSystemConfig]
@@ -7076,8 +7180,8 @@ class CreateDomainRequest(ServiceRequest):
     AuthMode: AuthMode
     DefaultUserSettings: UserSettings
     DomainSettings: Optional[DomainSettings]
-    SubnetIds: Subnets
-    VpcId: VpcId
+    SubnetIds: Optional[Subnets]
+    VpcId: Optional[VpcId]
     Tags: Optional[TagList]
     AppNetworkAccessType: Optional[AppNetworkAccessType]
     HomeEfsFileSystemKmsKeyId: Optional[KmsKeyId]
@@ -7721,6 +7825,30 @@ class CreateFlowDefinitionRequest(ServiceRequest):
 
 class CreateFlowDefinitionResponse(TypedDict, total=False):
     FlowDefinitionArn: FlowDefinitionArn
+
+
+class PresignedUrlAccessConfig(TypedDict, total=False):
+    """Configuration for accessing hub content through presigned URLs,
+    including license agreement acceptance and URL validation settings.
+    """
+
+    AcceptEula: Optional[Boolean]
+    ExpectedS3Url: Optional[S3ModelUri]
+
+
+class CreateHubContentPresignedUrlsRequest(ServiceRequest):
+    HubName: HubNameOrArn
+    HubContentType: HubContentType
+    HubContentName: HubContentName
+    HubContentVersion: Optional[HubContentVersion]
+    AccessConfig: Optional[PresignedUrlAccessConfig]
+    MaxResults: Optional[MaxResults]
+    NextToken: Optional[NextToken]
+
+
+class CreateHubContentPresignedUrlsResponse(TypedDict, total=False):
+    AuthorizedUrlConfigs: AuthorizedUrlConfigs
+    NextToken: Optional[NextToken]
 
 
 class CreateHubContentReferenceRequest(ServiceRequest):
@@ -9530,6 +9658,14 @@ class OwnershipSettings(TypedDict, total=False):
     OwnerUserProfileName: UserProfileName
 
 
+class S3FileSystem(TypedDict, total=False):
+    """A custom file system in Amazon S3. This is only supported in Amazon
+    SageMaker Unified Studio.
+    """
+
+    S3Uri: Optional[S3SchemaUri]
+
+
 class FSxLustreFileSystem(TypedDict, total=False):
     """A custom file system in Amazon FSx for Lustre."""
 
@@ -9553,6 +9689,7 @@ class CustomFileSystem(TypedDict, total=False):
 
     EFSFileSystem: Optional[EFSFileSystem]
     FSxLustreFileSystem: Optional[FSxLustreFileSystem]
+    S3FileSystem: Optional[S3FileSystem]
 
 
 CustomFileSystems = List[CustomFileSystem]
@@ -9612,6 +9749,7 @@ class SpaceSettings(TypedDict, total=False):
     SpaceStorageSettings: Optional[SpaceStorageSettings]
     SpaceManagedResources: Optional[FeatureStatus]
     CustomFileSystems: Optional[CustomFileSystems]
+    RemoteAccess: Optional[FeatureStatus]
 
 
 class CreateSpaceRequest(ServiceRequest):
@@ -9968,6 +10106,7 @@ class CreateWorkforceRequest(ServiceRequest):
     WorkforceName: WorkforceName
     Tags: Optional[TagList]
     WorkforceVpcConfig: Optional[WorkforceVpcConfigRequest]
+    IpAddressType: Optional[WorkforceIpAddressType]
 
 
 class CreateWorkforceResponse(TypedDict, total=False):
@@ -10665,7 +10804,7 @@ class DescribeAutoMLJobV2Response(TypedDict, total=False):
 
 class DescribeClusterNodeRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    NodeId: ClusterNodeId
+    NodeId: Optional[ClusterNodeId]
 
 
 class DescribeClusterNodeResponse(TypedDict, total=False):
@@ -10683,6 +10822,7 @@ class DescribeClusterResponse(TypedDict, total=False):
     CreationTime: Optional[Timestamp]
     FailureMessage: Optional[String]
     InstanceGroups: ClusterInstanceGroupDetailsList
+    RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupDetailsList]
     VpcConfig: Optional[VpcConfig]
     Orchestrator: Optional[ClusterOrchestrator]
     NodeRecovery: Optional[ClusterNodeRecovery]
@@ -12092,6 +12232,9 @@ class DescribePipelineExecutionRequest(ServiceRequest):
     PipelineExecutionArn: PipelineExecutionArn
 
 
+PipelineVersionId = int
+
+
 class SelectedStep(TypedDict, total=False):
     """A step selected to run in selective execution mode."""
 
@@ -12129,10 +12272,12 @@ class DescribePipelineExecutionResponse(TypedDict, total=False):
     LastModifiedBy: Optional[UserContext]
     ParallelismConfiguration: Optional[ParallelismConfiguration]
     SelectiveExecutionConfig: Optional[SelectiveExecutionConfig]
+    PipelineVersionId: Optional[PipelineVersionId]
 
 
 class DescribePipelineRequest(ServiceRequest):
     PipelineName: PipelineNameOrArn
+    PipelineVersionId: Optional[PipelineVersionId]
 
 
 class DescribePipelineResponse(TypedDict, total=False):
@@ -12149,6 +12294,8 @@ class DescribePipelineResponse(TypedDict, total=False):
     CreatedBy: Optional[UserContext]
     LastModifiedBy: Optional[UserContext]
     ParallelismConfiguration: Optional[ParallelismConfiguration]
+    PipelineVersionDisplayName: Optional[PipelineVersionName]
+    PipelineVersionDescription: Optional[PipelineVersionDescription]
 
 
 class DescribeProcessingJobRequest(ServiceRequest):
@@ -12602,6 +12749,7 @@ class Workforce(TypedDict, total=False):
     WorkforceVpcConfig: Optional[WorkforceVpcConfigResponse]
     Status: Optional[WorkforceStatus]
     FailureReason: Optional[WorkforceFailureReason]
+    IpAddressType: Optional[WorkforceIpAddressType]
 
 
 class DescribeWorkforceResponse(TypedDict, total=False):
@@ -14994,6 +15142,34 @@ class ListPipelineParametersForExecutionResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class ListPipelineVersionsRequest(ServiceRequest):
+    PipelineName: PipelineNameOrArn
+    CreatedAfter: Optional[Timestamp]
+    CreatedBefore: Optional[Timestamp]
+    SortOrder: Optional[SortOrder]
+    NextToken: Optional[NextToken]
+    MaxResults: Optional[MaxResults]
+
+
+class PipelineVersionSummary(TypedDict, total=False):
+    """The summary of the pipeline version."""
+
+    PipelineArn: Optional[PipelineArn]
+    PipelineVersionId: Optional[PipelineVersionId]
+    CreationTime: Optional[Timestamp]
+    PipelineVersionDescription: Optional[PipelineVersionDescription]
+    PipelineVersionDisplayName: Optional[PipelineVersionName]
+    LastExecutionPipelineExecutionArn: Optional[PipelineExecutionArn]
+
+
+PipelineVersionSummaryList = List[PipelineVersionSummary]
+
+
+class ListPipelineVersionsResponse(TypedDict, total=False):
+    PipelineVersionSummaries: Optional[PipelineVersionSummaryList]
+    NextToken: Optional[NextToken]
+
+
 class ListPipelinesRequest(ServiceRequest):
     PipelineNamePrefix: Optional[PipelineName]
     CreatedAfter: Optional[Timestamp]
@@ -15146,6 +15322,7 @@ class SpaceSettingsSummary(TypedDict, total=False):
     """Specifies summary information about the space settings."""
 
     AppType: Optional[AppType]
+    RemoteAccess: Optional[FeatureStatus]
     SpaceStorageSettings: Optional[SpaceStorageSettings]
 
 
@@ -15797,6 +15974,24 @@ class PipelineExecution(TypedDict, total=False):
     ParallelismConfiguration: Optional[ParallelismConfiguration]
     SelectiveExecutionConfig: Optional[SelectiveExecutionConfig]
     PipelineParameters: Optional[ParameterList]
+    PipelineVersionId: Optional[PipelineVersionId]
+    PipelineVersionDisplayName: Optional[PipelineVersionName]
+
+
+class PipelineVersion(TypedDict, total=False):
+    """The version of the pipeline."""
+
+    PipelineArn: Optional[PipelineArn]
+    PipelineVersionId: Optional[PipelineVersionId]
+    PipelineVersionDisplayName: Optional[PipelineVersionName]
+    PipelineVersionDescription: Optional[PipelineVersionDescription]
+    CreationTime: Optional[Timestamp]
+    LastModifiedTime: Optional[Timestamp]
+    CreatedBy: Optional[UserContext]
+    LastModifiedBy: Optional[UserContext]
+    LastExecutedPipelineExecutionArn: Optional[PipelineExecutionArn]
+    LastExecutedPipelineExecutionDisplayName: Optional[PipelineExecutionName]
+    LastExecutedPipelineExecutionStatus: Optional[PipelineExecutionStatus]
 
 
 class ProcessingJob(TypedDict, total=False):
@@ -16165,6 +16360,7 @@ class SearchRecord(TypedDict, total=False):
     ModelPackageGroup: Optional[ModelPackageGroup]
     Pipeline: Optional[Pipeline]
     PipelineExecution: Optional[PipelineExecution]
+    PipelineVersion: Optional[PipelineVersion]
     FeatureGroup: Optional[FeatureGroup]
     FeatureMetadata: Optional[FeatureMetadata]
     Project: Optional[Project]
@@ -16330,10 +16526,21 @@ class StartPipelineExecutionRequest(ServiceRequest):
     ClientRequestToken: IdempotencyToken
     ParallelismConfiguration: Optional[ParallelismConfiguration]
     SelectiveExecutionConfig: Optional[SelectiveExecutionConfig]
+    PipelineVersionId: Optional[PipelineVersionId]
 
 
 class StartPipelineExecutionResponse(TypedDict, total=False):
     PipelineExecutionArn: Optional[PipelineExecutionArn]
+
+
+class StartSessionRequest(ServiceRequest):
+    ResourceIdentifier: ResourceIdentifier
+
+
+class StartSessionResponse(TypedDict, total=False):
+    SessionId: Optional[SessionId]
+    StreamUrl: Optional[StreamUrl]
+    TokenValue: Optional[TokenValue]
 
 
 class StopAutoMLJobRequest(ServiceRequest):
@@ -16466,7 +16673,8 @@ class UpdateArtifactResponse(TypedDict, total=False):
 
 class UpdateClusterRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    InstanceGroups: ClusterInstanceGroupSpecifications
+    InstanceGroups: Optional[ClusterInstanceGroupSpecifications]
+    RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupSpecifications]
     NodeRecovery: Optional[ClusterNodeRecovery]
     InstanceGroupsToDelete: Optional[ClusterInstanceGroupsToDelete]
 
@@ -16872,6 +17080,19 @@ class UpdatePipelineRequest(ServiceRequest):
 
 class UpdatePipelineResponse(TypedDict, total=False):
     PipelineArn: Optional[PipelineArn]
+    PipelineVersionId: Optional[PipelineVersionId]
+
+
+class UpdatePipelineVersionRequest(ServiceRequest):
+    PipelineArn: PipelineArn
+    PipelineVersionId: PipelineVersionId
+    PipelineVersionDisplayName: Optional[PipelineVersionName]
+    PipelineVersionDescription: Optional[PipelineVersionDescription]
+
+
+class UpdatePipelineVersionResponse(TypedDict, total=False):
+    PipelineArn: Optional[PipelineArn]
+    PipelineVersionId: Optional[PipelineVersionId]
 
 
 class UpdateTemplateProvider(TypedDict, total=False):
@@ -16962,6 +17183,7 @@ class UpdateWorkforceRequest(ServiceRequest):
     SourceIpConfig: Optional[SourceIpConfig]
     OidcConfig: Optional[OidcConfig]
     WorkforceVpcConfig: Optional[WorkforceVpcConfigRequest]
+    IpAddressType: Optional[WorkforceIpAddressType]
 
 
 class UpdateWorkforceResponse(TypedDict, total=False):
@@ -17077,7 +17299,7 @@ class SagemakerApi:
         self,
         context: RequestContext,
         cluster_name: ClusterNameOrArn,
-        node_ids: ClusterNodeIds,
+        node_ids: ClusterNodeIds | None = None,
         **kwargs,
     ) -> BatchDeleteClusterNodesResponse:
         """Deletes specific nodes within a SageMaker HyperPod cluster.
@@ -17453,7 +17675,8 @@ class SagemakerApi:
         self,
         context: RequestContext,
         cluster_name: ClusterName,
-        instance_groups: ClusterInstanceGroupSpecifications,
+        instance_groups: ClusterInstanceGroupSpecifications | None = None,
+        restricted_instance_groups: ClusterRestrictedInstanceGroupSpecifications | None = None,
         vpc_config: VpcConfig | None = None,
         tags: TagList | None = None,
         orchestrator: ClusterOrchestrator | None = None,
@@ -17469,6 +17692,8 @@ class SagemakerApi:
 
         :param cluster_name: The name for the new SageMaker HyperPod cluster.
         :param instance_groups: The instance groups to be created in the SageMaker HyperPod cluster.
+        :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to
+        be created in the SageMaker HyperPod cluster.
         :param vpc_config: Specifies the Amazon Virtual Private Cloud (VPC) that is associated with
         the Amazon SageMaker HyperPod cluster.
         :param tags: Custom tags for managing the SageMaker HyperPod cluster as an Amazon Web
@@ -17734,9 +17959,9 @@ class SagemakerApi:
         domain_name: DomainName,
         auth_mode: AuthMode,
         default_user_settings: UserSettings,
-        subnet_ids: Subnets,
-        vpc_id: VpcId,
         domain_settings: DomainSettings | None = None,
+        subnet_ids: Subnets | None = None,
+        vpc_id: VpcId | None = None,
         tags: TagList | None = None,
         app_network_access_type: AppNetworkAccessType | None = None,
         home_efs_file_system_kms_key_id: KmsKeyId | None = None,
@@ -17799,10 +18024,10 @@ class SagemakerApi:
         :param default_user_settings: The default settings to use to create a user profile when
         ``UserSettings`` isn't specified in the call to the
         ``CreateUserProfile`` API.
+        :param domain_settings: A collection of ``Domain`` settings.
         :param subnet_ids: The VPC subnets that the domain uses for communication.
         :param vpc_id: The ID of the Amazon Virtual Private Cloud (VPC) that the domain uses
         for communication.
-        :param domain_settings: A collection of ``Domain`` settings.
         :param tags: Tags to associated with the Domain.
         :param app_network_access_type: Specifies the VPC used for non-EFS traffic.
         :param home_efs_file_system_kms_key_id: Use ``KmsKeyId``.
@@ -18249,6 +18474,39 @@ class SagemakerApi:
         :returns: CreateHubResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
+        """
+        raise NotImplementedError
+
+    @handler("CreateHubContentPresignedUrls")
+    def create_hub_content_presigned_urls(
+        self,
+        context: RequestContext,
+        hub_name: HubNameOrArn,
+        hub_content_type: HubContentType,
+        hub_content_name: HubContentName,
+        hub_content_version: HubContentVersion | None = None,
+        access_config: PresignedUrlAccessConfig | None = None,
+        max_results: MaxResults | None = None,
+        next_token: NextToken | None = None,
+        **kwargs,
+    ) -> CreateHubContentPresignedUrlsResponse:
+        """Creates presigned URLs for accessing hub content artifacts. This
+        operation generates time-limited, secure URLs that allow direct download
+        of model artifacts and associated files from Amazon SageMaker hub
+        content, including gated models that require end-user license agreement
+        acceptance.
+
+        :param hub_name: The name or Amazon Resource Name (ARN) of the hub that contains the
+        content.
+        :param hub_content_type: The type of hub content to access.
+        :param hub_content_name: The name of the hub content for which to generate presigned URLs.
+        :param hub_content_version: The version of the hub content.
+        :param access_config: Configuration settings for accessing the hub content, including end-user
+        license agreement acceptance for gated models and expected S3 URL
+        validation.
+        :param max_results: The maximum number of presigned URLs to return in the response.
+        :param next_token: A token for pagination.
+        :returns: CreateHubContentPresignedUrlsResponse
         """
         raise NotImplementedError
 
@@ -19943,6 +20201,7 @@ class SagemakerApi:
         source_ip_config: SourceIpConfig | None = None,
         tags: TagList | None = None,
         workforce_vpc_config: WorkforceVpcConfigRequest | None = None,
+        ip_address_type: WorkforceIpAddressType | None = None,
         **kwargs,
     ) -> CreateWorkforceResponse:
         """Use this operation to create a workforce. This operation will return an
@@ -19978,6 +20237,9 @@ class SagemakerApi:
         :param tags: An array of key-value pairs that contain metadata to help you categorize
         and organize our workforce.
         :param workforce_vpc_config: Use this parameter to configure a workforce using VPC.
+        :param ip_address_type: Use this parameter to specify whether you want ``IPv4`` only or
+        ``dualstack`` (``IPv4`` and ``IPv6``) to support your labeling
+        workforce.
         :returns: CreateWorkforceResponse
         """
         raise NotImplementedError
@@ -20987,7 +21249,7 @@ class SagemakerApi:
         self,
         context: RequestContext,
         cluster_name: ClusterNameOrArn,
-        node_id: ClusterNodeId,
+        node_id: ClusterNodeId | None = None,
         **kwargs,
     ) -> DescribeClusterNodeResponse:
         """Retrieves information of a node (also called a *instance*
@@ -21595,11 +21857,16 @@ class SagemakerApi:
 
     @handler("DescribePipeline")
     def describe_pipeline(
-        self, context: RequestContext, pipeline_name: PipelineNameOrArn, **kwargs
+        self,
+        context: RequestContext,
+        pipeline_name: PipelineNameOrArn,
+        pipeline_version_id: PipelineVersionId | None = None,
+        **kwargs,
     ) -> DescribePipelineResponse:
         """Describes the details of a pipeline.
 
         :param pipeline_name: The name or Amazon Resource Name (ARN) of the pipeline to describe.
+        :param pipeline_version_id: The ID of the pipeline version to describe.
         :returns: DescribePipelineResponse
         :raises ResourceNotFound:
         """
@@ -22366,7 +22633,8 @@ class SagemakerApi:
         SageMaker HyperPod clusters.
         :param creation_time_before: Set an end time for the time range during which you want to list
         SageMaker HyperPod clusters.
-        :param max_results: Set the maximum number of SageMaker HyperPod clusters to list.
+        :param max_results: Specifies the maximum number of clusters to evaluate for the operation
+        (not necessarily the number of matching items).
         :param name_contains: Set the maximum number of instances to print in the list.
         :param next_token: Set the next token to retrieve the list of SageMaker HyperPod clusters.
         :param sort_by: The field by which to sort results.
@@ -24036,6 +24304,34 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("ListPipelineVersions")
+    def list_pipeline_versions(
+        self,
+        context: RequestContext,
+        pipeline_name: PipelineNameOrArn,
+        created_after: Timestamp | None = None,
+        created_before: Timestamp | None = None,
+        sort_order: SortOrder | None = None,
+        next_token: NextToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListPipelineVersionsResponse:
+        """Gets a list of all versions of the pipeline.
+
+        :param pipeline_name: The Amazon Resource Name (ARN) of the pipeline.
+        :param created_after: A filter that returns the pipeline versions that were created after a
+        specified time.
+        :param created_before: A filter that returns the pipeline versions that were created before a
+        specified time.
+        :param sort_order: The sort order for the results.
+        :param next_token: If the result of the previous ``ListPipelineVersions`` request was
+        truncated, the response includes a ``NextToken``.
+        :param max_results: The maximum number of pipeline versions to return in the response.
+        :returns: ListPipelineVersionsResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("ListPipelines")
     def list_pipelines(
         self,
@@ -24939,6 +25235,7 @@ class SagemakerApi:
         pipeline_execution_description: PipelineExecutionDescription | None = None,
         parallelism_configuration: ParallelismConfiguration | None = None,
         selective_execution_config: SelectiveExecutionConfig | None = None,
+        pipeline_version_id: PipelineVersionId | None = None,
         **kwargs,
     ) -> StartPipelineExecutionResponse:
         """Starts a pipeline execution.
@@ -24952,8 +25249,24 @@ class SagemakerApi:
         :param parallelism_configuration: This configuration, if specified, overrides the parallelism
         configuration of the parent pipeline for this specific run.
         :param selective_execution_config: The selective execution configuration applied to the pipeline run.
+        :param pipeline_version_id: The ID of the pipeline version to start execution from.
         :returns: StartPipelineExecutionResponse
         :raises ConflictException:
+        :raises ResourceNotFound:
+        :raises ResourceLimitExceeded:
+        """
+        raise NotImplementedError
+
+    @handler("StartSession")
+    def start_session(
+        self, context: RequestContext, resource_identifier: ResourceIdentifier, **kwargs
+    ) -> StartSessionResponse:
+        """Initiates a remote connection session between a local integrated
+        development environments (IDEs) and a remote SageMaker space.
+
+        :param resource_identifier: The Amazon Resource Name (ARN) of the resource to which the remote
+        connection will be established.
+        :returns: StartSessionResponse
         :raises ResourceNotFound:
         :raises ResourceLimitExceeded:
         """
@@ -25301,7 +25614,8 @@ class SagemakerApi:
         self,
         context: RequestContext,
         cluster_name: ClusterNameOrArn,
-        instance_groups: ClusterInstanceGroupSpecifications,
+        instance_groups: ClusterInstanceGroupSpecifications | None = None,
+        restricted_instance_groups: ClusterRestrictedInstanceGroupSpecifications | None = None,
         node_recovery: ClusterNodeRecovery | None = None,
         instance_groups_to_delete: ClusterInstanceGroupsToDelete | None = None,
         **kwargs,
@@ -25310,6 +25624,8 @@ class SagemakerApi:
 
         :param cluster_name: Specify the name of the SageMaker HyperPod cluster you want to update.
         :param instance_groups: Specify the instance groups to update.
+        :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to
+        be created in the SageMaker HyperPod cluster.
         :param node_recovery: The node recovery mode to be applied to the SageMaker HyperPod cluster.
         :param instance_groups_to_delete: Specify the names of the instance groups to delete.
         :returns: UpdateClusterResponse
@@ -26212,6 +26528,28 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("UpdatePipelineVersion")
+    def update_pipeline_version(
+        self,
+        context: RequestContext,
+        pipeline_arn: PipelineArn,
+        pipeline_version_id: PipelineVersionId,
+        pipeline_version_display_name: PipelineVersionName | None = None,
+        pipeline_version_description: PipelineVersionDescription | None = None,
+        **kwargs,
+    ) -> UpdatePipelineVersionResponse:
+        """Updates a pipeline version.
+
+        :param pipeline_arn: The Amazon Resource Name (ARN) of the pipeline.
+        :param pipeline_version_id: The pipeline version ID to update.
+        :param pipeline_version_display_name: The display name of the pipeline version.
+        :param pipeline_version_description: The description of the pipeline version.
+        :returns: UpdatePipelineVersionResponse
+        :raises ConflictException:
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("UpdateProject")
     def update_project(
         self,
@@ -26384,6 +26722,7 @@ class SagemakerApi:
         source_ip_config: SourceIpConfig | None = None,
         oidc_config: OidcConfig | None = None,
         workforce_vpc_config: WorkforceVpcConfigRequest | None = None,
+        ip_address_type: WorkforceIpAddressType | None = None,
         **kwargs,
     ) -> UpdateWorkforceResponse:
         """Use this operation to update your workforce. You can use this operation
@@ -26431,6 +26770,9 @@ class SagemakerApi:
         :param oidc_config: Use this parameter to update your OIDC Identity Provider (IdP)
         configuration for a workforce made using your own IdP.
         :param workforce_vpc_config: Use this parameter to update your VPC configuration for a workforce.
+        :param ip_address_type: Use this parameter to specify whether you want ``IPv4`` only or
+        ``dualstack`` (``IPv4`` and ``IPv6``) to support your labeling
+        workforce.
         :returns: UpdateWorkforceResponse
         :raises ConflictException:
         """

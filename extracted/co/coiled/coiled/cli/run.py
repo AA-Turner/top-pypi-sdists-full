@@ -165,7 +165,7 @@ def run_via_ssh(
     connection = get_ssh_connection(cloud, cluster.cluster_id)
     results = None
 
-    original_command = shlex.join(command)
+    original_command = " ".join(command)
     callstack = [{"code": original_command, "relative_line": 0}]
     # Extract and upload files from `command`
     command = shlex.split(original_command)
@@ -233,9 +233,10 @@ def run_via_ssh(
             # once container is suitably changed, we should just be able to use entrypoint like any other container
             entrypoint = "micromamba run -p /opt/coiled/env"
 
-    command_string = shlex.join(command)
-    if not interactive:
-        command_string = wrap_command_for_logs_and_stdout(connection, command_string, original_command)
+    command_string = " ".join(command)
+    command_string = wrap_command_for_logs_and_stdout(
+        connection, command_string, original_command, use_inner_command=interactive
+    )
 
     container_command = command_with_docker_exec(
         command=command_string,
@@ -268,18 +269,25 @@ def run_via_ssh(
 
 
 def wrap_command_for_logs_and_stdout(
-    connection: fabric.connection.Connection, command_string: str, original_command: str
+    connection: fabric.connection.Connection,
+    command_string: str,
+    original_command: str,
+    use_inner_command: bool = False,
 ):
     command_id = f"{datetime.datetime.now(tz=datetime.timezone.utc).isoformat()}_{coiled.utils.short_random_string()}"
 
     inner_command_path = f"{COMMAND_DIR}/{command_id}.sh"
-    tee_command = f"{COMMAND_DIR}/{command_id}-tee.sh"
 
     make_remote_dir(connection, COMMAND_DIR)
 
     # write the user's command as a shell file
     write_via_ssh(connection, command_string, inner_command_path, mode=0o755)
+
+    if use_inner_command:
+        return f"bash {inner_command_path}"
+
     # wrapper file that calls user command, sending output to pseudo-tty and stdout (which goes into logs)
+    tee_command = f"{COMMAND_DIR}/{command_id}-tee.sh"
     escaped_original_command = original_command.replace('"', '"')
     tee_script = f"""
     echo "{escaped_original_command}\t{command_id}" >> {COMMAND_DIR}/list
@@ -445,6 +453,7 @@ def get_entrypoint(connection, container_name) -> str:
 )
 @click.option(
     "--port",
+    "--expose",
     default=[],
     type=int,
     multiple=True,
@@ -681,7 +690,7 @@ def start_run(
             workspace = workspace or cloud.default_workspace
             with LightRichClusterWidget(
                 workspace=workspace,
-                title=f"Running [bold]{shlex.join(command)}[/bold]",
+                title=f"Running [bold]{' '.join(command)}[/bold]",
                 include_total_cost=False,
                 extra_link="..." if open_extra_ports else None,
                 extra_link_title="Server",
@@ -789,7 +798,7 @@ def start_run(
 
         if cluster.cluster_id and not interactive:
             if detach:
-                print(f"Running [green]{shlex.join(command)}[/green] in background.")
+                print(f"Running [green]{' '.join(command)}[/green] in background.")
             else:
                 print()
 

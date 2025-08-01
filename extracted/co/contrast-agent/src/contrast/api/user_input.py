@@ -1,8 +1,8 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Optional
 
 from contrast_agent_lib import constants
 
@@ -93,8 +93,8 @@ _CEF_FMT_FROM_INPUT_TYPE = {
 class UserInput:
     value: str
     type: InputType = InputType.UNKNOWN
-    name: Optional[str] = None
-    path: Optional[str] = None
+    name: str | None = None
+    path: str | None = None
     matcher_ids: list[str] = field(default_factory=list)
     document_type: DocumentType = DocumentType.NORMAL
 

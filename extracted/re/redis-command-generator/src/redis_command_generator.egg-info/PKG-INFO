@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redis_command_generator
-Version: 0.7.3
+Version: 0.7.3.post1
 Summary: Commands generator for Redis
 Author-email: Itay Tzivony <itay.tzivony@redis.com>
 Project-URL: Homepage, https://github.com/redislabsdev/command-generator

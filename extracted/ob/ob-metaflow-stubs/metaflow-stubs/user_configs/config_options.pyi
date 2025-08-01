@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-30T20:52:28.271351                                                            #
+# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-31T17:05:42.514185                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,17 +9,16 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow._vendor.click.types
+    import typing
 
 from .._vendor import click as click
 from .config_parameters import ConfigValue as ConfigValue
 from ..exception import MetaflowException as MetaflowException
 from ..exception import MetaflowInternalError as MetaflowInternalError
+from ..packaging_sys import MetaflowCodeContent as MetaflowCodeContent
 from ..parameters import DeployTimeField as DeployTimeField
 from ..parameters import ParameterContext as ParameterContext
-
-CONFIG_FILE: str
 
 class ConvertPath(metaflow._vendor.click.types.Path, metaclass=type):
     def convert(self, value, param, ctx):

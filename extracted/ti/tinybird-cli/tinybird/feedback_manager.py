@@ -598,6 +598,12 @@ Ready? """
     warning_confirm_delete_branch = prompt_message("Do you want to remove '{branch}' Branch?")
     warning_confirm_delete_release = prompt_message("Do you want to remove Release {semver}?")
     warning_confirm_rollback_release = prompt_message("Do you want to rollback current Release {semver} to {rollback}?")
+    warning_confirm_on_demand_compute = warning_message(
+        "On-demand compute will incur additional costs beyond your regular usage.\n"
+        "This feature uses dedicated compute resources that are billed separately.\n"
+        "You can read more about the pricing at https://www.tinybird.co/docs/classic/work-with-data/process-and-copy/materialized-views#compute-compute-separation-for-populates\n\n"
+        "Do you want to proceed with on-demand compute?"
+    )
 
     warning_confirm_delete_token = prompt_message("Do you want to delete Token {token}?")
     warning_confirm_refresh_token = prompt_message("Do you want to refresh Token {token}?")

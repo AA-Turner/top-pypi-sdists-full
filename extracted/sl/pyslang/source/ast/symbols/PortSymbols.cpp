@@ -1011,9 +1011,9 @@ private:
     }
 
     PortConnection* createConnection(const InterfacePortSymbol& port,
-                                     PortConnection::IfaceConn ifaceConn,
+                                     PortConnection::IfaceConn ifaceConn, const Expression* expr,
                                      std::span<const AttributeSymbol* const> attributes) {
-        auto conn = comp.emplace<PortConnection>(port, ifaceConn.first, ifaceConn.second);
+        auto conn = comp.emplace<PortConnection>(port, ifaceConn, expr);
         if (!attributes.empty())
             comp.setAttributes(*conn, attributes);
 
@@ -1071,8 +1071,8 @@ private:
         if (!expr)
             return emptyConnection(port);
 
-        auto conn = getInterfaceConn(context, port, *expr);
-        return createConnection(port, conn, attributes);
+        auto [conn, connExpr] = getInterfaceConn(context, port, *expr);
+        return createConnection(port, conn, connExpr, attributes);
     }
 
     PortConnection* getImplicitInterface(const InterfacePortSymbol& port, SourceRange range,
@@ -1096,8 +1096,8 @@ private:
         auto idName = comp.emplace<IdentifierNameSyntax>(id);
 
         ASTContext context(scope, lookupLocation, ASTFlags::NonProcedural);
-        auto conn = getInterfaceConn(context, port, *idName);
-        return createConnection(port, conn, attributes);
+        auto [conn, connExpr] = getInterfaceConn(context, port, *idName);
+        return createConnection(port, conn, connExpr, attributes);
     }
 
     static bool areDimSizesEqual(std::span<const ConstantRange> left,
@@ -1139,18 +1139,22 @@ private:
         return comp.emplace<InstanceArraySymbol>(comp, name, loc, newElems.copy(comp), portDims[0]);
     }
 
-    PortConnection::IfaceConn getInterfaceConn(ASTContext& context, const InterfacePortSymbol& port,
-                                               const ExpressionSyntax& syntax) {
+    std::pair<PortConnection::IfaceConn, const Expression*> getInterfaceConn(
+        ASTContext& context, const InterfacePortSymbol& port, const ExpressionSyntax& syntax) {
         SLANG_ASSERT(!port.isInvalid());
+
+        auto makeError = []() -> std::pair<PortConnection::IfaceConn, const Expression*> {
+            return {{nullptr, nullptr}, nullptr};
+        };
 
         auto portDims = port.getDeclaredRange();
         if (!portDims)
-            return {nullptr, nullptr};
+            return makeError();
 
         auto expr = Expression::tryBindInterfaceRef(context, syntax,
                                                     /* isInterfacePort */ true);
         if (!expr || expr->bad())
-            return {nullptr, nullptr};
+            return makeError();
 
         // Pull out the expression type, which should always be a virtual interface or
         // array of such types, and decompose into dims and interface info.
@@ -1167,13 +1171,10 @@ private:
         SLANG_ASSERT(vit.isRealIface);
         SLANG_ASSERT(port.isGeneric || port.interfaceDef);
         if (&connDef != port.interfaceDef && !port.isGeneric) {
-            std::string path;
-            connDef.getHierarchicalPath(path);
-
             auto& diag = context.addDiag(diag::InterfacePortTypeMismatch, syntax.sourceRange());
-            diag << path << port.interfaceDef->name;
+            diag << connDef.getHierarchicalPath() << port.interfaceDef->name;
             diag.addNote(diag::NoteDeclarationHere, port.location);
-            return {nullptr, nullptr};
+            return makeError();
         }
 
         // Modport must match the specified requirement, if we have one.
@@ -1184,20 +1185,26 @@ private:
                 diag << connDef.name << modport->name;
                 diag << (port.isGeneric ? "interface"sv : port.interfaceDef->name);
                 diag << port.modport;
-                return {nullptr, nullptr};
+                return makeError();
             }
 
             auto sym = port.getModport(context, vit.iface, syntax);
             if (!sym)
-                return {nullptr, nullptr};
+                return makeError();
 
             modport = sym;
         }
 
+        auto makeResult =
+            [&](const Symbol* symbol) -> std::pair<PortConnection::IfaceConn, const Expression*> {
+            return {{rewireIfaceArrayIndices(symbol, port.name, port.location, *portDims), modport},
+                    expr};
+        };
+
         // Make the connection if the dimensions match exactly what the port is expecting.
         const Symbol* symbol = expr->as<ArbitrarySymbolExpression>().symbol;
         if (areDimSizesEqual(*portDims, dims))
-            return {rewireIfaceArrayIndices(symbol, port.name, port.location, *portDims), modport};
+            return makeResult(symbol);
 
         // Otherwise, if the instance being instantiated is part of an array of instances *and*
         // the symbol we're connecting to is an array of interfaces, we need to check to see whether
@@ -1211,28 +1218,23 @@ private:
             // It's ok to do the slicing, so pick the correct slice for the connection
             // based on the actual path of the instance we're elaborating.
             for (size_t i = 0; i < instance.arrayPath.size(); i++) {
-                // First translate the path index since it's relative to that particular
-                // array's declared range.
-                int32_t index = instanceDims[i].translateIndex(instance.arrayPath[i]);
-
-                // Now translate back to be relative to the connecting interface's declared range.
-                // Note that we want this to be zero based because we're going to index into
-                // the actual span of elements, so we only need to flip the index if the range
-                // is not little endian.
+                // We want to match left index to left index, so if the dimensions
+                // are in reversed order we need to reverse our index here.
                 auto& array = symbol->as<InstanceArraySymbol>();
-                if (!array.range.isLittleEndian())
-                    index = array.range.upper() - index - array.range.lower();
+                size_t index = instance.arrayPath[i];
+                if (instanceDims[i].isLittleEndian() != array.range.isLittleEndian())
+                    index = array.elements.size() - index - 1;
 
-                symbol = array.elements[size_t(index)];
+                symbol = array.elements[index];
             }
 
-            return {rewireIfaceArrayIndices(symbol, port.name, port.location, *portDims), modport};
+            return makeResult(symbol);
         }
 
         auto& diag = scope.addDiag(diag::PortConnDimensionsMismatch, syntax.sourceRange())
                      << port.name;
         diag.addNote(diag::NoteDeclarationHere, port.location);
-        return {nullptr, nullptr};
+        return makeError();
     }
 
     const Scope& scope;
@@ -1303,21 +1305,16 @@ const Type& PortSymbol::getType() const {
             if (auto select = prs.select) {
                 internalExpr = &Expression::bindSelector(valExpr, *select, context);
                 type = internalExpr->type;
+
+                if (direction == ArgumentDirection::In || direction == ArgumentDirection::InOut) {
+                    auto flags = direction == ArgumentDirection::InOut ? AssignFlags::InOutPort
+                                                                       : AssignFlags::None;
+                    internalExpr->requireLValue(context, {}, flags);
+                }
             }
         }
 
         internalSymbol->as<ValueSymbol>().addPortBackref(*this);
-        if (direction == ArgumentDirection::In || direction == ArgumentDirection::InOut) {
-            // Ensure that this driver gets registered with the internal symbol.
-            auto flags = direction == ArgumentDirection::In ? AssignFlags::InputPort
-                                                            : AssignFlags::InOutPort;
-            if (internalExpr) {
-                internalExpr->requireLValue(context, {}, flags);
-            }
-            else {
-                context.addDriver(internalSymbol->as<ValueSymbol>(), valExpr, flags);
-            }
-        }
     }
     else if (isNullPort) {
         type = &scope->getCompilation().getVoidType();
@@ -1352,10 +1349,7 @@ const Type& PortSymbol::getType() const {
         type = internalExpr->type;
 
         if (!internalExpr->bad()) {
-            Expression::checkConnectionDirection(*internalExpr, checkDir, context, location,
-                                                 direction == ArgumentDirection::In
-                                                     ? AssignFlags::InputPort
-                                                     : AssignFlags::None);
+            Expression::checkConnectionDirection(*internalExpr, checkDir, context, location);
 
             PortBackrefVisitor visitor(*this);
             internalExpr->visit(visitor);
@@ -1479,6 +1473,7 @@ void PortSymbol::fromSyntax(
 
     switch (syntax.kind) {
         case SyntaxKind::AnsiPortList: {
+            SLANG_ASSERT(portDeclarations.empty());
             AnsiPortListBuilder builder{scope, implicitMembers};
             for (auto port : syntax.as<AnsiPortListSyntax>().ports) {
                 switch (port->kind) {
@@ -1491,11 +1486,6 @@ void PortSymbol::fromSyntax(
                     default:
                         SLANG_UNREACHABLE;
                 }
-            }
-
-            if (!portDeclarations.empty()) {
-                scope.addDiag(diag::PortDeclInANSIModule,
-                              portDeclarations[0].first->getFirstToken().location());
             }
             break;
         }
@@ -1637,6 +1627,12 @@ std::optional<std::span<const ConstantRange>> InterfacePortSymbol::getDeclaredRa
 }
 
 InterfacePortSymbol::IfaceConn InterfacePortSymbol::getConnection() const {
+    return getConnectionAndExpr().first;
+}
+
+std::pair<InterfacePortSymbol::IfaceConn, const Expression*> InterfacePortSymbol::
+    getConnectionAndExpr() const {
+
     auto scope = getParentScope();
     SLANG_ASSERT(scope);
 
@@ -1645,9 +1641,9 @@ InterfacePortSymbol::IfaceConn InterfacePortSymbol::getConnection() const {
 
     auto conn = body.parentInstance->getPortConnection(*this);
     if (!conn)
-        return {nullptr, nullptr};
+        return {{nullptr, nullptr}, nullptr};
 
-    return conn->getIfaceConn();
+    return {conn->getIfaceConn(), conn->getExpression()};
 }
 
 const ModportSymbol* InterfacePortSymbol::getModport(const ASTContext& context,
@@ -1687,9 +1683,9 @@ PortConnection::PortConnection(const Symbol& port, bool useDefault) :
     port(port), useDefault(useDefault) {
 }
 
-PortConnection::PortConnection(const InterfacePortSymbol& port, const Symbol* connectedSymbol,
-                               const ModportSymbol* modport) :
-    port(port), connectedSymbol(connectedSymbol), modport(modport) {
+PortConnection::PortConnection(const InterfacePortSymbol& port, const IfaceConn& conn,
+                               const Expression* expr) :
+    port(port), connectedSymbol(conn.first), expr(expr), modport(conn.second) {
 }
 
 PortConnection::PortConnection(const Symbol& port, const Symbol* connectedSymbol,
@@ -1726,10 +1722,7 @@ static std::pair<ArgumentDirection, const Type*> getDirAndType(const Symbol& por
 }
 
 const Expression* PortConnection::getExpression() const {
-    if (port.kind == SymbolKind::InterfacePort)
-        return nullptr;
-
-    if (expr)
+    if (expr || port.kind == SymbolKind::InterfacePort)
         return expr;
 
     if (connectedSymbol || exprSyntax) {
@@ -1761,10 +1754,6 @@ const Expression* PortConnection::getExpression() const {
             Expression* e = &ValueExpressionBase::fromSymbol(context, *connectedSymbol, nullptr,
                                                              implicitNameRange);
 
-            bitmask<AssignFlags> assignFlags;
-            if (direction == ArgumentDirection::Out)
-                assignFlags = AssignFlags::OutputPort;
-
             if (!e->type->isEquivalent(*type)) {
                 auto& comp = context.getCompilation();
                 auto exprType = e->type;
@@ -1773,8 +1762,7 @@ const Expression* PortConnection::getExpression() const {
                 }
                 else if (direction != ArgumentDirection::Ref) {
                     auto rhs = comp.emplace<EmptyArgumentExpression>(*type, implicitNameRange);
-                    Expression::convertAssignment(context, *e->type, *rhs, implicitNameRange, &e,
-                                                  &assignFlags);
+                    Expression::convertAssignment(context, *e->type, *rhs, implicitNameRange, &e);
                 }
 
                 // We should warn for this case unless convertAssignment already issued an error,
@@ -1796,7 +1784,7 @@ const Expression* PortConnection::getExpression() const {
             expr = e;
             if (!expr->bad()) {
                 Expression::checkConnectionDirection(*expr, direction, context,
-                                                     expr->sourceRange.start(), assignFlags);
+                                                     expr->sourceRange.start());
             }
         }
         else {
@@ -1826,7 +1814,7 @@ static const Symbol* findAnyVars(const Expression& expr) {
 }
 
 void PortConnection::checkSimulatedNetTypes() const {
-    if (!getExpression() || expr->bad())
+    if (!getExpression() || expr->bad() || port.kind == SymbolKind::InterfacePort)
         return;
 
     SmallVector<PortSymbol::NetTypeRange, 4> internal;

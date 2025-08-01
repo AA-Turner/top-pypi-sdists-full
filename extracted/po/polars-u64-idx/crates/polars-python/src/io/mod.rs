@@ -1,13 +1,13 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use polars::prelude::deletion::DeletionFilesList;
 use polars::prelude::{
-    CastColumnsPolicy, ExtraColumnsPolicy, MissingColumnsPolicy, PlSmallStr, Schema,
+    CastColumnsPolicy, ColumnMapping, ExtraColumnsPolicy, MissingColumnsPolicy, PlSmallStr, Schema,
     UnifiedScanArgs,
 };
 use polars_io::{HiveOptions, RowIndex};
 use polars_utils::IdxSize;
+use polars_utils::plpath::PlPathRef;
 use polars_utils::slice_enum::Slice;
 use pyo3::types::PyAnyMethods;
 use pyo3::{Bound, FromPyObject, PyObject, PyResult};
@@ -27,7 +27,7 @@ impl PyScanOptions<'_> {
     pub fn extract_unified_scan_args(
         &self,
         // For cloud_options init
-        first_path: Option<&PathBuf>,
+        first_path: Option<PlPathRef>,
     ) -> PyResult<UnifiedScanArgs> {
         #[derive(FromPyObject)]
         struct Extract {
@@ -47,6 +47,7 @@ impl PyScanOptions<'_> {
             credential_provider: Option<PyObject>,
             retries: usize,
             deletion_files: Option<Wrap<DeletionFilesList>>,
+            column_mapping: Option<Wrap<ColumnMapping>>,
         }
 
         let Extract {
@@ -66,6 +67,7 @@ impl PyScanOptions<'_> {
             credential_provider,
             retries,
             deletion_files,
+            column_mapping,
         } = self.0.extract()?;
 
         let cloud_options = storage_options;
@@ -77,9 +79,9 @@ impl PyScanOptions<'_> {
 
                 use crate::prelude::parse_cloud_options;
 
-                let first_path_url = first_path.to_string_lossy();
+                let first_path_url = first_path.to_str();
                 let cloud_options =
-                    parse_cloud_options(&first_path_url, cloud_options.unwrap_or_default())?;
+                    parse_cloud_options(first_path_url, cloud_options.unwrap_or_default())?;
 
                 Some(
                     cloud_options
@@ -129,6 +131,7 @@ impl PyScanOptions<'_> {
             extra_columns_policy: extra_columns.0,
             include_file_paths: include_file_paths.map(|x| x.0),
             deletion_files: DeletionFilesList::filter_empty(deletion_files.map(|x| x.0)),
+            column_mapping: column_mapping.map(|x| x.0),
         };
 
         Ok(unified_scan_args)

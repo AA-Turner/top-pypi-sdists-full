@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-aws
-Version: 0.5.12
+Version: 0.5.13
 Summary: Prefect integrations for interacting with Amazon Web Services.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

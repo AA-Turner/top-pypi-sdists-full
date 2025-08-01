@@ -307,14 +307,11 @@ class MongoNoSqlScanner:
         if char == self.SLASH_CHAR and query[index + 1] == self.SLASH_CHAR:
             return True
 
-        if (
+        return (
             char == MongoNoSqlScanner.LEFT_ANGLE
             and query[index + 1] == self.DASH_CHAR
             and query[index + 2] == self.DASH_CHAR
-        ):
-            return True
-
-        return False
+        )
 
     def start_block_comment(self, char, index, query):
         """

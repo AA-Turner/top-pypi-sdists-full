@@ -1,29 +1,14 @@
-[build-system]
-requires = [ "poetry-core", "wheel",]
-build-backend = "poetry.core.masonry.api"
-
 [tool.poetry]
 name = "litellm"
-version = "v1.74.9.post1"
+version = "1.74.12"
 description = "Library to easily interface with LLM API providers"
-authors = [ "BerriAI",]
+authors = ["BerriAI"]
 license = "MIT"
 readme = "README.md"
-[[tool.poetry.packages]]
-include = "litellm"
-
-[[tool.poetry.packages]]
-include = "litellm/py.typed"
-
-[tool.isort]
-profile = "black"
-
-[tool.commitizen]
-version = "1.74.9"
-version_files = [ "pyproject.toml:^version",]
-
-[tool.mypy]
-plugins = "pydantic.mypy"
+packages = [
+    { include = "litellm" },
+    { include = "litellm/py.typed"},
+]
 
 [tool.poetry.urls]
 homepage = "https://litellm.ai"
@@ -46,146 +31,92 @@ jinja2 = "^3.1.2"
 aiohttp = ">=3.10"
 pydantic = "^2.5.0"
 jsonschema = "^4.22.0"
+numpydoc = {version = "*", optional = true} # used in utils.py
+
+uvicorn = {version = "^0.29.0", optional = true}
+uvloop = {version = "^0.21.0", optional = true, markers="sys_platform != 'win32'"}
+gunicorn = {version = "^23.0.0", optional = true}
+fastapi = {version = "^0.115.5", optional = true}
+backoff = {version = "*", optional = true}
+pyyaml = {version = "^6.0.1", optional = true}
+rq = {version = "*", optional = true}
+orjson = {version = "^3.9.7", optional = true}
+apscheduler = {version = "^3.10.4", optional = true}
+fastapi-sso = { version = "^0.16.0", optional = true }
+PyJWT = { version = "^2.8.0", optional = true }
+python-multipart = { version = "^0.0.18", optional = true}
+cryptography = {version = "^43.0.1", optional = true}
+prisma = {version = "0.11.0", optional = true}
+azure-identity = {version = "^1.15.0", optional = true}
+azure-keyvault-secrets = {version = "^4.8.0", optional = true}
+azure-storage-blob = {version="^12.25.1", optional=true}
+google-cloud-kms = {version = "^2.21.3", optional = true}
+resend = {version = "^0.8.0", optional = true}
+pynacl = {version = "^1.5.0", optional = true}
+websockets = {version = "^13.1.0", optional = true}
+boto3 = {version = "1.34.34", optional = true}
+redisvl = {version = "^0.4.1", optional = true, markers = "python_version >= '3.9' and python_version < '3.14'"}
+mcp = {version = "^1.10.0", optional = true, python = ">=3.10"}
+litellm-proxy-extras = {version = "0.2.14", optional = true}
+rich = {version = "13.7.1", optional = true}
+litellm-enterprise = {version = "0.1.16", optional = true}
+diskcache = {version = "^5.6.1", optional = true}
+polars = {version = "^1.31.0", optional = true, python = ">=3.10"}
+semantic-router = {version = "*", optional = true, python = ">=3.9"}
+mlflow = {version = ">3.1.4", optional = true, python = ">=3.10"}
 
 [tool.poetry.extras]
-proxy = [ "gunicorn", "uvicorn", "uvloop", "fastapi", "backoff", "pyyaml", "rq", "orjson", "apscheduler", "fastapi-sso", "PyJWT", "python-multipart", "cryptography", "pynacl", "websockets", "boto3", "azure-identity", "azure-storage-blob", "mcp", "litellm-proxy-extras", "litellm-enterprise", "rich", "polars",]
-extra_proxy = [ "prisma", "azure-identity", "azure-keyvault-secrets", "google-cloud-kms", "resend", "redisvl",]
-utils = [ "numpydoc",]
-caching = [ "diskcache",]
-semantic-router = [ "semantic-router",]
+proxy = [
+    "gunicorn",
+    "uvicorn",
+    "uvloop",
+    "fastapi",
+    "backoff",
+    "pyyaml",
+    "rq",
+    "orjson",
+    "apscheduler",
+    "fastapi-sso",
+    "PyJWT",
+    "python-multipart",
+    "cryptography",
+    "pynacl",
+    "websockets",
+    "boto3",
+    "azure-identity",
+    "azure-storage-blob",
+    "mcp",
+    "litellm-proxy-extras",
+    "litellm-enterprise",
+    "rich",
+    "polars",
+]
+
+extra_proxy = [
+    "prisma",
+    "azure-identity",
+    "azure-keyvault-secrets",
+    "google-cloud-kms",
+    "resend",
+    "redisvl"
+]
+
+utils = [
+    "numpydoc",
+]
+
+caching = ["diskcache"]
+
+semantic-router = ["semantic-router"]
+
+mlflow = ["mlflow"]
+
+[tool.isort]
+profile = "black"
 
 [tool.poetry.scripts]
-litellm = "litellm:run_server"
-litellm-proxy = "litellm.proxy.client.cli:cli"
-
-[tool.poetry.dependencies.numpydoc]
-version = "*"
-optional = true
-
-[tool.poetry.dependencies.uvicorn]
-version = "^0.29.0"
-optional = true
-
-[tool.poetry.dependencies.uvloop]
-version = "^0.21.0"
-optional = true
-markers = "sys_platform != 'win32'"
-
-[tool.poetry.dependencies.gunicorn]
-version = "^23.0.0"
-optional = true
-
-[tool.poetry.dependencies.fastapi]
-version = "^0.115.5"
-optional = true
-
-[tool.poetry.dependencies.backoff]
-version = "*"
-optional = true
-
-[tool.poetry.dependencies.pyyaml]
-version = "^6.0.1"
-optional = true
-
-[tool.poetry.dependencies.rq]
-version = "*"
-optional = true
-
-[tool.poetry.dependencies.orjson]
-version = "^3.9.7"
-optional = true
-
-[tool.poetry.dependencies.apscheduler]
-version = "^3.10.4"
-optional = true
-
-[tool.poetry.dependencies.fastapi-sso]
-version = "^0.16.0"
-optional = true
-
-[tool.poetry.dependencies.PyJWT]
-version = "^2.8.0"
-optional = true
-
-[tool.poetry.dependencies.python-multipart]
-version = "^0.0.18"
-optional = true
-
-[tool.poetry.dependencies.cryptography]
-version = "^43.0.1"
-optional = true
-
-[tool.poetry.dependencies.prisma]
-version = "0.11.0"
-optional = true
-
-[tool.poetry.dependencies.azure-identity]
-version = "^1.15.0"
-optional = true
-
-[tool.poetry.dependencies.azure-keyvault-secrets]
-version = "^4.8.0"
-optional = true
-
-[tool.poetry.dependencies.azure-storage-blob]
-version = "^12.25.1"
-optional = true
-
-[tool.poetry.dependencies.google-cloud-kms]
-version = "^2.21.3"
-optional = true
-
-[tool.poetry.dependencies.resend]
-version = "^0.8.0"
-optional = true
-
-[tool.poetry.dependencies.pynacl]
-version = "^1.5.0"
-optional = true
-
-[tool.poetry.dependencies.websockets]
-version = "^13.1.0"
-optional = true
-
-[tool.poetry.dependencies.boto3]
-version = "1.34.34"
-optional = true
-
-[tool.poetry.dependencies.redisvl]
-version = "^0.4.1"
-optional = true
-markers = "python_version >= '3.9' and python_version < '3.14'"
-
-[tool.poetry.dependencies.mcp]
-version = "1.10.0"
-optional = true
-python = ">=3.10"
-
-[tool.poetry.dependencies.litellm-proxy-extras]
-version = "0.2.12"
-optional = true
-
-[tool.poetry.dependencies.rich]
-version = "13.7.1"
-optional = true
-
-[tool.poetry.dependencies.litellm-enterprise]
-version = "0.1.16"
-optional = true
-
-[tool.poetry.dependencies.diskcache]
-version = "^5.6.1"
-optional = true
-
-[tool.poetry.dependencies.polars]
-version = "^1.31.0"
-optional = true
-python = ">=3.10"
-
-[tool.poetry.dependencies.semantic-router]
-version = "*"
-optional = true
-python = ">=3.9"
+litellm = 'litellm:run_server'
+litellm-proxy = 'litellm.proxy.client.cli:cli'
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.1.0"
@@ -215,3 +146,16 @@ opentelemetry-api = "1.25.0"
 opentelemetry-sdk = "1.25.0"
 opentelemetry-exporter-otlp = "1.25.0"
 azure-identity = "^1.15.0"
+
+[build-system]
+requires = ["poetry-core", "wheel"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.commitizen]
+version = "1.74.12"
+version_files = [
+    "pyproject.toml:^version"
+]
+
+[tool.mypy]
+plugins = "pydantic.mypy"

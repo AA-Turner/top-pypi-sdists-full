@@ -1,4 +1,6 @@
-from localstack.pro.core.config import ACTIVATE_PRO
-from localstack.runtime import hooks
-@hooks.on_infra_start(should_load=ACTIVATE_PRO)
-def register_reset_state_resource():from localstack.services.internal import get_internal_apis as A;from localstack.services.plugins import SERVICE_PLUGINS as B;from.endpoints import StateResetResource as C;A().add(C(B))
+from localstack.pro.core.runtime.plugin import ProPlatformPlugin
+from rolo import Router
+from rolo.routing.handler import Handler as RouteHandler
+class StateResetPlugin(ProPlatformPlugin):
+	name='state-reset'
+	def update_localstack_routes(C,router):from localstack.pro.core.persistence.reset.endpoints import StateResetResource as A;from localstack.services.plugins import SERVICE_PLUGINS as B;router.add(A(B))

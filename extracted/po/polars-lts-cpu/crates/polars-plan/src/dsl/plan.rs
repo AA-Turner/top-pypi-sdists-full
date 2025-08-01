@@ -11,45 +11,15 @@ use serde::{Deserialize, Serialize};
 
 use super::*;
 
-// DSL version in a form of (Major, Minor).
+// DSL format version in a form of (Major, Minor).
 //
-// Serialized DSL is compatible with a deserializer, if:
-// - the serialized Major version and the deserializer Major version are equal, and
-// - the serialized Minor version is less than or equal to the deserializer Minor version.
+// It is no longer needed to increment this. We use the schema hashes to check for compatibility.
 //
-// The following sections describe when to increment the version. If unsure, ask.
-//
-// # Minor version
-//
-// Increment Minor if you're extending the DSL without breaking backward compatibility.
-// - DSL serialized with this Polars version is NOT fully compatible with the previous version,
-// - DSL serialized with the previous Polars version is still fully compatible with this version.
-//
-// You need to be sure that every possible DSL serialized with the previous Polars version is still
-// valid and has the same meaning in this Polars version.
-//
-// Allowed changes:
-// - adding a new enum variant,
-// - adding a field with a default value, where the default value matches the behavior of the
-//   previous Polars version that didn't have this field,
-// - adding new flags to bitflags; again, the default value has to preserve the previous behavior,
-// - allowing field values that were previously rejected, e.g. a value that would cause an error or
-//   panic if it was greater than 10 can be allowed to go up to 20 in the new version).
-//
-// # Major version
-//
-// Increment Major and reset Minor to zero if you're breaking backward compatibility:
-// - DSL serialized with the previous Polars version is NOT compatible with this Polars version.
-//
-// Examples:
-// - adding a field that doesn't have a default (or the default doesn't match the behavior
-//   of the previous version),
-// - removing a field or an enum variant
-// - changing a name, type, or meaning of a field or an enum variant
-// - changing a default value of a field or a default enum variant
-// - restricting the range of allowed values a field can have
-pub static DSL_VERSION: (u16, u16) = (13, 0);
-static DSL_MAGIC_BYTES: &[u8] = b"DSL_VERSION";
+// Only increment if you need to make a breaking change that doesn't change the schema hashes.
+pub const DSL_VERSION: (u16, u16) = (22, 0);
+const DSL_MAGIC_BYTES: &[u8] = b"DSL_VERSION";
+
+const DSL_SCHEMA_HASH: SchemaHash<'static> = SchemaHash::from_hash_file();
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "dsl-schema", derive(schemars::JsonSchema))]
@@ -69,10 +39,8 @@ pub enum DslPlan {
     },
     Scan {
         sources: ScanSources,
-        /// Materialized at IR except for AnonymousScan.
-        file_info: Option<FileInfo>,
         unified_scan_args: Box<UnifiedScanArgs>,
-        scan_type: Box<FileScan>,
+        scan_type: Box<FileScanDsl>,
         /// Local use cases often repeatedly collect the same `LazyFrame` (e.g. in interactive notebook use-cases),
         /// so we cache the IR conversion here, as the path expansion can be quite slow (especially for cloud paths).
         /// We don't have the arena, as this is always a source node.
@@ -202,7 +170,7 @@ impl Clone for DslPlan {
             Self::PythonScan { options } => Self::PythonScan { options: options.clone() },
             Self::Filter { input, predicate } => Self::Filter { input: input.clone(), predicate: predicate.clone() },
             Self::Cache { input } => Self::Cache { input: input.clone() },
-            Self::Scan { sources, file_info, unified_scan_args, scan_type, cached_ir } => Self::Scan { sources: sources.clone(), file_info: file_info.clone(), unified_scan_args: unified_scan_args.clone(), scan_type: scan_type.clone(), cached_ir: cached_ir.clone() },
+            Self::Scan { sources,  unified_scan_args, scan_type, cached_ir } => Self::Scan { sources: sources.clone(), unified_scan_args: unified_scan_args.clone(), scan_type: scan_type.clone(), cached_ir: cached_ir.clone() },
             Self::DataFrameScan { df, schema, } => Self::DataFrameScan { df: df.clone(), schema: schema.clone(),  },
             Self::Select { expr, input, options } => Self::Select { expr: expr.clone(), input: input.clone(), options: options.clone() },
             Self::GroupBy { input, keys, aggs,  apply, maintain_order, options } => Self::GroupBy { input: input.clone(), keys: keys.clone(), aggs: aggs.clone(), apply: apply.clone(), maintain_order: maintain_order.clone(), options: options.clone() },
@@ -234,6 +202,11 @@ impl Default for DslPlan {
             schema,
         }
     }
+}
+
+#[derive(Default, Clone, Copy)]
+pub struct PlanSerializationContext {
+    pub use_cloudpickle: bool,
 }
 
 impl DslPlan {
@@ -271,13 +244,24 @@ impl DslPlan {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize_versioned<W: Write>(&self, mut writer: W) -> PolarsResult<()> {
+    pub fn serialize_versioned<W: Write>(
+        &self,
+        mut writer: W,
+        ctx: PlanSerializationContext,
+    ) -> PolarsResult<()> {
         let le_major = DSL_VERSION.0.to_le_bytes();
         let le_minor = DSL_VERSION.1.to_le_bytes();
+
+        // @GB:
+        // This is absolute horrendous but serde does not allow for state to passed along with the
+        // serialization so there is no proper way to do this except replace serde.
+        polars_utils::pl_serialize::USE_CLOUDPICKLE.set(ctx.use_cloudpickle);
+
         writer.write_all(DSL_MAGIC_BYTES)?;
         writer.write_all(&le_major)?;
         writer.write_all(&le_minor)?;
-        pl_serialize::SerializeOptions::default().serialize_into_writer::<_, _, true>(writer, self)
+        writer.write_all(DSL_SCHEMA_HASH.as_bytes())?;
+        pl_serialize::serialize_dsl(writer, self)
     }
 
     #[cfg(feature = "serde")]
@@ -316,40 +300,34 @@ impl DslPlan {
         }
 
         if minor > MINOR {
-            #[cfg(feature = "polars_cloud_server")]
-            {
-                // In cloud, we are more flexible and allow deserializing higher minor version,
-                // if there were no unknown fields encountered.
-                //
-                // This is not enabled outside of the cloud server, because it increases
-                // the size of the binary.
-
-                let (dsl, unknown_fields) = pl_serialize::SerializeOptions::default().deserialize_from_reader_with_unknown_fields(reader).map_err(|e| {
-                    // Convey that the failure might also be due to broken forward compatibility
-                    polars_err!(ComputeError:
-                        "deserialization failed\n\ngiven DSL_VERSION: {major}.{minor} is higher than this Polars version which uses DSL_VERSION: {MAJOR}.{MINOR}\n{}\nerror: {e}",
-                        "either the input is malformed, or the plan requires functionality not supported in this Polars version"
-                    )
-                })?;
-                if !unknown_fields.is_empty() {
-                    polars_bail!(ComputeError:
-                        "deserialization failed\n\ngiven DSL_VERSION: {major}.{minor} is higher than this Polars version which uses DSL_VERSION: {MAJOR}.{MINOR}\n{}\nencountered unknown fields: {:?}",
-                        "the plan requires functionality not supported in this Polars version",
-                        unknown_fields,
-                    )
-                }
-                return Ok(dsl);
-            }
-
-            #[cfg(not(feature = "polars_cloud_server"))]
             polars_bail!(ComputeError:
                 "deserialization failed\n\ngiven DSL_VERSION: {major}.{minor} is not compatible with this Polars version which uses DSL_VERSION: {MAJOR}.{MINOR}\n{}",
                 "error: can't deserialize DSL with a higher minor version"
             );
         }
 
-        pl_serialize::SerializeOptions::default()
-            .deserialize_from_reader::<_, _, true>(reader)
+        let mut schema_hash = [0_u8; SCHEMA_HASH_LEN];
+        reader.read_exact(&mut schema_hash).map_err(
+            |e| polars_err!(ComputeError: "failed to read incoming DSL_SCHEMA_HASH: {e}"),
+        )?;
+        let incoming_hash = SchemaHash::new(&schema_hash).ok_or_else(
+            || polars_err!(ComputeError: "failed to read incoming DSL schema hash, not a valid hex string")
+        )?;
+
+        if polars_core::config::verbose() {
+            eprintln!(
+                "incoming DSL_SCHEMA_HASH: {incoming_hash}, deserializer DSL_SCHEMA_HASH: {DSL_SCHEMA_HASH}"
+            );
+        }
+
+        if incoming_hash != DSL_SCHEMA_HASH {
+            polars_bail!(ComputeError:
+                "deserialization failed\n\ngiven DSL_SCHEMA_HASH: {incoming_hash} is not compatible with this Polars version which uses DSL_SCHEMA_HASH: {DSL_SCHEMA_HASH}\n{}",
+                "error: can't deserialize DSL with incompatible schema"
+            );
+        }
+
+        pl_serialize::deserialize_dsl(reader)
             .map_err(|e| polars_err!(ComputeError: "deserialization failed\n\nerror: {e}"))
     }
 
@@ -378,12 +356,56 @@ impl DslPlan {
             .into_generator()
             .into_root_schema_for::<DslPlan>();
 
-        // Add DSL version as a top level field
-        schema.schema.extensions.insert(
-            "version".into(),
-            format!("{}.{}", DSL_VERSION.0, DSL_VERSION.1).into(),
-        );
+        // Add the DSL schema hash as a top level field
+        schema
+            .schema
+            .extensions
+            .insert("hash".into(), DSL_SCHEMA_HASH.to_string().into());
 
         schema
+    }
+}
+
+const SCHEMA_HASH_LEN: usize = 64;
+
+struct SchemaHash<'a>(&'a str);
+
+impl SchemaHash<'static> {
+    const fn from_hash_file() -> Self {
+        // Generated by build.rs
+        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/dsl-schema.sha256"));
+        Self::new(bytes).expect("not a valid hex string")
+    }
+}
+
+impl<'a> SchemaHash<'a> {
+    const fn new(bytes: &'a [u8; SCHEMA_HASH_LEN]) -> Option<Self> {
+        let mut i = 0;
+        while i < bytes.len() {
+            if !bytes[i].is_ascii_hexdigit() {
+                return None;
+            };
+            i += 1;
+        }
+        match str::from_utf8(bytes) {
+            Ok(hash) => Some(Self(hash)),
+            Err(_) => unreachable!(),
+        }
+    }
+
+    fn as_bytes(&self) -> &'a [u8; SCHEMA_HASH_LEN] {
+        self.0.as_bytes().try_into().unwrap()
+    }
+}
+
+impl PartialEq for SchemaHash<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_ignore_ascii_case(other.0)
+    }
+}
+
+impl std::fmt::Display for SchemaHash<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

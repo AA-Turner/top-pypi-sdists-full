@@ -14,6 +14,15 @@ ConversationalModelId = str
 ConverseRequestAdditionalModelResponseFieldPathsListMemberString = str
 ConverseStreamRequestAdditionalModelResponseFieldPathsListMemberString = str
 DocumentBlockNameString = str
+DocumentCharLocationDocumentIndexInteger = int
+DocumentCharLocationEndInteger = int
+DocumentCharLocationStartInteger = int
+DocumentChunkLocationDocumentIndexInteger = int
+DocumentChunkLocationEndInteger = int
+DocumentChunkLocationStartInteger = int
+DocumentPageLocationDocumentIndexInteger = int
+DocumentPageLocationEndInteger = int
+DocumentPageLocationStartInteger = int
 GuardrailContentPolicyImageUnitsProcessed = int
 GuardrailContentPolicyUnitsProcessed = int
 GuardrailContextualGroundingFilterScoreDouble = float
@@ -746,6 +755,127 @@ CachePointBlock = TypedDict(
 )
 
 
+class DocumentChunkLocation(TypedDict, total=False):
+    """Specifies a chunk-level location within a document, providing
+    positioning information for cited content using logical document
+    segments or chunks.
+    """
+
+    documentIndex: Optional[DocumentChunkLocationDocumentIndexInteger]
+    start: Optional[DocumentChunkLocationStartInteger]
+    end: Optional[DocumentChunkLocationEndInteger]
+
+
+class DocumentPageLocation(TypedDict, total=False):
+    """Specifies a page-level location within a document, providing positioning
+    information for cited content using page numbers.
+    """
+
+    documentIndex: Optional[DocumentPageLocationDocumentIndexInteger]
+    start: Optional[DocumentPageLocationStartInteger]
+    end: Optional[DocumentPageLocationEndInteger]
+
+
+class DocumentCharLocation(TypedDict, total=False):
+    """Specifies a character-level location within a document, providing
+    precise positioning information for cited content using start and end
+    character indices.
+    """
+
+    documentIndex: Optional[DocumentCharLocationDocumentIndexInteger]
+    start: Optional[DocumentCharLocationStartInteger]
+    end: Optional[DocumentCharLocationEndInteger]
+
+
+class CitationLocation(TypedDict, total=False):
+    """Specifies the precise location within a source document where cited
+    content can be found. This can include character-level positions, page
+    numbers, or document chunks depending on the document type and indexing
+    method.
+    """
+
+    documentChar: Optional[DocumentCharLocation]
+    documentPage: Optional[DocumentPageLocation]
+    documentChunk: Optional[DocumentChunkLocation]
+
+
+class CitationSourceContent(TypedDict, total=False):
+    """Contains the actual text content from a source document that is being
+    cited or referenced in the model's response.
+    """
+
+    text: Optional[String]
+
+
+CitationSourceContentList = List[CitationSourceContent]
+
+
+class Citation(TypedDict, total=False):
+    """Contains information about a citation that references a specific source
+    document. Citations provide traceability between the model's generated
+    response and the source documents that informed that response.
+    """
+
+    title: Optional[String]
+    sourceContent: Optional[CitationSourceContentList]
+    location: Optional[CitationLocation]
+
+
+class CitationGeneratedContent(TypedDict, total=False):
+    """Contains the generated text content that corresponds to or is supported
+    by a citation from a source document.
+    """
+
+    text: Optional[String]
+
+
+CitationGeneratedContentList = List[CitationGeneratedContent]
+
+
+class CitationSourceContentDelta(TypedDict, total=False):
+    """Contains incremental updates to the source content text during streaming
+    responses, allowing clients to build up the cited content progressively.
+    """
+
+    text: Optional[String]
+
+
+CitationSourceContentListDelta = List[CitationSourceContentDelta]
+Citations = List[Citation]
+
+
+class CitationsConfig(TypedDict, total=False):
+    """Configuration settings for enabling and controlling document citations
+    in Converse API responses. When enabled, the model can include citation
+    information that links generated content back to specific source
+    documents.
+    """
+
+    enabled: Boolean
+
+
+class CitationsContentBlock(TypedDict, total=False):
+    """A content block that contains both generated text and associated
+    citation information. This block type is returned when document
+    citations are enabled, providing traceability between the generated
+    content and the source documents that informed the response.
+    """
+
+    content: Optional[CitationGeneratedContentList]
+    citations: Optional[Citations]
+
+
+class CitationsDelta(TypedDict, total=False):
+    """Contains incremental updates to citation information during streaming
+    responses. This allows clients to build up citation data progressively
+    as the response is generated.
+    """
+
+    title: Optional[String]
+    sourceContent: Optional[CitationSourceContentListDelta]
+    location: Optional[CitationLocation]
+
+
 class ReasoningTextBlock(TypedDict, total=False):
     """Contains the reasoning that the model used to return the output."""
 
@@ -833,6 +963,15 @@ class VideoBlock(TypedDict, total=False):
     source: VideoSource
 
 
+class DocumentContentBlock(TypedDict, total=False):
+    """Contains the actual content of a document that can be processed by the
+    model and potentially cited in the response.
+    """
+
+    text: Optional[String]
+
+
+DocumentContentBlocks = List[DocumentContentBlock]
 DocumentSourceBytesBlob = bytes
 
 
@@ -841,14 +980,18 @@ class DocumentSource(TypedDict, total=False):
 
     bytes: Optional[DocumentSourceBytesBlob]
     s3Location: Optional[S3Location]
+    text: Optional[String]
+    content: Optional[DocumentContentBlocks]
 
 
 class DocumentBlock(TypedDict, total=False):
     """A document to include in a message."""
 
-    format: DocumentFormat
+    format: Optional[DocumentFormat]
     name: DocumentBlockNameString
     source: DocumentSource
+    context: Optional[String]
+    citations: Optional[CitationsConfig]
 
 
 ImageSourceBytesBlob = bytes
@@ -924,6 +1067,7 @@ class ContentBlock(TypedDict, total=False):
     guardContent: Optional[GuardrailConverseContentBlock]
     cachePoint: Optional[CachePointBlock]
     reasoningContent: Optional[ReasoningContentBlock]
+    citationsContent: Optional[CitationsContentBlock]
 
 
 class ReasoningContentBlockDelta(TypedDict, total=False):
@@ -950,6 +1094,7 @@ class ContentBlockDelta(TypedDict, total=False):
     text: Optional[String]
     toolUse: Optional[ToolUseBlockDelta]
     reasoningContent: Optional[ReasoningContentBlockDelta]
+    citation: Optional[CitationsDelta]
 
 
 class ContentBlockDeltaEvent(TypedDict, total=False):

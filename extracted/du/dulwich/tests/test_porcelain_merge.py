@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -48,7 +48,7 @@ class PorcelainMergeTests(TestCase):
 
             # Create a branch
             porcelain.branch_create(tmpdir, "feature")
-            porcelain.checkout_branch(tmpdir, "feature")
+            porcelain.checkout(tmpdir, "feature")
 
             # Add a file on feature branch
             with open(os.path.join(tmpdir, "file2.txt"), "w") as f:
@@ -57,7 +57,7 @@ class PorcelainMergeTests(TestCase):
             feature_commit = porcelain.commit(tmpdir, message=b"Add feature")
 
             # Go back to master
-            porcelain.checkout_branch(tmpdir, "master")
+            porcelain.checkout(tmpdir, "master")
 
             # Merge feature branch (should fast-forward)
             merge_commit, conflicts = porcelain.merge(tmpdir, "feature")
@@ -100,7 +100,7 @@ class PorcelainMergeTests(TestCase):
 
             # Create a branch
             porcelain.branch_create(tmpdir, "feature")
-            porcelain.checkout_branch(tmpdir, "feature")
+            porcelain.checkout(tmpdir, "feature")
 
             # Add a file on feature branch
             with open(os.path.join(tmpdir, "file2.txt"), "w") as f:
@@ -109,7 +109,7 @@ class PorcelainMergeTests(TestCase):
             feature_commit = porcelain.commit(tmpdir, message=b"Add feature")
 
             # Go back to master
-            porcelain.checkout_branch(tmpdir, "master")
+            porcelain.checkout(tmpdir, "master")
 
             # Merge feature branch with no-ff
             merge_commit, conflicts = porcelain.merge(tmpdir, "feature", no_ff=True)
@@ -140,14 +140,14 @@ class PorcelainMergeTests(TestCase):
 
             # Create a branch and modify file1
             porcelain.branch_create(tmpdir, "feature")
-            porcelain.checkout_branch(tmpdir, "feature")
+            porcelain.checkout(tmpdir, "feature")
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
                 f.write("Feature content\n")
             porcelain.add(tmpdir, paths=["file1.txt"])
             porcelain.commit(tmpdir, message=b"Modify file1 in feature")
 
             # Go back to master and modify file2
-            porcelain.checkout_branch(tmpdir, "master")
+            porcelain.checkout(tmpdir, "master")
             with open(os.path.join(tmpdir, "file2.txt"), "w") as f:
                 f.write("Master file2\n")
             porcelain.add(tmpdir, paths=["file2.txt"])
@@ -179,14 +179,14 @@ class PorcelainMergeTests(TestCase):
 
             # Create a branch and modify file1
             porcelain.branch_create(tmpdir, "feature")
-            porcelain.checkout_branch(tmpdir, "feature")
+            porcelain.checkout(tmpdir, "feature")
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
                 f.write("Feature content\n")
             porcelain.add(tmpdir, paths=["file1.txt"])
             porcelain.commit(tmpdir, message=b"Modify file1 in feature")
 
             # Go back to master and modify file1 differently
-            porcelain.checkout_branch(tmpdir, "master")
+            porcelain.checkout(tmpdir, "master")
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
                 f.write("Master content\n")
             porcelain.add(tmpdir, paths=["file1.txt"])
@@ -220,7 +220,7 @@ class PorcelainMergeTests(TestCase):
 
             # Create a branch
             porcelain.branch_create(tmpdir, "feature")
-            porcelain.checkout_branch(tmpdir, "feature")
+            porcelain.checkout(tmpdir, "feature")
 
             # Add a file on feature branch
             with open(os.path.join(tmpdir, "file2.txt"), "w") as f:
@@ -229,7 +229,7 @@ class PorcelainMergeTests(TestCase):
             porcelain.commit(tmpdir, message=b"Add feature")
 
             # Go back to master and add another file
-            porcelain.checkout_branch(tmpdir, "master")
+            porcelain.checkout(tmpdir, "master")
             with open(os.path.join(tmpdir, "file3.txt"), "w") as f:
                 f.write("Master content\n")
             porcelain.add(tmpdir, paths=["file3.txt"])
@@ -283,6 +283,7 @@ class PorcelainMergeTreeTests(TestCase):
             # Initialize repo
             porcelain.init(tmpdir)
             repo = Repo(tmpdir)
+            self.addCleanup(repo.close)
 
             # Create base tree
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
@@ -292,7 +293,7 @@ class PorcelainMergeTreeTests(TestCase):
 
             # Create our branch
             porcelain.branch_create(tmpdir, "ours")
-            porcelain.checkout_branch(tmpdir, "ours")
+            porcelain.checkout(tmpdir, "ours")
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
                 f.write("Our content\n")
             with open(os.path.join(tmpdir, "file2.txt"), "w") as f:
@@ -301,9 +302,9 @@ class PorcelainMergeTreeTests(TestCase):
             our_commit = porcelain.commit(tmpdir, message=b"Our commit")
 
             # Create their branch
-            porcelain.checkout_branch(tmpdir, b"master")
+            porcelain.checkout(tmpdir, b"master")
             porcelain.branch_create(tmpdir, "theirs")
-            porcelain.checkout_branch(tmpdir, "theirs")
+            porcelain.checkout(tmpdir, "theirs")
             with open(os.path.join(tmpdir, "file3.txt"), "w") as f:
                 f.write("Their new file\n")
             porcelain.add(tmpdir, paths=["file3.txt"])
@@ -329,6 +330,7 @@ class PorcelainMergeTreeTests(TestCase):
             # Initialize repo
             porcelain.init(tmpdir)
             repo = Repo(tmpdir)
+            self.addCleanup(repo.close)
 
             # Create base tree
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
@@ -338,16 +340,16 @@ class PorcelainMergeTreeTests(TestCase):
 
             # Create our branch with changes
             porcelain.branch_create(tmpdir, "ours")
-            porcelain.checkout_branch(tmpdir, "ours")
+            porcelain.checkout(tmpdir, "ours")
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
                 f.write("Our content\n")
             porcelain.add(tmpdir, paths=["file1.txt"])
             our_commit = porcelain.commit(tmpdir, message=b"Our commit")
 
             # Create their branch with conflicting changes
-            porcelain.checkout_branch(tmpdir, b"master")
+            porcelain.checkout(tmpdir, b"master")
             porcelain.branch_create(tmpdir, "theirs")
-            porcelain.checkout_branch(tmpdir, "theirs")
+            porcelain.checkout(tmpdir, "theirs")
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
                 f.write("Their content\n")
             porcelain.add(tmpdir, paths=["file1.txt"])
@@ -381,6 +383,7 @@ class PorcelainMergeTreeTests(TestCase):
             # Initialize repo
             porcelain.init(tmpdir)
             repo = Repo(tmpdir)
+            self.addCleanup(repo.close)
 
             # Create our tree
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
@@ -414,6 +417,7 @@ class PorcelainMergeTreeTests(TestCase):
             # Initialize repo
             porcelain.init(tmpdir)
             repo = Repo(tmpdir)
+            self.addCleanup(repo.close)
 
             # Create base tree
             with open(os.path.join(tmpdir, "file1.txt"), "w") as f:

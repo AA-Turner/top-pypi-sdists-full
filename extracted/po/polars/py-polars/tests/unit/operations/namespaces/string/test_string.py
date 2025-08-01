@@ -362,7 +362,6 @@ def test_str_find_escaped_chars() -> None:
     )
 
 
-@pytest.mark.may_fail_auto_streaming
 def test_str_find_wrong_length() -> None:
     df = pl.DataFrame({"num": ["-10", "-1", "0"]})
     with pytest.raises(ShapeError):
@@ -502,6 +501,100 @@ def test_str_to_integer_base_literal() -> None:
             pl.col("bin").str.to_integer(base=2),
             pl.col("hex").str.to_integer(base=16),
         )
+
+
+def test_str_to_integer_dtype() -> None:
+    lf = pl.LazyFrame(
+        {
+            "str": ["1111111", "7f", "127", None, "42"],
+            "base": [2, 16, 10, 8, None],
+        }
+    )
+    out = lf.select(
+        i8=pl.col("str").str.to_integer(base="base", dtype=pl.Int8),
+        i16=pl.col("str").str.to_integer(base="base", dtype=pl.Int16),
+        i32=pl.col("str").str.to_integer(base="base", dtype=pl.Int32),
+        i64=pl.col("str").str.to_integer(base="base", dtype=pl.Int64),
+        u8=pl.col("str").str.to_integer(base="base", dtype=pl.UInt8),
+        u16=pl.col("str").str.to_integer(base="base", dtype=pl.UInt16),
+        u32=pl.col("str").str.to_integer(base="base", dtype=pl.UInt32),
+        u64=pl.col("str").str.to_integer(base="base", dtype=pl.UInt64),
+        default=pl.col("str").str.to_integer(base="base"),
+    ).collect()
+
+    expected = pl.DataFrame(
+        {
+            "i8": [127, 127, 127, None, None],
+            "i16": [127, 127, 127, None, None],
+            "i32": [127, 127, 127, None, None],
+            "i64": [127, 127, 127, None, None],
+            "u8": [127, 127, 127, None, None],
+            "u16": [127, 127, 127, None, None],
+            "u32": [127, 127, 127, None, None],
+            "u64": [127, 127, 127, None, None],
+            "default": [127, 127, 127, None, None],
+        },
+        schema={
+            "i8": pl.Int8,
+            "i16": pl.Int16,
+            "i32": pl.Int32,
+            "i64": pl.Int64,
+            "u8": pl.UInt8,
+            "u16": pl.UInt16,
+            "u32": pl.UInt32,
+            "u64": pl.UInt64,
+            "default": pl.Int64,
+        },
+    )
+    assert lf.collect_schema() == lf.collect().schema
+    assert_frame_equal(out, expected)
+
+
+def test_str_to_integer_large() -> None:
+    df = pl.DataFrame(
+        {
+            "str": [
+                "-6129899454972456276923959272",
+                "1A44E53BFEBA967E6682FBB0",
+                "10100110111110110101110100000100110010101111000100011000000100010101010101101011111111101000",
+                None,
+                "7798994549724957734429272",
+            ],
+            "base": [10, 16, 2, 8, None],
+        }
+    )
+    out = df.select(i128=pl.col("str").str.to_integer(base="base", dtype=pl.Int128))
+    expected = pl.DataFrame(
+        {
+            "i128": [
+                -6129899454972456276923959272,
+                8129899739726392769273592752,
+                3229899454972495776923959272,
+                None,
+                None,
+            ]
+        },
+        schema={"i128": pl.Int128},
+    )
+    assert_frame_equal(out, expected)
+
+    # test strict raise
+    df = pl.DataFrame(
+        {
+            "i128": [
+                "612989945497245627692395927261298994549724562769239592726129899454972456276923959272",
+                "1A44E53BFEBA967E6682FBB0",
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                "7798994549724957734429272",
+                None,
+                "7798994549724957734429272",
+            ],
+            "base": [10, 2, 16, 10, 8, None],
+        }
+    )
+
+    with pytest.raises(ComputeError):
+        df.select(pl.col("i128").str.to_integer(base="base", dtype=pl.Int128))
 
 
 def test_str_strip_chars_expr() -> None:
@@ -1404,7 +1497,10 @@ def test_extract_groups() -> None:
 
     assert df.select(pl.col("iso_code").str.extract_groups("")).to_dict(
         as_series=False
-    ) == {"iso_code": [{"iso_code": None}, {"iso_code": None}]}
+    ) == {"iso_code": [{}, {}]}
+
+    q = df.lazy().select(pl.col("iso_code").str.extract_groups(""))
+    assert q.collect_schema() == q.collect().schema
 
     assert df.select(
         pl.col("iso_code").str.extract_groups(r"\A(ISO\S*).*?(\d+)")
@@ -2004,3 +2100,18 @@ def test_replace_many_mapping_in_list() -> None:
         ),
         pl.Series([[1, 2]]),
     )
+
+
+def test_str_replace_n_zero_23570() -> None:
+    # more than 32 bytes
+    abc_long = "abc " * 20 + "abc"
+    df = pl.DataFrame(
+        {"a": [abc_long, "abc abc abc", "abc ghi"], "b": ["jkl", "pqr", "xyz"]}
+    )
+    expected = df
+
+    out = df.with_columns(pl.col("a").str.replace("abc", "XYZ", n=0))
+    assert_frame_equal(out, expected)
+
+    out = df.with_columns(pl.col("a").str.replace("abc", pl.col("b"), n=0))
+    assert_frame_equal(out, expected)

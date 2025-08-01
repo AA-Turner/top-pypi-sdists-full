@@ -1,7 +1,7 @@
 r'''
 # `newrelic_obfuscation_rule`
 
-Refer to the Terraform Registry for docs: [`newrelic_obfuscation_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule).
+Refer to the Terraform Registry for docs: [`newrelic_obfuscation_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ObfuscationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.obfuscationRule.ObfuscationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule newrelic_obfuscation_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule newrelic_obfuscation_rule}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ObfuscationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule newrelic_obfuscation_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule newrelic_obfuscation_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#action ObfuscationRule#action}
-        :param enabled: Whether the rule should be applied or not to incoming data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#enabled ObfuscationRule#enabled}
-        :param filter: NRQL for determining whether a given log record should have obfuscation actions applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#filter ObfuscationRule#filter}
-        :param name: Name of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#name ObfuscationRule#name}
-        :param account_id: The account id associated with the obfuscation rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#account_id ObfuscationRule#account_id}
-        :param description: Description of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#description ObfuscationRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#id ObfuscationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#action ObfuscationRule#action}
+        :param enabled: Whether the rule should be applied or not to incoming data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#enabled ObfuscationRule#enabled}
+        :param filter: NRQL for determining whether a given log record should have obfuscation actions applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#filter ObfuscationRule#filter}
+        :param name: Name of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#name ObfuscationRule#name}
+        :param account_id: The account id associated with the obfuscation rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#account_id ObfuscationRule#account_id}
+        :param description: Description of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#description ObfuscationRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#id ObfuscationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ObfuscationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ObfuscationRule to import.
-        :param import_from_id: The id of the existing ObfuscationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ObfuscationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ObfuscationRule to import is found.
         '''
         if __debug__:
@@ -308,9 +308,9 @@ class ObfuscationRuleAction:
         method: builtins.str,
     ) -> None:
         '''
-        :param attribute: Attribute names for action. An empty list applies the action to all the attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#attribute ObfuscationRule#attribute}
-        :param expression_id: Expression Id for action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#expression_id ObfuscationRule#expression_id}
-        :param method: Obfuscation method to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#method ObfuscationRule#method}
+        :param attribute: Attribute names for action. An empty list applies the action to all the attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#attribute ObfuscationRule#attribute}
+        :param expression_id: Expression Id for action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#expression_id ObfuscationRule#expression_id}
+        :param method: Obfuscation method to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#method ObfuscationRule#method}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0de58c7b0339ff90a909eba2a917b937febc3e64dc8fa9ff4c87660e58beaca0)
@@ -327,7 +327,7 @@ class ObfuscationRuleAction:
     def attribute(self) -> typing.List[builtins.str]:
         '''Attribute names for action. An empty list applies the action to all the attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#attribute ObfuscationRule#attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#attribute ObfuscationRule#attribute}
         '''
         result = self._values.get("attribute")
         assert result is not None, "Required property 'attribute' is missing"
@@ -337,7 +337,7 @@ class ObfuscationRuleAction:
     def expression_id(self) -> builtins.str:
         '''Expression Id for action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#expression_id ObfuscationRule#expression_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#expression_id ObfuscationRule#expression_id}
         '''
         result = self._values.get("expression_id")
         assert result is not None, "Required property 'expression_id' is missing"
@@ -347,7 +347,7 @@ class ObfuscationRuleAction:
     def method(self) -> builtins.str:
         '''Obfuscation method to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#method ObfuscationRule#method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#method ObfuscationRule#method}
         '''
         result = self._values.get("method")
         assert result is not None, "Required property 'method' is missing"
@@ -597,13 +597,13 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#action ObfuscationRule#action}
-        :param enabled: Whether the rule should be applied or not to incoming data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#enabled ObfuscationRule#enabled}
-        :param filter: NRQL for determining whether a given log record should have obfuscation actions applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#filter ObfuscationRule#filter}
-        :param name: Name of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#name ObfuscationRule#name}
-        :param account_id: The account id associated with the obfuscation rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#account_id ObfuscationRule#account_id}
-        :param description: Description of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#description ObfuscationRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#id ObfuscationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#action ObfuscationRule#action}
+        :param enabled: Whether the rule should be applied or not to incoming data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#enabled ObfuscationRule#enabled}
+        :param filter: NRQL for determining whether a given log record should have obfuscation actions applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#filter ObfuscationRule#filter}
+        :param name: Name of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#name ObfuscationRule#name}
+        :param account_id: The account id associated with the obfuscation rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#account_id ObfuscationRule#account_id}
+        :param description: Description of rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#description ObfuscationRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#id ObfuscationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -720,7 +720,7 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ObfuscationRuleAction]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#action ObfuscationRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#action ObfuscationRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -730,7 +730,7 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the rule should be applied or not to incoming data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#enabled ObfuscationRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#enabled ObfuscationRule#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -740,7 +740,7 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> builtins.str:
         '''NRQL for determining whether a given log record should have obfuscation actions applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#filter ObfuscationRule#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#filter ObfuscationRule#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -750,7 +750,7 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#name ObfuscationRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#name ObfuscationRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -760,7 +760,7 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id associated with the obfuscation rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#account_id ObfuscationRule#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#account_id ObfuscationRule#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -769,14 +769,14 @@ class ObfuscationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#description ObfuscationRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#description ObfuscationRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/obfuscation_rule#id ObfuscationRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/obfuscation_rule#id ObfuscationRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

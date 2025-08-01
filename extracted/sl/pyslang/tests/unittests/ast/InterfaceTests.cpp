@@ -416,34 +416,6 @@ endmodule
     CHECK(j.getValue().integer() == 3);
 }
 
-TEST_CASE("Modport multi-driven errors") {
-    auto tree = SyntaxTree::fromText(R"(
-interface I;
-    int i;
-    modport m(output i);
-endinterface
-
-module m(I.m i);
-    assign i.i = 1;
-endmodule
-
-module top;
-    I i();
-    m m1(i), m2(i);
-endmodule
-)");
-
-    CompilationOptions options;
-    options.flags |= CompilationFlags::DisableInstanceCaching;
-
-    Compilation compilation(options);
-    compilation.addSyntaxTree(tree);
-
-    auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 1);
-    CHECK(diags[0].code == diag::MultipleContAssigns);
-}
-
 TEST_CASE("Uninstantiated virtual interface param regress GH #679") {
     auto tree = SyntaxTree::fromText(R"(
 interface I;
@@ -609,30 +581,6 @@ endmodule
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::InvalidModportAccess);
     CHECK(diags[1].code == diag::ParamHasNoValue);
-}
-
-TEST_CASE("Interface array multi-driven error regress") {
-    auto tree = SyntaxTree::fromText(R"(
-interface I;
-    int i;
-    modport m(output i);
-endinterface
-
-module mod(I.m arr[3]);
-    for (genvar i = 0; i < 3; i++) begin
-        always_comb arr[i].i = i;
-    end
-endmodule
-
-module top;
-    I i [3]();
-    mod m1(i);
-endmodule
-)");
-
-    Compilation compilation;
-    compilation.addSyntaxTree(tree);
-    NO_COMPILATION_ERRORS;
 }
 
 TEST_CASE("Interface-based typedef") {
@@ -831,4 +779,84 @@ endinterface:sliceIfc
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::VirtualIfaceIfacePort);
     CHECK(diags[1].code == diag::VirtualIfaceHierRef);
+}
+
+TEST_CASE("Extern and export methods with instance caching") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I;
+    extern task foo;
+    modport m(export foo);
+    modport n(import task foo);
+endinterface
+
+module m(I.m i);
+    task i.foo; endtask
+endmodule
+
+module n(I i);
+    o o1(i);
+endmodule
+
+module o(I i);
+    m m1(i);
+endmodule
+
+module top;
+    I i1();
+    n m1(i1), m2(i1);
+
+    I i2();
+    n m3(i2);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::DupInterfaceExternMethod);
+}
+
+TEST_CASE("Instance caching with iface port side effects and downward names") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I;
+    logic l;
+endinterface
+
+module m(I i);
+    assign i.l = 1;
+endmodule
+
+module o(I i);
+    m m1(i);
+    int a;
+endmodule
+
+module top;
+    I i [3]();
+    o o1(i[0]), o2(i[1]);
+
+    assign o2.a = 1;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Self referential interface ports") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I(I i);
+endinterface
+
+module m;
+    I i(.i(m.i));
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

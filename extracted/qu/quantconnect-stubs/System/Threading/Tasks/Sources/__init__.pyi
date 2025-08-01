@@ -25,6 +25,9 @@ class ValueTaskSourceStatus(Enum):
     CANCELED = 3
     """The operation completed due to cancellation."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ValueTaskSourceOnCompletedFlags(Enum):
     """
@@ -45,6 +48,9 @@ class ValueTaskSourceOnCompletedFlags(Enum):
 
     FLOW_EXECUTION_CONTEXT = ...
     """Set if OnCompleted should capture the current ExecutionContext and use it to run the continuation."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class ManualResetValueTaskSourceCore(typing.Generic[System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult]):

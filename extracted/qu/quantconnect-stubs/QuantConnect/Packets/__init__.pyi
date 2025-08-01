@@ -122,6 +122,9 @@ class PacketType(Enum):
 
     LANGUAGE_MODEL_AGENT_MESSAGE = 51
 
+    def __int__(self) -> int:
+        ...
+
 
 class Packet(System.Object):
     """Base class for packet messaging system"""
@@ -1782,6 +1785,9 @@ class HistoryResultType(Enum):
 
     ERROR = 3
     """The request had an error"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class HistoryResult(System.Object, metaclass=abc.ABCMeta):

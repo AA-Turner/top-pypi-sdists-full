@@ -35,6 +35,9 @@ class DatabaseGeneratedOption(Enum):
     COMPUTED = 2
     """The database generates a value when a row is inserted or updated."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class DatabaseGeneratedAttribute(System.Attribute):
     """Specifies how the database generates values for a property."""

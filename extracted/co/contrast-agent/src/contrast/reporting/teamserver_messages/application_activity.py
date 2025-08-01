@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 from contrast_fireball import InventoryComponent, ArchitectureComponent, Browser
 import requests
 from dataclasses import asdict
@@ -20,10 +20,10 @@ class ApplicationActivity(BaseTsAppMessage):
     def __init__(
         self,
         *,
-        inventory_components: Optional[list[InventoryComponent]] = None,
-        attacks: Optional[list[Attack]] = None,
-        request: Optional[Request] = None,
-        request_data_masker: Optional[RequestMasker] = None,
+        inventory_components: list[InventoryComponent] | None = None,
+        attacks: list[Attack] | None = None,
+        request: Request | None = None,
+        request_data_masker: RequestMasker | None = None,
     ):
         super().__init__()
 

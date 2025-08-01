@@ -1,10 +1,15 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
+
+
 from collections import deque
+import contextlib
 from dataclasses import replace
 from enum import Enum
 from functools import partial
-from typing import Optional
+from typing import Final
+from collections.abc import Generator
 
 import contrast
 from contrast.agent.disable_reaction import DisableReaction
@@ -85,7 +90,8 @@ def _handle_errors(return_value=None) -> wrapt.FunctionWrapper:
 @wrapt.function_wrapper
 def _queue_if_app_uninitialized(wrapped, instance, args, kwargs):
     """
-    A decorator that queues the wrapped function call if the application hasn't been initialized.
+    A decorator that queues the wrapped function call if the application hasn't been
+    initialized.
 
     This decorator should only be used on Client methods.
     """
@@ -174,7 +180,7 @@ class Client(ReportingClient):
     def new_findings(
         self,
         findings: list[contrast_fireball.AssessFinding],
-        request: Optional[Request],
+        request: Request | None,
     ):
         """
         Record Assess findings.
@@ -191,7 +197,7 @@ class Client(ReportingClient):
     def _new_finding(
         self,
         finding: contrast_fireball.AssessFinding,
-        request: Optional[contrast_fireball.AssessRequest],
+        request: contrast_fireball.AssessRequest | None,
     ):
         contrast_fireball.new_finding(self.app_id, replace(finding, request=request))
 
@@ -227,6 +233,121 @@ class Client(ReportingClient):
         """
         contrast_fireball.new_inventory_components(self.app_id, components)
 
+    @contextlib.contextmanager
+    def observability_trace(
+        self,
+        *,
+        send_trace: bool,
+        attributes: contrast_fireball.OtelAttributes | None = None,
+    ) -> Generator[ObservabilityTrace | None, None, None]:
+        """
+        Manages the lifecycle of the root span for observability mode.
+
+        `send_trace` determines whether or not the trace will actually be reported to
+        the UI. In the future, we may decide not to send every trace, depending on
+        observabilty sampling settings. Traces for requests containing an attack
+        (identified by protect) will likely be sent regardless. For now, `send_trace`
+        must be given an initial value, but this can be changed later by modifying the
+        corresponding attribute on the trace object returned by this contextmanager.
+        """
+        # A new trace should only be created when a new request comes in to the server.
+        # By this point, we must have called `initialize_application`, which sets these
+        # critical attributes.
+        assert hasattr(self, "app_id")
+        assert self.config is not None
+
+        if (
+            trace_id := self._start_trace(
+                contrast_fireball.SpanType.HttpServerRequest, attributes or {}
+            )
+        ) is None:
+            logger.debug("No trace_id from fireball - not entering root span")
+            yield None
+            return
+
+        trace = ObservabilityTrace(
+            trace_id=trace_id, send_trace=send_trace, client=self
+        )
+        try:
+            yield trace
+        finally:
+            self._end_trace(trace_id, trace.send_trace)
+
+    @_handle_errors()
+    def _start_trace(
+        self,
+        action_type: contrast_fireball.SpanType,
+        attributes: contrast_fireball.OtelAttributes,
+    ) -> str | None:
+        # the undecorated function can only return `str`, but the decorated function
+        # returns `None` on error
+        params = contrast_fireball.StartTraceParams(
+            action_type=action_type,
+            attributes=attributes,
+        )
+        result = contrast_fireball.start_trace(self.app_id, params)
+        return result.data.trace_id
+
+    @_handle_errors()
+    def _end_trace(self, trace_id: str, send_trace: bool) -> None:
+        params = contrast_fireball.EndTraceParams(
+            trace_id=trace_id,
+            send_trace=send_trace,
+        )
+        contrast_fireball.end_trace(self.app_id, params)
+
+    @_handle_errors()
+    def _update_trace(
+        self, trace_id: str, attributes: contrast_fireball.OtelAttributes
+    ) -> None:
+        params = contrast_fireball.UpdateTraceParams(
+            trace_id=trace_id, attributes=attributes
+        )
+        contrast_fireball.update_trace(self.app_id, params)
+
+    @_handle_errors()
+    def _get_trace_info(self, trace_id: str) -> contrast_fireball.TraceInfo | None:
+        result = contrast_fireball.get_trace_info(self.app_id, trace_id)
+        return result.data
+
+    @_handle_errors()
+    def _start_child_span(
+        self,
+        trace_id: str,
+        action_type: contrast_fireball.SpanType,
+        attributes: contrast_fireball.OtelAttributes,
+        parent_span_id: str | None = None,
+    ) -> str | None:
+        # the undecorated function can only return `str`, but the decorated function
+        # returns `None` on error
+        params = contrast_fireball.StartChildSpanParams(
+            trace_id=trace_id,
+            action_type=action_type,
+            attributes=attributes,
+            parent_span_id=parent_span_id,
+        )
+        result = contrast_fireball.start_child_span(self.app_id, params)
+        return result.data.id
+
+    @_handle_errors()
+    def _end_child_span(self, trace_id: str, span_id: str) -> None:
+        params = contrast_fireball.EndChildSpanParams(
+            trace_id=trace_id,
+            span_id=span_id,
+        )
+        contrast_fireball.end_child_span(self.app_id, params)
+
+    @_handle_errors()
+    def _update_child_span(
+        self, trace_id: str, span_id: str, attributes: contrast_fireball.OtelAttributes
+    ) -> None:
+        params = contrast_fireball.UpdateChildSpanParams(
+            trace_id=trace_id,
+            span_id=span_id,
+            attributes=attributes,
+        )
+        contrast_fireball.update_child_span(self.app_id, params)
+
 
 def agent_config_to_plain_dict(config: AgentConfig):
     """
@@ -253,3 +374,74 @@ def agent_config_to_plain_dict(config: AgentConfig):
         json_config["application.session_metadata"] = config.get_session_metadata()
 
     return json_config
+
+
+class ObservabilityTrace:
+    trace_id: Final[str]
+    send_trace: bool
+    _client: Client
+
+    def __init__(self, trace_id: str, send_trace: bool, client: Client):
+        self.trace_id = trace_id
+        self.send_trace = send_trace
+        self._client = client
+
+    def update(self, attributes: contrast_fireball.OtelAttributes) -> None:
+        """
+        Updates attributes on an existing trace.
+        """
+        self._client._update_trace(self.trace_id, attributes)
+
+    def get_info(self) -> contrast_fireball.SpanInfo | None:
+        """
+        Gets trace info for an unsent trace.
+
+        This function will return None if the root span is not found. Traces are closed
+        and unavailable once they are sent.
+        """
+        if (trace_info := self._client._get_trace_info(self.trace_id)) is None:
+            return None
+        return trace_info.root_span
+
+    @contextlib.contextmanager
+    def child_span(
+        self,
+        action_type: contrast_fireball.SpanType,
+        *,
+        attributes: contrast_fireball.OtelAttributes | None = None,
+        parent_span_id: str | None = None,
+    ) -> Generator[ChildSpan | None, None, None]:
+        """
+        Manages the lifecycle of a child span for observability mode. The newly created
+        child span will be attached to the current trace.
+        """
+        if (
+            span_id := self._client._start_child_span(
+                self.trace_id, action_type, attributes or {}, parent_span_id
+            )
+        ) is None:
+            yield None
+            return
+
+        child = ChildSpan(span_id, self)
+        try:
+            yield child
+        finally:
+            self._client._end_child_span(self.trace_id, span_id)
+
+
+class ChildSpan:
+    span_id: Final[str]
+    _trace: ObservabilityTrace
+
+    def __init__(self, span_id: str, trace: ObservabilityTrace):
+        self.span_id = span_id
+        self._trace = trace
+
+    def update(self, attributes: contrast_fireball.OtelAttributes) -> None:
+        """
+        Updates a child span with new attributes.
+        """
+        self._trace._client._update_child_span(
+            self._trace.trace_id, self.span_id, attributes
+        )

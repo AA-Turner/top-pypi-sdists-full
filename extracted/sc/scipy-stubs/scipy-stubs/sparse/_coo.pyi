@@ -1,7 +1,7 @@
 # mypy: disable-error-code="explicit-override"
 
 from collections.abc import Sequence
-from typing import Any, ClassVar, Generic, Literal, TypeAlias, overload, type_check_only
+from typing import Any, ClassVar, Generic, Literal, SupportsIndex, TypeAlias, overload, type_check_only
 from typing_extensions import TypeIs, TypeVar, override
 
 import numpy as np
@@ -13,34 +13,30 @@ import optype.numpy.compat as npc
 from ._base import _spbase, sparray
 from ._data import _data_matrix, _minmax_mixin
 from ._matrix import spmatrix
-from ._typing import Index1D, Numeric, ToShape1D, ToShape2D, ToShapeMin1D, ToShapeMin3D
+from ._typing import _ToShape1D, _ToShape2D
 
 __all__ = ["coo_array", "coo_matrix", "isspmatrix_coo"]
 
+###
+
 _T = TypeVar("_T")
-_ScalarT = TypeVar("_ScalarT", bound=Numeric)
-_ScalarT_co = TypeVar("_ScalarT_co", bound=Numeric, default=Any, covariant=True)
+_ScalarT = TypeVar("_ScalarT", bound=npc.number | np.bool_)
+_ScalarT_co = TypeVar("_ScalarT_co", bound=npc.number | np.bool_, default=Any, covariant=True)
+_SupComplexT = TypeVar("_SupComplexT", bound=np.complex128 | npc.complexfloating160)
+_SupFloatT = TypeVar("_SupFloatT", bound=npc.inexact64 | npc.inexact80)
+_SupIntT = TypeVar("_SupIntT", bound=np.int_ | np.uintp | np.uint32 | npc.number64 | npc.inexact80)
 _ShapeT_co = TypeVar("_ShapeT_co", bound=onp.AtLeast1D, default=onp.AtLeast0D[Any], covariant=True)
 
-_IntND: TypeAlias = onp.ArrayND[npc.integer]
-_ToData: TypeAlias = tuple[onp.ArrayND[_ScalarT], tuple[_IntND] | tuple[_IntND, _IntND]]
-_ToDense: TypeAlias = onp.ArrayND[_ScalarT] | onp.SequenceND[onp.ArrayND[_ScalarT]] | onp.SequenceND[_ScalarT]
+_ToData: TypeAlias = tuple[
+    onp.ArrayND[_ScalarT],
+    tuple[onp.ArrayND[npc.integer], onp.ArrayND[npc.integer]] | tuple[onp.ArrayND[npc.integer]],
+]  # fmt: skip
 
 _ScalarOrDense: TypeAlias = onp.ArrayND[_ScalarT] | _ScalarT
 _JustND: TypeAlias = onp.SequenceND[op.Just[_T]]
 
-_SubInt: TypeAlias = np.bool_ | npc.integer8 | npc.integer16 | np.int32 | np.int_
-_SubFloat: TypeAlias = np.bool_ | npc.integer | np.float32 | np.float64
-_SubComplex: TypeAlias = _SubFloat | np.complex64 | np.complex128
-_SupComplex: TypeAlias = np.complex128 | np.clongdouble
-_SupFloat: TypeAlias = np.float64 | np.longdouble | _SupComplex
-_SupInt: TypeAlias = npc.integer64 | np.int_ | np.uintp | np.uint32 | _SupFloat
-
 _Axes: TypeAlias = int | tuple[Sequence[int], Sequence[int]]
-
-_SupComplexT = TypeVar("_SupComplexT", bound=_SupComplex)
-_SupFloatT = TypeVar("_SupFloatT", bound=_SupFloat)
-_SupIntT = TypeVar("_SupIntT", bound=_SupInt)
+_ToShapeMin3D: TypeAlias = tuple[SupportsIndex, SupportsIndex, SupportsIndex, *tuple[SupportsIndex, ...]]  # ndim > 2
 
 ###
 
@@ -49,7 +45,7 @@ class _coo_base(_data_matrix[_ScalarT_co, _ShapeT_co], _minmax_mixin[_ScalarT_co
     _allow_nd: ClassVar[Sequence[int]] = ...  # range(1, 65)
 
     data: onp.Array1D[_ScalarT_co]
-    coords: tuple[Index1D, ...]  # len(coords) == ndim
+    coords: tuple[onp.Array1D[np.int32], ...]  # len(coords) == ndim
     has_canonical_format: bool
 
     @property
@@ -61,12 +57,12 @@ class _coo_base(_data_matrix[_ScalarT_co, _ShapeT_co], _minmax_mixin[_ScalarT_co
     def shape(self, /) -> _ShapeT_co: ...
     #
     @property
-    def row(self, /) -> Index1D: ...
+    def row(self, /) -> onp.Array1D[np.int32]: ...
     @row.setter
     def row(self, row: onp.ToInt1D, /) -> None: ...
     #
     @property
-    def col(self, /) -> Index1D: ...
+    def col(self, /) -> onp.Array1D[np.int32]: ...
     @col.setter
     def col(self, col: onp.ToInt1D, /) -> None: ...
 
@@ -75,7 +71,7 @@ class _coo_base(_data_matrix[_ScalarT_co, _ShapeT_co], _minmax_mixin[_ScalarT_co
         self,
         /,
         arg1: onp.ToComplex1D | onp.ToComplex2D,
-        shape: ToShapeMin1D | None = None,
+        shape: tuple[SupportsIndex, *tuple[SupportsIndex, ...]] | None = None,
         dtype: npt.DTypeLike | None = ...,
         copy: bool = False,
         *,
@@ -94,15 +90,23 @@ class _coo_base(_data_matrix[_ScalarT_co, _ShapeT_co], _minmax_mixin[_ScalarT_co
         self, /, other: _spbase[_ScalarT], axes: _Axes = 2
     ) -> _ScalarT_co | _ScalarT | coo_array[_ScalarT_co | _ScalarT]: ...
     @overload
-    def tensordot(self, /, other: _ToDense[_ScalarT], axes: _Axes = 2) -> _ScalarOrDense[_ScalarT_co | _ScalarT]: ...
+    def tensordot(
+        self, /, other: onp.ArrayND[_ScalarT] | onp.SequenceND[onp.ArrayND[_ScalarT]] | onp.SequenceND[_ScalarT], axes: _Axes = 2
+    ) -> _ScalarOrDense[_ScalarT_co | _ScalarT]: ...
     @overload
     def tensordot(self, /, other: onp.SequenceND[bool], axes: _Axes = 2) -> _ScalarOrDense[_ScalarT_co]: ...
     @overload
-    def tensordot(self: _spbase[_SubInt], /, other: _JustND[int], axes: _Axes = 2) -> _ScalarOrDense[np.int_]: ...
+    def tensordot(
+        self: _spbase[np.bool_ | npc.integer8 | npc.integer16 | np.int32 | np.int_], /, other: _JustND[int], axes: _Axes = 2
+    ) -> _ScalarOrDense[np.int_]: ...
     @overload
-    def tensordot(self: _spbase[_SubFloat], /, other: _JustND[float], axes: _Axes = 2) -> _ScalarOrDense[np.float64]: ...
+    def tensordot(
+        self: _spbase[np.bool_ | npc.integer | np.float32 | np.float64], /, other: _JustND[float], axes: _Axes = 2
+    ) -> _ScalarOrDense[np.float64]: ...
     @overload
-    def tensordot(self: _spbase[_SubComplex], /, other: _JustND[complex], axes: _Axes = 2) -> _ScalarOrDense[np.complex128]: ...
+    def tensordot(
+        self: _spbase[np.bool_ | npc.integer | npc.inexact32 | npc.inexact64], /, other: _JustND[complex], axes: _Axes = 2
+    ) -> _ScalarOrDense[np.complex128]: ...
     @overload
     def tensordot(self: _spbase[_SupComplexT], /, other: _JustND[complex], axes: _Axes = 2) -> _ScalarOrDense[_SupComplexT]: ...
     @overload
@@ -149,122 +153,320 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 1-d shape-like, dtype: None
+    @overload  # 1-d shape-like, dtype: float64-like | None
     def __init__(
         self: coo_array[np.float64, tuple[int]],
         /,
-        arg1: ToShape1D,
-        shape: ToShape1D | None = None,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d shape-like, dtype: None
+    @overload  # 2-d shape-like, dtype: float64-like | None
     def __init__(
         self: coo_array[np.float64, tuple[int, int]],
         /,
-        arg1: ToShape2D,
-        shape: ToShape2D | None = None,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # >2-d shape-like, dtype: None
+    @overload  # >2-d shape-like, dtype: float64-like | None
     def __init__(
         self: coo_array[np.float64, onp.AtLeast3D],
         /,
-        arg1: ToShapeMin3D,
-        shape: ToShapeMin3D | None = None,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # vector-like builtins.bool, dtype: type[bool] | None
+    @overload  # 1-d shape-like, dtype: bool-like (positional)
+    def __init__(
+        self: coo_array[np.bool_, tuple[int]],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: bool-like (keyword)
+    def __init__(
+        self: coo_array[np.bool_, tuple[int]],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: bool-like (positional)
+    def __init__(
+        self: coo_array[np.bool_, tuple[int, int]],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: bool-like (keyword)
+    def __init__(
+        self: coo_array[np.bool_, tuple[int, int]],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # >2-d shape-like, dtype: bool-like (positional)
+    def __init__(
+        self: coo_array[np.bool_, onp.AtLeast3D],
+        /,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # >2-d shape-like, dtype: bool-like (keyword)
+    def __init__(
+        self: coo_array[np.bool_, onp.AtLeast3D],
+        /,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: int-like (positional)
+    def __init__(
+        self: coo_array[np.int64, tuple[int]],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: int-like (keyword)
+    def __init__(
+        self: coo_array[np.int64, tuple[int]],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
+        *,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: int-like (positional)
+    def __init__(
+        self: coo_array[np.int64, tuple[int, int]],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: int-like (keyword)
+    def __init__(
+        self: coo_array[np.int64, tuple[int, int]],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # >2-d shape-like, dtype: int-like (positional)
+    def __init__(
+        self: coo_array[np.int64, onp.AtLeast3D],
+        /,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # >2-d shape-like, dtype: int-like (keyword)
+    def __init__(
+        self: coo_array[np.int64, onp.AtLeast3D],
+        /,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None = None,
+        *,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: complex128-like (positional)
+    def __init__(
+        self: coo_array[np.complex128, tuple[int]],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: complex128-like (keyword)
+    def __init__(
+        self: coo_array[np.complex128, tuple[int]],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
+        *,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: complex128-like (positional)
+    def __init__(
+        self: coo_array[np.complex128, tuple[int, int]],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: complex128-like (keyword)
+    def __init__(
+        self: coo_array[np.complex128, tuple[int, int]],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # >2-d shape-like, dtype: complex128-like (positional)
+    def __init__(
+        self: coo_array[np.complex128, onp.AtLeast3D],
+        /,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None,
+        dtype: onp.AnyComplex64DType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # >2-d shape-like, dtype: complex128-like (keyword)
+    def __init__(
+        self: coo_array[np.complex128, onp.AtLeast3D],
+        /,
+        arg1: _ToShapeMin3D,
+        shape: _ToShapeMin3D | None = None,
+        *,
+        dtype: onp.AnyComplex64DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # vector-like builtins.bool, dtype: bool-like | None
     def __init__(
         self: coo_array[np.bool_, tuple[int]],
         /,
         arg1: Sequence[bool],
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.bool, dtype: type[bool] | None
+    @overload  # matrix-like builtins.bool, dtype: bool-like | None
     def __init__(
         self: coo_array[np.bool_, tuple[int, int]],
         /,
         arg1: Sequence[Sequence[bool]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # vector-like builtins.int, dtype: type[int] | None
+    @overload  # vector-like builtins.int, dtype: int-like | None
     def __init__(
         self: coo_array[np.int_, tuple[int]],
         /,
         arg1: Sequence[op.JustInt],
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.int, dtype: type[int] | None
+    @overload  # matrix-like builtins.int, dtype: int-like | None
     def __init__(
         self: coo_array[np.int_, tuple[int, int]],
         /,
         arg1: Sequence[Sequence[op.JustInt]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # vector-like builtins.float, dtype: type[float] | None
+    @overload  # vector-like builtins.float, dtype: float64-like | None
     def __init__(
         self: coo_array[np.float64, tuple[int]],
         /,
         arg1: Sequence[op.JustFloat],
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.float, dtype: type[float] | None
+    @overload  # matrix-like builtins.float, dtype: float64-like | None
     def __init__(
         self: coo_array[np.float64, tuple[int, int]],
         /,
         arg1: Sequence[Sequence[op.JustFloat]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.complex, dtype: type[complex] | None
+    @overload  # matrix-like builtins.complex, dtype: complex128-like | None
     def __init__(
         self: coo_array[np.complex128, tuple[int]],
         /,
         arg1: Sequence[op.JustComplex],
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.complex, dtype: type[complex] | None
+    @overload  # matrix-like builtins.complex, dtype: complex128-like | None
     def __init__(
         self: coo_array[np.complex128, tuple[int, int]],
         /,
         arg1: Sequence[Sequence[op.JustComplex]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         *,
@@ -275,7 +477,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: coo_array[_ScalarT, tuple[int]],
         /,
         arg1: onp.ToComplexStrict1D,
-        shape: ToShape1D | None,
+        shape: _ToShape1D | None,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
         *,
@@ -286,7 +488,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: coo_array[_ScalarT, tuple[int]],
         /,
         arg1: onp.ToComplexStrict1D,
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
@@ -297,7 +499,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: coo_array[_ScalarT, tuple[int, int]],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShape2D | None,
+        shape: _ToShape2D | None,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
         *,
@@ -308,7 +510,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: coo_array[_ScalarT, tuple[int, int]],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
@@ -319,7 +521,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: coo_array[_ScalarT, onp.AtLeast3D],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShapeMin3D | None,
+        shape: _ToShapeMin3D | None,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
         *,
@@ -330,7 +532,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: coo_array[_ScalarT, onp.AtLeast3D],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShapeMin3D | None = None,
+        shape: _ToShapeMin3D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
@@ -341,7 +543,7 @@ class coo_array(_coo_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self,
         /,
         arg1: onp.ToComplexND,
-        shape: ToShapeMin1D | None = None,
+        shape: tuple[SupportsIndex, *tuple[SupportsIndex, ...]] | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         *,
@@ -396,52 +598,52 @@ class coo_matrix(_coo_base[_ScalarT_co, tuple[int, int]], spmatrix[_ScalarT_co],
     def __init__(
         self: coo_matrix[np.float64],
         /,
-        arg1: ToShape2D,
-        shape: ToShape2D | None = None,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.bool, dtype: type[bool] | None
+    @overload  # matrix-like builtins.bool, dtype: bool-like | None
     def __init__(
         self: coo_matrix[np.bool_],
         /,
         arg1: Sequence[Sequence[bool]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.int, dtype: type[int] | None
+    @overload  # matrix-like builtins.int, dtype: int-like | None
     def __init__(
         self: coo_matrix[np.int_],
         /,
         arg1: Sequence[Sequence[op.JustInt]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.float, dtype: type[float] | None
+    @overload  # matrix-like builtins.float, dtype: float64-like | None
     def __init__(
         self: coo_matrix[np.float64],
         /,
         arg1: Sequence[Sequence[op.JustFloat]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.complex, dtype: type[complex] | None
+    @overload  # matrix-like builtins.complex, dtype: complex128-like | None
     def __init__(
         self: coo_matrix[np.complex128],
         /,
         arg1: Sequence[Sequence[op.JustComplex]],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         *,
@@ -452,7 +654,7 @@ class coo_matrix(_coo_base[_ScalarT_co, tuple[int, int]], spmatrix[_ScalarT_co],
         self: coo_matrix[_ScalarT],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShape2D | None,
+        shape: _ToShape2D | None,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
         *,
@@ -463,7 +665,7 @@ class coo_matrix(_coo_base[_ScalarT_co, tuple[int, int]], spmatrix[_ScalarT_co],
         self: coo_matrix[_ScalarT],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
@@ -474,7 +676,7 @@ class coo_matrix(_coo_base[_ScalarT_co, tuple[int, int]], spmatrix[_ScalarT_co],
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         *,
@@ -485,7 +687,7 @@ class coo_matrix(_coo_base[_ScalarT_co, tuple[int, int]], spmatrix[_ScalarT_co],
     @overload
     def getnnz(self, /, axis: None = None) -> int: ...
     @overload
-    def getnnz(self, /, axis: op.CanIndex) -> Index1D: ...
+    def getnnz(self, /, axis: op.CanIndex) -> onp.Array1D[np.int32]: ...
 
     #
     def __setstate__(self, state: dict[str, Any], /) -> None: ...

@@ -15,15 +15,15 @@ from ._base import _spbase, sparray
 from ._coo import coo_array, coo_matrix
 from ._index import IndexMixin
 from ._matrix import spmatrix
-from ._typing import Numeric, ToShape1D, ToShape2D, ToShapeMax2D
+from ._typing import _ToShape1D, _ToShape2D
 
 __all__ = ["dok_array", "dok_matrix", "isspmatrix_dok"]
 
 ###
 
 _T = TypeVar("_T")
-_ScalarT = TypeVar("_ScalarT", bound=Numeric)
-_ScalarT_co = TypeVar("_ScalarT_co", bound=Numeric, default=Any, covariant=True)
+_ScalarT = TypeVar("_ScalarT", bound=npc.number | np.bool_)
+_ScalarT_co = TypeVar("_ScalarT_co", bound=npc.number | np.bool_, default=Any, covariant=True)
 _ShapeT = TypeVar("_ShapeT", bound=tuple[int] | tuple[int, int])
 _ShapeT_co = TypeVar("_ShapeT_co", bound=tuple[int] | tuple[int, int], default=tuple[int, int], covariant=True)
 
@@ -73,7 +73,7 @@ class _dok_base(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         /,
         arg1: onp.ToComplexND,
-        shape: ToShapeMax2D | None = None,
+        shape: _ToShape1D | _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         *,
@@ -184,7 +184,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _1D],
         /,
         arg1: Sequence[_ScalarT],
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.ToDType[_ScalarT] | None = None,
         copy: bool = False,
         *,
@@ -195,7 +195,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _2D],
         /,
         arg1: Sequence[Sequence[_ScalarT] | onp.CanArrayND[_ScalarT]],  # assumes max. 2-d
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.ToDType[_ScalarT] | None = None,
         copy: bool = False,
         *,
@@ -206,117 +206,249 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _AnyD],
         /,
         arg1: _ToMatrix[_ScalarT],
-        shape: ToShapeMax2D | None = None,
+        shape: _ToShape1D | _ToShape2D | None = None,
         dtype: onp.ToDType[_ScalarT] | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 1-d shape-like, dtype: None
+    @overload  # 1-d shape-like, dtype: float64-like | None
     def __init__(
         self: dok_array[np.float64, _1D],
         /,
-        arg1: ToShape1D,
-        shape: ToShape1D | None = None,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d shape-like, dtype: None
+    @overload  # 2-d shape-like, dtype: float64-like | None
     def __init__(
         self: dok_array[np.float64, _2D],
         /,
-        arg1: ToShape2D,
-        shape: ToShape2D | None = None,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 1-d array-like bool, dtype: type[bool] | None
+    @overload  # 1-d shape-like, dtype: bool-like (positional)
+    def __init__(
+        self: dok_array[np.bool_, _1D],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: bool-like (keyword)
+    def __init__(
+        self: dok_array[np.bool_, _1D],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: bool-like (positional)
+    def __init__(
+        self: dok_array[np.bool_, _2D],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: bool-like (keyword)
+    def __init__(
+        self: dok_array[np.bool_, _2D],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: int-like (positional)
+    def __init__(
+        self: dok_array[np.int64, _1D],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: int-like (keyword)
+    def __init__(
+        self: dok_array[np.int64, _1D],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
+        *,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: int-like (positional)
+    def __init__(
+        self: dok_array[np.int64, _2D],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: int-like (keyword)
+    def __init__(
+        self: dok_array[np.int64, _2D],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: complex128-like (positional)
+    def __init__(
+        self: dok_array[np.complex128, _1D],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d shape-like, dtype: complex128-like (keyword)
+    def __init__(
+        self: dok_array[np.complex128, _1D],
+        /,
+        arg1: _ToShape1D,
+        shape: _ToShape1D | None = None,
+        *,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: complex128-like (positional)
+    def __init__(
+        self: dok_array[np.complex128, _2D],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: complex128-like (keyword)
+    def __init__(
+        self: dok_array[np.complex128, _2D],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 1-d array-like bool, dtype: bool-like | None
     def __init__(
         self: dok_array[np.bool_, _1D],
         /,
         arg1: onp.ToJustBoolStrict1D,
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d array-like bool, dtype: type[bool] | None
+    @overload  # 2-d array-like bool, dtype: bool-like | None
     def __init__(
         self: dok_array[np.bool_, _2D],
         /,
         arg1: onp.ToJustBoolStrict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 1-d array-like ~int, dtype: type[int] | None
+    @overload  # 1-d array-like ~int, dtype: int-like | None
     def __init__(
         self: dok_array[np.int64, _1D],
         /,
         arg1: onp.ToJustInt64Strict1D,
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d array-like ~int, dtype: type[int] | None
+    @overload  # 2-d array-like ~int, dtype: int-like | None
     def __init__(
         self: dok_array[np.int64, _2D],
         /,
         arg1: onp.ToJustInt64Strict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 1-d array-like ~float, dtype: type[float] | None
+    @overload  # 1-d array-like ~float, dtype: float64-like | None
     def __init__(
         self: dok_array[np.float64, _1D],
         /,
         arg1: onp.ToJustFloat64Strict1D,
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d array-like ~float, dtype: type[float] | None
+    @overload  # 2-d array-like ~float, dtype: float64-like | None
     def __init__(
         self: dok_array[np.float64, _2D],
         /,
         arg1: onp.ToJustFloat64Strict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 1-d array-like ~complex, dtype: type[complex] | None
+    @overload  # 1-d array-like ~complex, dtype: complex128-like | None
     def __init__(
         self: dok_array[np.complex128, _1D],
         /,
         arg1: onp.ToJustComplex128Strict1D,
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d array-like ~complex, dtype: type[complex] | None
+    @overload  # 2-d array-like ~complex, dtype: complex128-like | None
     def __init__(
         self: dok_array[np.complex128, _2D],
         /,
         arg1: onp.ToJustComplex128Strict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         *,
@@ -327,7 +459,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _1D],
         /,
         arg1: onp.ToComplexStrict1D,
-        shape: ToShape1D | None,
+        shape: _ToShape1D | None,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
         *,
@@ -338,7 +470,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _1D],
         /,
         arg1: onp.ToComplexStrict1D,
-        shape: ToShape1D | None = None,
+        shape: _ToShape1D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
@@ -349,7 +481,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _2D],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShape2D | None,
+        shape: _ToShape2D | None,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
         *,
@@ -360,7 +492,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[_ScalarT, _2D],
         /,
         arg1: onp.ToComplexStrict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT],
         copy: bool = False,
@@ -371,7 +503,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
         self: dok_array[Any, _AnyD],
         /,
         arg1: onp.ToComplex1D | onp.ToComplex2D,
-        shape: ToShapeMax2D | None = None,
+        shape: _ToShape1D | _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         *,
@@ -474,7 +606,7 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
         self: dok_matrix[_ScalarT],  # this self annotation works around a mypy bug
         /,
         arg1: _ToMatrix[_ScalarT],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.ToDType[_ScalarT] | None = None,
         copy: bool = False,
         *,
@@ -484,52 +616,52 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
     def __init__(
         self: dok_matrix[np.float64],
         /,
-        arg1: ToShape2D,
-        shape: ToShape2D | None = None,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.bool, dtype: type[bool] | None
+    @overload  # matrix-like builtins.bool, dtype: bool-like | None
     def __init__(
         self: dok_matrix[np.bool_],
         /,
         arg1: onp.ToJustBoolStrict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.int, dtype: type[int] | None
+    @overload  # matrix-like builtins.int, dtype: int-like | None
     def __init__(
         self: dok_matrix[np.int64],
         /,
         arg1: onp.ToJustInt64Strict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.float, dtype: type[float] | None
+    @overload  # matrix-like builtins.float, dtype: float64-like | None
     def __init__(
         self: dok_matrix[np.float64],
         /,
         arg1: onp.ToJustFloat64Strict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.complex, dtype: type[complex] | None
+    @overload  # matrix-like builtins.complex, dtype: complex128-like | None
     def __init__(
         self: dok_matrix[np.complex128],
         /,
         arg1: onp.ToJustComplex128Strict2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         *,
@@ -540,7 +672,7 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None,
+        shape: _ToShape2D | None,
         dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
         *,
@@ -551,7 +683,7 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
@@ -562,7 +694,7 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         *,

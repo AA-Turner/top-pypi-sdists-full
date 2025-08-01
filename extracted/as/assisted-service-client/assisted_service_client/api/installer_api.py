@@ -445,6 +445,117 @@ class InstallerApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_detailed_supported_features(self, openshift_version, **kwargs):  # noqa: E501
+        """get_detailed_supported_features  # noqa: E501
+
+        Retrieves detailed features information including support level, incompatibilities, and operator dependencies.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_detailed_supported_features(openshift_version, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str openshift_version: Version of the OpenShift cluster. (required)
+        :param str cpu_architecture: The CPU architecture of the image (x86_64/arm64/etc).
+        :param str platform_type: The provider platform type.
+        :param str external_platform_name: External platform name when platform type is set to external. The value of this parameter will be ignored if platform_type is not external.
+        :return: InlineResponse2001
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.get_detailed_supported_features_with_http_info(openshift_version, **kwargs)  # noqa: E501
+        else:
+            (data) = self.get_detailed_supported_features_with_http_info(openshift_version, **kwargs)  # noqa: E501
+            return data
+
+    def get_detailed_supported_features_with_http_info(self, openshift_version, **kwargs):  # noqa: E501
+        """get_detailed_supported_features  # noqa: E501
+
+        Retrieves detailed features information including support level, incompatibilities, and operator dependencies.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_detailed_supported_features_with_http_info(openshift_version, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str openshift_version: Version of the OpenShift cluster. (required)
+        :param str cpu_architecture: The CPU architecture of the image (x86_64/arm64/etc).
+        :param str platform_type: The provider platform type.
+        :param str external_platform_name: External platform name when platform type is set to external. The value of this parameter will be ignored if platform_type is not external.
+        :return: InlineResponse2001
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['openshift_version', 'cpu_architecture', 'platform_type', 'external_platform_name']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_detailed_supported_features" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'openshift_version' is set
+        if ('openshift_version' not in params or
+                params['openshift_version'] is None):
+            raise ValueError("Missing the required parameter `openshift_version` when calling `get_detailed_supported_features`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'openshift_version' in params:
+            query_params.append(('openshift_version', params['openshift_version']))  # noqa: E501
+        if 'cpu_architecture' in params:
+            query_params.append(('cpu_architecture', params['cpu_architecture']))  # noqa: E501
+        if 'platform_type' in params:
+            query_params.append(('platform_type', params['platform_type']))  # noqa: E501
+        if 'external_platform_name' in params:
+            query_params.append(('external_platform_name', params['external_platform_name']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['userAuth']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v2/support-levels/features/detailed', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='InlineResponse2001',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_infra_env(self, infra_env_id, **kwargs):  # noqa: E501
         """get_infra_env  # noqa: E501
 
@@ -765,7 +876,7 @@ class InstallerApi(object):
 
         :param async_req bool
         :param str openshift_version: Version of the OpenShift cluster. (required)
-        :return: InlineResponse2001
+        :return: InlineResponse2002
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -787,7 +898,7 @@ class InstallerApi(object):
 
         :param async_req bool
         :param str openshift_version: Version of the OpenShift cluster. (required)
-        :return: InlineResponse2001
+        :return: InlineResponse2002
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -845,7 +956,7 @@ class InstallerApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='InlineResponse2001',  # noqa: E501
+            response_type='InlineResponse2002',  # noqa: E501
             auth_settings=auth_settings,
             async_req=params.get('async_req'),
             _return_http_data_only=params.get('_return_http_data_only'),

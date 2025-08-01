@@ -184,12 +184,14 @@ void ASTSerializer::visit(const T& elem, bool inMembersArray) {
         if (elem.syntax && includeSourceInfo) {
             if (auto sm = compilation.getSourceManager()) {
                 auto sr = elem.syntax->sourceRange();
-                write("source_file_start", sm->getFileName(sr.start()));
-                write("source_file_end", sm->getFileName(sr.end()));
-                write("source_line_start", sm->getLineNumber(sr.start()));
-                write("source_line_end", sm->getLineNumber(sr.end()));
-                write("source_column_start", sm->getColumnNumber(sr.start()));
-                write("source_column_end", sm->getColumnNumber(sr.end()));
+                auto start = sm->getFullyExpandedLoc(sr.start());
+                auto end = sm->getFullyExpandedLoc(sr.end());
+                write("source_file_start", sm->getFileName(start));
+                write("source_file_end", sm->getFileName(end));
+                write("source_line_start", sm->getLineNumber(start));
+                write("source_line_end", sm->getLineNumber(end));
+                write("source_column_start", sm->getColumnNumber(start));
+                write("source_column_end", sm->getColumnNumber(end));
             }
         }
     }
@@ -208,10 +210,15 @@ void ASTSerializer::visit(const T& elem, bool inMembersArray) {
             elem.serializeTo(*this);
         }
 
-        ASTContext ctx(compilation.getRoot(), LookupLocation::max);
-        ConstantValue constant = ctx.tryEval(elem);
-        if (constant)
-            write("constant", constant);
+        if (tryConstantFold) {
+            ASTContext ctx(compilation.getRoot(), LookupLocation::max);
+            ConstantValue constant = ctx.tryEval(elem);
+            if (constant)
+                write("constant", constant);
+        }
+        else if (elem.getConstant()) {
+            write("constant", *elem.getConstant());
+        }
 
         writer.endObject();
     }
@@ -260,6 +267,21 @@ void ASTSerializer::visit(const T& elem, bool inMembersArray) {
                 writer.writeValue(elem.toString());
                 return;
             }
+        }
+
+        // Skip uninstantiated blocks and instances.
+        if constexpr (std::is_same_v<InstanceSymbol, T> ||
+                      std::is_same_v<CheckerInstanceSymbol, T>) {
+            if (elem.body.flags.has(InstanceFlags::Uninstantiated))
+                return;
+        }
+        else if constexpr (std::is_same_v<GenerateBlockArraySymbol, T>) {
+            if (!elem.valid)
+                return;
+        }
+        else if constexpr (std::is_same_v<GenerateBlockSymbol, T>) {
+            if (elem.isUninstantiated)
+                return;
         }
 
         // Ignore built-in methods on class types.

@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from collections.abc import Mapping
 from functools import lru_cache
 import os
@@ -9,7 +10,7 @@ import sys
 
 import logging as stdlib_logging
 import logging.handlers as stdlib_logging_handlers
-from typing import Any, NamedTuple, Optional, TextIO, Union
+from typing import Any, NamedTuple, TextIO
 
 import contrast
 from contrast.assess_extensions import cs_str
@@ -42,8 +43,8 @@ CONFIG_KEY_PROGNAME = "agent.logger.progname"
 
 class module(Namespace):
     initialized: bool = False
-    cef_security_logger: Optional[stdlib_logging.Logger] = None
-    syslog_logger: Optional["SysLogger"] = None
+    cef_security_logger: stdlib_logging.Logger | None = None
+    syslog_logger: SysLogger | None = None
 
 
 def setup_basic_agent_logger(level="INFO"):
@@ -480,7 +481,7 @@ def close_syslog_logger():
 
 def _logger_path(
     config: AgentConfig,
-) -> tuple[Optional[ConfigOption], Union[TextIO, str]]:
+) -> tuple[ConfigOption | None, TextIO | str]:
     if (option := config.get_option(CONFIG_KEY_STDOUT)) and option.value():
         path = sys.stdout
     elif (option := config.get_option(CONFIG_KEY_STDERR)) and option.value():
@@ -493,8 +494,8 @@ def _logger_path(
 
 
 def _cache_logger(
-    path_config_option: Optional[ConfigOption],
-    level_config_option: Optional[ConfigOption],
+    path_config_option: ConfigOption | None,
+    level_config_option: ConfigOption | None,
 ) -> bool:
     return bool(
         path_config_option

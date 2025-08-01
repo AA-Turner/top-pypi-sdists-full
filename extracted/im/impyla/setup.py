@@ -27,7 +27,7 @@ def readme():
 setup(
     name='impyla',
     # impala/__init__.py also contains the version - the two should have the same value!
-    version='v0.21.0',
+    version='v0.22.0',
     description='Python client for the Impala distributed query engine',
     long_description_content_type='text/markdown',
     long_description=readme(),
@@ -39,7 +39,11 @@ setup(
     packages=find_packages(),
     install_package_data=True,
     package_data={'impala.thrift': ['*.thrift']},
-    install_requires=['six', 'bitarray<3', 'thrift==0.16.0', 'thrift_sasl==0.4.3'],
+    install_requires=['six',
+                      'bitarray<3; python_version < "3"',
+                      'bitarray; python_version >= "3"',
+                      'thrift==0.16.0',
+                      'thrift_sasl==0.4.3'],
     extras_require={
         "kerberos": ['kerberos>=1.3.0'],
     },
@@ -50,7 +54,6 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',

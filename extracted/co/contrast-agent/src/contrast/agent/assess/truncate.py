@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 from contrast.agent.assess.tag import Tag
 
 
@@ -26,7 +26,7 @@ def truncate(str_representation, length_factor=1):
 
 
 def truncate_tainted_string(
-    str_representation: str, tags: Optional[list[Tag]]
+    str_representation: str, tags: list[Tag] | None
 ) -> tuple[str, list[Tag]]:
     """
     Truncate + return the provided string and update the provided event's taint_ranges

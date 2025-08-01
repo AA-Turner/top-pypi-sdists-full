@@ -18,8 +18,7 @@ class HeartbeatThread(threading.Thread):
         self.stopped = False
         self.heartbeat_interval_ms = Settings().config.heartbeat_poll_interval
         # Agent should not ping too frequently
-        if self.heartbeat_interval_ms < 10000:
-            self.heartbeat_interval_ms = 10000
+        self.heartbeat_interval_ms = max(10000, self.heartbeat_interval_ms)
 
         super().__init__()
         # A thread must have had __init__ called, but not start, to set daemon

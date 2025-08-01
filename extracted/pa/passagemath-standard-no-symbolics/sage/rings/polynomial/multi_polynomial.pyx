@@ -469,7 +469,7 @@ cdef class MPolynomial(CommutativePolynomial):
         del Z[ind]
 
         # Make polynomial ring over all variables except var.
-        S = R.base_ring()[tuple(Z)]
+        S = PolynomialRing(R.base_ring(), Z)
         ring = S[var]
         if not self:
             return ring(0)
@@ -885,7 +885,7 @@ cdef class MPolynomial(CommutativePolynomial):
         except AttributeError:
             raise NotImplementedError
         else:
-            q, r = quo_rem(other)
+            _, r = quo_rem(other)
             return r
 
     def change_ring(self, R):
@@ -1988,6 +1988,10 @@ cdef class MPolynomial(CommutativePolynomial):
         Given an ideal `I = (f_1,\dots,f_r)` that contains ``self``,
         find `s_1,\dots,s_r` such that ``self`` `= s_1 f_1 + ... + s_r f_r`.
 
+        INPUT:
+
+        - ``I`` -- an ideal in ``self.parent()`` or tuple of generators of that ideal
+
         EXAMPLES::
 
             sage: # needs sage.rings.real_mpfr
@@ -2009,31 +2013,39 @@ cdef class MPolynomial(CommutativePolynomial):
 
         INPUT:
 
-        - ``I`` -- an ideal of the polynomial ring in which ``self`` lives
+        - ``I`` -- an ideal of the polynomial ring in which ``self`` lives,
+          or a single polynomial
 
         OUTPUT: a multivariate polynomial representing the inverse of ``f`` modulo `I`
 
         EXAMPLES::
 
-           sage: R.<x1,x2> = QQ[]
-           sage: I = R.ideal(x2**2 + x1 - 2, x1**2 - 1)
-           sage: f = x1 + 3*x2^2; g = f.inverse_mod(I); g                               # needs sage.libs.singular
-           1/16*x1 + 3/16
-           sage: (f*g).reduce(I)                                                        # needs sage.libs.singular
-           1
+            sage: R.<x1,x2> = QQ[]
+            sage: I = R.ideal(x2**2 + x1 - 2, x1**2 - 1)
+            sage: f = x1 + 3*x2^2; g = f.inverse_mod(I); g                               # needs sage.libs.singular
+            1/16*x1 + 3/16
+            sage: (f*g).reduce(I)                                                        # needs sage.libs.singular
+            1
 
         Test a non-invertible element::
 
-           sage: R.<x1,x2> = QQ[]
-           sage: I = R.ideal(x2**2 + x1 - 2, x1**2 - 1)
-           sage: f = x1 + x2
-           sage: f.inverse_mod(I)                                                       # needs sage.libs.singular
-           Traceback (most recent call last):
-           ...
-           ArithmeticError: element is non-invertible
+            sage: R.<x1,x2> = QQ[]
+            sage: I = R.ideal(x2**2 + x1 - 2, x1**2 - 1)
+            sage: f = x1 + x2
+            sage: f.inverse_mod(I)                                                       # needs sage.libs.singular
+            Traceback (most recent call last):
+            ...
+            ArithmeticError: element is non-invertible
+
+        TESTS::
+
+            sage: R.<x,y> = ZZ[]
+            sage: x.inverse_mod(x*y - 1)                                                 # needs sage.libs.singular
+            y
         """
         P = self.parent()
-        B = I.gens()
+        from sage.rings.ideal import Ideal_generic
+        B = I.gens() if isinstance(I, Ideal_generic) else (I,)
         try:
             XY = P.one().lift((self,) + tuple(B))
             return P(XY[0])
@@ -2431,7 +2443,7 @@ cdef class MPolynomial(CommutativePolynomial):
             sage: R.<x,h> = PolynomialRing(QQ)
             sage: f = 19*x^8 - 262*x^7*h + 1507*x^6*h^2 - 4784*x^5*h^3 + 9202*x^4*h^4\
             ....: -10962*x^3*h^5 + 7844*x^2*h^6 - 3040*x*h^7 + 475*h^8
-            sage: f.reduced_form(prec=200, smallest_coeffs=False)                       # needs sage.modules sage.rings.complex_interval_field
+            sage: f.reduced_form(prec=200, smallest_coeffs=False)                       # needs sage.modules sage.rings.complex_interval_field sage.schemes
             (
             -x^8 - 2*x^7*h + 7*x^6*h^2 + 16*x^5*h^3 + 2*x^4*h^4 - 2*x^3*h^5 + 4*x^2*h^6 - 5*h^8,
             <BLANKLINE>
@@ -2444,7 +2456,7 @@ cdef class MPolynomial(CommutativePolynomial):
             sage: R.<x,y> = PolynomialRing(QQ)
             sage: f = x^3 + 378666*x^2*y - 12444444*x*y^2 + 1234567890*y^3
             sage: j = f * (x-545*y)^9
-            sage: j.reduced_form(prec=200, smallest_coeffs=False)                       # needs sage.modules sage.rings.complex_interval_field
+            sage: j.reduced_form(prec=200, smallest_coeffs=False)                       # needs sage.modules sage.rings.complex_interval_field sage.schemes
             Traceback (most recent call last):
             ...
             ValueError: cannot have a root with multiplicity >= 12/2
@@ -2453,7 +2465,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
             sage: R.<x,y> = PolynomialRing(QQ)
             sage: F = x^6 + 3*x^5*y - 8*x^4*y^2 - 2*x^3*y^3 - 44*x^2*y^4 - 8*x*y^5
-            sage: F.reduced_form(smallest_coeffs=False, prec=400)                       # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(smallest_coeffs=False, prec=400)                       # needs sage.modules sage.rings.complex_interval_field sage.schemes
             Traceback (most recent call last):
             ...
             ArithmeticError: Newton's method converged to z not in the upper half plane
@@ -2462,7 +2474,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
             sage: R.<x,y> = PolynomialRing(QQ)
             sage: F = 5*x^2*y - 5*x*y^2 - 30*y^3
-            sage: F.reduced_form(smallest_coeffs=False)                                 # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(smallest_coeffs=False)                                 # needs sage.modules sage.rings.complex_interval_field sage.schemes
             (
                                         [1 1]
             5*x^2*y + 5*x*y^2 - 30*y^3, [0 1]
@@ -2473,12 +2485,12 @@ cdef class MPolynomial(CommutativePolynomial):
             sage: R.<x,y> = PolynomialRing(QQ)
             sage: F = (-16*x^7 - 114*x^6*y - 345*x^5*y^2 - 599*x^4*y^3
             ....:      - 666*x^3*y^4 - 481*x^2*y^5 - 207*x*y^6 - 40*y^7)
-            sage: F.reduced_form(prec=50, smallest_coeffs=False)                        # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(prec=50, smallest_coeffs=False)                        # needs sage.modules sage.rings.complex_interval_field sage.schemes
             Traceback (most recent call last):
             ...
             ValueError: accuracy of Newton's root not within tolerance(0.000012... > 1e-06),
             increase precision
-            sage: F.reduced_form(prec=100, smallest_coeffs=False)                       # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(prec=100, smallest_coeffs=False)                       # needs sage.modules sage.rings.complex_interval_field sage.schemes
             (
                                                                   [-1 -1]
             -x^5*y^2 - 24*x^3*y^4 - 3*x^2*y^5 - 2*x*y^6 + 16*y^7, [ 1  0]
@@ -2488,14 +2500,14 @@ cdef class MPolynomial(CommutativePolynomial):
 
             sage: R.<x,y> = PolynomialRing(QQ)
             sage: F = - 8*x^4 - 3933*x^3*y - 725085*x^2*y^2 - 59411592*x*y^3 - 1825511633*y^4
-            sage: F.reduced_form(return_conjugation=False)                              # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(return_conjugation=False)                              # needs sage.modules sage.rings.complex_interval_field sage.schemes
             x^4 + 9*x^3*y - 3*x*y^3 - 8*y^4
 
         ::
 
             sage: R.<x,y> = QQ[]
             sage: F = -2*x^3 + 2*x^2*y + 3*x*y^2 + 127*y^3
-            sage: F.reduced_form()                                                      # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form()                                                      # needs sage.modules sage.rings.complex_interval_field sage.schemes
             (
                                                    [1 4]
             -2*x^3 - 22*x^2*y - 77*x*y^2 + 43*y^3, [0 1]
@@ -2505,7 +2517,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
             sage: R.<x,y> = QQ[]
             sage: F = -2*x^3 + 2*x^2*y + 3*x*y^2 + 127*y^3
-            sage: F.reduced_form(norm_type='height')                                    # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(norm_type='height')                                    # needs sage.modules sage.rings.complex_interval_field sage.schemes
             (
                                                     [5 4]
             -58*x^3 - 47*x^2*y + 52*x*y^2 + 43*y^3, [1 1]
@@ -2515,7 +2527,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
             sage: R.<x,y,z> = PolynomialRing(QQ)
             sage: F = x^4 + x^3*y*z + y^2*z
-            sage: F.reduced_form()                                                      # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form()                                                      # needs sage.modules sage.rings.complex_interval_field sage.schemes
             Traceback (most recent call last):
             ...
             ValueError: (=x^3*y*z + x^4 + y^2*z) must have two variables
@@ -2524,7 +2536,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
             sage: R.<x,y> = PolynomialRing(ZZ)
             sage: F = - 8*x^6 - 3933*x^3*y - 725085*x^2*y^2 - 59411592*x*y^3 - 99*y^6
-            sage: F.reduced_form(return_conjugation=False)                              # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(return_conjugation=False)                              # needs sage.modules sage.rings.complex_interval_field sage.schemes
             Traceback (most recent call last):
             ...
             ValueError: (=-8*x^6 - 99*y^6 - 3933*x^3*y - 725085*x^2*y^2 -
@@ -2535,7 +2547,7 @@ cdef class MPolynomial(CommutativePolynomial):
             sage: R.<x,y> = PolynomialRing(RR)
             sage: F = (217.992172373276*x^3 + 96023.1505442490*x^2*y
             ....:      + 1.40987971253579e7*x*y^2 + 6.90016027113216e8*y^3)
-            sage: F.reduced_form(smallest_coeffs=False)  # tol 1e-8                     # needs sage.modules sage.rings.complex_interval_field
+            sage: F.reduced_form(smallest_coeffs=False)  # tol 1e-8                     # needs sage.modules sage.rings.complex_interval_field sage.schemes
             (
             -39.5673942565918*x^3 + 111.874026298523*x^2*y
              + 231.052762985229*x*y^2 - 138.380829811096*y^3,
@@ -2551,7 +2563,7 @@ cdef class MPolynomial(CommutativePolynomial):
             ....:      + (84.8317207268542 + 93.8840848648033*CC.0)*x^2*y
             ....:      + (3159.07040755858 + 3475.33037377779*CC.0)*x*y^2
             ....:      + (39202.5965389079 + 42882.5139724962*CC.0)*y^3)
-            sage: F.reduced_form(smallest_coeffs=False)  # tol 1e-11                    # needs sage.modules sage.rings.complex_interval_field sage.rings.real_mpfr
+            sage: F.reduced_form(smallest_coeffs=False)  # tol 1e-11                    # needs sage.modules sage.rings.complex_interval_field sage.rings.real_mpfr sage.schemes
             (
             (-0.759099196558145 - 0.845425869641446*I)*x^3
             + (-0.571709908900118 - 0.0418133346027929*I)*x^2*y
@@ -2574,7 +2586,6 @@ cdef class MPolynomial(CommutativePolynomial):
 
         prec = kwds.get('prec', 300)
         return_conjugation = kwds.get('return_conjugation', True)
-        error_limit = kwds.get('error_limit', 0.000001)
         emb = kwds.get('emb', None)
 
         # getting a numerical approximation of the roots of our polynomial
@@ -2614,7 +2625,8 @@ cdef class MPolynomial(CommutativePolynomial):
             # since we are searching anyway, don't need the 'true' reduced covariant
             from sage.rings.polynomial.binary_form_reduce import smallest_poly
             norm_type = kwds.get('norm_type', 'norm')
-            sm_F, sm_m = smallest_poly(self(tuple(M * vector([x,y]))), prec=prec, norm_type=norm_type, emb=emb)
+            _, sm_m = smallest_poly(self(tuple(M * vector([x, y]))), prec=prec,
+                                    norm_type=norm_type, emb=emb)
             M = M*sm_m
         else:
             # solve the minimization problem for 'true' covariant
@@ -2639,7 +2651,7 @@ cdef class MPolynomial(CommutativePolynomial):
             return (self(tuple(M * vector([x,y]))), M)
         return self(tuple(M * vector([x,y])))
 
-    def is_unit(self):
+    def is_unit(self) -> bool:
         r"""
         Return ``True`` if ``self`` is a unit, that is, has a
         multiplicative inverse.
@@ -2899,8 +2911,57 @@ cdef class MPolynomial(CommutativePolynomial):
 
         return result(True)
 
+    def crt(self, y, m, n):
+        """
+        Return a polynomial congruent to ``self`` modulo ``m`` and
+        to ``y`` modulo ``n``.
 
-def _is_M_convex_(points):
+        INPUT:
+
+        - ``y`` -- a polynomial in the same ring as ``self``
+        - ``m``, ``n`` -- polynomials or ideals in the same ring as ``self``; ideals
+          may also be specified as a list/tuple of generators
+
+        EXAMPLES::
+
+            sage: # needs sage.libs.singular
+            sage: R.<x> = PolynomialRing(QQ, implementation="singular")
+            sage: f = R(3)
+            sage: f.crt(5, x-1, x-2) % ((x-1)*(x-2))
+            2*x + 1
+            sage: f.crt(5, R.ideal(x-1), [x-2]) % ((x-1)*(x-2))
+            2*x + 1
+        """
+        # could be moved up to ModuleElement as long as lift() is defined
+        # the current definition of lift() requires ideal(), so maybe only RingElement
+        R = self._parent
+        y = R(y)
+        m = R.ideal(m).gens()
+        n = R.ideal(n).gens()
+        # result == self - sum a_i * m_i == y + sum b_i * n_i
+        # self - y == sum b_i * n_i + sum a_i * m_i
+        ab_values = (self - y).lift(m + n)
+        return R.sum([y] + [bi * ni for bi, ni in zip(ab_values[len(m):], n)])
+
+    def canonical_associate(self):
+        """
+        Return a canonical associate.
+
+        EXAMPLES::
+
+            sage: R.<x,y>=QQ[]
+            sage: (-2*x^2+3*x+5*y).canonical_associate()
+            (x^2 - 3/2*x - 5/2*y, -2)
+            sage: R.<x,y>=ZZ[]
+            sage: (-2*x^2+3*x+5*y).canonical_associate()
+            (2*x^2 - 3*x - 5*y, -1)
+        """
+        lc = self.leading_coefficient()
+        n, u = lc.canonical_associate()
+        return (u.inverse_of_unit() * self, u)
+
+
+def _is_M_convex_(points) -> bool:
     r"""
     Return whether ``points`` represents a set of integer lattice points
     which are M-convex.
@@ -2969,7 +3030,6 @@ def _is_M_convex_(points):
         for p2 in points_set:
             if p2 == p1:
                 continue
-            delta = list(x2 - x1 for x1, x2 in zip(p1, p2))
             for i in range(dim):
                 if p2[i] > p1[i]:
                     # modify list_p1 to represent point p1 + e_i - e_j for various i, j

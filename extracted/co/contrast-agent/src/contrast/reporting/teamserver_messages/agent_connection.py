@@ -28,4 +28,3 @@ class AgentConnection(BaseTsMessage):
 
     def process_response(self, response, reporting_client):
         """This endpoint doesn't have a response body, so there's nothing to process."""
-        pass

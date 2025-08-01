@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-edb-core
-Version: 0.2.0
+Version: 0.2.1
 Summary: A python wrapper for Ansys Edb service
 Author-email: "ANSYS, Inc." <pyansys.support@ansys.com>
 Maintainer-email: PyAnsys developers <pyansys.maintainers@ansys.com>
@@ -15,20 +15,20 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 License-File: LICENSE
-Requires-Dist: ansys-api-edb==0.2.0
+Requires-Dist: ansys-api-edb==0.2.1
 Requires-Dist: protobuf>=3.19.3,<5
 Requires-Dist: grpcio>=1.44.0
 Requires-Dist: Django>=4.2.16
 Requires-Dist: sphinx==7.2.6 ; extra == "doc"
-Requires-Dist: numpydoc==1.6.0 ; extra == "doc"
+Requires-Dist: numpydoc==1.9.0 ; extra == "doc"
 Requires-Dist: ansys_sphinx_theme>=0.12.2 ; extra == "doc"
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "doc"
 Requires-Dist: notebook ; extra == "notebook"
 Requires-Dist: matplotlib ; extra == "notebook"
 Requires-Dist: ipynbname ; extra == "notebook"
-Requires-Dist: pytest==7.4.3 ; extra == "tests"
-Requires-Dist: pytest-cov==4.1.0 ; extra == "tests"
-Requires-Dist: pytest-mock==3.11.1 ; extra == "tests"
+Requires-Dist: pytest==8.4.1 ; extra == "tests"
+Requires-Dist: pytest-cov==6.2.1 ; extra == "tests"
+Requires-Dist: pytest-mock==3.14.1 ; extra == "tests"
 Requires-Dist: tox ; extra == "tests"
 Project-URL: Documentation, https://edb.core.docs.pyansys.com
 Project-URL: Homepage, https://github.com/ansys/pyedb-core

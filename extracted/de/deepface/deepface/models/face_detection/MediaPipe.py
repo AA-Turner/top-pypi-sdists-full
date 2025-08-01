@@ -1,11 +1,19 @@
+# built-in dependencies
+import os
 from typing import Any, List
-import numpy as np
-from deepface.models.Detector import Detector, FacialAreaRegion
 
-# Link - https://google.github.io/mediapipe/solutions/face_detection
+# 3rd party dependencies
+import numpy as np
+
+# project dependencies
+from deepface.models.Detector import Detector, FacialAreaRegion
 
 
 class MediaPipeClient(Detector):
+    """
+    MediaPipe from google.github.io/mediapipe/solutions/face_detection
+    """
+
     def __init__(self):
         self.model = self.build_model()
 
@@ -25,7 +33,14 @@ class MediaPipeClient(Detector):
             ) from e
 
         mp_face_detection = mp.solutions.face_detection
-        face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.7)
+
+        min_detection_confidence = float(os.environ.get("MEDIAPIPE_MIN_DETECTION_CONFIDENCE", 0.7))
+        model_selection = int(os.environ.get("MEDIAPIPE_MODEL_SELECTION", 0))
+
+        face_detection = mp_face_detection.FaceDetection(
+            min_detection_confidence=min_detection_confidence,
+            model_selection=model_selection
+        )
         return face_detection
 
     def detect_faces(self, img: np.ndarray) -> List[FacialAreaRegion]:
@@ -69,7 +84,13 @@ class MediaPipeClient(Detector):
             # left_ear = (int(landmarks[5].x * img_width), int(landmarks[5].y * img_height))
 
             facial_area = FacialAreaRegion(
-                x=x, y=y, w=w, h=h, left_eye=left_eye, right_eye=right_eye, confidence=confidence
+                x=x,
+                y=y,
+                w=w,
+                h=h,
+                left_eye=left_eye,
+                right_eye=right_eye,
+                confidence=float(confidence),
             )
             resp.append(facial_area)
 

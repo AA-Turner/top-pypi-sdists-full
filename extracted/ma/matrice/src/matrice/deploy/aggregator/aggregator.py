@@ -35,6 +35,7 @@ class ResultsAggregator:
         self._aggregation_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._lock = threading.RLock()
+        self._sent_keys = set()
 
         # Statistics
         self.stats = {
@@ -149,6 +150,20 @@ class ResultsAggregator:
             stream_key = sync_result.get("stream_key")
             input_order = sync_result.get("input_order")
             stream_group_key = sync_result.get("stream_group_key")
+            
+            key = (stream_group_key, stream_key, input_order)
+            if key in self._sent_keys:
+                logging.debug(f"Skipping duplicate result: {key}")
+                return None
+            self._sent_keys.add(key)
+            
+            # Basic memory management - prevent unbounded growth
+            if len(self._sent_keys) > 10000:
+                # Remove oldest entries (this is a simple approach)
+                keys_to_remove = list(self._sent_keys)[:2000]
+                for old_key in keys_to_remove:
+                    self._sent_keys.discard(old_key)
+                logging.debug(f"Cleaned up {len(keys_to_remove)} old keys from _sent_keys")
 
             if not stream_key or input_order is None:
                 logging.warning("Missing stream_key or input_order in synchronized result")
@@ -265,5 +280,8 @@ class ResultsAggregator:
                 self.aggregated_results_queue.get_nowait()
         except Exception:
             pass
+        
+        # Clear tracking data
+        self._sent_keys.clear()
 
         logging.info("Results aggregator cleanup completed") 

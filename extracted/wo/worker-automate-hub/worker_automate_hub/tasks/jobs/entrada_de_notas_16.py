@@ -16,6 +16,9 @@ import pytesseract
 from pywinauto.application import Application
 from pywinauto_recorder.player import set_combobox
 from rich.console import Console
+import sys
+
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 from worker_automate_hub.api.ahead_service import save_xml_to_downloads
 from worker_automate_hub.api.client import (
@@ -583,12 +586,19 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await worker_sleep(10)
         await emsys.percorrer_grid(cnpj)
         await emsys.select_tipo_cobranca()
+        valor_str = nota.get("valorNota")
+        if valor_str:
+            valor_str = valor_str.replace(',', '.')
+        else:
+            valor_str = None
+
         await emsys.inserir_vencimento_e_valor(
             nota.get("nomeFornecedor"),
             nota.get("dataEmissao"),
             nota.get("dataVencimento"),
-            nota.get("valorNota"),
+            valor_str,
         )
+
         await worker_sleep(5)
         try:
             retorno = await emsys.incluir_registro(chave_nfe=nota.get("nfe"))
@@ -859,3 +869,4 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
         )
+    

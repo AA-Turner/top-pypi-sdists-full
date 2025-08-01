@@ -223,7 +223,9 @@ static const Expression* bindTerminal(const ExpressionSyntax& syntax,
             break;
     }
 
-    if (valueExpr->kind != ExpressionKind::NamedValue) {
+    if (valueExpr->kind != ExpressionKind::NamedValue &&
+        (valueExpr->kind != ExpressionKind::HierarchicalValue ||
+         !valueExpr->as<HierarchicalValueExpression>().ref.isViaIfacePort())) {
         auto code = (valueExpr->kind == ExpressionKind::ElementSelect ||
                      valueExpr->kind == ExpressionKind::RangeSelect)
                         ? diag::SpecifyPathMultiDim
@@ -231,7 +233,7 @@ static const Expression* bindTerminal(const ExpressionSyntax& syntax,
         context.addDiag(code, syntax.sourceRange());
     }
     else {
-        auto& symbol = valueExpr->as<NamedValueExpression>().symbol;
+        auto& symbol = valueExpr->as<ValueExpressionBase>().symbol;
         if (SpecifyBlockSymbol::checkPathTerminal(symbol, *expr->type, *parentParent, dir,
                                                   valueExpr->sourceRange)) {
             return expr;
@@ -547,9 +549,8 @@ static std::string_view toString(TimingPathSymbol::Polarity polarity) {
             return "Positive"sv;
         case TimingPathSymbol::Polarity::Negative:
             return "Negative"sv;
-        default:
-            SLANG_UNREACHABLE;
     }
+    SLANG_UNREACHABLE;
 }
 
 void TimingPathSymbol::serializeTo(ASTSerializer& serializer) const {
@@ -922,9 +923,8 @@ void SystemTimingCheckSymbol::resolve() const {
                 ASTContext nonContinuous = context;
                 nonContinuous.flags &= ~ASTFlags::NonProcedural;
 
-                auto& expr = Expression::bindLValue(exprSyntax, comp.getLogicType(),
-                                                    exprSyntax.getFirstToken().location(),
-                                                    nonContinuous, /* isInout */ false);
+                auto& expr = Expression::bindArgument(comp.getLogicType(), ArgumentDirection::Out,
+                                                      {}, exprSyntax, nonContinuous);
                 argBuf.emplace_back(expr);
                 break;
             }
@@ -995,14 +995,11 @@ void SystemTimingCheckSymbol::resolve() const {
                 }
 
                 auto& exprSyntax = *actual.as<ExpressionTimingCheckArgSyntax>().expr;
-                auto& expr = Expression::bindLValue(exprSyntax, *signalExpr->type,
-                                                    exprSyntax.getFirstToken().location(), context,
-                                                    /* isInout */ false);
+                auto& expr = Expression::bindArgument(*signalExpr->type, ArgumentDirection::Out, {},
+                                                      exprSyntax, context);
                 argBuf.emplace_back(expr);
                 break;
             }
-            default:
-                SLANG_UNREACHABLE;
         }
     }
 

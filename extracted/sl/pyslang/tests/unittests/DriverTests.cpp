@@ -242,6 +242,65 @@ __slang__ 1
     CHECK(stdoutContains("__slang_minor__"));
 }
 
+TEST_CASE("Driver includes depfile") {
+    Driver driver;
+    driver.addStandardArgs();
+
+    auto filePath = findTestDir() + "test.sv";
+    const char* argv[] = {"testfoo", filePath.c_str()};
+    CHECK(driver.parseCommandLine(2, argv));
+    CHECK(driver.processOptions());
+    CHECK(driver.parseAllSources());
+    fs::current_path(findTestDir());
+    auto depfiles = driver.getDepfiles(true);
+    CHECK(depfiles == std::vector<fs::path>{
+                          fs::current_path() / "file_defn.svh",
+                      });
+
+    CHECK(driver.serializeDepfiles(depfiles, {"target"}) == "target: file_defn.svh\n");
+    CHECK(driver.serializeDepfiles(depfiles, std::nullopt) == "file_defn.svh\n");
+}
+
+TEST_CASE("Driver all depfile") {
+    Driver driver;
+    driver.addStandardArgs();
+
+    auto filePath = findTestDir() + "test.sv";
+    const char* argv[] = {"testfoo", filePath.c_str()};
+    CHECK(driver.parseCommandLine(2, argv));
+    CHECK(driver.processOptions());
+    CHECK(driver.parseAllSources());
+    fs::current_path(findTestDir());
+    auto files = driver.getDepfiles();
+    std::sort(files.begin(), files.end());
+    CHECK(files == std::vector<fs::path>{
+                       fs::current_path() / "file_defn.svh",
+                       fs::current_path() / "test.sv",
+                   });
+    CHECK(driver.serializeDepfiles(driver.getDepfiles(), {"target"}) ==
+          "target: file_defn.svh test.sv\n");
+    CHECK(driver.serializeDepfiles(driver.getDepfiles(), std::nullopt) ==
+          "file_defn.svh\ntest.sv\n");
+}
+
+TEST_CASE("Driver module depfile") {
+    Driver driver;
+    driver.addStandardArgs();
+
+    auto filePath = findTestDir() + "test.sv";
+    const char* argv[] = {"testfoo", filePath.c_str()};
+    CHECK(driver.parseCommandLine(2, argv));
+    CHECK(driver.processOptions());
+    fs::current_path(findTestDir());
+    CHECK(driver.sourceLoader.getFilePaths() == std::vector<fs::path>{
+                                                    fs::current_path() / "test.sv",
+                                                });
+    CHECK(driver.serializeDepfiles(driver.sourceLoader.getFilePaths(), {"target"}) ==
+          "target: test.sv\n");
+    CHECK(driver.serializeDepfiles(driver.sourceLoader.getFilePaths(), std::nullopt) ==
+          "test.sv\n");
+}
+
 TEST_CASE("Driver single-unit parsing") {
     Driver driver;
     driver.addStandardArgs();
@@ -321,9 +380,7 @@ TEST_CASE("Driver full compilation") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
 }
 
@@ -339,9 +396,7 @@ TEST_CASE("Driver full compilation with defines and param overrides") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
 }
 
@@ -357,16 +412,14 @@ TEST_CASE("Driver setting a bunch of compilation options") {
         args += " --max-hierarchy-depth=10 --max-generate-steps=1  --max-constexpr-depth=1";
         args += " --max-constexpr-steps=2 --constexpr-backtrace-limit=4 --max-instance-array=5";
         args += " --ignore-unknown-modules --relax-enum-conversions --allow-hierarchical-const";
-        args += " --allow-dup-initial-drivers --strict-driver-checking --lint-only";
+        args += " --allow-dup-initial-drivers --lint-only";
         args += " --color-diagnostics=false";
         args += " --timescale=10ns/10ps";
 
         CHECK(driver.parseCommandLine(args));
         CHECK(driver.processOptions());
         CHECK(driver.parseAllSources());
-
-        auto compilation = driver.createCompilation();
-        CHECK(driver.reportCompilation(*compilation, false));
+        CHECK(driver.runFullCompilation());
         CHECK(stdoutContains("Build succeeded"));
     }
 }
@@ -383,9 +436,7 @@ TEST_CASE("Driver failed compilation") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(!driver.reportCompilation(*compilation, false));
+    CHECK(!driver.runFullCompilation());
     CHECK(stdoutContains("Build failed"));
     CHECK(stdoutContains("1 error, 1 warning"));
 }
@@ -400,9 +451,7 @@ TEST_CASE("Driver command files") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
 }
 
@@ -443,9 +492,7 @@ TEST_CASE("Driver allow defines to be inherited to lib files") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
 }
 
@@ -499,9 +546,7 @@ TEST_CASE("Driver suppress warnings by path") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
     CHECK(stdoutContains("0 errors, 0 warnings"));
 }
@@ -518,14 +563,11 @@ TEST_CASE("Driver suppress macro warnings by path") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
     CHECK(stdoutContains("0 errors, 0 warnings"));
 }
 
-// TODO: remove once stdlib gets contains()
 static bool contains(std::string_view str, std::string_view value) {
     return str.find(value) != std::string_view::npos;
 }
@@ -610,9 +652,7 @@ TEST_CASE("Driver library map in compilation") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    CHECK(driver.runFullCompilation());
     CHECK(stdoutContains("Build succeeded"));
     CHECK(stdoutContains("0 errors, 2 warnings"));
 }
@@ -657,7 +697,8 @@ TEST_CASE("Driver separate unit listing") {
     CHECK(driver.parseAllSources());
 
     auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    driver.reportCompilation(*compilation, false);
+    CHECK(driver.reportDiagnostics(false));
     CHECK(stdoutContains("Build succeeded"));
 
     auto& root = compilation->getRoot();
@@ -693,7 +734,8 @@ TEST_CASE("Driver customize default lib name") {
     CHECK(driver.parseAllSources());
 
     auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, false));
+    driver.reportCompilation(*compilation, false);
+    CHECK(driver.reportDiagnostics(false));
     CHECK(stdoutContains("Build succeeded"));
 
     auto& root = compilation->getRoot();
@@ -722,9 +764,7 @@ TEST_CASE("Driver JSON diag output") {
     CHECK(driver.parseCommandLine(args));
     CHECK(driver.processOptions());
     CHECK(driver.parseAllSources());
-
-    auto compilation = driver.createCompilation();
-    CHECK(driver.reportCompilation(*compilation, true));
+    CHECK(driver.runFullCompilation(true));
     CHECK(stdoutContains(R"({
     "severity": "warning",
     "message": "no top-level modules found in design",

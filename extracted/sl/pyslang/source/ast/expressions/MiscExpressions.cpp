@@ -23,6 +23,7 @@
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/AllTypes.h"
 #include "slang/ast/types/NetType.h"
+#include "slang/diagnostics/AnalysisDiags.h"
 #include "slang/diagnostics/ConstEvalDiags.h"
 #include "slang/diagnostics/ExpressionsDiags.h"
 #include "slang/diagnostics/LookupDiags.h"
@@ -214,8 +215,7 @@ Expression& ValueExpressionBase::fromSymbol(const ASTContext& context, const Sym
 }
 
 bool ValueExpressionBase::requireLValueImpl(const ASTContext& context, SourceLocation location,
-                                            bitmask<AssignFlags> flags,
-                                            const Expression* longestStaticPrefix) const {
+                                            bitmask<AssignFlags> flags) const {
     if (!location)
         location = sourceRange.start();
 
@@ -264,30 +264,20 @@ bool ValueExpressionBase::requireLValueImpl(const ASTContext& context, SourceLoc
             return false;
         }
 
-        if (auto expr = modportPort.getConnectionExpr())
-            return expr->requireLValue(context, location, flags, longestStaticPrefix);
+        if (auto expr = modportPort.getConnectionExpr()) {
+            // The assignment is actually to the underlying connection expression,
+            // so redirect it there.
+            return expr->requireLValue(context, location, flags);
+        }
     }
 
-    if (!longestStaticPrefix)
-        longestStaticPrefix = this;
-    context.addDriver(symbol, *longestStaticPrefix, flags);
+    if (kind == ExpressionKind::HierarchicalValue && !context.scope->isUninstantiated()) {
+        auto& ref = as<HierarchicalValueExpression>().ref;
+        if (!ref.isViaIfacePort())
+            context.getCompilation().noteHierarchicalAssignment(ref);
+    }
 
     return true;
-}
-
-void ValueExpressionBase::getLongestStaticPrefixesImpl(
-    SmallVector<std::pair<const ValueSymbol*, const Expression*>>& results,
-    const Expression* longestStaticPrefix) const {
-
-    // Automatic variables don't need to have drivers tracked.
-    if (VariableSymbol::isKind(symbol.kind) &&
-        symbol.as<VariableSymbol>().lifetime == VariableLifetime::Automatic) {
-        return;
-    }
-
-    if (!longestStaticPrefix)
-        longestStaticPrefix = this;
-    results.push_back({&symbol, longestStaticPrefix});
 }
 
 bool ValueExpressionBase::checkVariableAssignment(const ASTContext& context,
@@ -513,11 +503,13 @@ HierarchicalValueExpression::HierarchicalValueExpression(const Scope& scope,
     SLANG_ASSERT(ref.target == &symbol);
     this->ref.expr = this;
 
-    scope.getCompilation().noteHierarchicalReference(scope, this->ref);
+    if (this->ref.isUpward())
+        scope.getCompilation().noteUpwardReference(scope, this->ref);
 }
 
 ConstantValue HierarchicalValueExpression::evalImpl(EvalContext& context) const {
-    if (!context.getCompilation().hasFlag(CompilationFlags::AllowHierarchicalConst) &&
+    if (!ref.isViaIfacePort() &&
+        !context.getCompilation().hasFlag(CompilationFlags::AllowHierarchicalConst) &&
         !context.astCtx.flags.has(ASTFlags::ConfigParam)) {
         context.addDiag(diag::ConstEvalHierarchicalName, sourceRange) << symbol.name;
         return nullptr;
@@ -525,16 +517,6 @@ ConstantValue HierarchicalValueExpression::evalImpl(EvalContext& context) const 
 
     if (!checkConstantBase(context))
         return nullptr;
-
-    switch (symbol.kind) {
-        case SymbolKind::Parameter:
-        case SymbolKind::EnumValue:
-        case SymbolKind::Specparam:
-            break;
-        default:
-            context.addDiag(diag::ConstEvalHierarchicalName, sourceRange) << symbol.name;
-            return nullptr;
-    }
 
     switch (symbol.kind) {
         case SymbolKind::Parameter: {
@@ -552,7 +534,8 @@ ConstantValue HierarchicalValueExpression::evalImpl(EvalContext& context) const 
         case SymbolKind::Specparam:
             return symbol.as<SpecparamSymbol>().getValue(sourceRange);
         default:
-            SLANG_UNREACHABLE;
+            context.addDiag(diag::ConstEvalHierarchicalName, sourceRange) << symbol.name;
+            return nullptr;
     }
 }
 
@@ -586,7 +569,9 @@ ArbitrarySymbolExpression::ArbitrarySymbolExpression(const Scope& scope, const S
     if (hierRef && hierRef->target) {
         this->hierRef = *hierRef;
         this->hierRef.expr = this;
-        scope.getCompilation().noteHierarchicalReference(scope, this->hierRef);
+
+        if (this->hierRef.isUpward())
+            scope.getCompilation().noteUpwardReference(scope, this->hierRef);
     }
 }
 
@@ -765,9 +750,6 @@ bool AssertionInstanceExpression::checkAssertionArg(const PropertyExprSyntax& pr
             ctx.addDiag(diag::AssertionOutputLocalVar, bound.sourceRange);
             return false;
         }
-
-        sym->as<ValueSymbol>().addDriver(DriverKind::Procedural, bound, context.scope->asSymbol(),
-                                         AssignFlags::AssertionLocalVarFormalArg);
     }
 
     result = &bound;
@@ -962,8 +944,8 @@ Expression& AssertionInstanceExpression::fromLookup(const Symbol& symbol,
             // any were unused.
             it->second.second = true;
 
-            auto arg = it->second.first->expr;
-            if (!arg) {
+            expr = it->second.first->expr;
+            if (!expr) {
                 // Empty arguments are allowed as long as a default is provided.
                 setDefault();
                 if (!expr && !formal->name.empty()) {

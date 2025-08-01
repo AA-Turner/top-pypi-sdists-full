@@ -39,6 +39,15 @@
 
 namespace slang::ast {
 
+/// A placeholder symbol type that represents an unknown or invalid symbol.
+/// This is only used when visiting such a symbol.
+struct SLANG_EXPORT InvalidSymbol final : public Symbol {
+    InvalidSymbol() : Symbol(SymbolKind::Unknown, "", SourceLocation()) {}
+    void serializeTo(ASTSerializer&) const {}
+    static bool isKind(SymbolKind kind) { return kind == SymbolKind::Unknown; }
+    static const InvalidSymbol Instance;
+};
+
 template<typename T, typename TVisitor>
 concept HasVisitExprs = requires(const T& t, TVisitor&& visitor) { t.visitExprs(visitor); };
 
@@ -55,7 +64,8 @@ concept HasVisitExprs = requires(const T& t, TVisitor&& visitor) { t.visitExprs(
 /// visited -- you can include that behavior by invoking @a visitDefault
 /// in your handler.
 ///
-template<typename TDerived, bool VisitStatements, bool VisitExpressions, bool VisitBad = false>
+template<typename TDerived, bool VisitStatements, bool VisitExpressions, bool VisitBad = false,
+         bool VisitCanonical = false>
 class ASTVisitor {
 #define DERIVED *static_cast<TDerived*>(this)
 public:
@@ -82,16 +92,15 @@ public:
         if constexpr (VisitExpressions && HasVisitExprs<T, TDerived>) {
             t.visitExprs(DERIVED);
         }
-
-        if constexpr (VisitStatements && requires { t.visitStmts(DERIVED); }) {
-            t.visitStmts(DERIVED);
-        }
-
-        if constexpr (VisitExpressions && std::is_base_of_v<Symbol, T>) {
+        else if constexpr (VisitExpressions && std::is_base_of_v<Symbol, T>) {
             if (auto declaredType = t.getDeclaredType()) {
                 if (auto init = declaredType->getInitializer())
                     init->visit(DERIVED);
             }
+        }
+
+        if constexpr (VisitStatements && requires { t.visitStmts(DERIVED); }) {
+            t.visitStmts(DERIVED);
         }
 
         if constexpr (std::is_base_of_v<GenericClassDefSymbol, T>) {
@@ -104,10 +113,23 @@ public:
                 member.visit(DERIVED);
         }
 
-        if constexpr (std::is_same_v<InstanceSymbol, T> ||
-                      std::is_same_v<CheckerInstanceSymbol, T>) {
+        if constexpr (std::is_same_v<InstanceSymbol, T>) {
+            if constexpr (VisitCanonical) {
+                const auto& body = t.getCanonicalBody() ? *t.getCanonicalBody() : t.body;
+                body.visit(DERIVED);
+            }
+            else {
+                t.body.visit(DERIVED);
+            }
+        }
+
+        if constexpr (std::is_same_v<CheckerInstanceSymbol, T>) {
             t.body.visit(DERIVED);
         }
+
+        static_assert((std::is_final_v<T> || std::is_same_v<VariableSymbol, T>),
+                      "Non-leaf class was passed to visitDefault() - use "
+                      "`std::derived_from<SymbolT> auto& node` to visit non-leaf classes.");
     }
 
 #undef DERIVED
@@ -147,8 +169,8 @@ decltype(auto) Symbol::visit(TVisitor&& visitor, Args&&... args) const {
 #define SYMBOL(k) case SymbolKind::k: return visitor.visit(*static_cast<const k##Symbol*>(this), std::forward<Args>(args)...)
 #define TYPE(k) case SymbolKind::k: return visitor.visit(*static_cast<const k*>(this), std::forward<Args>(args)...)
     switch (kind) {
-        case SymbolKind::Unknown: return visitor.visit(*this, std::forward<Args>(args)...);
-        case SymbolKind::DeferredMember: return visitor.visit(*this, std::forward<Args>(args)...);
+        case SymbolKind::Unknown: return visitor.visit(InvalidSymbol::Instance, std::forward<Args>(args)...);
+        case SymbolKind::DeferredMember: return visitor.visit(InvalidSymbol::Instance, std::forward<Args>(args)...);
         case SymbolKind::TypeAlias: return visitor.visit(*static_cast<const TypeAliasType*>(this), std::forward<Args>(args)...);
         SYMBOL(Root);
         SYMBOL(CompilationUnit);
@@ -402,12 +424,16 @@ void PrimitiveInstanceSymbol::visitExprs(TVisitor&& visitor) const {
 template<typename TVisitor>
 void CheckerInstanceSymbol::visitExprs(TVisitor&& visitor) const {
     for (auto& conn : getPortConnections()) {
-        std::visit(
-            [&](auto&& arg) {
-                if (arg)
-                    arg->visit(visitor);
-            },
-            conn.actual);
+        // Note: we only visit output arguments here, since input arguments
+        // get rewritten into the checker instance body.
+        if (conn.formal.kind == SymbolKind::FormalArgument) {
+            std::visit(
+                [&](auto&& arg) {
+                    if (arg)
+                        arg->visit(visitor);
+                },
+                conn.actual);
+        }
         if (auto expr = conn.getOutputInitialExpr())
             expr->visit(visitor);
     }

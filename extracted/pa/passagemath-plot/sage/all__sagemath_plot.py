@@ -1,4 +1,5 @@
 # sage_setup: distribution = sagemath-plot
+# delvewheel: patch
 r"""
 Top level of the distribution package sagemath-plot
 
@@ -11,4 +12,4 @@ This distribution makes the following feature available::
 from .all__sagemath_modules import *
 
 from sage.plot.all import *
-from sage.plot.plot3d.all     import *
+from sage.plot.plot3d.all import *

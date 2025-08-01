@@ -186,7 +186,6 @@ class BasePropagator:
         In the future, we could avoid doing this reset by re-instantiating nodes
         every time, albeit with a cost to performance.
         """
-        pass
 
     @fail_quietly("Error during propagation")
     def track_and_propagate(self, ret):

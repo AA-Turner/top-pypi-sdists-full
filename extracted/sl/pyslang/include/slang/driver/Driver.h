@@ -37,6 +37,13 @@ enum class CompilationFlags;
 
 } // namespace slang::ast
 
+namespace slang::analysis {
+
+class AnalysisManager;
+enum class AnalysisFlags;
+
+} // namespace slang::analysis
+
 namespace slang::driver {
 
 /// @brief A top-level class that handles argument parsing, option preparation,
@@ -53,9 +60,7 @@ namespace slang::driver {
 /// if (!driver.parseCommandLine(someStr)) { ...error }
 /// if (!driver.processOptions()) { ...error }
 /// if (!driver.parseAllSources()) { ...error }
-///
-/// auto compilation = driver.createCompilation();
-/// if (!driver.reportCompilation(*compilation)) { ...error }
+/// if (!driver.runFullCompilation()) { ...error }
 /// else { ...success }
 /// @endcode
 ///
@@ -223,6 +228,9 @@ public:
         /// If true, include macro expansion information in printed diagnostics.
         std::optional<bool> diagMacroExpansion;
 
+        /// If true, display absolute paths to files in printed diagnostics.
+        std::optional<bool> diagAbsPaths;
+
         /// One of the ShowHierarchyPathOption values that control whether to
         /// include hierarchy paths in printed diagnostics.
         std::optional<std::string> diagHierarchy;
@@ -247,6 +255,19 @@ public:
 
         /// A set of extensions that will be used to exclude files.
         flat_hash_set<std::string> excludeExts;
+
+        /// @}
+        /// @name Analysis
+        /// @{
+
+        /// A collection of flags that control analysis.
+        std::map<analysis::AnalysisFlags, std::optional<bool>> analysisFlags;
+
+        /// The maximum number of steps to take when analyzing a case statement.
+        std::optional<uint32_t> maxCaseAnalysisSteps;
+
+        /// The maximum number of steps to take when analyzing a loop statement.
+        std::optional<uint32_t> maxLoopAnalysisSteps;
 
         /// @}
 
@@ -317,6 +338,18 @@ public:
     /// Prints all macros from all loaded buffers to stdout.
     void reportMacros();
 
+    /// @brief Returns a list of all files that were loaded by the driver.
+    /// @param includesOnly If true, only include files that were loaded are returned.
+    std::vector<std::filesystem::path> getDepfiles(bool includesOnly = false) const;
+
+    /// @brief Serializes the given list of files into a depfile format.
+    /// @param files The list of files to serialize.
+    /// @param depfileTarget The target file to use; also implies that makefile format should be
+    /// used, with this string as the target. If not set, it will serialize in filelist format, with
+    /// one file per line.
+    std::string serializeDepfiles(const std::vector<std::filesystem::path>& files,
+                                  const std::optional<std::string>& depfileTarget);
+
     /// @brief Parses all loaded buffers into syntax trees and appends the resulting trees
     /// to the @a syntaxTrees list.
     ///
@@ -325,6 +358,9 @@ public:
 
     /// Creates an options bag from all of the currently set options.
     [[nodiscard]] Bag createOptionBag() const;
+
+    /// Creates an options bag from all of the currently set parse options
+    [[nodiscard]] Bag createParseOptionBag() const;
 
     /// Creates a compilation object from all of the current loaded state of the driver.
     [[nodiscard]] std::unique_ptr<ast::Compilation> createCompilation();
@@ -336,8 +372,26 @@ public:
     /// @brief Reports the result of compilation.
     ///
     /// If @a quiet is set to true, non-essential output will be suppressed.
+    void reportCompilation(ast::Compilation& compilation, bool quiet);
+
+    /// @brief Runs analysis on a compilation and reports the results.
+    ///
+    /// @note The compilation will be frozen after this call.
+    std::unique_ptr<analysis::AnalysisManager> runAnalysis(ast::Compilation& compilation);
+
+    /// @brief Reports all diagnostics to output.
+    ///
+    /// If @a quiet is set to true, non-essential output will be suppressed.
     /// @returns true if compilation succeeded and false if errors were encountered.
-    [[nodiscard]] bool reportCompilation(ast::Compilation& compilation, bool quiet);
+    [[nodiscard]] bool reportDiagnostics(bool quiet);
+
+    /// @brief Runs a full compilation pass and reports the results.
+    ///
+    /// This is a helper method that calls @a createCompilation, @a reportCompilation,
+    /// @a runAnalysis, and @a reportDiagnostics in sequence.
+    ///
+    /// @returns true if compilation succeeded and false if errors were encountered.
+    [[nodiscard]] bool runFullCompilation(bool quiet = false);
 
 private:
     bool parseUnitListing(std::string_view text);

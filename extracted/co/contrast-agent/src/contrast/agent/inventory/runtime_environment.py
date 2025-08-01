@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from dataclasses import dataclass
 import sys
 import os
@@ -7,7 +8,6 @@ import resource
 import subprocess
 
 from threading import Thread
-from typing import Optional
 
 from contrast.reporting import Reporter
 from contrast.utils.configuration_utils import get_hostname, get_platform
@@ -228,7 +228,7 @@ def extract_aws_resource_id() -> str:
     return arn
 
 
-def _get_aws_token(session) -> Optional[str]:
+def _get_aws_token(session) -> str | None:
     logger.debug("Retrieving AWS token")
 
     import requests
@@ -262,13 +262,13 @@ CGROUP_V2_PATH = "/sys/fs/cgroup/memory.max"
 
 @dataclass
 class MemoryMetrics:
-    total_memory_limit_bytes: Optional[int]
+    total_memory_limit_bytes: int | None
     """
     The effective total memory of the current machine, excluding swap memory. On bare
     metal, this is usually the amount of physical memory connected to the device (and
     visible to the OS). This can be further limited by cgroups (often in containers).
     """
-    process_memory_limit_bytes: Optional[int]
+    process_memory_limit_bytes: int | None
     """
     The maximum amount of memory useable by the current process. Must not exceed the
     total memory limit.
@@ -302,7 +302,7 @@ MACOS = sys.platform.startswith("darwin")
 
 
 @fail_quietly(return_value=None)
-def _total_virtual_memory_bytes() -> Optional[int]:
+def _total_virtual_memory_bytes() -> int | None:
     """
     Get the total memory available on the machine in bytes. Based on the implementation
     of `virtual_memory` from https://github.com/giampaolo/psutil.
@@ -337,7 +337,7 @@ def _macos_virtual_memory() -> int:
 
 
 @fail_quietly(return_value=None)
-def _cgroup_memory_limit_bytes() -> Optional[int]:
+def _cgroup_memory_limit_bytes() -> int | None:
     """
     Get the memory limit in bytes imposed by cgroups (used by Docker), or None if not
     found or unlimited.
@@ -356,7 +356,7 @@ def _cgroup_memory_limit_bytes() -> Optional[int]:
 
 
 @fail_quietly(return_value=(None, None))
-def _process_rlimits_bytes() -> tuple[Optional[int], Optional[int]]:
+def _process_rlimits_bytes() -> tuple[int | None, int | None]:
     """
     Get the current memory limits for this process in bytes, according to getrlimit.
     Values that cannot be found or are unlimited are reported as None.

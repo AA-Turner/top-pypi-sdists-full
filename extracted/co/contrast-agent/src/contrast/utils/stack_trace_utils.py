@@ -1,12 +1,12 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import collections
 import itertools
 import sys
 import traceback
 from functools import lru_cache
 from types import FrameType
-from typing import Optional
 
 from contrast import AGENT_CURR_WORKING_DIR
 from contrast.utils.decorators import fail_quietly
@@ -37,12 +37,12 @@ STACK_LIMIT = 20
 
 
 @fail_quietly("Failed to build stacktrace for event", return_value=[])
-def build_stack(limit=STACK_LIMIT) -> "StackSummary":
+def build_stack(limit=STACK_LIMIT) -> StackSummary:
     return extract_stack(limit=limit)
 
 
 @fail_quietly("Failed to clean stacktrace for event", return_value=[])
-def clean_stack(frames: "StackSummary"):
+def clean_stack(frames: StackSummary):
     return [to_element(x) for x in reversed(frames)]
 
 
@@ -59,7 +59,7 @@ def to_element(summary: traceback.FrameSummary):
 
 
 @fail_quietly("Failed to clean assess stacktrace", return_value=[])
-def to_assess_stack(summary: "StackSummary"):
+def to_assess_stack(summary: StackSummary):
     return [
         AssessStackFrame(
             line_number=frame.lineno or -1,
@@ -70,7 +70,7 @@ def to_assess_stack(summary: "StackSummary"):
     ]
 
 
-def extract_stack(f: Optional[FrameType] = None, limit=None):
+def extract_stack(f: FrameType | None = None, limit=None):
     """Extract the raw traceback from the current stack frame.
 
     Instrumentation frames are filtered out of the results and are
@@ -91,7 +91,7 @@ def extract_stack(f: Optional[FrameType] = None, limit=None):
     return stack
 
 
-def walk_stack(f: Optional[FrameType]):
+def walk_stack(f: FrameType | None):
     """Walk a stack yielding the frame and line number for each frame.
 
     This will follow f.f_back from the given frame.
@@ -163,10 +163,7 @@ class StackSummary(list[traceback.FrameSummary]):
 
             fnames.add(filename)
             # Must defer line lookups until we have called checkcache.
-            if capture_locals:
-                f_locals = f.f_locals
-            else:
-                f_locals = None
+            f_locals = f.f_locals if capture_locals else None
             result.append(
                 traceback.FrameSummary(
                     filename, lineno, name, lookup_line=False, locals=f_locals

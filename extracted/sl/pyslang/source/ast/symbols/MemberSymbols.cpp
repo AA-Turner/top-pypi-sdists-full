@@ -15,6 +15,7 @@
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
 #include "slang/ast/Expression.h"
+#include "slang/ast/LSPUtilities.h"
 #include "slang/ast/TimingControl.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/MiscExpressions.h"
@@ -199,7 +200,7 @@ ModportPortSymbol& ModportPortSymbol::fromSyntax(const ASTContext& context,
 
     // Perform checking on the connected symbol to make sure it's allowed
     // given the modport's direction.
-    ASTContext checkCtx = context.resetFlags(ASTFlags::NonProcedural | ASTFlags::NotADriver);
+    ASTContext checkCtx = context.resetFlags(ASTFlags::NonProcedural);
     if (direction != ArgumentDirection::In) {
         checkCtx.flags |= ASTFlags::LValue;
         if (direction == ArgumentDirection::InOut)
@@ -219,7 +220,7 @@ ModportPortSymbol& ModportPortSymbol::fromSyntax(const ASTContext& context,
 ModportPortSymbol& ModportPortSymbol::fromSyntax(const ASTContext& parentContext,
                                                  ArgumentDirection direction,
                                                  const ModportExplicitPortSyntax& syntax) {
-    ASTContext context = parentContext.resetFlags(ASTFlags::NonProcedural | ASTFlags::NotADriver);
+    ASTContext context = parentContext.resetFlags(ASTFlags::NonProcedural);
     auto& comp = context.getCompilation();
     auto name = syntax.name;
     auto result = comp.emplace<ModportPortSymbol>(name.valueText(), name.location(), direction);
@@ -610,9 +611,8 @@ std::optional<std::string_view> ElabSystemTaskSymbol::getMessage() const {
     if (!argSpan.empty()) {
         if (taskKind == ElabSystemTaskKind::Fatal) {
             // If this is a $fatal task, check the finish number. We don't use this
-            // for anything, but enforce that it's 0, 1, or 2.
-            if (!FmtHelpers::checkFinishNum(astCtx, *argSpan[0]))
-                return {};
+            // for anything, but verify that it's 0, 1, or 2.
+            FmtHelpers::checkFinishNum(astCtx, *argSpan[0]);
 
             argSpan = argSpan.subspan(1);
         }
@@ -681,8 +681,8 @@ static void reduceComparison(const BinaryExpression& expr, Diagnostic& result) {
 
     auto opToken = syntax->as<BinaryExpressionSyntax>().operatorToken;
 
-    auto lc = expr.left().constant;
-    auto rc = expr.right().constant;
+    auto lc = expr.left().getConstant();
+    auto rc = expr.right().getConstant();
     SLANG_ASSERT(lc && rc);
 
     auto& note = result.addNote(diag::NoteComparisonReduces, opToken.location());
@@ -693,9 +693,9 @@ static void reduceComparison(const BinaryExpression& expr, Diagnostic& result) {
 void ElabSystemTaskSymbol::reportStaticAssert(const Scope& scope, SourceLocation loc,
                                               std::string_view message,
                                               const Expression* condition) {
-    if (condition && condition->constant) {
+    if (condition && condition->getConstant()) {
         // Issue no diagnostic if the assert condition is true.
-        if (condition->constant->isTrue())
+        if (condition->getConstant()->isTrue())
             return;
     }
 
@@ -735,8 +735,6 @@ void ElabSystemTaskSymbol::issueDiagnostic() const {
         case ElabSystemTaskKind::StaticAssert:
             reportStaticAssert(*scope, location, *msg, assertCondition);
             return;
-        default:
-            SLANG_UNREACHABLE;
     }
 
     scope->addDiag(code, location).addStringAllowEmpty(std::string(*msg));
@@ -1460,11 +1458,11 @@ PrimitiveSymbol& PrimitiveSymbol::fromSyntax(const Scope& scope,
                 if (expr.kind == ExpressionKind::IntegerLiteral &&
                     (expr.type->getBitWidth() == 1 || expr.isUnsizedInteger())) {
                     context.eval(expr);
-                    if (expr.constant) {
-                        auto& val = expr.constant->integer();
+                    if (expr.getConstant()) {
+                        auto& val = expr.getConstant()->integer();
                         if (val == 0 || val == 1 ||
                             (val.getBitWidth() == 1 && exactlyEqual(val[0], logic_t::x))) {
-                            prim->initVal = expr.constant;
+                            prim->initVal = expr.getConstant();
                         }
                     }
                 }
@@ -1994,7 +1992,7 @@ RandSeqProductionSymbol::ProdItem RandSeqProductionSymbol::createProdItem(
 
     SmallVector<const Expression*> args;
     CallExpression::bindArgs(syntax.argList, symbol->arguments, symbol->name, syntax.sourceRange(),
-                             context, args, /* isBuiltInMethod */ false);
+                             context, args);
 
     return ProdItem(symbol, args.copy(context.getCompilation()));
 }
@@ -2295,8 +2293,6 @@ void RandSeqProductionSymbol::serializeTo(ASTSerializer& serializer) const {
                     serializer.endArray();
                     break;
                 }
-                default:
-                    SLANG_UNREACHABLE;
             }
             serializer.endObject();
         }
@@ -2364,7 +2360,7 @@ NetAliasSymbol& NetAliasSymbol::fromSyntax(const ASTContext& parentContext,
 struct NetAlias {
     not_null<const ValueSymbol*> sym;
     not_null<const Expression*> expr;
-    DriverBitRange bounds;
+    Compilation::AliasBitRange bounds;
 };
 
 struct NetAliasVisitor {
@@ -2391,8 +2387,8 @@ struct NetAliasVisitor {
                         }
                         else {
                             auto& netSym = sym->template as<NetSymbol>();
-                            if (auto bounds = ValueDriver::getBounds(expr, evalCtx,
-                                                                     netSym.getType())) {
+                            if (auto bounds = LSPUtilities::getBounds(expr, evalCtx,
+                                                                      netSym.getType())) {
                                 netAliases.push_back({&netSym, &expr, *bounds});
                             }
 
@@ -2432,8 +2428,7 @@ std::span<const Expression* const> NetAliasSymbol::getNetReferences() const {
     SLANG_ASSERT(scope && syntax);
 
     SmallVector<const Expression*> buffer;
-    ASTContext context(*scope, LookupLocation::after(*this),
-                       ASTFlags::NonProcedural | ASTFlags::NotADriver);
+    ASTContext context(*scope, LookupLocation::after(*this), ASTFlags::NonProcedural);
     EvalContext evalCtx(context);
     NetAliasVisitor visitor(context, evalCtx);
     SmallVector<SmallVector<NetAlias>> netAliases;

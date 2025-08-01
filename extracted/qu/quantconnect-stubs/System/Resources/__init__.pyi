@@ -19,6 +19,9 @@ class UltimateResourceFallbackLocation(Enum):
 
     SATELLITE = 1
 
+    def __int__(self) -> int:
+        ...
+
 
 class NeutralResourcesLanguageAttribute(System.Attribute):
     """This class has no documentation."""

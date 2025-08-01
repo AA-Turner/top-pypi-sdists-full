@@ -9,6 +9,7 @@
 
 #include "slang/numeric/SVInt.h"
 #include "slang/numeric/Time.h"
+#include "slang/parsing/KnownSystemName.h"
 #include "slang/parsing/TokenKind.h"
 #include "slang/text/SourceLocation.h"
 #include "slang/util/SmallVector.h"
@@ -119,9 +120,6 @@ public:
 
     Trivia clone(BumpAllocator& alloc, bool deep = false) const;
 };
-#if !defined(_M_IX86) && !defined(__clang_analyzer__)
-static_assert(sizeof(Trivia) == 16);
-#endif
 
 /// Represents a single lexed token, including leading trivia, original location, token kind,
 /// and any related information derived from the token itself (such as the lexeme).
@@ -142,6 +140,8 @@ public:
           std::string_view rawText, SourceLocation location, std::string_view strText);
     Token(BumpAllocator& alloc, TokenKind kind, std::span<Trivia const> trivia,
           std::string_view rawText, SourceLocation location, syntax::SyntaxKind directive);
+    Token(BumpAllocator& alloc, TokenKind kind, std::span<Trivia const> trivia,
+          std::string_view rawText, SourceLocation location, KnownSystemName systemName);
     Token(BumpAllocator& alloc, TokenKind kind, std::span<Trivia const> trivia,
           std::string_view rawText, SourceLocation location, logic_t bit);
     Token(BumpAllocator& alloc, TokenKind kind, std::span<Trivia const> trivia,
@@ -176,6 +176,7 @@ public:
     logic_t bitValue() const;
     NumericTokenFlags numericFlags() const;
     syntax::SyntaxKind directiveKind() const;
+    KnownSystemName systemName() const;
 
     /// Returns true if this token is on the same line as the token before it.
     /// This is detected by examining the leading trivia of this token for newlines.
@@ -220,9 +221,6 @@ private:
     static constexpr int MaxTriviaSmallCount = (1 << 4) - 2;
 };
 
-#if !defined(_M_IX86)
-static_assert(sizeof(Token) == 16);
-#endif
 static_assert(std::is_trivially_copyable_v<Token>);
 
 } // namespace slang::parsing

@@ -1,6 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from datetime import timedelta
+import contextlib
 
 
 class SessionAgeRuleMixin:
@@ -21,9 +22,7 @@ class SessionAgeRuleMixin:
             return value > timedelta(minutes=30)
 
         if isinstance(value, str):
-            try:
+            with contextlib.suppress(ValueError):
                 value = int(value)
-            except ValueError:
-                pass
 
         return value is None or value > 30 * 60

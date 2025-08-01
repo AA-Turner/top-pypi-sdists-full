@@ -20,12 +20,14 @@ def cs__apply_trigger(
     source = rule.extract_source(node, orig_source, args, kwargs)
 
     if not node.dataflow_rule:
-        if node.good_value:
-            if not isinstance(source, str) or re.match(node.good_value, source):
-                return
-        elif node.bad_value:
-            if not isinstance(source, str) or not re.match(node.bad_value, source):
-                return
+        if (
+            node.good_value
+            and (not isinstance(source, str) or re.match(node.good_value, source))
+        ) or (
+            node.bad_value
+            and (not isinstance(source, str) or not re.match(node.bad_value, source))
+        ):
+            return
 
         build_finding(
             context, rule, node, orig_source, self_obj, ret, None, args, kwargs

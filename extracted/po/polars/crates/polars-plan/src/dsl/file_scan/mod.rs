@@ -2,6 +2,7 @@ use std::hash::Hash;
 use std::sync::Mutex;
 
 use deletion::DeletionFilesList;
+use polars_core::schema::iceberg::IcebergSchemaRef;
 use polars_core::utils::get_numeric_upcast_supertype_lossless;
 use polars_io::cloud::CloudOptions;
 #[cfg(feature = "csv")]
@@ -37,7 +38,37 @@ bitflags::bitflags! {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "dsl-schema", derive(schemars::JsonSchema))]
 // TODO: Arc<> some of the options and the cloud options.
-pub enum FileScan {
+pub enum FileScanDsl {
+    #[cfg(feature = "csv")]
+    Csv { options: CsvReadOptions },
+
+    #[cfg(feature = "json")]
+    NDJson { options: NDJsonReadOptions },
+
+    #[cfg(feature = "parquet")]
+    Parquet { options: ParquetOptions },
+
+    #[cfg(feature = "ipc")]
+    Ipc { options: IpcScanOptions },
+
+    #[cfg(feature = "python")]
+    PythonDataset {
+        dataset_object: Arc<python_dataset::PythonDatasetProvider>,
+    },
+
+    #[cfg_attr(any(feature = "serde", feature = "dsl-schema"), serde(skip))]
+    Anonymous {
+        options: Arc<AnonymousScanOptions>,
+        function: Arc<dyn AnonymousScan>,
+        file_info: FileInfo,
+    },
+}
+
+#[derive(Clone, Debug, IntoStaticStr)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "dsl-schema", derive(schemars::JsonSchema))]
+// TODO: Arc<> some of the options and the cloud options.
+pub enum FileScanIR {
     #[cfg(feature = "csv")]
     Csv { options: CsvReadOptions },
 
@@ -61,7 +92,6 @@ pub enum FileScan {
     #[cfg(feature = "python")]
     PythonDataset {
         dataset_object: Arc<python_dataset::PythonDatasetProvider>,
-
         #[cfg_attr(any(feature = "serde", feature = "dsl-schema"), serde(skip, default))]
         cached_ir: Arc<Mutex<Option<ExpandedDataset>>>,
     },
@@ -73,7 +103,7 @@ pub enum FileScan {
     },
 }
 
-impl FileScan {
+impl FileScanIR {
     pub fn flags(&self) -> ScanFlags {
         match self {
             #[cfg(feature = "csv")]
@@ -184,6 +214,13 @@ pub enum ExtraColumnsPolicy {
     Ignore,
 }
 
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "dsl-schema", derive(schemars::JsonSchema))]
+pub enum ColumnMapping {
+    Iceberg(IcebergSchemaRef),
+}
+
 /// Scan arguments shared across different scan types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -210,6 +247,7 @@ pub struct UnifiedScanArgs {
     pub include_file_paths: Option<PlSmallStr>,
 
     pub deletion_files: Option<DeletionFilesList>,
+    pub column_mapping: Option<ColumnMapping>,
 }
 
 impl Default for UnifiedScanArgs {
@@ -229,6 +267,7 @@ impl Default for UnifiedScanArgs {
             extra_columns_policy: ExtraColumnsPolicy::default(),
             include_file_paths: None,
             deletion_files: None,
+            column_mapping: None,
         }
     }
 }
@@ -239,19 +278,19 @@ mod _file_scan_eq_hash {
     use std::hash::{Hash, Hasher};
     use std::sync::Arc;
 
-    use super::FileScan;
+    use super::FileScanIR;
 
-    impl PartialEq for FileScan {
-        fn eq(&self, other: &Self) -> bool {
-            FileScanEqHashWrap::from(self) == FileScanEqHashWrap::from(other)
+    impl Eq for FileScanIR {}
+
+    impl Hash for FileScanIR {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            FileScanEqHashWrap::from(self).hash(state)
         }
     }
 
-    impl Eq for FileScan {}
-
-    impl Hash for FileScan {
-        fn hash<H: Hasher>(&self, state: &mut H) {
-            FileScanEqHashWrap::from(self).hash(state)
+    impl PartialEq for FileScanIR {
+        fn eq(&self, other: &Self) -> bool {
+            FileScanEqHashWrap::from(self) == FileScanEqHashWrap::from(other)
         }
     }
 
@@ -298,29 +337,29 @@ mod _file_scan_eq_hash {
         Phantom(&'a ()),
     }
 
-    impl<'a> From<&'a FileScan> for FileScanEqHashWrap<'a> {
-        fn from(value: &'a FileScan) -> Self {
+    impl<'a> From<&'a FileScanIR> for FileScanEqHashWrap<'a> {
+        fn from(value: &'a FileScanIR) -> Self {
             match value {
                 #[cfg(feature = "csv")]
-                FileScan::Csv { options } => FileScanEqHashWrap::Csv { options },
+                FileScanIR::Csv { options } => FileScanEqHashWrap::Csv { options },
 
                 #[cfg(feature = "json")]
-                FileScan::NDJson { options } => FileScanEqHashWrap::NDJson { options },
+                FileScanIR::NDJson { options } => FileScanEqHashWrap::NDJson { options },
 
                 #[cfg(feature = "parquet")]
-                FileScan::Parquet { options, metadata } => FileScanEqHashWrap::Parquet {
+                FileScanIR::Parquet { options, metadata } => FileScanEqHashWrap::Parquet {
                     options,
                     metadata: metadata.as_ref().map(arc_as_ptr),
                 },
 
                 #[cfg(feature = "ipc")]
-                FileScan::Ipc { options, metadata } => FileScanEqHashWrap::Ipc {
+                FileScanIR::Ipc { options, metadata } => FileScanEqHashWrap::Ipc {
                     options,
                     metadata: metadata.as_ref().map(arc_as_ptr),
                 },
 
                 #[cfg(feature = "python")]
-                FileScan::PythonDataset {
+                FileScanIR::PythonDataset {
                     dataset_object,
                     cached_ir,
                 } => FileScanEqHashWrap::PythonDataset {
@@ -328,7 +367,7 @@ mod _file_scan_eq_hash {
                     cached_ir: arc_as_ptr(cached_ir),
                 },
 
-                FileScan::Anonymous { options, function } => FileScanEqHashWrap::Anonymous {
+                FileScanIR::Anonymous { options, function } => FileScanEqHashWrap::Anonymous {
                     options,
                     function: arc_as_ptr(function),
                 },

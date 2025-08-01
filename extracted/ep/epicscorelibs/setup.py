@@ -23,7 +23,7 @@ from epicscorelibs.config import get_config_var
 # our choice of version suffix is constrained by PEP 440
 # so we always append .99.ABI.SRC to most recent upstream version
 # the following line is matched from cibuild.py
-package_version = '7.0.7.99.1.1'
+package_version = '7.0.7.99.1.2'
 
 assert package_version.split('.')[-3]=='99', package_version
 
@@ -422,6 +422,15 @@ if toolchain_macros.get('__GNUC__') is not None:
     cxxabi = toolchain_macros.get('_GLIBCXX_USE_CXX11_ABI') or '0'
     cxxdefs += [('_GLIBCXX_USE_CXX11_ABI', cxxabi)]
 
+    # detect _FORTIFY_SOURCE level
+    # note: gcc only injects this builtin macro when optimiation enabled
+    fortify_source, = probe.eval_macros(['_FORTIFY_SOURCE'], extra_postargs=['-O2'], language='c++').values()
+    print('Detect _FORTIFY_SOURCE', fortify_source)
+    if fortify_source not in (None, '0', '1', '2'):
+        # https://github.com/epics-base/epics-base/issues/514
+        # bypass until patched
+        print('Bypass _FORTIFY_SOURCE')
+        cxxdefs += [('_FORTIFY_SOURCE',), ('_FORTIFY_SOURCE', '2')]
 
 modules = []
 headers = ['epicsVersion.h']

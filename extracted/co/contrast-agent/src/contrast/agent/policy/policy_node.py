@@ -103,7 +103,6 @@ class PolicyNode:
         Previously the finest granularity we have is Py2.7 vs Py3, but eventually we may
         update it to have more specific version specifications.
         """
-        pass
 
     def parse_source_or_target(self, str_rep):
         """
@@ -119,16 +118,12 @@ class PolicyNode:
             return []
 
         for item in str_rep.split(COMMA):
-            if item == constants.OBJECT:
-                ret.append(item)
-
-            elif item == constants.RETURN:
-                ret.append(item)
-
-            elif item == constants.ALL_ARGS:
-                ret.append(item)
-
-            elif item == constants.ALL_KWARGS:
+            if item in {
+                constants.OBJECT,
+                constants.RETURN,
+                constants.ALL_ARGS,
+                constants.ALL_KWARGS,
+            }:
                 ret.append(item)
 
             # handle ARG_#

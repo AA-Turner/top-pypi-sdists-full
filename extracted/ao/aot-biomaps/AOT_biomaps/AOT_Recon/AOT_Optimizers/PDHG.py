@@ -4,6 +4,12 @@ from AOT_biomaps.Config import config
 import torch
 from tqdm import trange
 
+'''
+This module implements Primal-Dual Hybrid Gradient (PDHG) methods for solving inverse problems in Acousto-Optic Tomography.
+It includes Chambolle-Pock algorithms for Total Variation (TV) and Kullback-Leibler (KL) divergence regularization.
+The methods can run on both CPU and GPU, with configurations set in the AOT_biomaps.Config module.
+'''
+
 def chambolle_pock_TV_cpu(SMatrix, y, alpha, theta, numIterations, isSavingEachIteration, L, withTumor):
     device = torch.device("cpu")
     A = torch.tensor(SMatrix, dtype=torch.float32, device=device)

@@ -17,5 +17,20 @@ class Reporting(ConfigBuilder):
                 canonical_name="reporting.contrast.enable",
                 default_value=True,
                 type_cast=str_to_bool,
-            )
+            ),
+            ConfigOption(
+                canonical_name="reporting.logging.level",
+                default_value=None,
+                type_cast=str,
+            ),
+            ConfigOption(
+                canonical_name="reporting.logging.stdout",
+                default_value=False,
+                type_cast=str_to_bool,
+            ),
+            ConfigOption(
+                canonical_name="reporting.observe.enable",
+                default_value=False,
+                type_cast=str_to_bool,
+            ),
         ]

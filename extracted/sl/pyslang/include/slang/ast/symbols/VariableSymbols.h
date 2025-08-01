@@ -84,13 +84,19 @@ public:
         }
     }
 
+    template<typename TVisitor>
+    void visitExprs(TVisitor&& visitor) const {
+        if (auto expr = getInitializer())
+            expr->visit(visitor);
+    }
+
 protected:
     VariableSymbol(SymbolKind childKind, std::string_view name, SourceLocation loc,
                    VariableLifetime lifetime);
 };
 
 /// Represents a formal argument in subroutine (task or function).
-class SLANG_EXPORT FormalArgumentSymbol : public VariableSymbol {
+class SLANG_EXPORT FormalArgumentSymbol final : public VariableSymbol {
 public:
     ArgumentDirection direction = ArgumentDirection::In;
 
@@ -135,7 +141,7 @@ private:
 };
 
 /// Represents a field member of a struct or union.
-class SLANG_EXPORT FieldSymbol : public VariableSymbol {
+class SLANG_EXPORT FieldSymbol final : public VariableSymbol {
 public:
     /// The offset of the field within its parent structure or union, in bits.
     /// For unpacked types this offset is in "selectable bits" which is how overlapping
@@ -160,7 +166,7 @@ public:
 };
 
 /// Represents a net declaration.
-class SLANG_EXPORT NetSymbol : public ValueSymbol {
+class SLANG_EXPORT NetSymbol final : public ValueSymbol {
 public:
     const NetType& netType;
     enum ExpansionHint { None, Vectored, Scalared } expansionHint = None;
@@ -182,9 +188,9 @@ public:
     static void fromSyntax(const Scope& scope, const syntax::NetDeclarationSyntax& syntax,
                            SmallVectorBase<const NetSymbol*>& results);
 
-    static void fromSyntax(const Scope& scope,
+    static void fromSyntax(const ASTContext& context,
                            const syntax::UserDefinedNetDeclarationSyntax& syntax,
-                           const Symbol* netTypeSym, SmallVectorBase<const NetSymbol*>& results);
+                           SmallVectorBase<const NetSymbol*>& results);
 
     static NetSymbol& createImplicit(Compilation& compilation,
                                      const syntax::IdentifierNameSyntax& syntax,
@@ -194,6 +200,9 @@ public:
 
     template<typename TVisitor>
     void visitExprs(TVisitor&& visitor) const {
+        if (auto expr = getInitializer())
+            expr->visit(visitor);
+
         if (auto d = getDelay())
             d->visit(visitor);
     }
@@ -229,7 +238,7 @@ protected:
 };
 
 /// Represents an iterator variable created for array manipulation methods.
-class SLANG_EXPORT IteratorSymbol : public TempVarSymbol {
+class SLANG_EXPORT IteratorSymbol final : public TempVarSymbol {
 public:
     /// The type of the array that this iterator traverses.
     const Type& arrayType;
@@ -250,7 +259,7 @@ public:
 };
 
 /// Represents a pattern variable materialized for a pattern matching expression.
-class SLANG_EXPORT PatternVarSymbol : public TempVarSymbol {
+class SLANG_EXPORT PatternVarSymbol final : public TempVarSymbol {
 public:
     PatternVarSymbol(std::string_view name, SourceLocation loc, const Type& type);
 
@@ -260,7 +269,7 @@ public:
 };
 
 /// Represents a clocking block signal.
-class SLANG_EXPORT ClockVarSymbol : public VariableSymbol {
+class SLANG_EXPORT ClockVarSymbol final : public VariableSymbol {
 public:
     ArgumentDirection direction;
     ClockingSkew inputSkew;
@@ -279,7 +288,7 @@ public:
 
 /// Represents a local variable declared inside an assertion item,
 /// such as a sequence or property.
-class SLANG_EXPORT LocalAssertionVarSymbol : public VariableSymbol {
+class SLANG_EXPORT LocalAssertionVarSymbol final : public VariableSymbol {
 public:
     LocalAssertionVarSymbol(std::string_view name, SourceLocation loc);
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 import platform
 import sys
-from typing import Any, Optional
+from typing import Optional
 
 from .hexadecimal import Hex
 from .library import Library
@@ -24,8 +24,10 @@ class Config:  # pylint: disable=[R0903]
     """ Config some global variables.
 
     Attributes:
-        TTY_AWARE (bool): Description
+        TTY_AWARE (bool): If True, colorization will be disabled when stdout/stderr
+                          are not connected to a TTY (terminal).
     """
+
     TTY_AWARE: bool = True
     WIN_VTERM_MODE: Optional[bool] = None
 
@@ -55,7 +57,7 @@ class Colored:  # pylint: disable=[R0902]
     foreground, background and style colors.
     """
 
-    def __init__(self, name: str | int):
+    def __init__(self, name: str | int) -> None:
         """name can be str or int instead.
 
         Args:
@@ -66,21 +68,19 @@ class Colored:  # pylint: disable=[R0902]
         self._hex = Hex()
         self._utils = Utilities()
 
-        self._ESC: str = Library.ESC
-        self._END: str = Library.END
+        # self._ESC: str = Library.ESC
+        # self._END: str = Library.END
 
-        self._STYLES: dict[str, str] = Library.STYLES
-        self._FOREGROUND_256: str = Library.FOREGROUND_256
-        self._BACKGROUND_256: str = Library.BACKGROUND_256
+        # self._STYLES: dict[str, str] = Library.STYLES
+        # self._FOREGROUND_256: str = Library.FOREGROUND_256
+        # self._BACKGROUND_256: str = Library.BACKGROUND_256
 
-        self._COLORS: dict[str, str] = Library.COLORS
-        self._HEX_COLORS: dict[str, str] = Library.HEX_COLORS
-        self._UNDERLINE_COLOR: str = Library.UNDERLINE_COLOR
+        # self._COLORS: dict[str, str] = Library.COLORS
+        # self._HEX_COLORS: dict[str, str] = Library.HEX_COLORS
+        # self._UNDERLINE_COLOR: str = Library.UNDERLINE_COLOR
 
         if self._name.startswith('#'):
             self._hex_color = self._hex.find(self._name)
-
-        self.enable_windows_terminal_mode()
 
     def attribute(self, line_color: str | int = '') -> str:
         """ Returns stylize text.
@@ -102,13 +102,13 @@ class Colored:  # pylint: disable=[R0902]
                 line_color = str(line_color).lower()
                 self._utils.is_color_exist(line_color)
                 if not line_color.isdigit():
-                    line_color = self._COLORS[line_color]
-                return f'{self._UNDERLINE_COLOR}{line_color}{self._END}'
+                    line_color = Library.COLORS[line_color]
+                return f'{Library.UNDERLINE_COLOR}{line_color}{Library.END}'
 
             if not self._name.isdigit():
-                formatting = self._STYLES[self._name]
+                formatting = Library.STYLES[self._name]
 
-        return f'{self._ESC}{formatting}{self._END}'
+        return f'{Library.ESC}{formatting}{Library.END}'
 
     def foreground(self) -> str:
         """ Returns a foreground 256 color code. """
@@ -122,9 +122,9 @@ class Colored:  # pylint: disable=[R0902]
             if self._name.startswith('#'):
                 color = self._hex_color
             elif not self._name.isdigit():
-                color = self._COLORS[self._name]
+                color = Library.COLORS[self._name]
 
-        return f'{self._FOREGROUND_256}{color}{self._END}'
+        return f'{Library.FOREGROUND_256}{color}{Library.END}'
 
     def background(self) -> str:
         """ Returns a background 256 color code. """
@@ -138,12 +138,12 @@ class Colored:  # pylint: disable=[R0902]
             if self._name.startswith('#'):
                 color = self._hex_color
             elif not self._name.isdigit():
-                color = self._COLORS[self._name]
+                color = Library.COLORS[self._name]
 
-        return f'{self._BACKGROUND_256}{color}{self._END}'
+        return f'{Library.BACKGROUND_256}{color}{Library.END}'
 
     @staticmethod
-    def enable_windows_terminal_mode() -> Any:
+    def enable_windows_terminal_mode() -> Optional[bool]:
         """Contribution by: Andreas Fredrik Klasson, Magnus Heskestad,
         Dimitris Papadopoulos.
 
@@ -152,43 +152,44 @@ class Colored:  # pylint: disable=[R0902]
         enhancement <https://bugs.python.org/issue29059>.
 
         Returns:
-            Any: Description
+            Optional[bool]: True if successful, False if an error occurred or not on Windows,
+                            or the previously determined state if already run.
         """
-        # global _win_vterm_mode
         if Config.WIN_VTERM_MODE is not None:
             return Config.WIN_VTERM_MODE
 
-        # Note: Cygwin should return something like 'CYGWIN_NT...'
         Config.WIN_VTERM_MODE = platform.system().lower() == 'windows'
+
         if Config.WIN_VTERM_MODE is False:
-            return
+            return Config.WIN_VTERM_MODE
 
-        from ctypes import windll, wintypes, byref, c_void_p
-        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-        INVALID_HANDLE_VALUE = c_void_p(-1).value
-        STD_OUTPUT_HANDLE = wintypes.DWORD(-11)
+        try:
+            # pylint: disable=[C0415]
+            from ctypes import (byref, c_void_p,  # type: ignore[attr-defined]
+                                windll, wintypes)
+            ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+            INVALID_HANDLE_VALUE = c_void_p(-1).value
+            STD_OUTPUT_HANDLE = wintypes.DWORD(-11)
 
-        hStdout = windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
-        if hStdout == INVALID_HANDLE_VALUE:
+            hStdout = windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+            if hStdout == INVALID_HANDLE_VALUE:
+                Config.WIN_VTERM_MODE = False
+            else:
+                mode = wintypes.DWORD(0)
+                ok = windll.kernel32.GetConsoleMode(wintypes.HANDLE(hStdout), byref(mode))
+                if not ok:
+                    Config.WIN_VTERM_MODE = False
+                else:
+                    mode = wintypes.DWORD(mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+                    ok = windll.kernel32.SetConsoleMode(wintypes.HANDLE(hStdout), mode)
+                    if not ok:
+                        Config.WIN_VTERM_MODE = False
+        except ImportError:
             Config.WIN_VTERM_MODE = False
-            return
-
-        mode = wintypes.DWORD(0)
-        ok = windll.kernel32.GetConsoleMode(wintypes.HANDLE(hStdout), byref(mode))
-        if not ok:
+        except Exception:  # pylint: disable=[W0718]
             Config.WIN_VTERM_MODE = False
-            return
 
-        mode = wintypes.DWORD(mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-        ok = windll.kernel32.SetConsoleMode(wintypes.HANDLE(hStdout), mode)
-        if not ok:
-            # Something went wrong, probably a version too old
-            # to support the VT100 mode.
-            # To be more certain we could check kernel32.GetLastError
-            # for STATUS_INVALID_PARAMETER, but since we only enable
-            # one flag we can be certain enough.
-            Config.WIN_VTERM_MODE = False
-            return
+        return Config.WIN_VTERM_MODE
 
     @staticmethod
     def enabled() -> bool:
@@ -337,6 +338,12 @@ def stylize(text: str, formatting: int | str, reset: bool = True) -> str:
 
     Returns:
         str: Formatting string text.
+
+    Example:
+        >>> stylize('Hello, World!', fore('red'))
+        '\x1b[31mHello, World!\x1b[0m'
+        >>> stylize('Bold text', style('bold'), reset=False)
+        '\x1b[1mBold text'
     """
     terminator: str = style('reset') if reset else ''
     return f'{"".join(str(formatting))}{text}{terminator}'
@@ -369,6 +376,13 @@ def stylize_interactive(text: str, formatting: str, reset: bool = True) -> str:
 
     Returns:
         str: Formatting string text.
+
+    Example:
+        # For use in interactive shells with readline, e.g., Python REPL
+        >>> import readline
+        >>> readline.set_pre_input_hook(lambda: print(stylize_interactive('Prompt:', fore('green')), end=''))
+        >>> input()
+        Prompt:user_input  # 'Prompt:' will appear green, input text will be default color
     """
     # problem: readline includes bare ANSI codes in width calculations.
     # solution: wrap nonprinting codes in SOH/STX when necessary.
@@ -390,3 +404,8 @@ def set_tty_aware(awareness: bool = True) -> None:
     # global TTY_AWARE
     # TTY_AWARE = awareness
     Config.TTY_AWARE = awareness
+
+
+# Call this method once when the module is loaded to enable Windows virtual terminal processing.
+# This prevents redundant API calls on every Colored object instantiation.
+Colored.enable_windows_terminal_mode()

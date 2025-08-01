@@ -37,7 +37,10 @@ pub enum StringFunction {
         strict: bool,
     },
     #[cfg(feature = "string_to_integer")]
-    ToInteger(bool),
+    ToInteger {
+        dtype: Option<DataType>,
+        strict: bool,
+    },
     LenBytes,
     LenChars,
     Lowercase,
@@ -63,12 +66,10 @@ pub enum StringFunction {
     Reverse,
     #[cfg(feature = "string_pad")]
     PadStart {
-        length: usize,
         fill_char: char,
     },
     #[cfg(feature = "string_pad")]
     PadEnd {
-        length: usize,
         fill_char: char,
     },
     Slice,

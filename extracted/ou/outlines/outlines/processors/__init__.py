@@ -1,9 +1,3 @@
-"""Processors and guides to control generation in steerable models."""
+"""Processors to control generation in steerable models."""
 
-from .structured import (
-    CFGLogitsProcessor,
-    GuideLogitsProcessor,
-    JSONLogitsProcessor,
-    OutlinesLogitsProcessor,
-    RegexLogitsProcessor,
-)
+from .base_logits_processor import OutlinesLogitsProcessor

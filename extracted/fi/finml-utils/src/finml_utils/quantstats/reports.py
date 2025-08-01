@@ -730,7 +730,7 @@ def _calculate_metrics(  # noqa
     else:
         metrics["Total Return %"] = (df.sum() * pct).map("{:,.2f}".format)
 
-    metrics["CAGR﹪%"] = round(_stats.cagr(df, rf, compounded) * pct, 2)
+    metrics["CAGR﹪%"] = round(_stats.cagr(df, rf, compounded, win_year) * pct, 2)
 
     metrics["~~~~~~~~~~~~~~"] = blank
 

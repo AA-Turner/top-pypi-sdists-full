@@ -219,7 +219,7 @@ impl ModuleDataMut {
 }
 
 /// A subset of State that contains readable information for various systems (e.g. IDE, error reporting, etc).
-struct StateInner {
+struct StateData {
     stdlib: SmallMap<SysInfo, Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
@@ -230,7 +230,7 @@ struct StateInner {
     require: RequireDefault,
 }
 
-impl StateInner {
+impl StateData {
     fn new() -> Self {
         Self {
             stdlib: Default::default(),
@@ -285,7 +285,7 @@ impl<'a> TransactionData<'a> {
 /// in a transaction.
 pub struct Transaction<'a> {
     data: TransactionData<'a>,
-    readable: RwLockReadGuard<'a, StateInner>,
+    readable: RwLockReadGuard<'a, StateData>,
 }
 
 impl<'a> Transaction<'a> {
@@ -416,58 +416,37 @@ impl<'a> Transaction<'a> {
         &self,
         searcher: impl Fn(&Handle, Arc<SmallMap<Name, ExportLocation>>) -> Vec<V> + Sync,
     ) -> Vec<V> {
+        // Make sure all the modules are in updated_modules.
+        // We have to get a mutable module data to do the lookup we need anyway.
+        for x in self.readable.modules.keys() {
+            self.get_module(x);
+        }
+
         let all_results = Mutex::new(Vec::new());
-        {
-            let tasks = TaskHeap::new();
-            // It's very fast to find whether a module contains an export, but the cost will
-            // add up for a large codebase. Therefore, we will parallelize the work. The work is
-            // distributed in the task heap above.
-            // To avoid too much lock contention, we chunk the work into size of 1000 modules.
-            for chunk in &self.data.updated_modules.iter_unordered().chunks(1000) {
-                tasks.push((), chunk.collect_vec(), false);
-            }
-            self.data.state.threads.spawn_many(|| {
-                tasks.work_without_cancellation(|_, modules| {
-                    let mut thread_local_results = Vec::new();
-                    for (handle, module_data) in modules {
-                        let exports = self
-                            .lookup_export(module_data)
-                            .exports(&self.lookup(module_data.dupe()));
-                        thread_local_results.extend(searcher(handle, exports));
-                    }
-                    if !thread_local_results.is_empty() {
-                        all_results.lock().push(thread_local_results);
-                    }
-                });
-            });
+
+        let tasks = TaskHeap::new();
+        // It's very fast to find whether a module contains an export, but the cost will
+        // add up for a large codebase. Therefore, we will parallelize the work. The work is
+        // distributed in the task heap above.
+        // To avoid too much lock contention, we chunk the work into size of 1000 modules.
+        for chunk in &self.data.updated_modules.iter_unordered().chunks(1000) {
+            tasks.push((), chunk.collect_vec(), false);
         }
-        {
-            let tasks = TaskHeap::new();
-            for chunk in &self
-                .readable
-                .modules
-                .iter()
-                .filter(|(handle, _)| self.data.updated_modules.get(handle).is_none())
-                .chunks(1000)
-            {
-                tasks.push((), chunk.collect_vec(), false);
-            }
-            self.data.state.threads.spawn_many(|| {
-                tasks.work_without_cancellation(|_, modules| {
-                    let mut thread_local_results = Vec::new();
-                    for (handle, module_data) in modules {
-                        let module_data = ArcId::new(module_data.clone_for_mutation());
-                        let exports = self
-                            .lookup_export(&module_data)
-                            .exports(&self.lookup(module_data));
-                        thread_local_results.extend(searcher(handle, exports));
-                    }
-                    if !thread_local_results.is_empty() {
-                        all_results.lock().push(thread_local_results);
-                    }
-                });
+        self.data.state.threads.spawn_many(|| {
+            tasks.work_without_cancellation(|_, modules| {
+                let mut thread_local_results = Vec::new();
+                for (handle, module_data) in modules {
+                    let exports = self
+                        .lookup_export(module_data)
+                        .exports(&self.lookup(module_data.dupe()));
+                    thread_local_results.extend(searcher(handle, exports));
+                }
+                if !thread_local_results.is_empty() {
+                    all_results.lock().push(thread_local_results);
+                }
             });
-        }
+        });
+
         all_results.into_inner().into_iter().flatten().collect()
     }
 
@@ -614,7 +593,7 @@ impl<'a> Transaction<'a> {
             // Do not clear solutions, since we can use that for equality
             w.epochs.computed = self.data.now;
             if let Some(subscriber) = &self.data.subscriber {
-                subscriber.start_work(module_data.handle.dupe());
+                subscriber.start_work(&module_data.handle);
             }
             let mut deps_lock = module_data.deps.write();
             let deps = mem::take(&mut *deps_lock);
@@ -830,7 +809,7 @@ impl<'a> Transaction<'a> {
                 if let Some(load) = load_result
                     && let Some(subscriber) = &self.data.subscriber
                 {
-                    subscriber.finish_work(module_data.handle.dupe(), load);
+                    subscriber.finish_work(&module_data.handle, &load);
                 }
             }
             if todo == step {
@@ -900,7 +879,7 @@ impl<'a> Transaction<'a> {
         // Figure out if we won the race, and thus are the person who actually did the creation.
         let created = Some(&res) == created.as_ref();
         if created && let Some(subscriber) = &self.data.subscriber {
-            subscriber.start_work(handle.dupe());
+            subscriber.start_work(handle);
         }
         (res, created)
     }
@@ -1117,57 +1096,30 @@ impl<'a> Transaction<'a> {
     }
 
     fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleDataMut>]) {
-        // We need to invalidate all modules that depend on anything in changed, including transitively.
-        fn f(
-            state: &Transaction,
-            dirty_handles: &mut SmallMap<Handle, Option<ArcId<ModuleDataMut>>>,
-            stack: &mut HashSet<Handle>,
-            x: &ModuleData,
-        ) -> bool {
-            if let Some(res) = dirty_handles.get(&x.handle) {
-                res.is_some()
-            } else if stack.contains(&x.handle) {
-                // Recursive hypothesis - do not write to dirty
-                false
-            } else {
-                stack.insert(x.handle.dupe());
-                let res = x.deps.values().flatten().any(|y| {
-                    f(
-                        state,
-                        dirty_handles,
-                        stack,
-                        state.readable.modules.get(y).unwrap(),
-                    )
-                });
-                stack.remove(&x.handle);
-                dirty_handles.insert(
-                    x.handle.dupe(),
-                    if res {
-                        Some(state.get_module(&x.handle))
-                    } else {
-                        None
-                    },
-                );
-                res
-            }
-        }
-
-        let mut dirty_handles = changed
+        // Those that I have yet to follow
+        let mut follow: Vec<ArcId<ModuleDataMut>> = changed.iter().map(|x| x.dupe()).collect();
+        // Those that I know are dirty
+        let mut dirty: SmallMap<Handle, ArcId<ModuleDataMut>> = changed
             .iter()
-            .map(|x| (x.handle.dupe(), Some(self.get_module(&x.handle))))
-            .collect::<SmallMap<_, _>>();
-        let mut stack = HashSet::new();
-        for x in self.readable.modules.values() {
-            f(self, &mut dirty_handles, &mut stack, x);
+            .map(|x| (x.handle.dupe(), x.dupe()))
+            .collect();
+
+        while let Some(x) = follow.pop() {
+            for rdep in x.rdeps.lock().iter() {
+                let hashed_rdep = Hashed::new(rdep);
+                if !dirty.contains_key_hashed(hashed_rdep) {
+                    let m = self.get_module(rdep);
+                    dirty.insert_hashed(hashed_rdep.cloned(), m.dupe());
+                    follow.push(m);
+                }
+            }
         }
 
         let mut dirty_set: std::sync::MutexGuard<'_, SmallSet<ArcId<ModuleDataMut>>> =
             self.data.dirty.lock();
-        for (_, dirty_module_data) in dirty_handles {
-            if let Some(x) = dirty_module_data {
-                x.state.write(Step::Load).unwrap().dirty.deps = true;
-                dirty_set.insert(x);
-            }
+        for x in dirty.into_values() {
+            x.state.write(Step::Load).unwrap().dirty.deps = true;
+            dirty_set.insert(x);
         }
     }
 
@@ -1376,7 +1328,7 @@ impl<'a> Transaction<'a> {
         if let Some(subscriber) = &self.data.subscriber {
             // Start everything so we have the right size progress bar.
             for h in self.data.updated_modules.keys() {
-                subscriber.start_work(h.dupe());
+                subscriber.start_work(h);
             }
         }
         let mut timings: SmallMap<String, f32> = SmallMap::new();
@@ -1439,7 +1391,7 @@ impl<'a> Transaction<'a> {
                 }
             }
             if let Some(subscriber) = &self.data.subscriber {
-                subscriber.finish_work(m.handle.dupe(), alt.load.unwrap().dupe());
+                subscriber.finish_work(&m.handle, &alt.load.unwrap());
             }
         }
         self.data.subscriber = None; // Finalise the progress bar before printing to stderr
@@ -1629,7 +1581,7 @@ pub struct State {
     threads: ThreadPool,
     uniques: UniqueFactory,
     config_finder: ConfigFinder,
-    state: RwLock<StateInner>,
+    state: RwLock<StateData>,
     run_count: AtomicUsize,
     committing_transaction_lock: Mutex<()>,
 }
@@ -1640,7 +1592,7 @@ impl State {
             threads: ThreadPool::new(),
             uniques: UniqueFactory::new(),
             config_finder,
-            state: RwLock::new(StateInner::new()),
+            state: RwLock::new(StateData::new()),
             run_count: AtomicUsize::new(0),
             committing_transaction_lock: Mutex::new(()),
         }
@@ -1738,7 +1690,7 @@ impl State {
                             state: _,
                             todo: _,
                             changed: _,
-                            dirty: _,
+                            dirty,
                             subscriber: _,
                         },
                 },
@@ -1746,6 +1698,12 @@ impl State {
         } = transaction;
         // Drop the read lock the transaction holds.
         drop(readable);
+
+        // If you make a transaction dirty, e.g. by calling an invalidate method,
+        // you must subsequently call `run` to drain the dirty queue.
+        // We could relax this restriction by storing `dirty` in the `State`,
+        // but no one wants to do this, so don't bother.
+        assert!(dirty.into_inner().is_empty(), "Transaction is dirty");
 
         let mut state = self.state.write();
         state.stdlib = stdlib;

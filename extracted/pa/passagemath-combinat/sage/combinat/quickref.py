@@ -5,8 +5,7 @@ Combinatorics quickref
 Integer Sequences::
 
     sage: s = oeis([1,3,19,211]); s                         # optional - internet
-    0: A000275: Coefficients of a Bessel function (reciprocal of J_0(z));
-                also pairs of permutations with rise/rise forbidden.
+    0: A000275: ...
     sage: s[0].programs()                                   # optional - internet
     [('maple', ...),
      ('mathematica', ...),
@@ -50,7 +49,7 @@ Polytopes::
 
     sage: points = random_matrix(ZZ, 6, 3, x=7).rows()                                  # needs sage.modules
     sage: L = LatticePolytope(points)                                                   # needs sage.geometry.polyhedron sage.modules
-    sage: L.npoints(); L.plot3d()                           # random                    # needs sage.geometry.polyhedron sage.modules sage.plot
+    sage: L.npoints(); L.plot3d()                           # random                    # needs palp sage.geometry.polyhedron sage.modules sage.plot
 
 :ref:`Root systems, Coxeter and Weyl groups <sage.combinat.root_system.all>`::
 

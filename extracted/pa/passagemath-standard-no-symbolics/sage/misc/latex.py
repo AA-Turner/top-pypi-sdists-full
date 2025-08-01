@@ -460,7 +460,7 @@ def has_latex_attr(x) -> bool:
     but calling it is broken::
 
         sage: # needs sage.modules
-        sage: T = type(identity_matrix(3)); T
+        sage: T = type(identity_matrix(3)); T                                           # needs sage.libs.flint
         <class 'sage.matrix.matrix_integer_dense.Matrix_integer_dense'>
         sage: hasattr(T, '_latex_')
         True
@@ -1086,7 +1086,6 @@ class Latex(LatexCall):
             ''
             sage: latex.eval(r"\ThisIsAnInvalidCommand", {}) # optional -- latex ImageMagick
             An error occurred...
-            No pages of output...
         """
         MACROS = latex_extra_preamble()
 

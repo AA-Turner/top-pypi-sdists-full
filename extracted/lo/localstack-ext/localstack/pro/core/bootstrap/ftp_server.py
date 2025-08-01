@@ -5,7 +5,7 @@ from ftplib import FTP
 from typing import TYPE_CHECKING
 from localstack import config,constants
 from localstack.aws.connect import connect_to
-from localstack.pro.core import config as ext_config
+from localstack.pro.core import config as pro_config
 from localstack.utils.files import load_file,new_tmp_dir,save_file
 from localstack.utils.net import wait_for_port_open
 from localstack.utils.run import ShellCommandThread
@@ -45,7 +45,7 @@ def start_ftp(port):
 	else:C=do_start_ftp(D,asynchronous=_A)
 	time.sleep(2);wait_for_port_open(D,retries=10,sleep_time=1.5);TMP_THREADS.append(C);return C
 def do_start_ftp(port,asynchronous=_A):
-	B=port;from pyftpdlib.authorizers import DummyAuthorizer as F;from pyftpdlib.handlers import TLS_FTPHandler as G;from pyftpdlib.servers import FTPServer as H;LOG.info('Starting (S)FTP server on port %s...',B);apply_patches();C=F();I=new_tmp_dir();C.add_user(ROOT_USER[0],ROOT_USER[1],I,perm=FTP_USER_PERMISSIONS);J=new_tmp_dir();C.add_anonymous(J);A=G;K,L,L=create_ssl_cert();A.certfile=K;A.authorizer=C;A.passive_ports=FTP_PASSIVE_PORTS;A.masquerade_address=ext_config.LOCALHOST_IP
+	B=port;from pyftpdlib.authorizers import DummyAuthorizer as F;from pyftpdlib.handlers import TLS_FTPHandler as G;from pyftpdlib.servers import FTPServer as H;LOG.info('Starting (S)FTP server on port %s...',B);apply_patches();C=F();I=new_tmp_dir();C.add_user(ROOT_USER[0],ROOT_USER[1],I,perm=FTP_USER_PERMISSIONS);J=new_tmp_dir();C.add_anonymous(J);A=G;K,L,L=create_ssl_cert();A.certfile=K;A.authorizer=C;A.passive_ports=FTP_PASSIVE_PORTS;A.masquerade_address=pro_config.LOCALHOST_IP
 	def D(*E):
 		try:C=H(('0.0.0.0',B),A);C.serve_forever()
 		except Exception as D:LOG.info('Unable to run FTP server on port %s: %s',B,D);raise

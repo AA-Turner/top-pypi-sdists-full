@@ -39,12 +39,6 @@ class NodeEnumMeta:
     the same as the original one it is not. Therefore comparing the `type` will
     fail. This is however the only limitation.
     (type(value_old) != type(value_new) but value_old == value_new)
-
-    Args:
-        value (int): Value of the NodeEnum object that should be created.
-        class_name (str): Name of the NodeEnum class.
-        names (dict[str, int]): Mapping of the enum names to their corresponding integer value.
-        module (str): Should be set to the module this class is being created in.
     """
 
     def __new__(  # noqa: D102
@@ -62,7 +56,7 @@ class NodeEnum(IntEnum):
     """Custom dynamically picklable IntEnum class.
 
     The Enum values for a device are created dynamically in toolkit based on
-    the node informations. Since they are not predefined but rather created
+    the node information. Since they are not predefined but rather created
     dynamically, the are not picklable. This custom child class of IntEnum
     overwrites the reduce function that returns all information required to
     recreate the Enum class in `NodeEnumMeta`.
@@ -370,15 +364,8 @@ class Node:
 
     The call operator supports the following flags:
 
-    * deep: Flag if the set operation should be blocking until the data
-        has arrived at the device, respectively if the get operation should
-        return the value from the device or the cached value on the data
-        server (if there is any). If this flag is set the operation can
-        take significantly longer. (default = False)
-
-        For a deep get operation the timestamp from the device is returned
-        in addition to the value (The timestamp can be None, e.g. deep gets
-        on LabOne modules).
+    * deep: for get operations, deep=True will return the timestamp in addition
+        to the value.
 
         ```
         >>> nodetree.demods[0].freq(deep=True)

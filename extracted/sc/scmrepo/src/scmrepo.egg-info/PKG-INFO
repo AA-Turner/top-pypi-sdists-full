@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: scmrepo
-Version: 3.4.0
+Version: 3.5.0
 Summary: scmrepo
 Author-email: Iterative <support@dvc.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Issues, https://github.com/iterative/scmrepo/issues
 Project-URL: Source, https://github.com/iterative/scmrepo
 Classifier: Programming Language :: Python :: 3
@@ -17,7 +17,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: gitpython>3
-Requires-Dist: dulwich>=0.23.1
+Requires-Dist: dulwich>=0.24.0
 Requires-Dist: pygit2>=1.14.0
 Requires-Dist: pygtrie>=2.3.2
 Requires-Dist: fsspec[tqdm]>=2024.2.0

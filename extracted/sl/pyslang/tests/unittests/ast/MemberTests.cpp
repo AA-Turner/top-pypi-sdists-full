@@ -166,7 +166,7 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 10);
+    REQUIRE(diags.size() == 9);
     CHECK(diags[0].code == diag::DelayNotNumeric);
     CHECK(diags[1].code == diag::ConstEvalNonConstVariable);
     CHECK(diags[2].code == diag::ConstEvalNonConstVariable);
@@ -176,7 +176,6 @@ endmodule
     CHECK(diags[6].code == diag::DynamicNotProcedural);
     CHECK(diags[7].code == diag::Delay3OnVar);
     CHECK(diags[8].code == diag::NonProceduralFuncArg);
-    CHECK(diags[9].code == diag::MultipleContAssigns);
 }
 
 TEST_CASE("User defined nettypes") {
@@ -985,7 +984,10 @@ module my_checker;
     wire [1:0] req;
     wire [1:0] vld;
     logic ovr;
-    if (valid_arb(.request(req), .valid(vld), .override(ovr))) begin
+
+    always_comb begin
+        if (valid_arb(.request(req), .valid(vld), .override(ovr))) begin
+        end
     end
 endmodule
 )");
@@ -1056,9 +1058,7 @@ endmodule
                     .memberAt<GenerateBlockSymbol>(1)
                     .find<VariableSymbol>("foo");
 
-    std::string path;
-    foo.getHierarchicalPath(path);
-    CHECK(path == "top.m1[2][1][3].asdf[1].genblk1.foo");
+    CHECK(foo.getHierarchicalPath() == "top.m1[2][1][3].asdf[1].genblk1.foo");
 }
 
 TEST_CASE("Hierarchical paths with unnamed generate arrays") {
@@ -1077,7 +1077,7 @@ endmodule
 
     std::string path;
     compilation.getRoot().visit(
-        makeVisitor([&](auto& v, const VariableSymbol& sym) { sym.getHierarchicalPath(path); }));
+        makeVisitor([&](auto& v, const VariableSymbol& sym) { sym.appendHierarchicalPath(path); }));
     CHECK(path == "top.genblk1[0].a");
 }
 
@@ -1146,11 +1146,10 @@ endmodule
 
     CompilationOptions options;
     options.topModules.insert("top");
+
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);
-
-    auto& diagnostics = compilation.getAllDiagnostics();
-    CHECK(diagnostics.size() == 0);
+    NO_COMPILATION_ERRORS;
 }
 
 TEST_CASE("$static_assert with let expression") {
@@ -1261,13 +1260,10 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 6);
+    REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::ForkJoinAlwaysComb);
-    CHECK(diags[1].code == diag::MultipleAlwaysAssigns);
-    CHECK(diags[2].code == diag::MultipleAlwaysAssigns);
-    CHECK(diags[3].code == diag::MultipleAlwaysAssigns);
-    CHECK(diags[4].code == diag::ForkJoinAlwaysComb);
-    CHECK(diags[5].code == diag::TimingInFuncNotAllowed);
+    CHECK(diags[1].code == diag::ForkJoinAlwaysComb);
+    CHECK(diags[2].code == diag::TimingInFuncNotAllowed);
 }
 
 TEST_CASE("always_ff timing (pass)") {
@@ -1282,9 +1278,7 @@ endmodule
 
     Compilation compilation;
     compilation.addSyntaxTree(tree);
-
-    auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 0);
+    NO_COMPILATION_ERRORS;
 }
 
 TEST_CASE("always_ff timing (fail)") {
@@ -1310,49 +1304,6 @@ endmodule
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::BlockingInAlwaysFF);
     CHECK(diags[1].code == diag::BlockingInAlwaysFF);
-}
-
-TEST_CASE("always_comb drivers within nested functions") {
-    auto tree = SyntaxTree::fromText(R"(
-module m;
-    int baz;
-
-    function void f1(int bar);
-      baz = bar;
-    endfunction
-
-    function void f2(int bar);
-      f1(bar);
-    endfunction
-
-    always_comb f2(2);
-    always_comb f2(3);
-
-    int v;
-    function void f3(int bar);
-      v = bar;
-    endfunction
-
-    always_comb f3(4);
-
-    int foo;
-    task t;
-      foo <= 1;
-    endtask
-
-    always_comb begin
-      foo <= 2;
-      t();
-    end
-endmodule
-)");
-
-    Compilation compilation;
-    compilation.addSyntaxTree(tree);
-
-    auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 1);
-    CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
 }
 
 TEST_CASE("always_comb timing inside assertion") {
@@ -1436,28 +1387,6 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
-TEST_CASE("always_comb dup driver with initial block with language option") {
-    auto tree = SyntaxTree::fromText(R"(
-module m;
-    int foo[2];
-
-    initial begin
-        for (int i = 0; i < 2; i++)
-            foo[i] = 0;
-    end
-
-    always_comb foo[1] = 1;
-endmodule
-)");
-
-    CompilationOptions options;
-    options.flags |= CompilationFlags::AllowDupInitialDrivers;
-
-    Compilation compilation(options);
-    compilation.addSyntaxTree(tree);
-    NO_COMPILATION_ERRORS;
-}
-
 TEST_CASE("always_ff timing control restrictions") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -1492,75 +1421,6 @@ endmodule
     CHECK(diags[0].code == diag::AlwaysFFEventControl);
     CHECK(diags[1].code == diag::AlwaysFFEventControl);
     CHECK(diags[2].code == diag::BlockingInAlwaysFF);
-}
-
-TEST_CASE("hierarchical driver errors") {
-    auto tree = SyntaxTree::fromText(R"(
-interface I;
-    int foo;
-endinterface
-
-module m;
-    I i();
-
-    n n1(i);
-    n n2(i);
-endmodule
-
-module n(I i);
-    always_comb i.foo = 1;
-endmodule
-)");
-
-    CompilationOptions options;
-    options.flags |= CompilationFlags::DisableInstanceCaching;
-
-    Compilation compilation(options);
-    compilation.addSyntaxTree(tree);
-
-    auto& diags = compilation.getAllDiagnostics();
-    std::string result = "\n" + report(diags);
-    CHECK(result == R"(
-source:14:17: error: variable 'foo' driven by always_comb procedure cannot be written to by any other process
-    always_comb i.foo = 1;
-                ^~~~~
-note: from 'm.n2' and 'm.n1'
-)");
-}
-
-TEST_CASE("lvalue driver assertion regression GH #551") {
-    auto tree = SyntaxTree::fromText(R"(
-module M #(parameter int W=1) (
-    input  logic         clk,
-    input  logic         rst,
-    input  logic [W-1:0] d,
-    output logic [W-1:0] o
-);
-endmodule
-
-module M2 #(
-    parameter int W = 2
-) (
-    input logic clk,
-    input logic rst
-);
-    localparam int W_MAX = $clog2(W);
-
-    logic [W_MAX:0] d, o;
-    logic x_d, x_o;
-
-    M m [W_MAX+1:0] (
-        .clk (clk),
-        .rst (rst),
-        .d   ({x_d, d}),
-        .o   ({x_o, o})
-    );
-endmodule
-)");
-
-    Compilation compilation;
-    compilation.addSyntaxTree(tree);
-    NO_COMPILATION_ERRORS;
 }
 
 TEST_CASE("Specify path descriptions") {

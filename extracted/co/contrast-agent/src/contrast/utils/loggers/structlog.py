@@ -8,6 +8,8 @@ incorrect frame info will be displayed on the log message if used in this file.
 Use print(...) instead
 """
 
+from __future__ import annotations
+
 import asyncio
 from contextlib import suppress
 import os
@@ -16,7 +18,7 @@ import io
 import sys
 from dataclasses import dataclass
 from functools import partial
-from typing import Union, TextIO, Optional, cast
+from typing import TextIO, cast
 
 from contrast.agent import request_state
 from contrast.utils.namespace import Namespace
@@ -27,7 +29,7 @@ from contrast_vendor.filelock import FileLock, Timeout
 
 
 class module(Namespace):
-    file_handle: Optional[TextIO] = None
+    file_handle: TextIO | None = None
 
 
 @dataclass
@@ -78,7 +80,7 @@ class RotatingFile:
     def _reopen(self):
         """Reopen the log file."""
         self._file.close()
-        self._file = open(self._filename, "a", encoding="utf-8")
+        self._file = open(self._filename, "a", encoding="utf-8")  # noqa: SIM115
 
     def _should_rollover(self, msg_size: int):
         """Check if the log file should be rotated."""
@@ -88,9 +90,7 @@ class RotatingFile:
             # discard the message. We can't rollover, because the new
             # file will be empty and we'd enter an infinitely loop.
             return False
-        if file_size + msg_size > self._max_bytes:
-            return True
-        return False
+        return file_size + msg_size > self._max_bytes
 
     def _rotate_if_needed(self, msg_size: int):
         """Check if the log file should be rotated and perform the rotation if needed."""
@@ -222,14 +222,12 @@ def _close_handler():
         handle.close()
 
 
-def _set_handler(
-    filename: Union[TextIO, str], rotation_config: Optional[RotationConfig] = None
-):
+def _set_handler(filename: TextIO | str, rotation_config: RotationConfig | None = None):
     if isinstance(filename, str):
         try:
             path = pathlib.Path(filename).parent.resolve()
             os.makedirs(path, exist_ok=True)
-            module.file_handle = open(filename, "a", encoding="utf-8")
+            module.file_handle = open(filename, "a", encoding="utf-8")  # noqa: SIM115
             if rotation_config:
                 module.file_handle = cast(
                     TextIO, RotatingFile(module.file_handle, rotation_config)
@@ -251,13 +249,13 @@ def _set_handler(
 
 def init_structlog(
     log_level_name: str,
-    log_file: Union[TextIO, str],
+    log_file: TextIO | str,
     progname: str,
     *,
     # NOTE: We should only enable logger caching if its configuration is finalized. If
     # it's possible for the logging config to change in the future, do not cache it.
     cache_logger: bool = False,
-    rotation_config: Optional[RotationConfig] = None,
+    rotation_config: RotationConfig | None = None,
 ) -> None:
     """
     Initial configuration for structlog. This can still be modified by subsequent calls

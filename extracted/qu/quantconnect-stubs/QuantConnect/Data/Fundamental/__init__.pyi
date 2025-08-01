@@ -7301,6 +7301,9 @@ class FundamentalProperty(Enum):
 
     ASSET_CLASSIFICATION_CANNAICS = 3621
 
+    def __int__(self) -> int:
+        ...
+
 
 class StockType(System.Object):
     """Helper class for the AssetClassification's StockType field AssetClassification.StockType"""

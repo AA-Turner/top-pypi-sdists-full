@@ -575,6 +575,7 @@ class HyperplaneArrangementElement(Element):
             sage: B.rank()
             2
 
+            sage: # needs cddexec
             sage: p = polytopes.simplex(5, project=True)
             sage: H = p.hyperplane_arrangement()
             sage: H.rank()
@@ -1416,7 +1417,7 @@ class HyperplaneArrangementElement(Element):
         charpoly = self.characteristic_polynomial()
         return (-1)**self.rank() * charpoly(1)
 
-    def has_good_reduction(self, p):
+    def has_good_reduction(self, p) -> bool:
         r"""
         Return whether the hyperplane arrangement has good reduction mod `p`.
 
@@ -1888,7 +1889,7 @@ class HyperplaneArrangementElement(Element):
             (6, 21, 16)
             sage: A.vertices()
             ((-2/3, 1/3), (-1/3, -1/3), (0, -1), (0, 0), (1/3, -2/3), (2/3, -1/3))
-            sage: point2d(A.vertices(), size=20) + A.plot()                             # needs sage.plot
+            sage: point2d(A.vertices(), size=20) + A.plot()                             # needs sage.plot sage.symbolic
             Graphics object consisting of 7 graphics primitives
 
             sage: H.<x,y> = HyperplaneArrangements(QQ)
@@ -2201,7 +2202,7 @@ class HyperplaneArrangementElement(Element):
         while R:
             # Transfer the "next step" to the "current step"
             curTest = list(nextTest)
-            nextTest = set([])
+            nextTest = set()
             # we want to test each region that we haven't hit yet
             for r in R:
                 # Since it's graded, it suffices to look at the regions of the previous rank

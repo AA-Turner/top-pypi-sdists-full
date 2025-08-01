@@ -1917,6 +1917,9 @@ class FloatComparisonMode(Enum):
     UNORDERED_TRUE_SIGNALING = 31
     """_CMP_TRUE_US"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class Avx(System.Runtime.Intrinsics.X86.Sse42, metaclass=abc.ABCMeta):
     """Provides access to X86 AVX hardware instructions via intrinsics."""
@@ -3092,6 +3095,9 @@ class FloatRoundingMode(Enum):
 
     TO_ZERO = ...
     """_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):

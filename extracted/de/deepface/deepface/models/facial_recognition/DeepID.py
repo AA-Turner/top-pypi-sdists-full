@@ -1,6 +1,5 @@
-import os
-import gdown
-from deepface.commons import package_utils, folder_utils
+# project dependencies
+from deepface.commons import package_utils, weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
 from deepface.commons.logger import Logger
 
@@ -35,8 +34,7 @@ else:
 
 # pylint: disable=line-too-long
 
-
-# -------------------------------------
+WEIGHTS_URL="https://github.com/serengil/deepface_models/releases/download/v1.0/deepid_keras_weights.h5"
 
 # pylint: disable=too-few-public-methods
 class DeepIdClient(FacialRecognition):
@@ -52,7 +50,7 @@ class DeepIdClient(FacialRecognition):
 
 
 def load_model(
-    url="https://github.com/serengil/deepface_models/releases/download/v1.0/deepid_keras_weights.h5",
+    url=WEIGHTS_URL,
 ) -> Model:
     """
     Construct DeepId model, download its weights and load
@@ -86,13 +84,12 @@ def load_model(
 
     # ---------------------------------
 
-    home = folder_utils.get_deepface_home()
-    output = os.path.join(home, ".deepface/weights/deepid_keras_weights.h5")
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="deepid_keras_weights.h5", source_url=url
+    )
 
-    if not os.path.isfile(output):
-        logger.info(f"{os.path.basename(output)} will be downloaded...")
-        gdown.download(url, output, quiet=False)
-
-    model.load_weights(output)
+    model = weight_utils.load_model_weights(
+        model=model, weight_file=weight_file
+    )
 
     return model

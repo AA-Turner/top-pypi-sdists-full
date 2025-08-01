@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 
-from typing import Optional
 from contrast.agent.assess.rules.base_rule import BaseRule
 from contrast.utils.timer import now_ms
 from contrast_fireball import AssessEvent, AssessFinding, AssessRequest
@@ -13,8 +13,8 @@ CURRENT_FINDING_VERSION = 4
 def build_finding(
     rule: BaseRule,
     properties: dict[str, str],
-    events: Optional[list[AssessEvent]] = None,
-    request: Optional[AssessRequest] = None,
+    events: list[AssessEvent] | None = None,
+    request: AssessRequest | None = None,
     **kwargs,
 ) -> AssessFinding:
     """

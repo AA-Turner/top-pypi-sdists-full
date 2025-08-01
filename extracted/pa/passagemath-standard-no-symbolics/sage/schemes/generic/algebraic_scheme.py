@@ -280,7 +280,7 @@ class AlgebraicScheme(scheme.Scheme):
         projective spaces. This is why this method returns ``False``
         for toric varieties::
 
-            sage: # needs sage.geometry.polyhedron sage.graphs
+            sage: # needs palp sage.geometry.polyhedron sage.graphs
             sage: PP.<x,y,z,w> = toric_varieties.P(3)
             sage: V = PP.subscheme(x^3 + y^3 + z^3 + w^3)
             sage: V.is_projective()
@@ -390,7 +390,7 @@ class AlgebraicScheme(scheme.Scheme):
               To:   Affine Space of dimension 2 over Rational Field
               Defn: Defined on coordinates by sending (x, y) to (x, y)
 
-            sage: # needs sage.geometry.polyhedron sage.graphs sage.libs.singular
+            sage: # needs palp sage.geometry.polyhedron sage.graphs sage.libs.singular
             sage: P1xP1.<x,y,u,v> = toric_varieties.P1xP1()
             sage: P1 = P1xP1.subscheme(x - y)
             sage: P1.embedding_morphism()
@@ -432,7 +432,7 @@ class AlgebraicScheme(scheme.Scheme):
 
         A couple more examples::
 
-            sage: # needs sage.geometry.polyhedron sage.graphs sage.libs.singular
+            sage: # needs palp sage.geometry.polyhedron sage.graphs sage.libs.singular
             sage: patch1 = P1xP1.affine_patch(1); patch1
             2-d affine toric variety
             sage: patch1.embedding_morphism()
@@ -555,7 +555,7 @@ class AlgebraicScheme(scheme.Scheme):
 
         ::
 
-            sage: # needs sage.geometry.polyhedron sage.graphs
+            sage: # needs palp sage.geometry.polyhedron sage.graphs
             sage: P1xP1 = toric_varieties.P1xP1()
             sage: P1 = toric_varieties.P1()
             sage: P1xP1._homset(P1xP1, P1)
@@ -988,13 +988,14 @@ class AlgebraicScheme_subscheme(AlgebraicScheme):
         """
         coords = list(v)
         for f in self.defining_polynomials():
-            if f(coords) != 0:   # it must be "!=0" instead of "if f(v)", e.g.,
-                                 # because of p-adic base rings.
-                raise TypeError("Coordinates %s do not define a point on %s" % (coords,self))
+            if f(coords) != 0:
+                # it must be "!=0" instead of "if f(v)", e.g.,
+                # because of p-adic base rings.
+                raise TypeError("Coordinates %s do not define a point on %s" % (coords, self))
         try:
             return self.ambient_space()._check_satisfies_equations(coords)
         except TypeError:
-            raise TypeError("Coordinates %s do not define a point on %s" % (coords,self))
+            raise TypeError("Coordinates %s do not define a point on %s" % (coords, self))
 
     def base_extend(self, R):
         """
@@ -1133,7 +1134,7 @@ class AlgebraicScheme_subscheme(AlgebraicScheme):
             initial_polys = list(self.__polys)
 
             for P in initial_polys:
-                # stores value which need to be mutliplied to make all coefficient integers
+                # stores value which need to be multiplied to make all coefficient integers
                 mult = lcm([c.denominator() for c in P.coefficients()])
                 P = mult*P
                 # stores the common factor from all coefficients
@@ -1369,7 +1370,7 @@ class AlgebraicScheme_subscheme(AlgebraicScheme):
         d = self.codimension()
         minors = self.Jacobian_matrix().minors(d)
         I = self.defining_ideal()
-        minors = tuple([ I.reduce(m) for m in minors ])
+        minors = tuple([I.reduce(m) for m in minors])
         return I.ring().ideal(I.gens() + minors)
 
     def reduce(self):

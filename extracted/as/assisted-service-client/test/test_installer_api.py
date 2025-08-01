@@ -53,6 +53,12 @@ class TestInstallerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_detailed_supported_features(self):
+        """Test case for get_detailed_supported_features
+
+        """
+        pass
+
     def test_get_infra_env(self):
         """Test case for get_infra_env
 

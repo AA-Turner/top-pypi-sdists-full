@@ -76,16 +76,28 @@ class StringGen(BaseGen):
 
     @cg_method(cmd_type="string", can_create_key=True)
     def mset(self, pipe: redis.client.Pipeline, key: str) -> None:
-        mapping = {key: self._rand_str(self.subval_size)}
-        for _ in range(random.randint(1, 3)):
-            mapping[self._rand_str(self.subval_size)] = self._rand_str(self.subval_size)
+        mapping = {}
+        hash_tag = self._rand_str(self.subval_size)
+        use_same_htag = random.random() < 0.8
+        
+        for i in range(random.randint(1, 5)):
+            mapping[f"{{{hash_tag}}}:{key}_{i}"] = self._rand_str(self.subval_size)
+            if not use_same_htag:
+                hash_tag = self._rand_str(self.subval_size)
+        
         pipe.mset(mapping)
 
     @cg_method(cmd_type="string", can_create_key=True)
     def msetnx(self, pipe: redis.client.Pipeline, key: str) -> None:
-        mapping = {key: self._rand_str(self.subval_size)}
-        for _ in range(random.randint(1, 3)):
-            mapping[self._rand_str(self.subval_size)] = self._rand_str(self.subval_size)
+        mapping = {}
+        hash_tag = self._rand_str(self.subval_size)
+        use_same_htag = random.random() < 0.8
+        
+        for i in range(random.randint(1, 5)):
+            mapping[f"{{{hash_tag}}}:{key}_{i}"] = self._rand_str(self.subval_size)
+            if not use_same_htag:
+                hash_tag = self._rand_str(self.subval_size)
+        
         pipe.msetnx(mapping)
 
     @cg_method(cmd_type="string", can_create_key=False)

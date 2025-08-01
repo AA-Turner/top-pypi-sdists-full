@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -158,6 +158,7 @@ class ServerTests:
         new_repo_dir = os.path.join(new_repo_base_dir, "empty_new")
         run_git_or_fail(["clone", self.url(port), new_repo_dir], cwd=new_repo_base_dir)
         new_repo = Repo(new_repo_dir)
+        self.addCleanup(new_repo.close)
         self.assertReposEqual(self._old_repo, new_repo)
 
     def test_lsremote_from_dulwich(self) -> None:
@@ -184,7 +185,9 @@ class ServerTests:
                 self._stub_repo.path,
             ]
         )
+        self._stub_repo.close()
         clone = self._stub_repo = Repo(self._stub_repo.path)
+        self.addCleanup(clone.close)
         expected_shallow = [
             b"35e0b59e187dd72a0af294aedffc213eaa4d03ff",
             b"514dc6d3fbfe77361bcaef320c4d21b72bc10be9",
@@ -247,7 +250,9 @@ class ServerTests:
                 self._stub_repo.path,
             ]
         )
+        self._stub_repo.close()
         clone = self._stub_repo = Repo(self._stub_repo.path)
+        self.addCleanup(clone.close)
 
         # Fetching at the same depth is a no-op.
         run_git_or_fail(
@@ -279,7 +284,9 @@ class ServerTests:
                 self._stub_repo.path,
             ]
         )
+        self._stub_repo.close()
         clone = self._stub_repo = Repo(self._stub_repo.path)
+        self.addCleanup(clone.close)
 
         # Fetching at the same depth is a no-op.
         run_git_or_fail(

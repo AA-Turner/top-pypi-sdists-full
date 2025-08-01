@@ -7,10 +7,11 @@ use futures::stream::BoxStream;
 use polars_core::prelude::{AnyValue, DataType, PlHashMap};
 use polars_core::scalar::Scalar;
 use polars_core::schema::SchemaRef;
+use polars_core::schema::iceberg::IcebergSchema;
 use polars_error::PolarsResult;
 use polars_io::RowIndex;
 use polars_io::predicates::ScanIOPredicate;
-use polars_plan::dsl::{CastColumnsPolicy, ExtraColumnsPolicy, MissingColumnsPolicy, ScanSource};
+use polars_plan::dsl::{CastColumnsPolicy, MissingColumnsPolicy, ScanSource};
 use polars_plan::plans::hive::HivePartitionsDf;
 use polars_utils::IdxSize;
 use polars_utils::slice_enum::Slice;
@@ -20,21 +21,21 @@ use crate::async_primitives::connector;
 use crate::async_primitives::wait_group::{WaitGroup, WaitToken};
 use crate::nodes::io_sources::multi_file_reader::bridge::BridgeRecvPort;
 use crate::nodes::io_sources::multi_file_reader::extra_ops::apply::ApplyExtraOps;
-use crate::nodes::io_sources::multi_file_reader::extra_ops::missing_columns::initialize_missing_columns_policy;
 use crate::nodes::io_sources::multi_file_reader::extra_ops::{
-    ExtraOperations, apply_extra_columns_policy,
+    ExtraOperations, ForbidExtraColumns, missing_column_err,
 };
 use crate::nodes::io_sources::multi_file_reader::initialization::MultiScanTaskInitializer;
 use crate::nodes::io_sources::multi_file_reader::initialization::deletion_files::{
     DeletionFilesProvider, ExternalFilterMask, RowDeletionsInit,
 };
+use crate::nodes::io_sources::multi_file_reader::initialization::projection::ProjectionBuilder;
 use crate::nodes::io_sources::multi_file_reader::initialization::slice::{
     ResolvedSliceInfo, resolve_to_positive_slice,
 };
 use crate::nodes::io_sources::multi_file_reader::post_apply_pipeline::PostApplyPipeline;
 use crate::nodes::io_sources::multi_file_reader::reader_interface::capabilities::ReaderCapabilities;
 use crate::nodes::io_sources::multi_file_reader::reader_interface::{
-    BeginReadArgs, FileReader, FileReaderCallbacks,
+    BeginReadArgs, FileReader, FileReaderCallbacks, Projection,
 };
 use crate::nodes::io_sources::multi_file_reader::row_counter::RowCounter;
 
@@ -110,17 +111,25 @@ impl MultiScanTaskInitializer {
 
         let extra_ops = ExtraOperations {
             row_index,
+            row_index_col_idx: self.config.row_index.as_ref().map_or(usize::MAX, |x| {
+                self.config.final_output_schema.index_of(&x.name).unwrap()
+            }),
             pre_slice,
-            cast_columns_policy,
-            missing_columns_policy,
             include_file_paths,
+            file_path_col_idx: self
+                .config
+                .include_file_paths
+                .as_ref()
+                .map_or(usize::MAX, |x| {
+                    self.config.final_output_schema.index_of(x).unwrap()
+                }),
             predicate,
         };
 
         if verbose {
             eprintln!(
                 "[MultiScanTaskInitializer]: \
-                scan_source_idx: {} \
+                scan_source_idx: {}, \
                 extra_ops: {:?} \
                 ",
                 scan_source_idx, &extra_ops,
@@ -268,8 +277,7 @@ impl MultiScanTaskInitializer {
         let readers_init_iter = readers_init_iter.boxed();
         let hive_parts = self.config.hive_parts.clone();
         let final_output_schema = self.config.final_output_schema.clone();
-        let projected_file_schema = self.config.projected_file_schema.clone();
-        let full_file_schema = self.config.full_file_schema.clone();
+        let file_projection_builder = self.config.file_projection_builder.clone();
         let max_concurrent_scans = self.config.max_concurrent_scans();
 
         let (started_reader_tx, started_reader_rx) =
@@ -289,13 +297,14 @@ impl MultiScanTaskInitializer {
                 constant_args: StartReaderArgsConstant {
                     hive_parts,
                     final_output_schema,
-                    projected_file_schema,
-                    missing_columns_policy: self.config.missing_columns_policy,
-                    full_file_schema,
-                    extra_columns_policy: self.config.extra_columns_policy,
+                    reader_capabilities,
+                    file_projection_builder,
+                    cast_columns_policy,
+                    missing_columns_policy,
+                    forbid_extra_columns: self.config.forbid_extra_columns.clone(),
+                    num_pipelines,
                     verbose,
                 },
-                num_pipelines,
                 verbose,
             }
             .run(),
@@ -334,7 +343,6 @@ struct ReaderStarter {
     skip_files_mask: Option<Bitmap>,
     extra_ops: ExtraOperations,
     constant_args: StartReaderArgsConstant,
-    num_pipelines: usize,
     verbose: bool,
 }
 
@@ -349,7 +357,6 @@ impl ReaderStarter {
             skip_files_mask,
             extra_ops,
             constant_args,
-            num_pipelines,
             verbose,
         } = self;
 
@@ -414,15 +421,10 @@ impl ReaderStarter {
             // Note: We `.await` here for the row deletions to be fully loaded.
             //       For this reason it's important that we already spawn background tasks to fully
             //       load them at the reader pre-initialization stage.
-            let (external_filter_mask, row_deletions) = if let Some(row_deletions) = row_deletions {
-                let external_filter_mask = row_deletions.into_external_filter_mask().await?;
-
-                (
-                    Some(external_filter_mask.clone()),
-                    Some(RowDeletionsInit::Initialized(external_filter_mask)),
-                )
+            let external_filter_mask = if let Some(row_deletions) = row_deletions {
+                Some(row_deletions.into_external_filter_mask().await?)
             } else {
-                (None, row_deletions)
+                None
             };
 
             // * This translates the `pre_slice` to physical offsets (i.e. apply before deleting rows).
@@ -548,16 +550,10 @@ impl ReaderStarter {
                     }
 
                     let get_row_count = async {
-                        let external_filter_mask = if let Some(row_deletions) = row_deletions {
-                            Some(row_deletions.into_external_filter_mask().await?)
-                        } else {
-                            None
-                        };
-
                         let num_physical_rows =
                             reader.row_position_after_slice(pre_slice_this_file).await?;
 
-                        let num_deleted_rows = external_filter_mask.map_or(0, |mask| {
+                        let num_deleted_rows = external_filter_mask.as_ref().map_or(0, |mask| {
                             mask.slice(
                                 0,
                                 mask.len().min(usize::try_from(num_physical_rows).unwrap()),
@@ -604,58 +600,14 @@ impl ReaderStarter {
                 ..Default::default()
             };
 
-            let mut extra_ops_post = extra_ops_this_file;
-
-            let (row_index, pre_slice, predicate, external_filter_mask) = ReaderOperationPushdown {
-                reader_capabilities,
-                external_filter_mask: external_filter_mask.clone(),
-                extra_ops_post: &mut extra_ops_post,
-            }
-            .push_operations();
-
-            // Position of the first morsel sent by the reader.
-            let first_morsel_position = if pre_slice.is_some() {
-                // Pre-slice was pushed to reader.
-                let Some(PhysicalSlice {
-                    slice: _,
-                    slice_start_position,
-                }) = pre_slice_this_file
-                else {
-                    panic!("{pre_slice_this_file:?}")
-                };
-
-                slice_start_position
-            } else {
-                RowCounter::default()
-            };
-
-            if verbose {
-                eprintln!(
-                    "[ReaderStarter]: scan_source_idx: {scan_source_idx}: \
-                    pre_slice_to_reader: {pre_slice:?}, \
-                    external_filter_mask: {}",
-                    ExternalFilterMask::log_display(external_filter_mask.as_ref()),
-                )
-            }
-
-            let begin_read_args = BeginReadArgs {
-                projected_schema: constant_args.projected_file_schema.clone(),
-                row_index,
-                pre_slice,
-                predicate,
-                cast_columns_policy: extra_ops_post.cast_columns_policy.clone(),
-                num_pipelines,
-                callbacks,
-            };
-
             let start_args_this_file = StartReaderArgsPerFile {
                 scan_source,
                 scan_source_idx,
                 reader,
-                begin_read_args,
-                extra_ops_post,
-                row_deletions,
-                first_morsel_position,
+                pre_slice_this_file,
+                extra_ops_this_file,
+                callbacks,
+                external_filter_mask: external_filter_mask.clone(),
             };
 
             let reader_start_task_handle = AbortOnDropHandle::new(async_executor::spawn(
@@ -740,10 +692,12 @@ struct InitializedReaderState {
 struct StartReaderArgsConstant {
     hive_parts: Option<Arc<HivePartitionsDf>>,
     final_output_schema: SchemaRef,
-    projected_file_schema: SchemaRef,
+    reader_capabilities: ReaderCapabilities,
+    file_projection_builder: ProjectionBuilder,
+    cast_columns_policy: CastColumnsPolicy,
     missing_columns_policy: MissingColumnsPolicy,
-    full_file_schema: SchemaRef,
-    extra_columns_policy: ExtraColumnsPolicy,
+    forbid_extra_columns: Option<ForbidExtraColumns>,
+    num_pipelines: usize,
     verbose: bool,
 }
 
@@ -751,12 +705,13 @@ struct StartReaderArgsPerFile {
     scan_source: ScanSource,
     scan_source_idx: usize,
     reader: Box<dyn FileReader>,
-    begin_read_args: BeginReadArgs,
-    extra_ops_post: ExtraOperations,
-    row_deletions: Option<RowDeletionsInit>,
-    first_morsel_position: RowCounter,
+    pre_slice_this_file: Option<PhysicalSlice>,
+    extra_ops_this_file: ExtraOperations,
+    callbacks: FileReaderCallbacks,
+    external_filter_mask: Option<ExternalFilterMask>,
 }
 
+/// This function gets run in a spawned task to avoid blocking the ReaderStarter's loop.
 async fn start_reader_impl(
     constant_args: StartReaderArgsConstant,
     args_this_file: StartReaderArgsPerFile,
@@ -764,10 +719,12 @@ async fn start_reader_impl(
     let StartReaderArgsConstant {
         hive_parts,
         final_output_schema,
-        projected_file_schema,
+        reader_capabilities,
+        file_projection_builder,
+        cast_columns_policy,
         missing_columns_policy,
-        full_file_schema,
-        extra_columns_policy,
+        forbid_extra_columns,
+        num_pipelines,
         verbose,
     } = constant_args;
 
@@ -775,47 +732,121 @@ async fn start_reader_impl(
         scan_source,
         scan_source_idx,
         mut reader,
-        mut begin_read_args,
-        extra_ops_post,
-        row_deletions,
-        first_morsel_position,
+        pre_slice_this_file,
+        extra_ops_this_file,
+        mut callbacks,
+        external_filter_mask,
     } = args_this_file;
 
-    let num_pipelines = begin_read_args.num_pipelines;
+    let file_iceberg_schema: Option<IcebergSchema> =
+        if matches!(&file_projection_builder, ProjectionBuilder::Iceberg { .. }) {
+            reader
+                .file_arrow_schema()
+                .await?
+                .map(|x| IcebergSchema::from_arrow_schema(x.as_ref()))
+                .transpose()?
+        } else {
+            None
+        };
 
-    let file_schema_rx = if !matches!(extra_columns_policy, ExtraColumnsPolicy::Ignore) {
+    let file_projection = file_projection_builder.build_projection(
+        None,
+        file_iceberg_schema.as_ref(),
+        cast_columns_policy.clone(),
+    )?;
+
+    let mut extra_ops_post = extra_ops_this_file;
+
+    let (
+        mut projection_to_reader,
+        projection_to_post,
+        row_index,
+        pre_slice,
+        mut predicate,
+        external_filter_mask,
+    ) = ReaderOperationPushdown {
+        file_projection: file_projection.clone(),
+        reader_capabilities,
+        external_filter_mask: external_filter_mask.clone(),
+        extra_ops_post: &mut extra_ops_post,
+    }
+    .push_operations();
+
+    // Position of the first morsel sent by the reader.
+    let first_morsel_position = if pre_slice.is_some() {
+        // Pre-slice was pushed to reader.
+        let Some(PhysicalSlice {
+            slice: _,
+            slice_start_position,
+        }) = pre_slice_this_file
+        else {
+            panic!("{pre_slice_this_file:?}")
+        };
+
+        slice_start_position
+    } else {
+        RowCounter::default()
+    };
+
+    if verbose {
+        eprintln!(
+            "[ReaderStarter]: scan_source_idx: {scan_source_idx}: \
+            projection_to_reader: {:?}, \
+            projection_to_post: {:?}, \
+            pre_slice_to_reader: {:?}, \
+            external_filter_mask: {}",
+            &projection_to_reader,
+            &projection_to_post,
+            pre_slice,
+            ExternalFilterMask::log_display(external_filter_mask.as_ref()),
+        )
+    }
+
+    let file_schema_rx = if forbid_extra_columns.is_some() {
         // Upstream should not have any reason to attach this.
-        assert!(begin_read_args.callbacks.file_schema_tx.is_none());
+        assert!(callbacks.file_schema_tx.is_none());
         let (tx, rx) = connector::connector();
-        begin_read_args.callbacks.file_schema_tx = Some(tx);
+        callbacks.file_schema_tx = Some(tx);
         Some(rx)
     } else {
         None
     };
 
-    let mut _file_schema: Option<SchemaRef> = None;
-
-    macro_rules! get_file_schema {
-        () => {{
-            if _file_schema.is_none() {
-                _file_schema = Some(reader.file_schema().await?)
-            }
-
-            _file_schema.clone().unwrap()
-        }};
-    }
-
     // Should not have both of these set, as the `n_rows_in_file` will cause the `row_position_on_end`
     // callback to be unnecessarily blocked in CSV and NDJSON.
     debug_assert!(
-        !(begin_read_args.callbacks.row_position_on_end_tx.is_some()
-            && begin_read_args.callbacks.n_rows_in_file_tx.is_some()),
+        !(callbacks.row_position_on_end_tx.is_some() && callbacks.n_rows_in_file_tx.is_some()),
     );
 
-    if let Some(predicate) = begin_read_args.predicate.as_mut() {
+    if let Some(predicate) = predicate.as_mut() {
+        assert!(matches!(projection_to_post, Projection::Plain(_)));
+
+        let reader_file_schema = reader.file_schema().await?;
+
+        // If we are sending a filter into the reader, fully initialize and resolve the projection
+        // here (i.e. column renaming / casting).
+        projection_to_reader = match projection_to_reader {
+            Projection::Plain(projected_schema) => {
+                assert!(file_iceberg_schema.is_none());
+                assert!(matches!(
+                    file_projection_builder,
+                    ProjectionBuilder::Plain(_)
+                ));
+                assert!(matches!(projection_to_post, Projection::Plain(_)));
+
+                ProjectionBuilder::new(projected_schema, None).build_projection(
+                    Some(reader_file_schema.as_ref()),
+                    None,
+                    cast_columns_policy.clone(),
+                )?
+            },
+            Projection::Mapped { .. } => projection_to_reader,
+        };
+
         let mut external_predicate_cols = Vec::with_capacity(
             hive_parts.as_ref().map_or(0, |x| x.df().width())
-                + extra_ops_post.include_file_paths.is_some() as usize,
+                + extra_ops_post.include_file_paths.is_some() as usize
+                + projection_to_reader.num_missing_columns().unwrap(),
         );
 
         if let Some(hp) = &hive_parts {
@@ -851,29 +882,37 @@ async fn start_reader_impl(
             ))
         }
 
-        let mut extra_cols = vec![];
-        initialize_missing_columns_policy(
-            &missing_columns_policy,
-            &projected_file_schema,
-            get_file_schema!().as_ref(),
-            &mut extra_cols,
-        )?;
-        external_predicate_cols.extend(
-            extra_cols
-                .into_iter()
-                .map(|c| (c.name().clone(), c.scalar().clone())),
-        );
+        for (missing_col_name, dtype) in
+            file_projection.iter_missing_columns(Some(&reader_file_schema))?
+        {
+            match &missing_columns_policy {
+                MissingColumnsPolicy::Insert => external_predicate_cols
+                    .push((missing_col_name.clone(), Scalar::null(dtype.clone()))),
+                MissingColumnsPolicy::Raise => return Err(missing_column_err(missing_col_name)),
+            }
+        }
 
         predicate.set_external_constant_columns(external_predicate_cols);
     }
+
+    let begin_read_args = BeginReadArgs {
+        projection: projection_to_reader,
+        row_index,
+        pre_slice,
+        predicate,
+        cast_columns_policy: cast_columns_policy.clone(),
+        num_pipelines,
+        callbacks,
+    };
 
     let (mut reader_output_port, reader_handle) = reader.begin_read(begin_read_args)?;
 
     let reader_handle = AbortOnDropHandle::new(reader_handle);
 
-    if !matches!(extra_columns_policy, ExtraColumnsPolicy::Ignore) {
+    if let Some(forbid_extra_columns) = forbid_extra_columns {
         if let Ok(this_file_schema) = file_schema_rx.unwrap().recv().await {
-            apply_extra_columns_policy(&extra_columns_policy, full_file_schema, this_file_schema)?;
+            forbid_extra_columns
+                .check_file_schema(&this_file_schema, file_iceberg_schema.as_ref())?;
         } else {
             drop(reader_output_port);
             return Err(reader_handle.await.unwrap_err());
@@ -884,14 +923,7 @@ async fn start_reader_impl(
 
     let ops_applier = if let Some(first_morsel) = &first_morsel {
         let final_output_schema = final_output_schema.clone();
-        let projected_file_schema = projected_file_schema.clone();
         let extra_ops = extra_ops_post;
-
-        let external_filter_mask = if let Some(row_deletions) = row_deletions {
-            Some(row_deletions.into_external_filter_mask().await?)
-        } else {
-            None
-        };
 
         if verbose {
             eprintln!(
@@ -903,7 +935,9 @@ async fn start_reader_impl(
 
         ApplyExtraOps::Uninitialized {
             final_output_schema,
-            projected_file_schema,
+            projection: projection_to_post,
+            cast_columns_policy,
+            missing_columns_policy,
             extra_ops,
             scan_source: scan_source.clone(),
             scan_source_idx,
@@ -920,9 +954,9 @@ async fn start_reader_impl(
     if verbose {
         eprintln!(
             "start_reader_impl: \
-                scan_source_idx: {scan_source_idx}, \
-                ApplyExtraOps::{}, \
-                first_morsel_position: {first_morsel_position:?}",
+            scan_source_idx: {scan_source_idx}, \
+            ApplyExtraOps::{}, \
+            first_morsel_position: {first_morsel_position:?}",
             ops_applier.variant_name(),
         );
     }
@@ -1023,6 +1057,7 @@ impl AttachReaderToBridge {
 
 /// Encapsulates logic for determining which operations to push into the underlying reader.
 struct ReaderOperationPushdown<'a> {
+    file_projection: Projection,
     reader_capabilities: ReaderCapabilities,
     external_filter_mask: Option<ExternalFilterMask>,
     /// Operations will be `take()`en out when pushed.
@@ -1033,26 +1068,47 @@ impl ReaderOperationPushdown<'_> {
     fn push_operations(
         self,
     ) -> (
+        Projection,
+        Projection,
         Option<RowIndex>,
         Option<Slice>,
         Option<ScanIOPredicate>,
         Option<ExternalFilterMask>,
     ) {
         let Self {
+            file_projection,
             reader_capabilities,
             external_filter_mask,
             extra_ops_post,
         } = self;
 
+        use ReaderCapabilities as RC;
+
         let unsupported_external_filter_mask = external_filter_mask.is_some()
-            && !reader_capabilities.contains(ReaderCapabilities::EXTERNAL_FILTER_MASK);
+            && !reader_capabilities.contains(RC::EXTERNAL_FILTER_MASK);
+
+        let unsupported_resolved_mapped_projection = match &file_projection {
+            Projection::Plain(_) => false,
+            Projection::Mapped { .. } => {
+                !reader_capabilities.contains(RC::MAPPED_COLUMN_PROJECTION)
+            },
+        };
+
+        let (projection_to_reader, projection_to_post) = if unsupported_resolved_mapped_projection {
+            (file_projection.get_plain_pre_projection(), file_projection)
+        } else {
+            let projection_to_post = Projection::Plain(file_projection.projected_schema().clone());
+            (file_projection, projection_to_post)
+        };
 
         // Notes
         // * If there is both a slice and deletions, DO NOT push deletions to the reader without
         //   pushing the slice.
 
-        let row_index = if !unsupported_external_filter_mask
-            && reader_capabilities.contains(ReaderCapabilities::ROW_INDEX)
+        // If `unsupported_mapped_projection`, the file may contain a column sharing the name of
+        // the row index column, but gets renamed by the column mapping.
+        let row_index = if reader_capabilities.contains(RC::ROW_INDEX)
+            && !(unsupported_resolved_mapped_projection || unsupported_external_filter_mask)
         {
             extra_ops_post.row_index.take()
         } else {
@@ -1060,14 +1116,12 @@ impl ReaderOperationPushdown<'_> {
         };
 
         let pre_slice = match &extra_ops_post.pre_slice {
-            Some(Slice::Positive { .. })
-                if reader_capabilities.contains(ReaderCapabilities::PRE_SLICE) =>
-            {
+            Some(Slice::Positive { .. }) if reader_capabilities.contains(RC::PRE_SLICE) => {
                 extra_ops_post.pre_slice.take()
             },
 
             Some(Slice::Negative { .. })
-                if reader_capabilities.contains(ReaderCapabilities::NEGATIVE_PRE_SLICE) =>
+                if reader_capabilities.contains(RC::NEGATIVE_PRE_SLICE) =>
             {
                 extra_ops_post.pre_slice.take()
             },
@@ -1075,26 +1129,32 @@ impl ReaderOperationPushdown<'_> {
             _ => None,
         };
 
-        let predicate = if !unsupported_external_filter_mask
-            && extra_ops_post.predicate.is_some()
-            // TODO: Support cast columns in parquet
-            && extra_ops_post.cast_columns_policy == CastColumnsPolicy::ERROR_ON_MISMATCH
-            && reader_capabilities.contains(ReaderCapabilities::PARTIAL_FILTER)
-            && extra_ops_post.row_index.is_none()
-            && extra_ops_post.pre_slice.is_none()
-        {
-            if reader_capabilities.contains(ReaderCapabilities::FULL_FILTER) {
+        let push_predicate = !(!reader_capabilities.contains(RC::MAPPED_COLUMN_PROJECTION)
+            || unsupported_external_filter_mask
+            || extra_ops_post.predicate.is_none()
+            || (extra_ops_post.row_index.is_some() || extra_ops_post.pre_slice.is_some())
+            || !reader_capabilities.contains(RC::PARTIAL_FILTER));
+
+        let mut predicate: Option<ScanIOPredicate> = None;
+
+        if push_predicate {
+            predicate = if reader_capabilities.contains(RC::FULL_FILTER) {
                 // If the reader can fully handle the predicate itself, let it do it itself.
                 extra_ops_post.predicate.take()
             } else {
                 // Otherwise, we want to pass it and filter again afterwards.
                 extra_ops_post.predicate.clone()
             }
-        } else {
-            None
-        };
+        }
 
-        (row_index, pre_slice, predicate, external_filter_mask)
+        (
+            projection_to_reader,
+            projection_to_post,
+            row_index,
+            pre_slice,
+            predicate,
+            external_filter_mask,
+        )
     }
 }
 

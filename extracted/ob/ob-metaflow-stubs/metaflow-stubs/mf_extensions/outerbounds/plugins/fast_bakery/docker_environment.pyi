@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-30T20:52:28.299535                                                            #
+# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-31T17:05:42.567533                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.exception
     import metaflow.metaflow_environment
+    import metaflow.exception
 
 from .....exception import MetaflowException as MetaflowException
 from .....metaflow_config import get_pinned_conda_libs as get_pinned_conda_libs
@@ -54,7 +54,7 @@ class DockerEnvironment(metaflow.metaflow_environment.MetaflowEnvironment, metac
         ...
     def pylint_config(self):
         ...
-    def get_package_commands(self, codepackage_url, datastore_type):
+    def get_package_commands(self, codepackage_url, datastore_type, code_package_metadata = None):
         ...
     def bootstrap_commands(self, step_name, datastore_type):
         ...

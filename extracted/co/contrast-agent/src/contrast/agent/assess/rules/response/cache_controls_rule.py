@@ -87,10 +87,7 @@ class CacheControlsRule(BaseResponseRule):
         )
 
     def create_finding(self, properties):
-        if not properties:
-            data = dict(data="[]")
-        else:
-            data = dict(data=f"[{str(properties)}]")
+        data = dict(data="[]") if not properties else dict(data=f"[{str(properties)}]")
         return build_finding(self, data)
 
     def build_and_append_finding(self, properties, context):

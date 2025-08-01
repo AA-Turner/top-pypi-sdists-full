@@ -913,7 +913,7 @@ impl SQLContext {
                     .map(|e| {
                         let expr = parse_sql_expr(e, self, schema.as_deref())?;
                         if let Expr::Column(name) = expr {
-                            Ok(name.clone())
+                            Ok(name)
                         } else {
                             Err(polars_err!(SQLSyntax:"DISTINCT ON only supports column names"))
                         }
@@ -922,7 +922,13 @@ impl SQLContext {
 
                 // DISTINCT ON has to apply the ORDER BY before the operation.
                 lf = self.process_order_by(lf, &query.order_by, None)?;
-                return Ok(lf.unique_stable(Some(cols.clone()), UniqueKeepStrategy::First));
+                return Ok(lf.unique_stable(
+                    Some(Selector::ByName {
+                        names: cols.into(),
+                        strict: true,
+                    }),
+                    UniqueKeepStrategy::First,
+                ));
             },
             None => lf,
         };
@@ -1177,9 +1183,9 @@ impl SQLContext {
                         .zip(column_names)
                         .map(|(s, name)| {
                             if let Some(name) = name {
-                                s.clone().with_name(name)
+                                s.with_name(name)
                             } else {
-                                s.clone()
+                                s
                             }
                         })
                         .map(Column::from)
@@ -1194,7 +1200,7 @@ impl SQLContext {
                     }
                     let table_name = alias.name.value.clone();
                     self.table_map.insert(table_name.clone(), lf.clone());
-                    Ok((table_name.clone(), lf))
+                    Ok((table_name, lf))
                 } else {
                     polars_bail!(SQLSyntax: "UNNEST table must have an alias");
                 }
@@ -1227,7 +1233,7 @@ impl SQLContext {
         let tbl_name = alias
             .as_ref()
             .map(|a| a.name.value.clone())
-            .unwrap_or_else(|| tbl_name);
+            .unwrap_or_else(|| tbl_name.to_str().to_string());
 
         self.table_map.insert(tbl_name.clone(), lf.clone());
         Ok((tbl_name, lf))
@@ -1584,10 +1590,6 @@ fn collect_compound_identifiers(
 
 fn expand_exprs(expr: Expr, schema: &SchemaRef) -> Vec<Expr> {
     match expr {
-        Expr::Wildcard => schema
-            .iter_names()
-            .map(|name| col(name.clone()))
-            .collect::<Vec<_>>(),
         Expr::Column(nm) if is_regex_colname(nm.as_str()) => {
             let re = polars_utils::regex_cache::compile_regex(&nm).unwrap();
             schema
@@ -1596,9 +1598,11 @@ fn expand_exprs(expr: Expr, schema: &SchemaRef) -> Vec<Expr> {
                 .map(|name| col(name.clone()))
                 .collect::<Vec<_>>()
         },
-        Expr::Columns(names) => names
-            .iter()
-            .map(|name| col(name.clone()))
+        Expr::Selector(s) => s
+            .into_columns(schema, &Default::default())
+            .unwrap()
+            .into_iter()
+            .map(col)
             .collect::<Vec<_>>(),
         _ => vec![expr],
     }
@@ -1697,7 +1701,7 @@ impl ExprSqlProjectionHeightBehavior {
         for e in expr.into_iter() {
             use Expr::*;
 
-            has_column |= matches!(e, Column(_) | Columns(_) | DtypeColumn(_) | IndexColumn(_));
+            has_column |= matches!(e, Column(_) | Selector(_));
 
             has_independent |= match e {
                 // @TODO: This is broken now with functions.

@@ -267,7 +267,7 @@ def check_for_duplicate(session, service, name):
             "item_name": "Model Train",
         },
         "projects": {
-            "path": f"/v1/project/check_for_duplicate?name={name}",
+            "path": f"/v1/accounting/check_for_duplicate?name={name}",
             "item_name": "Project",
         },
         "deployment": {

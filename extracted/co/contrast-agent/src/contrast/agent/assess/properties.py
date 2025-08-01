@@ -16,6 +16,7 @@ from contrast.agent.assess.tag import (
     WITHOUT,
 )
 from contrast.utils.assess.tag_utils import merge_tags, ordered_merge
+import contextlib
 
 
 class Properties:
@@ -119,8 +120,7 @@ class Properties:
 
         for tag_list in self.tags.values():
             for tag in tag_list:
-                if tag.end_index > last_idx:
-                    last_idx = tag.end_index
+                last_idx = max(last_idx, tag.end_index)
 
         return last_idx
 
@@ -196,10 +196,8 @@ class Properties:
         self.tags[label] = tag_ranges
 
     def delete_tag(self, label):
-        try:
+        with contextlib.suppress(KeyError):
             del self.tags[label]
-        except KeyError:
-            pass
 
     def clear(self):
         self.tags = {}

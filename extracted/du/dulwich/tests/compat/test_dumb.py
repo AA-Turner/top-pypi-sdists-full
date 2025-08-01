@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -191,7 +191,7 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
                     dest_repo.refs[ref] = sha
 
             # Checkout files
-            dest_repo.reset_index()
+            dest_repo.get_worktree().reset_index()
 
             # Verify the clone
             test_file = os.path.join(dest_path, "test0.txt")
@@ -245,7 +245,7 @@ class DumbHTTPClientNoPackTests(CompatTestCase):
                     dest_repo.refs[ref] = sha
 
             # Reset to new commit
-            dest_repo.reset_index()
+            dest_repo.get_worktree().reset_index()
 
             # Verify the new file exists
             test_file2_dest = os.path.join(dest_path, "test2.txt")

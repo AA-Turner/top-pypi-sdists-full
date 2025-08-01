@@ -2154,6 +2154,7 @@ class CreateAccessPointRequestTypeDef(TypedDict):
     PublicAccessBlockConfiguration: NotRequired[PublicAccessBlockConfigurationTypeDef]
     BucketAccountId: NotRequired[str]
     Scope: NotRequired[ScopeUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class PutAccessPointScopeRequestTypeDef(TypedDict):

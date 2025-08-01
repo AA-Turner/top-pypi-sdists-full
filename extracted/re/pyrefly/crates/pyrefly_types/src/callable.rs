@@ -96,6 +96,42 @@ impl ParamList {
         Ok(())
     }
 
+    /// Format parameters each parameter on a new line
+    pub fn fmt_with_type_with_newlines<'a, D: Display + 'a>(
+        &'a self,
+        f: &mut fmt::Formatter<'_>,
+        wrap: &'a impl Fn(&'a Type) -> D,
+    ) -> fmt::Result {
+        let mut named_posonly = false;
+        let mut kwonly = false;
+
+        for (i, param) in self.0.iter().enumerate() {
+            if i > 0 {
+                write!(f, ",\n    ")?;
+            }
+
+            if matches!(param, Param::PosOnly(Some(_), _, _)) {
+                named_posonly = true;
+            } else if named_posonly {
+                named_posonly = false;
+                write!(f, "/,\n    ")?;
+            }
+
+            if !kwonly && matches!(param, Param::KwOnly(..)) {
+                kwonly = true;
+                write!(f, "*,\n    ")?;
+            }
+
+            param.fmt_with_type(f, wrap)?;
+        }
+
+        if named_posonly {
+            write!(f, ",\n    /")?;
+        }
+
+        Ok(())
+    }
+
     pub fn items(&self) -> &[Param] {
         &self.0
     }
@@ -307,6 +343,26 @@ impl Callable {
         }
     }
 
+    /// Format the function type for use in a hover tooltip. This is similar to `fmt_with_type`, but
+    /// it puts args on new lines if there is more than one argument
+    pub fn fmt_with_type_with_newlines<'a, D: Display + 'a>(
+        &'a self,
+        f: &mut fmt::Formatter<'_>,
+        wrap: &'a impl Fn(&'a Type) -> D,
+    ) -> fmt::Result {
+        match &self.params {
+            Params::List(params) if params.len() > 1 => {
+                // For multiple parameters, put each on a new line with indentation
+                write!(f, "(\n    ")?;
+                params.fmt_with_type_with_newlines(f, wrap)?;
+                write!(f, "\n) -> {}", wrap(&self.ret))
+            }
+            Params::List(..) | Params::ParamSpec(..) | Params::Ellipsis => {
+                self.fmt_with_type(f, wrap)
+            }
+        }
+    }
+
     pub fn list(params: ParamList, ret: Type) -> Self {
         Self {
             params: Params::List(params),
@@ -435,22 +491,33 @@ impl Param {
                 write!(f, "_: {} = {}", wrap(ty), self.fmt_default(default))
             }
             Param::PosOnly(Some(name), ty, Required::Required)
-            | Param::Pos(name, ty, Required::Required) => {
+            | Param::Pos(name, ty, Required::Required)
+            | Param::KwOnly(name, ty, Required::Required) => {
                 write!(f, "{}: {}", name, wrap(ty),)
             }
             Param::PosOnly(Some(name), ty, Required::Optional(default))
-            | Param::Pos(name, ty, Required::Optional(default)) => {
+            | Param::Pos(name, ty, Required::Optional(default))
+            | Param::KwOnly(name, ty, Required::Optional(default)) => {
                 write!(f, "{}: {} = {}", name, wrap(ty), self.fmt_default(default))
             }
             Param::VarArg(Some(name), ty) => write!(f, "*{}: {}", name, wrap(ty)),
             Param::VarArg(None, ty) => write!(f, "*{}", wrap(ty)),
-            Param::KwOnly(name, ty, _required) => write!(f, "{}: {}", name, wrap(ty)),
             Param::Kwargs(Some(name), ty) => write!(f, "**{}: {}", name, wrap(ty)),
             Param::Kwargs(None, ty) => write!(f, "**{}", wrap(ty)),
         }
     }
 
-    pub fn param_to_type(&self) -> &Type {
+    pub fn as_type(&self) -> &Type {
+        match self {
+            Param::PosOnly(_, ty, _)
+            | Param::Pos(_, ty, _)
+            | Param::VarArg(_, ty)
+            | Param::KwOnly(_, ty, _)
+            | Param::Kwargs(_, ty) => ty,
+        }
+    }
+
+    pub fn as_type_mut(&mut self) -> &mut Type {
         match self {
             Param::PosOnly(_, ty, _)
             | Param::Pos(_, ty, _)

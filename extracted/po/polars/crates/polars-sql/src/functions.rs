@@ -1182,7 +1182,7 @@ impl SQLFunctionVisitor<'_> {
                         .then(e.clone().str().slice(lit(0), length.clone().abs()))
                         .otherwise(e.clone().str().slice(
                             lit(0),
-                            (e.clone().str().len_chars() + length.clone()).clip_min(lit(0)),
+                            (e.str().len_chars() + length.clone()).clip_min(lit(0)),
                         )),
                 })
             }),
@@ -1295,7 +1295,7 @@ impl SQLFunctionVisitor<'_> {
                                 .slice(length.clone().abs(), lit(LiteralValue::untyped_null())),
                         )
                         .otherwise(e.clone().str().slice(
-                            e.clone().str().len_chars().cast(DataType::Int32) - length.clone(),
+                            e.str().len_chars().cast(DataType::Int32) - length.clone(),
                             lit(LiteralValue::untyped_null()),
                         )),
                 })
@@ -1326,7 +1326,7 @@ impl SQLFunctionVisitor<'_> {
                                     .get(idx, true)
                                     .fill_null(lit("")),
                             )
-                            .otherwise(e.clone()))
+                            .otherwise(e))
                     }),
                     _ => {
                         polars_bail!(SQLSyntax: "SPLIT_PART expects 3 arguments (found {})", args.len())
@@ -1404,19 +1404,19 @@ impl SQLFunctionVisitor<'_> {
                             (_, Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Int(n)))) if n < 0 => {
                                 polars_bail!(SQLSyntax: "SUBSTR does not support negative length ({})", args[2])
                             },
-                            (Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Int(n))), _) if n > 0 => e.str().slice(lit(n - 1), length.clone()),
+                            (Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Int(n))), _) if n > 0 => e.str().slice(lit(n - 1), length),
                             (Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Int(n))), _) => {
-                                e.str().slice(lit(0), (length.clone() + lit(n - 1)).clip_min(lit(0)))
+                                e.str().slice(lit(0), (length + lit(n - 1)).clip_min(lit(0)))
                             },
                             (Expr::Literal(_), _) => polars_bail!(SQLSyntax: "invalid 'start' for SUBSTR ({})", args[1]),
                             (_, Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Float(_)))) => {
                                 polars_bail!(SQLSyntax: "invalid 'length' for SUBSTR ({})", args[1])
                             },
                             _ => {
-                                let adjusted_start = start.clone() - lit(1);
+                                let adjusted_start = start - lit(1);
                                 when(adjusted_start.clone().lt(lit(0)))
                                     .then(e.clone().str().slice(lit(0), (length.clone() + adjusted_start.clone()).clip_min(lit(0))))
-                                    .otherwise(e.clone().str().slice(adjusted_start.clone(), length.clone()))
+                                    .otherwise(e.str().slice(adjusted_start, length))
                             }
                         })
                     }),
@@ -1547,13 +1547,13 @@ impl SQLFunctionVisitor<'_> {
                             Ok(if col_names.len() == 1 {
                                 col(col_names.into_iter().next().unwrap())
                             } else {
-                                cols(col_names)
+                                cols(col_names).as_expr()
                             })
                         } else {
                             Ok(col(pat.as_str()))
                         }
                     },
-                    Expr::Wildcard => Ok(col("*")),
+                    Expr::Selector(s) => Ok(s.as_expr()),
                     _ => polars_bail!(SQLSyntax: "COLUMNS expects a regex; found {:?}", e),
                 })
             },

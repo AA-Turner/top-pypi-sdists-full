@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use futures::StreamExt;
@@ -11,6 +9,8 @@ use polars_core::schema::SchemaRef;
 use polars_error::PolarsResult;
 use polars_plan::dsl::{PartitionTargetCallback, SinkFinishCallback, SinkOptions};
 use polars_utils::pl_str::PlSmallStr;
+use polars_utils::plpath::PlPath;
+use polars_utils::relaxed_cell::RelaxedCell;
 
 use super::{CreateNewSinkFn, PerPartitionSortBy};
 use crate::async_executor::{AbortOnDropHandle, spawn};
@@ -30,7 +30,7 @@ pub struct PartedPartitionSinkNode {
     sink_input_schema: SchemaRef,
 
     key_cols: Arc<[PlSmallStr]>,
-    base_path: Arc<PathBuf>,
+    base_path: Arc<PlPath>,
     file_path_cb: Option<PartitionTargetCallback>,
     create_new: CreateNewSinkFn,
     ext: PlSmallStr,
@@ -58,7 +58,7 @@ impl PartedPartitionSinkNode {
     pub fn new(
         input_schema: SchemaRef,
         key_cols: Arc<[PlSmallStr]>,
-        base_path: Arc<PathBuf>,
+        base_path: Arc<PlPath>,
         file_path_cb: Option<PartitionTargetCallback>,
         create_new: CreateNewSinkFn,
         ext: PlSmallStr,
@@ -131,7 +131,7 @@ impl SinkNode for PartedPartitionSinkNode {
         let (mut retire_tx, retire_rxs) = distributor_channel(self.num_retire_tasks, 1);
 
         // Whether an error has been observed in the retire tasks.
-        let has_error_occurred = Arc::new(AtomicBool::new(false));
+        let has_error_occurred = Arc::new(RelaxedCell::from(false));
 
         // Main Task.
         //
@@ -180,7 +180,7 @@ impl SinkNode for PartedPartitionSinkNode {
                     polars_ops::series::rle_lengths(&c, &mut lengths)?;
 
                     for &length in &lengths {
-                        if retire_error.load(Ordering::Relaxed) {
+                        if retire_error.load() {
                             return Ok(());
                         }
 
@@ -216,7 +216,7 @@ impl SinkNode for PartedPartitionSinkNode {
                             None => {
                                 let keys = parted_df.select_columns(key_cols.iter().cloned())?;
                                 let result = open_new_sink(
-                                    base_path.as_path(),
+                                    base_path.as_ref().as_ref(),
                                     file_path_cb.as_ref(),
                                     super::default_by_key_file_path_cb,
                                     file_idx,
@@ -300,7 +300,7 @@ impl SinkNode for PartedPartitionSinkNode {
                 while let Ok((mut join_handles, node, keys)) = retire_rx.recv().await {
                     while let Some(ret) = join_handles.next().await {
                         ret.inspect_err(|_| {
-                            has_error_occurred.store(true, Ordering::Relaxed);
+                            has_error_occurred.store(true);
                         })?;
                     }
                     if let Some(mut metrics) = node.get_metrics()? {

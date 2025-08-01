@@ -7,6 +7,7 @@ import sys
 import os
 from pywinauto.findwindows import ElementNotFoundError
 from pywinauto.keyboard import send_keys
+
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 
@@ -113,7 +114,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 app = Application().connect(class_name="TMessageForm", timeout=5)
                 main_window = app["TMessageForm"]
                 main_window.set_focus()
-                
+
                 # Clicar em Não
                 console.print("Navegando nos elementos...\n")
                 main_window.child_window(class_name="TButton", found_index=0).click()
@@ -144,7 +145,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             )
 
             await worker_sleep(2)
-            
+
             console.print("Aguardando janela 'Movimento de Livro Fiscal' aparecer...")
 
             # Tempo limite de espera (em segundos)
@@ -154,11 +155,15 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             # Espera até a janela aparecer
             while True:
                 try:
-                    app = Application().connect(class_name="TFrmMovtoLivroFiscal", timeout=5)
+                    app = Application().connect(
+                        class_name="TFrmMovtoLivroFiscal", timeout=5
+                    )
                     break  # Se conectar, sai do loop
                 except ElementNotFoundError:
                     if time() - inicio > timeout:
-                        console.print("[bold red]Erro: Janela 'TFrmMovtoLivroFiscal' não apareceu dentro do tempo limite.[/bold red]")
+                        console.print(
+                            "[bold red]Erro: Janela 'TFrmMovtoLivroFiscal' não apareceu dentro do tempo limite.[/bold red]"
+                        )
                         raise
                     await worker_sleep(2)
 
@@ -168,7 +173,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             main_window = app["TFrmMovtoLivroFiscal"]
             main_window.set_focus()
 
-            data_input = main_window.child_window(class_name="TDBIEditDate", found_index=0)
+            data_input = main_window.child_window(
+                class_name="TDBIEditDate", found_index=0
+            )
             data_input.click_input()
             await worker_sleep(1)
             data_input.set_edit_text("")
@@ -182,13 +189,17 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # Marcando caixa Entrada
             console.print("Marcando caixa entrada")
-            entrada = main_window.child_window(class_name="TcxCheckBox", found_index=9).click_input()
+            entrada = main_window.child_window(
+                class_name="TcxCheckBox", found_index=9
+            ).click_input()
 
             await worker_sleep(2)
 
             # Marcando caixa Saida
             console.print("Marcando caixa saida")
-            saida_checkbox = main_window.child_window(class_name="TcxCheckBox", found_index=8)
+            saida_checkbox = main_window.child_window(
+                class_name="TcxCheckBox", found_index=8
+            )
 
             # Tenta clicar inicialmente
             saida_checkbox.click_input()
@@ -216,7 +227,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                     print("Tempo esgotado. A imagem não apareceu.")
                     break
 
-                print("Imagem não apareceu na tela. Tentando clicar novamente na caixa de saída...")
+                print(
+                    "Imagem não apareceu na tela. Tentando clicar novamente na caixa de saída..."
+                )
                 try:
                     saida_checkbox.click_input()
                 except Exception as e:
@@ -224,7 +237,6 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
                 time.sleep(intervalo)
 
-            
             await worker_sleep(2)
 
             # Clicando em incluir livro
@@ -243,58 +255,74 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             ##### Janela Pergunta das Geração dos Livros Fiscais #####
             await worker_sleep(5)
-            app = Application().connect(class_name="TPerguntasLivrosFiscaisForm", timeout=20)
+            app = Application().connect(
+                class_name="TPerguntasLivrosFiscaisForm", timeout=20
+            )
             main_window = app["TPerguntasLivrosFiscaisForm"]
             main_window.set_focus()
 
             try:
                 console.print("Clicando sim em janela somar os valores de IPI Frete")
-                main_window.child_window(class_name="TDBIComboBoxValues", found_index=0).click_input()
+                main_window.child_window(
+                    class_name="TDBIComboBoxValues", found_index=0
+                ).click_input()
 
-                await worker_sleep(1)        
+                await worker_sleep(1)
                 send_keys("{ENTER}")
-                await worker_sleep(2)  
+                await worker_sleep(2)
             except:
                 pass
             console.print("Clicando sim em janela gerar Numero de Serie do SAT")
-            
+
             try:
-                main_window.child_window(class_name="TDBIComboBoxValues", found_index=4).click_input() 
-            
-                await worker_sleep(1)       
+                main_window.child_window(
+                    class_name="TDBIComboBoxValues", found_index=4
+                ).click_input()
+
+                await worker_sleep(1)
                 send_keys("{ENTER}")
-                await worker_sleep(2)  
+                await worker_sleep(2)
             except:
                 pass
 
             try:
-                console.print("Clicando sim em janela gerar Numero de Serie a partir da chave do documento")
-                main_window.child_window(class_name="TDBIComboBoxValues", found_index=1).click_input()
-                
-                await worker_sleep(1)      
+                console.print(
+                    "Clicando sim em janela gerar Numero de Serie a partir da chave do documento"
+                )
+                main_window.child_window(
+                    class_name="TDBIComboBoxValues", found_index=1
+                ).click_input()
+
+                await worker_sleep(1)
                 send_keys("{ENTER}")
-                await worker_sleep(2)  
+                await worker_sleep(2)
             except:
                 pass
-            
+
             try:
-                console.print("Clicando sim em janela gerar livro com observação da nota fiscal")
-                main_window.child_window(class_name="TDBIComboBoxValues", found_index=3).click_input() 
-            
-                await worker_sleep(1)       
+                console.print(
+                    "Clicando sim em janela gerar livro com observação da nota fiscal"
+                )
+                main_window.child_window(
+                    class_name="TDBIComboBoxValues", found_index=3
+                ).click_input()
+
+                await worker_sleep(1)
                 send_keys("{ENTER}")
-                await worker_sleep(2)  
+                await worker_sleep(2)
             except:
                 pass
-            
+
             try:
                 console.print("Clicando sim em janela somar valores de ICMS...")
-                main_window.child_window(class_name="TDBIComboBoxValues", found_index=2).click_input()
-                
-                await worker_sleep(1)    
-                send_keys("{ENTER}")  
+                main_window.child_window(
+                    class_name="TDBIComboBoxValues", found_index=2
+                ).click_input()
+
+                await worker_sleep(1)
+                send_keys("{ENTER}")
             except:
-                pass    
+                pass
             await worker_sleep(3)
 
             # Clicar em confirmar
@@ -306,7 +334,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             app = Application().connect(title="Gerar Registros", timeout=60)
             main_window = app["Gerar Registros"]
             main_window.set_focus()
-            
+
             # Clicar em Sim
             main_window.child_window(class_name="Button", found_index=0).click_input()
 
@@ -322,17 +350,21 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             while True:
                 janela_aberta = False
-                
+
                 # 1. Verifica se a imagem apareceu e clica em 'Sim' na janela "Informação"
                 try:
                     if pyautogui.locateOnScreen(imagem, confidence=0.9):
                         print("Imagem 'livros_incluidos' apareceu na tela.")
                         try:
-                            app_info = Application().connect(title="Informação", timeout=5)
+                            app_info = Application().connect(
+                                title="Informação", timeout=5
+                            )
                             info_window = app_info["Informação"]
                             info_window.set_focus()
                             console.print("Clicando em 'Sim' na janela Informação...")
-                            info_window.child_window(class_name="Button", found_index=0).click_input()
+                            info_window.child_window(
+                                class_name="Button", found_index=0
+                            ).click_input()
                         except Exception as e:
                             print(f"Erro ao clicar em 'Sim' na janela Informação: {e}")
                 except Exception as e:
@@ -353,7 +385,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
                 # 2. Verifica e trata janela de confirmação TMessageForm
                 try:
-                    app_msg = Application().connect(class_name="TMessageForm", timeout=2)
+                    app_msg = Application().connect(
+                        class_name="TMessageForm", timeout=2
+                    )
                     form = app_msg["TMessageForm"]
                     console.print("Janela de confirmação 'TMessageForm' encontrada.")
                     form.set_focus()
@@ -366,7 +400,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
                 # 3. Verifica se a janela do relatório está aberta
                 try:
-                    app_report = Application().connect(class_name="TFrmPreviewRelatorio", timeout=2)
+                    app_report = Application().connect(
+                        class_name="TFrmPreviewRelatorio", timeout=2
+                    )
                     janela = app_report["TFrmPreviewRelatorio"]
                     print("Janela 'TFrmPreviewRelatorio' encontrada.")
                     janela_aberta = True
@@ -385,7 +421,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                     print("Tempo esgotado. Relatório não carregado.")
                     break
 
-                print("Aguardando janela de relatório... (verificando novas confirmações se houver)")
+                print(
+                    "Aguardando janela de relatório... (verificando novas confirmações se houver)"
+                )
                 time.sleep(intervalo)
 
             await worker_sleep(5)
@@ -399,7 +437,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 print("Clicou no botão de confirmação.")
             except:
                 pass
-            
+
             ##### Janela Pré-visualizando Relatório #####
             console.print("Fechar Janela Pré-visualizando Relatório ")
             app = Application().connect(class_name="TFrmPreviewRelatorio", timeout=60)
@@ -433,7 +471,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 texto_atual = campo.window_text().strip()
                 if texto_atual == "":
                     break  # Campo foi limpo com sucesso
-                print(f"Tentativa {tentativa+1}: campo ainda contém texto: '{texto_atual}'")
+                print(
+                    f"Tentativa {tentativa+1}: campo ainda contém texto: '{texto_atual}'"
+                )
 
             # Continua se o campo estiver limpo
             campo.type_keys("Livro de Apuração ICMS", with_spaces=True)
@@ -443,7 +483,6 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(2)
             send_keys("{ENTER}")
 
-
             await worker_sleep(5)
 
             ##### Janela Movimentação de Apuração ICMS #####
@@ -452,12 +491,12 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             main_window.set_focus()
 
             console.print("Clicando no último livro, primeira linha")
-            pyautogui.click(599,410)
-            
+            pyautogui.click(599, 410)
+
             await worker_sleep(1)
 
-            console.print("Clicando em Estornar Livro")   
-            pyautogui.click(667,742)
+            console.print("Clicando em Estornar Livro")
+            pyautogui.click(667, 742)
 
             await worker_sleep(3)
 
@@ -466,7 +505,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(5)
 
             console.print("Selecionar Livro Saída aberto")
-            
+
             # Selecionar linha livro de saída aberto
             # imagem = "assets\\abertura_livros\\livro_saida_aberto.png"
             imagem = "assets\\abertura_livros\\livro_saida_aberto.png"
@@ -485,7 +524,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             # imagem = "assets\\abertura_livros\\alterar_livro.png"
             imagem = "assets\\abertura_livros\\alterar_livro.png"
             # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+            localizacao = pyautogui.locateCenterOnScreen(
+                imagem, confidence=0.9
+            )  # você pode ajustar o confidence
 
             if localizacao:
                 print(f"Imagem alterar livro encontrado em: {localizacao}")
@@ -494,13 +535,15 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             else:
                 console.print("Imagem alterar livro não encontrada na tela.")
 
-            await worker_sleep(4)
+            await worker_sleep(8)
 
             # Clicar em Livro fiscal
             # imagem = "assets\\abertura_livros\\livro_fiscal.png"
             imagem = "assets\\abertura_livros\\livro_fiscal.png"
             # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+            localizacao = pyautogui.locateCenterOnScreen(
+                imagem, confidence=0.9
+            )  # você pode ajustar o confidence
 
             if localizacao:
                 print(f"Imagem Livro fiscal encontrado em: {localizacao}")
@@ -508,15 +551,17 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 pyautogui.click()
             else:
                 console.print("Imagem Livro fiscal não encontrada na tela.")
-            
+
             await worker_sleep(4)
-            
+
             # Clicar em Gerar Relatório
             # imagem = "assets\\abertura_livros\\gerar_registros.png"
             imagem = "assets\\abertura_livros\\gerar_registros.png"
 
             # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+            localizacao = pyautogui.locateCenterOnScreen(
+                imagem, confidence=0.9
+            )  # você pode ajustar o confidence
 
             if localizacao:
                 print(f"Imagem gerar relatório encontrado em: {localizacao}")
@@ -525,76 +570,85 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             else:
                 console.print("Imagem gerar relatório não encontrada na tela.")
 
+            await worker_sleep(4)
+
             ##### Janela Gerar Registro ####
             console.print("Confirmar Registro")
             app = Application().connect(class_name="TMsgBox", timeout=60)
             main_window = app["TMsgBox"]
             main_window.set_focus()
-            
+
             # Clicar em Sim
             main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
 
             await worker_sleep(4)
 
             console.print("Clicar em confirmar")
-            app = Application().connect(class_name="TPerguntasLivrosFiscaisForm", timeout=60)
+            app = Application().connect(
+                class_name="TPerguntasLivrosFiscaisForm", timeout=60
+            )
             main_window = app["TPerguntasLivrosFiscaisForm"]
             main_window.set_focus()
             main_window.child_window(class_name="TButton", found_index=1).click_input()
 
-            await worker_sleep(5)
+            await worker_sleep(60)
 
-            # Clicar no aviso 
+            # Clicar no aviso
             try:
                 app_msgbox = Application().connect(class_name="TMsgBox", timeout=10)
                 box = app_msgbox["TMsgBox"]
                 print("Janela 'TMsgBox' encontrada.")
                 box.set_focus()
                 box.child_window(class_name="TBitBtn", found_index=0).click_input()
-                print("Clicou no botão 'TBitBtn'.")
+                print("1Clicou no botão 'TBitBtn'.")
+                await worker_sleep(5)
             except:
                 pass
-            await worker_sleep(2)
+            await worker_sleep(5)
             try:
                 app_msg = Application().connect(class_name="TMessageForm", timeout=10)
                 form = app_msg["TMessageForm"]
                 console.print("Janela de confirmação 'TMessageForm' encontrada.")
                 form.set_focus()
                 form.child_window(class_name="TButton", found_index=1).click_input()
-                print("Clicou no botão de confirmação.")
+                print("2Clicou no botão de confirmação.")
+                await worker_sleep(5)
             except:
                 pass
-            await worker_sleep(2)
+            await worker_sleep(5)
             try:
                 app_msg = Application().connect(class_name="TMessageForm", timeout=10)
                 form = app_msg["TMessageForm"]
                 console.print("Janela de confirmação 'TMessageForm' encontrada.")
                 form.set_focus()
                 form.child_window(class_name="TButton", found_index=0).click_input()
-                print("Clicou no botão de confirmação.")
+                print("3Clicou no botão de confirmação.")
+                await worker_sleep(5)
             except:
                 pass
-            await worker_sleep(2)
+            await worker_sleep(5)
             try:
                 app_msg = Application().connect(class_name="TMessageForm", timeout=10)
                 form = app_msg["TMessageForm"]
                 console.print("Janela de confirmação 'TMessageForm' encontrada.")
                 form.set_focus()
                 form.child_window(class_name="TButton", found_index=1).click_input()
-                print("Clicou no botão de confirmação.")
+                print("4Clicou no botão de confirmação.")
+                await worker_sleep(5)
             except:
                 pass
-            await worker_sleep(2)
+            await worker_sleep(5)
             try:
                 app_msg = Application().connect(class_name="TMessageForm", timeout=10)
                 form = app_msg["TMessageForm"]
                 console.print("Janela de confirmação 'TMessageForm' encontrada.")
                 form.set_focus()
                 form.child_window(class_name="TButton", found_index=0).click_input()
-                print("Clicou no botão de confirmação.")
+                print("5Clicou no botão de confirmação.")
+                await worker_sleep(5)
             except:
                 pass
-            await worker_sleep(3)        
+            await worker_sleep(5)
             try:
                 # Caminho da imagem que deve desaparecer
                 console.print("Aguardar carregar dados")
@@ -633,7 +687,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             print(f"Foram encontrados {len(edits)} campos TEdit.")
 
-            campo = edits[0] 
+            campo = edits[0]
             campo.click_input()
             await worker_sleep(1)
 
@@ -646,7 +700,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 texto_atual = campo.window_text().strip()
                 if texto_atual == "":
                     break  # Campo foi limpo com sucesso
-                print(f"Tentativa {tentativa+1}: campo ainda contém texto: '{texto_atual}'")
+                print(
+                    f"Tentativa {tentativa+1}: campo ainda contém texto: '{texto_atual}'"
+                )
 
             # Continua se o campo estiver limpo
             campo.type_keys("Livro de Apuração ICMS", with_spaces=True)
@@ -656,7 +712,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(2)
             send_keys("{ENTER}")
 
-            await worker_sleep(5)  
+            await worker_sleep(5)
             console.print("Inserindo competência...")
 
             # Conecta na janela
@@ -665,7 +721,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             main_window.set_focus()
 
             # Captura o campo de data (TDBIEditDate)
-            data_input = main_window.child_window(class_name="TDBIEditDate", found_index=0)
+            data_input = main_window.child_window(
+                class_name="TDBIEditDate", found_index=0
+            )
             data_input.click_input()
             await worker_sleep(1)
             data_input.set_edit_text("")  # Limpa o campo
@@ -673,14 +731,16 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             # Define a competência
             # Ex: "07/2025"
             data_input.type_keys(competencia, with_spaces=True)
-            
+
             console.print("Clicando no botão incluir apuração")
             # Clicar em incluir apuração
             # imagem = "assets\\abertura_livros\\btn_incluir_apuracao.png"
             imagem = "assets\\abertura_livros\\btn_incluir_apuracao.png"
 
             # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+            localizacao = pyautogui.locateCenterOnScreen(
+                imagem, confidence=0.9
+            )  # você pode ajustar o confidence
 
             if localizacao:
                 print(f"Imagem incluir apuração encontrado em: {localizacao}")
@@ -689,9 +749,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 console.print("Apuração incluida com sucesso")
                 retorno = "Apuração incluida com sucesso"
                 return RpaRetornoProcessoDTO(
-                sucesso=True,
-                retorno=retorno,
-                status=RpaHistoricoStatusEnum.Sucesso
+                    sucesso=True, retorno=retorno, status=RpaHistoricoStatusEnum.Sucesso
                 )
             else:
                 console.print("Imagem incluir apuração não encontrada na tela.")

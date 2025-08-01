@@ -2010,7 +2010,7 @@ class DataFrame:
                 if s.dtype == String and not s.has_nulls():
                     arr = arr.astype(str, copy=False)
                 arrays.append(arr)
-                struct_dtype.append((s.name, arr.dtype))
+                struct_dtype.append((s.name, arr.dtype, arr.shape[1:]))
 
             out = np.empty(self.height, dtype=struct_dtype)
             for idx, c in enumerate(self.columns):
@@ -2411,12 +2411,28 @@ class DataFrame:
 
         torch = import_optional("torch")
 
+        # Cast columns.
         if dtype in (UInt16, UInt32, UInt64):
             msg = f"PyTorch does not support u16, u32, or u64 dtypes; given {dtype}"
             raise ValueError(msg)
+
+        to_dtype = dtype or {UInt16: Int32, UInt32: Int64, UInt64: Int64}
+
+        if label is not None:
+            label_frame = self.select(label)
+            # Avoid casting the label if it's an expression.
+            if not isinstance(label, pl.Expr):
+                label_frame = label_frame.cast(to_dtype)  # type: ignore[arg-type]
+            features_frame = (
+                self.select(features)
+                if features is not None
+                else self.drop(*label_frame.columns)
+            ).cast(to_dtype)  # type: ignore[arg-type]
+            frame = F.concat([label_frame, features_frame], how="horizontal")
         else:
-            to_dtype = dtype or {UInt16: Int32, UInt32: Int64, UInt64: Int64}
-            frame = self.cast(to_dtype)  # type: ignore[arg-type]
+            frame = (self.select(features) if features is not None else self).cast(
+                to_dtype  # type: ignore[arg-type]
+            )
 
         if return_type == "tensor":
             # note: torch tensors are not immutable, so we must consider them writable
@@ -2428,12 +2444,6 @@ class DataFrame:
         elif return_type == "dict":
             if label is not None:
                 # return a {"label": tensor(s), "features": tensor(s)} dict
-                label_frame = frame.select(label)
-                features_frame = (
-                    frame.select(features)
-                    if features is not None
-                    else frame.drop(*label_frame.columns)
-                )
                 return {
                     "label": label_frame.to_torch(),
                     "features": features_frame.to_torch(),
@@ -2446,7 +2456,8 @@ class DataFrame:
             # return a torch Dataset object
             from polars.ml.torch import PolarsDataset
 
-            return PolarsDataset(frame, label=label, features=features)
+            pds_label = None if label is None else label_frame.columns
+            return PolarsDataset(frame, label=pds_label, features=features)
         else:
             valid_torch_types = ", ".join(get_args(TorchExportType))
             msg = f"invalid `return_type`: {return_type!r}\nExpected one of: {valid_torch_types}"
@@ -2899,6 +2910,7 @@ class DataFrame:
         time_format: str | None = ...,
         float_scientific: bool | None = ...,
         float_precision: int | None = ...,
+        decimal_comma: bool = ...,
         null_value: str | None = ...,
         quote_style: CsvQuoteStyle | None = ...,
         storage_options: dict[str, Any] | None = ...,
@@ -2922,6 +2934,7 @@ class DataFrame:
         time_format: str | None = ...,
         float_scientific: bool | None = ...,
         float_precision: int | None = ...,
+        decimal_comma: bool = ...,
         null_value: str | None = ...,
         quote_style: CsvQuoteStyle | None = ...,
         storage_options: dict[str, Any] | None = ...,
@@ -2944,6 +2957,7 @@ class DataFrame:
         time_format: str | None = None,
         float_scientific: bool | None = None,
         float_precision: int | None = None,
+        decimal_comma: bool = False,
         null_value: str | None = None,
         quote_style: CsvQuoteStyle | None = None,
         storage_options: dict[str, Any] | None = None,
@@ -2992,6 +3006,10 @@ class DataFrame:
         float_precision
             Number of decimal places to write, applied to both `Float32` and
             `Float64` datatypes.
+        decimal_comma
+            Use a comma as the decimal separator instead of a point in standard
+            notation. Floats will be encapsulated in quotes if necessary; set the
+            field separator to override.
         null_value
             A string representing null values (defaulting to the empty string).
         quote_style : {'necessary', 'always', 'non_numeric', 'never'}
@@ -3083,6 +3101,7 @@ class DataFrame:
             time_format=time_format,
             float_scientific=float_scientific,
             float_precision=float_precision,
+            decimal_comma=decimal_comma,
             null_value=null_value,
             quote_style=quote_style,
             storage_options=storage_options,
@@ -7955,6 +7974,8 @@ class DataFrame:
 
         Examples
         --------
+        Join two dataframes together based on two predicates which get AND-ed together.
+
         >>> east = pl.DataFrame(
         ...     {
         ...         "id": [100, 101, 102],
@@ -7987,6 +8008,26 @@ class DataFrame:
         │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
         │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 676  ┆ 150  ┆ 15   ┆ 1           │
         │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
+        └─────┴─────┴─────┴───────┴──────┴──────┴──────┴─────────────┘
+
+        To OR them together, use a single expression and the `|` operator.
+
+        >>> east.join_where(
+        ...     west,
+        ...     (pl.col("dur") < pl.col("time")) | (pl.col("rev") < pl.col("cost")),
+        ... )
+        shape: (6, 8)
+        ┌─────┬─────┬─────┬───────┬──────┬──────┬──────┬─────────────┐
+        │ id  ┆ dur ┆ rev ┆ cores ┆ t_id ┆ time ┆ cost ┆ cores_right │
+        │ --- ┆ --- ┆ --- ┆ ---   ┆ ---  ┆ ---  ┆ ---  ┆ ---         │
+        │ i64 ┆ i64 ┆ i64 ┆ i64   ┆ i64  ┆ i64  ┆ i64  ┆ i64         │
+        ╞═════╪═════╪═════╪═══════╪══════╪══════╪══════╪═════════════╡
+        │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 498  ┆ 130  ┆ 13   ┆ 2           │
+        │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 676  ┆ 150  ┆ 15   ┆ 1           │
+        │ 100 ┆ 120 ┆ 12  ┆ 2     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
+        │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 676  ┆ 150  ┆ 15   ┆ 1           │
+        │ 101 ┆ 140 ┆ 14  ┆ 8     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
+        │ 102 ┆ 160 ┆ 16  ┆ 4     ┆ 742  ┆ 170  ┆ 16   ┆ 4           │
         └─────┴─────┴─────┴───────┴──────┴──────┴──────┴─────────────┘
         """
         require_same_type(self, other)
@@ -8851,8 +8892,8 @@ class DataFrame:
 
     def explode(
         self,
-        columns: str | Expr | Sequence[str | Expr],
-        *more_columns: str | Expr,
+        columns: ColumnNameOrSelector | Iterable[ColumnNameOrSelector],
+        *more_columns: ColumnNameOrSelector,
     ) -> DataFrame:
         """
         Explode the dataframe to long format by exploding the given columns.
@@ -9806,24 +9847,6 @@ class DataFrame:
         │ 0         │
         │ 10        │
         └───────────┘
-
-        Expressions with multiple outputs can be automatically instantiated as Structs
-        by enabling the setting `Config.set_auto_structify(True)`:
-
-        >>> with pl.Config(auto_structify=True):
-        ...     df.select(
-        ...         is_odd=(pl.col(pl.Int64) % 2 == 1).name.suffix("_is_odd"),
-        ...     )
-        shape: (3, 1)
-        ┌──────────────┐
-        │ is_odd       │
-        │ ---          │
-        │ struct[2]    │
-        ╞══════════════╡
-        │ {true,false} │
-        │ {false,true} │
-        │ {true,false} │
-        └──────────────┘
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
@@ -9990,25 +10013,6 @@ class DataFrame:
         │ 3   ┆ 10.0 ┆ false ┆ 30.0 ┆ true  │
         │ 4   ┆ 13.0 ┆ true  ┆ 52.0 ┆ false │
         └─────┴──────┴───────┴──────┴───────┘
-
-        Expressions with multiple outputs can be automatically instantiated as Structs
-        by enabling the setting `Config.set_auto_structify(True)`:
-
-        >>> with pl.Config(auto_structify=True):
-        ...     df.drop("c").with_columns(
-        ...         diffs=pl.col(["a", "b"]).diff().name.suffix("_diff"),
-        ...     )
-        shape: (4, 3)
-        ┌─────┬──────┬─────────────┐
-        │ a   ┆ b    ┆ diffs       │
-        │ --- ┆ ---  ┆ ---         │
-        │ i64 ┆ f64  ┆ struct[2]   │
-        ╞═════╪══════╪═════════════╡
-        │ 1   ┆ 0.5  ┆ {null,null} │
-        │ 2   ┆ 4.0  ┆ {1,3.5}     │
-        │ 3   ┆ 10.0 ┆ {1,6.0}     │
-        │ 4   ┆ 13.0 ┆ {1,3.0}     │
-        └─────┴──────┴─────────────┘
         """
         from polars.lazyframe.opt_flags import QueryOptFlags
 
@@ -10529,6 +10533,7 @@ class DataFrame:
         *,
         separator: str = "_",
         drop_first: bool = False,
+        drop_nulls: bool = False,
     ) -> DataFrame:
         """
         Convert categorical variables into dummy/indicator variables.
@@ -10542,6 +10547,8 @@ class DataFrame:
             Separator/delimiter used when generating column names.
         drop_first
             Remove the first category from the variables being encoded.
+        drop_nulls
+            If there are `None` values in the series, a `null` column is not generated
 
         Examples
         --------
@@ -10599,7 +10606,9 @@ class DataFrame:
         """
         if columns is not None:
             columns = _expand_selectors(self, columns)
-        return self._from_pydf(self._df.to_dummies(columns, separator, drop_first))
+        return self._from_pydf(
+            self._df.to_dummies(columns, separator, drop_first, drop_nulls)
+        )
 
     def unique(
         self,
@@ -12403,7 +12412,10 @@ def _prepare_other_arg(other: Any, length: int | None = None) -> Series:
             raise TypeError(msg)
         other = pl.Series("", [other])
 
-    if length and length > 1:
-        other = other.extend_constant(value=value, n=length - 1)
+    if length is not None:
+        if length > 1:
+            other = other.extend_constant(value=value, n=length - 1)
+        elif length == 0:
+            other = other.slice(0, 0)
 
     return other

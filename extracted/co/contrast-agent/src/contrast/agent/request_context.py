@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-
 from __future__ import annotations
+
 
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -17,6 +17,7 @@ from contrast.agent.request import Request
 from contrast.agent.settings import Settings
 from contrast.agent.inventory.library_reader import LibraryObservations
 from contrast_fireball import AssessFinding, ObservedRoute
+from contrast.reporting.fireball import ObservabilityTrace
 from contrast_vendor import structlog as logging
 from contrast.utils.digest_utils import Digest
 from contrast.utils.decorators import fail_quietly
@@ -43,12 +44,15 @@ class RequestContext:
     ):
         self.request = Request(environ)
         self.response = None
+        self.response_exception: Exception | None = None
 
         # This contains any Observed Library Usage seen during the life of this request.
         self.observed_libraries = LibraryObservations([])
 
         self.exclusions = exclusions
         self.event_handlers: dict[str, list[EventHandler]] = event_handlers or {}
+
+        self.observability_trace: ObservabilityTrace | None = None
 
         self.request_data_masker = None
 
@@ -103,6 +107,14 @@ class RequestContext:
         self.propagation_count = 0
         self.max_sources_logged = False
         self.max_propagators_logged = False
+
+    @property
+    def disabled(self) -> bool:
+        return (
+            self.assess_enabled is False
+            and self.protect_enabled is False
+            and self.observe_enabled is False
+        )
 
     @property
     def observed_library_usage(self) -> list[LibraryObservations]:
@@ -202,7 +214,7 @@ class RequestContext:
         _ = response.body
         self.response = response
 
-    def evaluate_exclusions(self):
+    def evaluate_exclusions(self) -> bool:
         """
         Check if the request is excluded based on the URL or input exclusions.
 
@@ -210,7 +222,8 @@ class RequestContext:
         """
         if self.exclusions:
             path = self.request.path_info
-            if self.exclusions.evaluate_url_exclusions(self, path):
+            self.exclusions.evaluate_url_exclusions(self, path)
+            if self.disabled:
                 # Stop analyzing this endpoint since the URL exclusion applies
                 return True
 

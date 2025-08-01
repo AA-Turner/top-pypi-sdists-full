@@ -112,8 +112,8 @@ class BaseCFormatToken(BaseFormatToken):
         return reprstr.format(clsname, self.match)
 
 
-def _build_token_class(name, encoder):
-    cls = type(name, (BaseCFormatToken,), {})
+def _build_token_class(cls_name, encoder):
+    cls = type(cls_name, (BaseCFormatToken,), {})
 
     consts = dict(wildcard="*", empty="", dot=".", percent="%", formatter="%s%s")
     for name, val in consts.items():

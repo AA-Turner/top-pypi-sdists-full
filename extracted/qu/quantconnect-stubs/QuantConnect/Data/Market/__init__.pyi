@@ -1101,6 +1101,9 @@ class BarDirection(Enum):
     FALLING = 2
     """Falling bar (2)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class Dividend(QuantConnect.Data.BaseData):
     """Dividend event from a security"""
@@ -1884,6 +1887,9 @@ class RenkoType(Enum):
     - Creates
     (1)
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class BaseRenkoBar(QuantConnect.Data.Market.TradeBar, QuantConnect.Data.Market.IBaseDataBar, metaclass=abc.ABCMeta):

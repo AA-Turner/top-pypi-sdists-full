@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import json
 import aiohttp
 import httpx

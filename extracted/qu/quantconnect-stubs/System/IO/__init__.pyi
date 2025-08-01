@@ -428,6 +428,9 @@ class FileAttributes(Enum):
 
     NO_SCRUB_DATA = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class MatchType(Enum):
     """Specifies the type of wildcard matching to use."""
@@ -437,6 +440,9 @@ class MatchType(Enum):
 
     WIN_32 = 1
     """Match using Win32 DOS style matching semantics.'*', '?', '<', '>', and '"' are all considered wildcards. Matches in a traditional DOS / Windows command prompt way. *.* matches all files. ? matches collapse to periods. file.??t will match file.t, file.at, and file.txt."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class MatchCasing(Enum):
@@ -450,6 +456,9 @@ class MatchCasing(Enum):
 
     CASE_INSENSITIVE = 2
     """Matches ignoring character casing."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EnumerationOptions(System.Object):
@@ -573,6 +582,9 @@ class UnixFileMode(Enum):
 
     SET_USER = 2048
     """Set User permission."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class FileSystemInfo(System.MarshalByRefObject, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
@@ -740,6 +752,9 @@ class SearchOption(Enum):
 
     ALL_DIRECTORIES = 1
 
+    def __int__(self) -> int:
+        ...
+
 
 class SeekOrigin(Enum):
     """This class has no documentation."""
@@ -749,6 +764,9 @@ class SeekOrigin(Enum):
     CURRENT = 1
 
     END = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class Stream(System.MarshalByRefObject, System.IDisposable, System.IAsyncDisposable, metaclass=abc.ABCMeta):
@@ -1044,6 +1062,9 @@ class FileAccess(Enum):
 
     READ_WRITE = 3
 
+    def __int__(self) -> int:
+        ...
+
 
 class FileMode(Enum):
     """This class has no documentation."""
@@ -1060,6 +1081,9 @@ class FileMode(Enum):
 
     APPEND = 6
 
+    def __int__(self) -> int:
+        ...
+
 
 class FileShare(Enum):
     """This class has no documentation."""
@@ -1075,6 +1099,9 @@ class FileShare(Enum):
     DELETE = 4
 
     INHERITABLE = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class FileOptions(Enum):
@@ -1093,6 +1120,9 @@ class FileOptions(Enum):
     SEQUENTIAL_SCAN = ...
 
     ENCRYPTED = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class FileStreamOptions(System.Object):
@@ -4153,6 +4183,9 @@ class HandleInheritability(Enum):
 
     INHERITABLE = 1
     """Specifies that the handle is inheritable by child processes."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class BinaryReader(System.Object, System.IDisposable):

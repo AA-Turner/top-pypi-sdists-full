@@ -1104,6 +1104,7 @@ class Cluster(TypedDict, total=False):
     OSReleaseLabel: Optional[String]
     EbsRootVolumeIops: Optional[Integer]
     EbsRootVolumeThroughput: Optional[Integer]
+    ExtendedSupport: Optional[BooleanObject]
 
 
 ClusterStateList = List[ClusterState]
@@ -2274,10 +2275,12 @@ class ListSupportedInstanceTypesOutput(TypedDict, total=False):
 class ModifyClusterInput(ServiceRequest):
     ClusterId: String
     StepConcurrencyLevel: Optional[Integer]
+    ExtendedSupport: Optional[BooleanObject]
 
 
 class ModifyClusterOutput(TypedDict, total=False):
     StepConcurrencyLevel: Optional[Integer]
+    ExtendedSupport: Optional[BooleanObject]
 
 
 class ModifyInstanceFleetInput(ServiceRequest):
@@ -2432,6 +2435,7 @@ class RunJobFlowInput(ServiceRequest):
     OSReleaseLabel: Optional[XmlStringMaxLen256]
     EbsRootVolumeIops: Optional[Integer]
     EbsRootVolumeThroughput: Optional[Integer]
+    ExtendedSupport: Optional[BooleanObject]
 
 
 class RunJobFlowOutput(TypedDict, total=False):
@@ -3361,6 +3365,7 @@ class EmrApi:
         context: RequestContext,
         cluster_id: String,
         step_concurrency_level: Integer | None = None,
+        extended_support: BooleanObject | None = None,
         **kwargs,
     ) -> ModifyClusterOutput:
         """Modifies the number of steps that can be executed concurrently for the
@@ -3368,6 +3373,7 @@ class EmrApi:
 
         :param cluster_id: The unique identifier of the cluster.
         :param step_concurrency_level: The number of steps that can be executed concurrently.
+        :param extended_support: Reserved.
         :returns: ModifyClusterOutput
         :raises InternalServerError:
         :raises InvalidRequestException:
@@ -3601,6 +3607,7 @@ class EmrApi:
         os_release_label: XmlStringMaxLen256 | None = None,
         ebs_root_volume_iops: Integer | None = None,
         ebs_root_volume_throughput: Integer | None = None,
+        extended_support: BooleanObject | None = None,
         **kwargs,
     ) -> RunJobFlowOutput:
         """RunJobFlow creates and starts running a new cluster (job flow). The
@@ -3673,6 +3680,7 @@ class EmrApi:
         used for each Amazon EC2 instance.
         :param ebs_root_volume_throughput: The throughput, in MiB/s, of the Amazon EBS root device volume of the
         Linux AMI that is used for each Amazon EC2 instance.
+        :param extended_support: Reserved.
         :returns: RunJobFlowOutput
         :raises InternalServerError:
         """

@@ -230,11 +230,11 @@ class ReraisingMixin:
 
     @classmethod
     @contextlib.contextmanager
-    def reraise(
+    def reraise(  # type: ignore[no-untyped-def] # noqa: ANN206
         cls,
         reraising: _T_RERAISING = None,
         remap_kwargs: t.Optional[_T_KWARGS] = None,
-    ) -> t.Generator[None, None, None]:
+    ):
         """
         Context Manager & Decorator to raise class exception over original.
 
@@ -259,6 +259,24 @@ class ReraisingMixin:
             raise  # noqa: PLE0704
 
         raise exc from orig
+
+    @classmethod
+    @contextlib.asynccontextmanager
+    async def async_reraise(  # type: ignore[no-untyped-def] # noqa: ANN206
+        cls,
+        reraising: _T_RERAISING = None,
+        remap_kwargs: t.Optional[_T_KWARGS] = None,
+    ):
+        """
+        Async version of `reraise`.
+
+        Args:
+            reraising: manual overriding reraising rules
+            remap_kwargs: provide kwargs for reraise exception
+
+        """
+        with cls.reraise(reraising=reraising, remap_kwargs=remap_kwargs):
+            yield
 
 
 def skip(target: t.Type[Exception]) -> _T_RULE:

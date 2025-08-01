@@ -127,6 +127,9 @@ class NormalizationForm(Enum):
 
     FORM_KD = 6
 
+    def __int__(self) -> int:
+        ...
+
 
 class Decoder(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""

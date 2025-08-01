@@ -90,7 +90,4 @@ class SqlInjection(BaseRule):
         Some sql libraries use special objects (see from sqlalchemy import text)
         so we cannot just check if user_input is falsy.
         """
-        if user_input is None:
-            return True
-
-        return False
+        return user_input is None

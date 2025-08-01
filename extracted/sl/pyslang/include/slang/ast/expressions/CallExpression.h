@@ -16,7 +16,7 @@ namespace slang::ast {
 class FormalArgumentSymbol;
 
 /// Represents a subroutine call.
-class SLANG_EXPORT CallExpression : public Expression {
+class SLANG_EXPORT CallExpression final : public Expression {
 public:
     /// Extra information associated with an iterator method call.
     struct IteratorCallInfo {
@@ -82,6 +82,9 @@ public:
     /// @returns the kind of subroutine being called.
     SubroutineKind getSubroutineKind() const;
 
+    /// @returns the known system name for the subroutine, if it's a built-in subroutine.
+    parsing::KnownSystemName getKnownSystemName() const;
+
     /// @returns true if the called subroutine has output (or inout / ref) arguments.
     bool hasOutputArgs() const;
 
@@ -127,7 +130,7 @@ public:
     static bool bindArgs(const syntax::ArgumentListSyntax* argSyntax,
                          std::span<const FormalArgumentSymbol* const> formalArgs,
                          std::string_view symbolName, SourceRange range, const ASTContext& context,
-                         SmallVectorBase<const Expression*>& boundArgs, bool isBuiltInMethod);
+                         SmallVectorBase<const Expression*>& boundArgs);
 
     static bool isKind(ExpressionKind kind) { return kind == ExpressionKind::Call; }
 

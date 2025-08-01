@@ -23,6 +23,9 @@ class SslProtocols(Enum):
 
     DEFAULT = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ExchangeAlgorithmType(Enum):
     """Obsoletions.TlsCipherAlgorithmEnumsMessage"""
@@ -34,6 +37,9 @@ class ExchangeAlgorithmType(Enum):
     RSA_KEY_X = ...
 
     DIFFIE_HELLMAN = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class CipherAlgorithmType(Enum):
@@ -59,6 +65,9 @@ class CipherAlgorithmType(Enum):
 
     NULL = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class HashAlgorithmType(Enum):
     """Obsoletions.TlsCipherAlgorithmEnumsMessage"""
@@ -74,5 +83,8 @@ class HashAlgorithmType(Enum):
     SHA_384 = ...
 
     SHA_512 = ...
+
+    def __int__(self) -> int:
+        ...
 
 

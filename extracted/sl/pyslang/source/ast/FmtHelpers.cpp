@@ -213,7 +213,7 @@ static bool formatSpecialArg(char spec, const Scope& scope, std::string& result)
             return true;
         }
         case 'm':
-            scope.asSymbol().getHierarchicalPath(result);
+            scope.asSymbol().appendHierarchicalPath(result);
             return true;
         default:
             return false;
@@ -306,8 +306,6 @@ static char getDefaultSpecifier(const Expression& expr, LiteralBase defaultBase)
                 return 'h';
             case LiteralBase::Binary:
                 return 'b';
-            default:
-                SLANG_UNREACHABLE;
         }
     }
 
@@ -380,16 +378,15 @@ std::optional<std::string> FmtHelpers::formatDisplay(
     return result;
 }
 
-bool FmtHelpers::checkFinishNum(const ASTContext& context, const Expression& arg) {
+void FmtHelpers::checkFinishNum(const ASTContext& context, const Expression& arg) {
     ConstantValue cv = context.tryEval(arg);
     if (cv.isInteger()) {
         auto& val = cv.integer();
         if (val == 0 || val == 1 || val == 2)
-            return true;
+            return;
     }
 
     context.addDiag(diag::BadFinishNum, arg.sourceRange);
-    return false;
 }
 
 } // namespace slang::ast

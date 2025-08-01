@@ -1,4 +1,5 @@
 # sage_setup: distribution = sagemath-objects
+# delvewheel: patch
 import os
 import sys
 import operator
@@ -21,7 +22,8 @@ from sage.categories.all__sagemath_objects import *
 
 from sage.cpython.all import *
 
-from cysignals.alarm import alarm, cancel_alarm
+if sys.platform != 'win32':
+    from cysignals.alarm import alarm, cancel_alarm
 
 from copy import copy, deepcopy
 

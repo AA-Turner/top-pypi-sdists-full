@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 
 import os
 import logging as stdlib_logging
@@ -16,17 +16,14 @@ DEBUG_LEVEL = stdlib_logging.DEBUG
 
 
 def _log_extra_safely(
-    log_message: Optional[str],
+    log_message: str | None,
     error: Exception,
     original_func,
     args,
     kwargs,
     log_level="debug",
 ):
-    if not contrast.telemetry_disabled():
-        TELEMETRY = contrast.TELEMETRY
-    else:
-        TELEMETRY = None
+    TELEMETRY = contrast.TELEMETRY if not contrast.telemetry_disabled() else None
 
     try:
         full_msg = (

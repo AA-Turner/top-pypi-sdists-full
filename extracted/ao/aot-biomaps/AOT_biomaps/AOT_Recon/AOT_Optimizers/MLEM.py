@@ -1,10 +1,12 @@
 from AOT_biomaps.AOT_Recon.ReconTools import _forward_projection, _backward_projection
+from AOT_biomaps.Config import config
 
 import numba
 import torch
 import numpy as np
 import os
 from tqdm import trange
+
 
 def _MLEM_GPU_basic(SMatrix, y, numIterations, isSavingEachIteration, withTumor):
     """
@@ -14,54 +16,63 @@ def _MLEM_GPU_basic(SMatrix, y, numIterations, isSavingEachIteration, withTumor)
         y: 2D numpy array (time, nScans)
         numIterations: number of iterations for the MLEM algorithm
     """
-    A_matrix_torch = torch.tensor(SMatrix, dtype=torch.float32).cuda()  # shape: (T, Z, X, N)
-    y_torch = torch.tensor(y, dtype=torch.float32).cuda()                # shape: (T, N)
+    try:
 
-    # Initialize variables
-    T, Z, X, N = SMatrix.shape
+        device = torch.device(f"cuda:{config.select_best_gpu()}")  # Get the best GPU device
+        A_matrix_torch = torch.tensor(SMatrix, dtype=torch.float32).to(device)  # shape: (T, Z, X, N)
+        y_torch = torch.tensor(y, dtype=torch.float32).to(device)               # shape: (T, N)
 
-    # flat
-    A_flat = A_matrix_torch.permute(0, 3, 1, 2).reshape(T * N, Z * X)     # shape: (T * N, Z * X)
-    y_flat = y_torch.reshape(-1)                                          # shape: (T * N, )
+        # Initialize variables
+        T, Z, X, N = SMatrix.shape
 
-    # Step 1: start from a strickly positive image theta^(0)
-    theta_0 = torch.ones((Z, X), dtype=torch.float32, device='cuda')      # shape: (Z, X)
-    matrix_theta_torch = [theta_0]
-    # matrix_theta_from_gpu = []
+        # Reshape for matrix operations
+        A_flat = A_matrix_torch.permute(0, 3, 1, 2).reshape(T * N, Z * X)  # shape: (T * N, Z * X)
+        y_flat = y_torch.reshape(-1)                                      # shape: (T * N, )
 
-    # Compute normalization factor: A^T * 1
-    normalization_factor = A_matrix_torch.sum(dim=(0, 3))                # shape: (Z, X)
-    normalization_factor_flat = normalization_factor.reshape(-1)         # shape: (Z * X, )
+        # Initial guess: strictly positive image theta^(0)
+        theta_0 = torch.ones((Z, X), dtype=torch.float32, device=device)  # shape: (Z, X)
+        matrix_theta_torch = [theta_0]
 
-    if withTumor:
-        description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM  ---- WITH TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
-    else:
-        description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM  ---- WITHOUT TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
-    # EM Algebraic update
-    for _ in trange(numIterations, desc=description):
+        # Compute normalization factor: A^T * 1
+        normalization_factor = A_matrix_torch.sum(dim=(0, 3))             # shape: (Z, X)
+        normalization_factor_flat = normalization_factor.reshape(-1)     # shape: (Z * X, )
 
-        theta_p = matrix_theta_torch[-1]                                 # shape: (Z, X)
+        if withTumor:
+            description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM  ---- WITH TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
+        else:
+            description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM  ---- WITHOUT TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
 
-        # Step 2: Forward projection of current estimate : q = A * theta + b (acc with GPU)
-        theta_p_flat = theta_p.reshape(-1)                               # shape: (Z * X, )
-        q_flat = A_flat @ theta_p_flat                                   # shape: (T * N, )
+        for _ in trange(numIterations, desc=description):
+            theta_p = matrix_theta_torch[-1]                              # shape: (Z, X)
 
-        # Step 3: Current error estimate : compute ratio e = m / q
-        e_flat = y_flat / (q_flat + torch.finfo(torch.float32).tiny)                                # shape: (T * N, )
+            # Forward projection: q = A * theta
+            theta_p_flat = theta_p.reshape(-1)                            # shape: (Z * X, )
+            q_flat = A_flat @ theta_p_flat                                # shape: (T * N, )
 
-        # Step 4: Backward projection of the error estimate : c = A.T * e (acc with GPU)
-        c_flat = A_flat.T @ e_flat                                       # shape: (Z * X, )
+            # Error estimate: e = y / q
+            e_flat = y_flat / (q_flat + torch.finfo(torch.float32).tiny)  # shape: (T * N, )
 
-        # Step 5: Multiplicative update of current estimate
-        theta_p_plus_1_flat = (theta_p_flat / (normalization_factor_flat + torch.finfo(torch.float32).tiny)) * c_flat
+            # Backward projection: c = A.T @ e
+            c_flat = A_flat.T @ e_flat                                    # shape: (Z * X, )
 
-        matrix_theta_torch.append(theta_p_plus_1_flat.reshape(Z, X))      # shape: (Z, X)
-    
-    if not isSavingEachIteration:
-        return matrix_theta_torch[-1]
-    else:
-        return [theta.cpu().numpy() for theta in matrix_theta_torch]
-        
+            # Multiplicative update
+            theta_p_plus_1_flat = (theta_p_flat / (normalization_factor_flat + torch.finfo(torch.float32).tiny)) * c_flat
+            matrix_theta_torch.append(theta_p_plus_1_flat.reshape(Z, X))  # shape: (Z, X)
+
+        # Free up GPU memory
+        del A_matrix_torch, y_torch, A_flat, y_flat, theta_0, normalization_factor, normalization_factor_flat
+        torch.cuda.empty_cache()
+
+        if not isSavingEachIteration:
+            return matrix_theta_torch[-1].cpu().numpy()
+        else:
+            return [theta.cpu().numpy() for theta in matrix_theta_torch]
+
+    except Exception as e:
+        print("Error in MLEM :")
+        print(type(e).__name__, ":", e)
+        return None
+
 def _MLEM_CPU_basic(SMatrix, y, numIterations, isSavingEachIteration, withTumor):
     """
     This method implements the MLEM algorithm using basic numpy operations.
@@ -218,7 +229,6 @@ def _MLEM_CPU_opti(SMatrix, y, numIterations, isSavingEachIteration, withTumor):
     else:
         return matrix_theta
 
-
 def _MLEM_GPU_multi(SMatrix, y, numIterations, isSavingEachIteration, withTumor):
     """
     This method implements the MLEM algorithm using PyTorch for multi-GPU acceleration.
@@ -250,18 +260,16 @@ def _MLEM_GPU_multi(SMatrix, y, numIterations, isSavingEachIteration, withTumor)
     theta_list = [theta_0.clone() for _ in range(num_gpus)]
 
     # Compute normalization factor: A^T * 1
-    normalization_factor = A_matrix_torch.sum(dim=0)
-    normalization_factor = normalization_factor.reshape(Z, X)
+    normalization_factor = A_matrix_torch.sum(dim=0).reshape(Z, X)
 
     if withTumor:
-        description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM  ---- WITH TUMOR ---- processing on multi-GPU ({num_gpus} GPUs)----"
+        description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM ---- WITH TUMOR ---- processing on multi-GPU ({num_gpus} GPUs)----"
     else:
-        description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM  ---- WITHOUT TUMOR ---- processing on multi-GPU ({num_gpus} GPUs)----"
+        description = f"AOT-BioMaps -- Algebraic Reconstruction Tomography: ML-EM ---- WITHOUT TUMOR ---- processing on multi-GPU ({num_gpus} GPUs)----"
 
     # EM Algebraic update
     for _ in trange(numIterations, desc=description):
         theta_p_list = theta_list.copy()
-
         for i in range(num_gpus):
             A_i = A_split[i].to(f'cuda:{i}')
             y_i = y_split[i].to(f'cuda:{i}')
@@ -279,6 +287,14 @@ def _MLEM_GPU_multi(SMatrix, y, numIterations, isSavingEachIteration, withTumor)
             # Multiplicative update
             theta_p_plus_1_flat = (theta_p.reshape(-1) / (normalization_factor.reshape(-1) + torch.finfo(torch.float32).tiny)) * c_flat
             theta_list[i] = theta_p_plus_1_flat.reshape(Z, X).to('cuda:0')
+
+            # Free up GPU memory for current GPU
+            del A_i, y_i, theta_p, q_flat, e_flat, c_flat, theta_p_plus_1_flat
+            torch.cuda.empty_cache()
+
+    # Free up GPU memory after iterations
+    del A_matrix_torch, y_torch, A_split, y_split, theta_0
+    torch.cuda.empty_cache()
 
     if not isSavingEachIteration:
         return torch.stack(theta_list).mean(dim=0).cpu().numpy()

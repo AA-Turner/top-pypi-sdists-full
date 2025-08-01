@@ -105,6 +105,9 @@ class SocketError(Enum):
 
     OPERATION_ABORTED = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class SocketException(System.ComponentModel.Win32Exception):
     """Provides socket exceptions to the application."""
@@ -214,5 +217,8 @@ class AddressFamily(Enum):
     PACKET = 65536
 
     CONTROLLER_AREA_NETWORK = 65537
+
+    def __int__(self) -> int:
+        ...
 
 

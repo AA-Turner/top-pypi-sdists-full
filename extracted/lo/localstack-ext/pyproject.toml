@@ -17,7 +17,7 @@ dependencies = [
     "packaging",
     "build",
     "plux>=1.10.0",
-    "localstack-core==4.6.0",
+    "localstack-core==4.7.0",
     "pyotp>=2.9.0",
     "PyJWT[crypto]>=1.7.0",
     "requests>=2.20.0",
@@ -50,6 +50,7 @@ Issues = "https://github.com/localstack/localstack/issues"
 
 [project.optional-dependencies]
 runtime = [
+    "alembic>=1.16.0",
     "amazon.ion>=0.9.3",
     "avro>=1.11.0",
     "aws-encryption-sdk>=3.1.0",
@@ -68,7 +69,10 @@ runtime = [
     "confluent-kafka",
     "kubernetes>=21.7.0",
     "libvirt-python",
-    "localstack-core[runtime]==4.6.0",
+    "localstack-core[runtime]==4.7.0",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-propagator-aws-xray",
     "paho-mqtt>=1.5",
     "parquet[snappy]>=1.3.1",
     "parse>=1.19.0",
@@ -99,6 +103,7 @@ runtime = [
     "sql-metadata>=2.6.0",
     "sqlglot[rs]",
     "srp-ext>=1.0.7.1",
+    "sqlalchemy>=2.0.0",
     "testing.common.database>=1.1.0",
     "tornado>=6.0",
     "pycognito>=2024.5.1",
@@ -121,7 +126,7 @@ test = [
     "deepdiff>=5.5.0",
     "gremlinpython",
     "jws>=0.1.3",
-    "localstack-core[test]==4.6.0",
+    "localstack-core[test]==4.7.0",
     "msal",
     "msal-extensions",
     "msrest",
@@ -185,7 +190,8 @@ exclude = ["tests*"]
     "**/services/**/*.yml",
     "**/services/docdb/mongodb-resources/*",
     "**/openapi.yaml",
-    "**/replicator/**.json"
+    "**/replicator/**.json",
+    "**/eventstudio/database/alembic.ini"
 ]
 
 [tool.ruff]

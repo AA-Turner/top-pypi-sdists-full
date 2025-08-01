@@ -47,31 +47,26 @@ class FocusedWave(AcousticField):
     def _apply_delay(self):
         """
         Apply a temporal delay to the signal for each transducer element to focus the wave at the desired focal point.
-
         Returns:
             ndarray: Array of delayed signals.
         """
         try:
             x_focal, z_focal = self.focal_point
 
-            # Calculate the total number of grid points for all elements
-            total_grid_points = self.params['num_elements'] * int(round(self.params['element_width'] / self.params['dx']))
-
-            # Initialize delays array with size total_grid_points
-            delays = np.zeros(total_grid_points)
-
             # Calculate the physical positions of the elements starting from Xrange[0]
-            element_positions = np.linspace(self.params['Xrange'][0], self.params['Xrange'][1], total_grid_points)
+            element_positions = np.linspace(self.params['Xrange'][0], self.params['Xrange'][1], self.params['num_elements'])
 
             # Calculate delays based on physical positions
-            for i in range(total_grid_points):
+            delays = np.zeros(self.params['num_elements'])
+            for i in range(self.params['num_elements']):
                 distance = np.sqrt((x_focal - element_positions[i])**2 + (z_focal)**2)
-                delays[i] = distance / self.params['c0']  # Delay in seconds
+                delays[i] = (np.max(delays) - distance / self.params['c0'])  # Delay in seconds
 
             delay_samples = np.round(delays / self.kgrid.dt).astype(int)
-            max_delay = np.max(np.abs(delay_samples))
-            delayed_signals = np.zeros((total_grid_points, len(self.burst) + max_delay))
-            for i in range(total_grid_points):
+            max_delay = np.max(delay_samples)
+
+            delayed_signals = np.zeros((self.params['num_elements'], len(self.burst) + max_delay))
+            for i in range(self.params['num_elements']):
                 shift = delay_samples[i]
                 delayed_signals[i, shift:shift + len(self.burst)] = self.burst  # Apply delay
 

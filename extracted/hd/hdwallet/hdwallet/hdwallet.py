@@ -189,7 +189,7 @@ class HDWallet:
             )
 
         if hd.name() in [
-            "BIP32", "BIP44", "BIP86", "Cardano"
+            "Algorand", "BIP32", "BIP44", "BIP86", "Cardano"
         ]:
             self._semantic = kwargs.get("semantic", self._cryptocurrency.DEFAULT_SEMANTIC)
         elif hd.name() == "BIP49":
@@ -249,11 +249,13 @@ class HDWallet:
             "payment_id": kwargs.get("payment_id", None)
         }
 
-        if hd.name() in [
+        if hd.name() == "Algorand":
+            self._hd = hd()
+        elif hd.name() in [
             "BIP32", "BIP44", "BIP49", "BIP84", "BIP86", "BIP141"
         ]:
             self._hd = hd(
-                ecc=cryptocurrency.ECC,
+                ecc=kwargs.get("ecc", cryptocurrency.ECC),
                 public_key_type=self._public_key_type,
                 semantic=self._semantic,
                 coin_type=self._cryptocurrency.COIN_TYPE,
@@ -287,6 +289,8 @@ class HDWallet:
         +----------------+-----------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                   |
         +================+===========================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_entropy.py     |
+        +----------------+-----------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_entropy.py         |
         +----------------+-----------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_entropy.py      |
@@ -347,6 +351,8 @@ class HDWallet:
         +----------------+-----------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                   |
         +================+===========================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_mnemonic.py    |
+        +----------------+-----------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_mnemonic.py        |
         +----------------+-----------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_mnemonic.py     |
@@ -429,6 +435,8 @@ class HDWallet:
         +----------------+-----------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                   |
         +================+===========================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_seed.py        |
+        +----------------+-----------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_seed.py            |
         +----------------+-----------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_seed.py         |
@@ -470,6 +478,8 @@ class HDWallet:
         +----------------+--------------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                      |
         +================+==============================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_xprivate_key.py   |
+        +----------------+--------------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_xprivate_key.py       |
         +----------------+--------------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_xprivate_key.py    |
@@ -513,6 +523,8 @@ class HDWallet:
         +----------------+--------------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                      |
         +================+==============================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_xpublic_key.py    |
+        +----------------+--------------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_xpublic_key.py        |
         +----------------+--------------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_xpublic_key.py     |
@@ -600,6 +612,8 @@ class HDWallet:
         +----------------+---------------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                       |
         +================+===============================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_private_key.py     |
+        +----------------+---------------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_private_key.py         |
         +----------------+---------------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_private_key.py      |
@@ -657,6 +671,8 @@ class HDWallet:
         +----------------+---------------------------------------------------------------------------------------------------------------+
         | Client         | Example                                                                                                       |
         +================+===============================================================================================================+
+        | Algorand       | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/algorand/from_public_key.py      |
+        +----------------+---------------------------------------------------------------------------------------------------------------+
         | BIP's          | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/bips/from_public_key.py          |
         +----------------+---------------------------------------------------------------------------------------------------------------+
         | Cardano        | https://github.com/hdwallet-io/python-hdwallet/blob/master/examples/hdwallet/cardano/from_public_key.py       |
@@ -1015,7 +1031,7 @@ class HDWallet:
         :rtype: Optional[str]
         """
 
-        if self._hd.name() not in ["Cardano", "Monero"]:
+        if self._hd.name() not in ["Algorand", "Cardano", "Monero"]:
             if self._hd.name() in ["Electrum-V1", "Electrum-V2"]:
                 return self._hd.master_wif(wif_type=wif_type)
             return self._hd.root_wif(wif_type=wif_type)
@@ -1069,7 +1085,7 @@ class HDWallet:
         :rtype: Optional[str]
         """
 
-        if self._hd.name() not in ["Cardano", "Monero"]:
+        if self._hd.name() not in ["Algorand", "Cardano", "Monero"]:
             if self._hd.name() in ["Electrum-V1", "Electrum-V2"]:
                 return self._hd.master_wif(wif_type=wif_type)
             return self._hd.root_wif(wif_type=wif_type)
@@ -1191,7 +1207,7 @@ class HDWallet:
         :rtype: Optional[str]
         """
 
-        if self._hd.name() not in ["Cardano", "Monero"]:
+        if self._hd.name() not in ["Algorand", "Cardano", "Monero"]:
             return self._hd.wif(wif_type=wif_type)
         return None
 
@@ -1558,7 +1574,7 @@ class HDWallet:
             )
 
         if self._hd.name() in [
-            "BIP32", "BIP44", "BIP49", "BIP84", "BIP86", "BIP141", "Cardano"
+            "Algorand", "BIP32", "BIP44", "BIP49", "BIP84", "BIP86", "BIP141", "Cardano"
         ]:
             derivation.update(
                 xprivate_key=self.xprivate_key(),
@@ -1573,7 +1589,7 @@ class HDWallet:
                 fingerprint=self.fingerprint(),
                 parent_fingerprint=self.parent_fingerprint()
             )
-            if self._hd.name() == "Cardano":
+            if self._hd.name() in ["Algorand", "Cardano"]:
                 del derivation["wif"]
                 del derivation["uncompressed"]
                 del derivation["compressed"]
@@ -1686,7 +1702,7 @@ class HDWallet:
             hd=self.hd()
         )
         if self._hd.name() in [
-            "BIP32", "BIP44", "BIP49", "BIP84", "BIP86", "BIP141", "Cardano"
+            "Algorand", "BIP32", "BIP44", "BIP49", "BIP84", "BIP86", "BIP141", "Cardano"
         ]:
             if self._hd.name() == "Cardano":
                 _root.update(
@@ -1705,8 +1721,9 @@ class HDWallet:
                 public_key_type=self.public_key_type(),
                 wif_type=self.wif_type()
             )
-            if self._hd.name() == "Cardano":
+            if self._hd.name() in ["Algorand", "Cardano"]:
                 del _root["root_wif"]
+                del _root["public_key_type"]
                 del _root["wif_type"]
                 if self._cardano_type != "byron-legacy":
                     del _root["path_key"]

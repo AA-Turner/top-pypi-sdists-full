@@ -117,6 +117,9 @@ class DebuggerHelper(System.Object):
         Language.Python will use 'Python Debug Server' in PyCharm
         """
 
+        def __int__(self) -> int:
+            ...
+
     @staticmethod
     def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], None]]) -> typing.Tuple[None, typing.Callable[[], None]]:
         """

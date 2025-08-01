@@ -15,7 +15,7 @@ class ResultsSynchronizer:
     def __init__(
         self,
         results_queues: Dict[str, PriorityQueue],
-        sync_timeout: float = 10.0,
+        sync_timeout: float = 60.0,
     ):
         """
         Initialize the results synchronizer.
@@ -79,18 +79,10 @@ class ResultsSynchronizer:
                         result = priority_result[1]  # Get actual result (2nd element, after priority tuple)
 
                         stream_key = result.get("stream_key")
-                        input_order = result.get("input_order")
-                        session_id = result.get("session_id")
                         stream_group_key = result.get("stream_group_key")
+                        input_order = result.get("input_order")
 
-                        if stream_key is None or input_order is None or session_id is None:
-                            logging.warning(
-                                f"Result missing stream_key, input_order, or session_id from {deployment_id}, skipping. "
-                                f"Stream key: {stream_key}, Input order: {input_order}, Session ID: {session_id}, Stream group: {stream_group_key}"
-                            )
-                            continue
-
-                        key = (stream_key, session_id, input_order)
+                        key = (stream_group_key, stream_key, input_order)
                         current_time = time.time()
 
                         with self._lock:
@@ -105,7 +97,7 @@ class ResultsSynchronizer:
                             results_collected += 1
 
                         logging.debug(
-                            f"Collected result from {deployment_id} for stream {stream_key}, session {session_id}, order {input_order}"
+                            f"Collected result from {deployment_id} for stream {stream_key}, stream group {stream_group_key}"
                         )
 
                     except Empty:
@@ -127,7 +119,7 @@ class ResultsSynchronizer:
         is_timeout: bool,
     ) -> Dict:
         """Create a synchronized result dictionary with enhanced metadata."""
-        stream_key, session_id, input_order = key
+        stream_group_key, stream_key, input_order = key
         current_time = time.time()
         sync_start_time = self._result_timestamps.get(key, current_time)
         sync_duration = current_time - sync_start_time
@@ -155,7 +147,6 @@ class ResultsSynchronizer:
         synchronized_result = {
             "stream_key": stream_key,
             "input_order": input_order,
-            "session_id": session_id,  # Include session ID for reset tracking
             "stream_group_key": stream_group_key,
             "deployment_results": deployment_results.copy(),
             "synchronization_metadata": {
@@ -177,7 +168,6 @@ class ResultsSynchronizer:
                 ),
                 "sync_completeness_ratio": len(deployment_results) / len(self.deployment_ids),
                 "synchronizer_version": "2.0",  # Updated version for session support
-                "session_id": session_id,  # Include session ID in metadata
             },
         }
 

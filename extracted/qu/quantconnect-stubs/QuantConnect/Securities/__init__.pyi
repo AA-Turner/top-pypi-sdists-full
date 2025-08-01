@@ -866,6 +866,9 @@ class MarketHoursState(Enum):
     POST_MARKET = 3
     """The market is open, but after normal trading hours (3)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class MarketHoursSegment(System.Object):
     """Represents the state of an exchange during a specified time range"""
@@ -6144,6 +6147,9 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
 
         WEEKLY = 2
         """Non standard weekly contracts"""
+
+        def __int__(self) -> int:
+            ...
 
     @property
     def type(self) -> QuantConnect.Securities.ContractSecurityFilterUniverse.ContractExpirationType:

@@ -72,6 +72,9 @@ class EventSourceSettings(Enum):
     Only one of EtwManifestEventFormat or EtwSelfDescribingEventFormat should be specified
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class EventLevel(Enum):
     """
@@ -96,6 +99,9 @@ class EventLevel(Enum):
 
     VERBOSE = 5
     """All events, including previous levels"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventKeywords(Enum):
@@ -134,6 +140,9 @@ class EventKeywords(Enum):
     EVENT_LOG_CLASSIC = ...
     """Events raised using classic eventlog API"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class EventChannel(Enum):
     """Specifies the event log channel for the event."""
@@ -151,6 +160,9 @@ class EventChannel(Enum):
 
     DEBUG = 19
     """The debug channel"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventManifestOptions(Enum):
@@ -181,6 +193,9 @@ class EventManifestOptions(Enum):
     event sources using the new validation code
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class EventCommand(Enum):
     """Describes the pre-defined command (EventCommandEventArgs.Command property) that is passed to the OnEventCommand callback."""
@@ -196,6 +211,9 @@ class EventCommand(Enum):
 
     DISABLE = -3
     """Disable event"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventCommandEventArgs(System.EventArgs):
@@ -269,6 +287,9 @@ class EventOpcode(Enum):
     RECEIVE = 240
     """An event representing receiving an activity transfer from another component"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class EventTags(Enum):
     """
@@ -278,6 +299,9 @@ class EventTags(Enum):
 
     NONE = 0
     """No special traits are added to the event."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventActivityOptions(Enum):
@@ -294,6 +318,9 @@ class EventActivityOptions(Enum):
 
     DETACHABLE = ...
     """Allows event activity to live beyond its parent."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventSourceOptions:
@@ -835,6 +862,9 @@ class EventTask(Enum):
 
     NONE = 0
     """Undefined task"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventWrittenEventArgs(System.EventArgs):
@@ -1474,6 +1504,9 @@ class EventFieldTags(Enum):
     NONE = 0
     """No special traits are added to the field."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class EventFieldFormat(Enum):
     """
@@ -1517,6 +1550,9 @@ class EventFieldFormat(Enum):
     Field should be formatted as an NTSTATUS code. Typically applied to
     32-bit integer types.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventFieldAttribute(System.Attribute):

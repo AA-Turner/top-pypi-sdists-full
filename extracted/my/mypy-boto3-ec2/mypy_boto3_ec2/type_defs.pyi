@@ -7408,11 +7408,13 @@ class TerminateClientVpnConnectionsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class TerminateInstancesRequestInstanceTerminateTypeDef(TypedDict):
+    Force: NotRequired[bool]
     SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
 
 class TerminateInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
+    Force: NotRequired[bool]
     SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
 

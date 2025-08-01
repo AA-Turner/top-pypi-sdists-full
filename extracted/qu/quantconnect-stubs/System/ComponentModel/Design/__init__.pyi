@@ -631,6 +631,9 @@ class ViewTechnology(Enum):
     default view object for the Avalon designer is an Element instance.
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class IRootDesigner(System.ComponentModel.Design.IDesigner, metaclass=abc.ABCMeta):
     """
@@ -768,6 +771,9 @@ class HelpKeywordType(Enum):
 
     FILTER_KEYWORD = 2
     """Indicates the keyword is a filter keyword."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class IDesignerOptionService(metaclass=abc.ABCMeta):
@@ -907,6 +913,9 @@ class HelpContextType(Enum):
     SELECTION = 2
 
     TOOL_WINDOW_SELECTION = 3
+
+    def __int__(self) -> int:
+        ...
 
 
 class ITypeDiscoveryService(metaclass=abc.ABCMeta):
@@ -1390,6 +1399,9 @@ class SelectionTypes(Enum):
     
     SelectionTypes.Valid has been deprecated. Use Enum class methods to determine valid values, or use a type converter instead.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class ISelectionService(metaclass=abc.ABCMeta):

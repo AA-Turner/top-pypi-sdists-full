@@ -143,24 +143,37 @@ impl PythonProcessInfo {
 
         // likewise handle libpython for python versions compiled with --enabled-shared
         let libpython_binary = {
-            let libmap = maps.iter().find(|m| {
-                if let Some(pathname) = m.filename() {
-                    if let Some(pathname) = pathname.to_str() {
-                        #[cfg(not(windows))]
-                        {
-                            return is_python_lib(pathname) && m.is_exec();
-                        }
-                        #[cfg(windows)]
-                        {
-                            return is_python_lib(pathname);
+            let libmaps: Vec<_> = maps
+                .iter()
+                .filter(|m| {
+                    if let Some(pathname) = m.filename() {
+                        if let Some(pathname) = pathname.to_str() {
+                            #[cfg(not(windows))]
+                            {
+                                return is_python_lib(pathname) && m.is_exec();
+                            }
+                            #[cfg(windows)]
+                            {
+                                return is_python_lib(pathname);
+                            }
                         }
                     }
-                }
-                false
-            });
+                    false
+                })
+                .collect();
 
             let mut libpython_binary: Option<BinaryInfo> = None;
-            if let Some(libpython) = libmap {
+
+            #[cfg(not(target_os = "linux"))]
+            let libpython_option = if !libmaps.is_empty() {
+                Some(&libmaps[0])
+            } else {
+                None
+            };
+            #[cfg(target_os = "linux")]
+            let libpython_option = libmaps.iter().min_by_key(|m| m.offset);
+
+            if let Some(libpython) = libpython_option {
                 if let Some(filename) = &libpython.filename() {
                     info!("Found libpython binary @ {}", filename.display());
 
@@ -286,7 +299,10 @@ where
     P: ProcessMemory,
 {
     // If possible, grab the sys.version string from the processes memory (mac osx).
-    if let Some(&addr) = python_info.get_symbol("Py_GetVersion.version") {
+    if let Some(&addr) = python_info
+        .get_symbol("Py_GetVersion.version")
+        .or_else(|| python_info.get_symbol("version"))
+    {
         info!("Getting version from symbol address");
         if let Ok(bytes) = process.copy(addr as usize, 128) {
             if let Ok(version) = Version::scan_bytes(&bytes) {
@@ -496,16 +512,18 @@ where
     {
         for &addr in addrs {
             if maps.contains_addr(addr) {
-                // this address points to valid memory. try loading it up as a PyInterpreterState
-                // to further check
-                let interp: I = match process.copy_struct(addr) {
-                    Ok(interp) => interp,
+                // get the pythreadstate pointer from the interpreter object, and if it is also
+                // a valid pointer then load it up.
+                let threadstate_ptr_ptr = I::threadstate_ptr_ptr(addr);
+                let maybe_threads = process
+                    .copy_struct(threadstate_ptr_ptr as usize)
+                    .context("Failed to copy PyThreadState head pointer");
+
+                let threads: *const I::ThreadState = match maybe_threads {
+                    Ok(threads) => threads,
                     Err(_) => continue,
                 };
 
-                // get the pythreadstate pointer from the interpreter object, and if it is also
-                // a valid pointer then load it up.
-                let threads = interp.head();
                 if maps.contains_addr(threads as usize) {
                     // If the threadstate points back to the interpreter like we expect, then
                     // this is almost certainly the address of the intrepreter
@@ -516,7 +534,7 @@ where
 
                     // as a final sanity check, try getting the stack_traces, and only return if this works
                     if thread.interp() as usize == addr
-                        && get_stack_traces(&interp, process, 0, None).is_ok()
+                        && get_stack_traces::<I, P>(addr, process, 0, None).is_ok()
                     {
                         return Ok(addr);
                     }
@@ -588,30 +606,34 @@ where
     }
 }
 
-pub fn get_threadstate_address(
+pub fn get_threadstate_address<P>(
     interpreter_address: usize,
     python_info: &PythonProcessInfo,
+    process: &P,
     version: &Version,
     config: &Config,
-) -> Result<usize, Error> {
+) -> Result<usize, Error>
+where
+    P: ProcessMemory,
+{
     let threadstate_address = match version {
         Version {
             major: 3,
             minor: 13,
             ..
         } => {
-            let interp: v3_13_0::_is = Default::default();
-            let offset = crate::utils::offset_of(&interp, &interp._gil.last_holder);
-            interpreter_address + offset
+            let gil_ptr = interpreter_address + std::mem::offset_of!(v3_13_0::_is, ceval.gil);
+            let gil = process.copy_struct::<usize>(gil_ptr)?;
+            gil
         }
         Version {
             major: 3,
             minor: 12,
             ..
         } => {
-            let interp: v3_12_0::_is = Default::default();
-            let offset = crate::utils::offset_of(&interp, &interp._gil.last_holder._value);
-            interpreter_address + offset
+            let gil_ptr = interpreter_address + std::mem::offset_of!(v3_12_0::_is, ceval.gil);
+            let gil: usize = process.copy_struct(gil_ptr)?;
+            gil
         }
         Version {
             major: 3,

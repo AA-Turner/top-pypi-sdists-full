@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-ntl
-# distutils: libraries = NTL_LIBRARIES gmp m
+# distutils: libraries = NTL_LIBRARIES gmp M_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -514,7 +514,7 @@ cdef class pAdicZZpXElement(pAdicExtElement):
         Return a rational approximation of ``self``.
 
         This does not try to optimize which rational is picked: see
-        ``algdep`` for another option.
+        ``algebraic_dependency`` for another option.
 
         EXAMPLES::
 

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -129,6 +129,7 @@ def self_test_suite():
         "commit_graph",
         "config",
         "credentials",
+        "diff",
         "diff_tree",
         "dumb",
         "fastexport",
@@ -146,6 +147,7 @@ def self_test_suite():
         "lru_cache",
         "mailmap",
         "merge",
+        "merge_drivers",
         "missing_obj_finder",
         "notes",
         "objects",
@@ -155,6 +157,8 @@ def self_test_suite():
         "patch",
         "porcelain",
         "porcelain_cherry_pick",
+        "porcelain_filters",
+        "porcelain_lfs",
         "porcelain_merge",
         "porcelain_notes",
         "protocol",
@@ -170,6 +174,7 @@ def self_test_suite():
         "utils",
         "walk",
         "web",
+        "worktree",
     ]
     module_names = ["tests.test_" + name for name in names]
     loader = unittest.TestLoader()

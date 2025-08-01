@@ -4,6 +4,10 @@ import torch.nn.functional as F
 from einops import rearrange, repeat
 from ..common import *
 
+cuda_causal_conv1d = None
+try: from causal_conv1d import causal_conv1d_fn as cuda_causal_conv1d
+except: pass
+
 class Mamba2Block(nn.Module):
     def __init__(self, d_model, d_state=128, d_conv=4,
                  expand=2, n_heads=4, chunk_size=64, device="cpu"):
@@ -41,7 +45,7 @@ class Mamba2Block(nn.Module):
 
     def _reset_parameters(self):
         # Xavier/Glorot for Linear layers
-        nn.init.kaiming_uniform_(self.in_proj.weight, nonlinearity='relu')
+        nn.init.xavier_uniform_(self.in_proj.weight)
         nn.init.xavier_uniform_(self.out_proj.weight)
 
         # Kaiming He Initialization for Conv1D
@@ -84,19 +88,16 @@ class Mamba2Block(nn.Module):
             dim=-1,
         )
         
-        # Prepare for conv1d
-        xBC_conv = xBC.permute(0, 2, 1).contiguous()
-        
         # Apply convolution
-        conv_out = self.conv1d(xBC_conv)
-        
-        # Important: Slice to maintain original sequence length
-        # The convolution with padding=d_conv-1 produces extra timesteps we don't need
-        conv_out = conv_out[:, :, :padded_seq_len]
-        
-        # Back to [B, L, C]
-        xBC = conv_out.permute(0, 2, 1).contiguous()
-        xBC = F.silu(xBC)
+        if cuda_causal_conv1d is not None:
+            xBC = cuda_causal_conv1d(
+                xBC.transpose(1, 2),
+                rearrange(self.conv1d.weight, "d 1 w -> d w"),
+                bias=self.conv1d.bias,
+                activation="silu",
+            ).transpose(1, 2)
+        else:
+            xBC = F.silu(self.conv1d(xBC.transpose(1, 2)).transpose(1, 2)[:, :padded_seq_len])
         
         x, B, C = torch.split(
             xBC,
@@ -211,6 +212,7 @@ class Mamba2(nn.Module):
                  chunk_size=64, device="cpu"):
         super().__init__()
         self.emb_dim = emb_dim
+        self.d_state = d_state if d_state is not None else emb_dim
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.n_layers = n_layers
@@ -254,8 +256,9 @@ class Mamba2(nn.Module):
         if self.use_embedding: x = self.embedding(x.long())
         else: x = self.embedding(x)
         for layer in self.layers:
-            y_f = layer.mixer(layer.norm(x))
-            y_b = layer.mixer(layer.norm(x.flip(1))) if self.bidirectional else 0.0
+            x_norm = layer.norm(x)
+            y_f = layer.mixer(x_norm)
+            y_b = layer.mixer(x_norm.flip(1)) if self.bidirectional else 0.0
             x = x + y_f + y_b
         x = self.norm_f(x)
         x = self.out_proj(x)
@@ -266,73 +269,96 @@ class SeqLinear(nn.Module):
     Linear layer with weights derived from a weighted sum of rank-1 sequential updates.
     """
     def __init__(self, d_model, n_heads, bias=True,
-                 expand_in=1, expand_out=1,
-                 batch_first=False, device="cpu"):
+                 W_0=False, d_conv=4,
+                 u_dim=None, v_dim=None,
+                 device="cpu"):
         super().__init__()
         self.d_model = d_model
+        self.u_dim = u_dim if u_dim is not None else d_model
+        self.v_dim = v_dim if v_dim is not None else d_model
         self.n_heads = n_heads
-        self.d_head = d_model // n_heads
-        self.batch_first = batch_first
+        self.bias = bias
         self.device = device
         
-        self.dt_proj = nn.Linear(d_model, n_heads, bias=True, device=device)
-        self.x_proj = nn.Linear(d_model, d_model * expand_in, bias=bias, device=device)
-        self.u_proj = nn.Linear(d_model, d_model * expand_in, bias=bias, device=device)
-        self.v_proj = nn.Linear(d_model, d_model * expand_out, bias=bias, device=device)
-        self.out_proj = nn.Linear(d_model * expand_out, d_model, bias=bias, device=device)
+        d_in_proj = 2 * self.u_dim + self.v_dim + self.n_heads
+        self.in_proj = nn.Linear(d_model, d_in_proj, bias=False, device=device)
+        self.dt_bias = nn.Parameter(torch.empty(n_heads, device=device))
+        self.conv = nn.Conv1d(
+            in_channels=d_in_proj,
+            out_channels=d_in_proj,
+            kernel_size=d_conv,
+            groups=d_in_proj,
+            padding=d_conv-1,
+            bias=bias,
+            device=device,
+        )
+        self.W_0 = nn.Parameter(torch.empty(n_heads, self.u_dim // n_heads, self.v_dim // n_heads, device=device)) if W_0 else None
+        self.out_proj = nn.Linear(self.v_dim, d_model, bias=False, device=device)
         
         self._reset_parameters()
     
     def _reset_parameters(self):
-        nn.init.xavier_uniform_(self.dt_proj.weight)
-        nn.init.uniform_(self.dt_proj.bias, -0.5, 0.5)
-        nn.init.xavier_uniform_(self.x_proj.weight)
-        nn.init.xavier_uniform_(self.u_proj.weight)
-        nn.init.xavier_uniform_(self.v_proj.weight)
+        nn.init.xavier_uniform_(self.in_proj.weight)
         nn.init.xavier_uniform_(self.out_proj.weight)
+        nn.init.kaiming_uniform_(self.conv.weight, nonlinearity='relu')
+        nn.init.uniform_(self.dt_bias, -0.5, 0.5)
         
-        if self.x_proj.bias is not None:
-            nn.init.constant_(self.x_proj.bias, 0.)
-        if self.u_proj.bias is not None:
-            nn.init.constant_(self.u_proj.bias, 0.)
-        if self.v_proj.bias is not None:
-            nn.init.constant_(self.v_proj.bias, 0.)
+        if self.conv.bias is not None:
+            nn.init.constant_(self.conv.bias, 0.)
+        if self.in_proj.bias is not None:
+            nn.init.constant_(self.in_proj.bias, 0.)
         if self.out_proj.bias is not None:
             nn.init.constant_(self.out_proj.bias, 0.)
+        
+        if self.W_0 is not None: nn.init.constant_(self.W_0, 0.)
     
-    def forward(self, x, rope=None, causal=True):
-        if self.batch_first:
-            x = x.transpose(0, 1)
+    def forward(self, x, W_0=None):
+        bsz, src_len, d_model = x.size()
         
-        src_len, bsz, d_model = x.size()
-        dt = rearrange(self.dt_proj(x), 's b h -> (b h) s').unsqueeze(-1).contiguous()
-        u = rearrange(self.u_proj(x), 's b (h d) -> (b h) s d', h=self.n_heads).contiguous()
-        v = rearrange(self.v_proj(x), 's b (h d) -> (b h) s d', h=self.n_heads).contiguous()
-        x = rearrange(self.x_proj(x), 's b (h d) -> (b h) s d', h=self.n_heads).contiguous()
+        x = self.in_proj(x)
         
-        dt = F.softplus(dt)
-        
-        u = u * dt
-        v = v * dt
-        
-        if causal:
-            W = torch.cumsum(torch.matmul(u.unsqueeze(-1), v.unsqueeze(-2)), dim=1)
-            norm = torch.cumsum(dt, dim=1)
+        if cuda_causal_conv1d is not None:
+            x = cuda_causal_conv1d(
+                x.transpose(1, 2),
+                rearrange(self.conv.weight, "d 1 w -> d w"),
+                bias=self.conv.bias,
+                activation="silu",
+            ).transpose(1, 2)
         else:
-            W = torch.einsum('zsu, zsv -> zuv', u, v).unsqueeze(1)
-            norm = torch.sum(dt, dim=1, keepdim=True)
-        out = torch.matmul(x.unsqueeze(-2), W).squeeze(-2) / norm
-        out = rearrange(out, '(b h) s d -> s b (h d)', h=self.n_heads)
-        out = self.out_proj(out)
+            x = F.silu(self.conv(x.transpose(1, 2)).transpose(1, 2)[:, :src_len])
         
-        if self.batch_first:
-            out = out.transpose(0, 1)
+        z, u, v, dt = torch.split(
+            x,
+            [
+                self.u_dim,
+                self.u_dim,
+                self.v_dim,
+                self.n_heads,
+            ],
+            dim=-1
+        )
+        
+        dt = F.softplus(dt + self.dt_bias)
+        z = rearrange(z, 'b s (h d) -> b s h d', h=self.n_heads).contiguous()
+        u = rearrange(u, 'b s (h d) -> b s h d', h=self.n_heads).contiguous()
+        v = rearrange(v, 'b s (h d) -> b s h d', h=self.n_heads).contiguous()
+        
+        W = torch.cumsum(torch.einsum('bsh, bshd, bshe -> bshde', dt, u, v), dim=1)
+        if W_0 is not None: W = W + W_0.unsqueeze(1)
+        elif self.W_0 is not None: W = W + self.W_0.unsqueeze(1)
+        
+        norm = torch.cumsum(dt, dim=1).unsqueeze(-1)
+        
+        out = torch.matmul(z.unsqueeze(-2), W).squeeze(-2) / norm
+        out = rearrange(out, 'b s h d -> b s (h d)')
+        out = self.out_proj(out)
         return out
 
 class SeqMLP(nn.Module):
     def __init__(self, emb_dim, input_dim, output_dim,
-                 n_layers=1, n_heads=1,
-                 expand_in=1, expand_out=1,
+                 n_layers=1, n_heads=1, dropout=0.0,
+                 u_dim=None, v_dim=None, W_0=False,
+                 d_conv=4,
                  use_embedding=True, weight_tying=False,
                  bidirectional=True,
                  bias=True, device="cpu"):
@@ -357,12 +383,14 @@ class SeqMLP(nn.Module):
                     mixer=SeqLinear(
                         d_model=emb_dim,
                         n_heads=n_heads,
-                        expand_in=expand_in,
-                        expand_out=expand_out,
+                        u_dim=u_dim,
+                        v_dim=v_dim,
+                        W_0=W_0,
+                        d_conv=d_conv,
                         bias=bias,
-                        batch_first=True,
                         device=device
                     ),
+                    dropout = nn.Dropout(dropout),
                     norm=nn.RMSNorm(emb_dim, device=device),
                 )
             ) for _ in range(n_layers)
@@ -377,11 +405,13 @@ class SeqMLP(nn.Module):
         self.to(device)
 
     def forward(self, x):
+        seq_len = x.size(1)
         if self.use_embedding: x = self.embedding(x.long())
         else: x = self.embedding(x)
         for layer in self.layers:
-            y_f = layer.mixer(layer.norm(x))
-            y_b = layer.mixer(layer.norm(x.flip(1))) if self.bidirectional else 0.0
+            x_norm = layer.norm(x)
+            y_f = layer.dropout(layer.mixer(x_norm))
+            y_b = layer.dropout(layer.mixer(x_norm.flip(1))) if self.bidirectional else 0.0
             x = x + y_f + y_b
         x = self.norm_f(x)
         x = self.out_proj(x)

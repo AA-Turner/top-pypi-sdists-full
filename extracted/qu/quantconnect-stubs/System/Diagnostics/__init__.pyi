@@ -492,6 +492,9 @@ class DebuggableAttribute(System.Attribute):
 
         ENABLE_EDIT_AND_CONTINUE = ...
 
+        def __int__(self) -> int:
+            ...
+
     @property
     def is_jit_tracking_enabled(self) -> bool:
         ...
@@ -861,6 +864,9 @@ class DebuggerBrowsableState(Enum):
     COLLAPSED = 2
 
     ROOT_HIDDEN = 3
+
+    def __int__(self) -> int:
+        ...
 
 
 class DebuggerBrowsableAttribute(System.Attribute):

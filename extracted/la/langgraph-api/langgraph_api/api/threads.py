@@ -172,7 +172,7 @@ async def get_thread_history(
     """Get all past states for a thread."""
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
-    limit_ = request.query_params.get("limit", 10)
+    limit_ = request.query_params.get("limit", 1)
     try:
         limit = int(limit_)
     except ValueError:
@@ -205,7 +205,7 @@ async def get_thread_history_post(
             for c in await Threads.State.list(
                 conn,
                 config=config,
-                limit=int(payload.get("limit") or 10),
+                limit=int(payload.get("limit") or 1),
                 before=payload.get("before"),
                 metadata=payload.get("metadata"),
             )

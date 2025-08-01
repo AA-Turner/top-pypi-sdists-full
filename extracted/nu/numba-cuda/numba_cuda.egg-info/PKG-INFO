@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numba-cuda
-Version: 0.17.0
+Version: 0.18.0
 Summary: CUDA target for Numba
 Author: Anaconda Inc., NVIDIA Corporation
 License: BSD 2-clause
@@ -11,7 +11,7 @@ Project-URL: License, https://github.com/rapidsai/numba-cuda/blob/main/LICENSE
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numba>=0.59.1
+Requires-Dist: numba>=0.60.0
 Provides-Extra: cu11
 Requires-Dist: cuda-bindings==11.8.*; extra == "cu11"
 Requires-Dist: cuda-core==0.3.*; extra == "cu11"
@@ -31,6 +31,8 @@ Provides-Extra: test
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: cffi; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: filecheck; extra == "test"
 Provides-Extra: test-cu11
 Requires-Dist: numba-cuda[test]; extra == "test-cu11"
 Requires-Dist: nvidia-curand-cu11; extra == "test-cu11"
@@ -38,6 +40,17 @@ Provides-Extra: test-cu12
 Requires-Dist: numba-cuda[test]; extra == "test-cu12"
 Requires-Dist: nvidia-curand-cu12; extra == "test-cu12"
 Requires-Dist: pynvjitlink-cu12; extra == "test-cu12"
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: numba-cuda[test]; extra == "dev"
+Provides-Extra: dev-cu11
+Requires-Dist: numba-cuda[test-cu11]; extra == "dev-cu11"
+Requires-Dist: numba-cuda[test]; extra == "dev-cu11"
+Requires-Dist: numba-cuda[dev]; extra == "dev-cu11"
+Provides-Extra: dev-cu12
+Requires-Dist: numba-cuda[test-cu12]; extra == "dev-cu12"
+Requires-Dist: numba-cuda[test]; extra == "dev-cu12"
+Requires-Dist: numba-cuda[dev]; extra == "dev-cu12"
 Dynamic: license-file
 
 <div align="center"><img src="docs/source/_static/numba-green-icon-rgb.svg" width="200"/></div>
@@ -72,10 +85,11 @@ If you want to manage all run-time dependencies yourself, also pass the `--no-de
 ## Running tests
 
 ```
-python -m numba.runtests numba.cuda.tests
+pytest -n auto --pyargs numba.cuda.tests -v
 ```
 
-This should discover the `numba.cuda` module from the `numba_cuda` package. You
+
+Testing should discover the `numba.cuda` module from the `numba_cuda` package. You
 can check where `numba.cuda` files are being located by running
 
 ```

@@ -1025,6 +1025,9 @@ class CompileState(Enum):
     BUILD_ERROR = 2
     """Build error, check logs for more information"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class Compile(QuantConnect.Api.RestResponse):
     """Response from the compiler on a build event"""
@@ -2186,6 +2189,9 @@ class ProductType(Enum):
 
     MODULES = 6
     """Modules Subscriptions"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class ProductItem(System.Object):
@@ -3750,6 +3756,9 @@ class NodeType(Enum):
     RESEARCH = 1
 
     LIVE = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class SKU(System.Object):

@@ -64,17 +64,19 @@ class KafkaUtils:
         """
         producer_config = {
             "bootstrap.servers": self.bootstrap_servers,
-            "acks": "all",
+            "acks": "1",
             "retries": 1,
             "retry.backoff.ms": 500,
             "request.timeout.ms": 30000,
             "max.in.flight.requests.per.connection": 1,
-            "linger.ms": 5,
-            "batch.size": 65536, # 1MB
+            "linger.ms": 50,
+            "batch.size": 8388608, # 8MB
             "queue.buffering.max.ms": 100,
             "message.max.bytes": 25000000, # 25MB
-            'queue.buffering.max.messages': 2000000
-            # "compression.type": "snappy" # TODO: add the reqs for it
+            'queue.buffering.max.messages': 10000,
+            "delivery.timeout.ms": 600000,
+            "request.timeout.ms": 600000,
+            "compression.type": "snappy"
         }
         
 

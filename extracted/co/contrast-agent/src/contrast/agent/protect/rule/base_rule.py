@@ -1,8 +1,8 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 
 from functools import cached_property
-from typing import Optional
 import contrast
 from contrast.agent import scope
 from contrast.agent.agent_lib.input_tracing import (
@@ -245,8 +245,8 @@ class BaseRule:
     def build_attack_with_match(
         self,
         candidate_string,
-        evaluation: Optional[InputAnalysisResult] = None,
-        attack: Optional[Attack] = None,
+        evaluation: InputAnalysisResult | None = None,
+        attack: Attack | None = None,
         **kwargs,
     ):
         attack = self.build_or_append_attack(
@@ -262,8 +262,8 @@ class BaseRule:
 
     def build_attack_without_match(
         self,
-        evaluation: Optional[InputAnalysisResult] = None,
-        attack: Optional[Attack] = None,
+        evaluation: InputAnalysisResult | None = None,
+        attack: Attack | None = None,
         **kwargs,
     ):
         if evaluation and evaluation.score < 10:
@@ -283,7 +283,7 @@ class BaseRule:
     def build_or_append_attack(
         self,
         evaluation: InputAnalysisResult,
-        attack: Optional[Attack] = None,
+        attack: Attack | None = None,
         candidate_string=None,
         **kwargs,
     ):

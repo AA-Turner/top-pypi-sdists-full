@@ -43,6 +43,9 @@ class ObjectiveCMarshal(System.Object):
         MSG_SEND_SUPER_STRET = 9
         """Overrides the Objective-C runtime's https://developer.apple.com/documentation/objectivec/1456722-objc_msgsendsuper_stret."""
 
+        def __int__(self) -> int:
+            ...
+
     @staticmethod
     def create_reference_tracking_handle(obj: typing.Any, tagged_memory: typing.Optional[System.Span[System.IntPtr]]) -> typing.Tuple[System.Runtime.InteropServices.GCHandle, System.Span[System.IntPtr]]:
         """

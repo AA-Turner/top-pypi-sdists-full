@@ -41,7 +41,7 @@ class Psycopg2Patcher(dbapi2.Dbapi2Patcher):
         psycopg2 using the dsn string only), but this is unlikely and it would only
         affect inventory.
         """
-        dsn_params = getattr(connection, "get_dsn_parameters", lambda: {})()
+        dsn_params = getattr(connection, "get_dsn_parameters", dict)()
         dbname = (
             dsn_params.get("dbname")
             or connect_kwargs.get("dbname")

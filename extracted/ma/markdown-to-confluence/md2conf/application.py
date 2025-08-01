@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Optional
 
 from .api import ConfluenceContentProperty, ConfluenceLabel, ConfluenceSession, ConfluenceStatus
-from .converter import ConfluenceDocument, attachment_name, elements_from_string, get_volatile_attributes
+from .converter import ConfluenceDocument, attachment_name, get_volatile_attributes, get_volatile_elements
+from .csf import elements_from_string
 from .domain import ConfluenceDocumentOptions, ConfluencePageID
 from .extra import override, path_relative_to
 from .metadata import ConfluencePageMetadata
@@ -122,7 +123,7 @@ class SynchronizingProcessor(Processor):
                 attachment_path=image_path,
             )
 
-        for name, data in document.embedded_images.items():
+        for name, data in document.embedded_files.items():
             self.api.upload_attachment(
                 page_id.page_id,
                 name,
@@ -156,6 +157,7 @@ class SynchronizingProcessor(Processor):
             document.root,
             elements_from_string(page.content),
             skip_attributes=get_volatile_attributes(),
+            skip_elements=get_volatile_elements(),
         ):
             self.api.update_page(page_id.page_id, content, title=title, version=page.version.number + 1)
         else:

@@ -1,6 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 # pylint: disable=too-many-lines
+from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
 from email.utils import format_datetime
@@ -8,7 +9,6 @@ from functools import cached_property
 import json
 import os
 import pathlib
-from typing import Optional
 from urllib.parse import urlparse
 
 from contrast import AGENT_CURR_WORKING_DIR
@@ -50,7 +50,7 @@ String representation of the unix epoch (1 January 1970) in HTTP-format. Used in
 def apply_server_settings(
     config: AgentConfig,
     server_settings_json: dict,
-    settings: Optional["Settings"] = None,
+    settings: Settings | None = None,
 ):
     """
     Applies v1 server settings from the UI to config and settings.
@@ -76,7 +76,7 @@ def apply_server_settings(
 def apply_ts_feature_settings(
     config: AgentConfig,
     response_body: dict,
-    settings: Optional["Settings"] = None,
+    settings: Settings | None = None,
 ):
     """
     Applies NG server settings from the UI to config and settings.
@@ -102,8 +102,8 @@ def apply_ts_feature_settings(
 def _apply_application_settings(
     config: AgentConfig,
     application_settings_json: dict,
-    settings: Optional["Settings"],
-    last_modified: Optional[str],
+    settings: Settings | None,
+    last_modified: str | None,
 ):
     """
     Applies v1 app settings from the UI to config and settings.
@@ -153,7 +153,7 @@ def _apply_application_settings(
 
 class Settings(Singleton):
     @scope.contrast_scope()
-    def init(self, framework_name: Optional[str] = None):
+    def init(self, framework_name: str | None = None):
         """
         Agent settings for the entire lifetime of the agent.
 
@@ -384,7 +384,7 @@ class Settings(Singleton):
         ReactionProcessor.process(reactions, self)
 
     def apply_application_settings(
-        self, application_settings_json: dict, last_modified: Optional[str] = None
+        self, application_settings_json: dict, last_modified: str | None = None
     ):
         """
         Update stored application settings using the provided dict. This corresponds to
@@ -398,7 +398,7 @@ class Settings(Singleton):
             self.config, application_settings_json, self, last_modified
         )
 
-    def apply_identification(self, identification_json: Optional[dict]):
+    def apply_identification(self, identification_json: dict | None):
         if not identification_json:
             return
         self.application_uuid = identification_json.get("application_uuid", None)
@@ -518,7 +518,7 @@ class Settings(Singleton):
 
         user_config = defaultdict(list)
 
-        for key in self.config.keys():
+        for key in self.config:
             option = self.config.get_option(key)
             if option is None or not option.log_effective_config:
                 continue

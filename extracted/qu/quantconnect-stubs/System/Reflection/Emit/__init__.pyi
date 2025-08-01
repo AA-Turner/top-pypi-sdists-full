@@ -225,6 +225,9 @@ class OperandType(Enum):
 
     SHORT_INLINE_VAR = 18
 
+    def __int__(self) -> int:
+        ...
+
 
 class FlowControl(Enum):
     """Describes how an instruction alters the flow of control."""
@@ -248,6 +251,9 @@ class FlowControl(Enum):
 
     THROW = 8
 
+    def __int__(self) -> int:
+        ...
+
 
 class OpCodeType(Enum):
     """Describes the types of the IL instructions."""
@@ -264,6 +270,9 @@ class OpCodeType(Enum):
     PREFIX = 4
 
     PRIMITIVE = 5
+
+    def __int__(self) -> int:
+        ...
 
 
 class StackBehaviour(Enum):
@@ -326,6 +335,9 @@ class StackBehaviour(Enum):
     VARPUSH = 27
 
     POPREF_POPI_POP_1 = 28
+
+    def __int__(self) -> int:
+        ...
 
 
 class OpCode(System.IEquatable[System_Reflection_Emit_OpCode]):
@@ -730,6 +742,9 @@ class PackingSize(Enum):
     SIZE_64 = 64
 
     SIZE_128 = 128
+
+    def __int__(self) -> int:
+        ...
 
 
 class ConstructorBuilder(System.Reflection.ConstructorInfo, metaclass=abc.ABCMeta):
@@ -1337,6 +1352,9 @@ class AssemblyBuilderAccess(Enum):
 
     RUN_AND_COLLECT = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class AssemblyBuilder(System.Reflection.Assembly, metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -1430,6 +1448,9 @@ class PEFileKinds(Enum):
     CONSOLE_APPLICATION = ...
 
     WINDOW_APPLICATION = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class OpCodes(System.Object):

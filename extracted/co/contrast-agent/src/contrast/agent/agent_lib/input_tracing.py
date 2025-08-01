@@ -2,6 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
 
+
 import ctypes
 from dataclasses import dataclass, replace
 import functools

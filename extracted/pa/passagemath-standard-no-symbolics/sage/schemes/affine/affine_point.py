@@ -23,7 +23,6 @@ AUTHORS:
 # ****************************************************************************
 
 from sage.categories.number_fields import NumberFields
-from sage.misc.lazy_import import lazy_import
 from sage.rings.integer_ring import ZZ
 from sage.schemes.generic.morphism import SchemeMorphism_point, SchemeMorphism
 from sage.structure.sequence import Sequence
@@ -412,7 +411,7 @@ class SchemeMorphism_point_affine_field(SchemeMorphism_point_affine):
             sage: p2 = A2.point([1,1]).as_subscheme(); p2
             Closed subscheme of Affine Space of dimension 2 over Rational Field defined by:
               x - 1, y - 1
-            sage: p1 + p2
+            sage: p1 + p2                                                               # needs sage.libs.singular
             Closed subscheme of Affine Space of dimension 2 over Rational Field defined by:
               x - y, y^2 - y
         """

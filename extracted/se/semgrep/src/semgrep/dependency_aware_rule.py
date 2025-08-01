@@ -77,6 +77,7 @@ def generate_unreachable_sca_findings(
     already_reachable: Callable[[Path, out.FoundDependency], bool],
     resolved_deps: Dict[Ecosystem, List[out.ResolvedSubproject]],
     x_tr: bool,
+    fips_mode: bool,
     write_to_tr_cache: bool = True,
 ) -> Tuple[List[RuleMatch], List[SemgrepError]]:
     """
@@ -155,6 +156,7 @@ def generate_unreachable_sca_findings(
                     message=rule.message,
                     severity=rule.severity,
                     metadata=rule.metadata,
+                    fips_mode=fips_mode,
                 )
                 new_rule_match = evolve(
                     rule_match,
@@ -172,6 +174,7 @@ def generate_unreachable_sca_findings(
                 transitive_findings = [
                     out.TransitiveFinding(m=rm.match) for rm in subproject_matches
                 ]
+                print("starting with transitive findings", transitive_findings)
                 if transitive_findings:
                     logger.debug(
                         f"SCA TR is on! Running for rule {rule.id}, subproject {subproject.info.dependency_source}, {len(transitive_findings)} transitive findings"

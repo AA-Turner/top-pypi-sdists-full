@@ -25,8 +25,12 @@ impl FileReaderBuilder for ParquetReaderBuilder {
     fn reader_capabilities(&self) -> ReaderCapabilities {
         use ReaderCapabilities as RC;
 
-        let mut capabilities =
-            RC::ROW_INDEX | RC::PRE_SLICE | RC::NEGATIVE_PRE_SLICE | RC::PARTIAL_FILTER;
+        let mut capabilities = RC::ROW_INDEX
+            | RC::PRE_SLICE
+            | RC::NEGATIVE_PRE_SLICE
+            | RC::PARTIAL_FILTER
+            | RC::MAPPED_COLUMN_PROJECTION;
+
         if matches!(
             self.options.parallel,
             ParallelStrategy::Auto | ParallelStrategy::Prefiltered

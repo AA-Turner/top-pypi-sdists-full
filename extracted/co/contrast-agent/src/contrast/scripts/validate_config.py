@@ -118,10 +118,7 @@ def _check_config():
             _log(f"Missing required config value: {missing_value}")
         return False
 
-    if not _valid_proxy(config) or not _valid_cert(config):
-        return False
-
-    return True
+    return _valid_proxy(config) and _valid_cert(config)
 
 
 def _check_connection():

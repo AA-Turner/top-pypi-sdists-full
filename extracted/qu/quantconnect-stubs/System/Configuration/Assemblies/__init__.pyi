@@ -19,6 +19,9 @@ class AssemblyHashAlgorithm(Enum):
 
     SHA_512 = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class AssemblyVersionCompatibility(Enum):
     """This class has no documentation."""
@@ -28,5 +31,8 @@ class AssemblyVersionCompatibility(Enum):
     SAME_PROCESS = 2
 
     SAME_DOMAIN = 3
+
+    def __int__(self) -> int:
+        ...
 
 

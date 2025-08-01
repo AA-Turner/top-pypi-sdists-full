@@ -23,7 +23,6 @@ class CspHeaderMissingRule(BaseHeaderOnlyRule):
     @property
     def header_key(self):
         """We care about multiple headers for this rule, see `header_keys`"""
-        pass
 
     @property
     def header_keys(self):
@@ -32,7 +31,6 @@ class CspHeaderMissingRule(BaseHeaderOnlyRule):
     @property
     def good_values(self):
         """We don't care about the values for this rule, only header(s) presence"""
-        pass
 
     def is_header_violated(self, headers):
         for key in self.header_keys:

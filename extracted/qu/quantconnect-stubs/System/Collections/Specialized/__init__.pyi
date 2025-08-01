@@ -29,6 +29,9 @@ class NotifyCollectionChangedAction(Enum):
     RESET = 4
     """The contents of the collection changed dramatically."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class NotifyCollectionChangedEventArgs(System.EventArgs):
     """

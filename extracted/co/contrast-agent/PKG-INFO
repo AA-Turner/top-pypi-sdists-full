@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: contrast-agent
-Version: 10.11.0
+Version: 10.12.0
 Summary: Contrast Security's agent for Python web frameworks
 Author-email: "Contrast Security, Inc." <python@contrastsecurity.com>
 License-Expression: LicenseRef-ContrastSecurity-ContrastPlatformLicense

@@ -652,7 +652,7 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         """
 
     def terminate(
-        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
     ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
@@ -1775,7 +1775,7 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         """
 
     def terminate(
-        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
     ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
@@ -1908,7 +1908,7 @@ class SubnetInstancesCollection(ResourceCollection):
         """
 
     def terminate(
-        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
     ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
@@ -2241,7 +2241,7 @@ class VpcInstancesCollection(ResourceCollection):
         """
 
     def terminate(
-        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+        self, *, Force: bool = ..., SkipOsShutdown: bool = ..., DryRun: bool = ...
     ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.

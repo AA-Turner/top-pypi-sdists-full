@@ -1,11 +1,11 @@
 from collections.abc import Sequence
-from typing import Any, Literal, NotRequired, TypeAlias, TypedDict, overload
+from typing import Literal, NotRequired, TypeAlias, TypedDict, overload
 from typing_extensions import TypeVar
 
 import numpy as np
 import optype.numpy as onp
+import optype.numpy.compat as npc
 
-from scipy._typing import Falsy, Truthy
 from scipy.sparse import sparray, spmatrix
 from scipy.sparse.linalg import LinearOperator
 
@@ -23,8 +23,8 @@ _ScalarB1: TypeAlias = bool | np.bool_
 _ScalarF8: TypeAlias = float | np.float64
 _VectorF8: TypeAlias = onp.Array1D[np.float64]
 
-_ScalarInt_co: TypeAlias = np.integer[Any]
-_ScalarFloat_co: TypeAlias = np.floating[Any] | _ScalarInt_co
+_ScalarInt_co: TypeAlias = npc.integer
+_ScalarFloat_co: TypeAlias = npc.floating | _ScalarInt_co
 
 _ScalarLikeInt_co: TypeAlias = int | _ScalarInt_co
 _ScalarLikeFloat_co: TypeAlias = float | _ScalarFloat_co
@@ -67,7 +67,7 @@ def box_sphere_intersections(
     ub: _VectorLikeFloat_co,
     trust_radius: _ScalarLikeFloat_co,
     entire_line: _ScalarB1 = False,
-    extra_info: Falsy | None = False,
+    extra_info: onp.ToFalse | None = False,
 ) -> tuple[_ScalarF8, _ScalarF8, _ScalarB1]: ...
 @overload
 def box_sphere_intersections(
@@ -77,7 +77,7 @@ def box_sphere_intersections(
     ub: _VectorLikeFloat_co,
     trust_radius: _ScalarLikeFloat_co,
     entire_line: _ScalarB1,
-    extra_info: Truthy,
+    extra_info: onp.ToTrue,
 ) -> tuple[_ScalarF8, _ScalarF8, _ScalarB1, _SphereInfoDict, _SphereInfoDict]: ...
 @overload
 def box_sphere_intersections(
@@ -88,7 +88,7 @@ def box_sphere_intersections(
     trust_radius: _ScalarLikeFloat_co,
     entire_line: _ScalarB1 = False,
     *,
-    extra_info: Truthy,
+    extra_info: onp.ToTrue,
 ) -> tuple[_ScalarF8, _ScalarF8, _ScalarB1, _SphereInfoDict, _SphereInfoDict]: ...
 def inside_box_boundaries(
     x: onp.Array[_ShapeT, _ScalarFloat_co], lb: onp.Array[_ShapeT, _ScalarFloat_co], ub: onp.Array[_ShapeT, _ScalarFloat_co]
@@ -115,6 +115,6 @@ def projected_cg(
     ub: _ScalarLikeFloat_co | None = None,
     tol: _ScalarLikeFloat_co | None = None,
     max_iter: _ScalarLikeInt_co | None = None,
-    max_infeasible_iter: _ScalarLikeInt_co | np.integer[Any] | None = None,
+    max_infeasible_iter: _ScalarLikeInt_co | npc.integer | None = None,
     return_all: _ScalarB1 = False,
 ) -> tuple[_VectorF8, _ProjectedCGDict]: ...

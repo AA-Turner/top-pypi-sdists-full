@@ -1,11 +1,12 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping
 from functools import cached_property
 import re
 from threading import RLock
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from contrast.agent.inventory.fingerprint import artifact_fingerprint
 from contrast.utils.configuration_utils import (
@@ -88,10 +89,10 @@ class AgentConfig(Mapping):
 
     # --- End Required Mapping methods ---
 
-    def get_option(self, key: str) -> Optional[ConfigOption]:
+    def get_option(self, key: str) -> ConfigOption | None:
         return self._config.get(key, None)
 
-    def get_loggable_value(self, key: str) -> Optional[str]:
+    def get_loggable_value(self, key: str) -> str | None:
         option = self.get_option(key)
         return option.loggable_value() if option else None
 
@@ -378,7 +379,7 @@ class ConfigSpy(Mapping):
     def __len__(self):
         return len(self._wrapped)
 
-    def get_option(self, key: str) -> Optional[ConfigOption]:
+    def get_option(self, key: str) -> ConfigOption | None:
         if get_option := getattr(self._wrapped, "get_option", None):
             return get_option(key)
         return None

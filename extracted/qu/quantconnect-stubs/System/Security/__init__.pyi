@@ -276,6 +276,9 @@ class SecurityRuleSet(Enum):
 
     LEVEL_2 = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class SecurityTreatAsSafeAttribute(System.Attribute):
     """SecurityTreatAsSafe is only used for .NET 2.0 transparency compatibility. Use the SecuritySafeCriticalAttribute instead."""
@@ -341,6 +344,9 @@ class SecurityCriticalScope(Enum):
 
     EVERYTHING = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class SecuritySafeCriticalAttribute(System.Attribute):
     """This class has no documentation."""
@@ -374,6 +380,9 @@ class PartialTrustVisibilityLevel(Enum):
     VISIBLE_TO_ALL_HOSTS = 0
 
     NOT_VISIBLE_BY_DEFAULT = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class AllowPartiallyTrustedCallersAttribute(System.Attribute):

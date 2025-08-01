@@ -22,7 +22,7 @@ struct PortConnectionVisitor : SyntaxVisitor<PortConnectionVisitor> {
     std::vector<const NamedPortConnectionSyntax*> foundPorts;
 };
 
-struct MainVisitor : TidyVisitor, ASTVisitor<MainVisitor, true, true> {
+struct MainVisitor : TidyVisitor, ASTVisitor<MainVisitor, true, true, false, true> {
     explicit MainVisitor(Diagnostics& diagnostics) : TidyVisitor(diagnostics) {}
 
     void handle(const InstanceBodySymbol& symbol) const {
@@ -44,9 +44,11 @@ using namespace no_dot_var_in_port_connection;
 
 class NoDotVarInPortConnection final : public TidyCheck {
 public:
-    [[maybe_unused]] explicit NoDotVarInPortConnection(const TidyKind kind) : TidyCheck(kind) {}
+    [[maybe_unused]] explicit NoDotVarInPortConnection(
+        const TidyKind kind, std::optional<slang::DiagnosticSeverity> severity) :
+        TidyCheck(kind, severity) {}
 
-    bool check(const RootSymbol& root) override {
+    bool check(const RootSymbol& root, const slang::analysis::AnalysisManager&) override {
         MainVisitor visitor(diagnostics);
         root.visit(visitor);
         return diagnostics.empty();
@@ -58,7 +60,7 @@ public:
         return "use of '{}' in port connection list, consider using '{}({})' instead";
     }
 
-    DiagnosticSeverity diagSeverity() const override { return DiagnosticSeverity::Warning; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
 
     std::string name() const override { return "NoDotVarInPortConnection"; }
 

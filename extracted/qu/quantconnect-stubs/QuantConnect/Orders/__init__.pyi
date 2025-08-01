@@ -76,6 +76,9 @@ class OrderRequestType(Enum):
     CANCEL = 2
     """The request is a CancelOrderRequest (2)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class OrderRequestStatus(Enum):
     """Specifies the status of a request"""
@@ -91,6 +94,9 @@ class OrderRequestStatus(Enum):
 
     ERROR = 3
     """This request encountered an error (3)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class OrderResponseErrorCode(Enum):
@@ -206,6 +212,9 @@ class OrderResponseErrorCode(Enum):
     The Market On Open order was submitted during regular market hours,
     which is not allowed. This order type must be submitted before the market opens.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class OrderResponse(System.Object):
@@ -412,6 +421,9 @@ class OrderType(Enum):
     TRAILING_STOP = 11
     """Trailing Stop Order Type - (11)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class OrderDirection(Enum):
     """Direction of the order"""
@@ -424,6 +436,9 @@ class OrderDirection(Enum):
 
     HOLD = 2
     """Default Value - No Order Direction (2)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class OrderPosition(Enum):
@@ -440,6 +455,9 @@ class OrderPosition(Enum):
 
     SELL_TO_CLOSE = 3
     """Indicates the sell order is starting from an existing long position, resulting in a closed or short position (3)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class OrderStatus(Enum):
@@ -471,6 +489,9 @@ class OrderStatus(Enum):
 
     UPDATE_SUBMITTED = 9
     """Order update submitted to the market (9)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class UpdateOrderFields(System.Object):
@@ -1611,6 +1632,9 @@ class OrderError(Enum):
     NONE = 0
     """The order is OK (0)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class MarketOrder(QuantConnect.Orders.Order):
     """Market order type definition"""
@@ -1701,6 +1725,9 @@ class OrderField(Enum):
 
     TRAILING_AS_PERCENTAGE = 4
     """Whether the trailing amount for a TrailingStopOrder is a percentage or an absolute currency value (4)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class OrderEvent(System.Object):
@@ -3402,6 +3429,9 @@ class IndiaOrderProperties(QuantConnect.Orders.OrderProperties):
 
         NRML = 2
         """Normal (2)"""
+
+        def __int__(self) -> int:
+            ...
 
     @property
     def product_type(self) -> str:

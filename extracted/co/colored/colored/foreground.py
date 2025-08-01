@@ -10,7 +10,7 @@ from .utilities import Utilities
 
 class MetaFore(type):
     """Metaclass to customize attribute access."""
-    def __getattr__(cls, color: str):
+    def __getattr__(cls, color: str) -> None:
         """Override __getattr__ to raise InvalidColor when an invalid color is accessed."""
         raise InvalidColor(f"InvalidColor: {color}")
 
@@ -33,12 +33,12 @@ class Fore(metaclass=MetaFore):
 
     @classmethod
     def rgb(cls: type[Fore], r: int | str, g: int | str, b: int | str) -> str:
-        """ Combination with text returns color text.
+        """Combination with text returns color text.
 
         Args:
-            r: Sets the Red color.
-            g: Sets the Green color.
-            b: Sets the Blue color.
+            r (int | str): Sets the Red color.
+            g (int | str): Sets the Green color.
+            b (int | str): Sets the Blue color.
 
         Returns:
             str: Foreground RGB code.
@@ -48,12 +48,12 @@ class Fore(metaclass=MetaFore):
 
     @classmethod
     def RGB(cls: type[Fore], r: int | str, g: int | str, b: int | str) -> str:  # pylint: disable=[C0103]
-        """ Combination with text returns color text.
+        """Combination with text returns color text.
 
         Args:
-            r: Sets the Red color.
-            g: Sets the Green color.
-            b: Sets the Blue color.
+            r (int | str): Sets the Red color.
+            g (int | str): Sets the Green color.
+            b (int | str): Sets the Blue color.
 
         Returns:
             str: Foreground RGB code.
@@ -62,5 +62,5 @@ class Fore(metaclass=MetaFore):
 
 
 class fore(Fore):  # pylint: disable=[C0103]
-    """ This will be deprecated in the future, do not use this for version >= 2.0.0,
-        instead please use Fore class (See issue #28). """
+    """This will be deprecated in the future, do not use this for version >= 2.0.0,
+        instead please use Fore class (See issue #28)."""

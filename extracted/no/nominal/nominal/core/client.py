@@ -14,7 +14,6 @@ from nominal_api import (
     api,
     attachments_api,
     authentication_api,
-    datasource_logset_api,
     event,
     ingest_api,
     scout_asset_api,
@@ -34,7 +33,6 @@ from nominal import _config, ts
 from nominal.config import NominalConfig
 from nominal.core._clientsbunch import ClientsBunch
 from nominal.core._constants import DEFAULT_API_BASE_URL
-from nominal.core._multipart import path_upload_name, upload_multipart_io
 from nominal.core._utils import (
     construct_user_agent_string,
     create_search_assets_query,
@@ -46,6 +44,7 @@ from nominal.core._utils import (
     create_search_users_query,
     list_streaming_checklists_for_asset_paginated,
     list_streaming_checklists_paginated,
+    path_upload_name,
     rid_from_instance_or_string,
     search_assets_paginated,
     search_checklists_paginated,
@@ -57,6 +56,7 @@ from nominal.core._utils import (
     search_users_paginated,
     search_workbook_templates_paginated,
     search_workbooks_paginated,
+    upload_multipart_io,
 )
 from nominal.core._utils.query_tools import (
     create_search_containerized_extractors_query,
@@ -82,7 +82,6 @@ from nominal.core.dataset import (
 )
 from nominal.core.event import Event, EventType
 from nominal.core.filetype import FileType, FileTypes
-from nominal.core.log import Log, LogSet, _get_log_set, _log_timestamp_type_to_conjure, _logs_to_conjure
 from nominal.core.run import Run
 from nominal.core.secret import Secret
 from nominal.core.unit import Unit, _available_units
@@ -95,7 +94,6 @@ from nominal.exceptions import NominalError, NominalIngestError
 from nominal.ts import (
     IntegralNanosecondsDuration,
     IntegralNanosecondsUTC,
-    LogTimestampType,
     _SecondsNanos,
     _to_api_duration,
     _to_typed_timestamp_type,
@@ -503,39 +501,6 @@ class NominalClient:
         raw_video = self._clients.video.create(self._clients.auth_header, request)
         return Video._from_conjure(self._clients, raw_video)
 
-    @deprecated(
-        "LogSets are deprecated and will be removed in a future version. "
-        "Add logs to an existing dataset with dataset.write_logs instead."
-    )
-    def create_log_set(
-        self,
-        name: str,
-        logs: Iterable[Log] | Iterable[tuple[datetime | IntegralNanosecondsUTC, str]],
-        timestamp_type: LogTimestampType = "absolute",
-        description: str | None = None,
-    ) -> LogSet:
-        """Create an immutable log set with the given logs.
-
-        The logs are attached during creation and cannot be modified afterwards. Logs can either be of type `Log`
-        or a tuple of a timestamp and a string. Timestamp type must be either 'absolute' or 'relative'.
-        """
-        request = datasource_logset_api.CreateLogSetRequest(
-            name=name,
-            description=description,
-            origin_metadata={},
-            timestamp_type=_log_timestamp_type_to_conjure(timestamp_type),
-            workspace=self._clients.workspace_rid,
-        )
-        response = self._clients.logset.create(self._clients.auth_header, request)
-        return self._attach_logs_and_finalize(response.rid, _logs_to_conjure(logs))
-
-    def _attach_logs_and_finalize(self, rid: str, logs: Iterable[datasource_logset_api.Log]) -> LogSet:
-        request = datasource_logset_api.AttachLogsAndFinalizeRequest(logs=list(logs))
-        response = self._clients.logset.attach_logs_and_finalize(
-            auth_header=self._clients.auth_header, log_set_rid=rid, request=request
-        )
-        return LogSet._from_conjure(self._clients, response)
-
     def get_video(self, rid: str) -> Video:
         """Retrieve a video by its RID."""
         response = self._clients.video.get(self._clients.auth_header, rid)
@@ -554,12 +519,6 @@ class NominalClient:
         """Retrieve a dataset by its RID."""
         response = _get_dataset(self._clients.auth_header, self._clients.catalog, rid)
         return Dataset._from_conjure(self._clients, response)
-
-    @deprecated("LogSets are deprecated and will be removed in a future version.")
-    def get_log_set(self, log_set_rid: str) -> LogSet:
-        """Retrieve a log set along with its metadata given its RID."""
-        response = _get_log_set(self._clients, log_set_rid)
-        return LogSet._from_conjure(self._clients, response)
 
     def _iter_get_datasets(self, rids: Iterable[str]) -> Iterable[Dataset]:
         for ds in _get_datasets(self._clients.auth_header, self._clients.catalog, rids):

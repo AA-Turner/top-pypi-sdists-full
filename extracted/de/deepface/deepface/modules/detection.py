@@ -1,24 +1,42 @@
 # built-in dependencies
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, IO, List, Tuple, Union, Optional
 
 # 3rd part dependencies
+from heapq import nlargest
 import numpy as np
 import cv2
-from PIL import Image
 
 # project dependencies
 from deepface.modules import modeling
 from deepface.models.Detector import Detector, DetectedFace, FacialAreaRegion
 from deepface.commons import image_utils
+
 from deepface.commons.logger import Logger
 
 logger = Logger()
 
 # pylint: disable=no-else-raise
 
+def is_valid_landmark(coord: Optional[Union[tuple, list]], width: int, height: int) -> bool:
+    """
+    Check if a landmark coordinate is within valid image bounds.
+
+    Args:
+        coord (tuple or list or None): (x, y) coordinate to check.
+        width (int): Image width.
+        height (int): Image height.
+    Returns:
+        bool: True if coordinate is valid and within bounds, False otherwise.
+    """
+    if coord is None:
+        return False
+    if not (isinstance(coord, (tuple, list)) and len(coord) == 2):
+        return False
+    x, y = coord
+    return 0 <= x < width and 0 <= y < height
 
 def extract_faces(
-    img_path: Union[str, np.ndarray],
+    img_path: Union[str, np.ndarray, IO[bytes]],
     detector_backend: str = "opencv",
     enforce_detection: bool = True,
     align: bool = True,
@@ -27,17 +45,19 @@ def extract_faces(
     color_face: str = "rgb",
     normalize_face: bool = True,
     anti_spoofing: bool = False,
+    max_faces: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Extract faces from a given image
 
     Args:
-        img_path (str or np.ndarray): Path to the first image. Accepts exact image path
-            as a string, numpy array (BGR), or base64 encoded images.
+        img_path (str or np.ndarray or IO[bytes]): Path to the first image. Accepts exact image path
+            as a string, numpy array (BGR), a file object that supports at least `.read` and is
+            opened in binary mode, or base64 encoded images.
 
         detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
-            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'centerface' or 'skip'
-            (default is opencv)
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'yolov11n', 'yolov11s', 'yolov11m',
+            'centerface' or 'skip' (default is opencv)
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Default is True. Set to False to avoid the exception for low-resolution images.
@@ -97,6 +117,7 @@ def extract_faces(
             img=img,
             align=align,
             expand_percentage=expand_percentage,
+            max_faces=max_faces,
         )
 
     # in case of no face found
@@ -145,17 +166,41 @@ def extract_faces(
         w = min(width - x - 1, int(current_region.w))
         h = min(height - y - 1, int(current_region.h))
 
+        landmarks = {
+            "left_eye":current_region.left_eye,
+            "right_eye":current_region.right_eye,
+            "nose":current_region.nose,
+            "mouth_left":current_region.mouth_left,
+            "mouth_right":current_region.mouth_right
+        }
+
+        # Sanitize landmarks - set invalid ones to None
+        for key, value in landmarks.items():
+            if not is_valid_landmark(value, width, height):
+                landmarks[key] = None
+
+
+        facial_area = {
+            "x": x,
+            "y": y,
+            "w": w,
+            "h": h,
+            "left_eye": landmarks["left_eye"],
+            "right_eye": landmarks["right_eye"],
+        }
+
+        # optional nose, mouth_left and mouth_right fields are coming just for retinaface
+        if current_region.nose is not None:
+            facial_area["nose"] = landmarks["nose"]
+        if current_region.mouth_left is not None:
+            facial_area["mouth_left"] = landmarks["mouth_left"]
+        if current_region.mouth_right is not None:
+            facial_area["mouth_right"] = landmarks["mouth_right"]
+
         resp_obj = {
             "face": current_img,
-            "facial_area": {
-                "x": x,
-                "y": y,
-                "w": w,
-                "h": h,
-                "left_eye": current_region.left_eye,
-                "right_eye": current_region.right_eye,
-            },
-            "confidence": round(current_region.confidence, 2),
+            "facial_area": facial_area,
+            "confidence": round(float(current_region.confidence or 0), 2),
         }
 
         if anti_spoofing is True:
@@ -176,7 +221,11 @@ def extract_faces(
 
 
 def detect_faces(
-    detector_backend: str, img: np.ndarray, align: bool = True, expand_percentage: int = 0
+    detector_backend: str,
+    img: np.ndarray,
+    align: bool = True,
+    expand_percentage: int = 0,
+    max_faces: Optional[int] = None,
 ) -> List[DetectedFace]:
     """
     Detect face(s) from a given image
@@ -202,7 +251,6 @@ def detect_faces(
         - confidence (float): The confidence score associated with the detected face.
     """
     height, width, _ = img.shape
-
     face_detector: Detector = modeling.build_model(
         task="face_detector", model_name=detector_backend
     )
@@ -233,65 +281,173 @@ def detect_faces(
     # find facial areas of given image
     facial_areas = face_detector.detect_faces(img)
 
-    results = []
-    for facial_area in facial_areas:
-        x = facial_area.x
-        y = facial_area.y
-        w = facial_area.w
-        h = facial_area.h
-        left_eye = facial_area.left_eye
-        right_eye = facial_area.right_eye
-        confidence = facial_area.confidence
-
-        if expand_percentage > 0:
-            # Expand the facial region height and width by the provided percentage
-            # ensuring that the expanded region stays within img.shape limits
-            expanded_w = w + int(w * expand_percentage / 100)
-            expanded_h = h + int(h * expand_percentage / 100)
-
-            x = max(0, x - int((expanded_w - w) / 2))
-            y = max(0, y - int((expanded_h - h) / 2))
-            w = min(img.shape[1] - x, expanded_w)
-            h = min(img.shape[0] - y, expanded_h)
-
-        # extract detected face unaligned
-        detected_face = img[int(y) : int(y + h), int(x) : int(x + w)]
-
-        # align original image, then find projection of detected face area after alignment
-        if align is True:  # and left_eye is not None and right_eye is not None:
-            aligned_img, angle = align_img_wrt_eyes(img=img, left_eye=left_eye, right_eye=right_eye)
-
-            rotated_x1, rotated_y1, rotated_x2, rotated_y2 = project_facial_area(
-                facial_area=(x, y, x + w, y + h), angle=angle, size=(img.shape[0], img.shape[1])
-            )
-            detected_face = aligned_img[
-                int(rotated_y1) : int(rotated_y2), int(rotated_x1) : int(rotated_x2)
-            ]
-
-            # restore x, y, le and re before border added
-            x = x - width_border
-            y = y - height_border
-            # w and h will not change
-            if left_eye is not None:
-                left_eye = (left_eye[0] - width_border, left_eye[1] - height_border)
-            if right_eye is not None:
-                right_eye = (right_eye[0] - width_border, right_eye[1] - height_border)
-
-        result = DetectedFace(
-            img=detected_face,
-            facial_area=FacialAreaRegion(
-                x=x, y=y, h=h, w=w, confidence=confidence, left_eye=left_eye, right_eye=right_eye
-            ),
-            confidence=confidence,
+    if max_faces is not None and max_faces < len(facial_areas):
+        facial_areas = nlargest(
+            max_faces, facial_areas, key=lambda facial_area: facial_area.w * facial_area.h
         )
-        results.append(result)
-    return results
+
+    return [
+        extract_face(
+            facial_area=facial_area,
+            img=img,
+            align=align,
+            expand_percentage=expand_percentage,
+            width_border=width_border,
+            height_border=height_border,
+        )
+        for facial_area in facial_areas
+    ]
+
+
+def extract_face(
+    facial_area: FacialAreaRegion,
+    img: np.ndarray,
+    align: bool,
+    expand_percentage: int,
+    width_border: int,
+    height_border: int,
+) -> DetectedFace:
+    x = facial_area.x
+    y = facial_area.y
+    w = facial_area.w
+    h = facial_area.h
+    left_eye = facial_area.left_eye
+    right_eye = facial_area.right_eye
+    confidence = facial_area.confidence
+    nose = facial_area.nose
+    mouth_left = facial_area.mouth_left
+    mouth_right = facial_area.mouth_right
+
+    if expand_percentage > 0:
+        # Expand the facial region height and width by the provided percentage
+        # ensuring that the expanded region stays within img.shape limits
+        expanded_w = w + int(w * expand_percentage / 100)
+        expanded_h = h + int(h * expand_percentage / 100)
+
+        x = max(0, x - int((expanded_w - w) / 2))
+        y = max(0, y - int((expanded_h - h) / 2))
+        w = min(img.shape[1] - x, expanded_w)
+        h = min(img.shape[0] - y, expanded_h)
+
+    # extract detected face unaligned
+    detected_face = img[int(y) : int(y + h), int(x) : int(x + w)]
+    # align original image, then find projection of detected face area after alignment
+    if align is True:  # and left_eye is not None and right_eye is not None:
+        # we were aligning the original image before, but this comes with an extra cost
+        # instead we now focus on the facial area with a margin
+        # and align it instead of original image to decrese the cost
+        sub_img, relative_x, relative_y = extract_sub_image(img=img, facial_area=(x, y, w, h))
+
+        aligned_sub_img, angle = align_img_wrt_eyes(
+            img=sub_img, left_eye=left_eye, right_eye=right_eye
+        )
+
+        rotated_x1, rotated_y1, rotated_x2, rotated_y2 = project_facial_area(
+            facial_area=(
+                relative_x,
+                relative_y,
+                relative_x + w,
+                relative_y + h,
+            ),
+            angle=angle,
+            size=(sub_img.shape[0], sub_img.shape[1]),
+        )
+        detected_face = aligned_sub_img[
+            int(rotated_y1) : int(rotated_y2), int(rotated_x1) : int(rotated_x2)
+        ]
+
+        # do not spend memory for these temporary variables anymore
+        del aligned_sub_img, sub_img
+
+        # restore x, y, le and re before border added
+        x = x - width_border
+        y = y - height_border
+        # w and h will not change
+        if left_eye is not None:
+            left_eye = (left_eye[0] - width_border, left_eye[1] - height_border)
+        if right_eye is not None:
+            right_eye = (right_eye[0] - width_border, right_eye[1] - height_border)
+        if nose is not None:
+            nose = (nose[0] - width_border, nose[1] - height_border)
+        if mouth_left is not None:
+            mouth_left = (mouth_left[0] - width_border, mouth_left[1] - height_border)
+        if mouth_right is not None:
+            mouth_right = (mouth_right[0] - width_border, mouth_right[1] - height_border)
+
+    return DetectedFace(
+        img=detected_face,
+        facial_area=FacialAreaRegion(
+            x=x,
+            y=y,
+            h=h,
+            w=w,
+            confidence=confidence,
+            left_eye=left_eye,
+            right_eye=right_eye,
+            nose=nose,
+            mouth_left=mouth_left,
+            mouth_right=mouth_right,
+        ),
+        confidence=confidence or 0,
+    )
+
+
+def extract_sub_image(
+    img: np.ndarray, facial_area: Tuple[int, int, int, int]
+) -> Tuple[np.ndarray, int, int]:
+    """
+    Get the sub image with given facial area while expanding the facial region
+        to ensure alignment does not shift the face outside the image.
+
+    This function doubles the height and width of the face region,
+    and adds black pixels if necessary.
+
+    Args:
+        - img (np.ndarray): pre-loaded image with detected face
+        - facial_area (tuple of int): Representing the (x, y, w, h) of the facial area.
+
+    Returns:
+        - extracted_face (np.ndarray): expanded facial image
+        - relative_x (int): adjusted x-coordinates relative to the expanded region
+        - relative_y (int): adjusted y-coordinates relative to the expanded region
+    """
+    x, y, w, h = facial_area
+    relative_x = int(0.5 * w)
+    relative_y = int(0.5 * h)
+
+    # calculate expanded coordinates
+    x1, y1 = x - relative_x, y - relative_y
+    x2, y2 = x + w + relative_x, y + h + relative_y
+
+    # most of the time, the expanded region fits inside the image
+    if x1 >= 0 and y1 >= 0 and x2 <= img.shape[1] and y2 <= img.shape[0]:
+        return img[y1:y2, x1:x2], relative_x, relative_y
+
+    # but sometimes, we need to add black pixels
+    # ensure the coordinates are within bounds
+    x1, y1 = max(0, x1), max(0, y1)
+    x2, y2 = min(img.shape[1], x2), min(img.shape[0], y2)
+    cropped_region = img[y1:y2, x1:x2]
+
+    # create a black image
+    extracted_face = np.zeros(
+        (h + 2 * relative_y, w + 2 * relative_x, img.shape[2]), dtype=img.dtype
+    )
+
+    # map the cropped region
+    start_x = max(0, relative_x - x)
+    start_y = max(0, relative_y - y)
+    extracted_face[
+        start_y : start_y + cropped_region.shape[0], start_x : start_x + cropped_region.shape[1]
+    ] = cropped_region
+
+    return extracted_face, relative_x, relative_y
 
 
 def align_img_wrt_eyes(
     img: np.ndarray,
-    left_eye: Union[list, tuple],
-    right_eye: Union[list, tuple],
+    left_eye: Optional[Union[list, tuple]],
+    right_eye: Optional[Union[list, tuple]],
 ) -> Tuple[np.ndarray, float]:
     """
     Align a given image horizantally with respect to their left and right eye locations
@@ -311,7 +467,14 @@ def align_img_wrt_eyes(
         return img, 0
 
     angle = float(np.degrees(np.arctan2(left_eye[1] - right_eye[1], left_eye[0] - right_eye[0])))
-    img = np.array(Image.fromarray(img).rotate(angle, resample=Image.BICUBIC))
+
+    (h, w) = img.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    img = cv2.warpAffine(
+        img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0)
+    )
+
     return img, angle
 
 

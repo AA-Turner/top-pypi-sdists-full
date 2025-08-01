@@ -118,12 +118,16 @@ class ASGIMiddleware(BaseMiddleware):
 
                 response = ASGIResponse(send)
                 with scope_.pop_contrast_scope():
-                    await self.asgi_app(
-                        request.scope,
-                        request.contrast__receive,
-                        response.contrast__send,
-                    )
-                    context.extract_response(response)
+                    try:
+                        await self.asgi_app(
+                            request.scope,
+                            request.contrast__receive,
+                            response.contrast__send,
+                        )
+                        context.extract_response(response)
+                    except Exception as exc:
+                        context.response_exception = exc
+                        raise
 
                 self.postfilter(context)
                 self.check_for_blocked(context)

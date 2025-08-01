@@ -164,6 +164,9 @@ class EditorBrowsableState(Enum):
 
     ADVANCED = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class EditorBrowsableAttribute(System.Attribute):
     """This class has no documentation."""
@@ -808,6 +811,9 @@ class LicenseUsageMode(Enum):
     DESIGNTIME = 1
     """Used during design time by a visual designer or the compiler."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class LicenseContext(IServiceProvider):
     """Specifies when the licensed object can be used."""
@@ -926,6 +932,9 @@ class ListChangedType(Enum):
     PROPERTY_DESCRIPTOR_DELETED = 6
 
     PROPERTY_DESCRIPTOR_CHANGED = 7
+
+    def __int__(self) -> int:
+        ...
 
 
 class INestedSite(System.ComponentModel.ISite, metaclass=abc.ABCMeta):
@@ -1666,6 +1675,9 @@ class ListSortDirection(Enum):
     DESCENDING = 1
     """Sort in descending order."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ListChangedEventArgs(System.EventArgs):
     """This class has no documentation."""
@@ -1881,6 +1893,9 @@ class BindableSupport(Enum):
 
     DEFAULT = ...
     """The property or event is the default."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class EventDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.ABCMeta):
@@ -2535,6 +2550,9 @@ class DataObjectMethodType(Enum):
 
     DELETE = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class DataObjectMethodAttribute(System.Attribute):
     """This class has no documentation."""
@@ -3078,6 +3096,9 @@ class InheritanceLevel(Enum):
     NOT_INHERITED = 3
     """Indicates that the object is not inherited."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class InheritanceAttribute(System.Attribute):
     """
@@ -3160,6 +3181,9 @@ class BindingDirection(Enum):
 
     TWO_WAY = 1
     """The template can accept and expose property values. Used with an IBindableTemplate."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class BindableAttribute(System.Attribute):
@@ -3256,6 +3280,9 @@ class MaskedTextResultHint(Enum):
     NON_EDIT_POSITION = -54
 
     POSITION_OUT_OF_RANGE = -55
+
+    def __int__(self) -> int:
+        ...
 
 
 class MaskedTextProvider(System.Object, System.ICloneable):
@@ -4088,6 +4115,9 @@ class ToolboxItemFilterType(Enum):
     A designer and component class must both have the filter string, and neither may have a filter
     type of Prevent.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class ToolboxItemFilterAttribute(System.Attribute):
@@ -4963,6 +4993,9 @@ class CollectionChangeAction(Enum):
 
     REFRESH = 3
     """Specifies that the entire collection has changed."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class NullableConverter(System.ComponentModel.TypeConverter):
@@ -6714,6 +6747,9 @@ class PropertyTabScope(Enum):
     This tab will be added to the properties window for the current component only, and is
     removed when the component is no longer selected.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class PropertyTabAttribute(System.Attribute):

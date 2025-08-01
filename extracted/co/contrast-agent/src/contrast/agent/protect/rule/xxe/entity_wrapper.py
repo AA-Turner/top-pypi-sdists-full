@@ -67,13 +67,7 @@ class EntityWrapper:
         if self._starts_with_any(tmp_id, self.UP_DIR_LINUX, self.UP_DIR_WIN):
             return True
 
-        if self.FILE_PATTERN_WINDOWS.search(tmp_id):
-            return True
-
-        return False
+        return bool(self.FILE_PATTERN_WINDOWS.search(tmp_id))
 
     def _starts_with_any(self, string, *args):
-        for arg in args:
-            if string.startswith(arg):
-                return True
-        return False
+        return any(string.startswith(arg) for arg in args)

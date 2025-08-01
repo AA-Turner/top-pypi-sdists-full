@@ -47,7 +47,7 @@ class Session:
             self.refresh()
 
     def _get_project_id_by_name(self):
-        path = f"/v1/project/get_project_by_name?name={self.project_name}"
+        path = f"/v1/accounting/get_project_by_name?name={self.project_name}"
         resp = self.rpc.get(path=path)
         if resp.get("success"):
             return resp.get("data")["_id"]
@@ -144,7 +144,7 @@ class Session:
             "intelCPU": False,
             "gcloudGPU": False,
         }
-        path = "/v1/project"
+        path = "/v1/accounting"
         headers = {"Content-Type": "application/json"}
         body = {
             "name": project_name,
@@ -312,7 +312,7 @@ class Session:
         >>> for project_name, project_instance in projects.items():
         >>>     print(project_name, project_instance)
         """
-        path = "/v1/project/v2"
+        path = "/v1/accounting/v2"
         if project_type != "":
             query_params = {
                 "items[0][field]": "outputType",
@@ -373,7 +373,7 @@ class Session:
         >>> else:
         >>>     print(f"Project type summary: {project_summary}")
         """
-        path = "/v1/project/get_projects_count_by_type"
+        path = "/v1/accounting/get_projects_count_by_type"
         resp = self.rpc.get(path=path)
         print(resp)
         data, error, message = handle_response(

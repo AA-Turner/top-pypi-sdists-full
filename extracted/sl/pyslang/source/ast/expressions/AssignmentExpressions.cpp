@@ -34,6 +34,116 @@ namespace slang::ast {
 using namespace parsing;
 using namespace syntax;
 
+// Helper method used by tryConnectPortArray to build a tree of selects of the sliced result.
+// `flatRange` is the bit range of the final flattened result. We map down to that flattened
+// result by walking the expression tree and selecting the appropriate elements.
+static Expression* buildPackedSelectTree(Compilation& comp, Expression* expr,
+                                         ConstantRange flatRange, const ASTContext& context) {
+    SLANG_ASSERT(flatRange.isLittleEndian());
+
+    // If the range covers the entire type, just return the expression itself
+    auto& type = *expr->type;
+    if (flatRange.width() >= type.getBitWidth())
+        return expr;
+
+    auto createConcat = [&](SmallVector<Expression*>& parts) -> Expression* {
+        SLANG_ASSERT(!parts.empty());
+
+        if (parts.size() == 1)
+            return parts.front();
+
+        auto& resultType = comp.getType(flatRange.width(), type.getIntegralFlags());
+        return comp.emplace<ConcatenationExpression>(resultType, parts.copy(comp),
+                                                     expr->sourceRange);
+    };
+
+    if (expr->kind == ExpressionKind::Concatenation) {
+        // Handle concat: flatten bit ranges over its operands
+        int32_t msb = int32_t(type.getBitWidth()) - 1;
+        SmallVector<Expression*> parts;
+        for (auto op : expr->as<ConcatenationExpression>().operands()) {
+            const int32_t opWidth = int32_t(op->type->getBitWidth());
+            const int32_t opMsb = msb;
+            const int32_t opLsb = msb - opWidth + 1;
+
+            // Check for overlap with desired slice
+            const int32_t overlapMsb = std::min(flatRange.left, opMsb);
+            const int32_t overlapLsb = std::max(flatRange.right, opLsb);
+            if (overlapMsb >= overlapLsb) {
+                // Map to local indices within op
+                const int32_t localMsb = overlapMsb - opLsb;
+                const int32_t localLsb = overlapLsb - opLsb;
+                parts.push_back(buildPackedSelectTree(comp, op, {localMsb, localLsb}, context));
+            }
+
+            msb -= opWidth;
+        }
+
+        return createConcat(parts);
+    }
+
+    if (auto elemType = type.getArrayElementType()) {
+        const auto elemWidth = int32_t(elemType->getBitWidth());
+        const auto arrRange = type.getFixedRange();
+        const int32_t leftElem = flatRange.left / elemWidth;
+        const int32_t rightElem = flatRange.right / elemWidth;
+        const int32_t localMsb = flatRange.left % elemWidth;
+        const int32_t localLsb = flatRange.right % elemWidth;
+
+        auto getIndex = [&](int32_t logicalIndex) {
+            // logicalIndex is 0-based from the LSB end (flattened order)
+            return arrRange.isLittleEndian() ? arrRange.right + logicalIndex
+                                             : arrRange.right - logicalIndex;
+        };
+
+        if (leftElem == rightElem) {
+            // Range is fully within a single element.
+            expr = &ElementSelectExpression::fromConstant(comp, *expr, getIndex(leftElem), context);
+            return buildPackedSelectTree(comp, expr, {localMsb, localLsb}, context);
+        }
+
+        // Otherwise we have a range of elements. If the range is partial on either end
+        // we can have up to three parts.
+        SmallVector<Expression*> parts;
+        auto midLeft = leftElem;
+        auto midRight = rightElem;
+        if (localMsb < elemWidth - 1) {
+            midLeft--;
+            auto leftExpr = &ElementSelectExpression::fromConstant(comp, *expr, getIndex(leftElem),
+                                                                   context);
+            parts.push_back(buildPackedSelectTree(comp, leftExpr, {localMsb, 0}, context));
+        }
+
+        // Middle full elements (if any): select entire elements
+        if (localLsb)
+            midRight++;
+
+        if (midLeft == midRight) {
+            parts.push_back(
+                &ElementSelectExpression::fromConstant(comp, *expr, getIndex(midLeft), context));
+        }
+        else if (midLeft > midRight) {
+            parts.push_back(&RangeSelectExpression::fromConstant(
+                comp, *expr, {getIndex(midLeft), getIndex(midRight)}, context));
+        }
+
+        // Right partial element (LSB side)
+        if (localLsb) {
+            auto rightExpr = &ElementSelectExpression::fromConstant(comp, *expr,
+                                                                    getIndex(rightElem), context);
+            parts.push_back(buildPackedSelectTree(comp, rightExpr,
+                                                  {elemWidth - 1, elemWidth - localLsb}, context));
+        }
+
+        return createConcat(parts);
+    }
+
+    // Not a packed array, so selection is simple bit vectors.
+    if (flatRange.left == flatRange.right)
+        return &ElementSelectExpression::fromConstant(comp, *expr, flatRange.left, context);
+    return &RangeSelectExpression::fromConstant(comp, *expr, flatRange, context);
+}
+
 Expression* Expression::tryConnectPortArray(const ASTContext& context, const Type& portType,
                                             Expression& expr, const InstanceSymbolBase& instance) {
     // This lambda is shared code for reporting an error and returning an invalid expression.
@@ -61,7 +171,7 @@ Expression* Expression::tryConnectPortArray(const ASTContext& context, const Typ
     instance.getArrayDimensions(instanceDimVec);
 
     std::span<const ConstantRange> instanceDims = instanceDimVec;
-    std::span<const int32_t> arrayPath = instance.arrayPath;
+    std::span<const uint32_t> arrayPath = instance.arrayPath;
 
     // If the connection has any unpacked dimensions, match them up with
     // the leading instance dimensions now.
@@ -88,12 +198,12 @@ Expression* Expression::tryConnectPortArray(const ASTContext& context, const Typ
             if (unpackedDims[i].width() != instanceDims[i].width())
                 return bad();
 
-            // To select the right element, translate the path index since it's
-            // relative to that particular array's declared range.
-            int32_t index = instanceDims[i].translateIndex(arrayPath[i]);
-
-            // Now translate back to be relative to the connection type's declared range.
-            if (!unpackedDims[i].isLittleEndian())
+            // If the dimensions have the same ordering then the first
+            // instance index should map to the lower bound of the array's
+            // range. Otherwise instance index zero should map to the upper
+            // bound of the array's range.
+            int32_t index = int32_t(arrayPath[i]);
+            if (unpackedDims[i].isLittleEndian() != instanceDims[i].isLittleEndian())
                 index = unpackedDims[i].upper() - index;
             else
                 index = unpackedDims[i].lower() + index;
@@ -154,18 +264,6 @@ Expression* Expression::tryConnectPortArray(const ASTContext& context, const Typ
     if (!instPortWidth || *instPortWidth != ct->getBitWidth())
         return bad();
 
-    // Convert the port expression to a simple bit vector so that we can select
-    // bit ranges from it -- the range select expression works on the declared
-    // range of the packed array so a multidimensional wouldn't work correctly
-    // without this conversion.
-    //
-    // We set the UnevaluatedBranch flag here so that we don't get any warnings
-    // related to implicit conversions.
-    auto& vecType = comp.getType(*instPortWidth, result->type->getIntegralFlags());
-    result = &ConversionExpression::makeImplicit(context.resetFlags(ASTFlags::UnevaluatedBranch),
-                                                 vecType, ConversionKind::Implicit, *result,
-                                                 nullptr, {});
-
     // We have enough bits to assign each port on each instance, so now we just need
     // to pick the right ones. The spec says we start with all right hand indices
     // to match the rightmost part select, iterating through the rightmost dimension first.
@@ -175,13 +273,19 @@ Expression* Expression::tryConnectPortArray(const ASTContext& context, const Typ
     for (size_t i = 0; i < arrayPath.size(); i++) {
         if (i > 0)
             offset *= int32_t(instanceDims[i - 1].width());
-        offset += instanceDims[i].translateIndex(arrayPath[i]);
+
+        uint32_t index = arrayPath[i];
+        if (!instanceDims[i].isLittleEndian())
+            index = instanceDims[i].width() - index - 1;
+
+        offset += int32_t(index);
     }
 
+    // Compute the range in flat single dimensional bit space.
     int32_t width = int32_t(portWidth);
     offset *= width;
     ConstantRange range{offset + width - 1, offset};
-    return &RangeSelectExpression::fromConstant(comp, *result, range, context);
+    return buildPackedSelectTree(comp, result, range, context);
 }
 
 Expression& AssignmentExpression::fromSyntax(Compilation& compilation,
@@ -316,7 +420,7 @@ Expression& AssignmentExpression::fromComponents(
     }
 
     result->right_ = &convertAssignment(context, *lhs.type, *result->right_, opRange,
-                                        &result->left_, &flags);
+                                        &result->left_);
     if (result->right_->bad())
         return badExpr(compilation, result);
 
@@ -604,7 +708,7 @@ Expression& NewCovergroupExpression::fromSyntax(Compilation& compilation,
 
     SmallVector<const Expression*> args;
     if (!CallExpression::bindArgs(syntax.argList, coverType.getArguments(), "new"sv, range, context,
-                                  args, /* isBuiltInMethod */ false)) {
+                                  args)) {
         return badExpr(compilation, nullptr);
     }
 

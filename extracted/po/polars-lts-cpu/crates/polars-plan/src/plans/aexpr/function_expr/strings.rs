@@ -48,7 +48,10 @@ pub enum IRStringFunction {
         strict: bool,
     },
     #[cfg(feature = "string_to_integer")]
-    ToInteger(bool),
+    ToInteger {
+        dtype: Option<DataType>,
+        strict: bool,
+    },
     LenBytes,
     LenChars,
     Lowercase,
@@ -74,12 +77,10 @@ pub enum IRStringFunction {
     Reverse,
     #[cfg(feature = "string_pad")]
     PadStart {
-        length: usize,
         fill_char: char,
     },
     #[cfg(feature = "string_pad")]
     PadEnd {
-        length: usize,
         fill_char: char,
     },
     Slice,
@@ -154,7 +155,7 @@ impl IRStringFunction {
             #[cfg(feature = "extract_groups")]
             ExtractGroups { dtype, .. } => mapper.with_dtype(dtype.clone()),
             #[cfg(feature = "string_to_integer")]
-            ToInteger { .. } => mapper.with_dtype(DataType::Int64),
+            ToInteger { dtype, .. } => mapper.with_dtype(dtype.clone().unwrap_or(DataType::Int64)),
             #[cfg(feature = "regex")]
             Find { .. } => mapper.with_dtype(DataType::UInt32),
             #[cfg(feature = "extract_jsonpath")]
@@ -170,7 +171,21 @@ impl IRStringFunction {
             #[cfg(feature = "string_reverse")]
             Reverse => mapper.with_same_dtype(),
             #[cfg(feature = "temporal")]
-            Strptime(dtype, _) => mapper.with_dtype(dtype.clone()),
+            Strptime(dtype, options) => match dtype {
+                #[cfg(feature = "dtype-datetime")]
+                DataType::Datetime(time_unit, time_zone) => {
+                    let mut time_zone = time_zone.clone();
+                    if options
+                        .format
+                        .as_ref()
+                        .is_some_and(|format| TZ_AWARE_RE.is_match(format.as_str()))
+                    {
+                        time_zone = Some(time_zone.unwrap_or(TimeZone::UTC));
+                    }
+                    mapper.with_dtype(DataType::Datetime(*time_unit, time_zone))
+                },
+                _ => mapper.with_dtype(dtype.clone()),
+            },
             Split(_) => mapper.with_dtype(DataType::List(Box::new(DataType::String))),
             #[cfg(feature = "nightly")]
             Titlecase => mapper.with_same_dtype(),
@@ -254,6 +269,7 @@ impl IRStringFunction {
             S::Reverse => FunctionOptions::elementwise(),
             #[cfg(feature = "temporal")]
             S::Strptime(_, options) if options.format.is_some() => FunctionOptions::elementwise(),
+            #[cfg(feature = "temporal")]
             S::Strptime(_, _) => FunctionOptions::elementwise_with_infer(),
             S::Split(_) => FunctionOptions::elementwise(),
             #[cfg(feature = "nightly")]
@@ -412,12 +428,12 @@ impl From<IRStringFunction> for SpecialEq<Arc<dyn ColumnsUdf>> {
             LenBytes => map!(strings::len_bytes),
             LenChars => map!(strings::len_chars),
             #[cfg(feature = "string_pad")]
-            PadEnd { length, fill_char } => {
-                map!(strings::pad_end, length, fill_char)
+            PadEnd { fill_char } => {
+                map_as_slice!(strings::pad_end, fill_char)
             },
             #[cfg(feature = "string_pad")]
-            PadStart { length, fill_char } => {
-                map!(strings::pad_start, length, fill_char)
+            PadStart { fill_char } => {
+                map_as_slice!(strings::pad_start, fill_char)
             },
             #[cfg(feature = "string_pad")]
             ZFill => {
@@ -460,7 +476,9 @@ impl From<IRStringFunction> for SpecialEq<Arc<dyn ColumnsUdf>> {
             StripPrefix => map_as_slice!(strings::strip_prefix),
             StripSuffix => map_as_slice!(strings::strip_suffix),
             #[cfg(feature = "string_to_integer")]
-            ToInteger(strict) => map_as_slice!(strings::to_integer, strict),
+            ToInteger { dtype, strict } => {
+                map_as_slice!(strings::to_integer, dtype.clone(), strict)
+            },
             Slice => map_as_slice!(strings::str_slice),
             Head => map_as_slice!(strings::str_head),
             Tail => map_as_slice!(strings::str_tail),
@@ -640,23 +658,41 @@ pub(super) fn extract_groups(s: &Column, pat: &str, dtype: &DataType) -> PolarsR
 }
 
 #[cfg(feature = "string_pad")]
-pub(super) fn pad_start(s: &Column, length: usize, fill_char: char) -> PolarsResult<Column> {
-    let ca = s.str()?;
+pub(super) fn pad_start(s: &[Column], fill_char: char) -> PolarsResult<Column> {
+    let s1 = s[0].as_materialized_series();
+    let length = &s[1];
+    polars_ensure!(
+        s1.len() == 1 || length.len() == 1 || s1.len() == length.len(),
+        ShapeMismatch: "cannot pad_start with 'length' array of length {}", length.len()
+    );
+    let length = length.as_materialized_series().u64()?;
+    let ca = s1.str()?;
     Ok(ca.pad_start(length, fill_char).into_column())
 }
 
 #[cfg(feature = "string_pad")]
-pub(super) fn pad_end(s: &Column, length: usize, fill_char: char) -> PolarsResult<Column> {
-    let ca = s.str()?;
+pub(super) fn pad_end(s: &[Column], fill_char: char) -> PolarsResult<Column> {
+    let s1 = s[0].as_materialized_series();
+    let length = &s[1];
+    polars_ensure!(
+        s1.len() == 1 || length.len() == 1 || s1.len() == length.len(),
+        ShapeMismatch: "cannot pad_end with 'length' array of length {}", length.len()
+    );
+    let length = length.as_materialized_series().u64()?;
+    let ca = s1.str()?;
     Ok(ca.pad_end(length, fill_char).into_column())
 }
 
 #[cfg(feature = "string_pad")]
 pub(super) fn zfill(s: &[Column]) -> PolarsResult<Column> {
-    _check_same_length(s, "zfill")?;
-    let ca = s[0].str()?;
-    let length_s = s[1].strict_cast(&DataType::UInt64)?;
-    let length = length_s.u64()?;
+    let s1 = s[0].as_materialized_series();
+    let length = &s[1];
+    polars_ensure!(
+        s1.len() == 1 || length.len() == 1 || s1.len() == length.len(),
+        ShapeMismatch: "cannot zfill with 'length' array of length {}", length.len()
+    );
+    let length = length.as_materialized_series().u64()?;
+    let ca = s1.str()?;
     Ok(ca.zfill(length).into_column())
 }
 
@@ -967,6 +1003,12 @@ fn replace_n<'a>(
             if n > 1 {
                 polars_bail!(ComputeError: "multivalue replacement with 'n > 1' not yet supported")
             }
+
+            if n == 0 {
+                return Ok(ca.clone());
+            };
+
+            // from here on, we know that n == 1
             let mut pat = get_pat(pat)?.to_string();
             polars_ensure!(
                 len_val == ca.len(),
@@ -984,18 +1026,13 @@ fn replace_n<'a>(
             let reg = polars_utils::regex_cache::compile_regex(&pat)?;
 
             let f = |s: &'a str, val: &'a str| {
-                if lit && (s.len() <= 32) {
-                    Cow::Owned(s.replacen(&pat, val, 1))
+                if literal {
+                    reg.replace(s, NoExpand(val))
                 } else {
-                    // According to the docs for replace
-                    // when literal = True then capture groups are ignored.
-                    if literal {
-                        reg.replace(s, NoExpand(val))
-                    } else {
-                        reg.replace(s, val)
-                    }
+                    reg.replace(s, val)
                 }
             };
+
             Ok(iter_and_replace(ca, val, f))
         },
         _ => polars_bail!(
@@ -1091,10 +1128,14 @@ pub(super) fn reverse(s: &Column) -> PolarsResult<Column> {
 }
 
 #[cfg(feature = "string_to_integer")]
-pub(super) fn to_integer(s: &[Column], strict: bool) -> PolarsResult<Column> {
+pub(super) fn to_integer(
+    s: &[Column],
+    dtype: Option<DataType>,
+    strict: bool,
+) -> PolarsResult<Column> {
     let ca = s[0].str()?;
     let base = s[1].strict_cast(&DataType::UInt32)?;
-    ca.to_integer(base.u32()?, strict)
+    ca.to_integer(base.u32()?, dtype, strict)
         .map(|ok| ok.into_column())
 }
 

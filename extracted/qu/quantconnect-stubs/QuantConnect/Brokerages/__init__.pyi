@@ -805,6 +805,9 @@ class BrokerageMessageType(Enum):
     DISCONNECT = 4
     """Brokerage disconnected from remote server (4)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class BrokerageMessageEvent(System.Object):
     """Represents a message received from a brokerage"""
@@ -3843,6 +3846,9 @@ class BrokerageName(Enum):
 
     INTERACTIVE_BROKERS_FIX = 33
     """Transaction and submit/execution rules will use interactive brokers Fix models"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class BrokerageModel(System.Object):

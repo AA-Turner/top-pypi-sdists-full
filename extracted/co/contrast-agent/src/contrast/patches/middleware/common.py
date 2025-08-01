@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import inspect
-from typing import Optional
 from enum import Enum, auto
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -155,8 +155,8 @@ class CommonMiddlewarePatch:
         self,
         module_name: str,
         *,
-        application_class_name: Optional[str] = None,
-        framework_name: Optional[str] = None,
+        application_class_name: str | None = None,
+        framework_name: str | None = None,
         app_interface: AppInterfaceType = AppInterfaceType.WSGI,
     ):
         self.module_name = module_name

@@ -84,7 +84,7 @@ enum class NondegeneracyStatus {
     /// The sequence definitely admits no match.
     AdmitsNoMatch = 1 << 2
 };
-SLANG_BITMASK(NondegeneracyStatus, AdmitsNoMatch);
+SLANG_BITMASK(NondegeneracyStatus, AdmitsNoMatch)
 
 /// Represents a range of potential sequence matches.
 struct SequenceRange {
@@ -179,6 +179,10 @@ public:
     /// Computes possible clock ticks (delay) length of sequence under assertion expression.
     std::optional<SequenceRange> computeSequenceLength() const;
 
+    /// Returns true if this expression is known to be within a pair of parentheses,
+    /// and otherwise false.
+    bool isParenthesized() const;
+
     static const AssertionExpr& bind(const syntax::SequenceExprSyntax& syntax,
                                      const ASTContext& context, bool allowDisable = false);
 
@@ -250,7 +254,7 @@ protected:
 ///
 /// Usually generated and inserted into an expression tree due
 /// to violation of language semantics or type checking.
-class SLANG_EXPORT InvalidAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT InvalidAssertionExpr final : public AssertionExpr {
 public:
     /// A wrapped sub-expression that is considered invalid.
     const AssertionExpr* child;
@@ -298,7 +302,7 @@ struct SequenceRepetition {
 };
 
 /// Represents an assertion expression defined as a simple regular expression.
-class SLANG_EXPORT SimpleAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT SimpleAssertionExpr final : public AssertionExpr {
 public:
     /// The expression that constitutes the sequence.
     const Expression& expr;
@@ -332,12 +336,15 @@ public:
 };
 
 /// Represents an assertion expression defined as a delayed concatenation of other expressions.
-class SLANG_EXPORT SequenceConcatExpr : public AssertionExpr {
+class SLANG_EXPORT SequenceConcatExpr final : public AssertionExpr {
 public:
     /// An element of a sequence concatenation.
     struct Element {
         /// A delay that applies to the element.
         SequenceRange delay;
+
+        /// An optional source range for the delay syntax.
+        SourceRange delayRange;
 
         /// The element expression.
         not_null<const AssertionExpr*> sequence;
@@ -368,7 +375,7 @@ public:
 
 /// Represents a sequence expression along with a list of actions to perform upon matching
 /// and/or instructions for repetition.
-class SLANG_EXPORT SequenceWithMatchExpr : public AssertionExpr {
+class SLANG_EXPORT SequenceWithMatchExpr final : public AssertionExpr {
 public:
     /// The sequence expression.
     const AssertionExpr& expr;
@@ -405,7 +412,7 @@ public:
 };
 
 /// Represents a unary operator in a property expression.
-class SLANG_EXPORT UnaryAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT UnaryAssertionExpr final : public AssertionExpr {
 public:
     /// The operator.
     UnaryAssertionOperator op;
@@ -440,7 +447,7 @@ public:
 };
 
 /// Represents a binary operator in a sequence or property expression.
-class SLANG_EXPORT BinaryAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT BinaryAssertionExpr final : public AssertionExpr {
 public:
     /// The operator.
     BinaryAssertionOperator op;
@@ -451,9 +458,13 @@ public:
     /// The right operand.
     const AssertionExpr& right;
 
+    /// The source range of the operator token.
+    SourceRange opRange;
+
     BinaryAssertionExpr(BinaryAssertionOperator op, const AssertionExpr& left,
-                        const AssertionExpr& right) :
-        AssertionExpr(AssertionExprKind::Binary), op(op), left(left), right(right) {}
+                        const AssertionExpr& right, SourceRange opRange) :
+        AssertionExpr(AssertionExprKind::Binary), op(op), left(left), right(right),
+        opRange(opRange) {}
 
     void requireSequence(const ASTContext& context, DiagCode code) const;
 
@@ -478,7 +489,7 @@ public:
 };
 
 /// Represents a first_match operator in a sequence expression.
-class SLANG_EXPORT FirstMatchAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT FirstMatchAssertionExpr final : public AssertionExpr {
 public:
     /// The operand.
     const AssertionExpr& seq;
@@ -512,7 +523,7 @@ public:
 };
 
 /// Represents an assertion expression with attached clocking control.
-class SLANG_EXPORT ClockingAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT ClockingAssertionExpr final : public AssertionExpr {
 public:
     /// The clocking control.
     const TimingControl& clocking;
@@ -553,7 +564,7 @@ public:
 };
 
 /// Represents a strong or weak operator in a property expression.
-class SLANG_EXPORT StrongWeakAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT StrongWeakAssertionExpr final : public AssertionExpr {
 public:
     /// The expression that is being modified.
     const AssertionExpr& expr;
@@ -581,7 +592,7 @@ public:
 };
 
 /// Represents an abort (accept_on / reject_on) property expression.
-class SLANG_EXPORT AbortAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT AbortAssertionExpr final : public AssertionExpr {
 public:
     /// The condition of the abort.
     const Expression& condition;
@@ -618,7 +629,7 @@ public:
 };
 
 /// Represents a conditional operator in a property expression.
-class SLANG_EXPORT ConditionalAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT ConditionalAssertionExpr final : public AssertionExpr {
 public:
     /// The condition expression.
     const Expression& condition;
@@ -654,7 +665,7 @@ public:
 };
 
 /// Represents a case operator in a property expression.
-class SLANG_EXPORT CaseAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT CaseAssertionExpr final : public AssertionExpr {
 public:
     /// A group of items that match one case item.
     struct ItemGroup {
@@ -704,7 +715,7 @@ public:
 };
 
 /// Represents a disable iff condition in a property spec.
-class SLANG_EXPORT DisableIffAssertionExpr : public AssertionExpr {
+class SLANG_EXPORT DisableIffAssertionExpr final : public AssertionExpr {
 public:
     /// The disable condition expression.
     const Expression& condition;

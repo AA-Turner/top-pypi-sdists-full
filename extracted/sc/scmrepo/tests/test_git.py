@@ -921,7 +921,7 @@ def test_ignored(tmp_dir: TmpDir, scm: Git, git: Git, git_backend: str):
     assert not git.is_ignored(tmp_dir / "dir1" / "file2.txt")
 
 
-@pytest.mark.skip_git_backend("pygit2", "gitpython", "dulwich")
+@pytest.mark.skip_git_backend("pygit2", "gitpython")
 def test_ignored_dir_unignored_subdirs(tmp_dir: TmpDir, scm: Git, git: Git):
     tmp_dir.gen({".gitignore": "data/**\n!data/**/\n!data/**/*.csv"})
     scm.add([".gitignore"])
@@ -1111,6 +1111,7 @@ def proxy_server():
         pass
 
     _ProxyServer.setUpClass()
+    assert _ProxyServer.PROXY
     yield f"http://{_ProxyServer.PROXY.flags.hostname}:{_ProxyServer.PROXY.flags.port}"
     _ProxyServer.tearDownClass()
 

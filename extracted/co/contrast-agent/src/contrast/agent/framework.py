@@ -1,8 +1,8 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Optional
 from collections import namedtuple
 
 from contrast.agent import scope
@@ -41,7 +41,7 @@ class DiscoverablePackage:
     def set_info(self):
         raise NotImplementedError("Must implement set_info")
 
-    def discover_server(self) -> Optional[PackageMetadata]:
+    def discover_server(self) -> PackageMetadata | None:
         """
         Except in the agent's own testing environment, the assumption here is
         that all environments using the agent will have only
@@ -72,7 +72,7 @@ class _ServerTypeFramework(DiscoverablePackage):
     def __init__(self, framework_name):
         super().__init__(framework_name, DEFAULT_FRAMEWORK)
 
-    def discover_framework(self, framework_name: str) -> Optional[PackageMetadata]:
+    def discover_framework(self, framework_name: str) -> PackageMetadata | None:
         """
         Except in the agent's own testing environment, the assumption here is
         that all environments using the agent will have only
@@ -131,7 +131,7 @@ class Framework:
         self.name = self.name.capitalize()
 
     @cached_property
-    def version(self) -> Optional[Version]:
+    def version(self) -> Version | None:
         """
         Get the version of the package by its distribution name.
         """

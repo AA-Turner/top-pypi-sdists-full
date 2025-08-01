@@ -7,11 +7,11 @@ class Library:  # pylint: disable=[R0903]
     """ Colored main library.
 
     Attributes:
-        COLORS (TYPE): Dictionary with names and numbers of 256 colors.
-        COLORTERM (TYPE): Values of $COLORTERM environment variable.
-        CONTROLS (TYPE): Values of CSI (Control Sequence Introducer) sequences.
-        HEX_COLORS (TYPE): Values of HEX colors.
-        STYLES (TYPE): Values of SGR (Select Graphic Rendition) parameters.
+        COLORS (dict[str, str]): Dictionary with names and numbers of 256 colors.
+        COLORTERM (dict[str, int]): Values of $COLORTERM environment variable.
+        CONTROLS (dict[str, str]): Values of CSI (Control Sequence Introducer) sequences.
+        HEX_COLORS (dict[str, str]): Values of HEX colors.
+        STYLES (dict[str, str]): Values of SGR (Select Graphic Rendition) parameters.
     """
 
     # ASCII sequences values.

@@ -10,6 +10,8 @@
 
 #include <fmt/color.h>
 
+#include "slang/analysis/AnalysisManager.h"
+#include "slang/ast/SemanticFacts.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/diagnostics/DeclarationsDiags.h"
@@ -24,10 +26,10 @@
 #include "slang/parsing/Preprocessor.h"
 #include "slang/syntax/SyntaxPrinter.h"
 #include "slang/syntax/SyntaxTree.h"
+#include "slang/text/FormatBuffer.h"
 #include "slang/text/Json.h"
 #include "slang/util/Random.h"
 #include "slang/util/String.h"
-#include "slang/util/ThreadPool.h"
 
 namespace fs = std::filesystem;
 
@@ -36,6 +38,7 @@ namespace slang::driver {
 using namespace ast;
 using namespace parsing;
 using namespace syntax;
+using namespace analysis;
 
 Driver::Driver() : diagEngine(sourceManager), sourceLoader(sourceManager) {
     textDiagClient = std::make_shared<TextDiagnosticClient>();
@@ -115,8 +118,12 @@ void Driver::addStandardArgs() {
                 "Maximum number of errors that can occur during lexing before the rest of the file "
                 "is skipped",
                 "<count>");
+#if defined(SLANG_USE_THREADS)
     cmdLine.add("-j,--threads", options.numThreads,
                 "The number of threads to use to parallelize parsing", "<count>");
+#else
+    options.numThreads = 1;
+#endif
 
     cmdLine.add(
         "-C",
@@ -177,9 +184,6 @@ void Driver::addStandardArgs() {
                 "Allow string types to convert implicitly to integral types");
     addCompFlag(CompilationFlags::AllowHierarchicalConst, "--allow-hierarchical-const",
                 "Allow hierarchical references in constant expressions");
-    addCompFlag(CompilationFlags::AllowDupInitialDrivers, "--allow-dup-initial-drivers",
-                "Allow signals driven in an always_comb or always_ff block to also be driven "
-                "by initial blocks");
     addCompFlag(CompilationFlags::AllowTopLevelIfacePorts, "--allow-toplevel-iface-ports",
                 "Allow top-level modules to have interface ports");
     addCompFlag(CompilationFlags::AllowRecursiveImplicitCall, "--allow-recursive-implicit-call",
@@ -189,20 +193,18 @@ void Driver::addStandardArgs() {
     addCompFlag(CompilationFlags::AllowSelfDeterminedStreamConcat,
                 "--allow-self-determined-stream-concat",
                 "Allow self-determined streaming concatenation expressions");
-    addCompFlag(
-        CompilationFlags::AllowMultiDrivenLocals, "--allow-multi-driven-locals",
-        "Allow subroutine local variables to be driven from multiple always_comb/_ff blocks");
     addCompFlag(CompilationFlags::AllowMergingAnsiPorts, "--allow-merging-ansi-ports",
                 "Allow merging ANSI port declarations with nets and variables declared in the "
                 "instance body");
-    addCompFlag(CompilationFlags::StrictDriverChecking, "--strict-driver-checking",
-                "Perform strict driver checking, which currently means disabling "
-                "procedural 'for' loop unrolling");
     addCompFlag(CompilationFlags::LintMode, "--lint-only",
                 "Only perform linting of code, don't try to elaborate a full hierarchy");
     addCompFlag(CompilationFlags::DisableInstanceCaching, "--disable-instance-caching",
                 "Disable the use of instance caching, which normally allows skipping duplicate "
                 "instance bodies to save time when elaborating");
+    addCompFlag(CompilationFlags::DisallowRefsToUnknownInstances,
+                "--disallow-refs-to-unknown-instances",
+                "When using --ignore-unknown-modules, explicitly disallow references to ignored "
+                "module instances by issuing an error");
 
     cmdLine.add("--top", options.topModules,
                 "One or more top-level modules to instantiate "
@@ -233,6 +235,8 @@ void Driver::addStandardArgs() {
                 "Show include stacks in diagnostic output");
     cmdLine.add("--diag-macro-expansion", options.diagMacroExpansion,
                 "Show macro expansion backtraces in diagnostic output");
+    cmdLine.add("--diag-abs-paths", options.diagAbsPaths,
+                "Display absolute paths to files in diagnostic output");
     cmdLine.add("--diag-hierarchy", options.diagHierarchy,
                 "Show hierarchy locations in diagnostic output", "always|never|auto");
     cmdLine.add("--diag-json", options.diagJson,
@@ -283,9 +287,7 @@ void Driver::addStandardArgs() {
     cmdLine.add(
         "--libmap",
         [this](std::string_view value) {
-            Bag optionBag;
-            addParseOptions(optionBag);
-            sourceLoader.addLibraryMaps(value, {}, optionBag);
+            sourceLoader.addLibraryMaps(value, {}, createParseOptionBag());
             return "";
         },
         "One or more library map files to parse "
@@ -302,7 +304,7 @@ void Driver::addStandardArgs() {
         CommandLineFlags::CommaList);
 
     cmdLine.add(
-        "-Y,--libext",
+        "-Y,--libext,+libext",
         [this](std::string_view value) {
             sourceLoader.addSearchExtension(value);
             return "";
@@ -351,6 +353,33 @@ void Driver::addStandardArgs() {
         "One or more command files containing additional program options. "
         "Paths in the file are considered relative to the file itself.",
         "<file-pattern>[,...]", CommandLineFlags::CommaList);
+
+    // Analysis modifiers
+    auto addAnalysisFlag = [&](AnalysisFlags flag, std::string_view name, std::string_view desc) {
+        auto [it, inserted] = options.analysisFlags.emplace(flag, std::nullopt);
+        SLANG_ASSERT(inserted);
+        cmdLine.add(name, it->second, desc);
+    };
+
+    addAnalysisFlag(AnalysisFlags::FullCaseUniquePriority, "--dfa-unique-priority",
+                    "Respect the 'unique' and 'priority' keywords when analyzing data flow "
+                    "through case statements");
+    addAnalysisFlag(AnalysisFlags::FullCaseFourState, "--dfa-four-state",
+                    "Require that case items cover X and Z bits to assume full coverage "
+                    "in data flow analysis");
+    addAnalysisFlag(
+        AnalysisFlags::AllowMultiDrivenLocals, "--allow-multi-driven-locals",
+        "Allow subroutine local variables to be driven from multiple always_comb/_ff blocks");
+    addAnalysisFlag(AnalysisFlags::AllowDupInitialDrivers, "--allow-dup-initial-drivers",
+                    "Allow signals driven in an always_comb or always_ff block to also be driven "
+                    "by initial blocks");
+
+    cmdLine.add("--max-case-analysis-steps", options.maxCaseAnalysisSteps,
+                "Maximum number of steps that can occur during case analysis before giving up",
+                "<steps>");
+    cmdLine.add("--max-loop-analysis-steps", options.maxLoopAnalysisSteps,
+                "Maximum number of steps that can occur during loop analysis before giving up",
+                "<steps>");
 }
 
 [[nodiscard]] bool Driver::parseCommandLine(std::string_view argList,
@@ -453,18 +482,24 @@ bool Driver::processOptions() {
 
     if (options.compat.has_value()) {
         if (options.compat == "vcs") {
-            auto vcsCompatFlags = {CompilationFlags::AllowHierarchicalConst,
-                                   CompilationFlags::AllowUseBeforeDeclare,
-                                   CompilationFlags::RelaxEnumConversions,
-                                   CompilationFlags::RelaxStringConversions,
-                                   CompilationFlags::AllowRecursiveImplicitCall,
-                                   CompilationFlags::AllowBareValParamAssignment,
-                                   CompilationFlags::AllowSelfDeterminedStreamConcat,
-                                   CompilationFlags::AllowMultiDrivenLocals,
-                                   CompilationFlags::AllowMergingAnsiPorts};
+            auto vcsCompFlags = {CompilationFlags::AllowHierarchicalConst,
+                                 CompilationFlags::AllowUseBeforeDeclare,
+                                 CompilationFlags::RelaxEnumConversions,
+                                 CompilationFlags::RelaxStringConversions,
+                                 CompilationFlags::AllowRecursiveImplicitCall,
+                                 CompilationFlags::AllowBareValParamAssignment,
+                                 CompilationFlags::AllowSelfDeterminedStreamConcat,
+                                 CompilationFlags::AllowMergingAnsiPorts};
 
-            for (auto flag : vcsCompatFlags) {
+            for (auto flag : vcsCompFlags) {
                 auto& option = options.compilationFlags.at(flag);
+                if (!option.has_value())
+                    option = true;
+            }
+
+            auto vcsAnalysisFlags = {AnalysisFlags::AllowMultiDrivenLocals};
+            for (auto flag : vcsAnalysisFlags) {
+                auto& option = options.analysisFlags.at(flag);
                 if (!option.has_value())
                     option = true;
             }
@@ -503,10 +538,6 @@ bool Driver::processOptions() {
         if (!opt.has_value())
             opt = true;
     }
-
-    auto& disableCachingOpt = options.compilationFlags.at(CompilationFlags::DisableInstanceCaching);
-    if (!disableCachingOpt.has_value())
-        disableCachingOpt = true;
 
     if (!options.translateOffOptions.empty()) {
         bool anyBad = false;
@@ -552,6 +583,7 @@ bool Driver::processOptions() {
         jsonWriter->startArray();
 
         jsonDiagClient = std::make_shared<JsonDiagnosticClient>(*jsonWriter);
+        jsonDiagClient->showAbsPaths(options.diagAbsPaths.value_or(false));
         diagEngine.addClient(jsonDiagClient);
     }
 
@@ -563,6 +595,7 @@ bool Driver::processOptions() {
     tdc.showOptionName(options.diagOptionName.value_or(true));
     tdc.showIncludeStack(options.diagIncludeStack.value_or(true));
     tdc.showMacroExpansion(options.diagMacroExpansion.value_or(true));
+    tdc.showAbsPaths(options.diagAbsPaths.value_or(false));
 
     if (options.diagHierarchy == "always")
         tdc.showHierarchyInstance(ShowHierarchyPathOption::Always);
@@ -570,7 +603,6 @@ bool Driver::processOptions() {
         tdc.showHierarchyInstance(ShowHierarchyPathOption::Never);
 
     diagEngine.setErrorLimit((int)options.errorLimit.value_or(20));
-    diagEngine.setDefaultWarnings();
 
     // Some tools violate the standard in various ways, but in order to allow
     // compatibility with these tools we change the respective errors into a
@@ -621,12 +653,9 @@ static std::string generateRandomAlphaString(TGenerator& gen, size_t len) {
 
 bool Driver::runPreprocessor(bool includeComments, bool includeDirectives, bool obfuscateIds,
                              bool useFixedObfuscationSeed) {
-    Bag optionBag;
-    addParseOptions(optionBag);
-
     BumpAllocator alloc;
     Diagnostics diagnostics;
-    Preprocessor preprocessor(sourceManager, alloc, diagnostics, optionBag);
+    Preprocessor preprocessor(sourceManager, alloc, diagnostics, createParseOptionBag());
 
     auto buffers = sourceLoader.loadSources();
     for (auto it = buffers.rbegin(); it != buffers.rend(); it++)
@@ -723,11 +752,58 @@ void Driver::reportMacros() {
     }
 }
 
-bool Driver::parseAllSources() {
-    Bag optionBag;
-    addParseOptions(optionBag);
+std::vector<fs::path> Driver::getDepfiles(bool includesOnly) const {
+    flat_hash_set<fs::path> includeSet;
+    SLANG_ASSERT(!syntaxTrees.empty());
 
-    syntaxTrees = sourceLoader.loadAndParseSources(optionBag);
+    for (auto& tree : syntaxTrees) {
+        for (auto& inc : tree->getIncludeDirectives()) {
+            if (inc.isSystem)
+                continue;
+
+            includeSet.insert(sourceManager.getFullPath(inc.buffer.id));
+        }
+    }
+
+    std::vector<fs::path> includePaths(includeSet.begin(), includeSet.end());
+    if (includesOnly)
+        return includePaths;
+
+    auto allPaths = sourceLoader.getFilePaths();
+    allPaths.reserve(allPaths.size() + includePaths.size());
+    allPaths.insert(allPaths.end(), includePaths.begin(), includePaths.end());
+    return allPaths;
+}
+
+std::string Driver::serializeDepfiles(const std::vector<fs::path>& files,
+                                      const std::optional<std::string>& depfileTarget) {
+    std::vector<std::string> paths;
+    paths.reserve(files.size());
+
+    for (const auto& file : files) {
+        auto relPath = std::filesystem::relative(file, std::filesystem::current_path());
+        paths.push_back(getU8Str(relPath));
+    }
+
+    std::sort(paths.begin(), paths.end());
+
+    FormatBuffer buffer;
+    if (depfileTarget) {
+        buffer.format("{}:", *depfileTarget);
+        for (const auto& file : paths)
+            buffer.format(" {}", file);
+        buffer.append("\n");
+    }
+    else {
+        for (const auto& file : paths)
+            buffer.format("{}\n", file);
+    }
+
+    return buffer.str();
+}
+
+bool Driver::parseAllSources() {
+    syntaxTrees = sourceLoader.loadAndParseSources(createParseOptionBag());
     if (!reportLoadErrors())
         return false;
 
@@ -736,6 +812,12 @@ bool Driver::parseAllSources() {
         diagEngine.issue(diag);
 
     return true;
+}
+
+Bag Driver::createParseOptionBag() const {
+    Bag bag;
+    addParseOptions(bag);
+    return bag;
 }
 
 Bag Driver::createOptionBag() const {
@@ -816,9 +898,6 @@ void Driver::addCompilationOptions(Bag& bag) const {
             coptions.flags |= flag;
     }
 
-    if (options.lintMode())
-        coptions.flags |= CompilationFlags::SuppressUnused;
-
     for (auto& name : options.topModules)
         coptions.topModules.emplace(name);
     for (auto& opt : options.paramOverrides)
@@ -875,7 +954,7 @@ bool Driver::reportParseDiags() {
     return diagEngine.getNumErrors() == 0;
 }
 
-bool Driver::reportCompilation(Compilation& compilation, bool quiet) {
+void Driver::reportCompilation(Compilation& compilation, bool quiet) {
     if (!quiet) {
         auto topInstances = compilation.getRoot().topInstances;
         if (!topInstances.empty()) {
@@ -888,7 +967,38 @@ bool Driver::reportCompilation(Compilation& compilation, bool quiet) {
 
     for (auto& diag : compilation.getAllDiagnostics())
         diagEngine.issue(diag);
+}
 
+std::unique_ptr<AnalysisManager> Driver::runAnalysis(ast::Compilation& compilation) {
+    using namespace slang::analysis;
+
+    compilation.getAllDiagnostics();
+    compilation.freeze();
+
+    AnalysisOptions ao;
+    ao.numThreads = options.numThreads.value_or(0);
+    if (!options.lintMode())
+        ao.flags |= AnalysisFlags::CheckUnused;
+    if (options.maxCaseAnalysisSteps)
+        ao.maxCaseAnalysisSteps = *options.maxCaseAnalysisSteps;
+    if (options.maxLoopAnalysisSteps)
+        ao.maxLoopAnalysisSteps = *options.maxLoopAnalysisSteps;
+
+    for (auto& [flag, value] : options.analysisFlags) {
+        if (value == true)
+            ao.flags |= flag;
+    }
+
+    auto analysisManager = std::make_unique<AnalysisManager>(ao);
+    analysisManager->analyze(compilation);
+
+    for (auto& diag : analysisManager->getDiagnostics(compilation.getSourceManager()))
+        diagEngine.issue(diag);
+
+    return analysisManager;
+}
+
+bool Driver::reportDiagnostics(bool quiet) {
     bool hasDiagsStdout = false;
     bool succeeded = diagEngine.getNumErrors() == 0;
 
@@ -926,6 +1036,13 @@ bool Driver::reportCompilation(Compilation& compilation, bool quiet) {
     }
 
     return succeeded;
+}
+
+bool Driver::runFullCompilation(bool quiet) {
+    auto compilation = createCompilation();
+    reportCompilation(*compilation, quiet);
+    runAnalysis(*compilation);
+    return reportDiagnostics(quiet);
 }
 
 bool Driver::parseUnitListing(std::string_view text) {

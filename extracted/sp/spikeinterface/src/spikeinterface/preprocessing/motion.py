@@ -360,7 +360,7 @@ def compute_motion(
 
     progress_bar = job_kwargs.get("progress_bar", False)
 
-    noise_levels = get_noise_levels(recording, return_scaled=False)
+    noise_levels = get_noise_levels(recording, return_in_uV=False)
 
     if folder is not None:
         folder = Path(folder)
@@ -442,9 +442,6 @@ def compute_motion(
         motion = None
     t1 = time.perf_counter()
     run_times["estimate_motion"] = t1 - t0
-
-    if recording.get_dtype().kind != "f":
-        recording = recording.astype("float32")
 
     motion_info = dict(
         parameters=parameters,
@@ -554,6 +551,9 @@ def correct_motion(
         **job_kwargs,
     )
 
+    if recording.get_dtype().kind != "f":
+        recording = recording.astype("float32")
+
     recording_corrected = interpolate_motion(recording, motion, **interpolate_motion_kwargs)
 
     if not output_motion and not output_motion_info:
@@ -568,6 +568,19 @@ def correct_motion(
 
 
 def save_motion_info(motion_info, folder, overwrite=False):
+    """
+    Saves motion info
+
+    Parameters
+    ----------
+    motion_info : dict
+        The returned motion_info from running `compute_motion`
+    folder : str | Path
+        The path for saving the `motion_info`
+    overwrite : bool, default: False
+        Whether to overwrite the folder location when saving motion info
+
+    """
     folder = Path(folder)
     if folder.is_dir():
         if not overwrite:
@@ -590,6 +603,20 @@ def save_motion_info(motion_info, folder, overwrite=False):
 
 
 def load_motion_info(folder):
+    """
+    Loads a motion info dict from folder
+
+    Parameters
+    ----------
+    folder : str | Path
+        The folder containing the motion info to load
+
+    Notes
+    -----
+    Loads both current Motion implementation as well as the
+    legacy Motion format
+
+    """
     from spikeinterface.core.motion import Motion
 
     folder = Path(folder)
@@ -649,33 +676,33 @@ for k, v in motion_options_preset.items():
     if k == "":
         continue
     doc = v["doc"]
-    _doc_presets = _doc_presets + f"      * {k}: {doc}\n"
+    _doc_presets = _doc_presets + f"    * {k}: {doc}\n"
 
 _common_motion_parameters = """Parameters
-    ----------
-    recording : RecordingExtractor
-        The recording extractor to be transformed
-    preset : str, default: "nonrigid_accurate"
-        The preset name
-    folder : Path str or None, default: None
-        If not None then intermediate motion info are saved into a folder
-    overwrite : bool, default: False
-        If True and folder is given, overwrite the folder if it already exists
-    detect_kwargs : dict
-        Optional parameters to overwrite the ones in the preset for "detect" step.
-    select_kwargs : dict
-        If not None, optional parameters to overwrite the ones in the preset for "select" step.
-        If None, the "select" step is skipped.
-    localize_peaks_kwargs : dict
-        Optional parameters to overwrite the ones in the preset for "localize" step.
-    estimate_motion_kwargs : dict
-        Optional parameters to overwrite the ones in the preset for "estimate_motion" step.
-    interpolate_motion_kwargs : dict
-        Optional parameters to overwrite the ones in the preset for "detect" step.
-    output_motion_info : bool, default: False
-        If True, then the function returns a `motion_info` dictionary that contains variables
-        to check intermediate steps (motion_histogram, non_rigid_windows, pairwise_displacement)
-        This dictionary is the same when reloaded from the folder."""
+----------
+recording : RecordingExtractor
+    The recording extractor to be transformed
+preset : str, default: "nonrigid_accurate"
+    The preset name
+folder : Path str or None, default: None
+    If not None then intermediate motion info are saved into a folder
+overwrite : bool, default: False
+    If True and folder is given, overwrite the folder if it already exists
+detect_kwargs : dict
+    Optional parameters to overwrite the ones in the preset for "detect" step.
+select_kwargs : dict
+    If not None, optional parameters to overwrite the ones in the preset for "select" step.
+    If None, the "select" step is skipped.
+localize_peaks_kwargs : dict
+    Optional parameters to overwrite the ones in the preset for "localize" step.
+estimate_motion_kwargs : dict
+    Optional parameters to overwrite the ones in the preset for "estimate_motion" step.
+interpolate_motion_kwargs : dict
+    Optional parameters to overwrite the ones in the preset for "detect" step.
+output_motion_info : bool, default: False
+    If True, then the function returns a `motion_info` dictionary that contains variables
+    to check intermediate steps (motion_histogram, non_rigid_windows, pairwise_displacement)
+    This dictionary is the same when reloaded from the folder."""
 
 
 correct_motion.__doc__ = correct_motion.__doc__.format(_doc_presets, _common_motion_parameters, _shared_job_kwargs_doc)

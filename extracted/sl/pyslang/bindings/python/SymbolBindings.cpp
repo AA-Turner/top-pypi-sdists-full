@@ -116,16 +116,11 @@ void registerSymbols(py::module_& m) {
         .def_property_readonly("randMode", &Symbol::getRandMode)
         .def_property_readonly("nextSibling", &Symbol::getNextSibling)
         .def_property_readonly("sourceLibrary", &Symbol::getSourceLibrary)
-        .def_property_readonly("hierarchicalPath",
-                               [](const Symbol& self) {
-                                   std::string str;
-                                   self.getHierarchicalPath(str);
-                                   return str;
-                               })
+        .def_property_readonly("hierarchicalPath", &Symbol::getHierarchicalPath)
         .def_property_readonly("lexicalPath",
                                [](const Symbol& self) {
                                    std::string str;
-                                   self.getLexicalPath(str);
+                                   self.appendLexicalPath(str);
                                    return str;
                                })
         .def("isDeclaredBefore",
@@ -194,6 +189,7 @@ void registerSymbols(py::module_& m) {
         .def_readonly("definitionKind", &DefinitionSymbol::definitionKind)
         .def_readonly("defaultLifetime", &DefinitionSymbol::defaultLifetime)
         .def_readonly("unconnectedDrive", &DefinitionSymbol::unconnectedDrive)
+        .def_readonly("cellDefine", &DefinitionSymbol::cellDefine)
         .def_readonly("timeScale", &DefinitionSymbol::timeScale)
         .def_property_readonly("defaultNetType",
                                [](const DefinitionSymbol& self) { return &self.defaultNetType; })
@@ -206,29 +202,7 @@ void registerSymbols(py::module_& m) {
 
     py::class_<ValueSymbol, Symbol>(m, "ValueSymbol")
         .def_property_readonly("type", &ValueSymbol::getType)
-        .def_property_readonly("initializer", &ValueSymbol::getInitializer)
-        .def(
-            "__iter__",
-            [](const ValueSymbol& self) {
-                auto drivers = self.drivers();
-                return py::make_iterator(drivers.begin(), drivers.end());
-            },
-            py::keep_alive<0, 1>());
-
-    py::class_<ValueDriver>(m, "ValueDriver")
-        .def_readonly("prefixExpression", &ValueDriver::prefixExpression)
-        .def_readonly("containingSymbol", &ValueDriver::containingSymbol)
-        .def_readonly("procCallExpression", &ValueDriver::procCallExpression)
-        .def_readonly("kind", &ValueDriver::kind)
-        .def_readonly("flags", &ValueDriver::flags)
-        .def_property_readonly("sourceRange", &ValueDriver::getSourceRange)
-        .def_property_readonly("isInputPort", &ValueDriver::isInputPort)
-        .def_property_readonly("isUnidirectionalPort", &ValueDriver::isUnidirectionalPort)
-        .def_property_readonly("isClockVar", &ValueDriver::isClockVar)
-        .def_property_readonly("isLocalVarFormalArg", &ValueDriver::isLocalVarFormalArg)
-        .def_property_readonly("isInSingleDriverProcedure", &ValueDriver::isInSingleDriverProcedure)
-        .def_property_readonly("isInSubroutine", &ValueDriver::isInSubroutine)
-        .def_property_readonly("isInInitialBlock", &ValueDriver::isInInitialBlock);
+        .def_property_readonly("initializer", &ValueSymbol::getInitializer);
 
     py::class_<EnumValueSymbol, ValueSymbol>(m, "EnumValueSymbol")
         .def_property_readonly("value",
@@ -413,6 +387,8 @@ void registerSymbols(py::module_& m) {
         .def_property_readonly("isInterface", &InstanceSymbol::isInterface)
         .def_property_readonly("portConnections", &InstanceSymbol::getPortConnections)
         .def_property_readonly("body", [](const InstanceSymbol& self) { return &self.body; })
+        .def_property_readonly("canonicalBody",
+                               [](const InstanceSymbol& self) { return self.getCanonicalBody(); })
         .def("getPortConnection",
              py::overload_cast<const PortSymbol&>(&InstanceSymbol::getPortConnection, py::const_),
              byrefint, "port"_a)

@@ -5,14 +5,16 @@ from typing import Any, List
 # 3rd party dependencies
 import cv2
 import numpy as np
-import gdown
 
 # project dependencies
-from deepface.commons import folder_utils
+from deepface.commons import weight_utils
 from deepface.models.Detector import Detector, FacialAreaRegion
 from deepface.commons.logger import Logger
 
 logger = Logger()
+
+# pylint:disable=line-too-long
+WEIGHTS_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
 
 
 class YuNetClient(Detector):
@@ -40,16 +42,13 @@ class YuNetClient(Detector):
             raise ValueError(f"YuNet requires opencv-python >= 4.8 but you have {cv2.__version__}")
 
         # pylint: disable=C0301
-        url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
-        file_name = "face_detection_yunet_2023mar.onnx"
-        home = folder_utils.get_deepface_home()
-        output = os.path.join(home, ".deepface/weights", file_name)
-        if not os.path.isfile(output):
-            logger.info(f"{file_name} will be downloaded...")
-            gdown.download(url, output, quiet=False)
+        weight_file = weight_utils.download_weights_if_necessary(
+            file_name="face_detection_yunet_2023mar.onnx",
+            source_url=WEIGHTS_URL,
+        )
 
         try:
-            face_detector = cv2.FaceDetectorYN_create(output, "", (0, 0))
+            face_detector = cv2.FaceDetectorYN_create(weight_file, "", (0, 0))
         except Exception as err:
             raise ValueError(
                 "Exception while calling opencv.FaceDetectorYN_create module."

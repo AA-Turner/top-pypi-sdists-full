@@ -56,8 +56,11 @@ from .literals import (
     RecommendationImpactType,
     RecommendationStatusType,
     RecommendationTypeType,
+    ReputationEntityFilterKeyType,
+    ResourceTypeType,
     ReviewStatusType,
     ScalingModeType,
+    SendingStatusType,
     StatusType,
     SubscriptionStatusType,
     SuppressionListImportActionType,
@@ -121,6 +124,9 @@ __all__ = (
     "CreateImportJobResponseTypeDef",
     "CreateMultiRegionEndpointRequestTypeDef",
     "CreateMultiRegionEndpointResponseTypeDef",
+    "CreateTenantRequestTypeDef",
+    "CreateTenantResourceAssociationRequestTypeDef",
+    "CreateTenantResponseTypeDef",
     "CustomVerificationEmailTemplateMetadataTypeDef",
     "DailyVolumeTypeDef",
     "DashboardAttributesTypeDef",
@@ -139,6 +145,8 @@ __all__ = (
     "DeleteMultiRegionEndpointRequestTypeDef",
     "DeleteMultiRegionEndpointResponseTypeDef",
     "DeleteSuppressedDestinationRequestTypeDef",
+    "DeleteTenantRequestTypeDef",
+    "DeleteTenantResourceAssociationRequestTypeDef",
     "DeliverabilityTestReportTypeDef",
     "DeliveryOptionsTypeDef",
     "DestinationTypeDef",
@@ -206,8 +214,12 @@ __all__ = (
     "GetMessageInsightsResponseTypeDef",
     "GetMultiRegionEndpointRequestTypeDef",
     "GetMultiRegionEndpointResponseTypeDef",
+    "GetReputationEntityRequestTypeDef",
+    "GetReputationEntityResponseTypeDef",
     "GetSuppressedDestinationRequestTypeDef",
     "GetSuppressedDestinationResponseTypeDef",
+    "GetTenantRequestTypeDef",
+    "GetTenantResponseTypeDef",
     "GuardianAttributesTypeDef",
     "GuardianOptionsTypeDef",
     "IdentityInfoTypeDef",
@@ -249,10 +261,22 @@ __all__ = (
     "ListMultiRegionEndpointsResponseTypeDef",
     "ListRecommendationsRequestTypeDef",
     "ListRecommendationsResponseTypeDef",
+    "ListReputationEntitiesRequestPaginateTypeDef",
+    "ListReputationEntitiesRequestTypeDef",
+    "ListReputationEntitiesResponseTypeDef",
+    "ListResourceTenantsRequestPaginateTypeDef",
+    "ListResourceTenantsRequestTypeDef",
+    "ListResourceTenantsResponseTypeDef",
     "ListSuppressedDestinationsRequestTypeDef",
     "ListSuppressedDestinationsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTenantResourcesRequestPaginateTypeDef",
+    "ListTenantResourcesRequestTypeDef",
+    "ListTenantResourcesResponseTypeDef",
+    "ListTenantsRequestPaginateTypeDef",
+    "ListTenantsRequestTypeDef",
+    "ListTenantsResponseTypeDef",
     "MailFromAttributesTypeDef",
     "MessageHeaderTypeDef",
     "MessageInsightsDataSourceOutputTypeDef",
@@ -297,9 +321,11 @@ __all__ = (
     "RecommendationTypeDef",
     "ReplacementEmailContentTypeDef",
     "ReplacementTemplateTypeDef",
+    "ReputationEntityTypeDef",
     "ReputationOptionsOutputTypeDef",
     "ReputationOptionsTypeDef",
     "ReputationOptionsUnionTypeDef",
+    "ResourceTenantMetadataTypeDef",
     "ResponseMetadataTypeDef",
     "ReviewDetailsTypeDef",
     "RouteDetailsTypeDef",
@@ -314,6 +340,7 @@ __all__ = (
     "SendQuotaTypeDef",
     "SendingOptionsTypeDef",
     "SnsDestinationTypeDef",
+    "StatusRecordTypeDef",
     "SuppressedDestinationAttributesTypeDef",
     "SuppressedDestinationSummaryTypeDef",
     "SuppressedDestinationTypeDef",
@@ -325,6 +352,9 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TemplateTypeDef",
+    "TenantInfoTypeDef",
+    "TenantResourceTypeDef",
+    "TenantTypeDef",
     "TestRenderEmailTemplateRequestTypeDef",
     "TestRenderEmailTemplateResponseTypeDef",
     "TimestampTypeDef",
@@ -339,6 +369,8 @@ __all__ = (
     "UpdateCustomVerificationEmailTemplateRequestTypeDef",
     "UpdateEmailIdentityPolicyRequestTypeDef",
     "UpdateEmailTemplateRequestTypeDef",
+    "UpdateReputationEntityCustomerManagedStatusRequestTypeDef",
+    "UpdateReputationEntityPolicyRequestTypeDef",
     "VdmAttributesTypeDef",
     "VdmOptionsTypeDef",
     "VerificationInfoTypeDef",
@@ -495,6 +527,10 @@ class ImportDataSourceTypeDef(TypedDict):
     S3Url: str
     DataFormat: DataFormatType
 
+class CreateTenantResourceAssociationRequestTypeDef(TypedDict):
+    TenantName: str
+    ResourceArn: str
+
 class CustomVerificationEmailTemplateMetadataTypeDef(TypedDict):
     TemplateName: NotRequired[str]
     FromEmailAddress: NotRequired[str]
@@ -566,6 +602,13 @@ class DeleteMultiRegionEndpointRequestTypeDef(TypedDict):
 
 class DeleteSuppressedDestinationRequestTypeDef(TypedDict):
     EmailAddress: str
+
+class DeleteTenantRequestTypeDef(TypedDict):
+    TenantName: str
+
+class DeleteTenantResourceAssociationRequestTypeDef(TypedDict):
+    TenantName: str
+    ResourceArn: str
 
 class DeliverabilityTestReportTypeDef(TypedDict):
     ReportId: NotRequired[str]
@@ -721,8 +764,15 @@ class GetMultiRegionEndpointRequestTypeDef(TypedDict):
 class RouteTypeDef(TypedDict):
     Region: str
 
+class GetReputationEntityRequestTypeDef(TypedDict):
+    ReputationEntityReference: str
+    ReputationEntityType: Literal["RESOURCE"]
+
 class GetSuppressedDestinationRequestTypeDef(TypedDict):
     EmailAddress: str
+
+class GetTenantRequestTypeDef(TypedDict):
+    TenantName: str
 
 class GuardianAttributesTypeDef(TypedDict):
     OptimizedSharedDelivery: NotRequired[FeatureStatusType]
@@ -825,6 +875,22 @@ RecommendationTypeDef = TypedDict(
     },
 )
 
+class ListReputationEntitiesRequestTypeDef(TypedDict):
+    Filter: NotRequired[Mapping[ReputationEntityFilterKeyType, str]]
+    NextToken: NotRequired[str]
+    PageSize: NotRequired[int]
+
+class ListResourceTenantsRequestTypeDef(TypedDict):
+    ResourceArn: str
+    PageSize: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ResourceTenantMetadataTypeDef(TypedDict):
+    TenantName: NotRequired[str]
+    TenantId: NotRequired[str]
+    ResourceArn: NotRequired[str]
+    AssociatedTimestamp: NotRequired[datetime]
+
 class SuppressedDestinationSummaryTypeDef(TypedDict):
     EmailAddress: str
     Reason: SuppressionListReasonType
@@ -832,6 +898,26 @@ class SuppressedDestinationSummaryTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
+
+class ListTenantResourcesRequestTypeDef(TypedDict):
+    TenantName: str
+    Filter: NotRequired[Mapping[Literal["RESOURCE_TYPE"], str]]
+    PageSize: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class TenantResourceTypeDef(TypedDict):
+    ResourceType: NotRequired[ResourceTypeType]
+    ResourceArn: NotRequired[str]
+
+class ListTenantsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    PageSize: NotRequired[int]
+
+class TenantInfoTypeDef(TypedDict):
+    TenantName: NotRequired[str]
+    TenantId: NotRequired[str]
+    TenantArn: NotRequired[str]
+    CreatedTimestamp: NotRequired[datetime]
 
 class MessageInsightsFiltersOutputTypeDef(TypedDict):
     FromEmailAddress: NotRequired[List[str]]
@@ -929,6 +1015,11 @@ class PutSuppressedDestinationRequestTypeDef(TypedDict):
 class ReplacementTemplateTypeDef(TypedDict):
     ReplacementTemplateData: NotRequired[str]
 
+class StatusRecordTypeDef(TypedDict):
+    Status: NotRequired[SendingStatusType]
+    Cause: NotRequired[str]
+    LastUpdatedTimestamp: NotRequired[datetime]
+
 class SOARecordTypeDef(TypedDict):
     PrimaryNameServer: NotRequired[str]
     AdminEmail: NotRequired[str]
@@ -966,6 +1057,16 @@ class UpdateEmailIdentityPolicyRequestTypeDef(TypedDict):
     EmailIdentity: str
     PolicyName: str
     Policy: str
+
+class UpdateReputationEntityCustomerManagedStatusRequestTypeDef(TypedDict):
+    ReputationEntityType: Literal["RESOURCE"]
+    ReputationEntityReference: str
+    SendingStatus: SendingStatusType
+
+class UpdateReputationEntityPolicyRequestTypeDef(TypedDict):
+    ReputationEntityType: Literal["RESOURCE"]
+    ReputationEntityReference: str
+    ReputationEntityPolicy: str
 
 class AccountDetailsTypeDef(TypedDict):
     MailType: NotRequired[MailTypeType]
@@ -1153,6 +1254,19 @@ class CreateDedicatedIpPoolRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     ScalingMode: NotRequired[ScalingModeType]
 
+class CreateTenantRequestTypeDef(TypedDict):
+    TenantName: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateTenantResponseTypeDef(TypedDict):
+    TenantName: str
+    TenantId: str
+    TenantArn: str
+    CreatedTimestamp: datetime
+    Tags: List[TagTypeDef]
+    SendingStatus: SendingStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: List[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1160,6 +1274,14 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     Tags: Sequence[TagTypeDef]
+
+class TenantTypeDef(TypedDict):
+    TenantName: NotRequired[str]
+    TenantId: NotRequired[str]
+    TenantArn: NotRequired[str]
+    CreatedTimestamp: NotRequired[datetime]
+    Tags: NotRequired[List[TagTypeDef]]
+    SendingStatus: NotRequired[SendingStatusType]
 
 class CreateContactListRequestTypeDef(TypedDict):
     ContactListName: str
@@ -1327,6 +1449,22 @@ class ListContactsFilterTypeDef(TypedDict):
 class ListMultiRegionEndpointsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListReputationEntitiesRequestPaginateTypeDef(TypedDict):
+    Filter: NotRequired[Mapping[ReputationEntityFilterKeyType, str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListResourceTenantsRequestPaginateTypeDef(TypedDict):
+    ResourceArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTenantResourcesRequestPaginateTypeDef(TypedDict):
+    TenantName: str
+    Filter: NotRequired[Mapping[Literal["RESOURCE_TYPE"], str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTenantsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListMultiRegionEndpointsResponseTypeDef(TypedDict):
     MultiRegionEndpoints: List[MultiRegionEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1337,8 +1475,23 @@ class ListRecommendationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListResourceTenantsResponseTypeDef(TypedDict):
+    ResourceTenants: List[ResourceTenantMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListSuppressedDestinationsResponseTypeDef(TypedDict):
     SuppressedDestinationSummaries: List[SuppressedDestinationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListTenantResourcesResponseTypeDef(TypedDict):
+    TenantResources: List[TenantResourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListTenantsResponseTypeDef(TypedDict):
+    Tenants: List[TenantInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1358,6 +1511,15 @@ class MessageInsightsDataSourceTypeDef(TypedDict):
 
 class ReplacementEmailContentTypeDef(TypedDict):
     ReplacementTemplate: NotRequired[ReplacementTemplateTypeDef]
+
+class ReputationEntityTypeDef(TypedDict):
+    ReputationEntityReference: NotRequired[str]
+    ReputationEntityType: NotRequired[Literal["RESOURCE"]]
+    ReputationManagementPolicy: NotRequired[str]
+    CustomerManagedStatus: NotRequired[StatusRecordTypeDef]
+    AwsSesManagedStatus: NotRequired[StatusRecordTypeDef]
+    SendingStatusAggregate: NotRequired[SendingStatusType]
+    ReputationImpact: NotRequired[RecommendationImpactType]
 
 class VerificationInfoTypeDef(TypedDict):
     LastCheckedTimestamp: NotRequired[datetime]
@@ -1418,6 +1580,10 @@ class ListContactsResponseTypeDef(TypedDict):
     Contacts: List[ContactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class GetTenantResponseTypeDef(TypedDict):
+    Tenant: TenantTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDomainStatisticsReportResponseTypeDef(TypedDict):
     OverallVolume: OverallVolumeTypeDef
@@ -1524,6 +1690,15 @@ class BulkEmailEntryTypeDef(TypedDict):
     ReplacementEmailContent: NotRequired[ReplacementEmailContentTypeDef]
     ReplacementHeaders: NotRequired[Sequence[MessageHeaderTypeDef]]
 
+class GetReputationEntityResponseTypeDef(TypedDict):
+    ReputationEntity: ReputationEntityTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListReputationEntitiesResponseTypeDef(TypedDict):
+    ReputationEntities: List[ReputationEntityTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class GetEmailIdentityResponseTypeDef(TypedDict):
     IdentityType: IdentityTypeType
     FeedbackForwardingStatus: bool
@@ -1612,6 +1787,7 @@ class SendBulkEmailRequestTypeDef(TypedDict):
     DefaultEmailTags: NotRequired[Sequence[MessageTagTypeDef]]
     ConfigurationSetName: NotRequired[str]
     EndpointId: NotRequired[str]
+    TenantName: NotRequired[str]
 
 class CreateDeliverabilityTestReportRequestTypeDef(TypedDict):
     FromEmailAddress: str
@@ -1630,6 +1806,7 @@ class SendEmailRequestTypeDef(TypedDict):
     EmailTags: NotRequired[Sequence[MessageTagTypeDef]]
     ConfigurationSetName: NotRequired[str]
     EndpointId: NotRequired[str]
+    TenantName: NotRequired[str]
     ListManagementOptions: NotRequired[ListManagementOptionsTypeDef]
 
 class CreateConfigurationSetEventDestinationRequestTypeDef(TypedDict):

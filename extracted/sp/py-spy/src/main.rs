@@ -285,6 +285,7 @@ fn record_samples(pid: remoteprocess::Pid, config: &Config) -> Result<(), Error>
                     line: 0,
                     locals: None,
                     is_entry: true,
+                    is_shim_entry: true,
                 });
             }
 
@@ -362,7 +363,10 @@ fn record_samples(pid: remoteprocess::Pid, config: &Config) -> Result<(), Error>
                 "{}Wrote chrome trace to '{}'. Samples: {} Errors: {}",
                 lede, filename, samples, errors
             );
-            println!("{}Visit chrome://tracing to view", lede);
+            println!(
+                "{}Visit chrome://tracing or https://ui.perfetto.dev/ to view",
+                lede
+            );
         }
     };
 

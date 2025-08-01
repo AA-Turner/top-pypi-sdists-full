@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-ntl
-# distutils: libraries = NTL_LIBRARIES gmp m
+# distutils: libraries = NTL_LIBRARIES gmp M_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -519,7 +519,7 @@ cdef class PowComputer_ext(PowComputer_class):
             sage: PC  # indirect doctest
             PowComputer_ext for 5, with polynomial [9765620 0 1]
         """
-        return "PowComputer_ext for %s, with polynomial %s"%(self.prime, self.polynomial())
+        return "PowComputer_ext for %s, with polynomial %s" % (self.prime, self.polynomial())
 
     def __reduce__(self):
         """

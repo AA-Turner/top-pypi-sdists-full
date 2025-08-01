@@ -79,12 +79,8 @@ class Tag:
         ):  # we start and end in other
             return True
 
-        if (
-            self.start_index <= other.end_index < self.end_index
-        ):  # we start in other & end above it
-            return True
-
-        return False
+        # we start in other & end above it
+        return self.start_index <= other.end_index < self.end_index
 
     def to_span(self, shift=0):
         return AdjustedSpan(self.start_index + shift, self.end_index + shift)

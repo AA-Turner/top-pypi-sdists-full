@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pandasai
-Version: 2.3.0
+Version: 2.3.2
 Summary: Chat with your database (SQL, CSV, pandas, polars, mongodb, noSQL, etc). PandasAI makes data analysis conversational using LLMs (GPT 3.5 / 4, Anthropic, VertexAI) and RAG.
 License: MIT
 Author: Gabriele Venturi
@@ -72,7 +72,6 @@ Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
 Requires-Dist: qdrant-client[fastembed] (>=1.11.3,<2.0.0) ; extra == "qdrant"
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: scikit-learn (>=1.2.2,<2.0.0) ; extra == "scikit-learn"
-Requires-Dist: scipy (>=1.9.0,<2.0.0)
 Requires-Dist: seaborn (>=0.12.2,<0.13.0) ; extra == "seaborn"
 Requires-Dist: sentence-transformers (>=2.3.0,<3.0.0) ; extra == "sentencec-transformers"
 Requires-Dist: snowflake-sqlalchemy (>=1.5.0,<2.0.0) ; extra == "connectors"

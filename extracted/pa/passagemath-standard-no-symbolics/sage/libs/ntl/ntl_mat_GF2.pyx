@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-ntl
-# distutils: libraries = NTL_LIBRARIES gmp m
+# distutils: libraries = NTL_LIBRARIES gmp M_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -100,7 +100,7 @@ cdef class ntl_mat_GF2():
             sig_on()
             for i from 0 <= i < _nrows:
                 for j from 0 <= j < _ncols:
-                    GF2_conv_long(_elem, int(v[i,j])%2)
+                    GF2_conv_long(_elem, int(v[i, j]) % 2)
                     mat_GF2_setitem(&self.x, i, j, &_elem)
             sig_off()
             return

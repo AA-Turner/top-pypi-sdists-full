@@ -32,6 +32,9 @@ class InsightType(Enum):
     VOLATILITY = 1
     """The insight is for a security's price volatility (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class InsightDirection(Enum):
     """Specifies the predicted direction for a insight (price/volatility)"""
@@ -45,6 +48,9 @@ class InsightDirection(Enum):
     UP = 1
     """The value will go up (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class InsightScoreType(Enum):
     """Defines a specific type of score for a insight"""
@@ -54,6 +60,9 @@ class InsightScoreType(Enum):
 
     MAGNITUDE = 1
     """Magnitude accuracy (1)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class InsightScore(System.Object):

@@ -27,6 +27,9 @@ class TokenType(Enum):
     SESSION_TOKEN = 1
     """A Session token, typically used for username/password authorization headers."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class TokenCredentials(System.Object):
     """

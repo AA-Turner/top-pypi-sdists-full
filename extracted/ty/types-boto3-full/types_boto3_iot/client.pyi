@@ -238,6 +238,7 @@ from .type_defs import (
     DescribeDimensionResponseTypeDef,
     DescribeDomainConfigurationRequestTypeDef,
     DescribeDomainConfigurationResponseTypeDef,
+    DescribeEncryptionConfigurationResponseTypeDef,
     DescribeEndpointRequestTypeDef,
     DescribeEndpointResponseTypeDef,
     DescribeEventConfigurationsResponseTypeDef,
@@ -510,6 +511,7 @@ from .type_defs import (
     UpdateDomainConfigurationResponseTypeDef,
     UpdateDynamicThingGroupRequestTypeDef,
     UpdateDynamicThingGroupResponseTypeDef,
+    UpdateEncryptionConfigurationRequestTypeDef,
     UpdateEventConfigurationsRequestTypeDef,
     UpdateFleetMetricRequestTypeDef,
     UpdateIndexingConfigurationRequestTypeDef,
@@ -1610,6 +1612,15 @@ class IoTClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/describe_domain_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot/client/#describe_domain_configuration)
+        """
+
+    def describe_encryption_configuration(self) -> DescribeEncryptionConfigurationResponseTypeDef:
+        """
+        Retrieves the encryption configuration for resources and data of your Amazon
+        Web Services account in Amazon Web Services IoT Core.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/describe_encryption_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot/client/#describe_encryption_configuration)
         """
 
     def describe_endpoint(
@@ -3105,6 +3116,16 @@ class IoTClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/update_dynamic_thing_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot/client/#update_dynamic_thing_group)
+        """
+
+    def update_encryption_configuration(
+        self, **kwargs: Unpack[UpdateEncryptionConfigurationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates the encryption configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/update_encryption_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot/client/#update_encryption_configuration)
         """
 
     def update_event_configurations(

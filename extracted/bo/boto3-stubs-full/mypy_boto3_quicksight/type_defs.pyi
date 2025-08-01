@@ -1159,6 +1159,7 @@ __all__ = (
     "ImageSourceTypeDef",
     "ImageStaticFileTypeDef",
     "ImageTypeDef",
+    "ImpalaParametersTypeDef",
     "IncrementalRefreshTypeDef",
     "IngestionTypeDef",
     "InnerFilterOutputTypeDef",
@@ -2948,6 +2949,12 @@ class DatabricksParametersTypeDef(TypedDict):
 class ExasolParametersTypeDef(TypedDict):
     Host: str
     Port: int
+
+class ImpalaParametersTypeDef(TypedDict):
+    Host: str
+    Port: int
+    SqlEndpointPath: str
+    Database: NotRequired[str]
 
 class JiraParametersTypeDef(TypedDict):
     SiteBaseUrl: str
@@ -8105,6 +8112,7 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     StarburstParameters: NotRequired[StarburstParametersTypeDef]
     TrinoParameters: NotRequired[TrinoParametersTypeDef]
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
+    ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
 
 class DestinationParameterValueConfigurationTypeDef(TypedDict):
     CustomValuesConfiguration: NotRequired[CustomValuesConfigurationTypeDef]
@@ -9305,6 +9313,7 @@ class DataSourceParametersTypeDef(TypedDict):
     StarburstParameters: NotRequired[StarburstParametersTypeDef]
     TrinoParameters: NotRequired[TrinoParametersTypeDef]
     BigQueryParameters: NotRequired[BigQueryParametersTypeDef]
+    ImpalaParameters: NotRequired[ImpalaParametersTypeDef]
 
 class CreateRefreshScheduleRequestTypeDef(TypedDict):
     DataSetId: str

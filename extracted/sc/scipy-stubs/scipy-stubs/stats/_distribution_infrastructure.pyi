@@ -22,11 +22,11 @@ from typing_extensions import ParamSpec, TypeIs, TypeVar, Unpack, override
 import numpy as np
 import optype as op
 import optype.numpy as onp
+import optype.numpy.compat as npc
 
 from ._distn_infrastructure import rv_continuous
 from ._probability_distribution import _ProbabilityDistribution
 from ._qmc import QMCEngine
-from scipy._typing import ToRNG
 
 __all__ = ["Mixture", "abs", "exp", "log", "make_distribution", "order_statistic", "truncate"]
 
@@ -74,7 +74,7 @@ class _DuckDistributionBase(Protocol[_Tss]):
     def __make_distribution_version__(self, /) -> str: ...
     @property
     def support(self, /) -> _ParameterSpec: ...
-    def pdf(self, x: float, /, *do_not_use_these: _Tss.args, **parameters: _Tss.kwargs) -> float: ...
+    def pdf(self, x: float, /, *do_not_use_these: _Tss.args, **parameters: _Tss.kwargs) -> float | np.float64: ...
 
 @final
 @type_check_only
@@ -93,8 +93,8 @@ _DuckDistributionType: TypeAlias = type[_DuckDistributionSingle | _DuckDistribut
 
 ###
 
-_Int: TypeAlias = np.integer[Any]
-_Float: TypeAlias = np.floating[Any]
+_Int: TypeAlias = npc.integer
+_Float: TypeAlias = npc.floating
 _OutFloat: TypeAlias = np.float64 | np.longdouble
 
 _NT = TypeVar("_NT", default=int)
@@ -198,7 +198,7 @@ class _Interval(_Domain[_XT_co], Generic[_XT_co]):
         min: onp.ArrayND[_Float | _Int],
         max: onp.ArrayND[_Float | _Int],
         squeezed_base_shape: _ND,
-        rng: ToRNG = None,
+        rng: onp.random.ToRNG | None = None,
     ) -> onp.ArrayND[_XT_co]: ...
     def define_parameters(self, /, *parameters: _Parameter) -> None: ...
 
@@ -231,7 +231,7 @@ class _Parameter(abc.ABC, Generic[_RealT_co]):
         /,
         size: _ND | None = None,
         *,
-        rng: ToRNG = None,
+        rng: onp.random.ToRNG | None = None,
         region: _DomainRegion = "domain",
         proportions: _DrawProportions | None = None,
         parameter_values: _ParamValues | None = None,
@@ -255,7 +255,7 @@ class _Parameterization:
         self,
         /,
         sizes: _ND | Sequence[_ND] | None = None,
-        rng: ToRNG = None,
+        rng: onp.random.ToRNG | None = None,
         proportions: _DrawProportions | None = None,
         region: _DomainRegion = "domain",
     ) -> dict[str, onp.ArrayND[_Float]]: ...
@@ -265,8 +265,8 @@ class _Parameterization:
 _T = TypeVar("_T")
 _Tuple2: TypeAlias = tuple[_T, _T]
 
-_XT = TypeVar("_XT", bound=np.number[Any], default=np.number[Any])
-_XT_co = TypeVar("_XT_co", bound=np.number[Any], default=np.float64, covariant=True)
+_XT = TypeVar("_XT", bound=npc.number, default=npc.number)
+_XT_co = TypeVar("_XT_co", bound=npc.number, default=np.float64, covariant=True)
 _ShapeT0_co = TypeVar("_ShapeT0_co", bound=_ND, default=_ND, covariant=True)
 
 _BaseDist0: TypeAlias = _BaseDistribution[_XT, tuple[()]]
@@ -294,11 +294,11 @@ _FloatND: TypeAlias = onp.ArrayND[_Float, _ShapeT1]
 _Complex: TypeAlias = np.complex128 | np.clongdouble
 _ComplexND: TypeAlias = onp.ArrayND[_Complex, _ShapeT1]
 
-_ToFloatND: TypeAlias = onp.CanArrayND[np.floating[Any] | np.integer[Any] | np.bool_, _ShapeT1]
+_ToFloatND: TypeAlias = onp.CanArrayND[npc.floating | npc.integer | np.bool_, _ShapeT1]
 _ToFloat0ND: TypeAlias = onp.ToFloat | onp.ToFloatND
 _ToFloatMaxND: TypeAlias = _ToFloatND[_ShapeT1] | _ToFloatMax1D
 
-_ToQRNG: TypeAlias = QMCEngine | ToRNG
+_ToQRNG: TypeAlias = QMCEngine | onp.random.ToRNG | None
 
 @type_check_only
 class _BaseDistribution(_ProbabilityDistribution[_XT_co], Generic[_XT_co, _ShapeT0_co]):

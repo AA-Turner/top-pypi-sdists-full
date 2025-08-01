@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import collections
 import functools
 import hashlib
@@ -7,7 +8,6 @@ import itertools
 import os
 import re
 from types import ModuleType
-from typing import Optional
 
 from contrast_vendor.importlib_metadata import (
     Distribution,
@@ -52,22 +52,23 @@ def namespace_file_to_distribution() -> dict[str, Distribution]:
     return files_to_dist
 
 
-def get_module_distribution_metadata(module: ModuleType) -> Optional[PackageMetadata]:
+def get_module_distribution_metadata(module: ModuleType) -> PackageMetadata | None:
     top_level_name = module.__name__.partition(".")[0]
     if dist_meta := _get_simple_regular_package_distribution_metadata(top_level_name):
         return dist_meta
-    elif (mod_file := getattr(module, "__file__", None)) and (
-        file_name := normalize_file_name(mod_file)
+    elif (
+        (mod_file := getattr(module, "__file__", None))
+        and (file_name := normalize_file_name(mod_file))
+        and (dist := namespace_file_to_distribution().get(file_name))
     ):
-        if dist := namespace_file_to_distribution().get(file_name):
-            return dist.metadata
+        return dist.metadata
     return None
 
 
 @functools.lru_cache
 def _get_simple_regular_package_distribution_metadata(
     package_name: str,
-) -> Optional[PackageMetadata]:
+) -> PackageMetadata | None:
     """
     Get the distribution metadata for a package that has only one distribution.
 
@@ -95,7 +96,7 @@ SITE_PACKAGES_DIR = f"{os.sep}site-packages{os.sep}"
 DIST_PACKAGES_DIR = f"{os.sep}dist-packages{os.sep}"
 
 
-def normalize_file_name(file_path: str) -> Optional[str]:
+def normalize_file_name(file_path: str) -> str | None:
     """
     This function normalizes the file path by removing the leading site-packages or dist-packages portion
     and removing the .pyc suffix if present, returning the resulting .py file path.

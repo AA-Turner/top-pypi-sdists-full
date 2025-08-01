@@ -617,7 +617,7 @@ pub enum Type {
     Module(ModuleType),
     Forall(Box<Forall<Forallable>>),
     Var(Var),
-    Quantified(Quantified),
+    Quantified(Box<Quantified>),
     TypeGuard(Box<Type>),
     TypeIs(Box<Type>),
     Unpack(Box<Type>),
@@ -629,8 +629,8 @@ pub enum Type {
     ParamSpecValue(ParamList),
     /// Used to represent `P.args`. The spec describes it as an annotation,
     /// but it's easier to think of it as a type that can't occur in nested positions.
-    Args(Quantified),
-    Kwargs(Quantified),
+    Args(Box<Quantified>),
+    Kwargs(Box<Quantified>),
     /// Used to represent a type that has a value representation, e.g. a class
     Type(Box<Type>),
     Ellipsis,
@@ -941,12 +941,12 @@ impl Type {
         }
     }
 
-    pub fn subst(mut self, mp: &SmallMap<&Quantified, &Type>) -> Self {
+    pub fn subst_mut(&mut self, mp: &SmallMap<&Quantified, &Type>) {
         // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
         fn f(ty: &mut Type, mp: &SmallMap<&Quantified, &Type>) {
             if let Type::Quantified(x) = ty {
-                if let Some(w) = mp.get(x) {
+                if let Some(w) = mp.get(&**x) {
                     *ty = (*w).clone();
                 }
             } else {
@@ -954,8 +954,12 @@ impl Type {
             }
         }
         if !mp.is_empty() {
-            f(&mut self, mp);
+            f(self, mp);
         }
+    }
+
+    pub fn subst(mut self, mp: &SmallMap<&Quantified, &Type>) -> Self {
+        self.subst_mut(mp);
         self
     }
 
@@ -1305,7 +1309,7 @@ impl Type {
 
     pub fn as_quantified(&self) -> Option<Quantified> {
         match self {
-            Type::Quantified(q) => Some(q.clone()),
+            Type::Quantified(q) => Some((**q).clone()),
             _ => None,
         }
     }
@@ -1374,6 +1378,19 @@ impl Type {
                 }
                 answer
             }
+            _ => None,
+        }
+    }
+
+    pub fn to_callable(self) -> Option<Callable> {
+        match self {
+            Type::Callable(callable) => Some(*callable),
+            Type::Function(function) => Some(function.signature),
+            Type::BoundMethod(bound_method) => match bound_method.func {
+                BoundMethodType::Function(function) => Some(function.signature),
+                BoundMethodType::Forall(forall) => Some(forall.body.signature),
+                BoundMethodType::Overload(_) => None,
+            },
             _ => None,
         }
     }

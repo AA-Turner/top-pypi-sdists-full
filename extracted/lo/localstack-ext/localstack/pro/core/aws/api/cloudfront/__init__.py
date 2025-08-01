@@ -18,6 +18,7 @@ ParameterName = str
 ParameterValue = str
 ResourceARN = str
 SamplingRate = float
+ServerCertificateId = str
 TagKey = str
 TagValue = str
 aliasString = str
@@ -2026,7 +2027,13 @@ class CookiePreference(TypedDict, total=False):
 
 
 class ForwardedValues(TypedDict, total=False):
-    """This field is deprecated. We recommend that you use a cache policy or an
+    """This field only supports standard distributions. You can't specify this
+    field for multi-tenant distributions. For more information, see
+    `Unsupported features for SaaS Manager for Amazon
+    CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-config-options.html#unsupported-saas>`__
+    in the *Amazon CloudFront Developer Guide*.
+
+    This field is deprecated. We recommend that you use a cache policy or an
     origin request policy instead of this field.
 
     If you want to include values in the cache key, use a cache policy. For
@@ -2402,11 +2409,11 @@ class CloudFrontOriginAccessIdentityList(TypedDict, total=False):
 
 
 class ConflictingAlias(TypedDict, total=False):
-    """An alias (also called a CNAME) and the CloudFront distribution and
-    Amazon Web Services account ID that it's associated with. The
-    distribution and account IDs are partially hidden, which allows you to
-    identify the distributions and accounts that you own, but helps to
-    protect the information of ones that you don't own.
+    """An alias (also called a CNAME) and the CloudFront standard distribution
+    and Amazon Web Services account ID that it's associated with. The
+    standard distribution and account IDs are partially hidden, which allows
+    you to identify the standard distributions and accounts that you own,
+    and helps to protect the information of ones that you don't own.
     """
 
     Alias: Optional[string]
@@ -2418,11 +2425,12 @@ ConflictingAliases = List[ConflictingAlias]
 
 
 class ConflictingAliasesList(TypedDict, total=False):
-    """A list of aliases (also called CNAMEs) and the CloudFront distributions
-    and Amazon Web Services accounts that they are associated with. In the
-    list, the distribution and account IDs are partially hidden, which
-    allows you to identify the distributions and accounts that you own, but
-    helps to protect the information of ones that you don't own.
+    """A list of aliases (also called CNAMEs) and the CloudFront standard
+    distributions and Amazon Web Services accounts that they are associated
+    with. In the list, the standard distribution and account IDs are
+    partially hidden, which allows you to identify the standard
+    distributions and accounts that you own, but helps to protect the
+    information of ones that you don't own.
     """
 
     NextMarker: Optional[string]
@@ -2616,7 +2624,7 @@ class CopyDistributionRequest(ServiceRequest):
 class StringSchemaConfig(TypedDict, total=False):
     """The configuration for a string schema."""
 
-    Comment: Optional[string]
+    Comment: Optional[sensitiveStringType]
     DefaultValue: Optional[ParameterValue]
     Required: boolean
 
@@ -2642,7 +2650,14 @@ ParameterDefinitions = List[ParameterDefinition]
 
 
 class TenantConfig(TypedDict, total=False):
-    """The configuration for a distribution tenant."""
+    """This field only supports multi-tenant distributions. You can't specify
+    this field for standard distributions. For more information, see
+    `Unsupported features for SaaS Manager for Amazon
+    CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-config-options.html#unsupported-saas>`__
+    in the *Amazon CloudFront Developer Guide*.
+
+    The configuration for a distribution tenant.
+    """
 
     ParameterDefinitions: Optional[ParameterDefinitions]
 
@@ -2728,7 +2743,7 @@ class ViewerCertificate(TypedDict, total=False):
     """
 
     CloudFrontDefaultCertificate: Optional[boolean]
-    IAMCertificateId: Optional[string]
+    IAMCertificateId: Optional[ServerCertificateId]
     ACMCertificateArn: Optional[string]
     SSLSupportMethod: Optional[SSLSupportMethod]
     MinimumProtocolVersion: Optional[MinimumProtocolVersion]
@@ -4325,7 +4340,7 @@ class DeleteFieldLevelEncryptionProfileRequest(ServiceRequest):
 
 
 class DeleteFunctionRequest(ServiceRequest):
-    Name: string
+    Name: FunctionName
     IfMatch: string
 
 
@@ -4390,7 +4405,7 @@ class DeleteVpcOriginResult(TypedDict, total=False):
 
 
 class DescribeFunctionRequest(ServiceRequest):
-    Name: string
+    Name: FunctionName
     Stage: Optional[FunctionStage]
 
 
@@ -4457,7 +4472,7 @@ class DistributionSummary(TypedDict, total=False):
     DefaultCacheBehavior: DefaultCacheBehavior
     CacheBehaviors: CacheBehaviors
     CustomErrorResponses: CustomErrorResponses
-    Comment: string
+    Comment: sensitiveStringType
     PriceClass: PriceClass
     Enabled: boolean
     ViewerCertificate: ViewerCertificate
@@ -4776,7 +4791,7 @@ class GetFieldLevelEncryptionResult(TypedDict, total=False):
 
 
 class GetFunctionRequest(ServiceRequest):
-    Name: string
+    Name: FunctionName
     Stage: Optional[FunctionStage]
 
 
@@ -5556,7 +5571,7 @@ class ListVpcOriginsResult(TypedDict, total=False):
 
 
 class PublishFunctionRequest(ServiceRequest):
-    Name: string
+    Name: FunctionName
     IfMatch: string
 
 
@@ -5581,7 +5596,7 @@ class TagResourceRequest(ServiceRequest):
 
 
 class TestFunctionRequest(ServiceRequest):
-    Name: string
+    Name: FunctionName
     IfMatch: string
     Stage: Optional[FunctionStage]
     EventObject: FunctionEventObject
@@ -5738,7 +5753,7 @@ class UpdateFieldLevelEncryptionProfileResult(TypedDict, total=False):
 
 
 class UpdateFunctionRequest(ServiceRequest):
-    Name: string
+    Name: FunctionName
     IfMatch: string
     FunctionConfig: FunctionConfig
     FunctionCode: FunctionBlob
@@ -5870,25 +5885,36 @@ class CloudfrontApi:
     def associate_alias(
         self, context: RequestContext, target_distribution_id: string, alias: string, **kwargs
     ) -> None:
-        """Associates an alias (also known as a CNAME or an alternate domain name)
-        with a CloudFront distribution.
+        """The ``AssociateAlias`` API operation only supports standard
+        distributions. To move domains between distribution tenants and/or
+        standard distributions, we recommend that you use the
+        `UpdateDomainAssociation <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDomainAssociation.html>`__
+        API operation instead.
 
-        With this operation you can move an alias that's already in use on a
-        CloudFront distribution to a different distribution in one step. This
+        Associates an alias with a CloudFront standard distribution. An alias is
+        commonly known as a custom domain or vanity domain. It can also be
+        called a CNAME or alternate domain name.
+
+        With this operation, you can move an alias that's already used for a
+        standard distribution to a different standard distribution. This
         prevents the downtime that could occur if you first remove the alias
-        from one distribution and then separately add the alias to another
-        distribution.
+        from one standard distribution and then separately add the alias to
+        another standard distribution.
 
-        To use this operation to associate an alias with a distribution, you
-        provide the alias and the ID of the target distribution for the alias.
-        For more information, including how to set up the target distribution,
-        prerequisites that you must complete, and other restrictions, see
-        `Moving an alternate domain name to a different
-        distribution <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
+        To use this operation, specify the alias and the ID of the target
+        standard distribution.
+
+        For more information, including how to set up the target standard
+        distribution, prerequisites that you must complete, and other
+        restrictions, see `Moving an alternate domain name to a different
+        standard distribution or distribution
+        tenant <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
         in the *Amazon CloudFront Developer Guide*.
 
-        :param target_distribution_id: The ID of the distribution that you're associating the alias with.
-        :param alias: The alias (also known as a CNAME) to add to the target distribution.
+        :param target_distribution_id: The ID of the standard distribution that you're associating the alias
+        with.
+        :param alias: The alias (also known as a CNAME) to add to the target standard
+        distribution.
         :raises NoSuchDistribution:
         :raises AccessDenied:
         :raises IllegalUpdate:
@@ -7045,7 +7071,7 @@ class CloudfrontApi:
 
     @handler("DeleteFunction")
     def delete_function(
-        self, context: RequestContext, name: string, if_match: string, **kwargs
+        self, context: RequestContext, name: FunctionName, if_match: string, **kwargs
     ) -> None:
         """Deletes a CloudFront function.
 
@@ -7323,7 +7349,11 @@ class CloudfrontApi:
 
     @handler("DescribeFunction")
     def describe_function(
-        self, context: RequestContext, name: string, stage: FunctionStage | None = None, **kwargs
+        self,
+        context: RequestContext,
+        name: FunctionName,
+        stage: FunctionStage | None = None,
+        **kwargs,
     ) -> DescribeFunctionResult:
         """Gets configuration information and metadata about a CloudFront function,
         but not the function's code. To get a function's code, use
@@ -7639,7 +7669,11 @@ class CloudfrontApi:
 
     @handler("GetFunction")
     def get_function(
-        self, context: RequestContext, name: string, stage: FunctionStage | None = None, **kwargs
+        self,
+        context: RequestContext,
+        name: FunctionName,
+        stage: FunctionStage | None = None,
+        **kwargs,
     ) -> GetFunctionResult:
         """Gets the code of a CloudFront function. To get configuration information
         and metadata about a function, use ``DescribeFunction``.
@@ -8032,29 +8066,39 @@ class CloudfrontApi:
         max_items: listConflictingAliasesMaxItemsInteger | None = None,
         **kwargs,
     ) -> ListConflictingAliasesResult:
-        """Gets a list of aliases (also called CNAMEs or alternate domain names)
-        that conflict or overlap with the provided alias, and the associated
-        CloudFront distributions and Amazon Web Services accounts for each
-        conflicting alias. In the returned list, the distribution and account
-        IDs are partially hidden, which allows you to identify the distributions
-        and accounts that you own, but helps to protect the information of ones
+        """The ``ListConflictingAliases`` API operation only supports standard
+        distributions. To list domain conflicts for both standard distributions
+        and distribution tenants, we recommend that you use the
+        `ListDomainConflicts <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ListDomainConflicts.html>`__
+        API operation instead.
+
+        Gets a list of aliases that conflict or overlap with the provided alias,
+        and the associated CloudFront standard distribution and Amazon Web
+        Services accounts for each conflicting alias. An alias is commonly known
+        as a custom domain or vanity domain. It can also be called a CNAME or
+        alternate domain name.
+
+        In the returned list, the standard distribution and account IDs are
+        partially hidden, which allows you to identify the standard distribution
+        and accounts that you own, and helps to protect the information of ones
         that you don't own.
 
         Use this operation to find aliases that are in use in CloudFront that
         conflict or overlap with the provided alias. For example, if you provide
         ``www.example.com`` as input, the returned list can include
         ``www.example.com`` and the overlapping wildcard alternate domain name
-        (``*.example.com``), if they exist. If you provide ``*.example.com`` as
+        (``.example.com``), if they exist. If you provide ``.example.com`` as
         input, the returned list can include ``*.example.com`` and any alternate
         domain names covered by that wildcard (for example, ``www.example.com``,
         ``test.example.com``, ``dev.example.com``, and so on), if they exist.
 
-        To list conflicting aliases, you provide the alias to search and the ID
-        of a distribution in your account that has an attached SSL/TLS
+        To list conflicting aliases, specify the alias to search and the ID of a
+        standard distribution in your account that has an attached TLS
         certificate that includes the provided alias. For more information,
-        including how to set up the distribution and certificate, see `Moving an
-        alternate domain name to a different
-        distribution <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
+        including how to set up the standard distribution and certificate, see
+        `Moving an alternate domain name to a different standard distribution or
+        distribution
+        tenant <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
         in the *Amazon CloudFront Developer Guide*.
 
         You can optionally specify the maximum number of items to receive in the
@@ -8064,8 +8108,8 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param distribution_id: The ID of a distribution in your account that has an attached SSL/TLS
-        certificate that includes the provided alias.
+        :param distribution_id: The ID of a standard distribution in your account that has an attached
+        TLS certificate that includes the provided alias.
         :param alias: The alias (also called a CNAME) to search for conflicting aliases.
         :param marker: Use this field when paginating results to indicate where to begin in the
         list of conflicting aliases.
@@ -8259,7 +8303,9 @@ class CloudfrontApi:
     ) -> ListDistributionsByConnectionModeResult:
         """Lists the distributions by the connection mode that you specify.
 
-        :param connection_mode: The connection mode to filter distributions by.
+        :param connection_mode: This field specifies whether the connection mode is through a standard
+        distribution (direct) or a multi-tenant distribution with distribution
+        tenants(tenant-only).
         :param marker: The marker for the next set of distributions to retrieve.
         :param max_items: The maximum number of distributions to return.
         :returns: ListDistributionsByConnectionModeResult
@@ -8452,12 +8498,48 @@ class CloudfrontApi:
         marker: string | None = None,
         **kwargs,
     ) -> ListDomainConflictsResult:
-        """Lists existing domain associations that conflict with the domain that
+        """We recommend that you use the ``ListDomainConflicts`` API operation to
+        check for domain conflicts, as it supports both standard distributions
+        and distribution tenants.
+        `ListConflictingAliases <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ListConflictingAliases.html>`__
+        performs similar checks but only supports standard distributions.
+
+        Lists existing domain associations that conflict with the domain that
         you specify.
 
-        You can use this API operation when transferring domains to identify
-        potential domain conflicts. Domain conflicts must be resolved first
-        before they can be moved.
+        You can use this API operation to identify potential domain conflicts
+        when moving domains between standard distributions and/or distribution
+        tenants. Domain conflicts must be resolved first before they can be
+        moved.
+
+        For example, if you provide ``www.example.com`` as input, the returned
+        list can include ``www.example.com`` and the overlapping wildcard
+        alternate domain name (``.example.com``), if they exist. If you provide
+        ``.example.com`` as input, the returned list can include
+        ``*.example.com`` and any alternate domain names covered by that
+        wildcard (for example, ``www.example.com``, ``test.example.com``,
+        ``dev.example.com``, and so on), if they exist.
+
+        To list conflicting domains, specify the following:
+
+        -  The domain to search for
+
+        -  The ID of a standard distribution or distribution tenant in your
+           account that has an attached TLS certificate, which covers the
+           specified domain
+
+        For more information, including how to set up the standard distribution
+        or distribution tenant, and the certificate, see `Moving an alternate
+        domain name to a different standard distribution or distribution
+        tenant <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
+        in the *Amazon CloudFront Developer Guide*.
+
+        You can optionally specify the maximum number of items to receive in the
+        response. If the total number of items in the list exceeds the maximum
+        that you specify, or the default maximum, the response is paginated. To
+        get the next page of items, send a subsequent request that specifies the
+        ``NextMarker`` value from the current response as the ``Marker`` value
+        in the subsequent request.
 
         :param domain: The domain to check for conflicts.
         :param domain_control_validation_resource: The distribution resource identifier.
@@ -8828,7 +8910,7 @@ class CloudfrontApi:
 
     @handler("PublishFunction")
     def publish_function(
-        self, context: RequestContext, name: string, if_match: string, **kwargs
+        self, context: RequestContext, name: FunctionName, if_match: string, **kwargs
     ) -> PublishFunctionResult:
         """Publishes a CloudFront function by copying the function code from the
         ``DEVELOPMENT`` stage to ``LIVE``. This automatically updates all cache
@@ -8876,7 +8958,7 @@ class CloudfrontApi:
     def test_function(
         self,
         context: RequestContext,
-        name: string,
+        name: FunctionName,
         if_match: string,
         event_object: FunctionEventObject,
         stage: FunctionStage | None = None,
@@ -9339,12 +9421,32 @@ class CloudfrontApi:
         if_match: string | None = None,
         **kwargs,
     ) -> UpdateDomainAssociationResult:
-        """Moves a domain from its current distribution or distribution tenant to
-        another one.
+        """We recommend that you use the ``UpdateDomainAssociation`` API operation
+        to move a domain association, as it supports both standard distributions
+        and distribution tenants.
+        `AssociateAlias <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_AssociateAlias.html>`__
+        performs similar checks but only supports standard distributions.
+
+        Moves a domain from its current standard distribution or distribution
+        tenant to another one.
+
+        You must first disable the source distribution (standard distribution or
+        distribution tenant) and then separately call this operation to move the
+        domain to another target distribution (standard distribution or
+        distribution tenant).
+
+        To use this operation, specify the domain and the ID of the target
+        resource (standard distribution or distribution tenant). For more
+        information, including how to set up the target resource, prerequisites
+        that you must complete, and other restrictions, see `Moving an alternate
+        domain name to a different standard distribution or distribution
+        tenant <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
+        in the *Amazon CloudFront Developer Guide*.
 
         :param domain: The domain to update.
-        :param target_resource: The target distribution resource for the domain.
-        :param if_match: The value of the ``ETag`` identifier for the distribution or
+        :param target_resource: The target standard distribution or distribution tenant resource for the
+        domain.
+        :param if_match: The value of the ``ETag`` identifier for the standard distribution or
         distribution tenant that will be associated with the domain.
         :returns: UpdateDomainAssociationResult
         :raises PreconditionFailed:
@@ -9421,7 +9523,7 @@ class CloudfrontApi:
     def update_function(
         self,
         context: RequestContext,
-        name: string,
+        name: FunctionName,
         if_match: string,
         function_config: FunctionConfig,
         function_code: FunctionBlob,

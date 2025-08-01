@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zhinst-toolkit
-Version: 1.0.1
+Version: 1.1.0
 Summary: Zurich Instruments Toolkit High Level API
 Project-URL: homepage, https://github.com/zhinst/zhinst-toolkit
 Author-email: Zurich Instrument <info@zhinst.com>

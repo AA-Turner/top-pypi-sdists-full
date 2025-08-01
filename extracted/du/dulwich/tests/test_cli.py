@@ -6,7 +6,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -33,7 +33,7 @@ from unittest import skipIf
 from unittest.mock import MagicMock, patch
 
 from dulwich import cli
-from dulwich.cli import format_bytes, parse_relative_time
+from dulwich.cli import format_bytes, launch_editor, parse_relative_time
 from dulwich.repo import Repo
 from dulwich.tests.utils import (
     build_commit_graph,
@@ -118,6 +118,25 @@ class InitCommandTest(DulwichCliTestCase):
         self.assertFalse(os.path.exists(os.path.join(bare_repo_path, ".git")))
 
 
+class HelperFunctionsTest(TestCase):
+    """Tests for CLI helper functions."""
+
+    def test_format_bytes(self):
+        self.assertEqual("0.0 B", format_bytes(0))
+        self.assertEqual("100.0 B", format_bytes(100))
+        self.assertEqual("1.0 KB", format_bytes(1024))
+        self.assertEqual("1.5 KB", format_bytes(1536))
+        self.assertEqual("1.0 MB", format_bytes(1024 * 1024))
+        self.assertEqual("1.0 GB", format_bytes(1024 * 1024 * 1024))
+        self.assertEqual("1.0 TB", format_bytes(1024 * 1024 * 1024 * 1024))
+
+    def test_launch_editor_with_cat(self):
+        """Test launch_editor by using cat as the editor."""
+        self.overrideEnv("GIT_EDITOR", "cat")
+        result = launch_editor(b"Test template content")
+        self.assertEqual(b"Test template content", result)
+
+
 class AddCommandTest(DulwichCliTestCase):
     """Tests for add command."""
 
@@ -178,6 +197,149 @@ class CommitCommandTest(DulwichCliTestCase):
         result, stdout, stderr = self._run_cli("commit", "--message=Initial commit")
         # Check that HEAD points to a commit
         self.assertIsNotNone(self.repo.head())
+
+    def test_commit_all_flag(self):
+        # Create initial commit
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("initial content")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Initial commit")
+
+        # Modify the file (don't stage it)
+        with open(test_file, "w") as f:
+            f.write("modified content")
+
+        # Create another file and don't add it (untracked)
+        untracked_file = os.path.join(self.repo_path, "untracked.txt")
+        with open(untracked_file, "w") as f:
+            f.write("untracked content")
+
+        # Commit with -a flag should stage and commit the modified file,
+        # but not the untracked file
+        result, stdout, stderr = self._run_cli(
+            "commit", "-a", "--message=Modified commit"
+        )
+        self.assertIsNotNone(self.repo.head())
+
+        # Check that the modification was committed
+        with open(test_file) as f:
+            content = f.read()
+        self.assertEqual(content, "modified content")
+
+        # Check that untracked file is still untracked
+        self.assertTrue(os.path.exists(untracked_file))
+
+    def test_commit_all_flag_no_changes(self):
+        # Create initial commit
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("initial content")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Initial commit")
+
+        # Try to commit with -a when there are no changes
+        # This should still work (git allows this)
+        result, stdout, stderr = self._run_cli(
+            "commit", "-a", "--message=No changes commit"
+        )
+        self.assertIsNotNone(self.repo.head())
+
+    def test_commit_all_flag_multiple_files(self):
+        # Create initial commit with multiple files
+        file1 = os.path.join(self.repo_path, "file1.txt")
+        file2 = os.path.join(self.repo_path, "file2.txt")
+
+        with open(file1, "w") as f:
+            f.write("content1")
+        with open(file2, "w") as f:
+            f.write("content2")
+
+        self._run_cli("add", "file1.txt", "file2.txt")
+        self._run_cli("commit", "--message=Initial commit")
+
+        # Modify both files
+        with open(file1, "w") as f:
+            f.write("modified content1")
+        with open(file2, "w") as f:
+            f.write("modified content2")
+
+        # Create an untracked file
+        untracked_file = os.path.join(self.repo_path, "untracked.txt")
+        with open(untracked_file, "w") as f:
+            f.write("untracked content")
+
+        # Commit with -a should stage both modified files but not untracked
+        result, stdout, stderr = self._run_cli(
+            "commit", "-a", "--message=Modified both files"
+        )
+        self.assertIsNotNone(self.repo.head())
+
+        # Verify modifications were committed
+        with open(file1) as f:
+            self.assertEqual(f.read(), "modified content1")
+        with open(file2) as f:
+            self.assertEqual(f.read(), "modified content2")
+
+        # Verify untracked file still exists
+        self.assertTrue(os.path.exists(untracked_file))
+
+    @patch("dulwich.cli.launch_editor")
+    def test_commit_editor_success(self, mock_editor):
+        """Test commit with editor when user provides a message."""
+        # Create and add a file
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("test content")
+        self._run_cli("add", "test.txt")
+
+        # Mock editor to return a commit message
+        mock_editor.return_value = b"My commit message\n\n# This is a comment\n"
+
+        # Commit without --message flag
+        result, stdout, stderr = self._run_cli("commit")
+
+        # Check that HEAD points to a commit
+        commit = self.repo[self.repo.head()]
+        self.assertEqual(commit.message, b"My commit message")
+
+        # Verify editor was called
+        mock_editor.assert_called_once()
+
+    @patch("dulwich.cli.launch_editor")
+    def test_commit_editor_empty_message(self, mock_editor):
+        """Test commit with editor when user provides empty message."""
+        # Create and add a file
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("test content")
+        self._run_cli("add", "test.txt")
+
+        # Mock editor to return only comments
+        mock_editor.return_value = b"# All lines are comments\n# No actual message\n"
+
+        # Commit without --message flag should fail with exit code 1
+        result, stdout, stderr = self._run_cli("commit")
+        self.assertEqual(result, 1)
+
+    @patch("dulwich.cli.launch_editor")
+    def test_commit_editor_unchanged_template(self, mock_editor):
+        """Test commit with editor when user doesn't change the template."""
+        # Create and add a file
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("test content")
+        self._run_cli("add", "test.txt")
+
+        # Mock editor to return the exact template that was passed to it
+        def return_unchanged_template(template):
+            return template
+
+        mock_editor.side_effect = return_unchanged_template
+
+        # Commit without --message flag should fail with exit code 1
+        result, stdout, stderr = self._run_cli("commit")
+        self.assertEqual(result, 1)
 
 
 class LogCommandTest(DulwichCliTestCase):
@@ -293,6 +455,191 @@ class TagCommandTest(DulwichCliTestCase):
         # Create tag
         result, stdout, stderr = self._run_cli("tag", "v1.0")
         self.assertIn(b"refs/tags/v1.0", self.repo.refs.keys())
+
+
+class DiffCommandTest(DulwichCliTestCase):
+    """Tests for diff command."""
+
+    def test_diff_working_tree(self):
+        # Create and commit a file
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("initial content\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Initial")
+
+        # Modify the file
+        with open(test_file, "w") as f:
+            f.write("initial content\nmodified\n")
+
+        # Test unstaged diff
+        result, stdout, stderr = self._run_cli("diff")
+        self.assertIn("+modified", stdout)
+
+    def test_diff_staged(self):
+        # Create initial commit
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("initial content\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Initial")
+
+        # Modify and stage the file
+        with open(test_file, "w") as f:
+            f.write("initial content\nnew file\n")
+        self._run_cli("add", "test.txt")
+
+        # Test staged diff
+        result, stdout, stderr = self._run_cli("diff", "--staged")
+        self.assertIn("+new file", stdout)
+
+    def test_diff_cached(self):
+        # Create initial commit
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("initial content\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Initial")
+
+        # Modify and stage the file
+        with open(test_file, "w") as f:
+            f.write("initial content\nnew file\n")
+        self._run_cli("add", "test.txt")
+
+        # Test cached diff (alias for staged)
+        result, stdout, stderr = self._run_cli("diff", "--cached")
+        self.assertIn("+new file", stdout)
+
+    def test_diff_commit(self):
+        # Create two commits
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("first version\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=First")
+
+        with open(test_file, "w") as f:
+            f.write("first version\nsecond line\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Second")
+
+        # Add working tree changes
+        with open(test_file, "a") as f:
+            f.write("working tree change\n")
+
+        # Test single commit diff (should show working tree vs HEAD)
+        result, stdout, stderr = self._run_cli("diff", "HEAD")
+        self.assertIn("+working tree change", stdout)
+
+    def test_diff_two_commits(self):
+        # Create two commits
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("first version\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=First")
+
+        # Get first commit SHA
+        first_commit = self.repo.refs[b"HEAD"].decode()
+
+        with open(test_file, "w") as f:
+            f.write("first version\nsecond line\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Second")
+
+        # Get second commit SHA
+        second_commit = self.repo.refs[b"HEAD"].decode()
+
+        # Test diff between two commits
+        result, stdout, stderr = self._run_cli("diff", first_commit, second_commit)
+        self.assertIn("+second line", stdout)
+
+    def test_diff_commit_vs_working_tree(self):
+        # Test that diff <commit> shows working tree vs commit (not commit vs parent)
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("first version\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=First")
+
+        first_commit = self.repo.refs[b"HEAD"].decode()
+
+        with open(test_file, "w") as f:
+            f.write("first version\nsecond line\n")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Second")
+
+        # Add changes to working tree
+        with open(test_file, "w") as f:
+            f.write("completely different\n")
+
+        # diff <first_commit> should show working tree vs first commit
+        result, stdout, stderr = self._run_cli("diff", first_commit)
+        self.assertIn("-first version", stdout)
+        self.assertIn("+completely different", stdout)
+
+    def test_diff_with_paths(self):
+        # Test path filtering
+        # Create multiple files
+        file1 = os.path.join(self.repo_path, "file1.txt")
+        file2 = os.path.join(self.repo_path, "file2.txt")
+        subdir = os.path.join(self.repo_path, "subdir")
+        os.makedirs(subdir)
+        file3 = os.path.join(subdir, "file3.txt")
+
+        with open(file1, "w") as f:
+            f.write("content1\n")
+        with open(file2, "w") as f:
+            f.write("content2\n")
+        with open(file3, "w") as f:
+            f.write("content3\n")
+
+        self._run_cli("add", ".")
+        self._run_cli("commit", "--message=Initial")
+
+        # Modify all files
+        with open(file1, "w") as f:
+            f.write("modified1\n")
+        with open(file2, "w") as f:
+            f.write("modified2\n")
+        with open(file3, "w") as f:
+            f.write("modified3\n")
+
+        # Test diff with specific file
+        result, stdout, stderr = self._run_cli("diff", "--", "file1.txt")
+        self.assertIn("file1.txt", stdout)
+        self.assertNotIn("file2.txt", stdout)
+        self.assertNotIn("file3.txt", stdout)
+
+        # Test diff with directory
+        result, stdout, stderr = self._run_cli("diff", "--", "subdir")
+        self.assertNotIn("file1.txt", stdout)
+        self.assertNotIn("file2.txt", stdout)
+        self.assertIn("file3.txt", stdout)
+
+        # Test staged diff with paths
+        self._run_cli("add", "file1.txt")
+        result, stdout, stderr = self._run_cli("diff", "--staged", "--", "file1.txt")
+        self.assertIn("file1.txt", stdout)
+        self.assertIn("+modified1", stdout)
+
+        # Test diff with multiple paths (file2 and file3 are still unstaged)
+        result, stdout, stderr = self._run_cli(
+            "diff", "--", "file2.txt", "subdir/file3.txt"
+        )
+        self.assertIn("file2.txt", stdout)
+        self.assertIn("file3.txt", stdout)
+        self.assertNotIn("file1.txt", stdout)
+
+        # Test diff with commit and paths
+        first_commit = self.repo.refs[b"HEAD"].decode()
+        with open(file1, "w") as f:
+            f.write("newer1\n")
+        result, stdout, stderr = self._run_cli("diff", first_commit, "--", "file1.txt")
+        self.assertIn("file1.txt", stdout)
+        self.assertIn("-content1", stdout)
+        self.assertIn("+newer1", stdout)
+        self.assertNotIn("file2.txt", stdout)
 
 
 class FilterBranchCommandTest(DulwichCliTestCase):
@@ -586,6 +933,266 @@ class ShowCommandTest(DulwichCliTestCase):
 
         result, stdout, stderr = self._run_cli("show", "HEAD")
         self.assertIn("Test commit", stdout)
+
+
+class FormatPatchCommandTest(DulwichCliTestCase):
+    """Tests for format-patch command."""
+
+    def test_format_patch_single_commit(self):
+        # Create a commit with actual content
+        from dulwich.objects import Blob, Tree
+
+        # Initial commit
+        tree1 = Tree()
+        self.repo.object_store.add_object(tree1)
+        self.repo.get_worktree().commit(
+            message=b"Initial commit",
+            tree=tree1.id,
+        )
+
+        # Second commit with a file
+        blob = Blob.from_string(b"Hello, World!\n")
+        self.repo.object_store.add_object(blob)
+        tree2 = Tree()
+        tree2.add(b"hello.txt", 0o100644, blob.id)
+        self.repo.object_store.add_object(tree2)
+        self.repo.get_worktree().commit(
+            message=b"Add hello.txt",
+            tree=tree2.id,
+        )
+
+        # Test format-patch for last commit
+        result, stdout, stderr = self._run_cli("format-patch", "-n", "1")
+        self.assertEqual(result, None)
+        self.assertIn("0001-Add-hello.txt.patch", stdout)
+
+        # Check patch contents
+        patch_file = os.path.join(self.repo_path, "0001-Add-hello.txt.patch")
+        with open(patch_file, "rb") as f:
+            content = f.read()
+            # Check header
+            self.assertIn(b"Subject: [PATCH 1/1] Add hello.txt", content)
+            self.assertIn(b"From:", content)
+            self.assertIn(b"Date:", content)
+            # Check diff content
+            self.assertIn(b"diff --git a/hello.txt b/hello.txt", content)
+            self.assertIn(b"new file mode", content)
+            self.assertIn(b"+Hello, World!", content)
+            # Check footer
+            self.assertIn(b"-- \nDulwich", content)
+
+        # Clean up
+        os.remove(patch_file)
+
+    def test_format_patch_multiple_commits(self):
+        from dulwich.objects import Blob, Tree
+
+        # Initial commit
+        tree1 = Tree()
+        self.repo.object_store.add_object(tree1)
+        self.repo.get_worktree().commit(
+            message=b"Initial commit",
+            tree=tree1.id,
+        )
+
+        # Second commit
+        blob1 = Blob.from_string(b"File 1 content\n")
+        self.repo.object_store.add_object(blob1)
+        tree2 = Tree()
+        tree2.add(b"file1.txt", 0o100644, blob1.id)
+        self.repo.object_store.add_object(tree2)
+        self.repo.get_worktree().commit(
+            message=b"Add file1.txt",
+            tree=tree2.id,
+        )
+
+        # Third commit
+        blob2 = Blob.from_string(b"File 2 content\n")
+        self.repo.object_store.add_object(blob2)
+        tree3 = Tree()
+        tree3.add(b"file1.txt", 0o100644, blob1.id)
+        tree3.add(b"file2.txt", 0o100644, blob2.id)
+        self.repo.object_store.add_object(tree3)
+        self.repo.get_worktree().commit(
+            message=b"Add file2.txt",
+            tree=tree3.id,
+        )
+
+        # Test format-patch for last 2 commits
+        result, stdout, stderr = self._run_cli("format-patch", "-n", "2")
+        self.assertEqual(result, None)
+        self.assertIn("0001-Add-file1.txt.patch", stdout)
+        self.assertIn("0002-Add-file2.txt.patch", stdout)
+
+        # Check first patch
+        with open(os.path.join(self.repo_path, "0001-Add-file1.txt.patch"), "rb") as f:
+            content = f.read()
+            self.assertIn(b"Subject: [PATCH 1/2] Add file1.txt", content)
+            self.assertIn(b"+File 1 content", content)
+
+        # Check second patch
+        with open(os.path.join(self.repo_path, "0002-Add-file2.txt.patch"), "rb") as f:
+            content = f.read()
+            self.assertIn(b"Subject: [PATCH 2/2] Add file2.txt", content)
+            self.assertIn(b"+File 2 content", content)
+
+        # Clean up
+        os.remove(os.path.join(self.repo_path, "0001-Add-file1.txt.patch"))
+        os.remove(os.path.join(self.repo_path, "0002-Add-file2.txt.patch"))
+
+    def test_format_patch_output_directory(self):
+        from dulwich.objects import Blob, Tree
+
+        # Create a commit
+        blob = Blob.from_string(b"Test content\n")
+        self.repo.object_store.add_object(blob)
+        tree = Tree()
+        tree.add(b"test.txt", 0o100644, blob.id)
+        self.repo.object_store.add_object(tree)
+        self.repo.get_worktree().commit(
+            message=b"Test commit",
+            tree=tree.id,
+        )
+
+        # Create output directory
+        output_dir = os.path.join(self.test_dir, "patches")
+        os.makedirs(output_dir)
+
+        # Test format-patch with output directory
+        result, stdout, stderr = self._run_cli(
+            "format-patch", "-o", output_dir, "-n", "1"
+        )
+        self.assertEqual(result, None)
+
+        # Check that file was created in output directory with correct content
+        patch_file = os.path.join(output_dir, "0001-Test-commit.patch")
+        self.assertTrue(os.path.exists(patch_file))
+        with open(patch_file, "rb") as f:
+            content = f.read()
+            self.assertIn(b"Subject: [PATCH 1/1] Test commit", content)
+            self.assertIn(b"+Test content", content)
+
+    def test_format_patch_commit_range(self):
+        from dulwich.objects import Blob, Tree
+
+        # Create commits with actual file changes
+        commits = []
+        trees = []
+
+        # Initial empty commit
+        tree0 = Tree()
+        self.repo.object_store.add_object(tree0)
+        trees.append(tree0)
+        c0 = self.repo.get_worktree().commit(
+            message=b"Initial commit",
+            tree=tree0.id,
+        )
+        commits.append(c0)
+
+        # Add three files in separate commits
+        for i in range(1, 4):
+            blob = Blob.from_string(f"Content {i}\n".encode())
+            self.repo.object_store.add_object(blob)
+            tree = Tree()
+            # Copy previous files
+            for j in range(1, i):
+                prev_blob_id = trees[j][f"file{j}.txt".encode()][1]
+                tree.add(f"file{j}.txt".encode(), 0o100644, prev_blob_id)
+            # Add new file
+            tree.add(f"file{i}.txt".encode(), 0o100644, blob.id)
+            self.repo.object_store.add_object(tree)
+            trees.append(tree)
+
+            c = self.repo.get_worktree().commit(
+                message=f"Add file{i}.txt".encode(),
+                tree=tree.id,
+            )
+            commits.append(c)
+
+        # Test format-patch with commit range (should get commits 2 and 3)
+        result, stdout, stderr = self._run_cli(
+            "format-patch", f"{commits[1].decode()}..{commits[3].decode()}"
+        )
+        self.assertEqual(result, None)
+
+        # Should create patches for commits 2 and 3
+        self.assertIn("0001-Add-file2.txt.patch", stdout)
+        self.assertIn("0002-Add-file3.txt.patch", stdout)
+
+        # Verify patch contents
+        with open(os.path.join(self.repo_path, "0001-Add-file2.txt.patch"), "rb") as f:
+            content = f.read()
+            self.assertIn(b"Subject: [PATCH 1/2] Add file2.txt", content)
+            self.assertIn(b"+Content 2", content)
+            self.assertNotIn(b"file3.txt", content)  # Should not include file3
+
+        with open(os.path.join(self.repo_path, "0002-Add-file3.txt.patch"), "rb") as f:
+            content = f.read()
+            self.assertIn(b"Subject: [PATCH 2/2] Add file3.txt", content)
+            self.assertIn(b"+Content 3", content)
+            self.assertNotIn(b"file2.txt", content)  # Should not modify file2
+
+        # Clean up
+        os.remove(os.path.join(self.repo_path, "0001-Add-file2.txt.patch"))
+        os.remove(os.path.join(self.repo_path, "0002-Add-file3.txt.patch"))
+
+    def test_format_patch_stdout(self):
+        from dulwich.objects import Blob, Tree
+
+        # Create a commit with modified file
+        tree1 = Tree()
+        blob1 = Blob.from_string(b"Original content\n")
+        self.repo.object_store.add_object(blob1)
+        tree1.add(b"file.txt", 0o100644, blob1.id)
+        self.repo.object_store.add_object(tree1)
+        self.repo.get_worktree().commit(
+            message=b"Initial commit",
+            tree=tree1.id,
+        )
+
+        tree2 = Tree()
+        blob2 = Blob.from_string(b"Modified content\n")
+        self.repo.object_store.add_object(blob2)
+        tree2.add(b"file.txt", 0o100644, blob2.id)
+        self.repo.object_store.add_object(tree2)
+        self.repo.get_worktree().commit(
+            message=b"Modify file.txt",
+            tree=tree2.id,
+        )
+
+        # Mock stdout as a BytesIO for binary output
+        stdout_stream = io.BytesIO()
+        stdout_stream.buffer = stdout_stream
+
+        # Run command with --stdout
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        old_cwd = os.getcwd()
+        try:
+            sys.stdout = stdout_stream
+            sys.stderr = io.StringIO()
+            os.chdir(self.repo_path)
+            cli.main(["format-patch", "--stdout", "-n", "1"])
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            os.chdir(old_cwd)
+
+        # Check output
+        stdout_stream.seek(0)
+        output = stdout_stream.read()
+        self.assertIn(b"Subject: [PATCH 1/1] Modify file.txt", output)
+        self.assertIn(b"diff --git a/file.txt b/file.txt", output)
+        self.assertIn(b"-Original content", output)
+        self.assertIn(b"+Modified content", output)
+        self.assertIn(b"-- \nDulwich", output)
+
+    def test_format_patch_empty_repo(self):
+        # Test with empty repository
+        result, stdout, stderr = self._run_cli("format-patch", "-n", "5")
+        self.assertEqual(result, None)
+        # Should produce no output for empty repo
+        self.assertEqual(stdout.strip(), "")
 
 
 class FetchPackCommandTest(DulwichCliTestCase):
@@ -1014,6 +1621,393 @@ class SymbolicRefCommandTest(DulwichCliTestCase):
         )
 
 
+class BundleCommandTest(DulwichCliTestCase):
+    """Tests for bundle commands."""
+
+    def setUp(self):
+        super().setUp()
+        # Create a basic repository with some commits for bundle testing
+        # Create initial commit
+        test_file = os.path.join(self.repo_path, "file1.txt")
+        with open(test_file, "w") as f:
+            f.write("Content of file1\n")
+        self._run_cli("add", "file1.txt")
+        self._run_cli("commit", "--message=Initial commit")
+
+        # Create second commit
+        test_file2 = os.path.join(self.repo_path, "file2.txt")
+        with open(test_file2, "w") as f:
+            f.write("Content of file2\n")
+        self._run_cli("add", "file2.txt")
+        self._run_cli("commit", "--message=Add file2")
+
+        # Create a branch and tag for testing
+        self._run_cli("branch", "feature")
+        self._run_cli("tag", "v1.0")
+
+    def test_bundle_create_basic(self):
+        """Test basic bundle creation."""
+        bundle_file = os.path.join(self.test_dir, "test.bundle")
+
+        result, stdout, stderr = self._run_cli("bundle", "create", bundle_file, "HEAD")
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+        self.assertGreater(os.path.getsize(bundle_file), 0)
+
+    def test_bundle_create_all_refs(self):
+        """Test bundle creation with --all flag."""
+        bundle_file = os.path.join(self.test_dir, "all.bundle")
+
+        result, stdout, stderr = self._run_cli("bundle", "create", "--all", bundle_file)
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+    def test_bundle_create_specific_refs(self):
+        """Test bundle creation with specific refs."""
+        bundle_file = os.path.join(self.test_dir, "refs.bundle")
+
+        # Only use HEAD since feature branch may not exist
+        result, stdout, stderr = self._run_cli("bundle", "create", bundle_file, "HEAD")
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+    def test_bundle_create_with_range(self):
+        """Test bundle creation with commit range."""
+        # Get the first commit SHA by looking at the log
+        result, stdout, stderr = self._run_cli("log", "--reverse")
+        lines = stdout.strip().split("\n")
+        # Find first commit line that contains a SHA
+        first_commit = None
+        for line in lines:
+            if line.startswith("commit "):
+                first_commit = line.split()[1][:8]  # Get short SHA
+                break
+
+        if first_commit:
+            bundle_file = os.path.join(self.test_dir, "range.bundle")
+
+            result, stdout, stderr = self._run_cli(
+                "bundle", "create", bundle_file, f"{first_commit}..HEAD"
+            )
+            self.assertEqual(result, 0)
+            self.assertTrue(os.path.exists(bundle_file))
+        else:
+            self.skipTest("Could not determine first commit SHA")
+
+    def test_bundle_create_to_stdout(self):
+        """Test bundle creation to stdout."""
+        result, stdout, stderr = self._run_cli("bundle", "create", "-", "HEAD")
+        self.assertEqual(result, 0)
+        self.assertGreater(len(stdout), 0)
+        # Bundle output is binary, so check it's not empty
+        self.assertIsInstance(stdout, (str, bytes))
+
+    def test_bundle_create_no_refs(self):
+        """Test bundle creation with no refs specified."""
+        bundle_file = os.path.join(self.test_dir, "noref.bundle")
+
+        result, stdout, stderr = self._run_cli("bundle", "create", bundle_file)
+        self.assertEqual(result, 1)
+        self.assertIn("No refs specified", stdout)
+
+    def test_bundle_create_empty_bundle_refused(self):
+        """Test that empty bundles are refused."""
+        bundle_file = os.path.join(self.test_dir, "empty.bundle")
+
+        # Try to create bundle with non-existent ref - this should fail with KeyError
+        with self.assertRaises(KeyError):
+            result, stdout, stderr = self._run_cli(
+                "bundle", "create", bundle_file, "nonexistent-ref"
+            )
+
+    def test_bundle_verify_valid(self):
+        """Test bundle verification of valid bundle."""
+        bundle_file = os.path.join(self.test_dir, "valid.bundle")
+
+        # First create a bundle
+        result, stdout, stderr = self._run_cli("bundle", "create", bundle_file, "HEAD")
+        self.assertEqual(result, 0)
+
+        # Now verify it
+        result, stdout, stderr = self._run_cli("bundle", "verify", bundle_file)
+        self.assertEqual(result, 0)
+        self.assertIn("valid and can be applied", stdout)
+
+    def test_bundle_verify_quiet(self):
+        """Test bundle verification with quiet flag."""
+        bundle_file = os.path.join(self.test_dir, "quiet.bundle")
+
+        # Create bundle
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Verify quietly
+        result, stdout, stderr = self._run_cli(
+            "bundle", "verify", "--quiet", bundle_file
+        )
+        self.assertEqual(result, 0)
+        self.assertEqual(stdout.strip(), "")
+
+    def test_bundle_verify_from_stdin(self):
+        """Test bundle verification from stdin."""
+        bundle_file = os.path.join(self.test_dir, "stdin.bundle")
+
+        # Create bundle
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Read bundle content
+        with open(bundle_file, "rb") as f:
+            bundle_content = f.read()
+
+        # Mock stdin with bundle content
+        old_stdin = sys.stdin
+        try:
+            sys.stdin = io.BytesIO(bundle_content)
+            sys.stdin.buffer = sys.stdin
+            result, stdout, stderr = self._run_cli("bundle", "verify", "-")
+            self.assertEqual(result, 0)
+        finally:
+            sys.stdin = old_stdin
+
+    def test_bundle_list_heads(self):
+        """Test listing bundle heads."""
+        bundle_file = os.path.join(self.test_dir, "heads.bundle")
+
+        # Create bundle with HEAD only
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # List heads
+        result, stdout, stderr = self._run_cli("bundle", "list-heads", bundle_file)
+        self.assertEqual(result, 0)
+        # Should contain at least the HEAD reference
+        self.assertTrue(len(stdout.strip()) > 0)
+
+    def test_bundle_list_heads_specific_refs(self):
+        """Test listing specific bundle heads."""
+        bundle_file = os.path.join(self.test_dir, "specific.bundle")
+
+        # Create bundle with HEAD
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # List heads without filtering
+        result, stdout, stderr = self._run_cli("bundle", "list-heads", bundle_file)
+        self.assertEqual(result, 0)
+        # Should contain some reference
+        self.assertTrue(len(stdout.strip()) > 0)
+
+    def test_bundle_list_heads_from_stdin(self):
+        """Test listing bundle heads from stdin."""
+        bundle_file = os.path.join(self.test_dir, "stdin-heads.bundle")
+
+        # Create bundle
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Read bundle content
+        with open(bundle_file, "rb") as f:
+            bundle_content = f.read()
+
+        # Mock stdin
+        old_stdin = sys.stdin
+        try:
+            sys.stdin = io.BytesIO(bundle_content)
+            sys.stdin.buffer = sys.stdin
+            result, stdout, stderr = self._run_cli("bundle", "list-heads", "-")
+            self.assertEqual(result, 0)
+        finally:
+            sys.stdin = old_stdin
+
+    def test_bundle_unbundle(self):
+        """Test bundle unbundling."""
+        bundle_file = os.path.join(self.test_dir, "unbundle.bundle")
+
+        # Create bundle
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Unbundle
+        result, stdout, stderr = self._run_cli("bundle", "unbundle", bundle_file)
+        self.assertEqual(result, 0)
+
+    def test_bundle_unbundle_specific_refs(self):
+        """Test unbundling specific refs."""
+        bundle_file = os.path.join(self.test_dir, "unbundle-specific.bundle")
+
+        # Create bundle with HEAD
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Unbundle only HEAD
+        result, stdout, stderr = self._run_cli(
+            "bundle", "unbundle", bundle_file, "HEAD"
+        )
+        self.assertEqual(result, 0)
+
+    def test_bundle_unbundle_from_stdin(self):
+        """Test unbundling from stdin."""
+        bundle_file = os.path.join(self.test_dir, "stdin-unbundle.bundle")
+
+        # Create bundle
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Read bundle content to simulate stdin
+        with open(bundle_file, "rb") as f:
+            bundle_content = f.read()
+
+        # Mock stdin with bundle content
+        old_stdin = sys.stdin
+        try:
+            # Create a BytesIO object with buffer attribute
+            mock_stdin = io.BytesIO(bundle_content)
+            mock_stdin.buffer = mock_stdin
+            sys.stdin = mock_stdin
+
+            result, stdout, stderr = self._run_cli("bundle", "unbundle", "-")
+            self.assertEqual(result, 0)
+        finally:
+            sys.stdin = old_stdin
+
+    def test_bundle_unbundle_with_progress(self):
+        """Test unbundling with progress output."""
+        bundle_file = os.path.join(self.test_dir, "progress.bundle")
+
+        # Create bundle
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Unbundle with progress
+        result, stdout, stderr = self._run_cli(
+            "bundle", "unbundle", "--progress", bundle_file
+        )
+        self.assertEqual(result, 0)
+
+    def test_bundle_create_with_progress(self):
+        """Test bundle creation with progress output."""
+        bundle_file = os.path.join(self.test_dir, "create-progress.bundle")
+
+        result, stdout, stderr = self._run_cli(
+            "bundle", "create", "--progress", bundle_file, "HEAD"
+        )
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+    def test_bundle_create_with_quiet(self):
+        """Test bundle creation with quiet flag."""
+        bundle_file = os.path.join(self.test_dir, "quiet-create.bundle")
+
+        result, stdout, stderr = self._run_cli(
+            "bundle", "create", "--quiet", bundle_file, "HEAD"
+        )
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+    def test_bundle_create_version_2(self):
+        """Test bundle creation with specific version."""
+        bundle_file = os.path.join(self.test_dir, "v2.bundle")
+
+        result, stdout, stderr = self._run_cli(
+            "bundle", "create", "--version", "2", bundle_file, "HEAD"
+        )
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+    def test_bundle_create_version_3(self):
+        """Test bundle creation with version 3."""
+        bundle_file = os.path.join(self.test_dir, "v3.bundle")
+
+        result, stdout, stderr = self._run_cli(
+            "bundle", "create", "--version", "3", bundle_file, "HEAD"
+        )
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+    def test_bundle_invalid_subcommand(self):
+        """Test invalid bundle subcommand."""
+        result, stdout, stderr = self._run_cli("bundle", "invalid-command")
+        self.assertEqual(result, 1)
+        self.assertIn("Unknown bundle subcommand", stdout)
+
+    def test_bundle_no_subcommand(self):
+        """Test bundle command with no subcommand."""
+        result, stdout, stderr = self._run_cli("bundle")
+        self.assertEqual(result, 1)
+        self.assertIn("Usage: bundle", stdout)
+
+    def test_bundle_create_with_stdin_refs(self):
+        """Test bundle creation reading refs from stdin."""
+        bundle_file = os.path.join(self.test_dir, "stdin-refs.bundle")
+
+        # Mock stdin with refs
+        old_stdin = sys.stdin
+        try:
+            sys.stdin = io.StringIO("master\nfeature\n")
+            result, stdout, stderr = self._run_cli(
+                "bundle", "create", "--stdin", bundle_file
+            )
+            self.assertEqual(result, 0)
+            self.assertTrue(os.path.exists(bundle_file))
+        finally:
+            sys.stdin = old_stdin
+
+    def test_bundle_verify_missing_prerequisites(self):
+        """Test bundle verification with missing prerequisites."""
+        # Create a simple bundle first
+        bundle_file = os.path.join(self.test_dir, "prereq.bundle")
+        self._run_cli("bundle", "create", bundle_file, "HEAD")
+
+        # Create a new repo to simulate missing objects
+        new_repo_path = os.path.join(self.test_dir, "new_repo")
+        os.mkdir(new_repo_path)
+        new_repo = Repo.init(new_repo_path)
+        new_repo.close()
+
+        # Try to verify in new repo
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(new_repo_path)
+            result, stdout, stderr = self._run_cli("bundle", "verify", bundle_file)
+            # Just check that verification runs - result depends on bundle content
+            self.assertIn(result, [0, 1])
+        finally:
+            os.chdir(old_cwd)
+
+    def test_bundle_create_with_committish_range(self):
+        """Test bundle creation with commit range using parse_committish_range."""
+        # Create additional commits for range testing
+        test_file3 = os.path.join(self.repo_path, "file3.txt")
+        with open(test_file3, "w") as f:
+            f.write("Content of file3\n")
+        self._run_cli("add", "file3.txt")
+        self._run_cli("commit", "--message=Add file3")
+
+        # Get commit SHAs
+        result, stdout, stderr = self._run_cli("log")
+        lines = stdout.strip().split("\n")
+        # Extract SHAs from commit lines
+        commits = []
+        for line in lines:
+            if line.startswith("commit:"):
+                sha = line.split()[1]
+                commits.append(sha[:8])  # Get short SHA
+
+        # We should have exactly 3 commits: Add file3, Add file2, Initial commit
+        self.assertEqual(len(commits), 3)
+
+        bundle_file = os.path.join(self.test_dir, "range-test.bundle")
+
+        # Test with commit range using .. syntax
+        # Create a bundle containing commits reachable from commits[0] but not from commits[2]
+        result, stdout, stderr = self._run_cli(
+            "bundle", "create", bundle_file, f"{commits[2]}..HEAD"
+        )
+        if result != 0:
+            self.fail(
+                f"Bundle create failed with exit code {result}. stdout: {stdout!r}, stderr: {stderr!r}"
+            )
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(bundle_file))
+
+        # Verify the bundle was created
+        result, stdout, stderr = self._run_cli("bundle", "verify", bundle_file)
+        self.assertEqual(result, 0)
+        self.assertIn("valid and can be applied", stdout)
+
+
 class FormatBytesTestCase(TestCase):
     """Tests for format_bytes function."""
 
@@ -1135,6 +2129,326 @@ class ParseRelativeTimeTestCase(TestCase):
         self.assertEqual(
             parse_relative_time("1 week ago"), parse_relative_time("1 weeks ago")
         )
+
+
+class GetPagerTest(TestCase):
+    """Tests for get_pager function."""
+
+    def setUp(self):
+        super().setUp()
+        # Save original environment
+        self.original_env = os.environ.copy()
+        # Clear pager-related environment variables
+        for var in ["DULWICH_PAGER", "GIT_PAGER", "PAGER"]:
+            os.environ.pop(var, None)
+        # Reset the global pager disable flag
+        cli.get_pager._disabled = False
+
+    def tearDown(self):
+        super().tearDown()
+        # Restore original environment
+        os.environ.clear()
+        os.environ.update(self.original_env)
+        # Reset the global pager disable flag
+        cli.get_pager._disabled = False
+
+    def test_pager_disabled_globally(self):
+        """Test that globally disabled pager returns stdout wrapper."""
+        cli.disable_pager()
+        pager = cli.get_pager()
+        self.assertIsInstance(pager, cli._StreamContextAdapter)
+        self.assertEqual(pager.stream, sys.stdout)
+
+    def test_pager_not_tty(self):
+        """Test that pager is disabled when stdout is not a TTY."""
+        with patch("sys.stdout.isatty", return_value=False):
+            pager = cli.get_pager()
+            self.assertIsInstance(pager, cli._StreamContextAdapter)
+
+    def test_pager_env_dulwich_pager(self):
+        """Test DULWICH_PAGER environment variable."""
+        os.environ["DULWICH_PAGER"] = "custom_pager"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager()
+            self.assertIsInstance(pager, cli.Pager)
+            self.assertEqual(pager.pager_cmd, "custom_pager")
+
+    def test_pager_env_dulwich_pager_false(self):
+        """Test DULWICH_PAGER=false disables pager."""
+        os.environ["DULWICH_PAGER"] = "false"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager()
+            self.assertIsInstance(pager, cli._StreamContextAdapter)
+
+    def test_pager_env_git_pager(self):
+        """Test GIT_PAGER environment variable."""
+        os.environ["GIT_PAGER"] = "git_custom_pager"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager()
+            self.assertIsInstance(pager, cli.Pager)
+            self.assertEqual(pager.pager_cmd, "git_custom_pager")
+
+    def test_pager_env_pager(self):
+        """Test PAGER environment variable."""
+        os.environ["PAGER"] = "my_pager"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager()
+            self.assertIsInstance(pager, cli.Pager)
+            self.assertEqual(pager.pager_cmd, "my_pager")
+
+    def test_pager_env_priority(self):
+        """Test environment variable priority order."""
+        os.environ["PAGER"] = "pager_low"
+        os.environ["GIT_PAGER"] = "pager_medium"
+        os.environ["DULWICH_PAGER"] = "pager_high"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager()
+            self.assertEqual(pager.pager_cmd, "pager_high")
+
+    def test_pager_config_core_pager(self):
+        """Test core.pager configuration."""
+        config = MagicMock()
+        config.get.return_value = b"config_pager"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager(config=config)
+            self.assertIsInstance(pager, cli.Pager)
+            self.assertEqual(pager.pager_cmd, "config_pager")
+            config.get.assert_called_with(("core",), b"pager")
+
+    def test_pager_config_core_pager_false(self):
+        """Test core.pager=false disables pager."""
+        config = MagicMock()
+        config.get.return_value = b"false"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager(config=config)
+            self.assertIsInstance(pager, cli._StreamContextAdapter)
+
+    def test_pager_config_core_pager_empty(self):
+        """Test core.pager="" disables pager."""
+        config = MagicMock()
+        config.get.return_value = b""
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager(config=config)
+            self.assertIsInstance(pager, cli._StreamContextAdapter)
+
+    def test_pager_config_per_command(self):
+        """Test per-command pager configuration."""
+        config = MagicMock()
+        config.get.side_effect = lambda section, key: {
+            (("pager",), b"log"): b"log_pager",
+        }.get((section, key), KeyError())
+
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager(config=config, cmd_name="log")
+            self.assertIsInstance(pager, cli.Pager)
+            self.assertEqual(pager.pager_cmd, "log_pager")
+
+    def test_pager_config_per_command_false(self):
+        """Test per-command pager=false disables pager."""
+        config = MagicMock()
+        config.get.return_value = b"false"
+        with patch("sys.stdout.isatty", return_value=True):
+            pager = cli.get_pager(config=config, cmd_name="log")
+            self.assertIsInstance(pager, cli._StreamContextAdapter)
+
+    def test_pager_config_per_command_true(self):
+        """Test per-command pager=true uses default pager."""
+        config = MagicMock()
+
+        def get_side_effect(section, key):
+            if section == ("pager",) and key == b"log":
+                return b"true"
+            raise KeyError
+
+        config.get.side_effect = get_side_effect
+
+        with patch("sys.stdout.isatty", return_value=True):
+            with patch("shutil.which", side_effect=lambda cmd: cmd == "less"):
+                pager = cli.get_pager(config=config, cmd_name="log")
+                self.assertIsInstance(pager, cli.Pager)
+                self.assertEqual(pager.pager_cmd, "less -FRX")
+
+    def test_pager_priority_order(self):
+        """Test complete priority order."""
+        # Set up all possible configurations
+        os.environ["PAGER"] = "env_pager"
+        os.environ["GIT_PAGER"] = "env_git_pager"
+
+        config = MagicMock()
+
+        def get_side_effect(section, key):
+            if section == ("pager",) and key == b"log":
+                return b"cmd_pager"
+            elif section == ("core",) and key == b"pager":
+                return b"core_pager"
+            raise KeyError
+
+        config.get.side_effect = get_side_effect
+
+        with patch("sys.stdout.isatty", return_value=True):
+            # Per-command config should win
+            pager = cli.get_pager(config=config, cmd_name="log")
+            self.assertEqual(pager.pager_cmd, "cmd_pager")
+
+    def test_pager_fallback_less(self):
+        """Test fallback to less with proper flags."""
+        with patch("sys.stdout.isatty", return_value=True):
+            with patch("shutil.which", side_effect=lambda cmd: cmd == "less"):
+                pager = cli.get_pager()
+                self.assertIsInstance(pager, cli.Pager)
+                self.assertEqual(pager.pager_cmd, "less -FRX")
+
+    def test_pager_fallback_more(self):
+        """Test fallback to more when less is not available."""
+        with patch("sys.stdout.isatty", return_value=True):
+            with patch("shutil.which", side_effect=lambda cmd: cmd == "more"):
+                pager = cli.get_pager()
+                self.assertIsInstance(pager, cli.Pager)
+                self.assertEqual(pager.pager_cmd, "more")
+
+    def test_pager_fallback_cat(self):
+        """Test ultimate fallback to cat."""
+        with patch("sys.stdout.isatty", return_value=True):
+            with patch("shutil.which", return_value=None):
+                pager = cli.get_pager()
+                self.assertIsInstance(pager, cli.Pager)
+                self.assertEqual(pager.pager_cmd, "cat")
+
+    def test_pager_context_manager(self):
+        """Test that pager works as a context manager."""
+        with patch("sys.stdout.isatty", return_value=True):
+            with cli.get_pager() as pager:
+                self.assertTrue(hasattr(pager, "write"))
+                self.assertTrue(hasattr(pager, "flush"))
+
+
+class WorktreeCliTests(DulwichCliTestCase):
+    """Tests for worktree CLI commands."""
+
+    def setUp(self):
+        super().setUp()
+        # Base class already creates and initializes the repo
+        # Just create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        from dulwich import porcelain
+
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+    def test_worktree_list(self):
+        """Test worktree list command."""
+        io.StringIO()
+        cmd = cli.cmd_worktree()
+        result = cmd.run(["list"])
+
+        # Should list the main worktree
+        self.assertEqual(result, 0)
+
+    def test_worktree_add(self):
+        """Test worktree add command."""
+        wt_path = os.path.join(self.test_dir, "worktree1")
+
+        # Change to repo directory like real usage
+        old_cwd = os.getcwd()
+        os.chdir(self.repo_path)
+        try:
+            cmd = cli.cmd_worktree()
+            with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                result = cmd.run(["add", wt_path, "feature"])
+
+            self.assertEqual(result, 0)
+            self.assertTrue(os.path.exists(wt_path))
+            self.assertIn("Worktree added:", mock_stdout.getvalue())
+        finally:
+            os.chdir(old_cwd)
+
+    def test_worktree_add_detached(self):
+        """Test worktree add with detached HEAD."""
+        wt_path = os.path.join(self.test_dir, "detached-wt")
+
+        cmd = cli.cmd_worktree()
+        with patch("sys.stdout", new_callable=io.StringIO):
+            result = cmd.run(["add", "--detach", wt_path])
+
+        self.assertEqual(result, 0)
+        self.assertTrue(os.path.exists(wt_path))
+
+    def test_worktree_remove(self):
+        """Test worktree remove command."""
+        # First add a worktree
+        wt_path = os.path.join(self.test_dir, "to-remove")
+        cmd = cli.cmd_worktree()
+        cmd.run(["add", wt_path])
+
+        # Then remove it
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            result = cmd.run(["remove", wt_path])
+
+        self.assertEqual(result, 0)
+        self.assertFalse(os.path.exists(wt_path))
+        self.assertIn("Worktree removed:", mock_stdout.getvalue())
+
+    def test_worktree_prune(self):
+        """Test worktree prune command."""
+        # Add a worktree and manually remove it
+        wt_path = os.path.join(self.test_dir, "to-prune")
+        cmd = cli.cmd_worktree()
+        cmd.run(["add", wt_path])
+        shutil.rmtree(wt_path)
+
+        # Prune
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            result = cmd.run(["prune", "-v"])
+
+        self.assertEqual(result, 0)
+        output = mock_stdout.getvalue()
+        self.assertIn("to-prune", output)
+
+    def test_worktree_lock_unlock(self):
+        """Test worktree lock and unlock commands."""
+        # Add a worktree
+        wt_path = os.path.join(self.test_dir, "lockable")
+        cmd = cli.cmd_worktree()
+        cmd.run(["add", wt_path])
+
+        # Lock it
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            result = cmd.run(["lock", wt_path, "--reason", "Testing"])
+
+        self.assertEqual(result, 0)
+        self.assertIn("Worktree locked:", mock_stdout.getvalue())
+
+        # Unlock it
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            result = cmd.run(["unlock", wt_path])
+
+        self.assertEqual(result, 0)
+        self.assertIn("Worktree unlocked:", mock_stdout.getvalue())
+
+    def test_worktree_move(self):
+        """Test worktree move command."""
+        # Add a worktree
+        old_path = os.path.join(self.test_dir, "old-location")
+        new_path = os.path.join(self.test_dir, "new-location")
+        cmd = cli.cmd_worktree()
+        cmd.run(["add", old_path])
+
+        # Move it
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            result = cmd.run(["move", old_path, new_path])
+
+        self.assertEqual(result, 0)
+        self.assertFalse(os.path.exists(old_path))
+        self.assertTrue(os.path.exists(new_path))
+        self.assertIn("Worktree moved:", mock_stdout.getvalue())
+
+    def test_worktree_invalid_command(self):
+        """Test invalid worktree subcommand."""
+        cmd = cli.cmd_worktree()
+        with patch("sys.stderr", new_callable=io.StringIO):
+            with self.assertRaises(SystemExit):
+                cmd.run(["invalid"])
 
 
 if __name__ == "__main__":

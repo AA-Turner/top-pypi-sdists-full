@@ -16,8 +16,10 @@ agent's behavior - for example, if a mode becomes enabled/disabled, handlers can
 easily added/removed.
 """
 
+from __future__ import annotations
+
 import inspect
-from typing import Callable, Optional, TypedDict
+from typing import Callable, TypedDict
 from collections.abc import Mapping
 from collections.abc import Generator
 
@@ -126,13 +128,19 @@ def observe_handler_builder(event_dict: EventDict) -> EventHandler:
     def observe_handler(
         context: RequestContext, args: Mapping[str, object]
     ) -> Generator:
-        with reporter.new_action_span(action_name):
+        if (trace := context.observability_trace) is None:
+            yield
+            return
+        with trace.child_span(action_name) as child_span:
+            if child_span is None:
+                yield
+                return
             result = yield
             dyn_attrs = {
                 key: result if arg_name == "return" else args[arg_name]
                 for key, arg_name in dynamic_attributes.items()
             }
-            reporter.update_span_attributes(static_attributes | dyn_attrs)
+            child_span.update(static_attributes | dyn_attrs)
 
     return observe_handler
 
@@ -219,7 +227,7 @@ def generate_policy_event_handlers(
 
 def get_event_handlers(
     location_name: str,
-) -> tuple[list[EventHandler], Optional[RequestContext]]:
+) -> tuple[list[EventHandler], RequestContext | None]:
     """
     Gets all current event handlers for a function. Performs the lookup on the event
     handlers stored on the current request context if one is available, otherwise uses
@@ -264,7 +272,7 @@ def build_generic_contrast_wrapper(original_func):
                 try:
                     next(gen)
                 except StopIteration:
-                    assert False, "Invalid event handler - did not yield"  # noqa: B011
+                    assert False, "Invalid event handler - did not yield"  # noqa: B011 PT015
                 else:
                     post.append(gen)
 
@@ -278,7 +286,7 @@ def build_generic_contrast_wrapper(original_func):
                     except StopIteration:  # noqa: PERF203
                         pass
                     else:
-                        assert False, "Invalid event handler - more than one yield"  # noqa: B011
+                        assert False, "Invalid event handler - more than one yield"  # noqa: B011 PT015
 
             assert result is not NO_RESULT
             return result

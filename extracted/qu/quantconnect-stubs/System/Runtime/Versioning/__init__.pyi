@@ -25,6 +25,9 @@ class ResourceScope(Enum):
 
     ASSEMBLY = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class VersioningHelper(System.Object):
     """This class has no documentation."""
@@ -113,6 +116,9 @@ class ComponentGuaranteesOptions(Enum):
     STABLE = ...
 
     SIDE_BY_SIDE = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class ComponentGuaranteesAttribute(System.Attribute):

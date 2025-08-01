@@ -263,6 +263,8 @@ class PolyhedralComplex(GenericCellComplex):
         sage: P = Polyhedron(vertices=[(0, 0), (1, 1)])
         sage: P.backend()
         'ppl'
+
+        sage: # needs cddexec_gmp
         sage: pc = PolyhedralComplex([P], backend='cdd')
         sage: Q = pc.maximal_cells_sorted()[0]
         sage: Q.backend()
@@ -293,10 +295,10 @@ class PolyhedralComplex(GenericCellComplex):
             cells_dict = cells_list_to_cells_dict(maximal_cells)
         elif isinstance(maximal_cells, dict):
             cells_dict = {}
-            for (k, l) in maximal_cells.items():
+            for k, l in maximal_cells.items():
                 if backend:
-                    cells_dict[k] = set([p.base_extend(p.base_ring(), backend)
-                                        for p in l])
+                    cells_dict[k] = {p.base_extend(p.base_ring(), backend)
+                                     for p in l}
                 else:
                     cells_dict[k] = set(l)
         else:
@@ -371,7 +373,7 @@ class PolyhedralComplex(GenericCellComplex):
         for k in range(self._dim, -1, -1):
             if k in maximal_cells:
                 if k not in cells:
-                    cells[k] = set([])
+                    cells[k] = set()
                 cells[k].update(maximal_cells[k])
             if k in cells:
                 for cell in cells[k]:
@@ -383,7 +385,7 @@ class PolyhedralComplex(GenericCellComplex):
                             covers[p] = []
                         covers[p].append(cell)
                         if (k-1) not in cells:
-                            cells[k-1] = set([])
+                            cells[k-1] = set()
                         cells[k-1].add(p)
         self._face_poset = Poset(covers)
         self._cells = cells
@@ -753,7 +755,7 @@ class PolyhedralComplex(GenericCellComplex):
             sage: pc1 = PolyhedralComplex([p1, p2, p3, -p1, -p2, -p3])
             sage: bb = dict(xmin=-2, xmax=2, ymin=-3, ymax=3, axes=False)
             sage: g0 = pc1.plot(color='rainbow', **bb)                                  # needs sage.plot
-            sage: g1 = pc1.plot(explosion_factor=0.5, **bb)                             # needs sage.plot
+            sage: g1 = pc1.plot(explosion_factor=0.5, **bb)                             # needs cddexec sage.plot
             sage: g2 = pc1.plot(explosion_factor=1, color='rainbow', alpha=0.5, **bb)   # needs sage.plot
             sage: graphics_array([g0, g1, g2]).show(axes=False)                        # not tested
 
@@ -773,7 +775,7 @@ class PolyhedralComplex(GenericCellComplex):
             ....:         Polyhedron(rays=[[-1,0,0], [0,-1,0], [0,0,1]]),
             ....:         Polyhedron(rays=[[-1,0,0], [0,1,0], [0,0,-1]]),
             ....:         Polyhedron(rays=[[-1,0,0], [0,1,0], [0,0,1]])])
-            sage: g5 = pc5.plot(explosion_factor=0.3, color='rainbow', alpha=0.8,       # needs sage.plot
+            sage: g5 = pc5.plot(explosion_factor=0.3, color='rainbow', alpha=0.8,       # needs cddexec sage.plot
             ....:               point={'size': 20}, axes=False, online=True)
         """
         if self.dimension() > 3:
@@ -1056,7 +1058,7 @@ class PolyhedralComplex(GenericCellComplex):
         """
         other_cells = other.cells()
         for (d, stratum) in self.maximal_cells().items():
-            if not stratum.issubset(other_cells.get(d, set([]))):
+            if not stratum.issubset(other_cells.get(d, set())):
                 return False
         return True
 
@@ -1595,9 +1597,9 @@ class PolyhedralComplex(GenericCellComplex):
         # After making sure that the affine hulls of the cells are the same,
         # it does not matter that is not full dimensional.
         boundaries = self.relative_boundary_cells()
-        vertices = set([])
-        rays = set([])
-        lines = set([])
+        vertices = set()
+        rays = set()
+        lines = set()
         for cell in boundaries:
             # it suffices to consider only vertices on the boundaries
             # Note that a line (as polyhedron) has vertex too
@@ -2056,7 +2058,7 @@ class PolyhedralComplex(GenericCellComplex):
                 for facet in c.facets():
                     p = facet.as_polyhedron()
                     if d not in cells:
-                        cells[d] = set([])
+                        cells[d] = set()
                     if p not in cells[d]:
                         cells[d].add(p)
                         covers[p] = [c]
@@ -2361,7 +2363,7 @@ class PolyhedralComplex(GenericCellComplex):
             if new_rays:
                 raise ValueError("rays/lines cannot be used for subdivision")
             # bounded version of `fan.subdivide`; not require rational.
-            vertices = set([])
+            vertices = set()
             if make_simplicial and not self.is_simplicial_complex():
                 for p in self.maximal_cell_iterator():
                     for v in p.vertices_list():
@@ -2393,7 +2395,7 @@ class PolyhedralComplex(GenericCellComplex):
                 raise ValueError("new vertices cannot be used for subdivision")
             # mimic :meth:`~sage.geometry.fan <RationalPolyhedralFan>.subdivide`
             # but here we allow for non-pointed cones, and we subdivide them.
-            rays_normalized = set([])
+            rays_normalized = set()
             self_rays = []
             cones = []
             for p in self.maximal_cell_iterator():

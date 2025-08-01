@@ -306,6 +306,9 @@ class IntrinioDataTransformation(Enum):
     ANNUALY_PC = 8
     """The percent change from year ago"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class IntrinioEconomicData(QuantConnect.Data.BaseData):
     """Access the massive repository of economic data from the Federal Reserve Economic Data system via the Intrinio API."""

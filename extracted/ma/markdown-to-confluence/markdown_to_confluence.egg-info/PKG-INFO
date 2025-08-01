@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.4.3
+Version: 0.4.4
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -69,8 +69,10 @@ This Python package
 * [Table of contents](https://docs.gitlab.com/ee/user/markdown.html#table-of-contents)
 * [Admonitions](https://python-markdown.github.io/extensions/admonition/) and alert boxes in [GitHub](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts) and [GitLab](https://docs.gitlab.com/ee/development/documentation/styleguide/#alert-boxes)
 * [Collapsed sections](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-collapsed-sections)
+* [Tasklists](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists)
 * draw\.io diagrams
 * [Mermaid diagrams](https://mermaid.live/) in code blocks (converted to images)
+* Confluence status labels and date widget
 
 Whenever possible, the implementation uses [Confluence REST API v2](https://developer.atlassian.com/cloud/confluence/rest/v2/) to fetch space properties, and get, create or update page content.
 
@@ -98,7 +100,7 @@ As authors of *md2conf*, we don't endorse or support any particular Confluence m
 
 **Optional.** Editable draw\.io diagrams require [draw.io Diagrams marketplace app](https://marketplace.atlassian.com/apps/1210933/draw-io-diagrams-uml-bpmn-aws-erd-flowcharts). (Refer to `--no-render-drawio`.)
 
-**Optional.** Displaying Mermaid diagrams in Confluence without pre-rendering in the synchronization phase requires a marketplace app. (Refer to `--no-render-mermaid`.)
+**Optional.** Displaying Mermaid diagrams in Confluence without pre-rendering in the synchronization phase requires a [marketplace app](https://marketplace.atlassian.com/apps/1226567/mermaid-diagrams-for-confluence). (Refer to `--no-render-mermaid`.)
 
 **Optional.** Displaying formulas and equations in Confluence requires [marketplace app](https://marketplace.atlassian.com/apps/1226109/latex-math-for-confluence-math-formula-equations), refer to [LaTeX Math for Confluence - Math Formula & Equations](https://help.narva.net/latex-math-for-confluence/).
 
@@ -279,7 +281,7 @@ Highlight in <span style="background-color: rgb(198,237,251);">teal</span>, <spa
 The following table shows standard text colors (CSS `color`) that are available via Confluence UI:
 
 | Color name    | CSS attribute value |
-| ------------- | ------------------- |
+| :------------ | :------------------ |
 | bold blue     | rgb(7,71,166)       |
 | blue          | rgb(76,154,255)     |
 | subtle blue   | rgb(179,212,255)    |
@@ -339,6 +341,45 @@ is shown as
 $$\int _{a}^{b}f(x)dx=F(b)-F(a)$$
 
 Displaying math formulas in Confluence requires the extension [LaTeX Math for Confluence - Math Formula & Equations](https://help.narva.net/latex-math-for-confluence/).
+
+### HTML in Markdown
+
+*md2conf* relays HTML elements nested in Markdown content to Confluence (such as `e<sup>x</sup>` for superscript). However, Confluence uses an extension of XHTML, i.e. the content must qualify as valid XML too. In particular, unterminated tags (e.g. `<br>` or `<img ...>`) or inconsistent nesting (e.g. `<b><i></b></i>`) are not permitted, and will raise an XML parsing error. When an HTML element has no content such as `<br>` or `<img>`, use a self-closing tag:
+
+```html
+<br/>
+<img src="image.png" width="24" height="24" />
+```
+
+### Confluence widgets
+
+*md2conf* supports some Confluence widgets. If the appropriate code is found when a Markdown document is processed, it is automatically replaced with Confluence Storage Format XML that produces the corresponding widget.
+
+| Markdown code                              | Confluence equivalent                                   |
+| :----------------------------------------- | :------------------------------------------------------ |
+| `![My label][STATUS-GRAY]`                 | gray status label (with specified label text)           |
+| `![My label][STATUS-PURPLE]`               | purple status label                                     |
+| `![My label][STATUS-BLUE]`                 | blue status label                                       |
+| `![My label][STATUS-RED]`                  | red status label                                        |
+| `![My label][STATUS-YELLOW]`               | yellow status label                                     |
+| `![My label][STATUS-GREEN]`                | green status label                                      |
+| `<input type="date" value="YYYY-MM-DD" />` | date widget (with year, month and day set as specified) |
+
+Use the pseudo-language `csf` in a Markdown code block to pass content directly to Confluence. The content must be a single XML node that conforms to Confluence Storage Format (typically an `ac:structured-macro`) but is otherwise not validated. The following example shows how to create a panel similar to an *info panel* but with custom background color and emoji. Notice that `ac:rich-text-body` uses XHTML, not Markdown.
+
+````md
+```csf
+<ac:structured-macro ac:name="panel" ac:schema-version="1">
+  <ac:parameter ac:name="panelIcon">:slight_smile:</ac:parameter>
+  <ac:parameter ac:name="panelIconId">1f642</ac:parameter>
+  <ac:parameter ac:name="panelIconText">&#128578;</ac:parameter>
+  <ac:parameter ac:name="bgColor">#FFF0B3</ac:parameter>
+  <ac:rich-text-body>
+    <p>A <em>custom colored panel</em> with a 🙂 emoji</p>
+  </ac:rich-text-body>
+</ac:structured-macro>
+```
+````
 
 ### Ignoring files
 
@@ -414,7 +455,7 @@ With the command-line option `--render-drawio`, images with embedded draw\.io di
 You can include [Mermaid diagrams](https://mermaid.js.org/) in your Markdown documents to create visual representations of systems, processes, and relationships. When a Markdown document contains a code block with the language specifier `mermaid`, *md2conf* offers two options to publish the diagram:
 
 1. Pre-render into an image (command-line option `--render-mermaid`). The code block is interpreted by and converted into a PNG or SVG image with the Mermaid diagram utility [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). The generated image is then uploaded to Confluence as an attachment to the page. This is the approach we use and support.
-2. Display on demand (command-line option `--no-render-mermaid`). The code block is transformed into a [diagram macro](https://atlasauthority.atlassian.net/wiki/spaces/MARKDOWNCLOUD/pages/2946826241/Diagram+Macro), which is processed by Confluence. You need a [marketplace app](https://marketplace.atlassian.com/apps/1211438/markdown-html-plantuml-latex-diagrams-open-api-mermaid) to turn macro definitions into images when a Confluence page is visited.
+2. Display on demand (command-line option `--no-render-mermaid`). The code block is transformed into a [diagram macro](https://stratus-addons.atlassian.net/wiki/spaces/MDFC/overview), which is processed by Confluence. You need a [marketplace app](https://marketplace.atlassian.com/apps/1226567/mermaid-diagrams-for-confluence) to turn macro definitions into images when a Confluence page is visited.
 
 If you are running into issues with the pre-rendering approach (e.g. misaligned labels in the generated image), verify if `mermaid-cli` can process the Mermaid source:
 
@@ -423,6 +464,16 @@ mmdc -i sample.mmd -o sample.png -b transparent --scale 2
 ```
 
 Ensure that `mermaid-cli` is set up, refer to *Installation* for instructions.
+
+### Implicit URLs
+
+*md2conf* implicitly defines some URLs, as if you included the following at the start of the Markdown document for each URL:
+
+```md
+[CUSTOM-URL]: https://example.com/path/to/resource
+```
+
+Specifically, image references for status labels (e.g. `![My label][STATUS-RED]`) are automatically resolved into internally defined URLs via this mechanism.
 
 ### Local output
 

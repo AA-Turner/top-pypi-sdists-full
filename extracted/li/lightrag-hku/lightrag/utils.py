@@ -9,7 +9,9 @@ import logging
 import logging.handlers
 import os
 import re
+import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from functools import wraps
 from hashlib import md5
 from typing import Any, Protocol, Callable, TYPE_CHECKING, List
@@ -19,6 +21,9 @@ from lightrag.constants import (
     DEFAULT_LOG_MAX_BYTES,
     DEFAULT_LOG_BACKUP_COUNT,
     DEFAULT_LOG_FILENAME,
+    GRAPH_FIELD_SEP,
+    DEFAULT_MAX_TOTAL_TOKENS,
+    DEFAULT_MAX_FILE_PATH_LENGTH,
 )
 
 
@@ -118,6 +123,7 @@ class LightragPathFilter(logging.Filter):
         # Define paths to be filtered
         self.filtered_paths = [
             "/documents",
+            "/documents/paginated",
             "/health",
             "/webui/",
             "/documents/pipeline_status",
@@ -140,6 +146,7 @@ class LightragPathFilter(logging.Filter):
             # Filter out successful GET requests to filtered paths
             if (
                 method == "GET"
+                or method == "POST"
                 and (status == 200 or status == 304)
                 and path in self.filtered_paths
             ):
@@ -234,9 +241,8 @@ class UnlimitedSemaphore:
 @dataclass
 class EmbeddingFunc:
     embedding_dim: int
-    max_token_size: int
     func: callable
-    # concurrent_limit: int = 16
+    max_token_size: int | None = None  # deprecated keep it for compatible only
 
     async def __call__(self, *args, **kwargs) -> np.ndarray:
         return await self.func(*args, **kwargs)
@@ -1868,7 +1874,32 @@ async def process_chunks_unified(
             top_n=rerank_top_k,
         )
 
-    # 2. Apply chunk_top_k limiting if specified
+    # 2. Filter by minimum rerank score if reranking is enabled
+    if query_param.enable_rerank and unique_chunks:
+        min_rerank_score = global_config.get("min_rerank_score", 0.5)
+        if min_rerank_score > 0.0:
+            original_count = len(unique_chunks)
+
+            # Filter chunks with score below threshold
+            filtered_chunks = []
+            for chunk in unique_chunks:
+                rerank_score = chunk.get(
+                    "rerank_score", 1.0
+                )  # Default to 1.0 if no score
+                if rerank_score >= min_rerank_score:
+                    filtered_chunks.append(chunk)
+
+            unique_chunks = filtered_chunks
+            filtered_count = original_count - len(unique_chunks)
+
+            if filtered_count > 0:
+                logger.info(
+                    f"Rerank filtering: {len(unique_chunks)} chunks remained (min rerank score: {min_rerank_score})"
+                )
+            if not unique_chunks:
+                return []
+
+    # 3. Apply chunk_top_k limiting if specified
     if query_param.chunk_top_k is not None and query_param.chunk_top_k > 0:
         if len(unique_chunks) > query_param.chunk_top_k:
             unique_chunks = unique_chunks[: query_param.chunk_top_k]
@@ -1876,7 +1907,7 @@ async def process_chunks_unified(
             f"Kept chunk_top-k: {len(unique_chunks)} chunks (deduplicated original: {origin_count})"
         )
 
-    # 3. Token-based final truncation
+    # 4. Token-based final truncation
     tokenizer = global_config.get("tokenizer")
     if tokenizer and unique_chunks:
         # Set default chunk_token_limit if not provided
@@ -1885,7 +1916,7 @@ async def process_chunks_unified(
             chunk_token_limit = getattr(
                 query_param,
                 "max_total_tokens",
-                global_config.get("MAX_TOTAL_TOKENS", 32000),
+                global_config.get("MAX_TOTAL_TOKENS", DEFAULT_MAX_TOTAL_TOKENS),
             )
 
         original_count = len(unique_chunks)
@@ -1901,3 +1932,68 @@ async def process_chunks_unified(
         )
 
     return unique_chunks
+
+
+def build_file_path(already_file_paths, data_list, target):
+    """Build file path string with length limit and deduplication
+
+    Args:
+        already_file_paths: List of existing file paths
+        data_list: List of data items containing file_path
+        target: Target name for logging warnings
+
+    Returns:
+        str: Combined file paths separated by GRAPH_FIELD_SEP
+    """
+    # set: deduplication
+    file_paths_set = {fp for fp in already_file_paths if fp}
+
+    # string: filter empty value and keep file order in already_file_paths
+    file_paths = GRAPH_FIELD_SEP.join(fp for fp in already_file_paths if fp)
+    # ignored file_paths
+    file_paths_ignore = ""
+    # add file_paths
+    for dp in data_list:
+        cur_file_path = dp.get("file_path")
+        # empty
+        if not cur_file_path:
+            continue
+
+        # skip duplicate item
+        if cur_file_path in file_paths_set:
+            continue
+        # add
+        file_paths_set.add(cur_file_path)
+
+        # check the length
+        if (
+            len(file_paths) + len(GRAPH_FIELD_SEP + cur_file_path)
+            < DEFAULT_MAX_FILE_PATH_LENGTH
+        ):
+            # append
+            file_paths += (
+                GRAPH_FIELD_SEP + cur_file_path if file_paths else cur_file_path
+            )
+        else:
+            # ignore
+            file_paths_ignore += GRAPH_FIELD_SEP + cur_file_path
+
+    if file_paths_ignore:
+        logger.warning(
+            f"Length of file_path exceeds {target}, ignoring new file: {file_paths_ignore}"
+        )
+    return file_paths
+
+
+def generate_track_id(prefix: str = "upload") -> str:
+    """Generate a unique tracking ID with timestamp and UUID
+
+    Args:
+        prefix: Prefix for the track ID (e.g., 'upload', 'insert')
+
+    Returns:
+        str: Unique tracking ID in format: {prefix}_{timestamp}_{uuid}
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    unique_id = str(uuid.uuid4())[:8]  # Use first 8 characters of UUID
+    return f"{prefix}_{timestamp}_{unique_id}"

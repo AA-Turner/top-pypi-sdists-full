@@ -173,7 +173,7 @@ def project_points(*points, **kwds):
 
         sage: V = list(map(vector, IntegerVectors(n=5, length=3)))
         sage: P = project_points(*V)
-        sage: for i in range(21):                                                       # needs sage.combinat
+        sage: for i in range(21):                                                       # needs sage.combinat sage.symbolic
         ....:     for j in range(21):
         ....:         assert abs((V[i]-V[j]).norm() - (P[i]-P[j]).norm()) < 0.00001
 
@@ -444,7 +444,7 @@ def gale_transform_to_primal(vectors, base_ring=None, backend=None):
     if not sum(vectors).is_zero():
         # The center of the input vectors shall be the origin.
         # If this is not the case, we scale them accordingly.
-        # This has the adventage that right kernel of ``vectors`` can be
+        # This has the advantage that right kernel of ``vectors`` can be
         # presented in the form ``[[1], [V]]``, where ``V`` are the points
         # in the dual point configuration.
         # (Dehomogenization is straightforward.)
@@ -471,7 +471,7 @@ def gale_transform_to_primal(vectors, base_ring=None, backend=None):
         x = pos_solutions.representative_point()
         if not all(y > 0 for y in x):
             raise ValueError("input vectors not totally cyclic")
-        vectors = tuple(vec*x[i] for i,vec in enumerate(vectors))
+        vectors = tuple(vec*x[i] for i, vec in enumerate(vectors))
 
     # The right kernel of ``vectors`` has a basis of the form ``[[1], [V]]``,
     # where ``V`` is the dehomogenized dual point configuration.
@@ -864,11 +864,10 @@ class Polytopes:
 
         Its non exact version::
 
-            sage: sr = polytopes.small_rhombicuboctahedron(False)                       # needs cddexec
-            sage: sr
+            sage: sr = polytopes.small_rhombicuboctahedron(False); sr                   # needs cddexec
             A 3-dimensional polyhedron in RDF^3 defined as the convex hull of
             24 vertices
-            sage: sr.f_vector()
+            sage: sr.f_vector()                                                         # needs cddexec
             (1, 24, 48, 26, 1)
 
         TESTS::
@@ -934,6 +933,7 @@ class Polytopes:
 
         Its facets are 4 squares, 8 regular hexagons and 6 regular octagons::
 
+            sage: # needs cddexec
             sage: sum(1 for f in gr.facets() if len(f.vertices()) == 4)
             12
             sage: sum(1 for f in gr.facets() if len(f.vertices()) == 6)
@@ -1556,6 +1556,7 @@ class Polytopes:
 
         Its facets are 20 triangles and 12 regular pentagons::
 
+            sage: # needs cddexec
             sage: sum(1 for f in id.facets() if len(f.vertices()) == 3)
             20
             sage: sum(1 for f in id.facets() if len(f.vertices()) == 5)
@@ -1802,6 +1803,7 @@ class Polytopes:
 
         Its facets are 20 triangles, 30 squares and 12 pentagons::
 
+            sage: # needs cddexec
             sage: sum(1 for f in rid.facets() if len(f.vertices()) == 3)
             20
             sage: sum(1 for f in rid.facets() if len(f.vertices()) == 4)
@@ -1882,6 +1884,7 @@ class Polytopes:
 
         Its facets are 30 squares, 20 hexagons and 12 decagons::
 
+            sage: # needs cddexec
             sage: sum(1 for f in ti.facets() if len(f.vertices()) == 4)
             30
             sage: sum(1 for f in ti.facets() if len(f.vertices()) == 6)
@@ -1891,10 +1894,11 @@ class Polytopes:
 
         TESTS::
 
-            sage: ti = polytopes.truncated_icosidodecahedron(backend='normaliz')  # optional - pynormaliz
+            sage: # optional - pynormaliz
+            sage: ti = polytopes.truncated_icosidodecahedron(backend='normaliz')
             sage: ti.f_vector()
             (1, 120, 180, 62, 1)
-            sage: ti.base_ring()                                                  # optional - pynormaliz
+            sage: ti.base_ring()
             Number Field in sqrt5 with defining polynomial x^2 - 5 with sqrt5 = 2.236067977499790?
         """
         if base_ring is None and exact:
@@ -3133,7 +3137,8 @@ class Polytopes:
             for vect in full_perm_vectors:
                 cp = cartesian_product(vect)
                 # The group action creates duplicates, so we reduce it:
-                verts += list(set([tuple(p) for c in cp for p in Permutations(list(c))]))
+                verts += list({tuple(p) for c in cp
+                               for p in Permutations(list(c))})
 
             # The 96 even permutations of [0,±1/phi^2,±1,±phi^2]
             # The 96 even permutations of [0,±1/phi,±phi,±sqrt(5)]
@@ -3267,7 +3272,7 @@ class Polytopes:
             sage: P1 = polytopes.hypercube(4, intervals, backend='ppl')                 # needs pplpy
             sage: assert P == P1                                                        # needs pplpy
 
-        Check that coercion for input invervals is handled correctly::
+        Check that coercion for input intervals is handled correctly::
 
             sage: P = polytopes.hypercube(2, [[1/2, 2], [0, 1]])
             sage: P = polytopes.hypercube(2, [[1/2, 2], [0, 1.0]])                      # needs cddexec
@@ -3281,12 +3286,12 @@ class Polytopes:
         convert = False
 
         # If the intervals are (a_1,b_1), ..., (a_dim, b_dim),
-        # then the inequalites correspond to
+        # then the inequalities correspond to
         # b_1,b_2,...,b_dim, a_1,a_2,...,a_dim
         # in that order.
 
         if intervals is None:
-            cp = itertools.product((-1,1), repeat=dim)
+            cp = itertools.product((-1, 1), repeat=dim)
 
             # An inequality -x_i       + 1 >= 0 for i <  dim
             # resp.          x_{dim-i} + 1 >= 0 for i >= dim

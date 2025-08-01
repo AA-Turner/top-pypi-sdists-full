@@ -31,18 +31,23 @@ AUTHORS:
 #                  https://www.gnu.org/licenses/
 # ****************************************************************************
 
-from sage.structure.parent import Parent
-from sage.structure.unique_representation import UniqueRepresentation
 from sage.categories.graded_hopf_algebras import GradedHopfAlgebras
-from sage.combinat.partition import Partition, Partitions, Partitions_all_bounded, PartitionsGreatestLE
+from sage.categories.graded_hopf_algebras_with_basis import GradedHopfAlgebrasWithBasis
+from sage.categories.realizations import Category_realization_of_parent, Realizations
 from sage.combinat.free_module import CombinatorialFreeModule
-from sage.categories.realizations import Realizations, Category_realization_of_parent
+from sage.combinat.partition import (
+    Partition,
+    Partitions,
+    Partitions_all_bounded,
+    PartitionsGreatestLE,
+)
+from sage.cpython.getattr import raw_getattr
 from sage.misc.cachefunc import cached_method
 from sage.misc.constant_function import ConstantFunction
-from sage.categories.graded_hopf_algebras_with_basis import GradedHopfAlgebrasWithBasis
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
-from sage.cpython.getattr import raw_getattr
+from sage.structure.parent import Parent
+from sage.structure.unique_representation import UniqueRepresentation
 
 
 class KBoundedQuotient(UniqueRepresentation, Parent):
@@ -71,13 +76,13 @@ class KBoundedQuotient(UniqueRepresentation, Parent):
             sage: km
             3-Bounded Quotient of Symmetric Functions over Rational Field with t=1 in the 3-bounded monomial basis
             sage: F = Q.affineSchur()
-            sage: F(km(F[3,1,1])) == F[3,1,1]
+            sage: F(km(F[3,1,1])) == F[3,1,1]                                           # needs lrcalc_python
             True
-            sage: km(F(km([3,2]))) == km[3,2]
+            sage: km(F(km([3,2]))) == km[3,2]                                           # needs lrcalc_python
             True
             sage: F[3,2].lift()
             m[1, 1, 1, 1, 1] + m[2, 1, 1, 1] + m[2, 2, 1] + m[3, 1, 1] + m[3, 2]
-            sage: F[2,1]*F[2,1]
+            sage: F[2,1]*F[2,1]                                                         # needs lrcalc_python
             2*F3[1, 1, 1, 1, 1, 1] + 4*F3[2, 1, 1, 1, 1] + 4*F3[2, 2, 1, 1] + 4*F3[2, 2, 2] + 2*F3[3, 1, 1, 1] + 4*F3[3, 2, 1] + 2*F3[3, 3]
             sage: F[1,2]
             Traceback (most recent call last):
@@ -90,10 +95,10 @@ class KBoundedQuotient(UniqueRepresentation, Parent):
             sage: km[2,1]*km[2,1]
             4*m3[2, 2, 1, 1] + 6*m3[2, 2, 2] + 2*m3[3, 2, 1] + 2*m3[3, 3]
             sage: HLPk = Q.kHallLittlewoodP()
-            sage: HLPk[2,1]*HLPk[2,1]
+            sage: HLPk[2,1]*HLPk[2,1]                                                   # needs lrcalc_python
             4*HLP3[2, 2, 1, 1] + 6*HLP3[2, 2, 2] + 2*HLP3[3, 2, 1] + 2*HLP3[3, 3]
             sage: dks = Q.dual_k_Schur()
-            sage: dks[2,1]*dks[2,1]
+            sage: dks[2,1]*dks[2,1]                                                     # needs lrcalc_python
             2*dks3[1, 1, 1, 1, 1, 1] + 4*dks3[2, 1, 1, 1, 1] + 4*dks3[2, 2, 1, 1] + 4*dks3[2, 2, 2] + 2*dks3[3, 1, 1, 1] + 4*dks3[3, 2, 1] + 2*dks3[3, 3]
 
         ::
@@ -106,9 +111,9 @@ class KBoundedQuotient(UniqueRepresentation, Parent):
             sage: Q = Sym.kBoundedQuotient(3)
             sage: km = Q.km()
             sage: F = Q.affineSchur()
-            sage: F(km(F[3,1,1])) == F[3,1,1]
+            sage: F(km(F[3,1,1])) == F[3,1,1]                                           # needs lrcalc_python
             True
-            sage: km(F(km([3,2]))) == km[3,2]
+            sage: km(F(km([3,2]))) == km[3,2]                                           # needs lrcalc_python
             True
             sage: dks = Q.dual_k_Schur()
             sage: HLPk = Q.kHallLittlewoodP()
@@ -116,12 +121,12 @@ class KBoundedQuotient(UniqueRepresentation, Parent):
             True
             sage: km(dks(km([3,2]))) == km[3,2]
             True
-            sage: dks[2,1]*dks[2,1]
+            sage: dks[2,1]*dks[2,1]                                                     # needs lrcalc_python
             (t^3+t^2)*dks3[1, 1, 1, 1, 1, 1] + (2*t^2+2*t)*dks3[2, 1, 1, 1, 1] + (t^2+2*t+1)*dks3[2, 2, 1, 1] + (t^2+2*t+1)*dks3[2, 2, 2] + (t+1)*dks3[3, 1, 1, 1] + (2*t+2)*dks3[3, 2, 1] + (t+1)*dks3[3, 3]
 
         TESTS::
 
-            sage: TestSuite(Q).run()
+            sage: TestSuite(Q).run()                                                    # needs lrcalc_python
         """
         R = Sym.base_ring()
         self.k = k
@@ -353,10 +358,11 @@ class KBoundedQuotient(UniqueRepresentation, Parent):
             return self.a_realization().one()
         return self._AffineGrothendieckPolynomial(Partition(la),m)
 
-    def an_element(self):
+    def _an_element_(self):
         r"""
-        Return an element of the quotient ring of `k`-bounded symmetric functions. This
-        method is here to make the TestSuite run properly.
+        Return an element of the quotient ring of `k`-bounded symmetric functions.
+
+        This method is here to make the TestSuite run properly.
 
         EXAMPLES::
 
@@ -436,13 +442,13 @@ class KBoundedQuotient(UniqueRepresentation, Parent):
             sage: kQ.realizations()
             [3-Bounded Quotient of Symmetric Functions over Fraction Field of Univariate Polynomial Ring in t over Rational Field in the 3-bounded monomial basis, 3-Bounded Quotient of Symmetric Functions over Fraction Field of Univariate Polynomial Ring in t over Rational Field in the 3-bounded Hall-Littlewood P basis, 3-Bounded Quotient of Symmetric Functions over Fraction Field of Univariate Polynomial Ring in t over Rational Field in the 3-bounded affine Schur basis, 3-Bounded Quotient of Symmetric Functions over Fraction Field of Univariate Polynomial Ring in t over Rational Field in the dual 3-Schur basis]
             sage: HLP = kQ.ambient().hall_littlewood().P()
-            sage: all( rzn(HLP[3,2,1]).lift() == HLP[3,2,1] for rzn in kQ.realizations())
+            sage: all( rzn(HLP[3,2,1]).lift() == HLP[3,2,1] for rzn in kQ.realizations())   # needs lrcalc_python
             True
             sage: kQ = SymmetricFunctions(QQ).kBoundedQuotient(3,1)
             sage: kQ.realizations()
             [3-Bounded Quotient of Symmetric Functions over Rational Field with t=1 in the 3-bounded monomial basis, 3-Bounded Quotient of Symmetric Functions over Rational Field with t=1 in the 3-bounded Hall-Littlewood P basis, 3-Bounded Quotient of Symmetric Functions over Rational Field with t=1 in the 3-bounded affine Schur basis, 3-Bounded Quotient of Symmetric Functions over Rational Field with t=1 in the dual 3-Schur basis]
             sage: m = kQ.ambient().m()
-            sage: all( rzn(m[3,2,1]).lift() == m[3,2,1] for rzn in kQ.realizations())
+            sage: all( rzn(m[3,2,1]).lift() == m[3,2,1] for rzn in kQ.realizations())       # needs lrcalc_python
             True
         """
         return [ self.km(), self.kHLP(), self.affineSchur(), self.dual_k_Schur()]
@@ -668,7 +674,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
                 sage: dks.lift([3,1])
                 t^5*HLP[1, 1, 1, 1] + t^2*HLP[2, 1, 1] + t*HLP[2, 2] + HLP[3, 1]
                 sage: dks = Sym.kBoundedQuotient(3,t=1).dual_k_Schur()
-                sage: dks.lift([3,1])
+                sage: dks.lift([3,1])                                                       # needs lrcalc_python
                 m[1, 1, 1, 1] + m[2, 1, 1] + m[2, 2] + m[3, 1]
             """
             kmhlp = self.realization_of().a_realization()
@@ -686,6 +692,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             EXAMPLES::
 
+                sage: # needs lrcalc_python
                 sage: dks3 = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).dual_k_Schur()
                 sage: dks3.product(dks3[2,1],dks3[1,1])
                 2*dks3[1, 1, 1, 1, 1] + 2*dks3[2, 1, 1, 1] + 2*dks3[2, 2, 1] + dks3[3, 1, 1] + dks3[3, 2]
@@ -702,6 +709,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             ::
 
+                sage: # needs lrcalc_python
                 sage: dks3 = SymmetricFunctions(QQ['t'].fraction_field()).kBoundedQuotient(3).dual_k_Schur()
                 sage: dks3.product(dks3[2,1],dks3[1,1])
                 (t^2+t)*dks3[1, 1, 1, 1, 1] + (t+1)*dks3[2, 1, 1, 1] + (t+1)*dks3[2, 2, 1] + dks3[3, 1, 1] + dks3[3, 2]
@@ -714,6 +722,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             ::
 
+                sage: # needs lrcalc_python
                 sage: F = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).affineSchur()
                 sage: F.product(F[2,1],F[1,1])
                 2*F3[1, 1, 1, 1, 1] + 2*F3[2, 1, 1, 1] + 2*F3[2, 2, 1] + F3[3, 1, 1] + F3[3, 2]
@@ -730,6 +739,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             ::
 
+                sage: # needs lrcalc_python
                 sage: F = SymmetricFunctions(QQ['t'].fraction_field()).kBoundedQuotient(3).affineSchur()
                 sage: F.product(F[2,1],F[1,1])
                 2*F3[1, 1, 1, 1, 1] + 2*F3[2, 1, 1, 1] + 2*F3[2, 2, 1] + F3[3, 1, 1] + F3[3, 2]
@@ -744,6 +754,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             ::
 
+                sage: # needs lrcalc_python
                 sage: km = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).km()
                 sage: km.product(km[2,1],km[2,1])
                 4*m3[2, 2, 1, 1] + 6*m3[2, 2, 2] + 2*m3[3, 2, 1] + 2*m3[3, 3]
@@ -769,6 +780,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             EXAMPLES::
 
+                sage: # needs lrcalc_python
                 sage: dks3 = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).dual_k_Schur()
                 sage: dks3[3,2].antipode()
                 -dks3[1, 1, 1, 1, 1]
@@ -783,6 +795,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             ::
 
+                sage: # needs lrcalc_python
                 sage: km = SymmetricFunctions(FractionField(QQ['t'])).kBoundedQuotient(3).km()
                 sage: km[1,1,1,1].antipode()
                 (t^3-3*t^2+3*t)*m3[1, 1, 1, 1] + (-t^2+2*t)*m3[2, 1, 1] + t*m3[2, 2] + t*m3[3, 1]
@@ -813,6 +826,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             EXAMPLES::
 
+                sage: # needs lrcalc_python
                 sage: Q3 = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1)
                 sage: km = Q3.km()
                 sage: km[3,2].coproduct()
@@ -823,6 +837,7 @@ class KBoundedQuotientBases(Category_realization_of_parent):
 
             ::
 
+                sage: # needs lrcalc_python
                 sage: Q3t = SymmetricFunctions(FractionField(QQ['t'])).kBoundedQuotient(3)
                 sage: km = Q3t.km()
                 sage: km[3,2].coproduct()
@@ -1273,6 +1288,7 @@ class DualkSchurFunctions(KBoundedQuotientBasis):
 
         EXAMPLES::
 
+            sage: # needs lrcalc_python
             sage: dks3 = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).dual_k_Schur()
             sage: dks3._dks_to_khlp_on_basis(Partition([2,1]))
             2*HLP3[1, 1, 1] + HLP3[2, 1]
@@ -1303,6 +1319,7 @@ class DualkSchurFunctions(KBoundedQuotientBasis):
 
         EXAMPLES::
 
+            sage: # needs lrcalc_python
             sage: dks3 = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).dual_k_Schur()
             sage: dks3._khlp_to_dks_on_basis(Partition([2,1]))
             -2*dks3[1, 1, 1] + dks3[2, 1]
@@ -1315,6 +1332,7 @@ class DualkSchurFunctions(KBoundedQuotientBasis):
 
         ::
 
+            sage: # needs lrcalc_python
             sage: dks3 = SymmetricFunctions(QQ['t'].fraction_field()).kBoundedQuotient(3).dual_k_Schur()
             sage: dks3._khlp_to_dks_on_basis(Partition([2,1]))
             (-t^2-t)*dks3[1, 1, 1] + dks3[2, 1]
@@ -1420,6 +1438,7 @@ class AffineSchurFunctions(KBoundedQuotientBasis):
 
         EXAMPLES::
 
+            sage: # needs lrcalc_python
             sage: F = SymmetricFunctions(QQ).kBoundedQuotient(3,t=1).affineSchur()
             sage: F._m_to_F_on_basis(Partition([2,1]))
             -2*F3[1, 1, 1] + F3[2, 1]

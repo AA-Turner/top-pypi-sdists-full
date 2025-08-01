@@ -40,10 +40,14 @@ impl NullChunked {
     pub fn len(&self) -> usize {
         self.length as usize
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.length == 0
+    }
 }
 impl PrivateSeriesNumeric for NullChunked {
     fn bit_repr(&self) -> Option<BitRepr> {
-        Some(BitRepr::Small(UInt32Chunked::full_null(
+        Some(BitRepr::U32(UInt32Chunked::full_null(
             self.name.clone(),
             self.len(),
         )))
@@ -61,7 +65,7 @@ impl PrivateSeries for NullChunked {
         }
         self.length = IdxSize::try_from(inner(&self.chunks)).expect(LENGTH_LIMIT_MSG);
     }
-    fn _field(&self) -> Cow<Field> {
+    fn _field(&self) -> Cow<'_, Field> {
         Cow::Owned(Field::new(self.name().clone(), DataType::Null))
     }
 
@@ -188,7 +192,7 @@ impl SeriesTrait for NullChunked {
         &mut self.chunks
     }
 
-    fn chunk_lengths(&self) -> ChunkLenIter {
+    fn chunk_lengths(&self) -> ChunkLenIter<'_> {
         self.chunks.iter().map(|chunk| chunk.len())
     }
 
@@ -213,7 +217,7 @@ impl SeriesTrait for NullChunked {
     }
 
     fn has_nulls(&self) -> bool {
-        self.len() > 0
+        !self.is_empty()
     }
 
     fn rechunk(&self) -> Series {
@@ -254,7 +258,7 @@ impl SeriesTrait for NullChunked {
         NullChunked::new(self.name.clone(), length).into_series()
     }
 
-    unsafe fn get_unchecked(&self, _index: usize) -> AnyValue {
+    unsafe fn get_unchecked(&self, _index: usize) -> AnyValue<'_> {
         AnyValue::Null
     }
 

@@ -4,4 +4,4 @@ def assert_false():
     """
     Only used for testing
     """
-    assert False  # noqa: B011
+    assert False  # noqa: B011 PT015

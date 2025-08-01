@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -108,10 +108,19 @@ def find_shallow(store, heads, depth):
         these sets may overlap if a commit is reachable along multiple paths.
     """
     parents = {}
+    commit_graph = store.get_commit_graph()
 
     def get_parents(sha):
         result = parents.get(sha, None)
         if not result:
+            # Try to use commit graph first if available
+            if commit_graph:
+                graph_parents = commit_graph.get_parents(sha)
+                if graph_parents is not None:
+                    result = graph_parents
+                    parents[sha] = result
+                    return result
+            # Fall back to loading the object
             result = store[sha].parents
             parents[sha] = result
         return result
@@ -159,16 +168,26 @@ def get_depth(
         return 0
     current_depth = 1
     queue = [(head, current_depth)]
+    commit_graph = store.get_commit_graph()
+
     while queue and (max_depth is None or current_depth < max_depth):
         e, depth = queue.pop(0)
         current_depth = max(current_depth, depth)
-        cmt = store[e]
-        if isinstance(cmt, Tag):
-            _cls, sha = cmt.object
-            cmt = store[sha]
-        queue.extend(
-            (parent, depth + 1) for parent in get_parents(cmt) if parent in store
-        )
+
+        # Try to use commit graph for parent lookup if available
+        parents = None
+        if commit_graph:
+            parents = commit_graph.get_parents(e)
+
+        if parents is None:
+            # Fall back to loading the object
+            cmt = store[e]
+            if isinstance(cmt, Tag):
+                _cls, sha = cmt.object
+                cmt = store[sha]
+            parents = get_parents(cmt)
+
+        queue.extend((parent, depth + 1) for parent in parents if parent in store)
     return current_depth
 
 
@@ -252,6 +271,7 @@ class BaseObjectStore:
         include_trees=False,
         change_type_same=False,
         rename_detector=None,
+        paths=None,
     ):
         """Find the differences between the contents of two trees.
 
@@ -262,6 +282,8 @@ class BaseObjectStore:
           include_trees: Whether to include trees
           change_type_same: Whether to report files changing
             type in the same entry.
+          rename_detector: RenameDetector object for detecting renames.
+          paths: Optional list of paths to filter to (as bytes).
         Returns: Iterator over tuples with
             (oldpath, newpath), (oldmode, newmode), (oldsha, newsha)
         """
@@ -275,6 +297,7 @@ class BaseObjectStore:
             include_trees=include_trees,
             change_type_same=change_type_same,
             rename_detector=rename_detector,
+            paths=paths,
         ):
             yield (
                 (change.old.path, change.new.path),
@@ -485,10 +508,26 @@ class BaseObjectStore:
 
 
 class PackBasedObjectStore(BaseObjectStore, PackedObjectContainer):
-    def __init__(self, pack_compression_level=-1, pack_index_version=None) -> None:
+    def __init__(
+        self,
+        pack_compression_level=-1,
+        pack_index_version=None,
+        pack_delta_window_size=None,
+        pack_window_memory=None,
+        pack_delta_cache_size=None,
+        pack_depth=None,
+        pack_threads=None,
+        pack_big_file_threshold=None,
+    ) -> None:
         self._pack_cache: dict[str, Pack] = {}
         self.pack_compression_level = pack_compression_level
         self.pack_index_version = pack_index_version
+        self.pack_delta_window_size = pack_delta_window_size
+        self.pack_window_memory = pack_window_memory
+        self.pack_delta_cache_size = pack_delta_cache_size
+        self.pack_depth = pack_depth
+        self.pack_threads = pack_threads
+        self.pack_big_file_threshold = pack_big_file_threshold
 
     def add_pack(self) -> tuple[BytesIO, Callable[[], None], Callable[[], None]]:
         """Add a new pack to this object store."""
@@ -892,6 +931,12 @@ class DiskObjectStore(PackBasedObjectStore):
         loose_compression_level=-1,
         pack_compression_level=-1,
         pack_index_version=None,
+        pack_delta_window_size=None,
+        pack_window_memory=None,
+        pack_delta_cache_size=None,
+        pack_depth=None,
+        pack_threads=None,
+        pack_big_file_threshold=None,
     ) -> None:
         """Open an object store.
 
@@ -900,10 +945,22 @@ class DiskObjectStore(PackBasedObjectStore):
           loose_compression_level: zlib compression level for loose objects
           pack_compression_level: zlib compression level for pack objects
           pack_index_version: pack index version to use (1, 2, or 3)
+          pack_delta_window_size: sliding window size for delta compression
+          pack_window_memory: memory limit for delta window operations
+          pack_delta_cache_size: size of cache for delta operations
+          pack_depth: maximum delta chain depth
+          pack_threads: number of threads for pack operations
+          pack_big_file_threshold: threshold for treating files as big
         """
         super().__init__(
             pack_compression_level=pack_compression_level,
             pack_index_version=pack_index_version,
+            pack_delta_window_size=pack_delta_window_size,
+            pack_window_memory=pack_window_memory,
+            pack_delta_cache_size=pack_delta_cache_size,
+            pack_depth=pack_depth,
+            pack_threads=pack_threads,
+            pack_big_file_threshold=pack_big_file_threshold,
         )
         self.path = path
         self.pack_dir = os.path.join(self.path, PACKDIR)
@@ -914,6 +971,7 @@ class DiskObjectStore(PackBasedObjectStore):
 
         # Commit graph support - lazy loaded
         self._commit_graph = None
+        self._use_commit_graph = True  # Default to true
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}({self.path!r})>"
@@ -942,9 +1000,56 @@ class DiskObjectStore(PackBasedObjectStore):
             pack_index_version = int(config.get((b"pack",), b"indexVersion").decode())
         except KeyError:
             pack_index_version = None
-        return cls(
-            path, loose_compression_level, pack_compression_level, pack_index_version
+
+        # Read pack configuration options
+        try:
+            pack_delta_window_size = int(
+                config.get((b"pack",), b"deltaWindowSize").decode()
+            )
+        except KeyError:
+            pack_delta_window_size = None
+        try:
+            pack_window_memory = int(config.get((b"pack",), b"windowMemory").decode())
+        except KeyError:
+            pack_window_memory = None
+        try:
+            pack_delta_cache_size = int(
+                config.get((b"pack",), b"deltaCacheSize").decode()
+            )
+        except KeyError:
+            pack_delta_cache_size = None
+        try:
+            pack_depth = int(config.get((b"pack",), b"depth").decode())
+        except KeyError:
+            pack_depth = None
+        try:
+            pack_threads = int(config.get((b"pack",), b"threads").decode())
+        except KeyError:
+            pack_threads = None
+        try:
+            pack_big_file_threshold = int(
+                config.get((b"pack",), b"bigFileThreshold").decode()
+            )
+        except KeyError:
+            pack_big_file_threshold = None
+
+        # Read core.commitGraph setting
+        use_commit_graph = config.get_boolean((b"core",), b"commitGraph", True)
+
+        instance = cls(
+            path,
+            loose_compression_level,
+            pack_compression_level,
+            pack_index_version,
+            pack_delta_window_size,
+            pack_window_memory,
+            pack_delta_cache_size,
+            pack_depth,
+            pack_threads,
+            pack_big_file_threshold,
         )
+        instance._use_commit_graph = use_commit_graph
+        return instance
 
     @property
     def alternates(self):
@@ -1012,7 +1117,15 @@ class DiskObjectStore(PackBasedObjectStore):
         new_packs = []
         for f in pack_files:
             if f not in self._pack_cache:
-                pack = Pack(os.path.join(self.pack_dir, f))
+                pack = Pack(
+                    os.path.join(self.pack_dir, f),
+                    delta_window_size=self.pack_delta_window_size,
+                    window_memory=self.pack_window_memory,
+                    delta_cache_size=self.pack_delta_cache_size,
+                    depth=self.pack_depth,
+                    threads=self.pack_threads,
+                    big_file_threshold=self.pack_big_file_threshold,
+                )
                 new_packs.append(pack)
                 self._pack_cache[f] = pack
         # Remove disappeared pack files
@@ -1179,7 +1292,15 @@ class DiskObjectStore(PackBasedObjectStore):
             )
 
         # Add the pack to the store and return it.
-        final_pack = Pack(pack_base_name)
+        final_pack = Pack(
+            pack_base_name,
+            delta_window_size=self.pack_delta_window_size,
+            window_memory=self.pack_window_memory,
+            delta_cache_size=self.pack_delta_cache_size,
+            depth=self.pack_depth,
+            threads=self.pack_threads,
+            big_file_threshold=self.pack_big_file_threshold,
+        )
         final_pack.check_length_and_checksum()
         self._add_cached_pack(pack_base_name, final_pack)
         return final_pack
@@ -1310,6 +1431,9 @@ class DiskObjectStore(PackBasedObjectStore):
         Returns:
           CommitGraph object if available, None otherwise
         """
+        if not self._use_commit_graph:
+            return None
+
         if self._commit_graph is None:
             from .commit_graph import read_commit_graph
 
@@ -2146,6 +2270,10 @@ def _collect_ancestors(
     commits = set()
     queue = []
     queue.extend(heads)
+
+    # Try to use commit graph if available
+    commit_graph = store.get_commit_graph()
+
     while queue:
         e = queue.pop(0)
         if e in common:
@@ -2154,8 +2282,18 @@ def _collect_ancestors(
             commits.add(e)
             if e in shallow:
                 continue
-            cmt = store[e]
-            queue.extend(get_parents(cmt))
+
+            # Try to use commit graph for parent lookup
+            parents = None
+            if commit_graph:
+                parents = commit_graph.get_parents(e)
+
+            if parents is None:
+                # Fall back to loading the object
+                cmt = store[e]
+                parents = get_parents(cmt)
+
+            queue.extend(parents)
     return (commits, bases)
 
 

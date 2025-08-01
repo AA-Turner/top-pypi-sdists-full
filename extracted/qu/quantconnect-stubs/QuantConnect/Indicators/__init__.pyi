@@ -277,6 +277,9 @@ class MovingAverageType(Enum):
     MGD = 12
     """The McGinley Dynamic moving average (12)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class TrueStrengthIndex(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
@@ -735,6 +738,9 @@ class IndicatorStatus(Enum):
 
     VALUE_NOT_READY = 3
     """The indicator value is not ready (3)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class IndicatorResult(System.Object):
@@ -1369,6 +1375,9 @@ class PivotPointType(Enum):
 
     BOTH = 2
     """Both high and low pivot point (2)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class PivotPoint(QuantConnect.Data.BaseData):
@@ -2292,6 +2301,9 @@ class CorrelationType(Enum):
     but it reflects monotonic relationships rather than only linear ones.
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class OptionPricingModelType(Enum):
     """Defines different types of option pricing model"""
@@ -2304,6 +2316,9 @@ class OptionPricingModelType(Enum):
 
     FORWARD_TREE = 2
     """The forward binomial tree model, or Cox-Ross-Rubinstein with drift model"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Identity(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
@@ -5050,6 +5065,9 @@ class SwissArmyKnifeTool(Enum):
 
     BAND_PASS = 4
     """BandPass Filter (4)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class SwissArmyKnife(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):

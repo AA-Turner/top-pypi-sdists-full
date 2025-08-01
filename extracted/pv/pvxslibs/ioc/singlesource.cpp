@@ -120,6 +120,10 @@ void onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptio
             CASE(ALARM);
 //            CASE(PROPERTY); // handled as special case
 #undef CASE
+            if(!dbe && !mask.empty()) {
+                subscriptionOperation->logRemote(Level::Warn,
+                                                 SB()<<pvReq.nameOf(fld)<<"=\""<<mask<<"\" selects empty mask");
+            }
             break;
         }
         case Kind::Integer:
@@ -329,7 +333,7 @@ void onOp(const std::shared_ptr<SingleInfo>& sInfo, const Value& valuePrototype,
 
                         auto& pvRequest = putOperation->pvRequest();
                         pvRequest["record._options.block"].as<bool>(putOperationCache->doWait);
-                        IOCSource::setForceProcessingFlag(pvRequest, putOperationCache);
+                        IOCSource::setForceProcessingFlag(putOperation.get(), pvRequest, putOperationCache);
                         if (putOperationCache->forceProcessing) {
                             putOperationCache->doWait = false; // no point in waiting
                         }

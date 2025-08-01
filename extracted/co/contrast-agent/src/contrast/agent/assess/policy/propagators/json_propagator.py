@@ -77,4 +77,3 @@ class JsonPropagator(BasePropagator):
 
     def track_target(self):
         """NOP; Let propagate handle the decision to track"""
-        pass

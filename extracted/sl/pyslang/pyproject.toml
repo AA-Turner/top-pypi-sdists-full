@@ -1,6 +1,6 @@
 [project]
 name = "pyslang"
-version = "8.1.0"
+version = "9.0.0"
 description = "Python bindings for slang, a library for compiling SystemVerilog"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{ name = "Mike Popoloski" }]
@@ -23,7 +23,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://sv-lang.com/"
-Documentation = "https://sv-lang.com/"
+Documentation = "https://sv-lang.com/pyslang/"
 Repository = "https://github.com/MikePopoloski/slang"
 Issues = "https://github.com/MikePopoloski/slang/issues"
 Changelog = "https://github.com/MikePopoloski/slang/blob/master/CHANGELOG.md"
@@ -32,7 +32,7 @@ Changelog = "https://github.com/MikePopoloski/slang/blob/master/CHANGELOG.md"
 test = ["pytest"]
 
 [build-system]
-requires = ["pybind11", "scikit-build-core"]
+requires = ["pybind11 == 2.13.*", "scikit-build-core"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
@@ -50,7 +50,7 @@ SLANG_INCLUDE_PYLIB = "ON"
 archs = ["auto64"]
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
-skip = ["pp*", "cp36-*", "*musllinux*"]
+skip = ["pp*", "cp36-*", "cp37-*", "cp38-*", "*musllinux*"]
 build-verbosity = 1
 test-command = "pytest {project}/pyslang/tests"
 test-extras = ["test"]

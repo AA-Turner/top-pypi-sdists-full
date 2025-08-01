@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+import contextlib
 import sys
 from contrast.agent.policy import patch_manager
 from contrast.patches.databases import dbapi2
@@ -22,11 +23,9 @@ def instrument_mysql_connector(mysql_connector):
     if cb := getattr(mysql_connector.cursor, "CursorBase", None):
         extra_cursors.append(cb)
 
-    try:
+    with contextlib.suppress(AttributeError):
         # The C extension is technically optional
         extra_cursors.append(mysql_connector.cursor_cext.CMySQLCursor)
-    except AttributeError:
-        pass
 
     dbapi2.instrument_adapter(
         mysql_connector,

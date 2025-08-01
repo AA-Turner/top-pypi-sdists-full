@@ -1,13 +1,13 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from functools import cached_property
-from typing import Optional
 
 from contrast.agent.protect.rule.mode import Mode
 
 
 class ProtectRule:
-    def __init__(self, protect_rule_json: Optional[dict]):
+    def __init__(self, protect_rule_json: dict | None):
         self._raw_rule = protect_rule_json or {}
 
     @cached_property

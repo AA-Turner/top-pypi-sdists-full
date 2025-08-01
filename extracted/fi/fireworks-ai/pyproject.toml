@@ -20,6 +20,7 @@ multi_line_output = 3
 [tool.pdm.build]
 includes = [
     "fireworks",
+    "CHANGELOG.md",
 ]
 
 [tool.pdm.version]
@@ -62,7 +63,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Development Status :: 3 - Alpha",
 ]
-version = "0.19.14"
+version = "0.19.16"
 
 [project.license]
 text = "MIT"

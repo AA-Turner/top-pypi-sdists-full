@@ -253,7 +253,7 @@ void registerUtil(py::module_& m) {
              [](const DiagGroup& self) { return fmt::format("DiagGroup({})", self.getName()); });
 
     py::class_<DiagnosticEngine>(m, "DiagnosticEngine")
-        .def(py::init<const SourceManager&>(), "sourceManager"_a)
+        .def(py::init<const SourceManager&>(), py::keep_alive<1, 2>(), "sourceManager"_a)
         .def("addClient", &DiagnosticEngine::addClient, "client"_a)
         .def("clearClients", &DiagnosticEngine::clearClients)
         .def("issue", &DiagnosticEngine::issue, "diagnostic"_a)
@@ -267,13 +267,7 @@ void registerUtil(py::module_& m) {
         .def("setWarningsAsErrors", &DiagnosticEngine::setWarningsAsErrors, "set"_a)
         .def("setErrorsAsFatal", &DiagnosticEngine::setErrorsAsFatal, "set"_a)
         .def("setFatalsAsErrors", &DiagnosticEngine::setFatalsAsErrors, "set"_a)
-        .def("setSeverity",
-             py::overload_cast<DiagCode, DiagnosticSeverity>(&DiagnosticEngine::setSeverity),
-             "code"_a, "severity"_a)
-        .def("setSeverity",
-             py::overload_cast<const DiagGroup&, DiagnosticSeverity>(
-                 &DiagnosticEngine::setSeverity),
-             "group"_a, "severity"_a)
+        .def("setSeverity", &DiagnosticEngine::setSeverity, "code"_a, "severity"_a)
         .def("getSeverity", &DiagnosticEngine::getSeverity, "code"_a, "location"_a)
         .def("setMessage", &DiagnosticEngine::setMessage, "code"_a, "message"_a)
         .def("getMessage", &DiagnosticEngine::getMessage, "code"_a)
@@ -284,7 +278,6 @@ void registerUtil(py::module_& m) {
         .def("clearMappings",
              py::overload_cast<DiagnosticSeverity>(&DiagnosticEngine::clearMappings), "severity"_a)
         .def("formatMessage", &DiagnosticEngine::formatMessage, "diag"_a)
-        .def("setDefaultWarnings", &DiagnosticEngine::setDefaultWarnings)
         .def("setWarningOptions", &DiagnosticEngine::setWarningOptions, "options"_a)
         .def("setMappingsFromPragmas",
              py::overload_cast<>(&DiagnosticEngine::setMappingsFromPragmas))
@@ -306,7 +299,8 @@ void registerUtil(py::module_& m) {
 
     py::class_<DiagnosticClient, std::shared_ptr<DiagnosticClient>>(m, "DiagnosticClient")
         .def("report", &DiagnosticClient::report, "diagnostic"_a)
-        .def("setEngine", &DiagnosticClient::setEngine, "engine"_a);
+        .def("setEngine", &DiagnosticClient::setEngine, "engine"_a)
+        .def("showAbsPaths", &DiagnosticClient::showAbsPaths, "show"_a);
 
     py::class_<TextDiagnosticClient, DiagnosticClient, std::shared_ptr<TextDiagnosticClient>>(
         m, "TextDiagnosticClient")

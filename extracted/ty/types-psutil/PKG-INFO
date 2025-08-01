@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-psutil
-Version: 7.0.0.20250601
+Version: 7.0.0.20250801
 Summary: Typing stubs for psutil
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,14 +17,9 @@ Dynamic: license-file
 
 ## Typing stubs for psutil
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`psutil`](https://github.com/giampaolo/psutil) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `psutil`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`psutil`](https://github.com/giampaolo/psutil) package. It can be used by type checkers
+to check code that uses `psutil`. This version of
 `types-psutil` aims to provide accurate annotations for
 `psutil==7.0.*`.
 
@@ -35,9 +30,8 @@ for more details. The source for this package can be found in the
 [`stubs/psutil`](https://github.com/python/typeshed/tree/main/stubs/psutil)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
 It was generated from typeshed commit
-[`5a3c495d2f6fa9b68cd99f39feba4426e4d17ea9`](https://github.com/python/typeshed/commit/5a3c495d2f6fa9b68cd99f39feba4426e4d17ea9).
+[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).

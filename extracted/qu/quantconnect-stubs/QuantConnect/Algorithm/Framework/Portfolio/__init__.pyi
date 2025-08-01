@@ -371,6 +371,9 @@ class PortfolioBias(Enum):
     LONG = 1
     """Portfolio can only have long positions (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class MeanVarianceOptimizationPortfolioConstructionModel(QuantConnect.Algorithm.Framework.Portfolio.PortfolioConstructionModel):
     """
@@ -1726,12 +1729,35 @@ class PortfolioTarget(System.Object, QuantConnect.Algorithm.Framework.Portfolio.
         """Portfolio target tag with additional information"""
         ...
 
+    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, tag: str = ...) -> None:
         """
         Initializes a new instance of the PortfolioTarget class
         
         :param symbol: The symbol this target is for
         :param quantity: The target quantity
+        :param tag: The target tag with additional information
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, tag: str = ...) -> None:
+        """
+        Initializes a new instance of the PortfolioTarget class
+        
+        :param symbol: The symbol this target is for
+        :param quantity: The target quantity
+        :param tag: The target tag with additional information
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], insight_direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection, tag: str = ...) -> None:
+        """
+        Initializes a new instance of the PortfolioTarget class
+        
+        :param symbol: The symbol this target is for
+        :param insight_direction: The insight direction, which will be used to calculate the target quantity (1 for Up, 0 for flat, -1 for down)
         :param tag: The target tag with additional information
         """
         ...

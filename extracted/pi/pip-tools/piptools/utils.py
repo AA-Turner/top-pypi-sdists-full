@@ -20,9 +20,12 @@ else:
     import tomli as tomllib
 
 import click
+import pip
 from click.utils import LazyFile
 from pip._internal.req import InstallRequirement
-from pip._internal.req.constructors import install_req_from_line
+from pip._internal.req.constructors import (
+    install_req_from_line as _install_req_from_line,
+)
 from pip._internal.resolution.resolvelib.base import Requirement as PipRequirement
 from pip._internal.utils.misc import redact_auth_from_url
 from pip._internal.vcs import is_url
@@ -31,9 +34,9 @@ from pip._vendor.packaging.requirements import Requirement
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.utils import canonicalize_name
 from pip._vendor.packaging.version import Version
+from pip._vendor.packaging.version import parse as parse_version
 from pip._vendor.pkg_resources import get_distribution
 
-from piptools._compat import PIP_VERSION
 from piptools.locations import DEFAULT_CONFIG_FILE_NAMES
 from piptools.subprocess_utils import run_python_snippet
 
@@ -41,6 +44,8 @@ _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 _T = TypeVar("_T")
 _S = TypeVar("_S")
+
+PIP_VERSION = tuple(map(int, parse_version(pip.__version__).base_version.split(".")))
 
 UNSAFE_PACKAGES = {"setuptools", "distribute", "pip"}
 COMPILE_EXCLUDE_OPTIONS = {
@@ -88,6 +93,10 @@ def comment(text: str) -> str:
     return click.style(text, fg="green")
 
 
+def install_req_from_line(*args: Any, **kwargs: Any) -> InstallRequirement:
+    return copy_install_requirement(_install_req_from_line(*args, **kwargs))
+
+
 def make_install_requirement(
     name: str, version: str | Version, ireq: InstallRequirement
 ) -> InstallRequirement:
@@ -113,8 +122,9 @@ def make_install_requirement(
 
 def is_url_requirement(ireq: InstallRequirement) -> bool:
     """
-    Return True if requirement was specified as a path or URL.
-    ireq.original_link will have been set by InstallRequirement.__init__
+    Return :py:data:`True` if requirement was specified as a path or URL.
+
+    ``ireq.original_link`` will have been set by ``InstallRequirement.__init__``
     """
     return bool(ireq.original_link)
 
@@ -126,7 +136,7 @@ def format_requirement(
 ) -> str:
     """
     Generic formatter for pretty printing InstallRequirements to the terminal
-    in a less verbose way than using its `__str__` method.
+    in a less verbose way than using its ``__str__`` method.
     """
     if ireq.editable:
         line = f"-e {ireq.link.url}"
@@ -151,7 +161,8 @@ def format_requirement(
 
 def _build_direct_reference_best_efforts(ireq: InstallRequirement) -> str:
     """
-    Returns a string of a direct reference URI, whenever possible.
+    Return a string of a direct reference URI, whenever possible.
+
     See https://www.python.org/dev/peps/pep-0508/
     """
     # If the requirement has no name then we cannot build a direct reference.
@@ -198,7 +209,7 @@ def format_specifier(ireq: InstallRequirement) -> str:
 
 def is_pinned_requirement(ireq: InstallRequirement) -> bool:
     """
-    Returns whether an InstallRequirement is a "pinned" requirement.
+    Return whether an InstallRequirement is a "pinned" requirement.
 
     An InstallRequirement is considered pinned if:
 
@@ -225,7 +236,7 @@ def is_pinned_requirement(ireq: InstallRequirement) -> bool:
 
 def as_tuple(ireq: InstallRequirement) -> tuple[str, str, tuple[str, ...]]:
     """
-    Pulls out the (name: str, version:str, extras:(str)) tuple from
+    Pull out the (name: str, version:str, extras:(str)) tuple from
     the pinned InstallRequirement.
     """
     if not is_pinned_requirement(ireq):
@@ -245,9 +256,7 @@ def flat_map(
 
 
 def lookup_table_from_tuples(values: Iterable[tuple[_KT, _VT]]) -> dict[_KT, set[_VT]]:
-    """
-    Builds a dict-based lookup table (index) elegantly.
-    """
+    """Build a dict-based lookup table (index) elegantly."""
     lut: dict[_KT, set[_VT]] = collections.defaultdict(set)
     for k, v in values:
         lut[k].add(v)
@@ -257,14 +266,13 @@ def lookup_table_from_tuples(values: Iterable[tuple[_KT, _VT]]) -> dict[_KT, set
 def lookup_table(
     values: Iterable[_VT], key: Callable[[_VT], _KT]
 ) -> dict[_KT, set[_VT]]:
-    """
-    Builds a dict-based lookup table (index) elegantly.
-    """
+    """Build a dict-based lookup table (index) elegantly."""
     return lookup_table_from_tuples((key(v), v) for v in values)
 
 
 def dedup(iterable: Iterable[_T]) -> Iterable[_T]:
-    """Deduplicate an iterable object like iter(set(iterable)) but
+    """
+    Deduplicate an iterable object like ``iter(set(iterable))`` but
     order-preserved.
     """
     return iter(dict.fromkeys(iterable))
@@ -336,7 +344,7 @@ def get_hashes_from_ireq(ireq: InstallRequirement) -> set[str]:
 
 def get_compile_command(click_ctx: click.Context) -> str:
     """
-    Returns a normalized compile command depending on cli context.
+    Return a normalized compile command depending on cli context.
 
     The command will be normalized by:
         - expanding options short to long
@@ -371,9 +379,14 @@ def get_compile_command(click_ctx: click.Context) -> str:
         # Get the latest option name (usually it'll be a long name)
         option_long_name = option.opts[-1]
 
+        negative_option = None
+        if option.is_flag and option.secondary_opts:
+            # get inverse flag --no-{option_long_name}
+            negative_option = option.secondary_opts[-1]
+
         # Exclude one-off options (--upgrade/--upgrade-package/--rebuild/...)
         # or options that don't change compile behaviour (--verbose/--dry-run/...)
-        if option_long_name in COMPILE_EXCLUDE_OPTIONS:
+        if {option_long_name, negative_option} & COMPILE_EXCLUDE_OPTIONS:
             continue
 
         # Exclude config option if it's the default one
@@ -430,7 +443,7 @@ def get_compile_command(click_ctx: click.Context) -> str:
 
 def get_required_pip_specification() -> SpecifierSet:
     """
-    Returns pip version specifier requested by current pip-tools installation.
+    Return pip version specifier requested by current pip-tools installation.
     """
     project_dist = get_distribution("pip-tools")
     requirement = next(
@@ -443,9 +456,7 @@ def get_required_pip_specification() -> SpecifierSet:
 
 
 def get_pip_version_for_python_executable(python_executable: str) -> Version:
-    """
-    Returns pip version for the given python executable.
-    """
+    """Return pip version for the given python executable."""
     str_version = run_python_snippet(
         python_executable, "import pip;print(pip.__version__)"
     )
@@ -454,7 +465,7 @@ def get_pip_version_for_python_executable(python_executable: str) -> Version:
 
 def get_sys_path_for_python_executable(python_executable: str) -> list[str]:
     """
-    Returns sys.path list for the given python executable.
+    Return sys.path list for the given python executable.
     """
     result = run_python_snippet(
         python_executable, "import sys;import json;print(json.dumps(sys.path))"
@@ -510,6 +521,10 @@ def copy_install_requirement(
     if "req" not in kwargs:
         kwargs["req"] = copy.deepcopy(template.req)
 
+    kwargs["extras"] = set(map(canonicalize_name, kwargs["extras"]))
+    if kwargs["req"]:
+        kwargs["req"].extras = set(kwargs["extras"])
+
     ireq = InstallRequirement(**kwargs)
 
     # If the original_link was None, keep it so. Passing `link` as an
@@ -525,11 +540,11 @@ def override_defaults_from_config_file(
     ctx: click.Context, param: click.Parameter, value: str | None
 ) -> Path | None:
     """
-    Overrides ``click.Command`` defaults based on specified or discovered config
+    Override ``click.Command`` defaults based on specified or discovered config
     file, returning the ``pathlib.Path`` of that config file if specified or
     discovered.
 
-    ``None`` is returned if no such file is found.
+    :returns: :py:data:`None` if no such file is found, else returns the path.
 
     ``pip-tools`` will use the first config file found, searching in this order:
     an explicitly given config file, a ``.pip-tools.toml``, a ``pyproject.toml``
@@ -622,7 +637,7 @@ def _validate_config(
 
 def select_config_file(src_files: tuple[str, ...]) -> Path | None:
     """
-    Returns the config file to use for defaults given ``src_files`` provided.
+    Return the config file to use for defaults given ``src_files`` provided.
     """
     # NOTE: If no src_files were specified, consider the current directory the
     # NOTE: only config file lookup candidate. This usually happens when a

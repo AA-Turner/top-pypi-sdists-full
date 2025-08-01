@@ -273,6 +273,9 @@ class LogType(Enum):
     ERROR = 2
     """Error log level"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class Log(System.Object):
     """Logging management class."""

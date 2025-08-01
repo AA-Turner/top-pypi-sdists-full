@@ -96,7 +96,7 @@ impl SeriesEqualOptions {
 }
 
 /// Change a (possibly nested) Categorical data type to a String data type.
-pub fn categorical_dtype_to_string_dtype(dtype: &DataType) -> DataType {
+fn categorical_dtype_to_string_dtype(dtype: &DataType) -> DataType {
     match dtype {
         DataType::Categorical(..) => DataType::String,
         DataType::List(inner) => {
@@ -125,38 +125,38 @@ pub fn categorical_dtype_to_string_dtype(dtype: &DataType) -> DataType {
 }
 
 /// Cast a (possibly nested) Categorical Series to a String Series.
-pub fn categorical_series_to_string(s: &Series) -> Series {
+fn categorical_series_to_string(s: &Series) -> PolarsResult<Series> {
     let dtype = s.dtype();
     let noncat_dtype = categorical_dtype_to_string_dtype(dtype);
 
     if *dtype != noncat_dtype {
-        s.cast(&noncat_dtype).unwrap()
+        Ok(s.cast(&noncat_dtype)?)
     } else {
-        s.clone()
+        Ok(s.clone())
     }
 }
 
 /// Returns true if both DataTypes are floating point types.
-pub fn comparing_floats(left: &DataType, right: &DataType) -> bool {
+fn are_both_floats(left: &DataType, right: &DataType) -> bool {
     left.is_float() && right.is_float()
 }
 
 /// Returns true if both DataTypes are list-like (either List or Array types).
-pub fn comparing_lists(left: &DataType, right: &DataType) -> bool {
+fn are_both_lists(left: &DataType, right: &DataType) -> bool {
     matches!(left, DataType::List(_) | DataType::Array(_, _))
         && matches!(right, DataType::List(_) | DataType::Array(_, _))
 }
 
 /// Returns true if both DataTypes are struct types.
-pub fn comparing_structs(left: &DataType, right: &DataType) -> bool {
+fn are_both_structs(left: &DataType, right: &DataType) -> bool {
     left.is_struct() && right.is_struct()
 }
 
 /// Returns true if both DataTypes are nested types (lists or structs) that contain floating point types within them.
 /// First checks if both types are either lists or structs, then unpacks their nested DataTypes to determine if
 /// at least one floating point type exists in each of the nested structures.
-pub fn comparing_nested_floats(left: &DataType, right: &DataType) -> bool {
-    if !comparing_lists(left, right) && !comparing_structs(left, right) {
+fn comparing_nested_floats(left: &DataType, right: &DataType) -> bool {
+    if !are_both_lists(left, right) && !are_both_structs(left, right) {
         return false;
     }
 
@@ -170,7 +170,7 @@ pub fn comparing_nested_floats(left: &DataType, right: &DataType) -> bool {
 }
 
 /// Ensures that null values in two Series match exactly and returns an error if any mismatches are found.
-pub fn assert_series_null_values_match(left: &Series, right: &Series) -> PolarsResult<()> {
+fn assert_series_null_values_match(left: &Series, right: &Series) -> PolarsResult<()> {
     let null_value_mismatch = left.is_null().not_equal(&right.is_null());
 
     if null_value_mismatch.any() {
@@ -186,8 +186,8 @@ pub fn assert_series_null_values_match(left: &Series, right: &Series) -> PolarsR
 }
 
 /// Validates that NaN patterns are identical between two float Series, returning error if any mismatches are found.
-pub fn assert_series_nan_values_match(left: &Series, right: &Series) -> PolarsResult<()> {
-    if !comparing_floats(left.dtype(), right.dtype()) {
+fn assert_series_nan_values_match(left: &Series, right: &Series) -> PolarsResult<()> {
+    if !are_both_floats(left.dtype(), right.dtype()) {
         return Ok(());
     }
     let left_nan = left.is_nan()?;
@@ -233,7 +233,7 @@ pub fn assert_series_nan_values_match(left: &Series, right: &Series) -> PolarsRe
 /// Values are considered within tolerance if:
 /// `|left - right| <= (rtol * |right| + atol)` OR values are exactly equal
 ///
-pub fn assert_series_values_within_tolerance(
+fn assert_series_values_within_tolerance(
     left: &Series,
     right: &Series,
     unequal: &ChunkedArray<BooleanType>,
@@ -248,11 +248,8 @@ pub fn assert_series_values_within_tolerance(
 
     let right_abs = abs(&right_unequal)?;
 
-    let rtol_series = Series::new("rtol".into(), &[rtol]);
-    let atol_series = Series::new("atol".into(), &[atol]);
-
-    let rtol_part = (&right_abs * &rtol_series)?;
-    let tolerance = (&rtol_part + &atol_series)?;
+    let rtol_part = &right_abs * rtol;
+    let tolerance = &rtol_part + atol;
 
     let finite_mask = right_unequal.is_finite()?;
     let diff_within_tol = abs_difference.lt_eq(&tolerance)?;
@@ -308,7 +305,7 @@ pub fn assert_series_values_within_tolerance(
 ///    - Verifies NaN values match using `assert_series_nan_values_match`
 ///    - Verifies float values are within tolerance using `assert_series_values_within_tolerance`
 ///
-pub fn assert_series_values_equal(
+fn assert_series_values_equal(
     left: &Series,
     right: &Series,
     check_order: bool,
@@ -319,8 +316,8 @@ pub fn assert_series_values_equal(
 ) -> PolarsResult<()> {
     let (left, right) = if categorical_as_str {
         (
-            categorical_series_to_string(left),
-            categorical_series_to_string(right),
+            categorical_series_to_string(left)?,
+            categorical_series_to_string(right)?,
         )
     } else {
         (left.clone(), right.clone())
@@ -332,7 +329,7 @@ pub fn assert_series_values_equal(
             right.sort(SortOptions::default())?,
         )
     } else {
-        (left.clone(), right.clone())
+        (left, right)
     };
 
     let unequal = match left.not_equal_missing(&right) {
@@ -423,7 +420,7 @@ pub fn assert_series_values_equal(
 /// 2. Iterates through corresponding columns
 /// 3. Recursively calls `assert_series_values_equal` on each column pair
 ///
-pub fn assert_series_nested_values_equal(
+fn assert_series_nested_values_equal(
     left: &Series,
     right: &Series,
     check_exact: bool,
@@ -431,7 +428,7 @@ pub fn assert_series_nested_values_equal(
     atol: f64,
     categorical_as_str: bool,
 ) -> PolarsResult<()> {
-    if comparing_lists(left.dtype(), right.dtype()) {
+    if are_both_lists(left.dtype(), right.dtype()) {
         let left_rechunked = left.rechunk();
         let right_rechunked = right.rechunk();
 
@@ -531,6 +528,11 @@ pub fn assert_series_equal(
     right: &Series,
     options: SeriesEqualOptions,
 ) -> PolarsResult<()> {
+    // Short-circuit if they're the same series object
+    if std::ptr::eq(left, right) {
+        return Ok(());
+    }
+
     if left.len() != right.len() {
         return Err(polars_err!(
             assertion_error = "Series",
@@ -691,7 +693,7 @@ impl DataFrameEqualOptions {
 ///    - When `check_column_order` is false, compares data type sets for equality
 ///    - When `check_column_order` is true, performs more precise type checking
 ///
-pub fn assert_dataframe_schema_equal(
+fn assert_dataframe_schema_equal(
     left: &DataFrame,
     right: &DataFrame,
     check_dtypes: bool,
@@ -706,9 +708,6 @@ pub fn assert_dataframe_schema_equal(
     let left_set: PlHashSet<&PlSmallStr> = ordered_left_cols.iter().copied().collect();
     let right_set: PlHashSet<&PlSmallStr> = ordered_right_cols.iter().copied().collect();
 
-    let left_dtypes: PlHashSet<DataType> = left.dtypes().into_iter().collect();
-    let right_dtypes: PlHashSet<DataType> = right.dtypes().into_iter().collect();
-
     // Fast path for equal DataFrames
     if left_schema == right_schema {
         return Ok(());
@@ -722,7 +721,7 @@ pub fn assert_dataframe_schema_equal(
 
         if !left_not_right.is_empty() {
             return Err(polars_err!(
-                assertion_error = "DataFrame",
+                assertion_error = "DataFrames",
                 format!(
                     "columns mismatch: {:?} in left, but not in right",
                     left_not_right
@@ -737,7 +736,7 @@ pub fn assert_dataframe_schema_equal(
                 .collect();
 
             return Err(polars_err!(
-                assertion_error = "DataFrame",
+                assertion_error = "DataFrames",
                 format!(
                     "columns mismatch: {:?} in right, but not in left",
                     right_not_left
@@ -750,20 +749,37 @@ pub fn assert_dataframe_schema_equal(
 
     if check_column_order && ordered_left_cols != ordered_right_cols {
         return Err(polars_err!(
-            assertion_error = "DataFrame",
+            assertion_error = "DataFrames",
             "columns are not in the same order",
             format!("{:?}", ordered_left_cols),
             format!("{:?}", ordered_right_cols)
         ));
     }
 
-    if check_dtypes && (check_column_order || left_dtypes != right_dtypes) {
-        return Err(polars_err!(
-            assertion_error = "DataFrame",
-            "data types do not match",
-            format!("{:?}", left_dtypes),
-            format!("{:?}", right_dtypes)
-        ));
+    if check_dtypes {
+        if check_column_order {
+            let left_dtypes_ordered = left.dtypes();
+            let right_dtypes_ordered = right.dtypes();
+            if left_dtypes_ordered != right_dtypes_ordered {
+                return Err(polars_err!(
+                    assertion_error = "DataFrames",
+                    "dtypes do not match",
+                    format!("{:?}", left_dtypes_ordered),
+                    format!("{:?}", right_dtypes_ordered)
+                ));
+            }
+        } else {
+            let left_dtypes: PlHashSet<DataType> = left.dtypes().into_iter().collect();
+            let right_dtypes: PlHashSet<DataType> = right.dtypes().into_iter().collect();
+            if left_dtypes != right_dtypes {
+                return Err(polars_err!(
+                    assertion_error = "DataFrames",
+                    "dtypes do not match",
+                    format!("{:?}", left_dtypes),
+                    format!("{:?}", right_dtypes)
+                ));
+            }
+        }
     }
 
     Ok(())
@@ -813,6 +829,11 @@ pub fn assert_dataframe_equal(
     right: &DataFrame,
     options: DataFrameEqualOptions,
 ) -> PolarsResult<()> {
+    // Short-circuit if they're the same DataFrame object
+    if std::ptr::eq(left, right) {
+        return Ok(());
+    }
+
     assert_dataframe_schema_equal(
         left,
         right,
@@ -857,10 +878,10 @@ pub fn assert_dataframe_equal(
             options.categorical_as_str,
         ) {
             Ok(_) => {},
-            Err(err) => {
+            Err(_) => {
                 return Err(polars_err!(
-                    assertion_error = "DataFrame",
-                    format!("value mismatch for column {:?}:, {}", col, err),
+                    assertion_error = "DataFrames",
+                    format!("value mismatch for column {:?}", col),
                     format!("{:?}", s_left_series),
                     format!("{:?}", s_right_series)
                 ));

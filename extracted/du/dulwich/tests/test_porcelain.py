@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -76,6 +76,11 @@ def flat_walk_dir(dir_to_walk):
 class PorcelainTestCase(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # Disable pagers for tests
+        self.overrideEnv("PAGER", "false")
+        self.overrideEnv("GIT_PAGER", "false")
+        self.overrideEnv("DULWICH_PAGER", "false")
+
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.test_dir)
         self.repo_path = os.path.join(self.test_dir, "repo")
@@ -461,6 +466,144 @@ class CommitTests(PorcelainTestCase):
         assert isinstance(commit, Commit)
         self.assertEqual(commit._author_timezone, local_timezone)
         self.assertEqual(commit._commit_timezone, local_timezone)
+
+    def test_commit_all(self) -> None:
+        # Create initial commit
+        filename = os.path.join(self.repo.path, "test.txt")
+        with open(filename, "wb") as f:
+            f.write(b"initial content")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        initial_sha = porcelain.commit(self.repo.path, message=b"Initial commit")
+
+        # Modify the file without staging
+        with open(filename, "wb") as f:
+            f.write(b"modified content")
+
+        # Create an untracked file
+        untracked_file = os.path.join(self.repo.path, "untracked.txt")
+        with open(untracked_file, "wb") as f:
+            f.write(b"untracked content")
+
+        # Commit with all=True should stage modified files but not untracked
+        sha = porcelain.commit(self.repo.path, message=b"Modified commit", all=True)
+        self.assertIsInstance(sha, bytes)
+        self.assertEqual(len(sha), 40)
+        self.assertNotEqual(sha, initial_sha)
+
+        # Verify the commit contains the modification
+        commit = self.repo.get_object(sha)
+        assert isinstance(commit, Commit)
+        tree = self.repo.get_object(commit.tree)
+        # The modified file should be in the commit
+        self.assertIn(b"test.txt", tree)
+        # The untracked file should not be in the commit
+        self.assertNotIn(b"untracked.txt", tree)
+
+    def test_commit_all_no_changes(self) -> None:
+        # Create initial commit
+        filename = os.path.join(self.repo.path, "test.txt")
+        with open(filename, "wb") as f:
+            f.write(b"initial content")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        initial_sha = porcelain.commit(self.repo.path, message=b"Initial commit")
+
+        # Try to commit with all=True when there are no unstaged changes
+        sha = porcelain.commit(self.repo.path, message=b"No changes commit", all=True)
+        self.assertIsInstance(sha, bytes)
+        self.assertEqual(len(sha), 40)
+        self.assertNotEqual(sha, initial_sha)
+
+    def test_commit_all_multiple_files(self) -> None:
+        # Create initial commit with multiple files
+        file1 = os.path.join(self.repo.path, "file1.txt")
+        file2 = os.path.join(self.repo.path, "file2.txt")
+
+        with open(file1, "wb") as f:
+            f.write(b"content1")
+        with open(file2, "wb") as f:
+            f.write(b"content2")
+
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt"])
+        initial_sha = porcelain.commit(self.repo.path, message=b"Initial commit")
+
+        # Modify both files
+        with open(file1, "wb") as f:
+            f.write(b"modified content1")
+        with open(file2, "wb") as f:
+            f.write(b"modified content2")
+
+        # Commit with all=True should stage both modified files
+        sha = porcelain.commit(self.repo.path, message=b"Modified both files", all=True)
+        self.assertIsInstance(sha, bytes)
+        self.assertEqual(len(sha), 40)
+        self.assertNotEqual(sha, initial_sha)
+
+        # Verify both modifications are in the commit
+        commit = self.repo.get_object(sha)
+        assert isinstance(commit, Commit)
+        tree = self.repo.get_object(commit.tree)
+        self.assertIn(b"file1.txt", tree)
+        self.assertIn(b"file2.txt", tree)
+
+    def test_commit_amend_message(self) -> None:
+        # Create initial commit
+        filename = os.path.join(self.repo.path, "test.txt")
+        with open(filename, "wb") as f:
+            f.write(b"initial content")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        original_sha = porcelain.commit(self.repo.path, message=b"Original commit")
+
+        # Amend with new message
+        amended_sha = porcelain.commit(
+            self.repo.path, message=b"Amended commit", amend=True
+        )
+
+        self.assertIsInstance(amended_sha, bytes)
+        self.assertEqual(len(amended_sha), 40)
+        self.assertNotEqual(amended_sha, original_sha)
+
+        # Check that the amended commit has the new message
+        amended_commit = self.repo.get_object(amended_sha)
+        assert isinstance(amended_commit, Commit)
+        self.assertEqual(amended_commit.message, b"Amended commit")
+
+        # Check that the amended commit uses the original commit's parents
+        original_commit = self.repo.get_object(original_sha)
+        assert isinstance(original_commit, Commit)
+        # Since this was the first commit, it should have no parents,
+        # and the amended commit should also have no parents
+        self.assertEqual(amended_commit.parents, original_commit.parents)
+
+    def test_commit_amend_no_message(self) -> None:
+        # Create initial commit
+        filename = os.path.join(self.repo.path, "test.txt")
+        with open(filename, "wb") as f:
+            f.write(b"initial content")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        original_sha = porcelain.commit(self.repo.path, message=b"Original commit")
+
+        # Modify file and stage it
+        with open(filename, "wb") as f:
+            f.write(b"modified content")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+
+        # Amend without providing message (should reuse original message)
+        amended_sha = porcelain.commit(self.repo.path, amend=True)
+
+        self.assertIsInstance(amended_sha, bytes)
+        self.assertEqual(len(amended_sha), 40)
+        self.assertNotEqual(amended_sha, original_sha)
+
+        # Check that the amended commit has the original message
+        amended_commit = self.repo.get_object(amended_sha)
+        assert isinstance(amended_commit, Commit)
+        self.assertEqual(amended_commit.message, b"Original commit")
+
+    def test_commit_amend_no_existing_commit(self) -> None:
+        # Try to amend when there's no existing commit
+        with self.assertRaises(ValueError) as cm:
+            porcelain.commit(self.repo.path, message=b"Should fail", amend=True)
+        self.assertIn("Cannot amend: no existing commit found", str(cm.exception))
 
 
 @skipIf(
@@ -918,6 +1061,7 @@ class CloneTests(PorcelainTestCase):
         self.addCleanup(r.close)
         self.assertEqual(r.path, target_path)
         target_repo = Repo(target_path)
+        self.addCleanup(target_repo.close)
         self.assertEqual(0, len(target_repo.open_index()))
         self.assertEqual(c3.id, target_repo.refs[b"refs/tags/foo"])
         self.assertNotIn(b"f1", os.listdir(target_path))
@@ -1055,6 +1199,7 @@ class CloneTests(PorcelainTestCase):
         self.addCleanup(r.close)
         self.assertEqual(r.path, target_path)
         target_repo = Repo(target_path)
+        self.addCleanup(target_repo.close)
         self.assertEqual(0, len(target_repo.open_index()))
         self.assertEqual(c1.id, target_repo.refs[b"refs/heads/else"])
         self.assertEqual(c1.id, target_repo.refs[b"HEAD"])
@@ -2374,6 +2519,140 @@ index ea5c7bf..fd38bcb 100644
         )
 
 
+class FormatPatchTests(PorcelainTestCase):
+    def test_format_patch_single_commit(self) -> None:
+        # Create initial commit
+        tree1 = Tree()
+        c1 = make_commit(
+            tree=tree1,
+            message=b"Initial commit",
+        )
+        self.repo.object_store.add_objects([(tree1, None), (c1, None)])
+
+        # Create second commit
+        b = Blob.from_string(b"modified")
+        tree = Tree()
+        tree.add(b"test.txt", 0o100644, b.id)
+        c2 = make_commit(
+            tree=tree,
+            parents=[c1.id],
+            message=b"Add test.txt",
+        )
+        self.repo.object_store.add_objects([(b, None), (tree, None), (c2, None)])
+        self.repo[b"HEAD"] = c2.id
+
+        # Generate patch for single commit
+        with tempfile.TemporaryDirectory() as tmpdir:
+            patches = porcelain.format_patch(
+                self.repo.path,
+                committish=c2.id,
+                outdir=tmpdir,
+            )
+
+            self.assertEqual(len(patches), 1)
+            self.assertTrue(patches[0].endswith("-Add-test.txt.patch"))
+
+            # Verify patch content
+            with open(patches[0], "rb") as f:
+                content = f.read()
+                self.assertIn(b"Subject: [PATCH 1/1] Add test.txt", content)
+                self.assertIn(b"+modified", content)
+
+    def test_format_patch_multiple_commits(self) -> None:
+        # Create commit chain
+        commits = []
+        for i in range(3):
+            blob = Blob.from_string(f"content {i}".encode())
+            tree = Tree()
+            tree.add(f"file{i}.txt".encode(), 0o100644, blob.id)
+
+            parents = [commits[-1].id] if commits else []
+            commit = make_commit(
+                tree=tree,
+                parents=parents,
+                message=f"Commit {i}".encode(),
+            )
+            self.repo.object_store.add_objects(
+                [(blob, None), (tree, None), (commit, None)]
+            )
+            commits.append(commit)
+
+        self.repo[b"HEAD"] = commits[-1].id
+
+        # Test generating last 2 commits
+        with tempfile.TemporaryDirectory() as tmpdir:
+            patches = porcelain.format_patch(
+                self.repo.path,
+                n=2,
+                outdir=tmpdir,
+            )
+
+            self.assertEqual(len(patches), 2)
+            self.assertTrue(patches[0].endswith("-Commit-1.patch"))
+            self.assertTrue(patches[1].endswith("-Commit-2.patch"))
+
+            # Check patch numbering
+            with open(patches[0], "rb") as f:
+                self.assertIn(b"Subject: [PATCH 1/2] Commit 1", f.read())
+            with open(patches[1], "rb") as f:
+                self.assertIn(b"Subject: [PATCH 2/2] Commit 2", f.read())
+
+    def test_format_patch_range(self) -> None:
+        # Create commit chain
+        c1, c2, c3 = build_commit_graph(self.repo.object_store, [[1], [2, 1], [3, 2]])
+        self.repo[b"HEAD"] = c3.id
+
+        # Test commit range
+        with tempfile.TemporaryDirectory() as tmpdir:
+            patches = porcelain.format_patch(
+                self.repo.path,
+                committish=(c1.id, c3.id),
+                outdir=tmpdir,
+            )
+
+            # Should include c2 and c3
+            self.assertEqual(len(patches), 2)
+
+    def test_format_patch_stdout(self) -> None:
+        # Create a commit
+        blob = Blob.from_string(b"test content")
+        tree = Tree()
+        tree.add(b"test.txt", 0o100644, blob.id)
+        commit = make_commit(
+            tree=tree,
+            message=b"Test commit",
+        )
+        self.repo.object_store.add_objects([(blob, None), (tree, None), (commit, None)])
+        self.repo[b"HEAD"] = commit.id
+
+        # Test stdout output
+        outstream = BytesIO()
+        patches = porcelain.format_patch(
+            self.repo.path,
+            committish=commit.id,
+            stdout=True,
+            outstream=outstream,
+        )
+
+        # Should return empty list when writing to stdout
+        self.assertEqual(patches, [])
+
+        # Check stdout content
+        outstream.seek(0)
+        content = outstream.read()
+        self.assertIn(b"Subject: [PATCH 1/1] Test commit", content)
+        self.assertIn(b"diff --git", content)
+
+    def test_format_patch_no_commits(self) -> None:
+        # Test with a new repository with no commits
+        # Just remove HEAD to simulate empty repo
+        patches = porcelain.format_patch(
+            self.repo.path,
+            n=5,
+        )
+        self.assertEqual(patches, [])
+
+
 class SymbolicRefTests(PorcelainTestCase):
     def test_set_wrong_symbolic_ref(self) -> None:
         c1, c2, c3 = build_commit_graph(
@@ -2432,6 +2711,273 @@ class DiffTreeTests(PorcelainTestCase):
         outstream = BytesIO()
         porcelain.diff_tree(self.repo.path, c2.tree, c3.tree, outstream=outstream)
         self.assertEqual(outstream.getvalue(), b"")
+
+
+class DiffTests(PorcelainTestCase):
+    def test_diff_uncommitted_stage(self) -> None:
+        # Test diff in repository with no commits yet
+        fullpath = os.path.join(self.repo.path, "test.txt")
+        with open(fullpath, "w") as f:
+            f.write("Hello, world!\n")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, staged=True, outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/test.txt b/test.txt", diff_output)
+        self.assertIn(b"new file mode", diff_output)
+        self.assertIn(b"+Hello, world!", diff_output)
+
+    def test_diff_uncommitted_working_tree(self) -> None:
+        # Test unstaged changes in repository with no commits
+        fullpath = os.path.join(self.repo.path, "test.txt")
+        with open(fullpath, "w") as f:
+            f.write("Hello, world!\n")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+
+        # Modify file in working tree
+        with open(fullpath, "w") as f:
+            f.write("Hello, world!\nNew line\n")
+
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, staged=False, outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/test.txt b/test.txt", diff_output)
+        self.assertIn(b"+New line", diff_output)
+
+    def test_diff_with_commits_staged(self) -> None:
+        # Test staged changes with existing commits
+        fullpath = os.path.join(self.repo.path, "test.txt")
+        with open(fullpath, "w") as f:
+            f.write("Initial content\n")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        porcelain.commit(self.repo.path, message=b"Initial commit")
+
+        # Modify and stage
+        with open(fullpath, "w") as f:
+            f.write("Initial content\nModified\n")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, staged=True, outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/test.txt b/test.txt", diff_output)
+        self.assertIn(b"+Modified", diff_output)
+
+    def test_diff_with_commits_unstaged(self) -> None:
+        # Test unstaged changes with existing commits
+        fullpath = os.path.join(self.repo.path, "test.txt")
+        with open(fullpath, "w") as f:
+            f.write("Initial content\n")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        porcelain.commit(self.repo.path, message=b"Initial commit")
+
+        # Modify without staging
+        with open(fullpath, "w") as f:
+            f.write("Initial content\nModified\n")
+
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, staged=False, outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/test.txt b/test.txt", diff_output)
+        self.assertIn(b"+Modified", diff_output)
+
+    def test_diff_file_deletion(self) -> None:
+        # Test showing file deletion
+        fullpath = os.path.join(self.repo.path, "test.txt")
+        with open(fullpath, "w") as f:
+            f.write("Content to delete\n")
+        porcelain.add(self.repo.path, paths=["test.txt"])
+        porcelain.commit(self.repo.path, message=b"Add file")
+
+        # Delete file
+        os.unlink(fullpath)
+
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, staged=False, outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/test.txt b/test.txt", diff_output)
+        self.assertIn(b"deleted file mode", diff_output)
+        self.assertIn(b"-Content to delete", diff_output)
+
+    def test_diff_with_paths(self) -> None:
+        # Test diff with specific paths
+        # Create two files
+        fullpath1 = os.path.join(self.repo.path, "file1.txt")
+        fullpath2 = os.path.join(self.repo.path, "file2.txt")
+        with open(fullpath1, "w") as f:
+            f.write("File 1 content\n")
+        with open(fullpath2, "w") as f:
+            f.write("File 2 content\n")
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt"])
+        porcelain.commit(self.repo.path, message=b"Add two files")
+
+        # Modify both files
+        with open(fullpath1, "w") as f:
+            f.write("File 1 modified\n")
+        with open(fullpath2, "w") as f:
+            f.write("File 2 modified\n")
+
+        # Test diff with specific path
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, paths=["file1.txt"], outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/file1.txt b/file1.txt", diff_output)
+        self.assertIn(b"-File 1 content", diff_output)
+        self.assertIn(b"+File 1 modified", diff_output)
+        # file2.txt should not appear in diff
+        self.assertNotIn(b"file2.txt", diff_output)
+
+    def test_diff_with_paths_multiple(self) -> None:
+        # Test diff with multiple paths
+        # Create three files
+        fullpath1 = os.path.join(self.repo.path, "file1.txt")
+        fullpath2 = os.path.join(self.repo.path, "file2.txt")
+        fullpath3 = os.path.join(self.repo.path, "file3.txt")
+        with open(fullpath1, "w") as f:
+            f.write("File 1 content\n")
+        with open(fullpath2, "w") as f:
+            f.write("File 2 content\n")
+        with open(fullpath3, "w") as f:
+            f.write("File 3 content\n")
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt", "file3.txt"])
+        porcelain.commit(self.repo.path, message=b"Add three files")
+
+        # Modify all files
+        with open(fullpath1, "w") as f:
+            f.write("File 1 modified\n")
+        with open(fullpath2, "w") as f:
+            f.write("File 2 modified\n")
+        with open(fullpath3, "w") as f:
+            f.write("File 3 modified\n")
+
+        # Test diff with two specific paths
+        outstream = BytesIO()
+        porcelain.diff(
+            self.repo.path, paths=["file1.txt", "file3.txt"], outstream=outstream
+        )
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/file1.txt b/file1.txt", diff_output)
+        self.assertIn(b"diff --git a/file3.txt b/file3.txt", diff_output)
+        # file2.txt should not appear in diff
+        self.assertNotIn(b"file2.txt", diff_output)
+
+    def test_diff_with_paths_directory(self) -> None:
+        # Test diff with directory paths
+        # Create files in subdirectory
+        os.mkdir(os.path.join(self.repo.path, "subdir"))
+        fullpath1 = os.path.join(self.repo.path, "subdir", "file1.txt")
+        fullpath2 = os.path.join(self.repo.path, "subdir", "file2.txt")
+        fullpath3 = os.path.join(self.repo.path, "root.txt")
+        with open(fullpath1, "w") as f:
+            f.write("Subdir file 1\n")
+        with open(fullpath2, "w") as f:
+            f.write("Subdir file 2\n")
+        with open(fullpath3, "w") as f:
+            f.write("Root file\n")
+        porcelain.add(
+            self.repo.path, paths=["subdir/file1.txt", "subdir/file2.txt", "root.txt"]
+        )
+        porcelain.commit(self.repo.path, message=b"Add files in subdir")
+
+        # Modify all files
+        with open(fullpath1, "w") as f:
+            f.write("Subdir file 1 modified\n")
+        with open(fullpath2, "w") as f:
+            f.write("Subdir file 2 modified\n")
+        with open(fullpath3, "w") as f:
+            f.write("Root file modified\n")
+
+        # Test diff with directory path
+        outstream = BytesIO()
+        porcelain.diff(self.repo.path, paths=["subdir"], outstream=outstream)
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"subdir/file1.txt", diff_output)
+        self.assertIn(b"subdir/file2.txt", diff_output)
+        # root.txt should not appear in diff
+        self.assertNotIn(b"root.txt", diff_output)
+
+    def test_diff_staged_with_paths(self) -> None:
+        # Test staged diff with specific paths
+        # Create two files
+        fullpath1 = os.path.join(self.repo.path, "file1.txt")
+        fullpath2 = os.path.join(self.repo.path, "file2.txt")
+        with open(fullpath1, "w") as f:
+            f.write("File 1 content\n")
+        with open(fullpath2, "w") as f:
+            f.write("File 2 content\n")
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt"])
+        porcelain.commit(self.repo.path, message=b"Add two files")
+
+        # Modify and stage both files
+        with open(fullpath1, "w") as f:
+            f.write("File 1 staged\n")
+        with open(fullpath2, "w") as f:
+            f.write("File 2 staged\n")
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt"])
+
+        # Test staged diff with specific path
+        outstream = BytesIO()
+        porcelain.diff(
+            self.repo.path, staged=True, paths=["file1.txt"], outstream=outstream
+        )
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/file1.txt b/file1.txt", diff_output)
+        self.assertIn(b"-File 1 content", diff_output)
+        self.assertIn(b"+File 1 staged", diff_output)
+        # file2.txt should not appear in diff
+        self.assertNotIn(b"file2.txt", diff_output)
+
+    def test_diff_with_commit_and_paths(self) -> None:
+        # Test diff against specific commit with paths
+        # Create initial file
+        fullpath1 = os.path.join(self.repo.path, "file1.txt")
+        fullpath2 = os.path.join(self.repo.path, "file2.txt")
+        with open(fullpath1, "w") as f:
+            f.write("Initial content 1\n")
+        with open(fullpath2, "w") as f:
+            f.write("Initial content 2\n")
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt"])
+        first_commit = porcelain.commit(self.repo.path, message=b"Initial commit")
+
+        # Make second commit
+        with open(fullpath1, "w") as f:
+            f.write("Second content 1\n")
+        with open(fullpath2, "w") as f:
+            f.write("Second content 2\n")
+        porcelain.add(self.repo.path, paths=["file1.txt", "file2.txt"])
+        porcelain.commit(self.repo.path, message=b"Second commit")
+
+        # Modify working tree
+        with open(fullpath1, "w") as f:
+            f.write("Working content 1\n")
+        with open(fullpath2, "w") as f:
+            f.write("Working content 2\n")
+
+        # Test diff against first commit with specific path
+        outstream = BytesIO()
+        porcelain.diff(
+            self.repo.path,
+            commit=first_commit,
+            paths=["file1.txt"],
+            outstream=outstream,
+        )
+
+        diff_output = outstream.getvalue()
+        self.assertIn(b"diff --git a/file1.txt b/file1.txt", diff_output)
+        self.assertIn(b"-Initial content 1", diff_output)
+        self.assertIn(b"+Working content 1", diff_output)
+        # file2.txt should not appear in diff
+        self.assertNotIn(b"file2.txt", diff_output)
 
 
 class CommitTreeTests(PorcelainTestCase):
@@ -2994,11 +3540,12 @@ class ResetTests(PorcelainTestCase):
         with open(file2, "w") as f:
             f.write("new content")
 
-        # Reset to commit that has file2 removed - should delete untracked file2
+        # Reset to commit that has file2 removed - untracked file2 should remain
         porcelain.reset(self.repo, "hard", sha2)
 
         self.assertTrue(os.path.exists(file1))
-        self.assertFalse(os.path.exists(file2))
+        # Untracked files are not removed by reset --hard
+        self.assertTrue(os.path.exists(file2))
 
     def test_hard_reset_to_remote_branch(self) -> None:
         """Test reset --hard to remote branch deletes local files not in remote."""
@@ -3478,16 +4025,30 @@ class CheckoutTests(PorcelainTestCase):
             [{"add": [], "delete": [], "modify": [b"nee"]}, [], []], status
         )
 
-        # The new checkout behavior allows switching if the file doesn't exist in target branch
-        # (changes can be preserved)
-        porcelain.checkout(self.repo, b"uni")
+        # Checkout should fail when there are staged changes that would be lost
+        # This matches Git's behavior to prevent data loss
+        from dulwich.errors import WorkingTreeModifiedError
+
+        with self.assertRaises(WorkingTreeModifiedError) as cm:
+            porcelain.checkout(self.repo, b"uni")
+
+        self.assertIn("nee", str(cm.exception))
+
+        # Should still be on master branch
+        self.assertEqual(b"master", porcelain.active_branch(self.repo))
+
+        # The staged changes should still be present
+        status = list(porcelain.status(self.repo))
+        self.assertEqual(
+            [{"add": [], "delete": [], "modify": [b"nee"]}, [], []], status
+        )
+        self.assertTrue(os.path.exists(nee_path))
+
+        # Force checkout should work and lose the changes
+        porcelain.checkout(self.repo, b"uni", force=True)
         self.assertEqual(b"uni", porcelain.active_branch(self.repo))
 
-        # The staged changes are lost and the file is removed from working tree
-        # because it doesn't exist in the target branch
-        status = list(porcelain.status(self.repo))
-        # File 'nee' is gone completely
-        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], []], status)
+        # Now the file should be gone
         self.assertFalse(os.path.exists(nee_path))
 
     def test_checkout_to_branch_with_modified_file_not_present_forced(self) -> None:
@@ -3786,6 +4347,7 @@ class CheckoutTests(PorcelainTestCase):
         target_path = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, target_path)
         target_repo = porcelain.clone(remote_path, target_path)
+        self.addCleanup(target_repo.close)
 
         # Create a remote tracking branch reference
         remote_branch_ref = b"refs/remotes/origin/feature"
@@ -3907,7 +4469,7 @@ class GeneralCheckoutTests(PorcelainTestCase):
         self.assertEqual(b"master", porcelain.active_branch(self.repo))
 
     def test_checkout_force(self) -> None:
-        """Test forced checkout discards local changes."""
+        """Test forced checkout discards local changes for files that differ between branches."""
         # Modify a file
         with open(self._foo_path, "w") as f:
             f.write("modified content\n")
@@ -3917,10 +4479,11 @@ class GeneralCheckoutTests(PorcelainTestCase):
 
         self.assertEqual(b"feature", porcelain.active_branch(self.repo))
 
-        # Local changes should be discarded
+        # Since foo has the same content in master and feature branches,
+        # checkout should NOT restore it - the modified content should remain
         with open(self._foo_path) as f:
             content = f.read()
-        self.assertEqual("initial content\n", content)
+        self.assertEqual("modified content\n", content)
 
     def test_checkout_nonexistent_ref(self) -> None:
         """Test checkout of non-existent branch/commit."""
@@ -4747,6 +5310,190 @@ class PullTests(PorcelainTestCase):
         with Repo(self.target_path) as r:
             self.assertEqual(r[b"HEAD"].id, self.repo[b"HEAD"].id)
 
+    def test_pull_protects_modified_files(self) -> None:
+        """Test that pull refuses to overwrite uncommitted changes by default."""
+        from dulwich.errors import WorkingTreeModifiedError
+
+        outstream = BytesIO()
+        errstream = BytesIO()
+
+        # Create a file with content in the source repo
+        test_file = os.path.join(self.repo.path, "testfile.txt")
+        with open(test_file, "w") as f:
+            f.write("original content")
+
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Add test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        # Pull this change to target first
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master",
+            outstream=outstream,
+            errstream=errstream,
+        )
+
+        # Now modify the file in source repo
+        with open(test_file, "w") as f:
+            f.write("updated content")
+
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Update test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        # Modify the same file in target working directory (uncommitted)
+        target_file = os.path.join(self.target_path, "testfile.txt")
+        with open(target_file, "w") as f:
+            f.write("local modifications")
+
+        # Pull should fail because of uncommitted changes
+        with self.assertRaises(WorkingTreeModifiedError) as cm:
+            porcelain.pull(
+                self.target_path,
+                self.repo.path,
+                b"refs/heads/master",
+                outstream=outstream,
+                errstream=errstream,
+            )
+
+        self.assertIn("Your local changes", str(cm.exception))
+        self.assertIn("testfile.txt", str(cm.exception))
+
+        # Verify the file still has local modifications
+        with open(target_file) as f:
+            self.assertEqual(f.read(), "local modifications")
+
+    def test_pull_force_overwrites_modified_files(self) -> None:
+        """Test that pull with force=True overwrites uncommitted changes."""
+        outstream = BytesIO()
+        errstream = BytesIO()
+
+        # Create a file with content in the source repo
+        test_file = os.path.join(self.repo.path, "testfile.txt")
+        with open(test_file, "w") as f:
+            f.write("original content")
+
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Add test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        # Pull this change to target first
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master",
+            outstream=outstream,
+            errstream=errstream,
+        )
+
+        # Now modify the file in source repo
+        with open(test_file, "w") as f:
+            f.write("updated content")
+
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Update test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        # Modify the same file in target working directory (uncommitted)
+        target_file = os.path.join(self.target_path, "testfile.txt")
+        with open(target_file, "w") as f:
+            f.write("local modifications")
+
+        # Pull with force=True should succeed and overwrite local changes
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master",
+            outstream=outstream,
+            errstream=errstream,
+            force=True,
+        )
+
+        # Verify the file now has the remote content
+        with open(target_file) as f:
+            self.assertEqual(f.read(), "updated content")
+
+        # Check the HEAD is updated too
+        with Repo(self.target_path) as r:
+            self.assertEqual(r[b"HEAD"].id, self.repo[b"HEAD"].id)
+
+    def test_pull_allows_unmodified_files(self) -> None:
+        """Test that pull allows updating files that haven't been modified locally."""
+        outstream = BytesIO()
+        errstream = BytesIO()
+
+        # Create a file with content in the source repo
+        test_file = os.path.join(self.repo.path, "testfile.txt")
+        with open(test_file, "w") as f:
+            f.write("original content")
+
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Add test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        # Pull this change to target first
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master",
+            outstream=outstream,
+            errstream=errstream,
+        )
+
+        # Now modify the file in source repo
+        with open(test_file, "w") as f:
+            f.write("updated content")
+
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Update test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        # Don't modify the file in target - it should be safe to update
+        target_file = os.path.join(self.target_path, "testfile.txt")
+
+        # Pull should succeed since the file wasn't modified locally
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master",
+            outstream=outstream,
+            errstream=errstream,
+        )
+
+        # Verify the file now has the remote content
+        with open(target_file) as f:
+            self.assertEqual(f.read(), "updated content")
+
+        # Check the HEAD is updated too
+        with Repo(self.target_path) as r:
+            self.assertEqual(r[b"HEAD"].id, self.repo[b"HEAD"].id)
+
 
 class StatusTests(PorcelainTestCase):
     def test_empty(self) -> None:
@@ -4984,7 +5731,7 @@ class StatusTests(PorcelainTestCase):
         self.assertDictEqual(
             {"add": [b"crlf-new"], "delete": [], "modify": []}, results.staged
         )
-        self.assertListEqual(results.unstaged, [])
+        self.assertListEqual(results.unstaged, [b"crlf-exists"])
         self.assertListEqual(results.untracked, [])
 
     def test_get_tree_changes_add(self) -> None:
@@ -5157,6 +5904,248 @@ class StatusTests(PorcelainTestCase):
             ),
         )
 
+    def test_get_untracked_paths_nested_gitignore(self) -> None:
+        """Test directories with nested .gitignore files that ignore all contents."""
+        # Create cache directories with .gitignore files that contain "*"
+        cache_dirs = [".ruff_cache", ".pytest_cache", "__pycache__"]
+        for cache_dir in cache_dirs:
+            cache_path = os.path.join(self.repo.path, cache_dir)
+            os.mkdir(cache_path)
+            # Create .gitignore with * pattern (ignores everything)
+            with open(os.path.join(cache_path, ".gitignore"), "w") as f:
+                f.write("*\n")
+            # Create some files in the cache directory
+            with open(os.path.join(cache_path, "somefile.txt"), "w") as f:
+                f.write("cached data\n")
+            with open(os.path.join(cache_path, "data.json"), "w") as f:
+                f.write("{}\n")
+
+        # Create a normal untracked file
+        with open(os.path.join(self.repo.path, "untracked.txt"), "w") as f:
+            f.write("untracked content\n")
+
+        # Test with exclude_ignored=True (default for status)
+        untracked = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="normal",
+            )
+        )
+        # Cache directories should NOT be in untracked since all their contents are ignored
+        self.assertEqual({"untracked.txt"}, untracked)
+
+        # Test with exclude_ignored=False
+        untracked_with_ignored = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=False,
+                untracked_files="normal",
+            )
+        )
+        # Cache directories should be included when not excluding ignored
+        expected = {"untracked.txt"}
+        for cache_dir in cache_dirs:
+            expected.add(cache_dir + os.sep)
+        self.assertEqual(expected, untracked_with_ignored)
+
+        # Test status() which uses exclude_ignored=True by default
+        status = porcelain.status(self.repo)
+        self.assertEqual(["untracked.txt"], status.untracked)
+
+        # Test status() with ignored=True which uses exclude_ignored=False
+        status_with_ignored = porcelain.status(self.repo, ignored=True)
+        # Should include cache directories
+        self.assertIn("untracked.txt", status_with_ignored.untracked)
+        for cache_dir in cache_dirs:
+            self.assertIn(cache_dir + "/", status_with_ignored.untracked)
+
+    def test_get_untracked_paths_mixed_directory(self) -> None:
+        """Test directory with both ignored and non-ignored files."""
+        # Create a directory with mixed content
+        mixed_dir = os.path.join(self.repo.path, "mixed")
+        os.mkdir(mixed_dir)
+
+        # Create .gitignore that ignores .log files
+        with open(os.path.join(mixed_dir, ".gitignore"), "w") as f:
+            f.write("*.log\n")
+
+        # Create ignored and non-ignored files
+        with open(os.path.join(mixed_dir, "debug.log"), "w") as f:
+            f.write("debug info\n")
+        with open(os.path.join(mixed_dir, "readme.txt"), "w") as f:
+            f.write("important\n")
+
+        # Test with exclude_ignored=True and normal mode
+        untracked = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="normal",
+            )
+        )
+        # In normal mode, should show the directory (matching git behavior)
+        self.assertEqual({os.path.join("mixed", "")}, untracked)
+
+        # Test with untracked_files="all"
+        untracked_all = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="all",
+            )
+        )
+        # Should list the non-ignored files
+        expected = {
+            os.path.join("mixed", ".gitignore"),
+            os.path.join("mixed", "readme.txt"),
+        }
+        self.assertEqual(expected, untracked_all)
+
+    def test_get_untracked_paths_specific_ignore_pattern(self) -> None:
+        """Test directory with .gitignore that ignores specific files, not all."""
+        # Create a directory
+        test_dir = os.path.join(self.repo.path, "testdir")
+        os.mkdir(test_dir)
+
+        # Create .gitignore that ignores only files named "test"
+        with open(os.path.join(test_dir, ".gitignore"), "w") as f:
+            f.write("test\n")
+
+        # Create files
+        with open(os.path.join(test_dir, "test"), "w") as f:
+            f.write("ignored\n")
+        with open(os.path.join(test_dir, "other.txt"), "w") as f:
+            f.write("not ignored\n")
+
+        # Test with exclude_ignored=True and normal mode
+        untracked = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="normal",
+            )
+        )
+        # Directory should be shown because it has non-ignored files
+        self.assertEqual({os.path.join("testdir", "")}, untracked)
+
+    def test_get_untracked_paths_nested_subdirs_all_ignored(self) -> None:
+        """Test directory containing only subdirectories where all files are ignored."""
+        # Create parent directory with .gitignore that ignores everything
+        parent_dir = os.path.join(self.repo.path, "parent")
+        os.mkdir(parent_dir)
+        with open(os.path.join(parent_dir, ".gitignore"), "w") as f:
+            f.write("*\n")
+
+        # Create subdirectories with files (all should be ignored by parent's .gitignore)
+        sub1 = os.path.join(parent_dir, "sub1")
+        sub2 = os.path.join(parent_dir, "sub2")
+        os.mkdir(sub1)
+        os.mkdir(sub2)
+
+        # Create files in subdirectories
+        with open(os.path.join(sub1, "file1.txt"), "w") as f:
+            f.write("content1\n")
+        with open(os.path.join(sub2, "file2.txt"), "w") as f:
+            f.write("content2\n")
+
+        # Create another normal untracked file
+        with open(os.path.join(self.repo.path, "normal.txt"), "w") as f:
+            f.write("normal\n")
+
+        # Test with exclude_ignored=True
+        untracked = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="normal",
+            )
+        )
+        # Parent directory should NOT be shown since all nested files are ignored
+        self.assertEqual({"normal.txt"}, untracked)
+
+    def test_get_untracked_paths_nested_subdirs_mixed(self) -> None:
+        """Test directory containing only subdirectories where some files are ignored, some aren't."""
+        # Create parent directory with .gitignore that ignores .log files
+        parent_dir = os.path.join(self.repo.path, "parent")
+        os.mkdir(parent_dir)
+        with open(os.path.join(parent_dir, ".gitignore"), "w") as f:
+            f.write("*.log\n")
+
+        # Create subdirectories
+        sub1 = os.path.join(parent_dir, "sub1")
+        sub2 = os.path.join(parent_dir, "sub2")
+        os.mkdir(sub1)
+        os.mkdir(sub2)
+
+        # sub1: only ignored files
+        with open(os.path.join(sub1, "debug.log"), "w") as f:
+            f.write("log content\n")
+        with open(os.path.join(sub1, "error.log"), "w") as f:
+            f.write("error log\n")
+
+        # sub2: mix of ignored and non-ignored files
+        with open(os.path.join(sub2, "access.log"), "w") as f:
+            f.write("access log\n")
+        with open(os.path.join(sub2, "readme.txt"), "w") as f:
+            f.write("important info\n")
+
+        # Test with exclude_ignored=True
+        untracked = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="normal",
+            )
+        )
+        # Parent directory SHOULD be shown since sub2 has non-ignored files
+        self.assertEqual({os.path.join("parent", "")}, untracked)
+
+    def test_get_untracked_paths_deeply_nested_all_ignored(self) -> None:
+        """Test deeply nested directories where all files are eventually ignored."""
+        # Create nested structure: parent/sub/subsub/
+        parent_dir = os.path.join(self.repo.path, "parent")
+        sub_dir = os.path.join(parent_dir, "sub")
+        subsub_dir = os.path.join(sub_dir, "subsub")
+        os.makedirs(subsub_dir)
+
+        # Parent has .gitignore that ignores everything
+        with open(os.path.join(parent_dir, ".gitignore"), "w") as f:
+            f.write("*\n")
+
+        # Create files at different levels
+        with open(os.path.join(subsub_dir, "deep_file.txt"), "w") as f:
+            f.write("deep content\n")
+        with open(os.path.join(sub_dir, "mid_file.txt"), "w") as f:
+            f.write("mid content\n")
+
+        # Test with exclude_ignored=True
+        untracked = set(
+            porcelain.get_untracked_paths(
+                self.repo.path,
+                self.repo.path,
+                self.repo.open_index(),
+                exclude_ignored=True,
+                untracked_files="normal",
+            )
+        )
+        # Parent directory should NOT be shown since all nested files are ignored
+        self.assertEqual(set(), untracked)
+
     def test_get_untracked_paths_subdir(self) -> None:
         with open(os.path.join(self.repo.path, ".gitignore"), "w") as f:
             f.write("subdir/\nignored")
@@ -5271,14 +6260,14 @@ class ReceivePackTests(PorcelainTestCase):
         with open(fullpath, "w") as f:
             f.write("stuff")
         porcelain.add(repo=self.repo.path, paths=fullpath)
-        self.repo.do_commit(
+        self.repo.get_worktree().commit(
             message=b"test status",
-            author=b"author <email>",
             committer=b"committer <email>",
-            author_timestamp=1402354300,
+            author=b"author <email>",
             commit_timestamp=1402354300,
-            author_timezone=0,
             commit_timezone=0,
+            author_timestamp=1402354300,
+            author_timezone=0,
         )
         outf = BytesIO()
         exitcode = porcelain.receive_pack(self.repo.path, BytesIO(b"0000"), outf)
@@ -5848,7 +6837,7 @@ class CheckIgnoreTests(PorcelainTestCase):
         path = os.path.join(self.repo.path, "foo")
         with open(path, "w") as f:
             f.write("BAR")
-        self.repo.stage(["foo"])
+        self.repo.get_worktree().stage(["foo"])
         with open(os.path.join(self.repo.path, ".gitignore"), "w") as f:
             f.write("foo\n")
         self.assertEqual([], list(porcelain.check_ignore(self.repo, [path])))
@@ -5860,7 +6849,7 @@ class CheckIgnoreTests(PorcelainTestCase):
     def test_check_added_rel(self) -> None:
         with open(os.path.join(self.repo.path, "foo"), "w") as f:
             f.write("BAR")
-        self.repo.stage(["foo"])
+        self.repo.get_worktree().stage(["foo"])
         with open(os.path.join(self.repo.path, ".gitignore"), "w") as f:
             f.write("foo\n")
         cwd = os.getcwd()
@@ -7419,4 +8408,431 @@ class BisectTests(PorcelainTestCase):
         # Skip c2 if it's selected
         next_sha = porcelain.bisect_skip(self.repo_path, [c2.id])
         self.assertIsNotNone(next_sha)
-        self.assertNotEqual(next_sha, c2.id)
+
+
+class ReflogTest(PorcelainTestCase):
+    def test_reflog_head(self):
+        """Test reading HEAD reflog."""
+        # Create a commit
+        blob = Blob.from_string(b"test content")
+        self.repo.object_store.add_object(blob)
+
+        tree = Tree()
+        tree.add(b"test", 0o100644, blob.id)
+        self.repo.object_store.add_object(tree)
+
+        commit = Commit()
+        commit.tree = tree.id
+        commit.author = b"Test Author <test@example.com>"
+        commit.committer = b"Test Author <test@example.com>"
+        commit.commit_time = 1234567890
+        commit.commit_timezone = 0
+        commit.author_time = 1234567890
+        commit.author_timezone = 0
+        commit.message = b"Initial commit"
+        self.repo.object_store.add_object(commit)
+
+        # Write a reflog entry
+        self.repo._write_reflog(
+            b"HEAD",
+            ZERO_SHA,
+            commit.id,
+            b"Test Author <test@example.com>",
+            1234567890,
+            0,
+            b"commit (initial): Initial commit",
+        )
+
+        # Read reflog using porcelain
+        entries = list(porcelain.reflog(self.repo_path))
+        self.assertEqual(1, len(entries))
+        self.assertEqual(ZERO_SHA, entries[0].old_sha)
+        self.assertEqual(commit.id, entries[0].new_sha)
+        self.assertEqual(b"Test Author <test@example.com>", entries[0].committer)
+        self.assertEqual(1234567890, entries[0].timestamp)
+        self.assertEqual(0, entries[0].timezone)
+        self.assertEqual(b"commit (initial): Initial commit", entries[0].message)
+
+    def test_reflog_with_string_ref(self):
+        """Test reading reflog with string reference."""
+        # Create a commit
+        blob = Blob.from_string(b"test content")
+        self.repo.object_store.add_object(blob)
+
+        tree = Tree()
+        tree.add(b"test", 0o100644, blob.id)
+        self.repo.object_store.add_object(tree)
+
+        commit = Commit()
+        commit.tree = tree.id
+        commit.author = b"Test Author <test@example.com>"
+        commit.committer = b"Test Author <test@example.com>"
+        commit.commit_time = 1234567890
+        commit.commit_timezone = 0
+        commit.author_time = 1234567890
+        commit.author_timezone = 0
+        commit.message = b"Initial commit"
+        self.repo.object_store.add_object(commit)
+
+        # Write a reflog entry
+        self.repo._write_reflog(
+            b"refs/heads/master",
+            ZERO_SHA,
+            commit.id,
+            b"Test Author <test@example.com>",
+            1234567890,
+            0,
+            b"commit (initial): Initial commit",
+        )
+
+        # Read reflog using porcelain with string ref
+        entries = list(porcelain.reflog(self.repo_path, "refs/heads/master"))
+        self.assertEqual(1, len(entries))
+        self.assertEqual(commit.id, entries[0].new_sha)
+
+    def test_reflog_all(self):
+        """Test reading all reflogs."""
+        # Create a commit
+        blob = Blob.from_string(b"test content")
+        self.repo.object_store.add_object(blob)
+
+        tree = Tree()
+        tree.add(b"test", 0o100644, blob.id)
+        self.repo.object_store.add_object(tree)
+
+        commit = Commit()
+        commit.tree = tree.id
+        commit.author = b"Test Author <test@example.com>"
+        commit.committer = b"Test Author <test@example.com>"
+        commit.commit_time = 1234567890
+        commit.commit_timezone = 0
+        commit.author_time = 1234567890
+        commit.author_timezone = 0
+        commit.message = b"Initial commit"
+        self.repo.object_store.add_object(commit)
+
+        # Write reflog entries for HEAD and master
+        self.repo._write_reflog(
+            b"HEAD",
+            ZERO_SHA,
+            commit.id,
+            b"Test Author <test@example.com>",
+            1234567890,
+            0,
+            b"commit (initial): Initial commit",
+        )
+        self.repo._write_reflog(
+            b"refs/heads/master",
+            ZERO_SHA,
+            commit.id,
+            b"Test Author <test@example.com>",
+            1234567891,
+            0,
+            b"branch: Created from HEAD",
+        )
+
+        # Read all reflogs using porcelain
+        entries = list(porcelain.reflog(self.repo_path, all=True))
+
+        # Should have at least 2 entries (HEAD and refs/heads/master)
+        self.assertGreaterEqual(len(entries), 2)
+
+        # Check that we got entries from different refs
+        refs_seen = set()
+        for ref, entry in entries:
+            refs_seen.add(ref)
+            self.assertEqual(commit.id, entry.new_sha)
+
+        # Should have seen at least HEAD and refs/heads/master
+        self.assertIn(b"HEAD", refs_seen)
+        self.assertIn(b"refs/heads/master", refs_seen)
+
+
+class WriteCommitGraphTests(PorcelainTestCase):
+    """Tests for the write_commit_graph porcelain function."""
+
+    def test_write_commit_graph_empty_repo(self):
+        """Test writing commit graph on empty repository."""
+        # Should not fail on empty repo
+        porcelain.write_commit_graph(self.repo_path)
+
+        # No commit graph should be created for empty repo
+        graph_path = os.path.join(
+            self.repo_path, ".git", "objects", "info", "commit-graph"
+        )
+        self.assertFalse(os.path.exists(graph_path))
+
+    def test_write_commit_graph_with_commits(self):
+        """Test writing commit graph with commits."""
+        # Create some commits
+        c1, c2, c3 = build_commit_graph(
+            self.repo.object_store,
+            [[1], [2, 1], [3, 1, 2]],
+            attrs={
+                1: {"message": b"First commit"},
+                2: {"message": b"Second commit"},
+                3: {"message": b"Merge commit"},
+            },
+        )
+        self.repo.refs[b"refs/heads/master"] = c3.id
+        self.repo.refs[b"refs/heads/branch"] = c2.id
+
+        # Write commit graph
+        porcelain.write_commit_graph(self.repo_path)
+
+        # Verify commit graph was created
+        graph_path = os.path.join(
+            self.repo_path, ".git", "objects", "info", "commit-graph"
+        )
+        self.assertTrue(os.path.exists(graph_path))
+
+        # Load and verify the commit graph
+        from dulwich.commit_graph import read_commit_graph
+
+        commit_graph = read_commit_graph(graph_path)
+        self.assertIsNotNone(commit_graph)
+        self.assertEqual(3, len(commit_graph))
+
+        # Verify all commits are in the graph
+        for commit_obj in [c1, c2, c3]:
+            entry = commit_graph.get_entry_by_oid(commit_obj.id)
+            self.assertIsNotNone(entry)
+
+    def test_write_commit_graph_config_disabled(self):
+        """Test that commit graph is not written when disabled by config."""
+        # Create a commit
+        (c1,) = build_commit_graph(
+            self.repo.object_store, [[1]], attrs={1: {"message": b"First commit"}}
+        )
+        self.repo.refs[b"refs/heads/master"] = c1.id
+
+        # Disable commit graph in config
+        config = self.repo.get_config()
+        config.set((b"core",), b"commitGraph", b"false")
+        config.write_to_path()
+
+        # Write commit graph (should respect config)
+        porcelain.write_commit_graph(self.repo_path)
+
+        # Verify commit graph still gets written
+        # (porcelain.write_commit_graph explicitly writes regardless of config)
+        graph_path = os.path.join(
+            self.repo_path, ".git", "objects", "info", "commit-graph"
+        )
+        self.assertTrue(os.path.exists(graph_path))
+
+    def test_write_commit_graph_reachable_false(self):
+        """Test writing commit graph with reachable=False."""
+        # Create commits
+        c1, c2, c3 = build_commit_graph(
+            self.repo.object_store,
+            [[1], [2, 1], [3, 2]],
+            attrs={
+                1: {"message": b"First commit"},
+                2: {"message": b"Second commit"},
+                3: {"message": b"Third commit"},
+            },
+        )
+        # Only reference the third commit
+        self.repo.refs[b"refs/heads/master"] = c3.id
+
+        # Write commit graph with reachable=False
+        porcelain.write_commit_graph(self.repo_path, reachable=False)
+
+        # Verify commit graph was created
+        graph_path = os.path.join(
+            self.repo_path, ".git", "objects", "info", "commit-graph"
+        )
+        self.assertTrue(os.path.exists(graph_path))
+
+        # Load and verify the commit graph
+        from dulwich.commit_graph import read_commit_graph
+
+        commit_graph = read_commit_graph(graph_path)
+        self.assertIsNotNone(commit_graph)
+
+        # With reachable=False, only directly referenced commits should be included
+        # In this case, only c3 (from refs/heads/master)
+        self.assertEqual(1, len(commit_graph))
+        entry = commit_graph.get_entry_by_oid(c3.id)
+        self.assertIsNotNone(entry)
+
+
+class WorktreePorcelainTests(PorcelainTestCase):
+    """Tests for porcelain worktree functions."""
+
+    def test_worktree_list_single(self):
+        """Test listing worktrees when only main worktree exists."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # List worktrees
+        worktrees = porcelain.worktree_list(self.repo_path)
+
+        self.assertEqual(len(worktrees), 1)
+        self.assertEqual(worktrees[0].path, self.repo_path)
+        self.assertFalse(worktrees[0].bare)
+        self.assertIsNotNone(worktrees[0].head)
+        self.assertIsNotNone(worktrees[0].branch)
+
+    def test_worktree_add_branch(self):
+        """Test adding a worktree with a new branch."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # Add worktree
+        wt_path = os.path.join(self.test_dir, "worktree1")
+        result_path = porcelain.worktree_add(self.repo_path, wt_path, branch=b"feature")
+
+        self.assertEqual(result_path, wt_path)
+        self.assertTrue(os.path.exists(wt_path))
+        self.assertTrue(os.path.exists(os.path.join(wt_path, ".git")))
+
+        # Check it appears in the list
+        worktrees = porcelain.worktree_list(self.repo_path)
+        self.assertEqual(len(worktrees), 2)
+
+        # Find the new worktree
+        new_wt = None
+        for wt in worktrees:
+            if wt.path == wt_path:
+                new_wt = wt
+                break
+
+        self.assertIsNotNone(new_wt)
+        self.assertEqual(new_wt.branch, b"refs/heads/feature")
+        self.assertFalse(new_wt.detached)
+
+    def test_worktree_add_detached(self):
+        """Test adding a detached worktree."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        sha = porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # Add detached worktree
+        wt_path = os.path.join(self.test_dir, "detached")
+        porcelain.worktree_add(self.repo_path, wt_path, commit=sha, detach=True)
+
+        # Check it's detached
+        worktrees = porcelain.worktree_list(self.repo_path)
+        for wt in worktrees:
+            if wt.path == wt_path:
+                self.assertTrue(wt.detached)
+                self.assertIsNone(wt.branch)
+                self.assertEqual(wt.head, sha)
+
+    def test_worktree_remove(self):
+        """Test removing a worktree."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # Add and remove worktree
+        wt_path = os.path.join(self.test_dir, "to-remove")
+        porcelain.worktree_add(self.repo_path, wt_path)
+
+        # Verify it exists
+        self.assertTrue(os.path.exists(wt_path))
+        self.assertEqual(len(porcelain.worktree_list(self.repo_path)), 2)
+
+        # Remove it
+        porcelain.worktree_remove(self.repo_path, wt_path)
+
+        # Verify it's gone
+        self.assertFalse(os.path.exists(wt_path))
+        self.assertEqual(len(porcelain.worktree_list(self.repo_path)), 1)
+
+    def test_worktree_prune(self):
+        """Test pruning worktrees."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # Add worktree
+        wt_path = os.path.join(self.test_dir, "to-prune")
+        porcelain.worktree_add(self.repo_path, wt_path)
+
+        # Manually remove directory
+        shutil.rmtree(wt_path)
+
+        # Prune should remove the administrative files
+        pruned = porcelain.worktree_prune(self.repo_path)
+        self.assertEqual(len(pruned), 1)
+
+        # Verify it's gone from the list
+        worktrees = porcelain.worktree_list(self.repo_path)
+        self.assertEqual(len(worktrees), 1)
+
+    def test_worktree_lock_unlock(self):
+        """Test locking and unlocking worktrees."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # Add worktree
+        wt_path = os.path.join(self.test_dir, "lockable")
+        porcelain.worktree_add(self.repo_path, wt_path)
+
+        # Lock it
+        porcelain.worktree_lock(self.repo_path, wt_path, reason="Testing")
+
+        # Verify it's locked
+        worktrees = porcelain.worktree_list(self.repo_path)
+        for wt in worktrees:
+            if wt.path == wt_path:
+                self.assertTrue(wt.locked)
+
+        # Unlock it
+        porcelain.worktree_unlock(self.repo_path, wt_path)
+
+        # Verify it's unlocked
+        worktrees = porcelain.worktree_list(self.repo_path)
+        for wt in worktrees:
+            if wt.path == wt_path:
+                self.assertFalse(wt.locked)
+
+    def test_worktree_move(self):
+        """Test moving a worktree."""
+        # Create initial commit
+        with open(os.path.join(self.repo_path, "test.txt"), "w") as f:
+            f.write("test content")
+        porcelain.add(self.repo_path, ["test.txt"])
+        porcelain.commit(self.repo_path, message=b"Initial commit")
+
+        # Add worktree
+        old_path = os.path.join(self.test_dir, "old-location")
+        porcelain.worktree_add(self.repo_path, old_path)
+
+        # Create a file in the worktree
+        test_file = os.path.join(old_path, "workspace.txt")
+        with open(test_file, "w") as f:
+            f.write("workspace content")
+
+        # Move it
+        new_path = os.path.join(self.test_dir, "new-location")
+        porcelain.worktree_move(self.repo_path, old_path, new_path)
+
+        # Verify old path doesn't exist, new path does
+        self.assertFalse(os.path.exists(old_path))
+        self.assertTrue(os.path.exists(new_path))
+        self.assertTrue(os.path.exists(os.path.join(new_path, "workspace.txt")))
+
+        # Verify it's in the list at new location
+        worktrees = porcelain.worktree_list(self.repo_path)
+        paths = [wt.path for wt in worktrees]
+        self.assertIn(new_path, paths)
+        self.assertNotIn(old_path, paths)

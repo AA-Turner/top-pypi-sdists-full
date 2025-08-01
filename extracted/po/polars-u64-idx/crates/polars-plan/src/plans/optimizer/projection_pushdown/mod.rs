@@ -11,6 +11,7 @@ mod semi_anti_join;
 use polars_core::datatypes::PlHashSet;
 use polars_core::prelude::*;
 use polars_io::RowIndex;
+use polars_utils::idx_vec::UnitVec;
 use recursive::recursive;
 #[cfg(feature = "semi_anti_join")]
 use semi_anti_join::process_semi_anti_join;
@@ -233,19 +234,18 @@ impl ProjectionPushDown {
         expr_arena: &mut Arena<AExpr>,
     ) -> PolarsResult<IR> {
         let inputs = lp.get_inputs();
-        let exprs = lp.get_exprs();
 
         let new_inputs = inputs
-            .iter()
-            .map(|&node| {
+            .into_iter()
+            .map(|node| {
                 let alp = lp_arena.take(node);
                 let ctx = ProjectionContext::new(Default::default(), Default::default(), ctx.inner);
                 let alp = self.push_down(alp, ctx, lp_arena, expr_arena)?;
                 lp_arena.replace(node, alp);
                 Ok(node)
             })
-            .collect::<PolarsResult<Vec<_>>>()?;
-        let lp = lp.with_exprs_and_input(exprs, new_inputs);
+            .collect::<PolarsResult<UnitVec<_>>>()?;
+        let lp = lp.with_inputs(new_inputs);
 
         let builder = IRBuilder::from_lp(lp, expr_arena, lp_arena);
         Ok(self.finish_node_simple_projection(&ctx.acc_projections, builder))
@@ -446,21 +446,20 @@ impl ProjectionPushDown {
                 predicate,
                 mut unified_scan_args,
                 mut output_schema,
-                id: _,
             } => {
                 let do_optimization = match &*scan_type {
-                    FileScan::Anonymous { function, .. } => function.allows_projection_pushdown(),
+                    FileScanIR::Anonymous { function, .. } => function.allows_projection_pushdown(),
                     #[cfg(feature = "json")]
-                    FileScan::NDJson { .. } => true,
+                    FileScanIR::NDJson { .. } => true,
                     #[cfg(feature = "ipc")]
-                    FileScan::Ipc { .. } => true,
+                    FileScanIR::Ipc { .. } => true,
                     #[cfg(feature = "csv")]
-                    FileScan::Csv { .. } => true,
+                    FileScanIR::Csv { .. } => true,
                     #[cfg(feature = "parquet")]
-                    FileScan::Parquet { .. } => true,
+                    FileScanIR::Parquet { .. } => true,
                     // MultiScan will handle it if the PythonDataset cannot do projections.
                     #[cfg(feature = "python")]
-                    FileScan::PythonDataset { .. } => true,
+                    FileScanIR::PythonDataset { .. } => true,
                 };
 
                 #[expect(clippy::never_loop)]
@@ -470,7 +469,7 @@ impl ProjectionPushDown {
                     }
 
                     if self.is_count_star {
-                        if let FileScan::Anonymous { .. } = &*scan_type {
+                        if let FileScanIR::Anonymous { .. } = &*scan_type {
                             // Anonymous scan is not controlled by us, we don't know if it can support
                             // 0-column projections, so we always project one.
                             use either::Either;
@@ -574,7 +573,6 @@ impl ProjectionPushDown {
                     scan_type,
                     predicate,
                     unified_scan_args,
-                    id: Default::default(),
                 };
 
                 Ok(lp)

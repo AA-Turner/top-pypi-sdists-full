@@ -1,8 +1,13 @@
+import re
+
+from ytmusicapi.type_alias import JsonDict, JsonList, ParseFuncDictType
+
+from .albums import parse_album_playlistid_if_exists
 from .podcasts import parse_episode, parse_podcast
 from .songs import *
 
 
-def parse_mixed_content(rows):
+def parse_mixed_content(rows: JsonList) -> JsonList:
     items = []
     for row in rows:
         if DESCRIPTION_SHELF[0] in row:
@@ -46,7 +51,7 @@ def parse_mixed_content(rows):
     return items
 
 
-def parse_content_list(results, parse_func, key=MTRIR):
+def parse_content_list(results: JsonList, parse_func: ParseFuncDictType, key: str = MTRIR) -> JsonList:
     contents = []
     for result in results:
         contents.append(parse_func(result[key]))
@@ -54,13 +59,13 @@ def parse_content_list(results, parse_func, key=MTRIR):
     return contents
 
 
-def parse_album(result):
+def parse_album(result: JsonDict) -> JsonDict:
     album = {
         "title": nav(result, TITLE_TEXT),
         "type": nav(result, SUBTITLE),
         "artists": [parse_id_name(x) for x in nav(result, ["subtitle", "runs"]) if "navigationEndpoint" in x],
         "browseId": nav(result, TITLE + NAVIGATION_BROWSE_ID),
-        "audioPlaylistId": nav(result, THUMBNAIL_OVERLAY, True),
+        "audioPlaylistId": parse_album_playlistid_if_exists(nav(result, THUMBNAIL_OVERLAY_NAVIGATION, True)),
         "thumbnails": nav(result, THUMBNAIL_RENDERER),
         "isExplicit": nav(result, SUBTITLE_BADGE_LABEL, True) is not None,
     }
@@ -71,7 +76,7 @@ def parse_album(result):
     return album
 
 
-def parse_single(result):
+def parse_single(result: JsonDict) -> JsonDict:
     return {
         "title": nav(result, TITLE_TEXT),
         "year": nav(result, SUBTITLE, True),
@@ -80,7 +85,7 @@ def parse_single(result):
     }
 
 
-def parse_song(result):
+def parse_song(result: JsonDict) -> JsonDict:
     song = {
         "title": nav(result, TITLE_TEXT),
         "videoId": nav(result, NAVIGATION_VIDEO_ID),
@@ -91,7 +96,7 @@ def parse_song(result):
     return song
 
 
-def parse_song_flat(data):
+def parse_song_flat(data: JsonDict) -> JsonDict:
     columns = [get_flex_column_item(data, i) for i in range(0, len(data["flexColumns"]))]
     song = {
         "title": nav(columns[0], TEXT_RUN_TEXT),
@@ -111,7 +116,7 @@ def parse_song_flat(data):
     return song
 
 
-def parse_video(result):
+def parse_video(result: JsonDict) -> JsonDict:
     runs = nav(result, SUBTITLE_RUNS)
     artists_len = get_dot_separator_index(runs)
     videoId = nav(result, NAVIGATION_VIDEO_ID, True)
@@ -131,7 +136,7 @@ def parse_video(result):
     }
 
 
-def parse_playlist(data):
+def parse_playlist(data: JsonDict) -> JsonDict:
     playlist = {
         "title": nav(data, TITLE_TEXT),
         "playlistId": nav(data, TITLE + NAVIGATION_BROWSE_ID)[2:],
@@ -147,7 +152,7 @@ def parse_playlist(data):
     return playlist
 
 
-def parse_related_artist(data):
+def parse_related_artist(data: JsonDict) -> JsonDict:
     subscribers = nav(data, SUBTITLE, True)
     if subscribers:
         subscribers = subscribers.split(" ")[0]
@@ -159,7 +164,7 @@ def parse_related_artist(data):
     }
 
 
-def parse_watch_playlist(data):
+def parse_watch_playlist(data: JsonDict) -> JsonDict:
     return {
         "title": nav(data, TITLE_TEXT),
         "playlistId": nav(data, NAVIGATION_WATCH_PLAYLIST_ID),

@@ -15,7 +15,7 @@ fn cast_and_apply<
     func: F,
 ) -> ChunkedArray<T> {
     let dtype = ca.dtype().to_arrow(CompatLevel::newest());
-    let chunks = ca.downcast_iter().map(|arr| {
+    let chunks = ca.physical().downcast_iter().map(|arr| {
         let arr = cast(
             arr,
             &dtype,
@@ -46,7 +46,18 @@ pub trait DatetimeMethods: AsDatetime {
             TimeUnit::Microseconds => datetime_to_is_leap_year_us,
             TimeUnit::Milliseconds => datetime_to_is_leap_year_ms,
         };
-        ca.apply_kernel_cast::<BooleanType>(&f)
+        let ca_local = match ca.dtype() {
+            #[cfg(feature = "timezones")]
+            DataType::Datetime(_, Some(_)) => &polars_ops::chunked_array::replace_time_zone(
+                ca,
+                None,
+                &StringChunked::new("".into(), ["raise"]),
+                NonExistent::Raise,
+            )
+            .expect("Removing time zone is infallible"),
+            _ => ca,
+        };
+        ca_local.physical().apply_kernel_cast::<BooleanType>(&f)
     }
 
     fn iso_year(&self) -> Int32Chunked {
@@ -56,7 +67,18 @@ pub trait DatetimeMethods: AsDatetime {
             TimeUnit::Microseconds => datetime_to_iso_year_us,
             TimeUnit::Milliseconds => datetime_to_iso_year_ms,
         };
-        ca.apply_kernel_cast::<Int32Type>(&f)
+        let ca_local = match ca.dtype() {
+            #[cfg(feature = "timezones")]
+            DataType::Datetime(_, Some(_)) => &polars_ops::chunked_array::replace_time_zone(
+                ca,
+                None,
+                &StringChunked::new("".into(), ["raise"]),
+                NonExistent::Raise,
+            )
+            .expect("Removing time zone is infallible"),
+            _ => ca,
+        };
+        ca_local.physical().apply_kernel_cast::<Int32Type>(&f)
     }
 
     /// Extract quarter from underlying NaiveDateTime representation.
@@ -140,7 +162,7 @@ pub trait DatetimeMethods: AsDatetime {
             .expect("Removing time zone is infallible"),
             _ => ca,
         };
-        ca_local.apply_kernel_cast::<Int16Type>(&f)
+        ca_local.physical().apply_kernel_cast::<Int16Type>(&f)
     }
 
     fn parse_from_str_slice(
@@ -277,7 +299,7 @@ mod test {
                 1_441_497_364_000_000_000,
                 1_356_048_000_000_000_000
             ],
-            dt.cont_slice().unwrap()
+            dt.physical().cont_slice().unwrap()
         );
     }
 }

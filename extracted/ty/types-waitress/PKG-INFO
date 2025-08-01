@@ -1,29 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: types-waitress
-Version: 3.0.1.20241117
+Version: 3.0.1.20250801
 Summary: Typing stubs for waitress
-Home-page: https://github.com/python/typeshed
-License: Apache-2.0
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
 Project-URL: GitHub, https://github.com/python/typeshed
 Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/waitress.md
 Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
 
 ## Typing stubs for waitress
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`waitress`](https://github.com/Pylons/waitress) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `waitress`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`waitress`](https://github.com/Pylons/waitress) package. It can be used by type checkers
+to check code that uses `waitress`. This version of
 `types-waitress` aims to provide accurate annotations for
 `waitress~=3.0.1`.
 
@@ -34,9 +30,8 @@ for more details. The source for this package can be found in the
 [`stubs/waitress`](https://github.com/python/typeshed/tree/main/stubs/waitress)
 directory.
 
-This package was tested with
-mypy 1.13.0,
-pyright 1.1.389,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
 It was generated from typeshed commit
-[`b4cd0bdf1bb9949efb3c751664050214b13be0a6`](https://github.com/python/typeshed/commit/b4cd0bdf1bb9949efb3c751664050214b13be0a6).
+[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).

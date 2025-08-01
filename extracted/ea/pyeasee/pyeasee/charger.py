@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, Union
 
 from .exceptions import NotFoundException, ServerFailureException
+from .throttler import Throttler
 from .utils import BaseDict
 
 _LOGGER = logging.getLogger(__name__)
@@ -238,6 +239,10 @@ class Charger(BaseDict):
         self.site = site
         self.circuit = circuit
         self.easee = easee
+        self._consumption_between_dates_throttler = Throttler(
+            rate_limit=10, period=3600, name="consumption between dates"
+        )
+        self._sessions_between_dates_throttler = Throttler(rate_limit=10, period=3600, name="sessions between dates")
 
     async def get_observations(self, *args):
         """Gets observation IDs"""
@@ -250,26 +255,42 @@ class Charger(BaseDict):
     async def get_consumption_between_dates(self, from_date: datetime, to_date):
         """Gets consumption between two dates"""
         try:
+            async with self._consumption_between_dates_throttler:
+                value = await (
+                    await self.easee.get(
+                        f"/api/sessions/charger/{self.id}/total/{from_date.isoformat()}/{to_date.isoformat()}"
+                    )
+                ).text()
+                return float(value)
+        except (ServerFailureException):
+            return None
+
+    async def get_hourly_consumption_between_dates(self, from_date: datetime, to_date: datetime):
+        """Gets hourly consumption between two dates
+        Note when calling: Seems to be capped at requesting max one month at a time
+        """
+        try:
             value = await (
                 await self.easee.get(
-                    f"/api/sessions/charger/{self.id}/total/{from_date.isoformat()}/{to_date.isoformat()}"
+                    f"/api/chargers/{self.id}/usage/hourly/{from_date.isoformat()}/{to_date.isoformat()}"
                 )
-            ).text()
-            return float(value)
+            ).json()
+            return value
         except (ServerFailureException):
             return None
 
     async def get_sessions_between_dates(self, from_date: datetime, to_date):
         """Gets charging sessions between two dates"""
         try:
-            sessions = await (
-                await self.easee.get(
-                    f"/api/sessions/charger/{self.id}/sessions/{from_date.isoformat()}/{to_date.isoformat()}"
-                )
-            ).json()
-            sessions = [ChargerSession(session) for session in sessions]
-            sessions.sort(key=lambda x: x["carConnected"], reverse=True)
-            return sessions
+            async with self._sessions_between_dates_throttler:
+                sessions = await (
+                    await self.easee.get(
+                        f"/api/sessions/charger/{self.id}/sessions/{from_date.isoformat()}/{to_date.isoformat()}"
+                    )
+                ).json()
+                sessions = [ChargerSession(session) for session in sessions]
+                sessions.sort(key=lambda x: x["carConnected"], reverse=True)
+                return sessions
         except (ServerFailureException):
             return None
 
@@ -669,5 +690,35 @@ class Charger(BaseDict):
         """Forces charger to update Op Mode to the cloud. Warning: Rate limited to once every 3 minutes."""
         try:
             return await self.easee.post(f"/api/chargers/{self.id}/commands/poll_chargeropmode")
+        except (ServerFailureException):
+            return None
+
+    async def get_ocpp_config(self):
+        """Reads the OCPP config of the charger"""
+        try:
+            return await (await self.easee.get(f"/local-ocpp/v1/connection-details/{self.id}")).json()
+        except (NotFoundException):
+            return None
+        except (ServerFailureException):
+            return None
+
+    async def set_ocpp_config(self, enable, url):
+        """Writes the OCPP config of the charger"""
+        if enable:
+            enablestr = "DualProtocol"
+        else:
+            enablestr = "OcppOff"
+        json = {"connectivityMode": enablestr, "websocketConnectionArgs": {"url": url}}
+        try:
+            result = await (await self.easee.post(f"/local-ocpp/v1/connection-details/{self.id}", json=json)).json()
+            return result["version"]
+        except (ServerFailureException):
+            return None
+
+    async def apply_ocpp_config(self, version):
+        """Applies a stored OCPP config of the charger"""
+        json = {"version": version}
+        try:
+            return await (await self.easee.post(f"/local-ocpp/v1/connections/chargers/{self.id}", json=json)).json()
         except (ServerFailureException):
             return None

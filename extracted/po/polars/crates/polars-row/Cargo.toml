@@ -13,6 +13,7 @@ readme = "README.md"
 bitflags = { workspace = true }
 bytemuck = { workspace = true }
 polars-compute = { workspace = true, features = ["cast"] }
+polars-dtype = { workspace = true }
 polars-error = { workspace = true }
 polars-utils = { workspace = true }
 

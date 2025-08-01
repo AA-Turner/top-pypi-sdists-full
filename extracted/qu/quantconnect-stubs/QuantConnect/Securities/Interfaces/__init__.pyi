@@ -19,6 +19,9 @@ class AdjustmentType(Enum):
 
     BACK_ADJUSTED = 1
 
+    def __int__(self) -> int:
+        ...
+
 
 class IContinuousContractModel(metaclass=abc.ABCMeta):
     """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ytmusicapi
-Version: 1.10.3
+Version: 1.11.0
 Summary: Unofficial API for YouTube Music
 Author-email: sigma67 <ytmusicapi@gmail.com>
 License: MIT License
@@ -30,7 +30,7 @@ Project-URL: documentation, https://ytmusicapi.readthedocs.io
 Project-URL: repository, https://github.com/sigma67/ytmusicapi
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests>=2.22
@@ -123,7 +123,7 @@ feel free to create an `issue <https://github.com/sigma67/ytmusicapi/issues/new/
 Requirements
 ------------
 
-- Python 3.9 or higher - https://www.python.org
+- Python 3.10 or higher - https://www.python.org
 
 Setup
 -----

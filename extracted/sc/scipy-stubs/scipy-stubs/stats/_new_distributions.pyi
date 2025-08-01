@@ -1,8 +1,9 @@
-from typing import Any, ClassVar, Generic, Never, TypeAlias, overload
+from typing import ClassVar, Generic, Never, TypeAlias, overload
 from typing_extensions import TypeVar, Unpack
 
 import numpy as np
 import optype.numpy as onp
+import optype.numpy.compat as npc
 
 from ._distribution_infrastructure import (
     ContinuousDistribution,
@@ -17,8 +18,8 @@ __all__ = ["Binomial", "Normal", "Uniform"]
 
 ###
 
-_Float: TypeAlias = np.floating[Any]
-_Int: TypeAlias = np.integer[Any]
+_Float: TypeAlias = npc.floating
+_Int: TypeAlias = npc.integer
 
 _NT = TypeVar("_NT", default=int)
 _0D: TypeAlias = tuple[()]  # noqa: PYI042
@@ -70,7 +71,7 @@ class Normal(ContinuousDistribution[_FloatT_co, _ShapeT_co], Generic[_ShapeT_co,
         /,
         *,
         mu: onp.CanArrayND[_FloatT, _ShapeT],
-        sigma: onp.CanArrayND[_FloatT | np.integer[Any] | np.bool_, _ShapeT] | onp.ToInt,
+        sigma: onp.CanArrayND[_FloatT | npc.integer | np.bool_, _ShapeT] | onp.ToInt,
         **kw: Unpack[_DistOpts],
     ) -> None: ...
     @overload  # sigma: N-d <known shape, dtype>
@@ -78,7 +79,7 @@ class Normal(ContinuousDistribution[_FloatT_co, _ShapeT_co], Generic[_ShapeT_co,
         self: Normal[_ShapeT, _FloatT],
         /,
         *,
-        mu: onp.CanArrayND[_FloatT | np.integer[Any] | np.bool_, _ShapeT] | onp.ToInt,
+        mu: onp.CanArrayND[_FloatT | npc.integer | np.bool_, _ShapeT] | onp.ToInt,
         sigma: onp.CanArrayND[_FloatT, _ShapeT],
         **kw: Unpack[_DistOpts],
     ) -> None: ...
@@ -185,7 +186,7 @@ class Binomial(DiscreteDistribution[_IntT_co, _ShapeT_co], Generic[_ShapeT_co, _
     def __init__(self: Binomial[_0D, np.int_], /, *, n: int, p: onp.ToFloat, **kw: Unpack[_DistOpts]) -> None: ...
     @overload  # a, b: 0-d float
     def __init__(
-        self: Binomial[_0D, np.int_], /, *, n: onp.ToInt, p: np.float64 | np.longdouble, **kw: Unpack[_DistOpts]
+        self: Binomial[_0D, np.int_], /, *, n: onp.ToInt, p: np.float64 | npc.floating80, **kw: Unpack[_DistOpts]
     ) -> None: ...
     @overload  # a: 0-d <known dtype>, b: 0-d
     def __init__(self: Binomial[_0D, _IntT], /, *, n: _IntT, p: onp.ToFloat, **kw: Unpack[_DistOpts]) -> None: ...

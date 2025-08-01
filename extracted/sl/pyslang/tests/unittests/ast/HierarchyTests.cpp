@@ -3,6 +3,7 @@
 
 #include "Test.h"
 
+#include "slang/ast/ASTVisitor.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -662,35 +663,31 @@ module top;
 endmodule
 )");
 
-    CompilationOptions coptions;
-    coptions.flags &= ~CompilationFlags::SuppressUnused;
-    coptions.topModules.emplace("invalid"sv);
-    coptions.topModules.emplace("unknown"sv);
-    coptions.topModules.emplace("top"sv);
-
-    Bag options;
-    options.set(coptions);
+    CompilationOptions options;
+    options.topModules.emplace("invalid"sv);
+    options.topModules.emplace("unknown"sv);
+    options.topModules.emplace("top"sv);
 
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 4);
-    CHECK(diags[0].code == diag::UnusedDefinition);
-    CHECK(diags[1].code == diag::UnusedDefinition);
-    CHECK(diags[2].code == diag::InvalidTopModule);
-    CHECK(diags[3].code == diag::InvalidTopModule);
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InvalidTopModule);
+    CHECK(diags[1].code == diag::InvalidTopModule);
+
+    auto unusedDefs = compilation.getUnreferencedDefinitions();
+    REQUIRE(unusedDefs.size() == 2);
+    CHECK(unusedDefs[0]->name == "invalid");
+    CHECK(unusedDefs[1]->name == "nottop");
 }
 
 TEST_CASE("No top warning") {
     auto tree = SyntaxTree::fromText(R"(
 )");
 
-    CompilationOptions coptions;
-    coptions.flags &= ~CompilationFlags::SuppressUnused;
-
-    Bag options;
-    options.set(coptions);
+    CompilationOptions options;
+    options.flags = CompilationFlags::None;
 
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);
@@ -862,10 +859,7 @@ module sub();
 endmodule
 )");
 
-    CompilationOptions options;
-    options.flags |= CompilationFlags::DisableInstanceCaching;
-
-    Compilation compilation(options);
+    Compilation compilation;
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
@@ -1929,6 +1923,50 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Instance caching with nested bind directives") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    l l1();
+endmodule
+
+module l;
+    n n1();
+endmodule
+
+module n;
+    bind q1.o1 o o1();
+endmodule
+
+module o;
+endmodule
+
+module p;
+    m m2();
+endmodule
+
+module q;
+    o o1();
+endmodule
+
+module top;
+    if (1) begin
+        m m1();
+        q q1();
+    end
+    if (1) begin
+        p p1();
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+}
+
 TEST_CASE("Bind with package elab loop regress -- GH #1249") {
     auto tree = SyntaxTree::fromText(R"(
 module rv_plic import rv_plic_reg_pkg::*; (
@@ -1957,12 +1995,158 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Instance caching with visitation -- GH #1285") {
+    auto tree = SyntaxTree::fromText(R"(
+interface bus();
+	logic w;
+endinterface
+
+module m1(bus intf);
+	assign intf.w = 0;
+endmodule
+
+module top();
+	bus intf1();
+	bus intf2();
+
+	m1 a(.intf(intf1));
+	m1 b(.intf(intf2));
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto visitor = slang::ast::makeVisitor();
+    for (auto instance : compilation.getRoot().topInstances)
+        instance->visit(visitor);
+
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("Incorrect generate loop regress -- GH #1328") {
     auto tree = SyntaxTree::fromText(R"(
 module Test;
   for (genvar i = 4/2; i >= 0; i--) begin
   end
 endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Disallow hier-ref to uninstantiated defs option") {
+    auto tree = SyntaxTree::fromText(R"(
+module test_top ();
+    foo bar ();
+    assign bar.a = !(bar.b);
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::IgnoreUnknownModules;
+    options.flags |= CompilationFlags::DisallowRefsToUnknownInstances;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::HierarchicalRefUnknownModule);
+    CHECK(diags[1].code == diag::HierarchicalRefUnknownModule);
+}
+
+TEST_CASE("Package ordering dependency 1 -- GH #1424") {
+    auto tree = SyntaxTree::fromText(R"(
+package A_pkg;
+  import B_pkg::*;
+  bstruct_t bstruct;
+endpackage
+
+package B_pkg;
+  typedef struct {
+    logic b0;
+    logic b1;
+  } bstruct_t;
+endpackage
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Package ordering dependency 2 -- GH #1449") {
+    auto tree = SyntaxTree::fromText(R"(
+package P;
+    typedef class C2;
+
+    import uvm_pkg::*;
+
+    class C1 extends uvm_sequence_item;
+        function new(string name = "C1");
+            super.new(name);
+        endfunction
+
+        function void pre_randomize();
+            C2 sqr;
+        endfunction
+    endclass
+
+    class C2 extends uvm_sequencer #(C1);
+    endclass
+endpackage
+
+package uvm_pkg;
+    class uvm_sequence_item;
+        function new(string name); endfunction
+    endclass
+
+    class uvm_component;
+    endclass
+
+    class uvm_sequencer #(type C);
+    endclass
+endpackage
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Package ordering dependency 3 -- GH #1449") {
+    auto tree = SyntaxTree::fromText(R"(
+package P;
+    typedef class C2;
+
+    class C1 extends uvm_pkg::uvm_sequence_item;
+        function new(string name = "C1");
+            super.new(name);
+        endfunction
+
+        function void pre_randomize();
+            C2 sqr;
+        endfunction
+    endclass
+
+    class C2 extends uvm_pkg::uvm_sequencer #(C1);
+    endclass
+endpackage
+
+package uvm_pkg;
+    class uvm_sequence_item;
+        function new(string name); endfunction
+    endclass
+
+    class uvm_component;
+    endclass
+
+    class uvm_sequencer #(type C);
+    endclass
+endpackage
 )");
 
     Compilation compilation;

@@ -2,6 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
 
+
 from collections.abc import Mapping
 from os import environ
 import sys
@@ -379,7 +380,8 @@ def _check_middleware_warnings():
     # NOTE: currently, we are skipping framework-specific middleware deprecation
     # warnings. In the future, we might want to actually deprecate these. For now,
     # however, we are holding off.
-    if False and module.deprecated_middleware is not None:
+    # this should be `if module.deprecated_middleware is not None:`
+    if False:
         (  # pylint: disable=unpacking-non-sequence
             framework,
             is_asgi,
@@ -499,9 +501,10 @@ def initialize():
 
         module.settings.log_effective_config()
 
-        if module.settings.is_inventory_enabled() or preinstrument:
-            if module.settings.is_analyze_libs_enabled():
-                initialize_libraries(module.reporting_client)
+        if (
+            module.settings.is_inventory_enabled() or preinstrument
+        ) and module.settings.is_analyze_libs_enabled():
+            initialize_libraries(module.reporting_client)
 
         runtime_environment.report_server_runtime(
             module.reporting_client,

@@ -253,6 +253,12 @@ async def pipe_populate(
     on_demand_compute: bool,
 ):
     """Populate the result of a Materialized Node into the target Materialized View"""
+
+    # Prompt for confirmation when on-demand compute is requested
+    if on_demand_compute and not click.confirm(FeedbackManager.warning_confirm_on_demand_compute(), default=False):
+        click.echo("Operation cancelled.")
+        return
+
     cl = create_tb_client(ctx)
 
     pipe = await cl.pipe(pipe_name)

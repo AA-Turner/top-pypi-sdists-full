@@ -25,6 +25,9 @@ class Consistency(Enum):
 
     WILL_NOT_CORRUPT_STATE = 3
 
+    def __int__(self) -> int:
+        ...
+
 
 class Cer(Enum):
     """Obsoletions.ConstrainedExecutionRegionMessage"""
@@ -34,6 +37,9 @@ class Cer(Enum):
     MAY_FAIL = 1
 
     SUCCESS = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class ReliabilityContractAttribute(System.Attribute):

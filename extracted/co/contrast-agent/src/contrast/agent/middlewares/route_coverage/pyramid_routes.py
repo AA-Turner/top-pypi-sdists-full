@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 from contrast.utils.decorators import fail_quietly
 from contrast.agent.middlewares.route_coverage.common import (
     DEFAULT_ROUTE_METHODS,
@@ -66,7 +66,7 @@ def create_pyramid_routes(registry) -> set[DiscoveredRoute]:
 @fail_quietly()
 def get_signature_and_path_template(
     request_path, routes_list, registry
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     if not request_path:
         logger.debug("No path info for pyramid request")
         return None, None

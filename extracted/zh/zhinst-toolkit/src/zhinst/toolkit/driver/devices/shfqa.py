@@ -7,7 +7,7 @@ import typing as t
 from functools import cached_property
 
 import zhinst.utils.shfqa as utils
-from zhinst.toolkit.driver.devices.base import BaseInstrument
+from zhinst.toolkit.driver.devices.shf import SHF
 from zhinst.toolkit.driver.nodes.awg import AWG
 from zhinst.toolkit.driver.nodes.readout import Readout
 from zhinst.toolkit.driver.nodes.shfqa_scope import SHFScope
@@ -43,10 +43,11 @@ class Generator(AWG):
     Args:
         root: Root of the nodetree
         tree: Tree (node path as tuple) of the current node
-        daq_server: Instance of the ziDAQServer
         serial: Serial of the device.
         index: Index of the corresponding awg channel
         max_qubits_per_channel: Max qubits per channel
+        device_type: Type of the device.
+        device_options: Options of the device.
     """
 
     def __init__(
@@ -258,7 +259,7 @@ class QAChannel(Node):
         )
 
 
-class SHFQA(BaseInstrument):
+class SHFQA(SHF):
     """High-level driver for the Zurich Instruments SHFQA."""
 
     @not_callable_in_transactions

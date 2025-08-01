@@ -48,7 +48,6 @@ use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::ClassKind;
-use crate::types::class::ClassType;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
@@ -526,7 +525,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .get_metadata_for_class(cls.class_object())
                         .is_protocol() =>
                 {
-                    let call_attr = self.instance_to_method(&cls).and_then(|call_attr| {
+                    let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
                         if let Type::BoundMethod(m) = call_attr {
                             let func = m.as_function();
                             Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
@@ -618,7 +617,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             params.first()
         };
         if let Some(ty_arg) = ty_arg
-            && !self.is_subset_eq(ty_narrow, ty_arg.param_to_type())
+            && !self.is_subset_eq(ty_narrow, ty_arg.as_type())
         {
             // If the narrowed type is not a subtype of the argument type, we report an error.
             self.error(
@@ -628,16 +627,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "Return type `{}` must be assignable to the first argument type `{}`",
                     self.for_display(ty_narrow.clone()),
-                    self.for_display(ty_arg.param_to_type().clone())
+                    self.for_display(ty_arg.as_type().clone())
                 ),
             );
         }
-    }
-
-    /// If instances of this class are callable - that is, have a `__call__` method - return the method.
-    pub fn instance_to_method(&self, cls: &ClassType) -> Option<Type> {
-        self.get_instance_attribute(cls, &dunder::CALL)
-            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 
     // Given the index to a function binding, return the previous function binding, if any.
@@ -774,7 +767,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata: def.metadata.clone(),
                 };
                 if let Some(tparams) = all_tparams(impl_tparams) {
-                    self.fresh_quantified_function(&tparams, func).1
+                    self.instantiate_fresh_function(&tparams, func).1
                 } else {
                     func
                 }

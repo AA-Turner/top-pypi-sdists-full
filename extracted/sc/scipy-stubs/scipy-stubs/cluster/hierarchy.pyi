@@ -1,14 +1,14 @@
 from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Final, Literal, TypeAlias, TypedDict, overload, type_check_only
+from typing import Final, Literal, TypeAlias, TypedDict, overload, type_check_only
 from typing_extensions import TypeVar, override
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
+import optype.numpy.compat as npc
 
 from scipy._lib._disjoint_set import DisjointSet
-from scipy._typing import Falsy, Truthy
 from scipy.spatial.distance import _Metric
 
 __all__ = [
@@ -47,7 +47,7 @@ __all__ = [
 ]
 
 _T = TypeVar("_T")
-_SCT = TypeVar("_SCT", bound=np.number[Any], default=np.float64)
+_SCT = TypeVar("_SCT", bound=npc.number, default=np.float64)
 
 _LinkageArray: TypeAlias = onp.Array2D[_SCT]
 _LinkageMethod: TypeAlias = Literal["single", "complete", "average", "weighted", "centroid", "median", "ward"]
@@ -132,9 +132,9 @@ def cut_tree(
 
 #
 @overload
-def to_tree(Z: onp.ToArray2D, rd: Falsy = False) -> ClusterNode: ...
+def to_tree(Z: onp.ToArray2D, rd: onp.ToFalse = False) -> ClusterNode: ...
 @overload
-def to_tree(Z: onp.ToArray2D, rd: Truthy) -> tuple[ClusterNode, list[ClusterNode]]: ...
+def to_tree(Z: onp.ToArray2D, rd: onp.ToTrue) -> tuple[ClusterNode, list[ClusterNode]]: ...
 
 #
 def optimal_leaf_ordering(Z: onp.ToArray2D, y: onp.ToArrayND, metric: _Metric = "euclidean") -> _LinkageArray: ...
@@ -196,7 +196,7 @@ def dendrogram(
     Z: onp.ToArray2D,
     p: int = 30,
     truncate_mode: _TruncateMode | None = None,
-    color_threshold: float | np.floating[Any] | None = None,
+    color_threshold: float | npc.floating | None = None,
     get_leaves: bool = True,
     orientation: _Orientation = "top",
     labels: onp.ToArrayND | None = None,
@@ -205,8 +205,8 @@ def dendrogram(
     show_leaf_counts: bool = True,
     no_plot: bool = False,
     no_labels: bool = False,
-    leaf_font_size: float | np.floating[Any] | None = None,
-    leaf_rotation: float | np.floating[Any] | None = None,
+    leaf_font_size: float | npc.floating | None = None,
+    leaf_rotation: float | npc.floating | None = None,
     leaf_label_func: Callable[[int], str] | None = None,
     show_contracted: bool = False,
     link_color_func: Callable[[int], str] | None = None,

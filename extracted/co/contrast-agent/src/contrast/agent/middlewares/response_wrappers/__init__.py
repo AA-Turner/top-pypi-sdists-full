@@ -10,6 +10,10 @@ def get_otel_attributes(response: BaseResponseWrapper) -> dict:
     """
     Returns attributes following OpenTelemetry semantic conventions for HTTP responses.
     """
-    return {
+    attributes = {
         "http.response.status_code": response.status_code,
     }
+    if response.status_code >= 500:
+        attributes["error.type"] = str(response.status_code)
+
+    return attributes

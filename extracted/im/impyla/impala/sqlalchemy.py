@@ -202,9 +202,20 @@ class ImpalaDialect(DefaultDialect):
     ddl_compiler = ImpalaDDLCompiler
     type_compiler = ImpalaTypeCompiler
     execution_ctx_cls = ImpalaExecutionContext
+    # disable supports_statement_cache explicitly to avoid warning in sqlalchemy.
+    # TODO: it is not clear whether it would be safe to enable, needs more research
+    supports_statement_cache = False
 
+    # sqlalchemy dbapi() is deprecated in favor of import_dbapi().
+    # Keeping both to remain as compatible as possible.
     @classmethod
     def dbapi(cls):
+        # pylint: disable=method-hidden
+        import impala.dbapi
+        return impala.dbapi
+
+    @classmethod
+    def import_dbapi(cls):
         # pylint: disable=method-hidden
         import impala.dbapi
         return impala.dbapi

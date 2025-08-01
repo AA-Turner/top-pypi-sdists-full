@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=48", "setuptools_scm[toml]>=6.3.1"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
@@ -8,7 +8,8 @@ build-backend = "setuptools.build_meta"
 name = "scmrepo"
 description = "scmrepo"
 readme = "README.rst"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Iterative", email = "support@dvc.org" }]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,7 +24,7 @@ requires-python = ">=3.9"
 dynamic = ["version"]
 dependencies = [
     "gitpython>3",
-    "dulwich>=0.23.1",
+    "dulwich>=0.24.0",
     "pygit2>=1.14.0",
     "pygtrie>=2.3.2",
     "fsspec[tqdm]>=2024.2.0",
@@ -102,7 +103,7 @@ show_error_codes = true
 show_error_context = true
 show_traceback = true
 pretty = true
-check_untyped_defs = false
+check_untyped_defs = true
 # Warnings
 warn_no_return = true
 warn_redundant_casts = true

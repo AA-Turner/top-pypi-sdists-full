@@ -2578,26 +2578,6 @@ endfunction
     CHECK(diags[0].code == diag::Redefinition);
 }
 
-TEST_CASE("Class method driver crash regress GH #552") {
-    auto tree = SyntaxTree::fromText(R"(
-class B;
-    int v[$];
-endclass
-
-class C;
-    virtual function B get();
-    endfunction
-    function f();
-        get().v.delete();
-    endfunction
-endclass
-)");
-
-    Compilation compilation;
-    compilation.addSyntaxTree(tree);
-    NO_COMPILATION_ERRORS;
-}
-
 TEST_CASE("Reversed dist range treated as empty") {
     auto tree = SyntaxTree::fromText(R"(
 class C;
@@ -2654,30 +2634,6 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConstraintNotInClass);
-}
-
-TEST_CASE("Multiple assign to static class members") {
-    auto tree = SyntaxTree::fromText(R"(
-class C;
-    static int foo;
-endclass
-
-function C bar;
-endfunction
-
-module m;
-    C c = new;
-    assign c.foo = 1;
-    assign bar().foo = 1;
-endmodule
-)");
-
-    Compilation compilation;
-    compilation.addSyntaxTree(tree);
-
-    auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 1);
-    CHECK(diags[0].code == diag::MultipleContAssigns);
 }
 
 TEST_CASE("Dist weight split operators") {
@@ -3448,44 +3404,6 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
-TEST_CASE("Unused var checking intersected with generic classes -- GH #1142") {
-    auto tree = SyntaxTree::fromText(R"(
-class A #(type T);
-endclass
-
-class B #(type T);
-    task get((* unused *) output T t);
-    endtask
-endclass
-
-class C #(type T = int);
-    B #(T) b;
-    (* unused *) typedef A #(C) unused;
-
-    task test();
-        T t;
-        forever begin
-            b.get(t);
-            process(t);
-        end
-    endtask
-
-    function void process((* unused *) T t);
-    endfunction
-endclass
-
-module top;
-endmodule
-)");
-
-    CompilationOptions coptions;
-    coptions.flags = CompilationFlags::None;
-
-    Compilation compilation(coptions);
-    compilation.addSyntaxTree(tree);
-    NO_COMPILATION_ERRORS;
-}
-
 TEST_CASE("Class randomize can't access protected members") {
     auto tree = SyntaxTree::fromText(R"(
 class C;
@@ -3554,4 +3472,19 @@ endinterface
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     compilation.getAllDiagnostics();
+}
+
+TEST_CASE("Class prototypes allow missing arg names -- GH #1273") {
+    auto tree = SyntaxTree::fromText(R"(
+class RegisterFile;
+    extern function void SetN(logic);
+endclass
+
+function void RegisterFile::SetN(logic l);
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

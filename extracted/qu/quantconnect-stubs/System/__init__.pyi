@@ -972,6 +972,9 @@ class PlatformID(Enum):
 
     OTHER = 7
 
+    def __int__(self) -> int:
+        ...
+
 
 class IUtf8SpanFormattable(metaclass=abc.ABCMeta):
     """Provides functionality to format the string representation of an object into a span as UTF-8."""
@@ -1354,6 +1357,9 @@ class EnvironmentVariableTarget(Enum):
 
     MACHINE = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class Environment(System.Object):
     """This class has no documentation."""
@@ -1384,6 +1390,9 @@ class Environment(System.Object):
         CREATE = ...
 
         DO_NOT_VERIFY = ...
+
+        def __int__(self) -> int:
+            ...
 
     class SpecialFolder(Enum):
         """This class has no documentation."""
@@ -1481,6 +1490,9 @@ class Environment(System.Object):
         SYSTEM_X_86 = ...
 
         WINDOWS = ...
+
+        def __int__(self) -> int:
+            ...
 
     USER_NAME: str
 
@@ -2152,6 +2164,9 @@ class StringSplitOptions(Enum):
     TRIM_ENTRIES = 2
     """Trim whitespace from each substring in the result."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class StringComparison(Enum):
     """This class has no documentation."""
@@ -2167,6 +2182,9 @@ class StringComparison(Enum):
     ORDINAL = 4
 
     ORDINAL_IGNORE_CASE = 5
+
+    def __int__(self) -> int:
+        ...
 
 
 class MemoryExtensions(System.Object):
@@ -2897,6 +2915,9 @@ class MidpointRounding(Enum):
 
     TO_POSITIVE_INFINITY = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class MathF(System.Object):
     """Provides constants and static methods for trigonometric, logarithmic, and other common mathematical functions."""
@@ -3140,6 +3161,9 @@ class TypeCode(Enum):
     DATE_TIME = 16
 
     STRING = 18
+
+    def __int__(self) -> int:
+        ...
 
 
 class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
@@ -5505,6 +5529,9 @@ class DayOfWeek(Enum):
 
     SATURDAY = 6
 
+    def __int__(self) -> int:
+        ...
+
 
 class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_TimeOnly], System.ISpanFormattable, System.ISpanParsable[System_TimeOnly], System.IUtf8SpanFormattable):
     """Represents a time of day, as would be read from a clock, within the range 00:00:00 to 23:59:59.9999999."""
@@ -6327,6 +6354,9 @@ class DateTimeKind(Enum):
     UTC = 1
 
     LOCAL = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_DateOnly], System.ISpanFormattable, System.ISpanParsable[System_DateOnly], System.IUtf8SpanFormattable):
@@ -7928,6 +7958,9 @@ class AttributeTargets(Enum):
 
     ALL = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class GCGenerationInfo:
     """This class has no documentation."""
@@ -7967,6 +8000,9 @@ class GCKind(Enum):
 
     BACKGROUND = 3
     """A background collection."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class GCMemoryInfo:
@@ -10869,6 +10905,9 @@ class LoaderOptimization(Enum):
     NOT_SPECIFIED = 0
 
     SINGLE_DOMAIN = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class LoaderOptimizationAttribute(System.Attribute):
@@ -15409,6 +15448,9 @@ class Base64FormattingOptions(Enum):
 
     INSERT_LINE_BREAKS = 1
 
+    def __int__(self) -> int:
+        ...
+
 
 class Convert(System.Object):
     """This class has no documentation."""
@@ -17701,6 +17743,9 @@ class GCNotificationStatus(Enum):
 
     NOT_APPLICABLE = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class GCCollectionMode(Enum):
     """This class has no documentation."""
@@ -17712,6 +17757,9 @@ class GCCollectionMode(Enum):
     OPTIMIZED = 2
 
     AGGRESSIVE = 3
+
+    def __int__(self) -> int:
+        ...
 
 
 class GC(System.Object):
@@ -22023,6 +22071,9 @@ class ConsoleColor(Enum):
 
     WHITE = 15
 
+    def __int__(self) -> int:
+        ...
+
 
 class ConsoleKey(Enum):
     """This class has no documentation."""
@@ -22317,6 +22368,9 @@ class ConsoleKey(Enum):
 
     OEM_CLEAR = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ConsoleModifiers(Enum):
     """This class has no documentation."""
@@ -22328,6 +22382,9 @@ class ConsoleModifiers(Enum):
     SHIFT = 2
 
     CONTROL = 4
+
+    def __int__(self) -> int:
+        ...
 
 
 class ConsoleKeyInfo(System.IEquatable[System_ConsoleKeyInfo]):
@@ -22372,6 +22429,9 @@ class ConsoleSpecialKey(Enum):
     CONTROL_C = 0
 
     CONTROL_BREAK = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class ConsoleCancelEventArgs(System.EventArgs):

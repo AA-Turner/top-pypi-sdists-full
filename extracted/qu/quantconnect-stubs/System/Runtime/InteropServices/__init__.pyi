@@ -58,6 +58,9 @@ class ClassInterfaceType(Enum):
 
     AUTO_DUAL = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class ClassInterfaceAttribute(System.Attribute):
     """This class has no documentation."""
@@ -160,6 +163,9 @@ class Architecture(Enum):
     RISC_V_64 = 9
     """A RiscV 64-bit processor architecture."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
     """This class has no documentation."""
@@ -233,6 +239,9 @@ class DllImportSearchPath(Enum):
 
     LEGACY_BEHAVIOR = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ComEventInterfaceAttribute(System.Attribute):
     """This class has no documentation."""
@@ -257,6 +266,9 @@ class CustomQueryInterfaceResult(Enum):
     NOT_HANDLED = 1
 
     FAILED = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class ICustomQueryInterface(metaclass=abc.ABCMeta):
@@ -291,6 +303,9 @@ class GCHandleType(Enum):
     NORMAL = 2
 
     PINNED = 3
+
+    def __int__(self) -> int:
+        ...
 
 
 class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System.IEquatable[System_Runtime_InteropServices_GCHandle], System.IDisposable):
@@ -489,6 +504,9 @@ class CustomQueryInterfaceMode(Enum):
     IGNORE = 0
 
     ALLOW = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class SafeHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
@@ -1506,6 +1524,9 @@ class CreateComInterfaceFlags(Enum):
     and as such none should be supplied by the caller.
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class CreateObjectFlags(Enum):
     """Enumeration of flags for ComWrappers.GetOrCreateObjectForComInstance(IntPtr, CreateObjectFlags)."""
@@ -1527,6 +1548,9 @@ class CreateObjectFlags(Enum):
     managed object rather than creating a new wrapper.
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class CreatedWrapperFlags(Enum):
     """Enumeration of flags for ComWrappers.CreateObject(IntPtr, CreateObjectFlags, object?, out CreatedWrapperFlags)."""
@@ -1538,6 +1562,9 @@ class CreatedWrapperFlags(Enum):
 
     NON_WRAPPING = ...
     """The managed object doesn't keep the native object alive. It represents an equivalent value."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class ComWrappers(System.Object, metaclass=abc.ABCMeta):
@@ -1762,6 +1789,9 @@ class CharSet(Enum):
 
     AUTO = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class CallingConvention(Enum):
     """This class has no documentation."""
@@ -1775,6 +1805,9 @@ class CallingConvention(Enum):
     THIS_CALL = 4
 
     FAST_CALL = 5
+
+    def __int__(self) -> int:
+        ...
 
 
 class DllImportAttribute(System.Attribute):
@@ -2270,6 +2303,9 @@ class UnmanagedType(Enum):
 
     LPUTF_8_STR = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class GuidAttribute(System.Attribute):
     """This class has no documentation."""
@@ -2292,6 +2328,9 @@ class ComInterfaceType(Enum):
     INTERFACE_IS_I_DISPATCH = 2
 
     INTERFACE_IS_I_INSPECTABLE = 3
+
+    def __int__(self) -> int:
+        ...
 
 
 class InterfaceTypeAttribute(System.Attribute):
@@ -2360,6 +2399,9 @@ class PosixSignal(Enum):
 
     SIGTSTP = -10
     """Stop typed at terminal"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class PosixSignalContext(System.Object):
@@ -3585,6 +3627,9 @@ class LayoutKind(Enum):
 
     AUTO = 3
 
+    def __int__(self) -> int:
+        ...
+
 
 class StructLayoutAttribute(System.Attribute):
     """This class has no documentation."""
@@ -3759,6 +3804,9 @@ class ComMemberType(Enum):
     PROP_GET = 1
 
     PROP_SET = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class OutAttribute(System.Attribute):
@@ -3975,6 +4023,9 @@ class VarEnum(Enum):
     VT_ARRAY = ...
 
     VT_BYREF = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class MarshalAsAttribute(System.Attribute):

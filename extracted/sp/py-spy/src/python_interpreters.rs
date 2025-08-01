@@ -16,18 +16,21 @@ use crate::python_bindings::{
 };
 use crate::utils::offset_of;
 
-pub trait InterpreterState {
+pub trait InterpreterState: Copy {
     type ThreadState: ThreadState;
     type Object: Object;
     type StringObject: StringObject;
     type ListObject: ListObject;
     type TupleObject: TupleObject;
-    fn head(&self) -> *mut Self::ThreadState;
-    fn gil_locked(&self) -> Option<bool>;
-    fn modules(&self) -> *mut Self::Object;
+    const HAS_GIL_RUNTIME_STATE: bool = false;
+
+    /// Get a remote pointer to a pointer to PyThreadState.
+    fn threadstate_ptr_ptr(interpreter_address: usize) -> *const *const Self::ThreadState;
+    /// Get a remote pointer to a pointer to PyObject being the modules dict.
+    fn modules_ptr_ptr(interpreter_address: usize) -> *const *const Self::Object;
 }
 
-pub trait ThreadState {
+pub trait ThreadState: Copy {
     type FrameObject: FrameObject;
     type InterpreterState: InterpreterState;
 
@@ -43,7 +46,7 @@ pub trait ThreadState {
     fn next(&self) -> *mut Self;
 }
 
-pub trait FrameObject {
+pub trait FrameObject: Copy {
     type CodeObject: CodeObject;
 
     fn code(&self) -> *mut Self::CodeObject;
@@ -52,7 +55,7 @@ pub trait FrameObject {
     fn is_entry(&self) -> bool;
 }
 
-pub trait CodeObject {
+pub trait CodeObject: Copy {
     type StringObject: StringObject;
     type BytesObject: BytesObject;
     type TupleObject: TupleObject;
@@ -68,35 +71,35 @@ pub trait CodeObject {
     fn get_line_number(&self, lasti: i32, table: &[u8]) -> i32;
 }
 
-pub trait BytesObject {
+pub trait BytesObject: Copy {
     fn size(&self) -> usize;
     fn address(&self, base: usize) -> usize;
 }
 
-pub trait StringObject {
+pub trait StringObject: Copy {
     fn ascii(&self) -> bool;
     fn kind(&self) -> u32;
     fn size(&self) -> usize;
     fn address(&self, base: usize) -> usize;
 }
 
-pub trait TupleObject {
+pub trait TupleObject: Copy {
     fn size(&self) -> usize;
     fn address(&self, base: usize, index: usize) -> usize;
 }
 
-pub trait ListObject {
+pub trait ListObject: Copy {
     type Object: Object;
     fn size(&self) -> usize;
     fn item(&self) -> *mut *mut Self::Object;
 }
 
-pub trait Object {
+pub trait Object: Copy {
     type TypeObject: TypeObject;
     fn ob_type(&self) -> *mut Self::TypeObject;
 }
 
-pub trait TypeObject {
+pub trait TypeObject: Copy {
     fn name(&self) -> *const ::std::os::raw::c_char;
     fn dictoffset(&self) -> isize;
     fn flags(&self) -> usize;
@@ -114,14 +117,13 @@ macro_rules! PythonCommonImpl {
             type ListObject = $py::PyListObject;
             type TupleObject = $py::PyTupleObject;
 
-            fn head(&self) -> *mut Self::ThreadState {
-                self.tstate_head
+            fn threadstate_ptr_ptr(interpreter_address: usize) -> *const *const Self::ThreadState {
+                (interpreter_address + std::mem::offset_of!(Self, tstate_head))
+                    as *const *const Self::ThreadState
             }
-            fn gil_locked(&self) -> Option<bool> {
-                None
-            }
-            fn modules(&self) -> *mut Self::Object {
-                self.modules
+            fn modules_ptr_ptr(interpreter_address: usize) -> *const *const Self::Object {
+                (interpreter_address + std::mem::offset_of!(Self, modules))
+                    as *const *const Self::Object
             }
         }
 
@@ -246,7 +248,10 @@ macro_rules! PythonCodeObjectImpl {
     };
 }
 
-fn read_varint(index: &mut usize, table: &[u8]) -> usize {
+fn read_varint(index: &mut usize, table: &[u8]) -> Option<usize> {
+    if *index >= table.len() {
+        return None;
+    }
     let mut ret: usize;
     let mut byte = table[*index];
     let mut shift = 0;
@@ -254,20 +259,23 @@ fn read_varint(index: &mut usize, table: &[u8]) -> usize {
     ret = (byte & 63) as usize;
 
     while byte & 64 != 0 {
+        if *index >= table.len() {
+            return None;
+        }
         byte = table[*index];
         *index += 1;
         shift += 6;
         ret += ((byte & 63) as usize) << shift;
     }
-    ret
+    Some(ret)
 }
 
-fn read_signed_varint(index: &mut usize, table: &[u8]) -> isize {
-    let unsigned_val = read_varint(index, table);
+fn read_signed_varint(index: &mut usize, table: &[u8]) -> Option<isize> {
+    let unsigned_val = read_varint(index, table)?;
     if unsigned_val & 1 != 0 {
-        -((unsigned_val >> 1) as isize)
+        Some(-((unsigned_val >> 1) as isize))
     } else {
-        (unsigned_val >> 1) as isize
+        Some((unsigned_val >> 1) as isize)
     }
 }
 
@@ -322,13 +330,13 @@ macro_rules! CompactCodeObjectImpl {
                     let line_delta = match code {
                         15 => 0,
                         14 => {
-                            let delta = read_signed_varint(&mut index, table);
+                            let delta = read_signed_varint(&mut index, table).unwrap_or(0);
                             read_varint(&mut index, table); // end line
                             read_varint(&mut index, table); // start column
                             read_varint(&mut index, table); // end column
                             delta
                         }
-                        13 => read_signed_varint(&mut index, table),
+                        13 => read_signed_varint(&mut index, table).unwrap_or(0),
                         10..=12 => {
                             index += 2; // start column / end column
                             (code - 10).into()
@@ -416,14 +424,15 @@ impl InterpreterState for v3_13_0::PyInterpreterState {
     type StringObject = v3_13_0::PyUnicodeObject;
     type ListObject = v3_13_0::PyListObject;
     type TupleObject = v3_13_0::PyTupleObject;
-    fn head(&self) -> *mut Self::ThreadState {
-        self.threads.head
+    const HAS_GIL_RUNTIME_STATE: bool = true;
+
+    fn threadstate_ptr_ptr(interpreter_address: usize) -> *const *const Self::ThreadState {
+        (interpreter_address + std::mem::offset_of!(Self, threads.head))
+            as *const *const Self::ThreadState
     }
-    fn gil_locked(&self) -> Option<bool> {
-        Some(self._gil.locked != 0)
-    }
-    fn modules(&self) -> *mut Self::Object {
-        self.imports.modules
+    fn modules_ptr_ptr(interpreter_address: usize) -> *const *const Self::Object {
+        (interpreter_address + std::mem::offset_of!(Self, imports.modules))
+            as *const *const Self::Object
     }
 }
 
@@ -500,16 +509,15 @@ impl InterpreterState for v3_12_0::PyInterpreterState {
     type StringObject = v3_12_0::PyUnicodeObject;
     type ListObject = v3_12_0::PyListObject;
     type TupleObject = v3_12_0::PyTupleObject;
+    const HAS_GIL_RUNTIME_STATE: bool = true;
 
-    fn head(&self) -> *mut Self::ThreadState {
-        self.threads.head
+    fn threadstate_ptr_ptr(interpreter_address: usize) -> *const *const Self::ThreadState {
+        (interpreter_address + std::mem::offset_of!(Self, threads.head))
+            as *const *const Self::ThreadState
     }
-    fn gil_locked(&self) -> Option<bool> {
-        Some(self._gil.locked._value != 0)
-    }
-
-    fn modules(&self) -> *mut Self::Object {
-        self.imports.modules
+    fn modules_ptr_ptr(interpreter_address: usize) -> *const *const Self::Object {
+        (interpreter_address + std::mem::offset_of!(Self, imports.modules))
+            as *const *const Self::Object
     }
 }
 
@@ -593,14 +601,13 @@ impl InterpreterState for v3_11_0::PyInterpreterState {
     type StringObject = v3_11_0::PyUnicodeObject;
     type ListObject = v3_11_0::PyListObject;
     type TupleObject = v3_11_0::PyTupleObject;
-    fn head(&self) -> *mut Self::ThreadState {
-        self.threads.head
+
+    fn threadstate_ptr_ptr(interpreter_address: usize) -> *const *const Self::ThreadState {
+        (interpreter_address + std::mem::offset_of!(Self, threads.head))
+            as *const *const Self::ThreadState
     }
-    fn gil_locked(&self) -> Option<bool> {
-        None
-    }
-    fn modules(&self) -> *mut Self::Object {
-        self.modules
+    fn modules_ptr_ptr(interpreter_address: usize) -> *const *const Self::Object {
+        (interpreter_address + std::mem::offset_of!(Self, modules)) as *const *const Self::Object
     }
 }
 

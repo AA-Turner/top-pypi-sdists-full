@@ -161,12 +161,12 @@ class KeeperParams:
         self.ssh_agent = None
         self.unmask_all = False
         self.ws = None
-        self.tunnel_threads = {}
-        self.tunnel_threads_queue = {} # add ability to tail tunnel process
+        self.tube_registry = None  # Rust WebRTC tube registry instance
         self.forbid_rsa = False
         # TODO check if it can be deleted
         self.salt = None
         self.iterations = 0
+        self.biometric = None
 
 
     def clear_session(self):
@@ -230,9 +230,14 @@ class KeeperParams:
         if self.ssh_agent:
             self.ssh_agent.close()
             self.ssh_agent = None
-        self.tunnel_threads.clear()
-        self.tunnel_threads_queue = {}
+        if self.tube_registry:
+            try:
+                self.tube_registry.cleanup_all()
+            except Exception:
+                pass  # Ignore cleanup errors during session clear
+            self.tube_registry = None
         self.forbid_rsa = False
+        self.biometric = None
 
     def __get_rest_context(self):   # type: () -> RestApiContext
         return self.__rest_context

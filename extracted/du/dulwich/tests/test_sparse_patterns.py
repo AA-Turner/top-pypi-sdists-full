@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -196,7 +196,7 @@ class ComputeIncludedPathsFullTests(TestCase):
         with open(full, "wb") as f:
             f.write(content)
         # Stage in the index
-        self.repo.stage([relpath])
+        self.repo.get_worktree().stage([relpath])
 
     def test_basic_inclusion_exclusion(self):
         """Given patterns, check correct set of included paths."""
@@ -209,7 +209,7 @@ class ComputeIncludedPathsFullTests(TestCase):
             "!bar.*",  # exclude bar.md
             "docs/",  # include docs dir
         ]
-        included = compute_included_paths_full(self.repo, lines)
+        included = compute_included_paths_full(self.repo.open_index(), lines)
         self.assertEqual(included, {"foo.py", "docs/readme"})
 
     def test_full_with_utf8_paths(self):
@@ -219,7 +219,7 @@ class ComputeIncludedPathsFullTests(TestCase):
 
         # Include all text files
         lines = ["*.txt"]
-        included = compute_included_paths_full(self.repo, lines)
+        included = compute_included_paths_full(self.repo.open_index(), lines)
         self.assertEqual(included, {"unicode/文件.txt"})
 
 
@@ -237,7 +237,7 @@ class ComputeIncludedPathsConeTests(TestCase):
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "wb") as f:
             f.write(content)
-        self.repo.stage([relpath])
+        self.repo.get_worktree().stage([relpath])
 
     def test_cone_mode_patterns(self):
         """Simpler pattern handling in cone mode.
@@ -256,7 +256,7 @@ class ComputeIncludedPathsConeTests(TestCase):
             "!/*/",
             "/docs/",
         ]
-        included = compute_included_paths_cone(self.repo, lines)
+        included = compute_included_paths_cone(self.repo.open_index(), lines)
         # top-level => includes 'topfile'
         # subdirs => excluded, except docs/
         self.assertEqual(included, {"topfile", "docs/readme.md"})
@@ -272,7 +272,7 @@ class ComputeIncludedPathsConeTests(TestCase):
             "!/*/",
             "/",  # This empty pattern should be skipped
         ]
-        included = compute_included_paths_cone(self.repo, lines)
+        included = compute_included_paths_cone(self.repo.open_index(), lines)
         # Only topfile should be included since the empty pattern is skipped
         self.assertEqual(included, {"topfile"})
 
@@ -286,7 +286,7 @@ class ComputeIncludedPathsConeTests(TestCase):
             "/*",  # top-level
             "/docs/",  # re-include docs?
         ]
-        included = compute_included_paths_cone(self.repo, lines)
+        included = compute_included_paths_cone(self.repo.open_index(), lines)
         # Because exclude_subdirs was never set, everything is included:
         self.assertEqual(
             included,
@@ -301,7 +301,7 @@ class ComputeIncludedPathsConeTests(TestCase):
 
         # Only specify reinclude_dirs, need to explicitly exclude subdirs
         lines = ["!/*/", "/docs/"]
-        included = compute_included_paths_cone(self.repo, lines)
+        included = compute_included_paths_cone(self.repo.open_index(), lines)
         # Only docs/* should be included, not topfile or lib/*
         self.assertEqual(included, {"docs/readme.md"})
 
@@ -313,7 +313,7 @@ class ComputeIncludedPathsConeTests(TestCase):
 
         # Only exclude subdirs and reinclude docs
         lines = ["!/*/", "/docs/"]
-        included = compute_included_paths_cone(self.repo, lines)
+        included = compute_included_paths_cone(self.repo.open_index(), lines)
         # Only docs/* should be included since we didn't include top level
         self.assertEqual(included, {"docs/readme.md"})
 
@@ -332,14 +332,15 @@ class DetermineIncludedPathsTests(TestCase):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
             f.write(b"data")
-        self.repo.stage([relpath])
+        self.repo.get_worktree().stage([relpath])
 
     def test_full_mode(self):
         self._add_file_to_index("foo.py")
         self._add_file_to_index("bar.md")
 
         lines = ["*.py", "!bar.*"]
-        included = determine_included_paths(self.repo, lines, cone=False)
+        index = self.repo.open_index()
+        included = determine_included_paths(index, lines, cone=False)
         self.assertEqual(included, {"foo.py"})
 
     def test_cone_mode(self):
@@ -347,7 +348,8 @@ class DetermineIncludedPathsTests(TestCase):
         self._add_file_to_index("subdir/anotherfile")
 
         lines = ["/*", "!/*/"]
-        included = determine_included_paths(self.repo, lines, cone=True)
+        index = self.repo.open_index()
+        included = determine_included_paths(index, lines, cone=True)
         self.assertEqual(included, {"topfile"})
 
 
@@ -368,9 +370,11 @@ class ApplyIncludedPathsTests(TestCase):
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "wb") as f:
             f.write(content)
-        self.repo.stage([relpath])
+        self.repo.get_worktree().stage([relpath])
         # Actually commit so the object is in the store
-        self.repo.do_commit(message=b"Commit " + relpath.encode())
+        self.repo.get_worktree().commit(
+            message=b"Commit " + relpath.encode(),
+        )
 
     def test_set_skip_worktree_bits(self):
         """If a path is not in included_paths, skip_worktree bit is set."""
@@ -543,7 +547,7 @@ class ApplyIncludedPathsTests(TestCase):
 
         # Create a simple filter that converts content to uppercase
         class UppercaseFilter:
-            def smudge(self, input_bytes):
+            def smudge(self, input_bytes, path=b""):
                 return input_bytes.upper()
 
             def clean(self, input_bytes):
@@ -553,8 +557,11 @@ class ApplyIncludedPathsTests(TestCase):
         filter_registry = FilterRegistry()
         filter_registry.register_driver("uppercase", UppercaseFilter())
 
-        # Create gitattributes dict
-        gitattributes = {b"*.txt": {b"filter": b"uppercase"}}
+        # Create gitattributes object
+        from dulwich.attrs import GitAttributes, Pattern
+
+        patterns = [(Pattern(b"*.txt"), {b"filter": b"uppercase"})]
+        gitattributes = GitAttributes(patterns)
 
         # Monkey patch the repo to use our filter registry
         original_get_blob_normalizer = self.repo.get_blob_normalizer

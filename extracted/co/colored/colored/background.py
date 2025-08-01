@@ -10,7 +10,7 @@ from .utilities import Utilities
 
 class MetaBack(type):
     """Metaclass to customize attribute access."""
-    def __getattr__(cls, color: str):
+    def __getattr__(cls, color: str) -> None:
         """Override __getattr__ to raise InvalidColor when an invalid color is accessed."""
         raise InvalidColor(f'InvalidColor: {color}')
 
@@ -62,5 +62,5 @@ class Back(metaclass=MetaBack):
 
 
 class back(Back):  # pylint: disable=[C0103]
-    """ This will be deprecated in the future, do not use this for version >= 2.0.0,
-        instead please use Back class (See issue #28). """
+    """This will be deprecated in the future, do not use this for version >= 2.0.0,
+        instead please use Back class (See issue #28)."""

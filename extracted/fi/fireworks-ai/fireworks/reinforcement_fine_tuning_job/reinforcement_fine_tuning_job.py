@@ -36,6 +36,7 @@ class ReinforcementFineTuningJob:
         proto: SyncReinforcementFineTuningJob,
         dataset_or_id: Union[Dataset, str],
         id: Optional[str],
+        evaluation_dataset_or_id: Optional[Union[Dataset, str]] = None,
         api_key: Optional[str] = None,
         gateway: Optional[Gateway] = None,
     ):
@@ -44,12 +45,16 @@ class ReinforcementFineTuningJob:
             llm: The LLM object that created this job.
             proto: The proto object that represents the fine-tuning job.
             dataset_or_id: The dataset or dataset ID to use for the fine-tuning job.
+            evaluation_dataset_or_id: The dataset or dataset ID to use for the evaluation dataset.
             api_key: The API key to use for the fine-tuning job.
             gateway: If you want to reuse caches saved on a Gateway instance
         """
         self.llm = llm
         self._id = id
         self.dataset_or_id = dataset_or_id if isinstance(dataset_or_id, Dataset) else dataset_or_id
+        self.evaluation_dataset_or_id = (
+            evaluation_dataset_or_id if isinstance(evaluation_dataset_or_id, Dataset) else evaluation_dataset_or_id
+        )
         self._api_key = api_key
         if gateway:
             self._gateway = gateway
@@ -96,6 +101,8 @@ class ReinforcementFineTuningJob:
         """
         if isinstance(self.dataset_or_id, Dataset):
             self.dataset_or_id.sync()
+        if isinstance(self.evaluation_dataset_or_id, Dataset):
+            self.evaluation_dataset_or_id.sync()
         existing_job = self.get()
         if existing_job is not None:
             if (
@@ -223,6 +230,7 @@ class ReinforcementFineTuningJob:
             llm=self.llm,
             proto=job_proto,
             dataset_or_id=self.dataset_or_id,
+            evaluation_dataset_or_id=self.evaluation_dataset_or_id,
             id=self.id,
             api_key=self._api_key,
             gateway=self._gateway,

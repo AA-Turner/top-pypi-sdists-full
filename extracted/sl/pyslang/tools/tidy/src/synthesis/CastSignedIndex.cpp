@@ -11,7 +11,7 @@ using namespace slang;
 using namespace slang::ast;
 
 namespace cast_signed_index {
-struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true> {
+struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, false, true> {
     explicit MainVisitor(Diagnostics& diagnostics) : TidyVisitor(diagnostics) {}
 
     void handle(const ElementSelectExpression& expr) {
@@ -26,9 +26,11 @@ using namespace cast_signed_index;
 
 class CastSignedIndex : public TidyCheck {
 public:
-    [[maybe_unused]] explicit CastSignedIndex(TidyKind kind) : TidyCheck(kind) {}
+    [[maybe_unused]] explicit CastSignedIndex(TidyKind kind,
+                                              std::optional<slang::DiagnosticSeverity> severity) :
+        TidyCheck(kind, severity) {}
 
-    bool check(const RootSymbol& root) override {
+    bool check(const RootSymbol& root, const slang::analysis::AnalysisManager&) override {
         MainVisitor visitor(diagnostics);
         root.visit(visitor);
         return diagnostics.empty();
@@ -41,7 +43,7 @@ public:
                "cast or make the index unsigned";
     }
 
-    DiagnosticSeverity diagSeverity() const override { return DiagnosticSeverity::Warning; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
 
     std::string name() const override { return "CastSignedIndex"; }
 

@@ -107,7 +107,7 @@ class StringTracker(OrderedDict):
                 and (now - props.timestamp) > self.AGE_OFF_THRESHOLD_SECS
             ):
                 self.log_ageoff(props.origin)
-                try:
+                try:  # noqa: SIM105 try-except is faster than suppress
                     super().__delitem__(key)
                 except KeyError:
                     # Handles potential race condition that may occur if

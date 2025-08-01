@@ -1,7 +1,7 @@
 r'''
 # `aws_codebuild_fleet`
 
-Refer to the Terraform Registry for docs: [`aws_codebuild_fleet`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet).
+Refer to the Terraform Registry for docs: [`aws_codebuild_fleet`](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodebuildFleet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codebuildFleet.CodebuildFleet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet aws_codebuild_fleet}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet aws_codebuild_fleet}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class CodebuildFleet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet aws_codebuild_fleet} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet aws_codebuild_fleet} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#base_capacity CodebuildFleet#base_capacity}.
-        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#compute_type CodebuildFleet#compute_type}.
-        :param environment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#environment_type CodebuildFleet#environment_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#name CodebuildFleet#name}.
-        :param compute_configuration: compute_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#compute_configuration CodebuildFleet#compute_configuration}
-        :param fleet_service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#fleet_service_role CodebuildFleet#fleet_service_role}.
-        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#image_id CodebuildFleet#image_id}.
-        :param overflow_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#overflow_behavior CodebuildFleet#overflow_behavior}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#region CodebuildFleet#region}
-        :param scaling_configuration: scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#scaling_configuration CodebuildFleet#scaling_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#tags CodebuildFleet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#tags_all CodebuildFleet#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vpc_config CodebuildFleet#vpc_config}
+        :param base_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#base_capacity CodebuildFleet#base_capacity}.
+        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#compute_type CodebuildFleet#compute_type}.
+        :param environment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#environment_type CodebuildFleet#environment_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#name CodebuildFleet#name}.
+        :param compute_configuration: compute_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#compute_configuration CodebuildFleet#compute_configuration}
+        :param fleet_service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#fleet_service_role CodebuildFleet#fleet_service_role}.
+        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#image_id CodebuildFleet#image_id}.
+        :param overflow_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#overflow_behavior CodebuildFleet#overflow_behavior}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#region CodebuildFleet#region}
+        :param scaling_configuration: scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#scaling_configuration CodebuildFleet#scaling_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#tags CodebuildFleet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#tags_all CodebuildFleet#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vpc_config CodebuildFleet#vpc_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class CodebuildFleet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodebuildFleet to import.
-        :param import_from_id: The id of the existing CodebuildFleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodebuildFleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodebuildFleet to import is found.
         '''
         if __debug__:
@@ -155,18 +155,24 @@ class CodebuildFleet(
         self,
         *,
         disk: typing.Optional[jsii.Number] = None,
+        instance_type: typing.Optional[builtins.str] = None,
         machine_type: typing.Optional[builtins.str] = None,
         memory: typing.Optional[jsii.Number] = None,
         vcpu: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#disk CodebuildFleet#disk}.
-        :param machine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#machine_type CodebuildFleet#machine_type}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#memory CodebuildFleet#memory}.
-        :param vcpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vcpu CodebuildFleet#vcpu}.
+        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#disk CodebuildFleet#disk}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#instance_type CodebuildFleet#instance_type}.
+        :param machine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#machine_type CodebuildFleet#machine_type}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#memory CodebuildFleet#memory}.
+        :param vcpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vcpu CodebuildFleet#vcpu}.
         '''
         value = CodebuildFleetComputeConfiguration(
-            disk=disk, machine_type=machine_type, memory=memory, vcpu=vcpu
+            disk=disk,
+            instance_type=instance_type,
+            machine_type=machine_type,
+            memory=memory,
+            vcpu=vcpu,
         )
 
         return typing.cast(None, jsii.invoke(self, "putComputeConfiguration", [value]))
@@ -180,9 +186,9 @@ class CodebuildFleet(
         target_tracking_scaling_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodebuildFleetScalingConfigurationTargetTrackingScalingConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#max_capacity CodebuildFleet#max_capacity}.
-        :param scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#scaling_type CodebuildFleet#scaling_type}.
-        :param target_tracking_scaling_configs: target_tracking_scaling_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#target_tracking_scaling_configs CodebuildFleet#target_tracking_scaling_configs}
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#max_capacity CodebuildFleet#max_capacity}.
+        :param scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#scaling_type CodebuildFleet#scaling_type}.
+        :param target_tracking_scaling_configs: target_tracking_scaling_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#target_tracking_scaling_configs CodebuildFleet#target_tracking_scaling_configs}
         '''
         value = CodebuildFleetScalingConfiguration(
             max_capacity=max_capacity,
@@ -497,6 +503,7 @@ class CodebuildFleet(
     jsii_struct_bases=[],
     name_mapping={
         "disk": "disk",
+        "instance_type": "instanceType",
         "machine_type": "machineType",
         "memory": "memory",
         "vcpu": "vcpu",
@@ -507,25 +514,30 @@ class CodebuildFleetComputeConfiguration:
         self,
         *,
         disk: typing.Optional[jsii.Number] = None,
+        instance_type: typing.Optional[builtins.str] = None,
         machine_type: typing.Optional[builtins.str] = None,
         memory: typing.Optional[jsii.Number] = None,
         vcpu: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#disk CodebuildFleet#disk}.
-        :param machine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#machine_type CodebuildFleet#machine_type}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#memory CodebuildFleet#memory}.
-        :param vcpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vcpu CodebuildFleet#vcpu}.
+        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#disk CodebuildFleet#disk}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#instance_type CodebuildFleet#instance_type}.
+        :param machine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#machine_type CodebuildFleet#machine_type}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#memory CodebuildFleet#memory}.
+        :param vcpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vcpu CodebuildFleet#vcpu}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92b3c6e660662704a73cbbc94de17515b8f30ce48274bb414b66b5aaf45be2d9)
             check_type(argname="argument disk", value=disk, expected_type=type_hints["disk"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument machine_type", value=machine_type, expected_type=type_hints["machine_type"])
             check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
             check_type(argname="argument vcpu", value=vcpu, expected_type=type_hints["vcpu"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if disk is not None:
             self._values["disk"] = disk
+        if instance_type is not None:
+            self._values["instance_type"] = instance_type
         if machine_type is not None:
             self._values["machine_type"] = machine_type
         if memory is not None:
@@ -535,25 +547,31 @@ class CodebuildFleetComputeConfiguration:
 
     @builtins.property
     def disk(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#disk CodebuildFleet#disk}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#disk CodebuildFleet#disk}.'''
         result = self._values.get("disk")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def instance_type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#instance_type CodebuildFleet#instance_type}.'''
+        result = self._values.get("instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def machine_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#machine_type CodebuildFleet#machine_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#machine_type CodebuildFleet#machine_type}.'''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#memory CodebuildFleet#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#memory CodebuildFleet#memory}.'''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def vcpu(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vcpu CodebuildFleet#vcpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vcpu CodebuildFleet#vcpu}.'''
         result = self._values.get("vcpu")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -593,6 +611,10 @@ class CodebuildFleetComputeConfigurationOutputReference(
     def reset_disk(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDisk", []))
 
+    @jsii.member(jsii_name="resetInstanceType")
+    def reset_instance_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInstanceType", []))
+
     @jsii.member(jsii_name="resetMachineType")
     def reset_machine_type(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMachineType", []))
@@ -609,6 +631,11 @@ class CodebuildFleetComputeConfigurationOutputReference(
     @jsii.member(jsii_name="diskInput")
     def disk_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "diskInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceTypeInput")
+    def instance_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceTypeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="machineTypeInput")
@@ -636,6 +663,18 @@ class CodebuildFleetComputeConfigurationOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__70cad8c6738b109e64eb42b64154baad315acfc3cf457c592aff2fde991f0789)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disk", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceType")
+    def instance_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "instanceType"))
+
+    @instance_type.setter
+    def instance_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e181371c42173f776681538749e31be2449f9adb9b5ccb98daddaa30cd92b8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="machineType")
@@ -748,19 +787,19 @@ class CodebuildFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#base_capacity CodebuildFleet#base_capacity}.
-        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#compute_type CodebuildFleet#compute_type}.
-        :param environment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#environment_type CodebuildFleet#environment_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#name CodebuildFleet#name}.
-        :param compute_configuration: compute_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#compute_configuration CodebuildFleet#compute_configuration}
-        :param fleet_service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#fleet_service_role CodebuildFleet#fleet_service_role}.
-        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#image_id CodebuildFleet#image_id}.
-        :param overflow_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#overflow_behavior CodebuildFleet#overflow_behavior}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#region CodebuildFleet#region}
-        :param scaling_configuration: scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#scaling_configuration CodebuildFleet#scaling_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#tags CodebuildFleet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#tags_all CodebuildFleet#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vpc_config CodebuildFleet#vpc_config}
+        :param base_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#base_capacity CodebuildFleet#base_capacity}.
+        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#compute_type CodebuildFleet#compute_type}.
+        :param environment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#environment_type CodebuildFleet#environment_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#name CodebuildFleet#name}.
+        :param compute_configuration: compute_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#compute_configuration CodebuildFleet#compute_configuration}
+        :param fleet_service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#fleet_service_role CodebuildFleet#fleet_service_role}.
+        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#image_id CodebuildFleet#image_id}.
+        :param overflow_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#overflow_behavior CodebuildFleet#overflow_behavior}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#region CodebuildFleet#region}
+        :param scaling_configuration: scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#scaling_configuration CodebuildFleet#scaling_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#tags CodebuildFleet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#tags_all CodebuildFleet#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vpc_config CodebuildFleet#vpc_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -895,28 +934,28 @@ class CodebuildFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def base_capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#base_capacity CodebuildFleet#base_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#base_capacity CodebuildFleet#base_capacity}.'''
         result = self._values.get("base_capacity")
         assert result is not None, "Required property 'base_capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def compute_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#compute_type CodebuildFleet#compute_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#compute_type CodebuildFleet#compute_type}.'''
         result = self._values.get("compute_type")
         assert result is not None, "Required property 'compute_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def environment_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#environment_type CodebuildFleet#environment_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#environment_type CodebuildFleet#environment_type}.'''
         result = self._values.get("environment_type")
         assert result is not None, "Required property 'environment_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#name CodebuildFleet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#name CodebuildFleet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -927,26 +966,26 @@ class CodebuildFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CodebuildFleetComputeConfiguration]:
         '''compute_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#compute_configuration CodebuildFleet#compute_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#compute_configuration CodebuildFleet#compute_configuration}
         '''
         result = self._values.get("compute_configuration")
         return typing.cast(typing.Optional[CodebuildFleetComputeConfiguration], result)
 
     @builtins.property
     def fleet_service_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#fleet_service_role CodebuildFleet#fleet_service_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#fleet_service_role CodebuildFleet#fleet_service_role}.'''
         result = self._values.get("fleet_service_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#image_id CodebuildFleet#image_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#image_id CodebuildFleet#image_id}.'''
         result = self._values.get("image_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def overflow_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#overflow_behavior CodebuildFleet#overflow_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#overflow_behavior CodebuildFleet#overflow_behavior}.'''
         result = self._values.get("overflow_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -954,7 +993,7 @@ class CodebuildFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#region CodebuildFleet#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#region CodebuildFleet#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -965,20 +1004,20 @@ class CodebuildFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CodebuildFleetScalingConfiguration"]:
         '''scaling_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#scaling_configuration CodebuildFleet#scaling_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#scaling_configuration CodebuildFleet#scaling_configuration}
         '''
         result = self._values.get("scaling_configuration")
         return typing.cast(typing.Optional["CodebuildFleetScalingConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#tags CodebuildFleet#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#tags CodebuildFleet#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#tags_all CodebuildFleet#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#tags_all CodebuildFleet#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -988,7 +1027,7 @@ class CodebuildFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildFleetVpcConfig"]]]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vpc_config CodebuildFleet#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vpc_config CodebuildFleet#vpc_config}
         '''
         result = self._values.get("vpc_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildFleetVpcConfig"]]], result)
@@ -1023,9 +1062,9 @@ class CodebuildFleetScalingConfiguration:
         target_tracking_scaling_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodebuildFleetScalingConfigurationTargetTrackingScalingConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#max_capacity CodebuildFleet#max_capacity}.
-        :param scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#scaling_type CodebuildFleet#scaling_type}.
-        :param target_tracking_scaling_configs: target_tracking_scaling_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#target_tracking_scaling_configs CodebuildFleet#target_tracking_scaling_configs}
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#max_capacity CodebuildFleet#max_capacity}.
+        :param scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#scaling_type CodebuildFleet#scaling_type}.
+        :param target_tracking_scaling_configs: target_tracking_scaling_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#target_tracking_scaling_configs CodebuildFleet#target_tracking_scaling_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57c57729d8ef2765128bf22295e926549f9b8e8bd49f6f3ef750fc3a9965d2d8)
@@ -1042,13 +1081,13 @@ class CodebuildFleetScalingConfiguration:
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#max_capacity CodebuildFleet#max_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#max_capacity CodebuildFleet#max_capacity}.'''
         result = self._values.get("max_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def scaling_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#scaling_type CodebuildFleet#scaling_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#scaling_type CodebuildFleet#scaling_type}.'''
         result = self._values.get("scaling_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1058,7 +1097,7 @@ class CodebuildFleetScalingConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildFleetScalingConfigurationTargetTrackingScalingConfigs"]]]:
         '''target_tracking_scaling_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#target_tracking_scaling_configs CodebuildFleet#target_tracking_scaling_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#target_tracking_scaling_configs CodebuildFleet#target_tracking_scaling_configs}
         '''
         result = self._values.get("target_tracking_scaling_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildFleetScalingConfigurationTargetTrackingScalingConfigs"]]], result)
@@ -1202,8 +1241,8 @@ class CodebuildFleetScalingConfigurationTargetTrackingScalingConfigs:
         target_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#metric_type CodebuildFleet#metric_type}.
-        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#target_value CodebuildFleet#target_value}.
+        :param metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#metric_type CodebuildFleet#metric_type}.
+        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#target_value CodebuildFleet#target_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c602fd9d29e584ef710995221ee0acac1c9640a35b6ee1cf884ae74f654dcc1)
@@ -1217,13 +1256,13 @@ class CodebuildFleetScalingConfigurationTargetTrackingScalingConfigs:
 
     @builtins.property
     def metric_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#metric_type CodebuildFleet#metric_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#metric_type CodebuildFleet#metric_type}.'''
         result = self._values.get("metric_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#target_value CodebuildFleet#target_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#target_value CodebuildFleet#target_value}.'''
         result = self._values.get("target_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1584,9 +1623,9 @@ class CodebuildFleetVpcConfig:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#security_group_ids CodebuildFleet#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#subnets CodebuildFleet#subnets}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vpc_id CodebuildFleet#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#security_group_ids CodebuildFleet#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#subnets CodebuildFleet#subnets}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vpc_id CodebuildFleet#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8ac6a9fc55bdf0b95ebeefbd54628bf4a9921a2c1578205adfaf334fbcaf962)
@@ -1601,21 +1640,21 @@ class CodebuildFleetVpcConfig:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#security_group_ids CodebuildFleet#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#security_group_ids CodebuildFleet#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#subnets CodebuildFleet#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#subnets CodebuildFleet#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/codebuild_fleet#vpc_id CodebuildFleet#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/codebuild_fleet#vpc_id CodebuildFleet#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1943,6 +1982,7 @@ def _typecheckingstub__aa24085ecff90621b24008d8ce2d109c961e758908d58f6a55d5c48e1
 def _typecheckingstub__92b3c6e660662704a73cbbc94de17515b8f30ce48274bb414b66b5aaf45be2d9(
     *,
     disk: typing.Optional[jsii.Number] = None,
+    instance_type: typing.Optional[builtins.str] = None,
     machine_type: typing.Optional[builtins.str] = None,
     memory: typing.Optional[jsii.Number] = None,
     vcpu: typing.Optional[jsii.Number] = None,
@@ -1959,6 +1999,12 @@ def _typecheckingstub__f956b2672e627c33325b8376e506b15e7ab60f17ff33c58fc7858ddd5
 
 def _typecheckingstub__70cad8c6738b109e64eb42b64154baad315acfc3cf457c592aff2fde991f0789(
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e181371c42173f776681538749e31be2449f9adb9b5ccb98daddaa30cd92b8a(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

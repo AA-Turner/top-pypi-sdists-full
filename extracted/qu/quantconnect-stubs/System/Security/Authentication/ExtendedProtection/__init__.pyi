@@ -29,6 +29,9 @@ class ChannelBindingKind(Enum):
 
     ENDPOINT = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ChannelBinding(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, metaclass=abc.ABCMeta):
     """This class has no documentation."""

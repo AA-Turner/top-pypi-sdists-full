@@ -1,6 +1,8 @@
 # sage_setup: distribution = sagemath-modules
 # distutils: extra_compile_args = -D_XPG6
-# distutils: libraries = m
+# distutils: libraries = M_LIBRARIES
+# distutils: language = c++
+# distutils: extra_compile_args = -std=c++11
 r"""
 Double precision floating point complex numbers
 
@@ -75,9 +77,8 @@ from sage.misc.randstate cimport randstate, current_randstate
 
 from sage.libs.gsl.complex cimport *
 
-cdef extern from "<complex.h>":
-    double complex csqrt(double complex)
-    double cabs(double complex)
+cimport libcpp.complex
+from libcpp.complex cimport abs, sqrt
 
 import sage.rings.abc
 cimport sage.rings.integer
@@ -1077,7 +1078,7 @@ cdef class ComplexDoubleElement(FieldElement):
 
         INPUT:
 
-        - ``format_spec`` -- string; a floating point format specificier as
+        - ``format_spec`` -- string; a floating point format specifier as
           defined by :python:`the format specification mini-language
           <library/string.html#formatspec>` in Python
 
@@ -2289,10 +2290,10 @@ cdef class ComplexDoubleElement(FieldElement):
 
             sage: a = CDF(-0.95,-0.65)
             sage: b = CDF(0.683,0.747)
-            sage: a.agm(b, algorithm='optimal')
-            -0.3715916523517613 + 0.31989466020683*I
-            sage: a.agm(b, algorithm='principal')  # rel tol 1e-15
-            0.33817546298618006 - 0.013532696956540503*I
+            sage: a.agm(b, algorithm='optimal')  # rel tol 1e-15
+            -0.3715916523517613 + 0.31989466020683005*I
+            sage: a.agm(b, algorithm='principal')  # rel tol 2e-15
+            0.33817546298618006 - 0.013532696956540483*I
             sage: a.agm(b, algorithm='pari')                                            # needs sage.libs.pari
             -0.37159165235176134 + 0.31989466020683005*I
 
@@ -2305,7 +2306,7 @@ cdef class ComplexDoubleElement(FieldElement):
             sage: a.agm(-a)
             0.0
         """
-        cdef double complex a, b, a1, b1, r
+        cdef libcpp.complex.complex[double] a, b, a1, b1, r
         cdef double d, e, eps = 2.0**-51
 
         if algorithm == "pari":
@@ -2326,21 +2327,21 @@ cdef class ComplexDoubleElement(FieldElement):
         if algorithm=="optimal":
             while True:
                 a1 = (a+b)/2
-                b1 = csqrt(a*b)
+                b1 = sqrt(a*b)
                 r = b1/a1
-                d  = cabs(r-1)
-                e  = cabs(r+1)
+                d  = abs(r-1)
+                e  = abs(r+1)
                 if e < d:
                     b1=-b1
                     d = e
-                if d < eps: return ComplexDoubleElement_from_doubles(a1.real, a1.imag)
+                if d < eps: return ComplexDoubleElement_from_doubles(a1.real(), a1.imag())
                 a, b = a1, b1
 
         elif algorithm=="principal":
             while True:
                 a1 = (a+b)/2
-                b1 = csqrt(a*b)
-                if cabs((b1/a1)-1) < eps: return ComplexDoubleElement_from_doubles(a1.real, a1.imag)
+                b1 = sqrt(a*b)
+                if abs((b1/a1)-1) < eps: return ComplexDoubleElement_from_doubles(a1.real(), a1.imag())
                 a, b = a1, b1
 
         else:
@@ -2441,34 +2442,38 @@ cdef class ComplexDoubleElement(FieldElement):
             from sage.libs.pari.convert_sage_complex_double import complex_double_element_zeta
         return complex_double_element_zeta(self)
 
-    def algdep(self, long n):
+    def algebraic_dependency(self, long n):
         """
         Return a polynomial of degree at most `n` which is
-        approximately satisfied by this complex number. Note that the
-        returned polynomial need not be irreducible, and indeed usually
-        won't be if `z` is a good approximation to an algebraic
-        number of degree less than `n`.
+        approximately satisfied by this complex number.
 
-        ALGORITHM: Uses the PARI C-library algdep command.
+        Note that the returned polynomial need not be irreducible, and
+        indeed usually will not be if `z` is a good approximation to an
+        algebraic number of degree less than `n`.
+
+        ALGORITHM: Uses the PARI C-library :pari:`algdep` command.
 
         EXAMPLES::
 
             sage: z = (1/2)*(1 + RDF(sqrt(3)) * CDF.0); z   # abs tol 1e-16             # needs sage.symbolic
             0.5 + 0.8660254037844387*I
-            sage: p = z.algdep(5); p                                                    # needs sage.libs.pari sage.symbolic
+            sage: p = z.algebraic_dependency(5); p                                      # needs sage.libs.pari sage.symbolic
             x^2 - x + 1
             sage: abs(z^2 - z + 1) < 1e-14                                              # needs sage.symbolic
             True
 
         ::
 
-            sage: CDF(0,2).algdep(10)                                                   # needs sage.libs.pari
+            sage: CDF(0,2).algebraic_dependency(10)                                     # needs sage.libs.pari
             x^2 + 4
-            sage: CDF(1,5).algdep(2)                                                    # needs sage.libs.pari
+            sage: CDF(1,5).algebraic_dependency(2)                                      # needs sage.libs.pari
             x^2 - 2*x + 26
         """
-        from sage.arith.misc import algdep
-        return algdep(self, n)
+        from sage.arith.misc import algebraic_dependency
+        return algebraic_dependency(self, n)
+
+    algdep = algebraic_dependency
+
 
 cdef class FloatToCDF(Morphism):
     """
@@ -2624,13 +2629,13 @@ def ComplexDoubleField():
 from sage.misc.parser import Parser
 cdef cdf_parser = Parser(float, float,  {"I": _CDF.gen(), "i": _CDF.gen()})
 
-cdef inline double complex extract_double_complex(ComplexDoubleElement x) noexcept:
+cdef inline libcpp.complex.complex[double] extract_double_complex(ComplexDoubleElement x) noexcept:
     """
-    Return the value of ``x`` as a c99 complex double.
+    Return the value of ``x`` as a C++ complex<double>
     """
-    cdef double complex z
-    z.real = GSL_REAL(x._complex)
-    z.imag = GSL_IMAG(x._complex)
+    cdef libcpp.complex.complex[double] z
+    z.real(GSL_REAL(x._complex))
+    z.imag(GSL_IMAG(x._complex))
     return z
 
 

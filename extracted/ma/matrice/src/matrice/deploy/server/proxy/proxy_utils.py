@@ -73,7 +73,7 @@ class AuthKeyValidator:
             else:
                 self.auth_keys_info = []
             if not self.auth_keys_info:
-                logging.warning("No auth keys found for deployment")
+                logging.debug("No auth keys found for deployment")
                 return
             current_time = time.time()
             self.auth_keys.clear()

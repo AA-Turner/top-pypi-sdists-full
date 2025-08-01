@@ -275,6 +275,9 @@ class OperationStatus(Enum):
     will make the invalid sequence valid.
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
     """Owner of MemoryT that is responsible for disposing the underlying memory appropriately."""

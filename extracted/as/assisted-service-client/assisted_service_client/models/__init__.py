@@ -67,6 +67,7 @@ from assisted_service_client.models.drive_type import DriveType
 from assisted_service_client.models.error import Error
 from assisted_service_client.models.event import Event
 from assisted_service_client.models.event_list import EventList
+from assisted_service_client.models.feature import Feature
 from assisted_service_client.models.feature_support_level_id import FeatureSupportLevelId
 from assisted_service_client.models.finalizing_stage import FinalizingStage
 from assisted_service_client.models.free_addresses_list import FreeAddressesList
@@ -98,6 +99,7 @@ from assisted_service_client.models.image_create_params import ImageCreateParams
 from assisted_service_client.models.image_info import ImageInfo
 from assisted_service_client.models.image_type import ImageType
 from assisted_service_client.models.import_cluster_params import ImportClusterParams
+from assisted_service_client.models.incompatibility_reason import IncompatibilityReason
 from assisted_service_client.models.infra_env import InfraEnv
 from assisted_service_client.models.infra_env_create_params import InfraEnvCreateParams
 from assisted_service_client.models.infra_env_list import InfraEnvList
@@ -107,6 +109,7 @@ from assisted_service_client.models.ingress_cert_params import IngressCertParams
 from assisted_service_client.models.ingress_vip import IngressVip
 from assisted_service_client.models.inline_response200 import InlineResponse200
 from assisted_service_client.models.inline_response2001 import InlineResponse2001
+from assisted_service_client.models.inline_response2002 import InlineResponse2002
 from assisted_service_client.models.install_cmd_request import InstallCmdRequest
 from assisted_service_client.models.installer_args_params import InstallerArgsParams
 from assisted_service_client.models.interface import Interface
@@ -144,6 +147,7 @@ from assisted_service_client.models.ntp_synchronization_request import NtpSynchr
 from assisted_service_client.models.ntp_synchronization_response import NtpSynchronizationResponse
 from assisted_service_client.models.openshift_version import OpenshiftVersion
 from assisted_service_client.models.openshift_versions import OpenshiftVersions
+from assisted_service_client.models.operator import Operator
 from assisted_service_client.models.operator_create_params import OperatorCreateParams
 from assisted_service_client.models.operator_hardware_requirements import OperatorHardwareRequirements
 from assisted_service_client.models.operator_host_requirements import OperatorHostRequirements

@@ -214,8 +214,6 @@ class OnlineClient:
                         columns=parsed_data["columns"],
                         index=parsed_data["index"],
                     )
-                    # Use convert_dtypes for comprehensive type inference to match pd.read_json behavior
-                    features_df = features_df.convert_dtypes()
                 except ImportError:
                     # Fallback: Direct json.loads + DataFrame (2x speedup, no deps)
                     import json
@@ -226,8 +224,6 @@ class OnlineClient:
                         columns=parsed_data["columns"],
                         index=parsed_data["index"],
                     )
-                    # Use convert_dtypes for comprehensive type inference to match pd.read_json behavior
-                    features_df = features_df.convert_dtypes()
                 results.append(
                     pd.concat(
                         [population_df.reset_index(drop=True), features_df],

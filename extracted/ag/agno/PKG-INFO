@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.6
+Version: 1.7.7
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -421,7 +421,6 @@ Requires-Dist: types-pyyaml; extra == "dev"
 Requires-Dist: types-aiofiles; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
-Requires-Dist: arxiv; extra == "dev"
 Provides-Extra: integration-tests
 Requires-Dist: exa_py; extra == "integration-tests"
 Requires-Dist: duckduckgo-search; extra == "integration-tests"
@@ -481,6 +480,8 @@ Provides-Extra: agentql
 Requires-Dist: agentql; extra == "agentql"
 Provides-Extra: apify
 Requires-Dist: apify-client; extra == "apify"
+Provides-Extra: arxiv
+Requires-Dist: arxiv; extra == "arxiv"
 Provides-Extra: brave
 Requires-Dist: brave-search; extra == "brave"
 Provides-Extra: browserbase
@@ -528,8 +529,9 @@ Requires-Dist: newspaper4k; extra == "newspaper"
 Requires-Dist: lxml_html_clean; extra == "newspaper"
 Provides-Extra: opencv
 Requires-Dist: opencv-python; extra == "opencv"
-Provides-Extra: psycopg2
-Requires-Dist: psycopg2-binary; extra == "psycopg2"
+Provides-Extra: psycopg
+Requires-Dist: psycopg-binary; extra == "psycopg"
+Requires-Dist: psycopg; extra == "psycopg"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
 Provides-Extra: valyu
@@ -550,7 +552,6 @@ Provides-Extra: sql
 Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: postgres
 Requires-Dist: psycopg-binary; extra == "postgres"
-Requires-Dist: psycopg; extra == "postgres"
 Provides-Extra: sqlite
 Requires-Dist: sqlalchemy; extra == "sqlite"
 Provides-Extra: gcs
@@ -632,6 +633,7 @@ Requires-Dist: agno[openai]; extra == "models"
 Requires-Dist: agno[portkey]; extra == "models"
 Provides-Extra: tools
 Requires-Dist: agno[apify]; extra == "tools"
+Requires-Dist: agno[arxiv]; extra == "tools"
 Requires-Dist: agno[brave]; extra == "tools"
 Requires-Dist: agno[exa]; extra == "tools"
 Requires-Dist: agno[cartesia]; extra == "tools"
@@ -660,7 +662,7 @@ Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
-Requires-Dist: agno[psycopg2]; extra == "tools"
+Requires-Dist: agno[psycopg]; extra == "tools"
 Provides-Extra: storage
 Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[postgres]; extra == "storage"

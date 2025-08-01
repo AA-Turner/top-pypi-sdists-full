@@ -3,12 +3,14 @@ import contextlib
 import logging
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, Sequence
 
 
 try:
     import grpc
     import grpc.aio
+
+    from grpc.aio import Metadata
 except ImportError as e:
     raise ImportError(
         'GrpcHandler requires grpcio and grpcio-tools to be installed. '
@@ -16,10 +18,16 @@ except ImportError as e:
         "'pip install a2a-sdk[grpc]'"
     ) from e
 
+from collections.abc import Callable
+
 import a2a.grpc.a2a_pb2_grpc as a2a_grpc
 
 from a2a import types
 from a2a.auth.user import UnauthenticatedUser
+from a2a.extensions.common import (
+    HTTP_EXTENSION_HEADER,
+    get_requested_extensions,
+)
 from a2a.grpc import a2a_pb2
 from a2a.server.context import ServerCallContext
 from a2a.server.request_handlers.request_handler import RequestHandler
@@ -42,6 +50,19 @@ class CallContextBuilder(ABC):
         """Builds a ServerCallContext from a gRPC Request."""
 
 
+def _get_metadata_value(
+    context: grpc.aio.ServicerContext, key: str
+) -> list[str]:
+    md = context.invocation_metadata
+    raw_values: list[str | bytes] = []
+    if isinstance(md, Metadata):
+        raw_values = md.get_all(key)
+    elif isinstance(md, Sequence):
+        lower_key = key.lower()
+        raw_values = [e for (k, e) in md if k.lower() == lower_key]
+    return [e if isinstance(e, str) else e.decode('utf-8') for e in raw_values]
+
+
 class DefaultCallContextBuilder(CallContextBuilder):
     """A default implementation of CallContextBuilder."""
 
@@ -51,7 +72,13 @@ class DefaultCallContextBuilder(CallContextBuilder):
         state = {}
         with contextlib.suppress(Exception):
             state['grpc_context'] = context
-        return ServerCallContext(user=user, state=state)
+        return ServerCallContext(
+            user=user,
+            state=state,
+            requested_extensions=get_requested_extensions(
+                _get_metadata_value(context, HTTP_EXTENSION_HEADER)
+            ),
+        )
 
 
 class GrpcHandler(a2a_grpc.A2AServiceServicer):
@@ -62,6 +89,7 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
         agent_card: AgentCard,
         request_handler: RequestHandler,
         context_builder: CallContextBuilder | None = None,
+        card_modifier: Callable[[AgentCard], AgentCard] | None = None,
     ):
         """Initializes the GrpcHandler.
 
@@ -71,10 +99,13 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
                              delegate requests to.
             context_builder: The CallContextBuilder object. If none the
                              DefaultCallContextBuilder is used.
+            card_modifier: An optional callback to dynamically modify the public
+              agent card before it is served.
         """
         self.agent_card = agent_card
         self.request_handler = request_handler
         self.context_builder = context_builder or DefaultCallContextBuilder()
+        self.card_modifier = card_modifier
 
     async def SendMessage(
         self,
@@ -102,6 +133,7 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
             task_or_message = await self.request_handler.on_message_send(
                 a2a_request, server_context
             )
+            self._set_extension_metadata(context, server_context)
             return proto_utils.ToProto.task_or_message(task_or_message)
         except ServerError as e:
             await self.abort_context(e, context)
@@ -140,6 +172,7 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
                 a2a_request, server_context
             ):
                 yield proto_utils.ToProto.stream_response(event)
+            self._set_extension_metadata(context, server_context)
         except ServerError as e:
             await self.abort_context(e, context)
         return
@@ -259,7 +292,7 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
             server_context = self.context_builder.build(context)
             config = (
                 await self.request_handler.on_set_task_push_notification_config(
-                    proto_utils.FromProto.task_push_notification_config(
+                    proto_utils.FromProto.task_push_notification_config_request(
                         request,
                     ),
                     server_context,
@@ -304,7 +337,10 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
         context: grpc.aio.ServicerContext,
     ) -> a2a_pb2.AgentCard:
         """Get the agent card for the agent served."""
-        return proto_utils.ToProto.agent_card(self.agent_card)
+        card_to_serve = self.agent_card
+        if self.card_modifier:
+            card_to_serve = self.card_modifier(card_to_serve)
+        return proto_utils.ToProto.agent_card(card_to_serve)
 
     async def abort_context(
         self, error: ServerError, context: grpc.aio.ServicerContext
@@ -371,3 +407,16 @@ class GrpcHandler(a2a_grpc.A2AServiceServicer):
                     grpc.StatusCode.UNKNOWN,
                     f'Unknown error type: {error.error}',
                 )
+
+    def _set_extension_metadata(
+        self,
+        context: grpc.aio.ServicerContext,
+        server_context: ServerCallContext,
+    ) -> None:
+        if server_context.activated_extensions:
+            context.set_trailing_metadata(
+                [
+                    (HTTP_EXTENSION_HEADER, e)
+                    for e in sorted(server_context.activated_extensions)
+                ]
+            )

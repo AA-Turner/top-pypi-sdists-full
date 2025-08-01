@@ -26,6 +26,9 @@ class ContractFailureKind(Enum):
 
     ASSUME = 5
 
+    def __int__(self) -> int:
+        ...
+
 
 class ContractFailedEventArgs(System.EventArgs):
     """This class has no documentation."""

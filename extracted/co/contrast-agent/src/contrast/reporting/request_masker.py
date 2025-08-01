@@ -181,10 +181,7 @@ class RequestMasker:
         # Setting this to remove url encoding of header and cookie values
         value = unquote(value)
 
-        for sample in samples:
-            if sample.user_input.value == value:
-                return True
-        return False
+        return any(sample.user_input.value == value for sample in samples)
 
     def _find_value_index_in_rules(self, s):
         index = -1

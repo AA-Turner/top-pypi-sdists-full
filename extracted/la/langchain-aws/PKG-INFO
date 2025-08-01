@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-aws
-Version: 0.2.29
+Version: 0.2.30
 Summary: An integration package connecting AWS and LangChain
 Home-page: https://github.com/langchain-ai/langchain-aws
 License: MIT
@@ -15,7 +15,7 @@ Provides-Extra: tools
 Requires-Dist: beautifulsoup4 (>=4.13.4) ; extra == "tools"
 Requires-Dist: bedrock-agentcore (>=0.1.0) ; (python_version >= "3.10") and (extra == "tools")
 Requires-Dist: boto3 (>=1.39.7)
-Requires-Dist: langchain-core (>=0.3.70,<0.4.0)
+Requires-Dist: langchain-core (>=0.3.72,<0.4.0)
 Requires-Dist: numpy (>=1,<2) ; python_version < "3.12"
 Requires-Dist: numpy (>=1.26.0,<3) ; python_version >= "3.12"
 Requires-Dist: playwright (>=1.53.0) ; extra == "tools"

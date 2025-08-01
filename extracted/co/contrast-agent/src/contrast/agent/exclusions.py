@@ -1,11 +1,11 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from collections.abc import Mapping
 import re
 
 
 from enum import Enum, auto
-from typing import Optional
 
 from contrast.utils.decorators import fail_loudly
 
@@ -159,26 +159,13 @@ class Exclusions:
 
         return False
 
-    def evaluate_url_exclusions(self, context, path: str):
+    def evaluate_url_exclusions(self, context, path: str) -> None:
         """
         This function evaluates all exclusions depending on the request URL and updates the request context to contain
         the list of disabled assess and protect rules to be evaluated at trigger time for url exclusions
-
-        It returns whether the request should be excluded from analysis.
         """
-        if context.observe_enabled:
-            # If observe is enabled, we don't want to exclude any requests
-            return False
-        if any(exc.match(context, path) for exc in self.url_exclusions):
-            needs_assess_analysis = (
-                context.assess_enabled and context.excluded_assess_rules is not None
-            )
-            needs_protect_analysis = (
-                context.protect_enabled and context.excluded_protect_rules is not None
-            )
-            return not (needs_assess_analysis or needs_protect_analysis)
-
-        return False
+        for exc in self.url_exclusions:
+            exc.evaluate(context, path)
 
     def set_input_exclusions_by_url(self, context, path: str):
         """
@@ -217,8 +204,8 @@ class BaseExclusion:
         self.exclusion_name = exclusion.get("name")
         self.url_regexes = strs_to_regexes(exclusion.get("urls", []))
 
-        self.protect_rules = exclusion.get("protect_rules")
-        self.assess_rules = exclusion.get("assess_rules")
+        self.protect_rules = exclusion.get("protect_rules", [])
+        self.assess_rules = exclusion.get("assess_rules", [])
 
         self.match_type = exclusion.get("match_strategy")
         self.modes = exclusion.get("modes", [])
@@ -303,8 +290,8 @@ class InputExclusion(BaseExclusion):
     def match(
         self,
         context,
-        source_type: Optional[str] = None,
-        source_name: Optional[str] = None,
+        source_type: str | None = None,
+        source_name: str | None = None,
     ):
         if source_name is None and self.input_type not in [
             InputExclusionSourceType.QUERYSTRING,
@@ -322,7 +309,7 @@ class InputExclusion(BaseExclusion):
 
 class UrlExclusion(BaseExclusion):
     @fail_loudly("Unable to ignore request", return_value=False)
-    def match(self, context, path: str):
+    def evaluate(self, context, path: str):
         """
         Determine if the given path exactly matches any of the
         configured urls for this exclusion rule. This function modifies the
@@ -333,28 +320,23 @@ class UrlExclusion(BaseExclusion):
         @return This function returns True if a match was found
         @rtype: bool
         """
-        has_match = False
-
         for pattern in self.url_regexes:
             if pattern.fullmatch(path):
                 logger.debug("Path %s matched on pattern %s", path, pattern)
-
                 self.update_disabled_rules(context)
+                return True
 
-                has_match = True
-
-        return has_match
+        return False
 
     def update_disabled_rules(self, context):
-        if context is not None:
-            # The spec states that if either assess_rules or protect_rules is None
-            # we ignore the full request so set the disabled rules to None to ignore everything
-            if context.excluded_assess_rules is not None and self.assess_rules:
+        if "assess" in self.modes:
+            if self.assess_rules:
                 context.excluded_assess_rules.extend(self.assess_rules)
-            elif not self.assess_rules:
-                context.excluded_assess_rules = None
+            else:
+                context.assess_enabled = False
 
-            if context.excluded_protect_rules is not None and self.protect_rules:
+        if "defend" in self.modes:
+            if self.protect_rules:
                 context.excluded_protect_rules.extend(self.protect_rules)
-            elif not self.protect_rules:
-                context.excluded_protect_rules = None
+            else:
+                context.protect_enabled = False

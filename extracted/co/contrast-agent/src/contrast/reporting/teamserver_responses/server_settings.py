@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 
 from contrast.utils.mapping import GlomDict
 
@@ -15,7 +15,7 @@ class ServerSettings:
     agent-endpoints.yml.
     """
 
-    def __init__(self, server_settings_json: Optional[dict] = None):
+    def __init__(self, server_settings_json: dict | None = None):
         self.server_settings_json = GlomDict(server_settings_json or {})
 
     def common_config(self) -> dict[str, object]:

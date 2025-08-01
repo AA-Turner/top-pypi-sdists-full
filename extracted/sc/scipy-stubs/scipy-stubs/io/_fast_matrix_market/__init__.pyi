@@ -1,11 +1,11 @@
 import io
-from typing import Any, Final, Literal, TypeAlias, overload, type_check_only
+from typing import Final, Literal, TypeAlias, overload, type_check_only
 from typing_extensions import TypedDict, Unpack, override
 
-import numpy as np
 import optype.numpy as onp
+import optype.numpy.compat as npc
 
-from scipy._typing import Falsy, FileLike, FileName, Truthy
+from scipy.io._typing import FileLike, FileName
 from scipy.sparse import coo_array, coo_matrix
 from scipy.sparse._base import _spbase
 
@@ -46,9 +46,9 @@ class _TextToBytesWrapper(io.BufferedReader):
     def seek(self, /, offset: int, whence: int = 0) -> None: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
 
 @overload
-def mmread(source: FileLike[bytes], *, spmatrix: Truthy = True) -> onp.ArrayND[np.number[Any]] | coo_array: ...
+def mmread(source: FileLike[bytes], *, spmatrix: onp.ToTrue = True) -> onp.ArrayND[npc.number] | coo_array: ...
 @overload
-def mmread(source: FileLike[bytes], *, spmatrix: Falsy) -> onp.ArrayND[np.number[Any]] | coo_matrix: ...
+def mmread(source: FileLike[bytes], *, spmatrix: onp.ToFalse) -> onp.ArrayND[npc.number] | coo_matrix: ...
 
 #
 def mmwrite(

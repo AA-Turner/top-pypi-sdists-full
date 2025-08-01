@@ -352,7 +352,7 @@ const Expression* FormalArgumentSymbol::getDefaultValue() const {
     auto scope = getParentScope();
     SLANG_ASSERT(scope);
 
-    ASTContext context(*scope, LookupLocation::after(*this), ASTFlags::NotADriver);
+    ASTContext context(*scope, LookupLocation::after(*this));
     defaultVal = &Expression::bindArgument(getType(), direction, flags, *defaultValSyntax, context);
     return defaultVal;
 }
@@ -417,11 +417,14 @@ void NetSymbol::fromSyntax(const Scope& scope, const NetDeclarationSyntax& synta
     }
 }
 
-void NetSymbol::fromSyntax(const Scope& scope, const UserDefinedNetDeclarationSyntax& syntax,
-                           const Symbol* netTypeSym, SmallVectorBase<const NetSymbol*>& results) {
-    auto& comp = scope.getCompilation();
+void NetSymbol::fromSyntax(const ASTContext& context, const UserDefinedNetDeclarationSyntax& syntax,
+                           SmallVectorBase<const NetSymbol*>& results) {
+    auto& comp = context.getCompilation();
+    auto netTypeSym = Lookup::unqualifiedAt(*context.scope, syntax.netType.valueText(),
+                                            context.getLocation(), syntax.netType.range());
+
     if (netTypeSym && netTypeSym->kind != SymbolKind::NetType) {
-        scope.addDiag(diag::VarDeclWithDelay, syntax.delay->sourceRange());
+        context.addDiag(diag::VarDeclWithDelay, syntax.delay->sourceRange());
         netTypeSym = nullptr;
     }
 
@@ -435,7 +438,7 @@ void NetSymbol::fromSyntax(const Scope& scope, const UserDefinedNetDeclarationSy
         auto net = comp.emplace<NetSymbol>(declarator->name.valueText(),
                                            declarator->name.location(), *netType);
         net->setFromDeclarator(*declarator);
-        net->setAttributes(scope, syntax.attributes);
+        net->setAttributes(*context.scope, syntax.attributes);
         results.push_back(net);
     }
 }
@@ -630,37 +633,33 @@ void ClockVarSymbol::fromSyntax(const Scope& scope, const ClockingItemSyntax& sy
         // If there is an initializer expression we take our type from that.
         // Otherwise we need to lookup the signal in our parent scope and
         // take the type from that.
+        const Expression* expr = nullptr;
+        SourceLocation varLoc;
         if (decl->value) {
-            auto& expr = Expression::bind(*decl->value->expr, context);
-            arg->setType(*expr.type);
-            arg->setInitializer(expr);
-
-            if (dir != ArgumentDirection::In)
-                expr.requireLValue(context, decl->value->equals.location(), AssignFlags::ClockVar);
+            expr = &Expression::bind(*decl->value->expr, context);
+            varLoc = decl->value->equals.location();
         }
-        else {
-            auto sym = Lookup::unqualifiedAt(*parent, name.valueText(), ll, name.range());
-            if (sym && sym->kind != SymbolKind::Net && sym->kind != SymbolKind::Variable) {
+        else if (auto sym = Lookup::unqualifiedAt(*parent, name.valueText(), ll, name.range())) {
+            if (sym->kind != SymbolKind::Net && sym->kind != SymbolKind::Variable) {
                 auto& diag = context.addDiag(diag::InvalidClockingSignal, name.range());
                 diag << name.valueText();
                 diag.addNote(diag::NoteDeclarationHere, sym->location);
-                sym = nullptr;
-            }
-
-            if (sym) {
-                auto sourceType = sym->getDeclaredType();
-                SLANG_ASSERT(sourceType);
-                arg->getDeclaredType()->setLink(*sourceType);
-
-                auto& valExpr = ValueExpressionBase::fromSymbol(
-                    context, *sym, nullptr, {arg->location, arg->location + arg->name.length()});
-
-                if (dir != ArgumentDirection::In)
-                    context.addDriver(sym->as<ValueSymbol>(), valExpr, AssignFlags::ClockVar);
             }
             else {
-                arg->getDeclaredType()->setType(comp.getErrorType());
+                expr = &ValueExpressionBase::fromSymbol(
+                    context, *sym, nullptr, {arg->location, arg->location + arg->name.length()});
             }
+        }
+
+        if (expr) {
+            arg->setType(*expr->type);
+            arg->setInitializer(*expr);
+            if (dir != ArgumentDirection::In)
+                expr->requireLValue(context, varLoc);
+        }
+        else {
+            // If we didn't find a signal, we need to set the type to error.
+            arg->getDeclaredType()->setType(comp.getErrorType());
         }
     }
 }

@@ -770,6 +770,9 @@ class PredicateTargetValue(Enum):
     EXPIRATION = 3
     """Predicate matches on OptionPosition.Expiration (3)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class IOptionStrategyLegPredicateReferenceValue(metaclass=abc.ABCMeta):
     """

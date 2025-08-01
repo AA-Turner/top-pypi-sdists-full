@@ -49,11 +49,7 @@ class JoinPropagator(BasePropagator):
         if not self.preshift:
             return False
 
-        for s in self.sources:
-            if is_tracked(s):
-                return True
-
-        return False
+        return any(is_tracked(s) for s in self.sources)
 
     def _propagate(self):
         # Offset in the target string

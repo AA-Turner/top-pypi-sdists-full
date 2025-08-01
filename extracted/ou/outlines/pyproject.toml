@@ -24,10 +24,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-   "interegular",
    "jinja2",
-   "lark",
-   "nest_asyncio",
    "cloudpickle",
    "diskcache",
    "pydantic>=2.0",
@@ -35,13 +32,11 @@ dependencies = [
    "jsonschema",
    "requests",
    "pillow",
-   "tqdm",
    "typing_extensions",
    "iso3166",
    "airportsdata",
-   "outlines_core==0.1.26",
+   "outlines_core==0.2.11",
    "genson",
-   "torch",
    "jsonpath_ng",
 ]
 dynamic = ["version"]
@@ -50,7 +45,7 @@ dynamic = ["version"]
 anthropic = ["anthropic"]
 dottxt = ["dottxt"]
 gemini = ["google-genai"]
-llamacpp = ["huggingface-hub", "llama-cpp-python"]
+llamacpp = ["huggingface-hub", "llama-cpp-python", "numba"]
 mlxlm = ["datasets", "mlx", "mlx-lm"]
 ollama = ["ollama"]
 openai = ["openai"]
@@ -58,6 +53,8 @@ sglang = ["openai"]
 tgi = ["huggingface_hub"]
 transformers = ["accelerate", "datasets", "transformers"]
 vllm = ["openai"]
+xgrammar = ["xgrammar"]
+llguidance = ["llguidance"]
 test = [
     "pre-commit",
     "pytest",
@@ -82,6 +79,7 @@ test = [
     "jax",
     "flax",
     "numpy>=2.0.0,<2.2.0",
+    "numba",
     "torch",
     "tensorflow",
     "tf-keras",
@@ -89,6 +87,8 @@ test = [
     "dottxt",
     "sentencepiece",
     "mkdocs_gen_files",
+    "llguidance",
+    "xgrammar",
 ]
 test-gpu=["outlines[test]", "vllm; sys_platform == 'linux'"]
 
@@ -101,11 +101,11 @@ repository = "https://github.com/dottxt-ai/outlines"
 file="README.md"
 content-type = "text/markdown"
 
-[tool.setuptools]
-packages = ["outlines"]
+[tool.setuptools.packages.find]
+include = ["outlines*"]
 
 [tool.setuptools.package-data]
-"outlines" = ["py.typed"]
+"outlines" = ["py.typed", "grammars/*.lark"]
 
 [tool.setuptools_scm]
 write_to = "outlines/_version.py"
@@ -139,7 +139,6 @@ module = [
     "mamba_ssm.*",
     "mlx_lm.*",
     "mlx.*",
-    "nest_asyncio",
     "numpy.*",
     "cloudpickle.*",
     "diskcache.*",
@@ -151,8 +150,6 @@ module = [
     "transformers.*",
     "llama_cpp",
     "huggingface_hub",
-    "lark.*",
-    "interegular.*",
     "datasets.*",
     "openai.*",
     "requests.*",
@@ -170,6 +167,8 @@ module = [
     "tf-keras.*",
     "mkdocs_gen_files.*",
     "jsonpath_ng.*",
+    "llguidance.*",
+    "xgrammar.*",
 ]
 ignore_missing_imports = true
 

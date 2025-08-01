@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nicegui"
-version = "v2.21.1"
+version = "v2.22.0"
 description = "Create web-based user interfaces with Python. The nice way."
 authors = ["Zauberzeug GmbH <info@zauberzeug.com>"]
 license = "MIT"

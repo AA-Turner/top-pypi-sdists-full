@@ -6,7 +6,6 @@ pub mod reader_interface;
 pub mod reader_pipelines;
 pub mod row_counter;
 
-use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 
 use bridge::BridgeState;
@@ -17,10 +16,11 @@ use polars_io::cloud::CloudOptions;
 use polars_io::predicates::ScanIOPredicate;
 use polars_io::{RowIndex, pl_async};
 use polars_plan::dsl::deletion::DeletionFilesList;
-use polars_plan::dsl::{CastColumnsPolicy, ExtraColumnsPolicy, MissingColumnsPolicy, ScanSources};
+use polars_plan::dsl::{CastColumnsPolicy, MissingColumnsPolicy, ScanSources};
 use polars_plan::plans::hive::HivePartitionsDf;
 use polars_utils::format_pl_smallstr;
 use polars_utils::pl_str::PlSmallStr;
+use polars_utils::relaxed_cell::RelaxedCell;
 use polars_utils::slice_enum::Slice;
 use reader_interface::builder::FileReaderBuilder;
 use reader_interface::capabilities::ReaderCapabilities;
@@ -32,6 +32,8 @@ use crate::execute::StreamingExecutionState;
 use crate::graph::PortState;
 use crate::morsel::Morsel;
 use crate::nodes::ComputeNode;
+use crate::nodes::io_sources::multi_file_reader::extra_ops::ForbidExtraColumns;
+use crate::nodes::io_sources::multi_file_reader::initialization::projection::ProjectionBuilder;
 
 // Some parts are called MultiFileReader for now to avoid conflict with existing MultiScan.
 
@@ -43,9 +45,7 @@ pub struct MultiFileReaderConfig {
     /// Final output schema of MultiScan node. Includes all e.g. row index / missing columns / file paths / hive etc.
     pub final_output_schema: SchemaRef,
     /// Columns to be projected from the file.
-    pub projected_file_schema: SchemaRef,
-    /// Full schema of the file. Used for complaining about extra columns.
-    pub full_file_schema: SchemaRef,
+    pub file_projection_builder: ProjectionBuilder,
 
     pub row_index: Option<RowIndex>,
     pub pre_slice: Option<Slice>,
@@ -54,33 +54,30 @@ pub struct MultiFileReaderConfig {
     pub hive_parts: Option<Arc<HivePartitionsDf>>,
     pub include_file_paths: Option<PlSmallStr>,
     pub missing_columns_policy: MissingColumnsPolicy,
-    pub extra_columns_policy: ExtraColumnsPolicy,
     pub cast_columns_policy: CastColumnsPolicy,
+    pub forbid_extra_columns: Option<ForbidExtraColumns>,
     pub deletion_files: Option<DeletionFilesList>,
 
-    pub num_pipelines: AtomicUsize,
+    pub num_pipelines: RelaxedCell<usize>,
     /// Number of readers to initialize concurrently. e.g. Parquet will want to fetch metadata in this
     /// step.
-    pub n_readers_pre_init: AtomicUsize,
-    pub max_concurrent_scans: AtomicUsize,
+    pub n_readers_pre_init: RelaxedCell<usize>,
+    pub max_concurrent_scans: RelaxedCell<usize>,
 
     pub verbose: bool,
 }
 
 impl MultiFileReaderConfig {
     fn num_pipelines(&self) -> usize {
-        self.num_pipelines
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.num_pipelines.load()
     }
 
     fn n_readers_pre_init(&self) -> usize {
-        self.n_readers_pre_init
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.n_readers_pre_init.load()
     }
 
     fn max_concurrent_scans(&self) -> usize {
-        self.max_concurrent_scans
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.max_concurrent_scans.load()
     }
 
     fn reader_capabilities(&self) -> ReaderCapabilities {
@@ -169,19 +166,18 @@ impl ComputeNode for MultiFileReader {
         scope: &'s crate::async_executor::TaskScope<'s, 'env>,
         recv_ports: &mut [Option<crate::pipe::RecvPort<'_>>],
         send_ports: &mut [Option<crate::pipe::SendPort<'_>>],
-        state: &StreamingExecutionState,
+        state: &'s StreamingExecutionState,
         join_handles: &mut Vec<crate::async_executor::JoinHandle<polars_error::PolarsResult<()>>>,
     ) {
         assert!(recv_ports.is_empty() && send_ports.len() == 1);
 
         let phase_morsel_tx = send_ports[0].take().unwrap().serial();
-        let num_pipelines = state.num_pipelines;
         let verbose = self.verbose;
 
         join_handles.push(scope.spawn_task(TaskPriority::Low, async move {
             use MultiScanState::*;
 
-            self.state.initialize(num_pipelines);
+            self.state.initialize(state);
             self.state.refresh(verbose).await?;
 
             match &mut self.state {
@@ -277,7 +273,7 @@ impl MultiScanState {
     }
 
     /// Initialize state if not yet initialized.
-    fn initialize(&mut self, num_pipelines: usize) {
+    fn initialize(&mut self, execution_state: &StreamingExecutionState) {
         use MultiScanState::*;
 
         let slf = std::mem::replace(self, Finished);
@@ -288,18 +284,20 @@ impl MultiScanState {
         };
 
         config
-            .num_pipelines
-            .store(num_pipelines, std::sync::atomic::Ordering::Relaxed);
+            .file_reader_builder
+            .set_execution_state(execution_state);
 
-        config.n_readers_pre_init.store(
-            calc_n_readers_pre_init(num_pipelines, &config),
-            std::sync::atomic::Ordering::Relaxed,
-        );
+        let num_pipelines = execution_state.num_pipelines;
 
-        config.max_concurrent_scans.store(
-            calc_max_concurrent_scans(num_pipelines, &config),
-            std::sync::atomic::Ordering::Relaxed,
-        );
+        config.num_pipelines.store(num_pipelines);
+
+        config
+            .n_readers_pre_init
+            .store(calc_n_readers_pre_init(num_pipelines, &config));
+
+        config
+            .max_concurrent_scans
+            .store(calc_max_concurrent_scans(num_pipelines, &config));
 
         let (join_handle, send_phase_tx_to_bridge, bridge_state) =
             MultiScanTaskInitializer::new(config).spawn_background_tasks();

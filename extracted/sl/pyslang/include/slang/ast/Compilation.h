@@ -9,9 +9,9 @@
 
 #include <memory>
 
+#include "slang/ast/ASTDiagMap.h"
 #include "slang/ast/OpaqueInstancePath.h"
 #include "slang/ast/Scope.h"
-#include "slang/diagnostics/Diagnostics.h"
 #include "slang/numeric/Time.h"
 #include "slang/syntax/SyntaxFwd.h"
 #include "slang/syntax/SyntaxNode.h"
@@ -19,7 +19,6 @@
 #include "slang/util/BumpAllocator.h"
 #include "slang/util/IntervalMap.h"
 #include "slang/util/LanguageVersion.h"
-#include "slang/util/SafeIndexedVector.h"
 
 namespace slang::syntax {
 class SyntaxTree;
@@ -46,14 +45,9 @@ class Statement;
 class SubroutineSymbol;
 class Symbol;
 class SystemSubroutine;
-class ValueDriver;
 struct AssertionInstanceDetails;
 struct ConfigRule;
 struct ResolvedConfig;
-
-using DriverIntervalMap = IntervalMap<uint64_t, const ValueDriver*>;
-using UnrollIntervalMap = IntervalMap<uint64_t, std::monostate>;
-using DriverBitRange = std::pair<uint64_t, uint64_t>;
 
 enum class IntegralFlags : uint8_t;
 enum class SymbolIndex : uint32_t;
@@ -88,62 +82,51 @@ enum class SLANG_EXPORT CompilationFlags {
     /// even if that would otherwise be an error in SystemVerilog.
     AllowUseBeforeDeclare = 1 << 2,
 
-    /// Signals driven by an always_comb are normally not allowed to be driven
-    /// by any other process. This flag allows initial blocks to
-    /// also drive such signals.
-    AllowDupInitialDrivers = 1 << 3,
-
     /// Allow top-level modules to have interface ports. This is not allowed in
     /// standard SystemVerilog but it defaults to true to make using the API in
     /// scripting / programmatic modes more convenient.
-    AllowTopLevelIfacePorts = 1 << 4,
-
-    /// Perform strict checking of variable drivers, which currently
-    /// means not taking into account procedural for loop unrolling.
-    StrictDriverChecking = 1 << 5,
+    AllowTopLevelIfacePorts = 1 << 3,
 
     /// Compile in "linting" mode where we suppress errors that could
     /// be caused by not having an elaborated design.
-    LintMode = 1 << 6,
-
-    /// Suppress warnings about unused code elements.
-    SuppressUnused = 1 << 7,
+    LintMode = 1 << 4,
 
     /// Don't issue an error when encountering an instantiation
     /// for an unknown definition.
-    IgnoreUnknownModules = 1 << 8,
+    IgnoreUnknownModules = 1 << 5,
 
     /// Allow strings to implicitly convert to integers.
-    RelaxStringConversions = 1 << 9,
+    RelaxStringConversions = 1 << 6,
 
     /// Allow implicit call expressions (lacking parentheses) to be recursive function calls.
-    AllowRecursiveImplicitCall = 1 << 10,
+    AllowRecursiveImplicitCall = 1 << 7,
 
     /// Allow module parameter assignments to elide the parentheses.
-    AllowBareValParamAssignment = 1 << 11,
+    AllowBareValParamAssignment = 1 << 8,
 
     /// Allow self-determined streaming concatenation expressions; normally these
     /// can only be used in specific assignment-like contexts.
-    AllowSelfDeterminedStreamConcat = 1 << 12,
-
-    /// Allow multi-driven subroutine local variables.
-    AllowMultiDrivenLocals = 1 << 13,
+    AllowSelfDeterminedStreamConcat = 1 << 9,
 
     /// Allow merging ANSI port declarations with nets and variables
     /// declared in the module body.
-    AllowMergingAnsiPorts = 1 << 14,
+    AllowMergingAnsiPorts = 1 << 10,
 
     /// Disable the use of instance caching, which normally allows skipping
     /// duplicate instance bodies to save time when elaborating.
-    DisableInstanceCaching = 1 << 15,
+    DisableInstanceCaching = 1 << 11,
+
+    /// Disallow references to unknown instances by issuing a diagnostic. This is only
+    /// relevant when using IgnoreUnknownModules, since otherwise there would already
+    /// be errors issued for the unknown instances.
+    DisallowRefsToUnknownInstances = 1 << 12
 };
-SLANG_BITMASK(CompilationFlags, DisableInstanceCaching)
+SLANG_BITMASK(CompilationFlags, DisallowRefsToUnknownInstances)
 
 /// Contains various options that can control compilation behavior.
 struct SLANG_EXPORT CompilationOptions {
     /// Various flags that control compilation behavior.
-    bitmask<CompilationFlags> flags = CompilationFlags::AllowTopLevelIfacePorts |
-                                      CompilationFlags::SuppressUnused;
+    bitmask<CompilationFlags> flags = CompilationFlags::AllowTopLevelIfacePorts;
 
     /// The maximum depth of nested module instances (and interfaces/programs),
     /// to detect infinite recursion.
@@ -162,7 +145,7 @@ struct SLANG_EXPORT CompilationOptions {
 
     /// The maximum number of steps to allow when evaluating a constant expressions,
     /// to detect infinite loops.
-    uint32_t maxConstexprSteps = 100000;
+    uint32_t maxConstexprSteps = 1000000;
 
     /// The maximum number of frames in a callstack to display in diagnostics
     /// before abbreviating them.
@@ -314,8 +297,21 @@ public:
     /// so will result in an exception.
     const RootSymbol& getRoot();
 
+    /// Gets the root of the design without attempting to finalize it.
+    /// This means that (if the design has not been finalized previously) things like
+    /// defparams will not be resolved, root instances will not have been created, etc.
+    const RootSymbol& getRootNoFinalize() const { return *root; }
+
     /// Indicates whether the design has been compiled and can no longer accept modifications.
     bool isFinalized() const { return finalized; }
+
+    /// Indicates whether the design has been elaborated such that the AST is fully
+    /// resolved and all symbols have been created. This is distinct from being finalized,
+    /// which only means that the design has been parsed and syntax trees have been added.
+    ///
+    /// This is only set once getAllDiagnostics() is called, after which point the compilation
+    /// is functionally immutable.
+    bool isElaborated() const { return cachedAllDiagnostics.has_value(); }
 
     /// Gets the diagnostics produced during lexing, preprocessing, and syntax parsing.
     const Diagnostics& getParseDiagnostics();
@@ -331,6 +327,11 @@ public:
 
     /// Queries if any errors have been issued on any scope within this compilation.
     bool hasIssuedErrors() const { return numErrors > 0; };
+
+    /// Returns true if there are any fatal errors reported in the compilation,
+    /// or if we've hit the configured error limit and stopped elaboration early
+    /// because of it.
+    bool hasFatalErrors() const { return sawFatalError; }
 
     /// @}
     /// @name Utility and convenience methods
@@ -428,6 +429,11 @@ public:
     /// Gets a list of all definitions (including primitives) in the design.
     std::vector<const Symbol*> getDefinitions() const;
 
+    /// Gets a list of definitions that are unreferenced in the design.
+    std::span<const DefinitionSymbol* const> getUnreferencedDefinitions() const {
+        return unreferencedDefs;
+    }
+
     /// Gets the package with the give name, or nullptr if there is no such package.
     const PackageSymbol* getPackage(std::string_view name) const;
 
@@ -453,6 +459,10 @@ public:
     /// Gets a system subroutine with the given name, or nullptr if there is no such subroutine
     /// registered.
     const SystemSubroutine* getSystemSubroutine(std::string_view name) const;
+
+    /// Gets a system subroutine with the given KnownSystemName, or nullptr if there is no such
+    /// subroutine registered.
+    const SystemSubroutine* getSystemSubroutine(parsing::KnownSystemName knownNameId) const;
 
     /// Gets a system method for the specified type with the given name, or nullptr if there
     /// is no such method registered.
@@ -549,8 +559,9 @@ public:
     void noteGlobalClocking(const Scope& scope, const Symbol& clocking, SourceRange range);
 
     /// Finds an applicable global clocking block for the given scope, or returns nullptr
-    /// if no global clocking is in effect.
-    const Symbol* getGlobalClocking(const Scope& scope) const;
+    /// if no global clocking is in effect. The use of the global clocking will
+    /// be noted as a side effect of the instance containing the given scope.
+    const Symbol* getGlobalClockingAndNoteUse(const Scope& scope);
 
     /// Notes that there is a default disable associated with the specified scope.
     void noteDefaultDisable(const Scope& scope, const Expression& expr);
@@ -586,15 +597,20 @@ public:
     /// This will cause appropriate errors to be issued.
     void noteNameConflict(const Symbol& symbol);
 
+    using AliasBitRange = std::pair<uint64_t, uint64_t>;
+
     /// Makes note of an alias defined between the bit ranges of the two given symbols.
     /// This is used to check for duplicate aliases between the bit ranges.
-    void noteNetAlias(const Scope& scope, const Symbol& firstSym, DriverBitRange firstRange,
+    void noteNetAlias(const Scope& scope, const Symbol& firstSym, AliasBitRange firstRange,
                       const Expression& firstExpr, const Symbol& secondSym,
-                      DriverBitRange secondRange, const Expression& secondExpr);
+                      AliasBitRange secondRange, const Expression& secondExpr);
 
-    /// Notes the existence of the given hierarchical reference, which is used,
+    /// Notes the existence of the given upward hierarchical reference, which is used,
     /// among other things, to ensure we perform instance caching correctly.
-    void noteHierarchicalReference(const Scope& scope, const HierarchicalReference& ref);
+    void noteUpwardReference(const Scope& scope, const HierarchicalReference& ref);
+
+    /// Notes the existence of an assignment to a hierarchical reference.
+    void noteHierarchicalAssignment(const HierarchicalReference& ref);
 
     /// Notes the existence of a virtual interface type declaration for the given instance.
     void noteVirtualIfaceInstance(const InstanceSymbol& instance);
@@ -639,7 +655,7 @@ public:
     const Type& getType(bitwidth_t width, bitmask<IntegralFlags> flags);
 
     /// Gets a scalar (single bit) type with the given flags.
-    const Type& getScalarType(bitmask<IntegralFlags> flags);
+    const Type& getScalarType(bitmask<IntegralFlags> flags) const;
 
     /// Gets the nettype represented by the given token kind.
     /// If the token kind does not represent a nettype this will return the
@@ -681,13 +697,13 @@ public:
     const Type& getUnsignedIntType();
 
     /// Get the built-in `null` type.
-    const Type& getNullType();
+    const Type& getNullType() const;
 
     /// Get the built-in `$` type.
-    const Type& getUnboundedType();
+    const Type& getUnboundedType() const;
 
     /// Get the built-in type used for the result of the `type()` operator.
-    const Type& getTypeRefType();
+    const Type& getTypeRefType() const;
 
     /// Get the `wire` built in net type. The rest of the built-in net types are
     /// rare enough that we don't bother providing dedicated accessors for them.
@@ -699,14 +715,21 @@ public:
 
     /// Allocates space for a constant value in the pool of constants.
     ConstantValue* allocConstant(ConstantValue&& value) {
+        SLANG_ASSERT(!isFrozen());
         return constantAllocator.emplace(std::move(value));
     }
 
     /// Allocates a symbol map.
-    SymbolMap* allocSymbolMap() { return symbolMapAllocator.emplace(); }
+    SymbolMap* allocSymbolMap() {
+        SLANG_ASSERT(!isFrozen());
+        return symbolMapAllocator.emplace();
+    }
 
     /// Allocates a pointer map.
-    PointerMap* allocPointerMap() { return pointerMapAllocator.emplace(); }
+    PointerMap* allocPointerMap() {
+        SLANG_ASSERT(!isFrozen());
+        return pointerMapAllocator.emplace();
+    }
 
     /// Allocates an assertion instance details object.
     AssertionInstanceDetails* allocAssertionDetails();
@@ -714,6 +737,7 @@ public:
     /// Allocates a generic class symbol.
     template<typename... Args>
     GenericClassDefSymbol* allocGenericClass(Args&&... args) {
+        SLANG_ASSERT(!isFrozen());
         return genericClassAllocator.emplace(std::forward<Args>(args)...);
     }
 
@@ -722,14 +746,6 @@ public:
 
     /// Allocates a scope's wildcard import data object.
     Scope::WildcardImportData* allocWildcardImportData();
-
-    /// Gets the driver map allocator.
-    DriverIntervalMap::allocator_type& getDriverMapAllocator() { return driverMapAllocator; }
-
-    /// Gets the unroll interval map allocator.
-    UnrollIntervalMap::allocator_type& getUnrollIntervalMapAllocator() {
-        return unrollIntervalMapAllocator;
-    }
 
     /// Creates an empty ImplicitTypeSyntax object.
     const syntax::ImplicitTypeSyntax& createEmptyTypeSyntax(SourceLocation loc);
@@ -749,8 +765,17 @@ private:
         const ResolvedConfig* resolvedConfig = nullptr;
     };
 
-    // These functions are called by Scopes to create and track various members.
-    Scope::DeferredMemberData& getOrAddDeferredData(Scope::DeferredMemberIndex& index);
+    // Captures the side effects that are applied by an instance indirectly instead
+    // of via a port connection.
+    struct InstanceSideEffects {
+        // All upward names that extend out of the instance.
+        std::vector<const HierarchicalReference*> upwardNames;
+
+        // Indicates whether this instance can't be cached
+        // due to something like declaring bind directives
+        // or extern interface methods.
+        bool cannotCache = false;
+    };
 
     bool doTypoCorrection() const { return typoCorrections < options.typoCorrectionLimit; }
     void didTypoCorrection() { typoCorrections++; }
@@ -762,7 +787,8 @@ private:
     const RootSymbol& getRoot(bool skipDefParamsAndBinds);
     void elaborate();
     void insertDefinition(Symbol& symbol, const Scope& scope);
-    void parseParamOverrides(flat_hash_map<std::string_view, const ConstantValue*>& results);
+    void parseParamOverrides(bool skipDefParams,
+                             flat_hash_map<std::string_view, const ConstantValue*>& results);
     void checkDPIMethods(std::span<const SubroutineSymbol* const> dpiImports);
     void checkExternIfaceMethods(std::span<const MethodPrototypeSymbol* const> protos);
     void checkModportExports(
@@ -774,6 +800,8 @@ private:
     void checkBindTargetParams(const syntax::BindDirectiveSyntax& syntax, const Scope& scope,
                                const ResolvedBind& resolvedBind);
     void checkVirtualIfaceInstance(const InstanceSymbol& instance);
+    InstanceSideEffects& getOrAddSideEffects(const Symbol& instanceBody);
+    void noteCannotCache(const Scope& scope);
     std::pair<DefinitionLookupResult, bool> resolveConfigRule(const Scope& scope,
                                                               const ConfigRule& rule) const;
     std::pair<DefinitionLookupResult, bool> resolveConfigRules(
@@ -789,8 +817,6 @@ private:
     TypedBumpAllocator<SymbolMap> symbolMapAllocator;
     TypedBumpAllocator<PointerMap> pointerMapAllocator;
     TypedBumpAllocator<ConstantValue> constantAllocator;
-    DriverIntervalMap::allocator_type driverMapAllocator;
-    UnrollIntervalMap::allocator_type unrollIntervalMapAllocator;
 
     // A table to look up scalar types based on combinations of the three flags: signed, fourstate,
     // reg. Two of the entries are not valid and will be nullptr (!fourstate & reg).
@@ -808,9 +834,6 @@ private:
     Type* voidType;
     Type* errorType;
     NetType* wireNetType;
-
-    // Sideband data for scopes that have deferred members.
-    SafeIndexedVector<Scope::DeferredMemberData, Scope::DeferredMemberIndex> deferredData;
 
     // A map of syntax nodes that have been referenced in the AST.
     // The value indicates whether the node has been used as an lvalue vs non-lvalue,
@@ -839,24 +862,25 @@ private:
     // which is why they can't share the definitions name table.
     flat_hash_map<std::string_view, const PackageSymbol*> packageMap;
 
-    // The name map for system subroutines.
-    flat_hash_map<std::string_view, std::shared_ptr<SystemSubroutine>> subroutineMap;
+    // A list of known system subroutines, indexed via KnownSystemName values.
+    std::vector<std::shared_ptr<SystemSubroutine>> systemSubroutines;
 
     // The name map for system methods.
     flat_hash_map<std::tuple<std::string_view, SymbolKind>, std::shared_ptr<SystemSubroutine>>
         methodMap;
 
+    // Map from instance bodies to side effects applied by them.
+    flat_hash_map<const Symbol*, std::unique_ptr<InstanceSideEffects>> instanceSideEffectMap;
+
     // Map from pointers (to symbols, statements, expressions) to their associated attributes.
     flat_hash_map<const void*, std::span<const AttributeSymbol* const>> attributeMap;
-
-    // Map from instance bodies to hierarchical references that extend up through them.
-    flat_hash_map<const Symbol*, std::vector<const HierarchicalReference*>> hierRefMap;
 
     struct SyntaxMetadata {
         const syntax::SyntaxTree* tree = nullptr;
         const NetType* defaultNetType = nullptr;
         std::optional<TimeScale> timeScale;
         UnconnectedDrive unconnectedDrive = UnconnectedDrive::None;
+        bool cellDefine = false;
     };
 
     // Map from syntax nodes to parse-time metadata about them.
@@ -867,14 +891,16 @@ private:
 
     // A map from diag code + location to the diagnostics that have occurred at that location.
     // This is used to collapse duplicate diagnostics across instantiations into a single report.
-    using DiagMap = flat_hash_map<std::tuple<DiagCode, SourceLocation>, std::vector<Diagnostic>>;
-    DiagMap diagMap;
+    ASTDiagMap diagMap;
 
     // A list of libraries that control the order in which we search for cell bindings.
     std::vector<const SourceLibrary*> defaultLiblist;
 
     // A list of instances that have been created by virtual interface type declarations.
     std::vector<const InstanceSymbol*> virtualInterfaceInstances;
+
+    // A list of assignments via hierarchical reference.
+    std::vector<const HierarchicalReference*> hierarchicalAssignments;
 
     // A map from class name + decl name + scope to out-of-block declarations. These get
     // registered when we find the initial declaration and later get used when we see
@@ -886,12 +912,13 @@ private:
         outOfBlockDecls;
 
     std::unique_ptr<RootSymbol> root;
-    const SourceManager* sourceManager = nullptr;
+    SourceManager* sourceManager = nullptr;
     size_t numErrors = 0; // total number of errors inserted into the diagMap
     bool finalized = false;
     bool finalizing = false; // to prevent reentrant calls to getRoot()
     bool anyElemsWithTimescales = false;
     bool diagsDisabled = false;
+    bool sawFatalError = false;
     uint32_t typoCorrections = 0;
     int nextEnumSystemId = 1;
     int nextStructSystemId = 1;
@@ -952,8 +979,8 @@ private:
     // A list of name conflicts to later resolve by issuing diagnostics.
     std::vector<const Symbol*> nameConflicts;
 
-    // A map of scopes to default clocking blocks.
-    flat_hash_map<const Scope*, const Symbol*> defaultClockingMap;
+    // A map of containing symbols to default clocking blocks.
+    flat_hash_map<const Symbol*, const Symbol*> defaultClockingMap;
 
     // A map of scopes to global clocking blocks.
     flat_hash_map<const Scope*, const Symbol*> globalClockingMap;
@@ -979,7 +1006,7 @@ private:
 
     struct NetAlias {
         const Symbol* sym;
-        DriverBitRange range;
+        AliasBitRange range;
         const Expression* firstExpr;
         const Expression* secondExpr;
     };
@@ -990,6 +1017,11 @@ private:
     // A map of net aliases to check for duplicates. For any given alias the key is
     // whichever symbol has the lower address in memory.
     flat_hash_map<const Symbol*, AliasIntervalMap> netAliases;
+
+    // The name map for system subroutines.
+    // This is down here because it should really only be used for custom user-defined
+    // system subroutines via the API.
+    flat_hash_map<std::string_view, std::shared_ptr<SystemSubroutine>> subroutineNameMap;
 
     // The built-in std package.
     const PackageSymbol* stdPkg = nullptr;

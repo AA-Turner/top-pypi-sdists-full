@@ -31,7 +31,8 @@ def find(
     silent: bool = False,
     refresh_database: bool = True,
     anti_spoofing: bool = False,
-) -> List[pd.DataFrame]:
+    batched: bool = False,
+) -> Union[List[pd.DataFrame], List[List[Dict[str, Any]]]]:
     """
     Identify individuals in a database
 
@@ -47,13 +48,14 @@ def find(
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
 
         distance_metric (string): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2'.
+            'euclidean', 'euclidean_l2', 'angular'.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Default is True. Set to False to avoid the exception for low-resolution images.
 
         detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
-            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'centerface' or 'skip'.
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8','yolov11n', 'yolov11s',
+            'yolov11m', 'centerface' or 'skip'.
 
         align (boolean): Perform alignment based on the eye positions.
 
@@ -77,9 +79,19 @@ def find(
 
 
     Returns:
-        results (List[pd.DataFrame]): A list of pandas dataframes. Each dataframe corresponds
-            to the identity information for an individual detected in the source image.
-            The DataFrame columns include:
+        results (List[pd.DataFrame] or List[List[Dict[str, Any]]]):
+            A list of pandas dataframes (if `batched=False`) or
+            a list of dicts (if `batched=True`).
+            Each dataframe or dict corresponds to the identity information for
+            an individual detected in the source image.
+
+            Note: If you have a large database and/or a source photo with many faces,
+            use `batched=True`, as it is optimized for large batch processing.
+            Please pay attention that when using `batched=True`, the function returns
+            a list of dicts (not a list of DataFrames),
+            but with the same keys as the columns in the DataFrame.
+
+            The DataFrame columns or dict keys include:
 
             - 'identity': Identity label of the detected individual.
 
@@ -93,12 +105,19 @@ def find(
 
             - 'distance': Similarity score between the faces based on the
                     specified model and distance metric
+
+            - 'confidence': Confidence score indicating the likelihood that the faces belong to
+                    the same individual. This is calculated based on the distance and the threshold.
     """
 
     tic = time.time()
 
     if not os.path.isdir(db_path):
         raise ValueError(f"Passed path {db_path} does not exist!")
+
+    img, _ = image_utils.load_image(img_path)
+    if img is None:
+        raise ValueError(f"Passed image path {img_path} does not exist!")
 
     file_parts = [
         "ds",
@@ -120,7 +139,7 @@ def find(
     representations = []
 
     # required columns for representations
-    df_cols = [
+    df_cols = {
         "identity",
         "hash",
         "embedding",
@@ -128,12 +147,12 @@ def find(
         "target_y",
         "target_w",
         "target_h",
-    ]
+    }
 
     # Ensure the proper pickle file exists
     if not os.path.exists(datastore_path):
         with open(datastore_path, "wb") as f:
-            pickle.dump([], f)
+            pickle.dump([], f, pickle.HIGHEST_PROTOCOL)
 
     # Load the representations from the pickle file
     with open(datastore_path, "rb") as f:
@@ -141,18 +160,15 @@ def find(
 
     # check each item of representations list has required keys
     for i, current_representation in enumerate(representations):
-        missing_keys = set(df_cols) - set(current_representation.keys())
+        missing_keys = df_cols - set(current_representation.keys())
         if len(missing_keys) > 0:
             raise ValueError(
                 f"{i}-th item does not have some required keys - {missing_keys}."
                 f"Consider to delete {datastore_path}"
             )
 
-    # embedded images
-    pickled_images = [representation["identity"] for representation in representations]
-
     # Get the list of images on storage
-    storage_images = image_utils.list_images(path=db_path)
+    storage_images = set(image_utils.yield_images(path=db_path))
 
     if len(storage_images) == 0 and refresh_database is True:
         raise ValueError(f"No item found in {db_path}")
@@ -170,8 +186,11 @@ def find(
 
     # Enforce data consistency amongst on disk images and pickle file
     if refresh_database:
-        new_images = set(storage_images) - set(pickled_images)  # images added to storage
-        old_images = set(pickled_images) - set(storage_images)  # images removed from storage
+        # embedded images
+        pickled_images = {representation["identity"] for representation in representations}
+
+        new_images = storage_images - pickled_images  # images added to storage
+        old_images = pickled_images - storage_images  # images removed from storage
 
         # detect replaced images
         for current_representation in representations:
@@ -216,7 +235,7 @@ def find(
 
     if must_save_pickle:
         with open(datastore_path, "wb") as f:
-            pickle.dump(representations, f)
+            pickle.dump(representations, f, pickle.HIGHEST_PROTOCOL)
         if not silent:
             logger.info(f"There are now {len(representations)} representations in {file_name}")
 
@@ -229,10 +248,6 @@ def find(
 
     # ----------------------------
     # now, we got representations for facial database
-    df = pd.DataFrame(representations)
-
-    if silent is False:
-        logger.info(f"Searching {img_path} in {df.shape[0]} length datastore")
 
     # img path might have more than once face
     source_objs = detection.extract_faces(
@@ -244,6 +259,24 @@ def find(
         expand_percentage=expand_percentage,
         anti_spoofing=anti_spoofing,
     )
+
+    if batched:
+        return find_batched(
+            representations,
+            source_objs,
+            model_name,
+            distance_metric,
+            enforce_detection,
+            align,
+            threshold,
+            normalization,
+            anti_spoofing,
+        )
+
+    df = pd.DataFrame(representations)
+
+    if silent is False:
+        logger.info(f"Searching {img_path} in {df.shape[0]} length datastore")
 
     resp_obj = []
 
@@ -264,12 +297,18 @@ def find(
         target_representation = target_embedding_obj[0]["embedding"]
 
         result_df = df.copy()  # df will be filtered in each img
+
+        pretuned_threshold = verification.find_threshold(model_name, distance_metric)
+        target_threshold = threshold or pretuned_threshold
+
+        result_df["threshold"] = target_threshold
         result_df["source_x"] = source_region["x"]
         result_df["source_y"] = source_region["y"]
         result_df["source_w"] = source_region["w"]
         result_df["source_h"] = source_region["h"]
 
         distances = []
+        confidences = []
         for _, instance in df.iterrows():
             source_representation = instance["embedding"]
             if source_representation is None:
@@ -289,17 +328,24 @@ def find(
                 source_representation, target_representation, distance_metric
             )
 
+            confidence = verification.find_confidence(
+                distance=distance,
+                model_name=model_name,
+                distance_metric=distance_metric,
+                verified=distance <= pretuned_threshold,
+            )
+
             distances.append(distance)
+            confidences.append(confidence)
 
             # ---------------------------
-        target_threshold = threshold or verification.find_threshold(model_name, distance_metric)
 
-        result_df["threshold"] = target_threshold
         result_df["distance"] = distances
+        result_df["confidence"] = confidences
 
         result_df = result_df.drop(columns=["embedding"])
         # pylint: disable=unsubscriptable-object
-        result_df = result_df[result_df["distance"] <= target_threshold]
+        result_df = result_df[result_df["distance"] <= result_df["threshold"]]
         result_df = result_df.sort_values(by=["distance"], ascending=True).reset_index(drop=True)
 
         resp_obj.append(result_df)
@@ -366,6 +412,7 @@ def __find_bulk_embeddings(
                 enforce_detection=enforce_detection,
                 align=align,
                 expand_percentage=expand_percentage,
+                color_face="bgr",  # `represent` expects images in bgr format.
             )
 
         except ValueError as err:
@@ -411,3 +458,163 @@ def __find_bulk_embeddings(
                 )
 
     return representations
+
+
+def find_batched(
+    representations: List[Dict[str, Any]],
+    source_objs: List[Dict[str, Any]],
+    model_name: str = "VGG-Face",
+    distance_metric: str = "cosine",
+    enforce_detection: bool = True,
+    align: bool = True,
+    threshold: Optional[float] = None,
+    normalization: str = "base",
+    anti_spoofing: bool = False,
+) -> List[List[Dict[str, Any]]]:
+    """
+    Perform batched face recognition by comparing source face embeddings with a set of
+    target embeddings. It calculates pairwise distances between the source and target
+    embeddings using the specified distance metric.
+    The function uses batch processing for efficient computation of distances.
+
+    Args:
+        representations (List[Dict[str, Any]]):
+            A list of dictionaries containing precomputed target embeddings and associated metadata.
+            Each dictionary should have at least the key `embedding`.
+
+        source_objs (List[Dict[str, Any]]):
+            A list of dictionaries representing the source images to compare against
+            the target embeddings. Each dictionary should contain:
+                - `face`: The image data or path to the source face image.
+                - `facial_area`: A dictionary with keys `x`, `y`, `w`, `h`
+                   indicating the facial region.
+                - Optionally, `is_real`: A boolean indicating if the face is real
+                  (used for anti-spoofing).
+
+        model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
+            OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
+
+        distance_metric (string): Metric for measuring similarity. Options: 'cosine',
+            'euclidean', 'euclidean_l2', 'angular'.
+
+        enforce_detection (boolean): If no face is detected in an image, raise an exception.
+            Default is True. Set to False to avoid the exception for low-resolution images.
+
+        detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'yolov11n', 'yolov11s',
+            'yolov11m', 'centerface' or 'skip'.
+
+        align (boolean): Perform alignment based on the eye positions.
+
+        threshold (float): Specify a threshold to determine whether a pair represents the same
+            person or different individuals. This threshold is used for comparing distances.
+            If left unset, default pre-tuned threshold values will be applied based on the specified
+            model name and distance metric (default is None).
+
+        normalization (string): Normalize the input image before feeding it to the model.
+            Default is base. Options: base, raw, Facenet, Facenet2018, VGGFace, VGGFace2, ArcFace
+
+        silent (boolean): Suppress or allow some log messages for a quieter analysis process.
+
+        anti_spoofing (boolean): Flag to enable anti spoofing (default is False).
+
+    Returns:
+        List[List[Dict[str, Any]]]:
+            A list where each element corresponds to a source face and
+            contains a list of dictionaries with matching faces.
+    """
+    embeddings_list = []
+    valid_mask = []
+    metadata = set()
+
+    for item in representations:
+        emb = item.get("embedding")
+        if emb is not None:
+            embeddings_list.append(emb)
+            valid_mask.append(True)
+        else:
+            embeddings_list.append(np.zeros_like(representations[0]["embedding"]))
+            valid_mask.append(False)
+
+        metadata.update(item.keys())
+
+    # remove embedding key from other keys
+    metadata.discard("embedding")
+    metadata = list(metadata)
+
+    embeddings = np.array(embeddings_list)  # (N, D)
+    valid_mask = np.array(valid_mask)  # (N,)
+
+    data = {key: np.array([item.get(key, None) for item in representations]) for key in metadata}
+
+    target_embeddings = []
+    source_regions = []
+    target_thresholds = []
+
+    for source_obj in source_objs:
+        if anti_spoofing and not source_obj.get("is_real", True):
+            raise ValueError("Spoof detected in the given image.")
+
+        source_img = source_obj["face"]
+        source_region = source_obj["facial_area"]
+
+        target_embedding_obj = representation.represent(
+            img_path=source_img,
+            model_name=model_name,
+            enforce_detection=enforce_detection,
+            detector_backend="skip",
+            align=align,
+            normalization=normalization,
+        )
+        # it is safe to access 0 index because we already fed detected face to represent function
+        target_representation = target_embedding_obj[0]["embedding"]
+
+        target_embeddings.append(target_representation)
+        source_regions.append(source_region)
+
+        target_threshold = threshold or verification.find_threshold(model_name, distance_metric)
+        target_thresholds.append(target_threshold)
+
+    target_embeddings = np.array(target_embeddings)  # (M, D)
+    target_thresholds = np.array(target_thresholds)  # (M,)
+    source_regions_arr = {
+        "source_x": np.array([region["x"] for region in source_regions]),
+        "source_y": np.array([region["y"] for region in source_regions]),
+        "source_w": np.array([region["w"] for region in source_regions]),
+        "source_h": np.array([region["h"] for region in source_regions]),
+    }
+
+    distances = verification.find_distance(embeddings, target_embeddings, distance_metric)  # (M, N)
+    distances[:, ~valid_mask] = np.inf
+
+    resp_obj = []
+
+    for i in range(len(target_embeddings)):
+        target_distances = distances[i]  # (N,)
+        target_threshold = target_thresholds[i]
+
+        N = embeddings.shape[0]
+        result_data = dict(data)
+        result_data.update(
+            {
+                "source_x": np.full(N, source_regions_arr["source_x"][i]),
+                "source_y": np.full(N, source_regions_arr["source_y"][i]),
+                "source_w": np.full(N, source_regions_arr["source_w"][i]),
+                "source_h": np.full(N, source_regions_arr["source_h"][i]),
+                "threshold": np.full(N, target_threshold),
+                "distance": target_distances,
+            }
+        )
+
+        mask = target_distances <= target_threshold
+        filtered_data = {key: value[mask] for key, value in result_data.items()}
+
+        sorted_indices = np.argsort(filtered_data["distance"])
+        sorted_data = {key: value[sorted_indices] for key, value in filtered_data.items()}
+
+        num_results = len(sorted_data["distance"])
+        result_dicts = [
+            {key: sorted_data[key][i] for key in sorted_data} for i in range(num_results)
+        ]
+        resp_obj.append(result_dicts)
+    return resp_obj

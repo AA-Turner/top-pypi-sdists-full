@@ -33,7 +33,7 @@ AUTHORS:
 #   Distributed under the terms of the GNU General Public License (GPL)
 #   as published by the Free Software Foundation; either version 2 of
 #   the License, or (at your option) any later version.
-#                   http://www.gnu.org/licenses/
+#                   https://www.gnu.org/licenses/
 # *****************************************************************************
 
 from sage.categories.homset import HomsetWithBase
@@ -45,11 +45,11 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.ring import CommutativeRing
 from sage.categories.commutative_rings import CommutativeRings
 
-from sage.schemes.generic.scheme import AffineScheme, is_AffineScheme
+from sage.schemes.generic.scheme import AffineScheme
 from sage.schemes.generic.morphism import (
     SchemeMorphism,
     SchemeMorphism_structure_map,
-    SchemeMorphism_spec )
+    SchemeMorphism_spec)
 
 lazy_import('sage.schemes.affine.affine_space', 'AffineSpace_generic', as_='AffineSpace')
 lazy_import('sage.schemes.generic.algebraic_scheme', 'AlgebraicScheme_subscheme')
@@ -791,11 +791,11 @@ class SchemeHomset_points(SchemeHomset_generic):
 
         EXAMPLES::
 
-            sage: toric_varieties.P2().point_set().cardinality()                        # needs sage.geometry.polyhedron sage.graphs
+            sage: toric_varieties.P2().point_set().cardinality()                        # needs palp sage.geometry.polyhedron sage.graphs
             +Infinity
 
-            sage: P2 = toric_varieties.P2(base_ring=GF(3))                              # needs sage.geometry.polyhedron sage.graphs
-            sage: P2.point_set().cardinality()                                          # needs sage.geometry.polyhedron sage.graphs
+            sage: P2 = toric_varieties.P2(base_ring=GF(3))                              # needs palp sage.geometry.polyhedron sage.graphs
+            sage: P2.point_set().cardinality()                                          # needs palp sage.geometry.polyhedron sage.graphs
             13
         """
         if hasattr(self, 'is_finite') and not self.is_finite():
@@ -813,8 +813,8 @@ class SchemeHomset_points(SchemeHomset_generic):
 
         EXAMPLES::
 
-            sage: P1 = toric_varieties.P1(base_ring=GF(3))                              # needs sage.geometry.polyhedron sage.graphs
-            sage: P1.point_set().list()                                                 # needs sage.geometry.polyhedron sage.graphs
+            sage: P1 = toric_varieties.P1(base_ring=GF(3))                              # needs palp sage.geometry.polyhedron sage.graphs
+            sage: P1.point_set().list()                                                 # needs palp sage.geometry.polyhedron sage.graphs
             ([0 : 1], [1 : 0], [1 : 1], [1 : 2])
         """
         return tuple(self)

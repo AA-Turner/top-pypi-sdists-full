@@ -1,11 +1,12 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from collections import OrderedDict
 import functools
 import inspect
 import sys
 from types import ModuleType
-from typing import Callable, Optional
+from typing import Callable
 
 from contrast.utils.decorators import fail_quietly
 from contrast.utils.libraries import get_module_distribution_metadata
@@ -21,6 +22,7 @@ from contrast_vendor import structlog as logging
 from contrast.utils.string_utils import ensure_string
 from contrast_vendor.wrapt import importer
 from contrast_vendor.wrapt.importer import register_post_import_hook
+import contextlib
 
 logger = logging.getLogger("contrast")
 
@@ -31,10 +33,8 @@ def add_watermark(func):
 
     Do not rely on the existence of this attribute in agent source code.
     """
-    try:
+    with contextlib.suppress(Exception):
         func.__contrast__ = True
-    except Exception:
-        pass
     return func
 
 
@@ -46,7 +46,7 @@ def wrap_and_watermark(orig_func, wrapper):
     return function_wrapper(add_watermark(wrapper))(orig_func)
 
 
-def pack_self(instance: Optional[object], args: tuple) -> tuple:
+def pack_self(instance: object | None, args: tuple) -> tuple:
     """Combines the instance and args into a single tuple. If instance is None, returns args."""
     return args if instance is None else (instance,) + args
 
@@ -152,7 +152,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "enumfields": ((2, 0), (2, 1)),  # django-enumfields
     "falcon": ((3, 0), (4, 0)),
     "falcon_multipart": ((0, 1), (0, 2)),
-    "fastapi": ((0, 71), (0, 115)),
+    "fastapi": ((0, 71), (0, 116)),
     "flask": ((1, 1), (3, 1)),
     "genshi": ((0, 7), (0, 7)),
     "graphene": ((3, 4), (3, 4)),
@@ -162,7 +162,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "lxml": ((4, 1), (5, 4)),
     "markupsafe": ((1, 0), (2, 1)),
     "mod_wsgi": ((4, 1), (5, 0)),
-    "mysql": ((8, 0), (9, 3)),  # mysql-connector-python
+    "mysql": ((8, 0), (9, 4)),  # mysql-connector-python
     "openai": ((0, 27), (0, 28)),
     "pymysql": ((1, 0), (1, 1)),
     "psycopg2": ((2, 0), (2, 9)),
@@ -179,8 +179,8 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "sqlalchemy": ((1,), (2,)),
     "starlette": (
         (0, 17),
-        (0, 46),
-    ),  # fastapi==0.71.0 requires starlette==0.17.1, fastapi==0.115.0 requires starlette<0.47.0
+        (0, 47),
+    ),  # fastapi==0.71.0 requires starlette==0.17.1, fastapi==0.116.1 requires starlette<0.48.0
     "starlette_authlib": ((0, 1), (0, 3)),
     "urllib3": ((1, 25), (2, 3)),
     "webob": ((1, 8), (1, 9)),
@@ -197,9 +197,7 @@ def register_module_patcher(patcher: ModulePatcher, module_name: str):
 
     If the named module has already been imported, the patcher is called immediately.
     """
-    is_contrast_module = module_name.startswith("contrast.") or module_name.startswith(
-        "contrast_vendor."
-    )
+    is_contrast_module = module_name.startswith(("contrast.", "contrast_vendor."))
     if (
         not is_stdlib_module(module_name)
         and not is_contrast_module
@@ -232,7 +230,7 @@ def is_versioned_patch(patch: object) -> bool:
 
 
 def versioned_patch(
-    min: Optional[tuple] = None, max: Optional[tuple] = None
+    min: tuple | None = None, max: tuple | None = None
 ) -> Callable[[ModulePatcher], ModulePatcher]:
     """
     Decorator to restrict patch application to a specific version range.

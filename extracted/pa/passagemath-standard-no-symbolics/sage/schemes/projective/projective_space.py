@@ -105,10 +105,6 @@ from sage.rings.polynomial.polynomial_ring import PolynomialRing_generic
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.rational_field import QQ, RationalField
 from sage.schemes.generic.ambient_space import AmbientSpace
-from sage.structure.category_object import normalize_names
-from sage.structure.unique_representation import UniqueRepresentation
-
-from sage.schemes.generic.ambient_space import AmbientSpace
 from sage.schemes.projective.projective_homset import (SchemeHomset_points_projective_ring,
                                                        SchemeHomset_points_projective_field,
                                                        SchemeHomset_polynomial_projective_space)
@@ -118,6 +114,8 @@ from sage.schemes.projective.projective_morphism import (SchemeMorphism_polynomi
 from sage.schemes.projective.projective_point import (SchemeMorphism_point_projective_ring,
                                                       SchemeMorphism_point_projective_field,
                                                       SchemeMorphism_point_projective_finite_field)
+from sage.structure.category_object import normalize_names
+from sage.structure.unique_representation import UniqueRepresentation
 
 lazy_import('sage.combinat.integer_vector', 'IntegerVectors')
 lazy_import('sage.combinat.permutation', 'Permutation')
@@ -1409,7 +1407,7 @@ class ProjectiveSpace_ring(UniqueRepresentation, AmbientSpace):
         EXAMPLES::
 
             sage: P.<x,y> = ProjectiveSpace(QQ, 1)
-            sage: P.chebyshev_polynomial(5, 'first')                                    # needs sage.symbolic
+            sage: P.chebyshev_polynomial(5, 'first')                                    # needs sage.schemes sage.symbolic
             Dynamical System of Projective Space of dimension 1 over Rational Field
               Defn: Defined on coordinates by sending (x : y) to
                     (16*x^5 - 20*x^3*y^2 + 5*x*y^4 : y^5)
@@ -1417,7 +1415,7 @@ class ProjectiveSpace_ring(UniqueRepresentation, AmbientSpace):
         ::
 
             sage: P.<x,y> = ProjectiveSpace(QQ, 1)
-            sage: P.chebyshev_polynomial(3, 'second')                                   # needs sage.symbolic
+            sage: P.chebyshev_polynomial(3, 'second')                                   # needs sage.schemes sage.symbolic
             Dynamical System of Projective Space of dimension 1 over Rational Field
               Defn: Defined on coordinates by sending (x : y) to
                     (8*x^3 - 4*x*y^2 : y^3)
@@ -1425,7 +1423,7 @@ class ProjectiveSpace_ring(UniqueRepresentation, AmbientSpace):
         ::
 
             sage: P.<x,y> = ProjectiveSpace(QQ, 1)
-            sage: P.chebyshev_polynomial(3, 2)                                          # needs sage.symbolic
+            sage: P.chebyshev_polynomial(3, 2)                                          # needs sage.schemes sage.symbolic
             Traceback (most recent call last):
             ...
             ValueError: keyword 'kind' must have a value of either 'first' or 'second'
@@ -1449,7 +1447,7 @@ class ProjectiveSpace_ring(UniqueRepresentation, AmbientSpace):
         ::
 
             sage: P.<x,y> = ProjectiveSpace(QQ, 1)
-            sage: P.chebyshev_polynomial(3, monic=True)                                 # needs sage.symbolic
+            sage: P.chebyshev_polynomial(3, monic=True)                                 # needs sage.schemes sage.symbolic
             Dynamical System of Projective Space of dimension 1 over Rational Field
               Defn: Defined on coordinates by sending (x : y) to
                     (x^3 - 3*x*y^2 : y^3)
@@ -1458,7 +1456,7 @@ class ProjectiveSpace_ring(UniqueRepresentation, AmbientSpace):
 
             sage: F.<t> = FunctionField(QQ)
             sage: P.<y,z> = ProjectiveSpace(F, 1)
-            sage: P.chebyshev_polynomial(4, monic=True)                                 # needs sage.symbolic
+            sage: P.chebyshev_polynomial(4, monic=True)                                 # needs sage.schemes sage.symbolic
             Dynamical System of Projective Space of dimension 1
              over Rational function field in t over Rational Field
               Defn: Defined on coordinates by sending (y : z) to
@@ -2323,7 +2321,7 @@ class ProjectiveSpace_field(ProjectiveSpace_ring):
             sage: P2 = ProjectiveSpace(QQ, 2)
             sage: P2.arithmetic_genus()
             0
-            sage: P2.structure_sheaf().euler_characteristic() - 1                       # needs sage.modules
+            sage: P2.structure_sheaf().euler_characteristic() - 1                       # needs sage.libs.singular sage.modules
             0
         """
         return 0

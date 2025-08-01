@@ -223,6 +223,9 @@ class CrisisEvent(Enum):
     AI_BOOM = 16
     """Artificial intelligence boom (16)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ResultsUtil(System.Object):
     """Utility methods for dealing with the Result objects"""

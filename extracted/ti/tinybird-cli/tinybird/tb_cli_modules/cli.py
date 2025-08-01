@@ -643,6 +643,15 @@ async def push(
 ) -> None:
     """Push files to Tinybird."""
 
+    # Prompt for confirmation when on-demand compute is requested with populate
+    if (
+        populate
+        and on_demand_compute
+        and not click.confirm(FeedbackManager.warning_confirm_on_demand_compute(), default=False)
+    ):
+        click.echo("Operation cancelled.")
+        return
+
     ignore_sql_errors = FeatureFlags.ignore_sql_errors()
     context.disable_template_security_validation.set(True)
 

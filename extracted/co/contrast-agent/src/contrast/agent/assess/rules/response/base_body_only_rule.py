@@ -19,7 +19,8 @@ class BaseBodyOnlyRule(BaseResponseRule):
         original_start = body.index(full_tag)
         original_end = original_start + len(full_tag)
 
-        html = self.body_to_report(original_start, original_end, body)
+        # 50chars before + full tag + 50 chars after
+        html = body[max(0, original_start - 50) : min(len(body), original_end + 50)]
 
         redacted_start = html.index(full_tag)
         redacted_end = redacted_start + len(full_tag)
@@ -29,18 +30,3 @@ class BaseBodyOnlyRule(BaseResponseRule):
             start=str(redacted_start),
             end=str(redacted_end),
         )
-
-    def body_to_report(self, form_start, form_end, body):
-        # 50chars before + full tag + 50 chars after
-
-        if form_start - 50 < 0:
-            start = 0
-        else:
-            start = form_start - 50
-
-        if form_end + 50 > len(body):
-            end = len(body)
-        else:
-            end = form_end + 50
-
-        return body[start:end]

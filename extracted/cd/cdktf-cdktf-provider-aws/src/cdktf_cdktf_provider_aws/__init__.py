@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.6.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.7.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.6.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.7.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -1768,6 +1768,8 @@ __all__ = [
     "quicksight_group_membership",
     "quicksight_iam_policy_assignment",
     "quicksight_ingestion",
+    "quicksight_ip_restriction",
+    "quicksight_key_registration",
     "quicksight_namespace",
     "quicksight_refresh_schedule",
     "quicksight_role_membership",
@@ -3897,6 +3899,8 @@ from . import quicksight_group
 from . import quicksight_group_membership
 from . import quicksight_iam_policy_assignment
 from . import quicksight_ingestion
+from . import quicksight_ip_restriction
+from . import quicksight_key_registration
 from . import quicksight_namespace
 from . import quicksight_refresh_schedule
 from . import quicksight_role_membership

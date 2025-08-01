@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: colored
-Version: 2.3.0
+Version: 2.3.1
 Summary: Simple python library for color and formatting to terminal
 Keywords: xterm,color,colour,vt100,ansi,terminal,text,rgb,linux,windows
 Author-email: Dimitris Zlatanidis <dslackw@gmail.com>
@@ -17,6 +17,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Typed
 Classifier: Topic :: Terminals
+License-File: LICENSE.txt
 Project-URL: homepage, https://dslackw.gitlab.io/colored/
 
 <a href="https://dslackw.gitlab.io/colored"> 

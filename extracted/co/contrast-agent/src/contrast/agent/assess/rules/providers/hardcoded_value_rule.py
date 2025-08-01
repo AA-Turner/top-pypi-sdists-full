@@ -136,10 +136,7 @@ class HardcodedValueRule(StaticRule, CodeParserMixin):
             return True
 
         module_name = name.lower() + "."
-        if any(module_name.startswith(item) for item in self.MODULES_TO_IGNORE):
-            return True
-
-        return False
+        return any(module_name.startswith(item) for item in self.MODULES_TO_IGNORE)
 
     def is_private(self, attribute):
         """
@@ -148,11 +145,7 @@ class HardcodedValueRule(StaticRule, CodeParserMixin):
         :param attribute: str representing an attribute
         :return: bool
         """
-        return (
-            attribute.startswith("__")
-            or attribute.startswith("_")
-            or attribute.startswith("cs__")
-        )
+        return attribute.startswith(("__", "_", "cs__"))
 
     def fuzzy_match(self, constant_value, field_names):
         lower_cont = constant_value.lower()

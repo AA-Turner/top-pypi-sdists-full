@@ -23,6 +23,9 @@ class RequestCacheLevel(Enum):
 
     NO_CACHE_NO_STORE = 6
 
+    def __int__(self) -> int:
+        ...
+
 
 class RequestCachePolicy(System.Object):
     """This class has no documentation."""

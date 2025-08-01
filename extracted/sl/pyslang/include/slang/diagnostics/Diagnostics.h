@@ -44,14 +44,13 @@ class Symbol;
     x(SysFuncs) \
     x(ConstEval) \
     x(Compilation) \
+    x(Analysis) \
     x(Meta) \
     x(Tidy) \
     x(Netlist)
 SLANG_ENUM_SIZED(DiagSubsystem, uint16_t, DS)
 #undef DS
 
-/// The severity of a given diagnostic. This is not tied to the diagnostic itself;
-/// it can be configured on a per-diagnostic basis at runtime.
 #define DS(x) \
     x(Ignored) \
     x(Note) \
@@ -80,6 +79,15 @@ public:
 
     /// Gets the raw numeric code of this DiagCode, unique within its subsystem.
     constexpr uint16_t getCode() const { return code; }
+
+    /// Returns true if this code is a note that is allowed to be shown with no location.
+    ///
+    /// @note Most notes make no sense without a location so by default they are ignored.
+    bool showNoteWithNoLocation() const;
+
+    /// Returns true if diagnostics with this code can be coalesced even if they have
+    /// different arguments.
+    bool coalesceWithDifferingArgs() const;
 
     /// @brief Checks whether the DiagCode is valid.
     ///

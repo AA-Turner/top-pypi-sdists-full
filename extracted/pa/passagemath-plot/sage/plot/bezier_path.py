@@ -77,7 +77,8 @@ class BezierPath(GraphicPrimitive_xydata):
 
         self.path = [np.array(l, float) for l in path]
 
-        # In oder to feed later to matplotlib.path.Path we convert in the following form
+        # In order to feed later to matplotlib.path.Path we convert in
+        # the following form
         # - vertices: an Nx2 float array of vertices
         # - codes: an N-length uint8 array of vertex types, or None
         #   where each code could be MOVETO (=1), LINETO (=2), CURVE3 (=3), CURVE4 (=4)
@@ -260,9 +261,9 @@ class BezierPath(GraphicPrimitive_xydata):
             sage: b = bezier_path([[(0,0),(.5,.5),(1,0)],[(.5,1),(0,0)]])
             sage: d = b.get_minmax_data()
             sage: d['xmin']
-            0.0
+            np.float64(0.0)
             sage: d['xmax']
-            1.0
+            np.float64(1.0)
         """
         return {'xmin': self.vertices[:,0].min(),
                 'xmax': self.vertices[:,0].max(),

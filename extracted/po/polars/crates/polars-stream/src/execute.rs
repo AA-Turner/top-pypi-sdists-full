@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use polars_core::POOL;
 use polars_core::frame::DataFrame;
 use polars_error::PolarsResult;
 use polars_expr::state::ExecutionState;
 use polars_utils::aliases::PlHashSet;
+use polars_utils::relaxed_cell::RelaxedCell;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
 use crate::async_executor;
@@ -16,15 +19,6 @@ pub struct StreamingExecutionState {
 
     // The ExecutionState passed to any non-streaming operations.
     pub in_memory_exec_state: ExecutionState,
-}
-
-impl Default for StreamingExecutionState {
-    fn default() -> Self {
-        Self {
-            num_pipelines: POOL.current_num_threads(),
-            in_memory_exec_state: ExecutionState::default(),
-        }
-    }
 }
 
 /// Finds all runnable pipeline blockers in the graph, that is, nodes which:
@@ -122,12 +116,18 @@ fn run_subgraph(
     graph: &mut Graph,
     nodes: &PlHashSet<GraphNodeKey>,
     pipes: &[LogicalPipeKey],
+    pipe_seq_offsets: &mut SecondaryMap<LogicalPipeKey, Arc<RelaxedCell<u64>>>,
     state: &StreamingExecutionState,
 ) -> PolarsResult<()> {
     // Construct physical pipes for the logical pipes we'll use.
     let mut physical_pipes = SecondaryMap::new();
     for pipe_key in pipes.iter().copied() {
-        physical_pipes.insert(pipe_key, PhysicalPipe::new(state.num_pipelines));
+        let seq_offset = pipe_seq_offsets
+            .entry(pipe_key)
+            .unwrap()
+            .or_default()
+            .clone();
+        physical_pipes.insert(pipe_key, PhysicalPipe::new(state.num_pipelines, seq_offset));
     }
 
     // We do a topological sort of the graph: we want to spawn each node,
@@ -281,6 +281,7 @@ pub fn execute_graph(
         }
     }
 
+    let mut pipe_seq_offsets = SecondaryMap::new();
     loop {
         if polars_core::config::verbose() {
             eprintln!("polars-stream: updating graph state");
@@ -298,7 +299,7 @@ pub fn execute_graph(
         if nodes.is_empty() {
             break;
         }
-        run_subgraph(graph, &nodes, &pipes, &state)?;
+        run_subgraph(graph, &nodes, &pipes, &mut pipe_seq_offsets, &state)?;
         if polars_core::config::verbose() {
             eprintln!("polars-stream: done running graph phase");
         }

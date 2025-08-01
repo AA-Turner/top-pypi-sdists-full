@@ -1,6 +1,7 @@
 APP_NAME_TO_USECASE = {
     "people_counting": "people_counting",
     "mask_detection": "mask_detection",
+    "pipeline_detection": "pipeline_detection",
     "vehicle_monitoring": "vehicle_monitoring",
     "vehicle_type_monitoring": "vehicle_monitoring",
     "weapon_detection": "weapon_detection",
@@ -28,11 +29,14 @@ APP_NAME_TO_USECASE = {
     "concrete_crack_detection": "concrete_crack_detection",
     "lane_detection" : "lane_detection",
     "shelf_inventory" :"shelf_inventory",
+    "smoker_detection": "smoker_detection",
+    "age_detection": "age_detection",
 }
 
 APP_NAME_TO_CATEGORY = {
     "people_counting": "general",
     "mask_detection": "mask_detection",
+    "pipeline_detection": "pipeline_detection",
     "vehicle_monitoring": "traffic",
     "vehicle_type_monitoring": "traffic",
     "weapon_detection": "security",
@@ -60,6 +64,8 @@ APP_NAME_TO_CATEGORY = {
     "concrete_crack_detection": "general",
     "lane_detection" : "traffic",
     "shelf_inventory" : "retail",
+    "smoker_detection": "general",
+    "age_detection": "general"
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

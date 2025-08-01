@@ -415,6 +415,7 @@ class ConfigManager:
             "fire_smoke_detection": None,
             "flare_analysis" : None,
             "mask_detection": None,
+            "pipeline_detection": None,
             "parking_space_detection": None,
             "car_damage_detection":None,
             "weld_defect_detection" : None,
@@ -447,6 +448,7 @@ class ConfigManager:
             'windmill_maintenance': None,
             'face_emotion': None,
             'flower_segmentation': None,
+            'smoker_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -592,11 +594,20 @@ class ConfigManager:
             return ParkingSpaceConfig
         except ImportError:
             return None
+
     def _get_mask_detection_config_class(self):
         """Register a configuration class for a use case."""
         try:
             from ..usecases.mask_detection import MaskDetectionConfig
             return MaskDetectionConfig
+        except ImportError:
+            return None
+
+    def _get_pipeline_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.pipeline_detection import PipelineDetectionConfig
+            return PipelineDetectionConfig
         except ImportError:
             return None
 
@@ -784,6 +795,14 @@ class ConfigManager:
         except ImportError:
             return None
     
+    def smoker_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.smoker_detection import SmokerDetectionConfig
+            return SmokerDetectionConfig
+        except ImportError:
+            return None
+    
     #put all image based usecases here::
     def blood_cancer_detection_config_class(self):
         """Register a configuration class for a use case."""
@@ -968,6 +987,19 @@ class ConfigManager:
 
             config = MaskDetectionConfig(
                 category=category or "mask_detection",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "pipeline_detection":
+            from ..usecases.pipeline_detection import PipelineDetectionConfig
+
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = PipelineDetectionConfig(
+                category=category or "pipeline_detection",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
@@ -1351,7 +1383,7 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = AgeDetectionConfig(
-                category=category or "security",
+                category=category or "general",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
@@ -1595,6 +1627,22 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        
+        elif usecase == "smoker_detection":
+            # Import here to avoid circular import
+            from ..usecases.smoker_detection import SmokerDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = SmokerDetectionConfig(
+                category=category or "general",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
 
         
         #Add IMAGE based usecases here::
@@ -1758,6 +1806,11 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.mask_detection import MaskDetectionConfig
             default_config = MaskDetectionConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "pipeline_detection":
+            from ..usecases.pipeline_detection import PipelineDetectionConfig
+            default_config = PipelineDetectionConfig()
             return default_config.to_dict()
 
         elif usecase == "fire_smoke_detection":
@@ -1974,6 +2027,11 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.flower_segmentation import FlowerConfig
             default_config = FlowerConfig()
+            return default_config.to_dict()
+        elif usecase == "smoker_detection":
+            # Import here to avoid circular import
+            from ..usecases.smoker_detection import SmokerDetectionConfig
+            default_config = SmokerDetectionConfig()
             return default_config.to_dict()
 
         #Add all image based usecases here

@@ -1,7 +1,7 @@
 r'''
 # `aws_cleanrooms_collaboration`
 
-Refer to the Terraform Registry for docs: [`aws_cleanrooms_collaboration`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration).
+Refer to the Terraform Registry for docs: [`aws_cleanrooms_collaboration`](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CleanroomsCollaboration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cleanroomsCollaboration.CleanroomsCollaboration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration aws_cleanrooms_collaboration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration aws_cleanrooms_collaboration}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class CleanroomsCollaboration(
         description: builtins.str,
         name: builtins.str,
         query_log_status: builtins.str,
+        analytics_engine: typing.Optional[builtins.str] = None,
         data_encryption_metadata: typing.Optional[typing.Union["CleanroomsCollaborationDataEncryptionMetadata", typing.Dict[builtins.str, typing.Any]]] = None,
         member: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CleanroomsCollaborationMember", typing.Dict[builtins.str, typing.Any]]]]] = None,
         region: typing.Optional[builtins.str] = None,
@@ -70,21 +71,22 @@ class CleanroomsCollaboration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration aws_cleanrooms_collaboration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration aws_cleanrooms_collaboration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param creator_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#creator_display_name CleanroomsCollaboration#creator_display_name}.
-        :param creator_member_abilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#creator_member_abilities CleanroomsCollaboration#creator_member_abilities}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#description CleanroomsCollaboration#description}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#name CleanroomsCollaboration#name}.
-        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#query_log_status CleanroomsCollaboration#query_log_status}.
-        :param data_encryption_metadata: data_encryption_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#data_encryption_metadata CleanroomsCollaboration#data_encryption_metadata}
-        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#member CleanroomsCollaboration#member}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#region CleanroomsCollaboration#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#tags CleanroomsCollaboration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#tags_all CleanroomsCollaboration#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#timeouts CleanroomsCollaboration#timeouts}
+        :param creator_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#creator_display_name CleanroomsCollaboration#creator_display_name}.
+        :param creator_member_abilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#creator_member_abilities CleanroomsCollaboration#creator_member_abilities}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#description CleanroomsCollaboration#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#name CleanroomsCollaboration#name}.
+        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#query_log_status CleanroomsCollaboration#query_log_status}.
+        :param analytics_engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#analytics_engine CleanroomsCollaboration#analytics_engine}.
+        :param data_encryption_metadata: data_encryption_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#data_encryption_metadata CleanroomsCollaboration#data_encryption_metadata}
+        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#member CleanroomsCollaboration#member}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#region CleanroomsCollaboration#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#tags CleanroomsCollaboration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#tags_all CleanroomsCollaboration#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#timeouts CleanroomsCollaboration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,6 +105,7 @@ class CleanroomsCollaboration(
             description=description,
             name=name,
             query_log_status=query_log_status,
+            analytics_engine=analytics_engine,
             data_encryption_metadata=data_encryption_metadata,
             member=member,
             region=region,
@@ -133,7 +136,7 @@ class CleanroomsCollaboration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CleanroomsCollaboration to import.
-        :param import_from_id: The id of the existing CleanroomsCollaboration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CleanroomsCollaboration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CleanroomsCollaboration to import is found.
         '''
         if __debug__:
@@ -154,10 +157,10 @@ class CleanroomsCollaboration(
         preserve_nulls: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param allow_clear_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_clear_text CleanroomsCollaboration#allow_clear_text}.
-        :param allow_duplicates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_duplicates CleanroomsCollaboration#allow_duplicates}.
-        :param allow_joins_on_columns_with_different_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_joins_on_columns_with_different_names CleanroomsCollaboration#allow_joins_on_columns_with_different_names}.
-        :param preserve_nulls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#preserve_nulls CleanroomsCollaboration#preserve_nulls}.
+        :param allow_clear_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_clear_text CleanroomsCollaboration#allow_clear_text}.
+        :param allow_duplicates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_duplicates CleanroomsCollaboration#allow_duplicates}.
+        :param allow_joins_on_columns_with_different_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_joins_on_columns_with_different_names CleanroomsCollaboration#allow_joins_on_columns_with_different_names}.
+        :param preserve_nulls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#preserve_nulls CleanroomsCollaboration#preserve_nulls}.
         '''
         value = CleanroomsCollaborationDataEncryptionMetadata(
             allow_clear_text=allow_clear_text,
@@ -190,15 +193,19 @@ class CleanroomsCollaboration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#create CleanroomsCollaboration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#delete CleanroomsCollaboration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#update CleanroomsCollaboration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#create CleanroomsCollaboration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#delete CleanroomsCollaboration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#update CleanroomsCollaboration#update}.
         '''
         value = CleanroomsCollaborationTimeouts(
             create=create, delete=delete, update=update
         )
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetAnalyticsEngine")
+    def reset_analytics_engine(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAnalyticsEngine", []))
 
     @jsii.member(jsii_name="resetDataEncryptionMetadata")
     def reset_data_encryption_metadata(self) -> None:
@@ -275,6 +282,11 @@ class CleanroomsCollaboration(
         return typing.cast(builtins.str, jsii.get(self, "updateTime"))
 
     @builtins.property
+    @jsii.member(jsii_name="analyticsEngineInput")
+    def analytics_engine_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "analyticsEngineInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="creatorDisplayNameInput")
     def creator_display_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "creatorDisplayNameInput"))
@@ -338,6 +350,18 @@ class CleanroomsCollaboration(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "CleanroomsCollaborationTimeouts"]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "CleanroomsCollaborationTimeouts"]], jsii.get(self, "timeoutsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="analyticsEngine")
+    def analytics_engine(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "analyticsEngine"))
+
+    @analytics_engine.setter
+    def analytics_engine(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e045b714152cc2700927990bb9067e70af8ca04bad5aaf85c528682d355d0209)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "analyticsEngine", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="creatorDisplayName")
@@ -452,6 +476,7 @@ class CleanroomsCollaboration(
         "description": "description",
         "name": "name",
         "query_log_status": "queryLogStatus",
+        "analytics_engine": "analyticsEngine",
         "data_encryption_metadata": "dataEncryptionMetadata",
         "member": "member",
         "region": "region",
@@ -476,6 +501,7 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         description: builtins.str,
         name: builtins.str,
         query_log_status: builtins.str,
+        analytics_engine: typing.Optional[builtins.str] = None,
         data_encryption_metadata: typing.Optional[typing.Union["CleanroomsCollaborationDataEncryptionMetadata", typing.Dict[builtins.str, typing.Any]]] = None,
         member: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CleanroomsCollaborationMember", typing.Dict[builtins.str, typing.Any]]]]] = None,
         region: typing.Optional[builtins.str] = None,
@@ -491,17 +517,18 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param creator_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#creator_display_name CleanroomsCollaboration#creator_display_name}.
-        :param creator_member_abilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#creator_member_abilities CleanroomsCollaboration#creator_member_abilities}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#description CleanroomsCollaboration#description}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#name CleanroomsCollaboration#name}.
-        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#query_log_status CleanroomsCollaboration#query_log_status}.
-        :param data_encryption_metadata: data_encryption_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#data_encryption_metadata CleanroomsCollaboration#data_encryption_metadata}
-        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#member CleanroomsCollaboration#member}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#region CleanroomsCollaboration#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#tags CleanroomsCollaboration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#tags_all CleanroomsCollaboration#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#timeouts CleanroomsCollaboration#timeouts}
+        :param creator_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#creator_display_name CleanroomsCollaboration#creator_display_name}.
+        :param creator_member_abilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#creator_member_abilities CleanroomsCollaboration#creator_member_abilities}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#description CleanroomsCollaboration#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#name CleanroomsCollaboration#name}.
+        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#query_log_status CleanroomsCollaboration#query_log_status}.
+        :param analytics_engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#analytics_engine CleanroomsCollaboration#analytics_engine}.
+        :param data_encryption_metadata: data_encryption_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#data_encryption_metadata CleanroomsCollaboration#data_encryption_metadata}
+        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#member CleanroomsCollaboration#member}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#region CleanroomsCollaboration#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#tags CleanroomsCollaboration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#tags_all CleanroomsCollaboration#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#timeouts CleanroomsCollaboration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -523,6 +550,7 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument query_log_status", value=query_log_status, expected_type=type_hints["query_log_status"])
+            check_type(argname="argument analytics_engine", value=analytics_engine, expected_type=type_hints["analytics_engine"])
             check_type(argname="argument data_encryption_metadata", value=data_encryption_metadata, expected_type=type_hints["data_encryption_metadata"])
             check_type(argname="argument member", value=member, expected_type=type_hints["member"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -550,6 +578,8 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if analytics_engine is not None:
+            self._values["analytics_engine"] = analytics_engine
         if data_encryption_metadata is not None:
             self._values["data_encryption_metadata"] = data_encryption_metadata
         if member is not None:
@@ -629,38 +659,44 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def creator_display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#creator_display_name CleanroomsCollaboration#creator_display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#creator_display_name CleanroomsCollaboration#creator_display_name}.'''
         result = self._values.get("creator_display_name")
         assert result is not None, "Required property 'creator_display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def creator_member_abilities(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#creator_member_abilities CleanroomsCollaboration#creator_member_abilities}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#creator_member_abilities CleanroomsCollaboration#creator_member_abilities}.'''
         result = self._values.get("creator_member_abilities")
         assert result is not None, "Required property 'creator_member_abilities' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#description CleanroomsCollaboration#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#description CleanroomsCollaboration#description}.'''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#name CleanroomsCollaboration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#name CleanroomsCollaboration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def query_log_status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#query_log_status CleanroomsCollaboration#query_log_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#query_log_status CleanroomsCollaboration#query_log_status}.'''
         result = self._values.get("query_log_status")
         assert result is not None, "Required property 'query_log_status' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def analytics_engine(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#analytics_engine CleanroomsCollaboration#analytics_engine}.'''
+        result = self._values.get("analytics_engine")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_encryption_metadata(
@@ -668,7 +704,7 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CleanroomsCollaborationDataEncryptionMetadata"]:
         '''data_encryption_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#data_encryption_metadata CleanroomsCollaboration#data_encryption_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#data_encryption_metadata CleanroomsCollaboration#data_encryption_metadata}
         '''
         result = self._values.get("data_encryption_metadata")
         return typing.cast(typing.Optional["CleanroomsCollaborationDataEncryptionMetadata"], result)
@@ -679,7 +715,7 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsCollaborationMember"]]]:
         '''member block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#member CleanroomsCollaboration#member}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#member CleanroomsCollaboration#member}
         '''
         result = self._values.get("member")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsCollaborationMember"]]], result)
@@ -688,20 +724,20 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#region CleanroomsCollaboration#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#region CleanroomsCollaboration#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#tags CleanroomsCollaboration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#tags CleanroomsCollaboration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#tags_all CleanroomsCollaboration#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#tags_all CleanroomsCollaboration#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -709,7 +745,7 @@ class CleanroomsCollaborationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CleanroomsCollaborationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#timeouts CleanroomsCollaboration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#timeouts CleanroomsCollaboration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CleanroomsCollaborationTimeouts"], result)
@@ -746,10 +782,10 @@ class CleanroomsCollaborationDataEncryptionMetadata:
         preserve_nulls: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param allow_clear_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_clear_text CleanroomsCollaboration#allow_clear_text}.
-        :param allow_duplicates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_duplicates CleanroomsCollaboration#allow_duplicates}.
-        :param allow_joins_on_columns_with_different_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_joins_on_columns_with_different_names CleanroomsCollaboration#allow_joins_on_columns_with_different_names}.
-        :param preserve_nulls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#preserve_nulls CleanroomsCollaboration#preserve_nulls}.
+        :param allow_clear_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_clear_text CleanroomsCollaboration#allow_clear_text}.
+        :param allow_duplicates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_duplicates CleanroomsCollaboration#allow_duplicates}.
+        :param allow_joins_on_columns_with_different_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_joins_on_columns_with_different_names CleanroomsCollaboration#allow_joins_on_columns_with_different_names}.
+        :param preserve_nulls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#preserve_nulls CleanroomsCollaboration#preserve_nulls}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6477c0d018fe0cd9a4fd8899cb652157b250f4420468217e2e39ca15c8e4c890)
@@ -768,7 +804,7 @@ class CleanroomsCollaborationDataEncryptionMetadata:
     def allow_clear_text(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_clear_text CleanroomsCollaboration#allow_clear_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_clear_text CleanroomsCollaboration#allow_clear_text}.'''
         result = self._values.get("allow_clear_text")
         assert result is not None, "Required property 'allow_clear_text' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -777,7 +813,7 @@ class CleanroomsCollaborationDataEncryptionMetadata:
     def allow_duplicates(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_duplicates CleanroomsCollaboration#allow_duplicates}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_duplicates CleanroomsCollaboration#allow_duplicates}.'''
         result = self._values.get("allow_duplicates")
         assert result is not None, "Required property 'allow_duplicates' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -786,7 +822,7 @@ class CleanroomsCollaborationDataEncryptionMetadata:
     def allow_joins_on_columns_with_different_names(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#allow_joins_on_columns_with_different_names CleanroomsCollaboration#allow_joins_on_columns_with_different_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#allow_joins_on_columns_with_different_names CleanroomsCollaboration#allow_joins_on_columns_with_different_names}.'''
         result = self._values.get("allow_joins_on_columns_with_different_names")
         assert result is not None, "Required property 'allow_joins_on_columns_with_different_names' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -795,7 +831,7 @@ class CleanroomsCollaborationDataEncryptionMetadata:
     def preserve_nulls(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#preserve_nulls CleanroomsCollaboration#preserve_nulls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#preserve_nulls CleanroomsCollaboration#preserve_nulls}.'''
         result = self._values.get("preserve_nulls")
         assert result is not None, "Required property 'preserve_nulls' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -964,9 +1000,9 @@ class CleanroomsCollaborationMember:
         member_abilities: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#account_id CleanroomsCollaboration#account_id}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#display_name CleanroomsCollaboration#display_name}.
-        :param member_abilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#member_abilities CleanroomsCollaboration#member_abilities}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#account_id CleanroomsCollaboration#account_id}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#display_name CleanroomsCollaboration#display_name}.
+        :param member_abilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#member_abilities CleanroomsCollaboration#member_abilities}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc86afe2014527ecd602e64b43785760e04faf5e3e4730f327a3cfa84f4ebdcc)
@@ -981,21 +1017,21 @@ class CleanroomsCollaborationMember:
 
     @builtins.property
     def account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#account_id CleanroomsCollaboration#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#account_id CleanroomsCollaboration#account_id}.'''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#display_name CleanroomsCollaboration#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#display_name CleanroomsCollaboration#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def member_abilities(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#member_abilities CleanroomsCollaboration#member_abilities}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#member_abilities CleanroomsCollaboration#member_abilities}.'''
         result = self._values.get("member_abilities")
         assert result is not None, "Required property 'member_abilities' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1216,9 +1252,9 @@ class CleanroomsCollaborationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#create CleanroomsCollaboration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#delete CleanroomsCollaboration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#update CleanroomsCollaboration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#create CleanroomsCollaboration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#delete CleanroomsCollaboration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#update CleanroomsCollaboration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7cae880c0d4cd36c7078bc3415471b0ef4be8e3e994c7cc7cbf8ebeaf644045)
@@ -1235,19 +1271,19 @@ class CleanroomsCollaborationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#create CleanroomsCollaboration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#create CleanroomsCollaboration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#delete CleanroomsCollaboration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#delete CleanroomsCollaboration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/cleanrooms_collaboration#update CleanroomsCollaboration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/cleanrooms_collaboration#update CleanroomsCollaboration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1387,6 +1423,7 @@ def _typecheckingstub__26629e32c5ff123482f2d69f9a8e1c1faa584fe43879c0f02be19de83
     description: builtins.str,
     name: builtins.str,
     query_log_status: builtins.str,
+    analytics_engine: typing.Optional[builtins.str] = None,
     data_encryption_metadata: typing.Optional[typing.Union[CleanroomsCollaborationDataEncryptionMetadata, typing.Dict[builtins.str, typing.Any]]] = None,
     member: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CleanroomsCollaborationMember, typing.Dict[builtins.str, typing.Any]]]]] = None,
     region: typing.Optional[builtins.str] = None,
@@ -1415,6 +1452,12 @@ def _typecheckingstub__996f5b06a07a1019b21ed85aa31034a4685eb33cf70a779efafa8613d
 
 def _typecheckingstub__95bba275ec0a5189137c15a8f5474974548b5965750a2b6aed0b92d18aabb241(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CleanroomsCollaborationMember, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e045b714152cc2700927990bb9067e70af8ca04bad5aaf85c528682d355d0209(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1481,6 +1524,7 @@ def _typecheckingstub__626d6b0ef8624e56f7a78abefe1cf5cdd0d4bd2999360c10e173fceeb
     description: builtins.str,
     name: builtins.str,
     query_log_status: builtins.str,
+    analytics_engine: typing.Optional[builtins.str] = None,
     data_encryption_metadata: typing.Optional[typing.Union[CleanroomsCollaborationDataEncryptionMetadata, typing.Dict[builtins.str, typing.Any]]] = None,
     member: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CleanroomsCollaborationMember, typing.Dict[builtins.str, typing.Any]]]]] = None,
     region: typing.Optional[builtins.str] = None,

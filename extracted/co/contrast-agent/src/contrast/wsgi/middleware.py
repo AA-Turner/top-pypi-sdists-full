@@ -101,8 +101,12 @@ class WSGIMiddleware(BaseMiddleware):
 
             webob_request = Request(environ)
             with scope.pop_contrast_scope():
-                response = webob_request.get_response(self.wsgi_app)
-                context.extract_response(response)
+                try:
+                    response = webob_request.get_response(self.wsgi_app)
+                    context.extract_response(response)
+                except Exception as exc:
+                    context.response_exception = exc
+                    raise
 
             self.postfilter(context)
             self.check_for_blocked(context)
@@ -114,12 +118,12 @@ class WSGIMiddleware(BaseMiddleware):
             if context.assess_enabled:
                 contrast.STRING_TRACKER.ageoff()
 
+    @scope.contrast_scope()
     def call_without_agent(self, environ, start_response):
         """
         Normal without middleware call
         """
-        with scope.contrast_scope():
-            return self.wsgi_app(environ, start_response)
+        return self.wsgi_app(environ, start_response)
 
     @cached_property
     def trigger_node(self):

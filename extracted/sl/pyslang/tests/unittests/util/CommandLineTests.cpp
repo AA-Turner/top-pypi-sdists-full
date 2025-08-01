@@ -460,7 +460,11 @@ TEST_CASE("Test CommandLine -- file names") {
 
     CHECK(cmdLine.parse("prog +foo+../something/bar/baz"));
 
+    // On WASI, it is not possible to expand a path starting with `..` into
+    // an absolute path.
+#if !defined(__wasi__)
     CHECK(fs::path(*foo).is_absolute());
+#endif
 }
 
 TEST_CASE("Test CommandLine -- ignore duplicates") {
@@ -499,16 +503,24 @@ TEST_CASE("Test CommandLine -- check setIgnoreCommand()") {
 TEST_CASE("Test CommandLine -- check setRenameCommand()") {
     std::optional<int32_t> foo;
     std::optional<int32_t> bar;
+    std::vector<std::string> ext;
+    std::vector<std::string> biz;
 
     CommandLine cmdLine;
     cmdLine.add("--foo", foo, "");
     cmdLine.add("--bar", bar, "");
+    cmdLine.add("--ext", ext, "");
+    cmdLine.add("+biz", biz, "");
     cmdLine.addRenameCommand("--xxx,--foo");
     cmdLine.addRenameCommand("--yyy,--bar");
+    cmdLine.addRenameCommand("+ext,--ext");
+    cmdLine.addRenameCommand("--qqq,+biz");
 
-    CHECK(cmdLine.parse("prog --xxx 123 --yyy=456"));
+    CHECK(cmdLine.parse("prog --xxx 123 --yyy=456 +ext+lib+v --qqq=asdf --qqq=qwerty"));
     CHECK(foo == 123);
     CHECK(bar == 456);
+    CHECK(ext == std::vector<std::string>{"lib", "v"});
+    CHECK(biz == std::vector<std::string>{"asdf", "qwerty"});
 
     auto errors = cmdLine.getErrors();
     REQUIRE(errors.empty());

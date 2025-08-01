@@ -91,14 +91,8 @@ void VariableDeclStatement::serializeTo(ASTSerializer& serializer) const {
 Statement& ExpressionStatement::fromSyntax(Compilation& compilation,
                                            const ExpressionStatementSyntax& syntax,
                                            const ASTContext& context, StatementContext& stmtCtx) {
-    bitmask<ASTFlags> extraFlags = ASTFlags::AssignmentAllowed | ASTFlags::TopLevelStatement;
-    if (stmtCtx.flags.has(StatementFlags::InForLoop) &&
-        BinaryExpressionSyntax::isKind(syntax.expr->kind) &&
-        !compilation.hasFlag(CompilationFlags::StrictDriverChecking)) {
-        extraFlags |= ASTFlags::NotADriver;
-    }
-
-    auto& expr = Expression::bind(*syntax.expr, context, extraFlags);
+    auto& expr = Expression::bind(*syntax.expr, context,
+                                  ASTFlags::AssignmentAllowed | ASTFlags::TopLevelStatement);
     auto result = compilation.emplace<ExpressionStatement>(expr, syntax.sourceRange());
     if (expr.bad())
         return badStmt(compilation, result);
@@ -333,10 +327,18 @@ Statement& ConcurrentAssertionStatement::fromSyntax(
         return badStmt(compilation, nullptr);
     }
 
+    AssertionKind assertKind = SemanticFacts::getAssertKind(syntax.kind);
+
+    auto proc = context.getProceduralBlock();
+    if (assertKind != AssertionKind::Expect &&
+        (!proc || proc->procedureKind == ProceduralBlockKind::Final)) {
+        context.addDiag(diag::ConcurrentAssertNotInProc, syntax.sourceRange());
+        return badStmt(compilation, nullptr);
+    }
+
     ASTContext ctx = context;
     ctx.clearInstanceAndProc();
 
-    AssertionKind assertKind = SemanticFacts::getAssertKind(syntax.kind);
     auto& prop = AssertionExpr::bind(*syntax.propertySpec, ctx);
     bool bad = prop.bad();
 
@@ -500,14 +502,17 @@ void WaitOrderStatement::serializeTo(ASTSerializer& serializer) const {
 Statement& EventTriggerStatement::fromSyntax(Compilation& compilation,
                                              const EventTriggerStatementSyntax& syntax,
                                              const ASTContext& context, StatementContext& stmtCtx) {
-    auto& target = Expression::bindLValue(*syntax.name, context);
-    if (target.bad())
+    auto& target = Expression::bind(*syntax.name, context);
+    if (target.bad() || !target.requireLValue(context))
         return badStmt(compilation, nullptr);
 
     if (!target.type->isEvent()) {
         context.addDiag(diag::NotAnEvent, syntax.name->sourceRange());
         return badStmt(compilation, nullptr);
     }
+
+    if (auto sym = target.getSymbolReference())
+        compilation.noteReference(*sym, /* isLValue */ true);
 
     const TimingControl* timing = nullptr;
     if (syntax.timing) {
@@ -537,11 +542,10 @@ static bool isValidAssignLVal(const Expression& expr) {
     switch (expr.kind) {
         case ExpressionKind::NamedValue:
         case ExpressionKind::HierarchicalValue:
-            if (auto sym = expr.getSymbolReference()) {
-                if (!VariableSymbol::isKind(sym->kind))
-                    return false;
-            }
-            return true;
+        case ExpressionKind::Assignment:
+            if (auto sym = expr.getSymbolReference())
+                return VariableSymbol::isKind(sym->kind);
+            return false;
         case ExpressionKind::Concatenation:
             for (auto op : expr.as<ConcatenationExpression>().operands()) {
                 if (!isValidAssignLVal(*op))
@@ -577,6 +581,12 @@ static bool isValidForceLVal(const Expression& expr, const ASTContext& context, 
                     return false;
             }
             return true;
+        case ExpressionKind::Assignment: {
+            auto& assign = expr.as<AssignmentExpression>();
+            if (assign.isLValueArg())
+                return isValidForceLVal(assign.left(), context, inSelect);
+            return false;
+        }
         default:
             return false;
     }
@@ -586,13 +596,8 @@ Statement& ProceduralAssignStatement::fromSyntax(Compilation& compilation,
                                                  const ProceduralAssignStatementSyntax& syntax,
                                                  const ASTContext& context) {
     bool isForce = syntax.keyword.kind == TokenKind::ForceKeyword;
-    bitmask<ASTFlags> astFlags = ASTFlags::NonProcedural | ASTFlags::AssignmentAllowed;
-    if (isForce)
-        astFlags |= ASTFlags::ProceduralForceRelease;
-    else
-        astFlags |= ASTFlags::ProceduralAssign;
-
-    auto& assign = Expression::bind(*syntax.expr, context, astFlags);
+    auto& assign = Expression::bind(*syntax.expr, context,
+                                    ASTFlags::NonProcedural | ASTFlags::AssignmentAllowed);
     auto result = compilation.emplace<ProceduralAssignStatement>(assign, isForce,
                                                                  syntax.sourceRange());
     if (assign.bad())
@@ -630,13 +635,13 @@ void ProceduralAssignStatement::serializeTo(ASTSerializer& serializer) const {
 Statement& ProceduralDeassignStatement::fromSyntax(Compilation& compilation,
                                                    const ProceduralDeassignStatementSyntax& syntax,
                                                    const ASTContext& context) {
-    auto ctx = context.resetFlags(ASTFlags::NonProcedural | ASTFlags::ProceduralForceRelease);
-    auto& lvalue = Expression::bindLValue(*syntax.variable, ctx);
+    auto ctx = context.resetFlags(ASTFlags::NonProcedural);
+    auto& lvalue = Expression::bind(*syntax.variable, ctx);
 
     bool isRelease = syntax.keyword.kind == TokenKind::ReleaseKeyword;
     auto result = compilation.emplace<ProceduralDeassignStatement>(lvalue, isRelease,
                                                                    syntax.sourceRange());
-    if (lvalue.bad())
+    if (lvalue.bad() || !lvalue.requireLValue(ctx))
         return badStmt(compilation, result);
 
     if (isRelease) {
@@ -704,9 +709,13 @@ void RandCaseStatement::serializeTo(ASTSerializer& serializer) const {
     serializer.endArray();
 }
 
-Statement& RandSequenceStatement::fromSyntax(Compilation& compilation,
+Statement& RandSequenceStatement::fromSyntax(Compilation& comp,
                                              const RandSequenceStatementSyntax& syntax,
                                              const ASTContext& context) {
+    SmallVector<const RandSeqProductionSymbol*> productions;
+    for (auto& prod : context.scope->membersOfType<RandSeqProductionSymbol>())
+        productions.push_back(&prod);
+
     SourceRange firstProdRange;
     const RandSeqProductionSymbol* firstProd = nullptr;
     if (syntax.firstProduction) {
@@ -714,23 +723,21 @@ Statement& RandSequenceStatement::fromSyntax(Compilation& compilation,
         firstProd = RandSeqProductionSymbol::findProduction(syntax.firstProduction.valueText(),
                                                             firstProdRange, context);
     }
-    else {
-        auto prodRange = context.scope->membersOfType<RandSeqProductionSymbol>();
-        if (prodRange.begin() != prodRange.end()) {
-            firstProd = &*prodRange.begin();
-            firstProdRange = {syntax.randsequence.location(), syntax.closeParen.range().end()};
-        }
+    else if (!productions.empty()) {
+        firstProd = productions[0];
+        firstProdRange = {syntax.randsequence.location(), syntax.closeParen.range().end()};
     }
 
     if (firstProd) {
         // Make sure the first production doesn't require arguments.
         SmallVector<const Expression*> args;
         CallExpression::bindArgs(nullptr, firstProd->arguments, firstProd->name, firstProdRange,
-                                 context, args, /* isBuiltInMethod */ false);
+                                 context, args);
     }
 
     // All of the logic for creating productions is in the RandSeqProduction symbol.
-    return *compilation.emplace<RandSequenceStatement>(firstProd, syntax.sourceRange());
+    return *comp.emplace<RandSequenceStatement>(firstProd, productions.copy(comp),
+                                                syntax.sourceRange());
 }
 
 ER RandSequenceStatement::evalImpl(EvalContext& context) const {
@@ -745,7 +752,19 @@ void RandSequenceStatement::serializeTo(ASTSerializer& serializer) const {
 
 Statement& ProceduralCheckerStatement::fromSyntax(Compilation& comp,
                                                   const CheckerInstanceStatementSyntax& syntax,
-                                                  const ASTContext& context) {
+                                                  const ASTContext& context,
+                                                  StatementContext& stmtCtx) {
+    auto proc = context.getProceduralBlock();
+    if (!proc || proc->procedureKind == ProceduralBlockKind::Final) {
+        context.addDiag(diag::CheckerNotInProc, syntax.sourceRange());
+        return badStmt(comp, nullptr);
+    }
+
+    if (stmtCtx.flags.has(StatementFlags::InForkJoin)) {
+        context.addDiag(diag::CheckerInForkJoin, syntax.sourceRange());
+        return badStmt(comp, nullptr);
+    }
+
     // Find all of the checkers that were pre-created for this syntax node.
     // It's possible to not find them if there were errors in the declaration,
     // so we don't issue errors here -- they are already handled.

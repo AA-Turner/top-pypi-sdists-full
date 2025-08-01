@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.8.0
+Version: 1.9.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.9
@@ -20,6 +20,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: Apache Software License
 License-File: LICENSE
 Requires-Dist: PyYAML>=6.0.2
+Requires-Dist: absolufy-imports>=0.3.1
 Requires-Dist: anyio>=4.9.0;python_version>='3.10'
 Requires-Dist: authlib>=1.5.1
 Requires-Dist: click>=8.1.8
@@ -47,7 +48,7 @@ Requires-Dist: tzlocal>=5.3
 Requires-Dist: uvicorn>=0.34.0
 Requires-Dist: watchdog>=6.0.0
 Requires-Dist: websockets>=15.0.1
-Requires-Dist: a2a-sdk>=0.2.11 ; extra == "a2a" and (python_version>='3.10')
+Requires-Dist: a2a-sdk>=0.2.16,<0.3.0 ; extra == "a2a" and (python_version>='3.10')
 Requires-Dist: flit>=3.10.0 ; extra == "dev"
 Requires-Dist: isort>=6.0.0 ; extra == "dev"
 Requires-Dist: mypy>=1.15.0 ; extra == "dev"
@@ -232,6 +233,10 @@ adk eval \
 We welcome contributions from the community! Whether it's bug reports, feature requests, documentation improvements, or code contributions, please see our
 - [General contribution guideline and flow](https://google.github.io/adk-docs/contributing-guide/).
 - Then if you want to contribute code, please read [Code Contributing Guidelines](./CONTRIBUTING.md) to get started.
+
+## Vibe Coding
+
+If you are to develop agent via vibe coding the [llms.txt](./llms.txt) and the [llms-full.txt](./llms-full.txt) can be used as context to LLM. While the former one is a summarized one and the later one has the full information in case your LLM has big enough context window.
 
 ## 📄 License
 

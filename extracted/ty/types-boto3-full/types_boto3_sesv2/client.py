@@ -19,13 +19,19 @@ Usage::
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListMultiRegionEndpointsPaginator
+from .paginator import (
+    ListMultiRegionEndpointsPaginator,
+    ListReputationEntitiesPaginator,
+    ListResourceTenantsPaginator,
+    ListTenantResourcesPaginator,
+    ListTenantsPaginator,
+)
 from .type_defs import (
     BatchGetMetricDataRequestTypeDef,
     BatchGetMetricDataResponseTypeDef,
@@ -48,6 +54,9 @@ from .type_defs import (
     CreateImportJobResponseTypeDef,
     CreateMultiRegionEndpointRequestTypeDef,
     CreateMultiRegionEndpointResponseTypeDef,
+    CreateTenantRequestTypeDef,
+    CreateTenantResourceAssociationRequestTypeDef,
+    CreateTenantResponseTypeDef,
     DeleteConfigurationSetEventDestinationRequestTypeDef,
     DeleteConfigurationSetRequestTypeDef,
     DeleteContactListRequestTypeDef,
@@ -60,6 +69,8 @@ from .type_defs import (
     DeleteMultiRegionEndpointRequestTypeDef,
     DeleteMultiRegionEndpointResponseTypeDef,
     DeleteSuppressedDestinationRequestTypeDef,
+    DeleteTenantRequestTypeDef,
+    DeleteTenantResourceAssociationRequestTypeDef,
     GetAccountResponseTypeDef,
     GetBlacklistReportsRequestTypeDef,
     GetBlacklistReportsResponseTypeDef,
@@ -100,8 +111,12 @@ from .type_defs import (
     GetMessageInsightsResponseTypeDef,
     GetMultiRegionEndpointRequestTypeDef,
     GetMultiRegionEndpointResponseTypeDef,
+    GetReputationEntityRequestTypeDef,
+    GetReputationEntityResponseTypeDef,
     GetSuppressedDestinationRequestTypeDef,
     GetSuppressedDestinationResponseTypeDef,
+    GetTenantRequestTypeDef,
+    GetTenantResponseTypeDef,
     ListConfigurationSetsRequestTypeDef,
     ListConfigurationSetsResponseTypeDef,
     ListContactListsRequestTypeDef,
@@ -128,10 +143,18 @@ from .type_defs import (
     ListMultiRegionEndpointsResponseTypeDef,
     ListRecommendationsRequestTypeDef,
     ListRecommendationsResponseTypeDef,
+    ListReputationEntitiesRequestTypeDef,
+    ListReputationEntitiesResponseTypeDef,
+    ListResourceTenantsRequestTypeDef,
+    ListResourceTenantsResponseTypeDef,
     ListSuppressedDestinationsRequestTypeDef,
     ListSuppressedDestinationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTenantResourcesRequestTypeDef,
+    ListTenantResourcesResponseTypeDef,
+    ListTenantsRequestTypeDef,
+    ListTenantsResponseTypeDef,
     PutAccountDedicatedIpWarmupAttributesRequestTypeDef,
     PutAccountDetailsRequestTypeDef,
     PutAccountSendingAttributesRequestTypeDef,
@@ -171,6 +194,8 @@ from .type_defs import (
     UpdateCustomVerificationEmailTemplateRequestTypeDef,
     UpdateEmailIdentityPolicyRequestTypeDef,
     UpdateEmailTemplateRequestTypeDef,
+    UpdateReputationEntityCustomerManagedStatusRequestTypeDef,
+    UpdateReputationEntityPolicyRequestTypeDef,
 )
 
 if sys.version_info >= (3, 9):
@@ -388,6 +413,26 @@ class SESV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#create_multi_region_endpoint)
         """
 
+    def create_tenant(
+        self, **kwargs: Unpack[CreateTenantRequestTypeDef]
+    ) -> CreateTenantResponseTypeDef:
+        """
+        Create a tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/create_tenant.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#create_tenant)
+        """
+
+    def create_tenant_resource_association(
+        self, **kwargs: Unpack[CreateTenantResourceAssociationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Associate a resource with a tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/create_tenant_resource_association.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#create_tenant_resource_association)
+        """
+
     def delete_configuration_set(
         self, **kwargs: Unpack[DeleteConfigurationSetRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -495,6 +540,24 @@ class SESV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/delete_suppressed_destination.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#delete_suppressed_destination)
+        """
+
+    def delete_tenant(self, **kwargs: Unpack[DeleteTenantRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Delete an existing tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/delete_tenant.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#delete_tenant)
+        """
+
+    def delete_tenant_resource_association(
+        self, **kwargs: Unpack[DeleteTenantResourceAssociationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Delete an association between a tenant and a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/delete_tenant_resource_association.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#delete_tenant_resource_association)
         """
 
     def get_account(self) -> GetAccountResponseTypeDef:
@@ -719,6 +782,18 @@ class SESV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_multi_region_endpoint)
         """
 
+    def get_reputation_entity(
+        self, **kwargs: Unpack[GetReputationEntityRequestTypeDef]
+    ) -> GetReputationEntityResponseTypeDef:
+        """
+        Retrieve information about a specific reputation entity, including its
+        reputation management policy, customer-managed status, Amazon Web Services
+        Amazon SES-managed status, and aggregate sending status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_reputation_entity.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_reputation_entity)
+        """
+
     def get_suppressed_destination(
         self, **kwargs: Unpack[GetSuppressedDestinationRequestTypeDef]
     ) -> GetSuppressedDestinationResponseTypeDef:
@@ -728,6 +803,15 @@ class SESV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_suppressed_destination.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_suppressed_destination)
+        """
+
+    def get_tenant(self, **kwargs: Unpack[GetTenantRequestTypeDef]) -> GetTenantResponseTypeDef:
+        """
+        Get information about a specific tenant, including the tenant's name, ID, ARN,
+        creation timestamp, tags, and sending status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_tenant.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_tenant)
         """
 
     def list_configuration_sets(
@@ -868,6 +952,27 @@ class SESV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_recommendations)
         """
 
+    def list_reputation_entities(
+        self, **kwargs: Unpack[ListReputationEntitiesRequestTypeDef]
+    ) -> ListReputationEntitiesResponseTypeDef:
+        """
+        List reputation entities in your Amazon SES account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_reputation_entities.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_reputation_entities)
+        """
+
+    def list_resource_tenants(
+        self, **kwargs: Unpack[ListResourceTenantsRequestTypeDef]
+    ) -> ListResourceTenantsResponseTypeDef:
+        """
+        List all tenants associated with a specific resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_resource_tenants.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_resource_tenants)
+        """
+
     def list_suppressed_destinations(
         self, **kwargs: Unpack[ListSuppressedDestinationsRequestTypeDef]
     ) -> ListSuppressedDestinationsResponseTypeDef:
@@ -888,6 +993,27 @@ class SESV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_tags_for_resource)
+        """
+
+    def list_tenant_resources(
+        self, **kwargs: Unpack[ListTenantResourcesRequestTypeDef]
+    ) -> ListTenantResourcesResponseTypeDef:
+        """
+        List all resources associated with a specific tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_tenant_resources.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_tenant_resources)
+        """
+
+    def list_tenants(
+        self, **kwargs: Unpack[ListTenantsRequestTypeDef]
+    ) -> ListTenantsResponseTypeDef:
+        """
+        List all tenants associated with your account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_tenants.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_tenants)
         """
 
     def put_account_dedicated_ip_warmup_attributes(
@@ -1230,9 +1356,74 @@ class SESV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#update_email_template)
         """
 
+    def update_reputation_entity_customer_managed_status(
+        self, **kwargs: Unpack[UpdateReputationEntityCustomerManagedStatusRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Update the customer-managed sending status for a reputation entity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/update_reputation_entity_customer_managed_status.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#update_reputation_entity_customer_managed_status)
+        """
+
+    def update_reputation_entity_policy(
+        self, **kwargs: Unpack[UpdateReputationEntityPolicyRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Update the reputation management policy for a reputation entity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/update_reputation_entity_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#update_reputation_entity_policy)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_multi_region_endpoints"]
     ) -> ListMultiRegionEndpointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_reputation_entities"]
+    ) -> ListReputationEntitiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resource_tenants"]
+    ) -> ListResourceTenantsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_tenant_resources"]
+    ) -> ListTenantResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_tenants"]
+    ) -> ListTenantsPaginator:
         """
         Create a paginator for an operation.
 

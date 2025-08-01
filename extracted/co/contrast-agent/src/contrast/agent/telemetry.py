@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from collections import defaultdict
 from functools import cached_property
 import hashlib
@@ -8,7 +9,6 @@ from pathlib import Path
 import queue
 import threading
 import time
-from typing import Optional
 import uuid
 import sys
 
@@ -242,7 +242,7 @@ class Telemetry(threading.Thread):
         logger.debug("Telemetry response: %s %s", response.status_code, response.reason)
         return response
 
-    def _retry_after(self, response) -> Optional[int]:
+    def _retry_after(self, response) -> int | None:
         """
         Per RFC-6585, check response status code for 429 and returns the value
         of the Retry-After present or self.RETRY_WAIT.

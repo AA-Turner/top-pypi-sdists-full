@@ -26,10 +26,10 @@ from typing import (
     Union,
     get_args,
 )
-import interegular
 import jsonschema
 from genson import SchemaBuilder
-from outlines_core.fsm.json_schema import build_regex_from_schema
+# TODO: change this once the import issue is fixed in outlines_core
+from outlines_core import outlines_core
 from pydantic import (
     BaseModel,
     GetCoreSchemaHandler,
@@ -41,6 +41,7 @@ from pydantic_core import core_schema as cs
 
 import outlines.types as types
 from outlines import grammars
+from outlines.types.json_schema_utils import preprocess_schema_for_union_types
 from outlines.types.utils import (
     get_schema_from_signature,
     is_int,
@@ -274,26 +275,6 @@ class CFG(Term):
         return cls(definition)
 
 
-@dataclass
-class FSM(Term):
-    """Class representing a finite state machine.
-
-    Parameters
-    ----------
-    fsm
-        The finite state machine to store. This object must be an instance of
-        `interegular.fsm.FSM`.
-
-    """
-    fsm: interegular.fsm.FSM
-
-    def _display_node(self) -> str:
-        return f"FSM({self.fsm.__repr__()})"
-
-    def __repr__(self):
-        return f"FSM(fsm={self.fsm.__repr__()})"
-
-
 class JsonSchema(Term):
     """Class representing a JSON schema.
 
@@ -343,7 +324,8 @@ class JsonSchema(Term):
                 + "specification"
             )
 
-        self.schema = schema_str
+        # Preprocess the schema to handle union types
+        self.schema = preprocess_schema_for_union_types(schema_str, ensure_ascii=ensure_ascii)
         self.whitespace_pattern = whitespace_pattern
 
     def __post_init__(self):
@@ -557,10 +539,6 @@ def regex(pattern: str):
 
 def cfg(definition: str):
     return CFG(definition)
-
-
-def fsm(fsm: interegular.fsm.FSM):
-    return FSM(fsm)
 
 
 def json_schema(schema: Union[str, dict, type[BaseModel]]):
@@ -824,38 +802,37 @@ def to_regex(term: Term) -> str:
         The regular expression as a string.
 
     """
-    match term:
-        case String():
-            return re.escape(term.value)
-        case Regex():
-            return f"({term.pattern})"
-        case JsonSchema():
-            regex_str = build_regex_from_schema(term.schema, term.whitespace_pattern)
-            return f"({regex_str})"
-        case Choice():
-            regexes = [to_regex(python_types_to_terms(item)) for item in term.items]
-            return f"({'|'.join(regexes)})"
-        case KleeneStar():
-            return f"({to_regex(term.term)})*"
-        case KleenePlus():
-            return f"({to_regex(term.term)})+"
-        case Optional():
-            return f"({to_regex(term.term)})?"
-        case Alternatives():
-            regexes = [to_regex(subterm) for subterm in term.terms]
-            return f"({'|'.join(regexes)})"
-        case Sequence():
-            regexes = [to_regex(subterm) for subterm in term.terms]
-            return f"{''.join(regexes)}"
-        case QuantifyExact():
-            return f"({to_regex(term.term)}){{{term.count}}}"
-        case QuantifyMinimum():
-            return f"({to_regex(term.term)}){{{term.min_count},}}"
-        case QuantifyMaximum():
-            return f"({to_regex(term.term)}){{,{term.max_count}}}"
-        case QuantifyBetween():
-            return f"({to_regex(term.term)}){{{term.min_count},{term.max_count}}}"
-        case _:
-            raise TypeError(
-                f"Cannot convert object {repr(term)} to a regular expression."
-            )
+    if isinstance(term, String):
+        return re.escape(term.value)
+    elif isinstance(term, Regex):
+        return f"({term.pattern})"
+    elif isinstance(term, JsonSchema):
+        regex_str = outlines_core.json_schema.build_regex_from_schema(term.schema, term.whitespace_pattern)
+        return f"({regex_str})"
+    elif isinstance(term, Choice):
+        regexes = [to_regex(python_types_to_terms(item)) for item in term.items]
+        return f"({'|'.join(regexes)})"
+    elif isinstance(term, KleeneStar):
+        return f"({to_regex(term.term)})*"
+    elif isinstance(term, KleenePlus):
+        return f"({to_regex(term.term)})+"
+    elif isinstance(term, Optional):
+        return f"({to_regex(term.term)})?"
+    elif isinstance(term, Alternatives):
+        regexes = [to_regex(subterm) for subterm in term.terms]
+        return f"({'|'.join(regexes)})"
+    elif isinstance(term, Sequence):
+        regexes = [to_regex(subterm) for subterm in term.terms]
+        return f"{''.join(regexes)}"
+    elif isinstance(term, QuantifyExact):
+        return f"({to_regex(term.term)}){{{term.count}}}"
+    elif isinstance(term, QuantifyMinimum):
+        return f"({to_regex(term.term)}){{{term.min_count},}}"
+    elif isinstance(term, QuantifyMaximum):
+        return f"({to_regex(term.term)}){{,{term.max_count}}}"
+    elif isinstance(term, QuantifyBetween):
+        return f"({to_regex(term.term)}){{{term.min_count},{term.max_count}}}"
+    else:
+        raise TypeError(
+            f"Cannot convert object {repr(term)} to a regular expression."
+        )

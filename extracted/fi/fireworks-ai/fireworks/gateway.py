@@ -224,11 +224,6 @@ class Gateway:
         self._api_key = api_key
         self._host = self._server_addr.split(":")[0]
         self._port = int(self._server_addr.split(":")[1])
-        try:
-            self._channel = Channel(host=self._host, port=self._port, ssl=True)
-            self._stub = GatewayStub(self._channel, metadata=[("x-api-key", api_key)])
-        except RuntimeError as e:
-            pass
 
         from fireworks import __version__
 
@@ -251,7 +246,16 @@ class Gateway:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self._channel.close()
+        self._sync_channel.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        self._sync_channel.close()
 
     def create_reinforcement_fine_tuning_job_sync(
         self, request: SyncCreateReinforcementFineTuningJobRequest

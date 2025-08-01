@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 
@@ -691,6 +691,7 @@ class CommitGraphGenerationTests(unittest.TestCase):
 
         # Verify commit graph is loaded by creating new repo instance
         repo2 = Repo(repo_path)
+        self.addCleanup(repo2.close)
         repo2.object_store = object_store
 
         # Verify commit graph is available
@@ -780,6 +781,7 @@ class CommitGraphGenerationTests(unittest.TestCase):
 
         # Create new repo instance to pick up commit graph
         repo2 = Repo(repo_path)
+        self.addCleanup(repo2.close)
         repo2.object_store = object_store
 
         # Verify commit graph is loaded

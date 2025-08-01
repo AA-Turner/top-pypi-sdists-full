@@ -28,6 +28,7 @@ from .banana_defect_detection import BananaMonitoringUseCase,BananaMonitoringCon
 from .car_damage_detection import CarDamageConfig, CarDamageDetectionUseCase
 from .price_tag_detection import PriceTagConfig, PriceTagUseCase
 from .mask_detection import MaskDetectionConfig, MaskDetectionUseCase
+from .pipeline_detection import PipelineDetectionConfig, PipelineDetectionUseCase
 from .distracted_driver_detection import DistractedDriverUseCase, DistractedDriverConfig
 from .emergency_vehicle_detection import EmergencyVehicleUseCase, EmergencyVehicleConfig
 from .solar_panel import SolarPanelUseCase, SolarPanelConfig
@@ -65,6 +66,7 @@ from .leaf import LeafConfig, LeafUseCase
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
 from .skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
 from .plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
+from .smoker_detection import SmokerDetectionConfig, SmokerDetectionUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -116,6 +118,7 @@ __all__ = [
     'LaneDetectionUseCase',
     'WindmillMaintenanceUseCase',
     'FlowerUseCase',
+    'SmokerDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -172,6 +175,7 @@ __all__ = [
     'LaneDetectionConfig',
     'WindmillMaintenanceConfig',
     'FlowerConfig',
+    'SmokerDetectionConfig',
 
 
 

@@ -26,10 +26,14 @@ __all__ = (
     "AuthenticationTypeType",
     "BrowserTypeType",
     "EnabledTypeType",
+    "EventType",
+    "FolderStructureType",
     "IdentityProviderTypeType",
     "InstanceTypeType",
     "ListDataProtectionSettingsPaginatorName",
+    "ListSessionLoggersPaginatorName",
     "ListSessionsPaginatorName",
+    "LogFileFormatType",
     "MaxDisplayResolutionType",
     "PaginatorName",
     "PortalStatusType",
@@ -50,12 +54,33 @@ __all__ = (
 AuthenticationTypeType = Literal["IAM_Identity_Center", "Standard"]
 BrowserTypeType = Literal["Chrome"]
 EnabledTypeType = Literal["Disabled", "Enabled"]
+EventType = Literal[
+    "ContentCopyFromWebsite",
+    "ContentPasteToWebsite",
+    "ContentTransferFromLocalToRemoteClipboard",
+    "FileDownloadFromSecureBrowserToRemoteDisk",
+    "FileTransferFromLocalToRemoteDisk",
+    "FileTransferFromRemoteToLocalDisk",
+    "FileUploadFromRemoteDiskToSecureBrowser",
+    "PrintJobSubmit",
+    "SessionConnect",
+    "SessionDisconnect",
+    "SessionEnd",
+    "SessionStart",
+    "TabClose",
+    "TabOpen",
+    "UrlLoad",
+    "WebsiteInteract",
+]
+FolderStructureType = Literal["Flat", "NestedByDate"]
 IdentityProviderTypeType = Literal[
     "Facebook", "Google", "LoginWithAmazon", "OIDC", "SAML", "SignInWithApple"
 ]
 InstanceTypeType = Literal["standard.large", "standard.regular", "standard.xlarge"]
 ListDataProtectionSettingsPaginatorName = Literal["list_data_protection_settings"]
+ListSessionLoggersPaginatorName = Literal["list_session_loggers"]
 ListSessionsPaginatorName = Literal["list_sessions"]
+LogFileFormatType = Literal["JSONLines", "Json"]
 MaxDisplayResolutionType = Literal[
     "size1024X768",
     "size1280X720",
@@ -501,7 +526,7 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["list_data_protection_settings", "list_sessions"]
+PaginatorName = Literal["list_data_protection_settings", "list_session_loggers", "list_sessions"]
 RegionName = Literal[
     "ap-northeast-1",
     "ap-south-1",

@@ -148,7 +148,7 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 def _make_hello_request(client_info: str) -> HelloRequest:
     """Make a HelloRequest."""
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=10
+        client_info=client_info, api_version_major=1, api_version_minor=12
     )
 
 
@@ -202,6 +202,7 @@ class APIConnection:
         "_handshake_complete",
         "_keep_alive_interval",
         "_keep_alive_timeout",
+        "_log_errors",
         "_loop",
         "_message_handlers",
         "_params",
@@ -227,6 +228,7 @@ class APIConnection:
         on_stop: Callable[[bool], None] | None,
         debug_enabled: bool,
         log_name: str | None,
+        log_errors: bool = True,
     ) -> None:
         self._params = params
         self.on_stop = on_stop
@@ -263,6 +265,7 @@ class APIConnection:
         self.received_name: str = ""
         self.connected_address: str | None = None
         self._addrs_info: list[hr.AddrInfo] = []
+        self._log_errors = log_errors
 
     def set_log_name(self, name: str) -> None:
         """Set the friendly log name for this connection."""
@@ -909,7 +912,7 @@ class APIConnection:
         This method does not log the error, the call site should do so.
         """
         if self._fatal_exception is None:
-            if self._expected_disconnect is False:
+            if self._expected_disconnect is False and self._log_errors:
                 # Only log the first error
                 log_level = (
                     logging.DEBUG
@@ -978,9 +981,10 @@ class APIConnection:
 
         if self._debug_enabled:
             _LOGGER.debug(
-                "%s: Got message of type %s: %s",
+                "%s: Got message of type %s (len=%d): %s",
                 self.log_name,
                 type(msg).__name__,
+                len(data),
                 # calling __str__ on the message may crash on
                 # Windows systems due to a bug in the protobuf library
                 # so we call MessageToDict instead

@@ -81,6 +81,8 @@ _integerMin1Max6 = int
 _integerMin1Max60000 = int
 _integerMin1Max64 = int
 _integerMin1Max8 = int
+_integerMin2000Max30000 = int
+_integerMin22050Max192000 = int
 _integerMin22050Max48000 = int
 _integerMin24Max60000 = int
 _integerMin25Max10000 = int
@@ -100,6 +102,7 @@ _integerMin4Max12 = int
 _integerMin50Max86400000 = int
 _integerMin6000Max1024000 = int
 _integerMin64000Max640000 = int
+_integerMin6Max16 = int
 _integerMin8000Max192000 = int
 _integerMin8000Max96000 = int
 _integerMin8Max12 = int
@@ -151,6 +154,7 @@ _stringMin9Max19PatternAZ26EastWestCentralNorthSouthEastWest1912 = str
 _stringPattern = str
 _stringPattern010920405090509092 = str
 _stringPattern010920405090509092090909 = str
+_stringPattern019090190908019090190908 = str
 _stringPattern01D20305D205D = str
 _stringPattern0940191020191209301 = str
 _stringPattern09aFAF809aFAF409aFAF409aFAF409aFAF12 = str
@@ -159,6 +163,7 @@ _stringPatternAZaZ0902 = str
 _stringPatternAZaZ0932 = str
 _stringPatternAZaZ23AZaZ = str
 _stringPatternAZaZ23AZaZ09 = str
+_stringPatternArnAwsAZ09EventsAZ090912ConnectionAZAZ09AF0936 = str
 _stringPatternArnAwsUsGovAcm = str
 _stringPatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932 = str
 _stringPatternDD = str
@@ -185,6 +190,7 @@ class AacCodecProfile(StrEnum):
     LC = "LC"
     HEV1 = "HEV1"
     HEV2 = "HEV2"
+    XHE = "XHE"
 
 
 class AacCodingMode(StrEnum):
@@ -193,6 +199,11 @@ class AacCodingMode(StrEnum):
     CODING_MODE_1_1 = "CODING_MODE_1_1"
     CODING_MODE_2_0 = "CODING_MODE_2_0"
     CODING_MODE_5_1 = "CODING_MODE_5_1"
+
+
+class AacLoudnessMeasurementMode(StrEnum):
+    PROGRAM = "PROGRAM"
+    ANCHOR = "ANCHOR"
 
 
 class AacRateControlMode(StrEnum):
@@ -817,6 +828,7 @@ class Codec(StrEnum):
     AV1 = "AV1"
     AVC = "AVC"
     HEVC = "HEVC"
+    JPEG2000 = "JPEG2000"
     MJPEG = "MJPEG"
     MP4V = "MP4V"
     MPEG2 = "MPEG2"
@@ -1300,6 +1312,7 @@ class Format(StrEnum):
     quicktime = "quicktime"
     matroska = "matroska"
     webm = "webm"
+    mxf = "mxf"
 
 
 class FrameMetricType(StrEnum):
@@ -2725,6 +2738,12 @@ class StatusUpdateInterval(StrEnum):
     SECONDS_600 = "SECONDS_600"
 
 
+class TamsGapHandling(StrEnum):
+    SKIP_GAPS = "SKIP_GAPS"
+    FILL_WITH_BLACK = "FILL_WITH_BLACK"
+    HOLD_LAST_FRAME = "HOLD_LAST_FRAME"
+
+
 class TeletextPageType(StrEnum):
     PAGE_TYPE_INITIAL = "PAGE_TYPE_INITIAL"
     PAGE_TYPE_SUBTITLE = "PAGE_TYPE_SUBTITLE"
@@ -3188,10 +3207,13 @@ class AacSettings(TypedDict, total=False):
     Bitrate: Optional[_integerMin6000Max1024000]
     CodecProfile: Optional[AacCodecProfile]
     CodingMode: Optional[AacCodingMode]
+    LoudnessMeasurementMode: Optional[AacLoudnessMeasurementMode]
+    RapInterval: Optional[_integerMin2000Max30000]
     RateControlMode: Optional[AacRateControlMode]
     RawFormat: Optional[AacRawFormat]
     SampleRate: Optional[_integerMin8000Max96000]
     Specification: Optional[AacSpecification]
+    TargetLoudnessRange: Optional[_integerMin6Max16]
     VbrQuality: Optional[AacVbrQuality]
 
 
@@ -3339,7 +3361,7 @@ class FlacSettings(TypedDict, total=False):
 
     BitDepth: Optional[_integerMin16Max24]
     Channels: Optional[_integerMin1Max8]
-    SampleRate: Optional[_integerMin22050Max48000]
+    SampleRate: Optional[_integerMin22050Max192000]
 
 
 class Eac3Settings(TypedDict, total=False):
@@ -5625,6 +5647,26 @@ class InputVideoGenerator(TypedDict, total=False):
     SampleRate: Optional[_integerMin32000Max48000]
 
 
+class InputTamsSettings(TypedDict, total=False):
+    """Specify a Time Addressable Media Store (TAMS) server as an input source.
+    TAMS is an open-source API specification that provides access to
+    time-segmented media content. Use TAMS to retrieve specific time ranges
+    from live or archived media streams. When you specify TAMS settings,
+    MediaConvert connects to your TAMS server, retrieves the media segments
+    for your specified time range, and processes them as a single input.
+    This enables workflows like extracting clips from live streams or
+    processing specific portions of archived content. To use TAMS, you must:
+    1. Have access to a TAMS-compliant server 2. Specify the server URL in
+    the Input file URL field 3. Provide the required SourceId and Timerange
+    parameters 4. Configure authentication, if your TAMS server requires it
+    """
+
+    AuthConnectionArn: Optional[_stringPatternArnAwsAZ09EventsAZ090912ConnectionAZAZ09AF0936]
+    GapHandling: Optional[TamsGapHandling]
+    SourceId: Optional[_string]
+    Timerange: Optional[_stringPattern019090190908019090190908]
+
+
 _listOf__stringPatternS3ASSETMAPXml = List[_stringPatternS3ASSETMAPXml]
 
 
@@ -5711,6 +5753,7 @@ class Input(TypedDict, total=False):
     ProgramNumber: Optional[_integerMin1Max2147483647]
     PsiControl: Optional[InputPsiControl]
     SupplementalImps: Optional[_listOf__stringPatternS3ASSETMAPXml]
+    TamsSettings: Optional[InputTamsSettings]
     TimecodeSource: Optional[InputTimecodeSource]
     TimecodeStart: Optional[_stringMin11Max11Pattern01D20305D205D]
     VideoGenerator: Optional[InputVideoGenerator]

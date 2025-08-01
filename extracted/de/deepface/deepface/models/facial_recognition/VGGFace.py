@@ -1,8 +1,11 @@
+# built-in dependencies
 from typing import List
-import os
-import gdown
+
+# 3rd party dependencies
 import numpy as np
-from deepface.commons import package_utils, folder_utils
+
+# project dependencies
+from deepface.commons import package_utils, weight_utils
 from deepface.modules import verification
 from deepface.models.FacialRecognition import FacialRecognition
 from deepface.commons.logger import Logger
@@ -35,6 +38,11 @@ else:
 
 # ---------------------------------------
 
+WEIGHTS_URL = (
+    "https://github.com/serengil/deepface_models/releases/download/v1.0/vgg_face_weights.h5"
+)
+
+
 # pylint: disable=too-few-public-methods
 class VggFaceClient(FacialRecognition):
     """
@@ -50,8 +58,7 @@ class VggFaceClient(FacialRecognition):
     def forward(self, img: np.ndarray) -> List[float]:
         """
         Generates embeddings using the VGG-Face model.
-            This method incorporates an additional normalization layer,
-            necessitating the override of the forward method.
+            This method incorporates an additional normalization layer.
 
         Args:
             img (np.ndarray): pre-loaded image in BGR
@@ -63,8 +70,11 @@ class VggFaceClient(FacialRecognition):
 
         # having normalization layer in descriptor troubles for some gpu users (e.g. issue 957, 966)
         # instead we are now calculating it with traditional way not with keras backend
-        embedding = self.model(img, training=False).numpy()[0].tolist()
-        embedding = verification.l2_normalize(embedding)
+        embedding = super().forward(img)
+        if isinstance(embedding, list) and len(embedding) > 0 and isinstance(embedding[0], list):
+            embedding = verification.l2_normalize(embedding, axis=1)
+        else:
+            embedding = verification.l2_normalize(embedding)
         return embedding.tolist()
 
 
@@ -123,7 +133,7 @@ def base_model() -> Sequential:
 
 
 def load_model(
-    url="https://github.com/serengil/deepface_models/releases/download/v1.0/vgg_face_weights.h5",
+    url=WEIGHTS_URL,
 ) -> Model:
     """
     Final VGG-Face model being used for finding embeddings
@@ -133,14 +143,11 @@ def load_model(
 
     model = base_model()
 
-    home = folder_utils.get_deepface_home()
-    output = os.path.join(home, ".deepface/weights/vgg_face_weights.h5")
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="vgg_face_weights.h5", source_url=url
+    )
 
-    if not os.path.isfile(output):
-        logger.info(f"{os.path.basename(output)} will be downloaded...")
-        gdown.download(url, output, quiet=False)
-
-    model.load_weights(output)
+    model = weight_utils.load_model_weights(model=model, weight_file=weight_file)
 
     # 2622d dimensional model
     # vgg_face_descriptor = Model(inputs=model.layers[0].input, outputs=model.layers[-2].output)
@@ -149,12 +156,11 @@ def load_model(
     # - softmax causes underfitting
     # - added normalization layer to avoid underfitting with euclidean
     # as described here: https://github.com/serengil/deepface/issues/944
-    base_model_output = Sequential()
     base_model_output = Flatten()(model.layers[-5].output)
     # keras backend's l2 normalization layer troubles some gpu users (e.g. issue 957, 966)
     # base_model_output = Lambda(lambda x: K.l2_normalize(x, axis=1), name="norm_layer")(
     #     base_model_output
     # )
-    vgg_face_descriptor = Model(inputs=model.input, outputs=base_model_output)
+    vgg_face_descriptor = Model(inputs=model.layers[0].input, outputs=base_model_output)
 
     return vgg_face_descriptor

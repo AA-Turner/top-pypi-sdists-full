@@ -417,6 +417,7 @@ class VerificationStatus(StrEnum):
 class WarmupStatus(StrEnum):
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
 
 
 class AccountSuspendedException(ServiceException):

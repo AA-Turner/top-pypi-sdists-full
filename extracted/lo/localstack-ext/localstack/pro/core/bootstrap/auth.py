@@ -7,7 +7,7 @@ import base64,getpass,json,logging,sys,time
 from typing import Any,Dict,Optional,Tuple,Union
 import jwt
 from localstack.constants import API_ENDPOINT
-from localstack.pro.core import config as config_ext
+from localstack.pro.core import config as pro_config
 from localstack.pro.core.bootstrap.licensingv2 import ApiKeyCredentials,get_credentials_from_environment
 from localstack.pro.core.bootstrap.licensingv2 import AuthToken as LSAuthToken
 from localstack.pro.core.constants import VERSION
@@ -45,7 +45,7 @@ class AuthClient:
 		if not B:B=getpass.getpass()
 		return A,B,{}
 	def _api_url(A,path):return f"{API_ENDPOINT}{path}"
-def get_auth_cache():return FileMappedDocument(config_ext.AUTH_CACHE_PATH,mode=384)
+def get_auth_cache():return FileMappedDocument(pro_config.AUTH_CACHE_PATH,mode=384)
 def login(username=_A,password=_A):
 	B=password;A=username;C=AuthClient();A,B,F=C.read_credentials(A,B);print('Verifying credentials ... (this may take a few moments)');D=C.get_auth_token(A,B,F)
 	if not D:raise Exception('Unable to verify login credentials - please try again')

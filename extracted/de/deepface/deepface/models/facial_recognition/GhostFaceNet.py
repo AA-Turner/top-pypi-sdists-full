@@ -1,12 +1,8 @@
-# built-in dependencies
-import os
-
 # 3rd party dependencies
-import gdown
 import tensorflow as tf
 
 # project dependencies
-from deepface.commons import package_utils, folder_utils
+from deepface.commons import package_utils, weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
 from deepface.commons.logger import Logger
 
@@ -52,7 +48,7 @@ else:
 
 
 # pylint: disable=line-too-long, too-few-public-methods, no-else-return, unsubscriptable-object, comparison-with-callable
-PRETRAINED_WEIGHTS = "https://github.com/HamadYA/GhostFaceNets/releases/download/v1.2/GhostFaceNet_W1.3_S1_ArcFace.h5"
+WEIGHTS_URL = "https://github.com/HamadYA/GhostFaceNets/releases/download/v1.2/GhostFaceNet_W1.3_S1_ArcFace.h5"
 
 
 class GhostFaceNetClient(FacialRecognition):
@@ -74,15 +70,11 @@ class GhostFaceNetClient(FacialRecognition):
 def load_model():
     model = GhostFaceNetV1()
 
-    home = folder_utils.get_deepface_home()
-    output = os.path.join(home, ".deepface/weights/ghostfacenet_v1.h5")
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="ghostfacenet_v1.h5", source_url=WEIGHTS_URL
+    )
 
-    if not os.path.isfile(output):
-        logger.info(f"Pre-trained weights is downloaded from {PRETRAINED_WEIGHTS} to {output}")
-        gdown.download(PRETRAINED_WEIGHTS, output, quiet=False)
-        logger.info(f"Pre-trained weights is just downloaded to {output}")
-
-    model.load_weights(output)
+    model = weight_utils.load_model_weights(model=model, weight_file=weight_file)
 
     return model
 

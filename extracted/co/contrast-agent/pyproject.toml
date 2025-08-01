@@ -65,22 +65,39 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-extend-select = [
+select = [
     "B",
+    "DJ",
     "E",
+    "F",
+    "NPY",
+    "PD",
     "PERF",
+    "PIE",
     "PLC",
     "PLE",
+    "PLR",
+    "PT",
+    "SIM",
     "UP",
     "W",
-    # we may want to add these eventually
-    # "PLW",
+    "FA",
+# we may want to add these eventually
     # "RUF",
     # "RET",
+    # "ANN",
 ]
 ignore = [
-  "E501",  # Line too long (we may want to remove this eventually)
-  "PLC0415", # import-outside-top-level (late imports are useful for testing with instrumentation)
+    # checks we want eventually, when there's more time:
+
+    "E501",  # Line too long
+    "PT011",  # set `match` param in `pytest.raises`
+
+    # checks we probably never want:
+
+    "PLC0415", # import-outside-top-level (late imports are useful for testing with instrumentation)
+    "PLR09",  # category of "too many *" checks such as "too many arguments", etc
+    "PLR2004", # magic value used in comparison
 ]
 
 

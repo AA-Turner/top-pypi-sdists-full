@@ -51,6 +51,7 @@ from .usecases import (
     ParkingUseCase,
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
+    PipelineDetectionUseCase,
     PedestrianDetectionUseCase,
     ChickenPoseDetectionUseCase,
     TheftDetectionUseCase,
@@ -82,6 +83,7 @@ from .usecases import (
     CarPartSegmentationUseCase,
     WindmillMaintenanceUseCase,
     FlowerUseCase,
+    SmokerDetectionUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -171,10 +173,11 @@ class PostProcessor:
         registry.register_use_case("parking_space", "parking_space_detection", ParkingSpaceUseCase)
         registry.register_use_case("environmental", "underwater_pollution_detection", UnderwaterPlasticUseCase)
         registry.register_use_case("pedestrian", "pedestrian_detection", PedestrianDetectionUseCase)  
-        registry.register_use_case("security", "age_detection", AgeDetectionUseCase)
+        registry.register_use_case("general", "age_detection", AgeDetectionUseCase)
         registry.register_use_case("weld", "weld_defect_detection", WeldDefectUseCase)
         registry.register_use_case("price_tag", "price_tag_detection", PriceTagUseCase)
         registry.register_use_case("mask_detection", "mask_detection", MaskDetectionUseCase)
+        registry.register_use_case("pipeline_detection", "pipeline_detection", PipelineDetectionUseCase)
         registry.register_use_case("automobile", "distracted_driver_detection", DistractedDriverUseCase)
         registry.register_use_case("traffic", "emergency_vehicle_detection", EmergencyVehicleUseCase)
         registry.register_use_case("energy", "solar_panel", SolarPanelUseCase)
@@ -202,6 +205,7 @@ class PostProcessor:
         registry.register_use_case("agriculture", "flower_segmentation", FlowerUseCase)
         registry.register_use_case("general", "parking_det", ParkingUseCase)
         registry.register_use_case("agriculture", "leaf_det", LeafUseCase)
+        registry.register_use_case("general", "smoker_detection", SmokerDetectionUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
@@ -316,6 +320,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, PriceTagUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, AgeDetectionUSeCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, GenderDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FashionDetectionUseCase):
@@ -352,8 +358,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, LeafUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-
-            
+            elif isinstance(use_case, SmokerDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
 
             
             #Put all IMAGE based usecases here

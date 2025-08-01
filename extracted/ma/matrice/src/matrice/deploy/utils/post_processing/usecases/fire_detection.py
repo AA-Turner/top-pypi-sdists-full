@@ -28,14 +28,14 @@ from ..utils import (
 
 
 # ======================
-# 🔧 Config Definition
+# Config Definition
 # ======================
 
 
 
 @dataclass
 class FireSmokeConfig(BaseConfig):
-    confidence_threshold: float = 0.5
+    confidence_threshold: float = 0.3
 
     # Only fire and smoke categories included here (exclude normal)
     fire_smoke_categories: List[str] = field(
@@ -61,6 +61,7 @@ class FireSmokeConfig(BaseConfig):
     smoothing_window_size: int = 5
     smoothing_cooldown_frames: int = 10
     smoothing_confidence_range_factor: float = 0.2
+    threshold_area: Optional[float] = 307200.0
 
     def __post_init__(self):
         if not (0.0 <= self.confidence_threshold <= 1.0):
@@ -80,57 +81,14 @@ class FireSmokeUseCase(BaseProcessor):
     def __init__(self):
         super().__init__("fire_smoke_detection")
         self.category = "hazard"
+        self.CASE_TYPE: Optional[str] = 'fire_smoke_detection'
+        self.CASE_VERSION: Optional[str] = '1.3'
+
         self.smoothing_tracker = None  # Required for bbox smoothing
         self._fire_smoke_recent_history = []
 
-    def get_config_schema(self) -> Dict[str, Any]:
-        """Get configuration schema for fire and smoke detection."""
-        return {
-            "type": "object",
-            "properties": {
-                "confidence_threshold": {
-                    "type": "number",
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "default": 0.5,
-                    "description": "Minimum confidence threshold for detections",
-                },
-                "fire_smoke_categories": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "default": ["Fire", "Smoke"],
-                    "description": "Category names that represent fire and smoke",
-                },
-                "index_to_category": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                    "description": "Mapping from category indices to names",
-                },
-                "alert_config": {
-                    "type": "object",
-                    "properties": {
-                        "count_thresholds": {
-                            "type": "object",
-                            "additionalProperties": {"type": "integer", "minimum": 1},
-                            "description": "Count thresholds for alerts",
-                        }
-                    },
-                },
-            },
-            "required": ["confidence_threshold"],
-            "additionalProperties": False,
-        }
-
-    def create_default_config(self, **overrides) -> FireSmokeConfig:
-        """Create default configuration with optional overrides."""
-        defaults = {
-            "category": self.category,
-            "usecase": self.name,
-            "confidence_threshold": 0.5,
-            "fire_smoke_categories": ["Fire", "Smoke"],
-        }
-        defaults.update(overrides)
-        return FireSmokeConfig(**defaults)
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
 
     def process(
             self,
@@ -203,20 +161,10 @@ class FireSmokeUseCase(BaseProcessor):
             fire_smoke_summary = self._calculate_fire_smoke_summary(processed_data, config)
             general_summary = calculate_counting_summary(processed_data)
 
-            # Step 5: Insights & alerts
-            insights = self._generate_insights(fire_smoke_summary, config)
-            alerts = self._check_alerts(fire_smoke_summary, config)
-
-            # Step 6: Metrics
-            metrics = self._calculate_metrics(fire_smoke_summary, config, context)
-
-            # Step 7: Predictions
+            # Step 5: Predictions
             predictions = self._extract_predictions(processed_data, config)
 
-            # Step 8: Human-readable summary
-            summary_text = self._generate_summary(fire_smoke_summary, general_summary, alerts)
-
-            # Step 9: Frame number extraction
+            # Step 6: Frame number extraction
             frame_number = None
             if stream_info:
                 input_settings = stream_info.get("input_settings", {})
@@ -227,38 +175,45 @@ class FireSmokeUseCase(BaseProcessor):
                 elif start_frame is not None:
                     frame_number = start_frame
 
-            # Step 10: Events and tracking stats
-            events_dict = self._generate_events(fire_smoke_summary, alerts, config, frame_number=frame_number)
-            tracking_stats_dict = self._generate_tracking_stats(
-                fire_smoke_summary, insights, summary_text, config,
+             # Step 7: alerts
+            alerts = self._check_alerts(fire_smoke_summary, frame_number, config, stream_info)
+
+
+            # Step 8: Incidents and tracking stats
+            incidents_list = self._generate_incidents(fire_smoke_summary, alerts, config, frame_number=frame_number, stream_info=stream_info)
+            tracking_stats_list = self._generate_tracking_stats(
+                fire_smoke_summary, alerts, config,
                 frame_number=frame_number,
                 stream_info=stream_info
             )
+            business_analytics_list = self._generate_business_analytics(fire_smoke_summary, alerts, config, stream_info, is_empty=True)
+
+             # Step 9: Human-readable summary
+            summary_list = self._generate_summary(fire_smoke_summary, general_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
 
             # Finalize context and return result
             context.processing_time = time.time() - start_time
+            # Extract frame-based dictionaries from the lists
+            incidents = incidents_list[0] if incidents_list else {}
+            tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+            business_analytics = business_analytics_list[0] if business_analytics_list else {}
+            summary = summary_list[0] if summary_list else {}
+            agg_summary = {str(frame_number): {
+                            "incidents": incidents,
+                            "tracking_stats": tracking_stats,
+                            "business_analytics": business_analytics,
+                            "alerts": alerts,
+                            "human_text": summary}
+                          }
+       
             context.mark_completed()
 
             result = self.create_result(
-                data={
-                    "fire_smoke_summary": fire_smoke_summary,
-                    "general_counting_summary": general_summary,
-                    "alerts": alerts,
-                    "total_fire_smoke_detections": fire_smoke_summary.get("total_objects", 0),
-                    "total_fire_detections": fire_smoke_summary.get("by_category", {}).get("fire", 0),
-                    "total_smoke_detections": fire_smoke_summary.get("by_category", {}).get("smoke", 0),
-                    "events": events_dict,
-                    "tracking_stats": tracking_stats_dict,
-                },
-                usecase=self.name,
-                category=self.category,
-                context=context,
-            )
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context)
 
-            result.summary = summary_text
-            result.insights = insights
-            result.predictions = predictions
-            result.metrics = metrics
             return result
 
 
@@ -272,7 +227,350 @@ class FireSmokeUseCase(BaseProcessor):
                 context=context,
             )
 
-    # ==== 🔍 Internal Utilities ====
+    # ==== Internal Utilities ====
+    def _check_alerts(
+            self, summary: Dict, frame_number:Any, config: FireSmokeConfig, stream_info: Optional[Dict[str, Any]] = None
+    ) -> List[Dict]:
+        """Raise alerts if fire or smoke detected with severity based on intensity."""
+        def get_trend(data, lookback=900, threshold=0.6):
+            '''
+            Determine if the trend is ascending or descending based on actual value progression.
+            Now works with values 0,1,2,3 (not just binary).
+            '''
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True  # not enough data to determine trend
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            ratio = increasing / total
+            if ratio >= threshold:
+                return True
+            elif ratio <= (1 - threshold):
+                return False
+
+        alerts = []
+        total = summary.get("total_objects", 0)
+        by_category = summary.get("by_category", {})
+        detections = summary.get("detections", [])
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        print("-----------ALERTTTTTTTTTTTTSSSSS-----------")
+        print(hasattr(config.alert_config, 'count_thresholds'), config.alert_config.count_thresholds)
+        print(total)
+        print(summary.get("per_category_count", {}))
+
+        if total == 0:
+            return []
+        if not config.alert_config:
+            return alerts
+        
+
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category == "all" and total > threshold:  
+                    print("-----------ALERTS--INNN-----------")
+                    alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_'+frame_key,
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
+                    })
+                elif category in summary.get("per_category_count", {}):
+                    print("-----------ALERTS--INNN 2-----------")
+                    count = summary.get("per_category_count", {})[category]
+                    if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
+                        alerts.append({
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                            "alert_id": "alert_"+category+'_'+frame_key,
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }       
+                        })
+        else:
+            pass
+
+        return alerts
+
+    def _generate_incidents(
+            self,
+            summary: Dict,
+            alerts: List[Dict],
+            config: FireSmokeConfig,
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
+    ) -> Dict:
+        """Generate structured events for fire and smoke detection output with frame-aware keys."""
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        incidents = []
+       
+        total = summary.get("total_objects", 0)
+        by_category = summary.get("by_category", {})
+        detections = summary.get("detections", [])
+
+        total_fire = by_category.get("fire", 0)
+        total_smoke = by_category.get("smoke", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+        print("-----------INCIDENTS-----------")
+        print(total)
+        print(summary.get("per_category_count", {}))
+
+        if total > 0:
+           # Calculate total bbox area
+            total_area = 0.0
+
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category in summary.get("per_category_count", {}):
+                    print("-----------INCIDENTSS--INNN-----------")
+                    #count = summary.get("per_category_count", {})[category]
+                    start_timestamp = self._get_start_timestamp_str(stream_info)
+                    if start_timestamp and self.current_incident_end_timestamp=='N/A':
+                        self.current_incident_end_timestamp = 'Incident still active'
+                    elif start_timestamp and self.current_incident_end_timestamp=='Incident still active':
+                        if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5: 
+                            self.current_incident_end_timestamp = current_timestamp
+                    elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
+                        self.current_incident_end_timestamp = 'N/A'
+
+                    for det in detections:
+                        bbox = det.get("bounding_box") or det.get("bbox")
+                        if bbox:
+                            xmin = bbox.get("xmin")
+                            ymin = bbox.get("ymin")
+                            xmax = bbox.get("xmax")
+                            ymax = bbox.get("ymax")
+                            if None not in (xmin, ymin, xmax, ymax):
+                                width = xmax - xmin
+                                height = ymax - ymin
+                                if width > 0 and height > 0:
+                                    total_area += width * height
+
+                    threshold_area = config.threshold_area  # 307200.0 | Same threshold as insights
+
+                    intensity_pct = min(100.0, (total_area / threshold_area) * 100)
+
+                    if config.alert_config and config.alert_config.count_thresholds:
+                            if intensity_pct >= 60:
+                                level = "critical"
+                                self._ascending_alert_list.append(3)
+                            elif intensity_pct >= 40:
+                                level = "significant"
+                                self._ascending_alert_list.append(2)
+                            elif intensity_pct >= 5:
+                                level = "medium"
+                                self._ascending_alert_list.append(1)
+                            else:
+                                level = "low"
+                                self._ascending_alert_list.append(0)
+                    else:
+                            if intensity_pct > 60:
+                                level = "critical"
+                                intensity = 10.0
+                                self._ascending_alert_list.append(3)
+                            elif intensity_pct > 40:
+                                level = "significant"
+                                intensity = 9.0
+                                self._ascending_alert_list.append(2)
+                            elif intensity_pct > 4:
+                                level = "medium"
+                                intensity = 7.0
+                                self._ascending_alert_list.append(1)
+                            else:
+                                level = "low"
+                                intensity = min(10.0, intensity_pct / 3.0)
+                                self._ascending_alert_list.append(0)
+
+                    # Generate human text in new format
+                    human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
+                    human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
+                    human_text = "\n".join(human_text_lines)
+
+                    alert_settings=[]
+                    if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+                        alert_settings.append({
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                            "ascending": True,
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                                getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                        }
+                        })
+                
+                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_number), incident_type=self.CASE_TYPE,
+                            severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                            level_settings= {"low": 1, "medium": 5, "significant":40, "critical": 60})
+                    incidents.append(event)
+
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+        return incidents
+
+    def _generate_tracking_stats(
+            self,
+            summary: Dict,
+            alerts: List,
+            config: FireSmokeConfig,
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
+    ) -> Dict:
+        """Generate structured tracking stats for fire and smoke detection with frame-based keys."""
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        tracking_stats = []
+        camera_info = self.get_camera_info_from_stream(stream_info)
+
+        total = summary.get("total_objects", 0)
+        by_category = summary.get("by_category", {})
+        detections = summary.get("detections", [])
+
+        total_fire = by_category.get("fire", 0)
+        total_smoke = by_category.get("smoke", 0)
+
+        # Maintain rolling detection history
+        if frame_number is not None:
+            self._fire_smoke_recent_history.append({
+                "frame": frame_number,
+                "fire": total_fire,
+                "smoke": total_smoke,
+            })
+            if len(self._fire_smoke_recent_history) > 150:
+                self._fire_smoke_recent_history.pop(0)
+        
+        # Generate human-readable tracking text (people-style format)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
+        # Create high precision timestamps for input_timestamp and reset_timestamp
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+    
+        # Build total_counts array in expected format
+        total_counts = []
+        if total > 0:
+                total_counts.append({
+                    "category": 'Fire/Smoke',  #TODO: Discuss and fix what to do with this
+                    "count": 1
+                })
+
+        # Build current_counts array in expected format  
+        current_counts = []
+        if total > 0:  # Include even if 0 when there are detections
+                current_counts.append({
+                    "category": 'Fire/Smoke',  #TODO: Discuss and fix what to do with this
+                    "count": 1
+                })
+
+        human_lines = [f"CURRENT FRAME @ {current_timestamp}:"]
+        if total_fire > 0:
+            human_lines.append(f"\t- Fire regions detected: {total_fire}")
+        if total_smoke > 0:
+            human_lines.append(f"\t- Smoke clouds detected: {total_smoke}")
+        if total_fire == 0 and total_smoke == 0:
+            human_lines.append(f"\t- No fire or smoke detected")
+
+        human_lines.append("")
+        human_lines.append(f"ALERTS SINCE @ {start_timestamp}:")
+
+        recent_fire_detected = any(entry.get("fire", 0) > 0 for entry in self._fire_smoke_recent_history)
+        recent_smoke_detected = any(entry.get("smoke", 0) > 0 for entry in self._fire_smoke_recent_history)
+
+        if recent_fire_detected:
+            human_lines.append(f"\t- Fire alert")
+        if recent_smoke_detected:
+            human_lines.append(f"\t- Smoke alert")
+        if not recent_fire_detected and not recent_smoke_detected:
+            human_lines.append(f"\t- No fire or smoke detected in recent frames")
+
+        human_text = "\n".join(human_lines)
+
+        # Prepare detections without confidence scores (as per eg.json)
+        detections = []
+        for detection in summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "Fire/Smoke")
+            # Include segmentation if available (like in eg.json)
+            if detection.get("masks"):
+                segmentation= detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation= detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation= detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
+
+        # Build alert_settings array in expected format
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                            }
+            })
+        
+        reset_settings=[
+                {
+                    "interval_type": "daily",
+                    "reset_time": {
+                        "value": 9,
+                        "time_unit": "hour"
+                    }
+                }
+            ]
+
+        tracking_stat=self.create_tracking_stats(total_counts=total_counts, current_counts=current_counts,
+                             detections=detections, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                             reset_settings=reset_settings, start_time=high_precision_start_timestamp ,
+                             reset_time=high_precision_reset_timestamp)
+
+
+        tracking_stats.append(tracking_stat)
+        return tracking_stats
+
+    def _generate_summary(
+            self, summary: dict, general_summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List
+    ) -> str:
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if len(incidents) > 0:
+            lines["Incidents:"]=f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if len(tracking_stats) > 0:
+            lines["Tracking Statistics:"]=f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if len(business_analytics) > 0:
+            lines["Business Analytics:"]=f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines["Summary"] = "No Summary Data"
+
+        return [lines]
+
     def _calculate_fire_smoke_summary(
             self, data: Any, config: FireSmokeConfig
     ) -> Dict[str, Any]:
@@ -285,11 +583,17 @@ class FireSmokeUseCase(BaseProcessor):
                 det for det in data
                 if det.get("category", "").lower() in valid_categories
             ]
+            counts = {}
+            for det in detections:
+                cat = det.get('category', 'unknown')
+                counts[cat] = counts.get(cat, 0) + 1
+            
 
             summary = {
                 "total_objects": len(detections),
                 "by_category": {},
                 "detections": detections,
+                "per_category_count": counts,
             }
 
             # Count by each category defined in config
@@ -304,113 +608,17 @@ class FireSmokeUseCase(BaseProcessor):
 
         return {"total_objects": 0, "by_category": {}, "detections": []}
 
-    def _generate_insights(
-            self, summary: Dict, config: FireSmokeConfig
-    ) -> List[str]:
-        """Generate insights using bbox area for intensity."""
-
-        insights = []
-
-        total = summary.get("total_objects", 0)
-        by_category = summary.get("by_category", {})
-        detections = summary.get("detections", [])
-
-        total_fire = by_category.get("fire", 0)
-        total_smoke = by_category.get("smoke", 0)
-
-        if total == 0:
-            insights.append("EVENT: No fire or smoke detected in the scene")
-        else:
-            if total_fire > 0:
-                insights.append(f"EVENT: {total_fire} fire region{'s' if total_fire != 1 else ''} detected")
-            if total_smoke > 0:
-                insights.append(f"EVENT: {total_smoke} smoke cloud{'s' if total_smoke != 1 else ''} detected")
-
-            fire_percent = (total_fire / total) * 100 if total else 0
-            smoke_percent = (total_smoke / total) * 100 if total else 0
-            insights.append(f"ANALYSIS: {fire_percent:.1f}% fire, {smoke_percent:.1f}% smoke in detected hazards")
-
-            # Calculate total bbox area using xmin, ymin, xmax, ymax format
-            total_area = 0.0
-            for det in detections:
-                bbox = det.get("bounding_box") or det.get("bbox")
-                if bbox:
-                    xmin = bbox.get("xmin")
-                    ymin = bbox.get("ymin")
-                    xmax = bbox.get("xmax")
-                    ymax = bbox.get("ymax")
-                    if None not in (xmin, ymin, xmax, ymax):
-                        width = xmax - xmin
-                        height = ymax - ymin
-                        if width > 0 and height > 0:
-                            total_area += width * height
-
-            # Threshold area (configurable if you want)
-            threshold_area = 10000.0
-
-            intensity_pct = min(100.0, (total_area / threshold_area) * 100)
-
-            if intensity_pct < 20:
-                insights.append(f"INTENSITY: Low fire/smoke activity ({intensity_pct:.1f}% area coverage)")
-            elif intensity_pct <= 50:
-                insights.append(f"INTENSITY: Moderate fire/smoke activity ({intensity_pct:.1f}%)")
-            elif intensity_pct <= 80:
-                insights.append(f"INTENSITY: High fire/smoke activity ({intensity_pct:.1f}%)")
-            else:
-                insights.append(f"INTENSITY: Very high fire/smoke activity — critical hazard ({intensity_pct:.1f}%)")
-
-        return insights
-
-    def _check_alerts(
-            self, summary: Dict, config: FireSmokeConfig
-    ) -> List[Dict]:
-        """Raise alerts if fire or smoke detected with severity based on intensity."""
-
-        alerts = []
-        total = summary.get("total_objects", 0)
-        by_category = summary.get("by_category", {})
-        detections = summary.get("detections", [])
-
-        if total == 0:
+    def _generate_business_analytics(self, counting_summary: Dict, alerts:Any, config: FireSmokeConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+        """Generate standardized business analytics for the agg_summary structure."""
+        if is_empty:
             return []
 
-        # Calculate total bbox area
-        total_area = 0.0
-        for det in detections:
-            bbox = det.get("bounding_box") or det.get("bbox")
-            if bbox:
-                xmin = bbox.get("xmin")
-                ymin = bbox.get("ymin")
-                xmax = bbox.get("xmax")
-                ymax = bbox.get("ymax")
-                if None not in (xmin, ymin, xmax, ymax):
-                    width = xmax - xmin
-                    height = ymax - ymin
-                    if width > 0 and height > 0:
-                        total_area += width * height
-
-        threshold_area = 10000.0  # Same threshold as insights
-
-        intensity_pct = min(100.0, (total_area / threshold_area) * 100)
-
-        # Determine alert severity
-        if intensity_pct > 80:
-            severity = "critical"
-        elif intensity_pct > 50:
-            severity = "warning"
-        else:
-            severity = "info"
-
-        alert = {
-            "type": "fire_smoke_alert",
-            "message": f"{total} fire/smoke detection{'s' if total != 1 else ''} with intensity {intensity_pct:.1f}%",
-            "severity": severity,
-            "detected_fire": by_category.get("fire", 0),
-            "detected_smoke": by_category.get("smoke", 0),
-        }
-
-        alerts.append(alert)
-        return alerts
+        #-----IF YOUR USECASE NEEDS BUSINESS ANALYTICS, YOU CAN USE THIS FUNCTION------#
+        #camera_info = self.get_camera_info_from_stream(stream_info)
+        # business_analytics = self.create_business_analytics(nalysis_name, statistics,
+        #                          human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+        #                          reset_settings)
+        # return business_analytics
 
     def _calculate_metrics(
             self,
@@ -489,273 +697,55 @@ class FireSmokeUseCase(BaseProcessor):
             self.logger.warning(f"Failed to extract predictions: {str(e)}")
 
         return predictions
-
-    def _generate_summary(
-            self, summary: Dict, general_summary: Dict, alerts: List
-    ) -> str:
-        """Generate human-readable summary for fire and smoke detection."""
-        total = summary.get("total_objects", 0)
-        total_fire = summary.get("by_category", {}).get("fire", 0)
-        total_smoke = summary.get("by_category", {}).get("smoke", 0)
-
-        if total == 0:
-            return "No fire or smoke detected"
-
-        summary_parts = []
-
-        if total_fire > 0:
-            summary_parts.append(
-                f"{total_fire} fire region{'s' if total_fire != 1 else ''} detected"
-            )
-
-        if total_smoke > 0:
-            summary_parts.append(
-                f"{total_smoke} smoke cloud{'s' if total_smoke != 1 else ''} detected"
-            )
-
-        if alerts:
-            alert_count = len(alerts)
-            summary_parts.append(
-                f"{alert_count} alert{'s' if alert_count != 1 else ''}"
-            )
-
-        return ", ".join(summary_parts)
-
-    def _generate_events(
-            self,
-            summary: Dict,
-            alerts: List[Dict],
-            config: FireSmokeConfig,
-            frame_number: Optional[int] = None
-    ) -> Dict:
-        """Generate structured events for fire and smoke detection output with frame-aware keys."""
-        from datetime import datetime, timezone
-
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = {frame_key: []}
-        frame_events = events[frame_key]
-
-        total = summary.get("total_objects", 0)
-        by_category = summary.get("by_category", {})
-        detections = summary.get("detections", [])
-
-        total_fire = by_category.get("fire", 0)
-        total_smoke = by_category.get("smoke", 0)
-
-        if total > 0:
-            # Calculate total detection area
-            total_area = 0.0
-            for det in detections:
-                bbox = det.get("bounding_box") or det.get("bbox")
-                if bbox:
-                    xmin = bbox.get("xmin")
-                    ymin = bbox.get("ymin")
-                    xmax = bbox.get("xmax")
-                    ymax = bbox.get("ymax")
-                    if None not in (xmin, ymin, xmax, ymax):
-                        width = xmax - xmin
-                        height = ymax - ymin
-                        if width > 0 and height > 0:
-                            total_area += width * height
-
-            threshold_area = 10000.0
-            intensity = min(10.0, (total_area / threshold_area) * 10)
-
-            if intensity >= 7:
-                level = "critical"
-            elif intensity >= 5:
-                level = "warning"
-            else:
-                level = "info"
-
-            # Use consistent formatting for human_text
-            human_lines = []
-            if total_fire > 0:
-                human_lines.append("    - fire detected")
-            if total_smoke > 0:
-                human_lines.append("    - smoke detected")
-            if total_fire == 0 and total_smoke == 0:
-                human_lines.append("    - no fire or smoke detected")
-
-            fire_smoke_event = {
-                "type": "fire_smoke_detection",
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": level,
-                "intensity": round(intensity, 1),
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7},
+    
+    def get_config_schema(self) -> Dict[str, Any]:
+        """Get configuration schema for fire and smoke detection."""
+        return {
+            "type": "object",
+            "properties": {
+                "confidence_threshold": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "default": 0.5,
+                    "description": "Minimum confidence threshold for detections",
                 },
-                "application_name": "Fire and Smoke Detection System",
-                "application_version": "1.0",
-                "location_info": None,
-                "human_text": "\n".join(human_lines),
-            }
-            frame_events.append(fire_smoke_event)
-
-        # Add alert events
-        for alert in alerts:
-            alert_lines = []
-            if total_fire > 0:
-                alert_lines.append("    - fire detected")
-            if total_smoke > 0:
-                alert_lines.append("    - smoke detected")
-            if total_fire == 0 and total_smoke == 0:
-                alert_lines.append("    - no fire or smoke detected")
-
-            alert_text = "\n".join(alert_lines)
-
-            alert_event = {
-                "type": alert.get("type", "fire_smoke_alert"),
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": alert.get("severity", "warning"),
-                "intensity": 8.0,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7},
+                "fire_smoke_categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": ["Fire", "Smoke"],
+                    "description": "Category names that represent fire and smoke",
                 },
-                "application_name": "Fire and Smoke Alert System",
-                "application_version": "1.0",
-                "location_info": None,
-                "human_text": alert_text,
-            }
-            frame_events.append(alert_event)
-
-        return events
-
-    def _generate_tracking_stats(
-            self,
-            summary: Dict,
-            insights: List[str],
-            summary_text: str,
-            config: FireSmokeConfig,
-            frame_number: Optional[int] = None,
-            stream_info: Optional[Dict[str, Any]] = None
-    ) -> Dict:
-        """Generate structured tracking stats for fire and smoke detection with frame-based keys."""
-
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = {frame_key: []}
-        frame_tracking_stats = tracking_stats[frame_key]
-
-        total = summary.get("total_objects", 0)
-        by_category = summary.get("by_category", {})
-        detections = summary.get("detections", [])
-
-        total_fire = by_category.get("fire", 0)
-        total_smoke = by_category.get("smoke", 0)
-
-        # Maintain rolling detection history
-        if frame_number is not None:
-            self._fire_smoke_recent_history.append({
-                "frame": frame_number,
-                "fire": total_fire,
-                "smoke": total_smoke,
-            })
-            if len(self._fire_smoke_recent_history) > 150:
-                self._fire_smoke_recent_history.pop(0)
-
-        # Compute total bbox area for intensity percentage
-        total_area = 0.0
-        for det in detections:
-            bbox = det.get("bounding_box") or det.get("bbox")
-            if bbox:
-                xmin = bbox.get("xmin")
-                ymin = bbox.get("ymin")
-                xmax = bbox.get("xmax")
-                ymax = bbox.get("ymax")
-                if None not in (xmin, ymin, xmax, ymax):
-                    width = xmax - xmin
-                    height = ymax - ymin
-                    if width > 0 and height > 0:
-                        total_area += width * height
-
-        threshold_area = 10000.0
-        intensity_pct = min(100.0, (total_area / threshold_area) * 100)
-
-        # Generate human-readable tracking text (people-style format)
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        start_timestamp = self._get_start_timestamp_str(stream_info)
-
-        human_lines = [f"CURRENT FRAME @ {current_timestamp}:"]
-        if total_fire > 0:
-            human_lines.append(f"\t- Fire regions detected: {total_fire}")
-        if total_smoke > 0:
-            human_lines.append(f"\t- Smoke clouds detected: {total_smoke}")
-        if total_fire == 0 and total_smoke == 0:
-            human_lines.append(f"\t- No fire or smoke detected")
-
-        human_lines.append("")
-        human_lines.append(f"ALERTS SINCE @ {start_timestamp}:")
-
-        recent_fire_detected = any(entry.get("fire", 0) > 0 for entry in self._fire_smoke_recent_history)
-        recent_smoke_detected = any(entry.get("smoke", 0) > 0 for entry in self._fire_smoke_recent_history)
-
-        if recent_fire_detected:
-            human_lines.append(f"\t- Fire alert")
-        if recent_smoke_detected:
-            human_lines.append(f"\t- Smoke alert")
-        if not recent_fire_detected and not recent_smoke_detected:
-            human_lines.append(f"\t- No fire or smoke detected in recent frames")
-
-        human_text = "\n".join(human_lines)
-
-        tracking_stat = {
-            "all_results_for_tracking": {
-                "total_detections": total,
-                "total_fire": total_fire,
-                "total_smoke": total_smoke,
-                "intensity_percentage": intensity_pct,
-                "fire_smoke_summary": summary,
-                "unique_count": self._count_unique_tracks(summary)
+                "index_to_category": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "description": "Mapping from category indices to names",
+                },
+                "alert_config": {
+                    "type": "object",
+                    "properties": {
+                        "count_thresholds": {
+                            "type": "object",
+                            "additionalProperties": {"type": "integer", "minimum": 1},
+                            "description": "Count thresholds for alerts",
+                        }
+                    },
+                },
             },
-            "human_text": human_text
+            "required": ["confidence_threshold"],
+            "additionalProperties": False,
         }
 
-        frame_tracking_stats.append(tracking_stat)
-        return tracking_stats
-
-    def _generate_human_text_for_tracking(
-            self,
-            total_fire: int,
-            total_smoke: int,
-            intensity_pct: float,
-            insights: List[str],
-            summary_text: str,
-            frame_number: Optional[int] = None,
-            stream_info: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Generate structured and formatted human_text for tracking stats."""
-        current_time_str = self._get_current_timestamp_str(stream_info)
-        start_time_str = self._get_start_timestamp_str(stream_info)
-
-        human_text_lines = []
-        human_text_lines.append(f"CURRENT FRAME @ {current_time_str}:")
-
-        if total_fire > 0:
-            human_text_lines.append("\t- fire detected")
-        if total_smoke > 0:
-            human_text_lines.append("\t- smoke detected")
-        if total_fire == 0 and total_smoke == 0:
-            human_text_lines.append("\t- no fire or smoke detected")
-
-        human_text_lines.append("")  # Empty line for spacing
-        human_text_lines.append(f"ALERTS SINCE @ {start_time_str}:")
-
-        # Look into 150-frame history
-        recent_fire_detected = any(entry.get("fire", 0) > 0 for entry in self._fire_smoke_recent_history)
-        recent_smoke_detected = any(entry.get("smoke", 0) > 0 for entry in self._fire_smoke_recent_history)
-
-        if recent_fire_detected:
-            human_text_lines.append("\t- Fire alert")
-        if recent_smoke_detected:
-            human_text_lines.append("\t- Smoke alert")
-        if not recent_fire_detected and not recent_smoke_detected:
-            human_text_lines.append("\t- No fire or smoke detected in recent frames")
-
-        return "\n".join(human_text_lines)
+    def create_default_config(self, **overrides) -> FireSmokeConfig:
+        """Create default configuration with optional overrides."""
+        defaults = {
+            "category": self.category,
+            "usecase": self.name,
+            "confidence_threshold": 0.5,
+            "fire_smoke_categories": ["Fire", "Smoke"],
+        }
+        defaults.update(overrides)
+        return FireSmokeConfig(**defaults)
 
     def _count_unique_tracks(self, summary: Dict) -> Optional[int]:
         """Count unique track IDs from detections, if tracking info exists."""
@@ -771,62 +761,87 @@ class FireSmokeUseCase(BaseProcessor):
 
         return len(unique_tracks) if unique_tracks else None
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60),2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
+        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-
-        # if is_video_chunk:
-        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
-        #     return self._format_timestamp_for_video(video_timestamp)
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            return stream_info.get("video_timestamp", "")[:8]
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
         else:
-            stream_time_str = stream_info.get("stream_time", "")
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
                 try:
+                    # Remove " UTC" suffix and parse
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
                 except:
+                    # Fallback to current time if parsing fails
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted start timestamp for 'SINCE' block."""
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-
-        if is_video_chunk or stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            # If video format, start from 00:00:00
             return "00:00:00"
         else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("stream_time", "")
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
+                        # Remove " UTC" suffix and parse
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
                     except:
+                        # Fallback to current time if parsing fails
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
 
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-    def _format_timestamp_for_video(self, timestamp: float) -> str:
-        hours = int(timestamp // 3600)
-        minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)

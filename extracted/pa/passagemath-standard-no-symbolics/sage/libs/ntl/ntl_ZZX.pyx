@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-ntl
-# distutils: libraries = NTL_LIBRARIES gmp m
+# distutils: libraries = NTL_LIBRARIES gmp M_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -362,7 +362,7 @@ cdef class ntl_ZZX():
         if not divisible:
             del q
             sig_off()
-            raise ArithmeticError("self (=%s) is not divisible by other (=%s)"%(self, other))
+            raise ArithmeticError("self (=%s) is not divisible by other (=%s)" % (self, other))
         result = make_ZZX_sig_off(q)
         return result
 

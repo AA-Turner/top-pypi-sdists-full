@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from contrast_fireball import AssessRequest
+import contrast_fireball
 from contrast_vendor import webob
 
 from contrast.api.user_input import InputType, DocumentType
@@ -45,10 +45,8 @@ class Request(webob.BaseRequest):
 
         self.timestamp_ms = now_ms()
 
-    def to_fireball_assess_request(self) -> AssessRequest:
-        from contrast_fireball import AssessRequest
-
-        return AssessRequest(
+    def to_fireball_assess_request(self) -> contrast_fireball.AssessRequest:
+        return contrast_fireball.AssessRequest(
             body=truncate(self._reportable_body, length=4096),
             headers={
                 k: ([v for v in (vs if isinstance(vs, list) else [vs])])
@@ -279,7 +277,7 @@ class Request(webob.BaseRequest):
         "PATCH",
     }
 
-    def get_otel_attributes(self) -> dict[str, str]:
+    def get_otel_attributes(self) -> contrast_fireball.OtelAttributes:
         """
         Returns attributes following OpenTelemetry semantic conventions for HTTP spans.
         """

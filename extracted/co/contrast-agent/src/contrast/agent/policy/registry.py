@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import functools
-from typing import Optional
 from collections import OrderedDict
 
 from contrast.agent.assess.policy.deadzone_node import DeadZoneNode
@@ -93,7 +93,7 @@ def register_deadzone_nodes(deadzone_nodes: list) -> None:
         _process_node(node)
 
 
-def get_policy_by_name(name: str) -> Optional[PatchLocationPolicy]:
+def get_policy_by_name(name: str) -> PatchLocationPolicy | None:
     return _module.policy_by_name.get(name)
 
 
@@ -139,7 +139,7 @@ def get_trigger_nodes() -> OrderedDict[str, TriggerRule]:
     return _module.triggers
 
 
-def get_triggers_by_rule(rule_id: str) -> Optional[TriggerRule]:
+def get_triggers_by_rule(rule_id: str) -> TriggerRule | None:
     return _module.triggers.get(rule_id)
 
 

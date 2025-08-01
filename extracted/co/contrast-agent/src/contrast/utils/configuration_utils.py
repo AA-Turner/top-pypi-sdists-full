@@ -1,12 +1,12 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import platform
 from enum import Enum, EnumMeta
 from functools import lru_cache
 import itertools
 import os
 import socket
-from typing import Optional
 
 from contrast import AGENT_CURR_WORKING_DIR
 from contrast.utils.string_utils import truncate
@@ -195,8 +195,8 @@ def parse_event_detail_option(option) -> str:
     return "full" if option.lower() == "full" else "minimal"
 
 
-def str_to_enum(enum: EnumMeta, *, default: Optional[Enum] = None):
-    def _str_to_enum(val: str) -> Optional[Enum]:
+def str_to_enum(enum: EnumMeta, *, default: Enum | None = None):
+    def _str_to_enum(val: str) -> Enum | None:
         if not val:
             return default
         try:

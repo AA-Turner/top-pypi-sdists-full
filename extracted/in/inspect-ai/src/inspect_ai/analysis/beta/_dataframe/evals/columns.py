@@ -53,10 +53,15 @@ EvalId: list[Column] = [
 ]
 """Eval id column."""
 
+EvalLogPath: list[Column] = [
+    EvalColumn("log", path=eval_log_location, required=True),
+]
+"""Eval log column."""
+
 EvalInfo: list[Column] = [
     EvalColumn("run_id", path="eval.run_id", required=True),
     EvalColumn("task_id", path="eval.task_id", required=True),
-    EvalColumn("log", path=eval_log_location),
+    *EvalLogPath,
     EvalColumn("created", path="eval.created", type=datetime, required=True),
     EvalColumn("tags", path="eval.tags", default="", value=list_as_str),
     EvalColumn("git_origin", path="eval.revision.origin"),
@@ -98,7 +103,7 @@ EvalDataset: list[Column] = [
 ]
 """Eval dataset columns."""
 
-EvalConfig: list[Column] = [
+EvalConfiguration: list[Column] = [
     EvalColumn("epochs", path="eval.config.epochs"),
     EvalColumn("epochs_reducer", path="eval.config.epochs_reducer"),
     EvalColumn("approval", path="eval.config.approval"),
@@ -132,7 +137,7 @@ EvalColumns: list[Column] = (
     + EvalTask
     + EvalModel
     + EvalDataset
-    + EvalConfig
+    + EvalConfiguration
     + EvalResults
     + EvalScores
 )

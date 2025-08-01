@@ -160,6 +160,7 @@ OrchestrationMessageString = str
 OrchestrationNameString = str
 OrchestrationPageSize200 = int
 OrchestrationPageSize25 = int
+OrchestrationPolicyJsonString = str
 OrchestrationRoleArn = str
 OrchestrationS3Location = str
 OrchestrationStatementCodeString = str
@@ -4321,6 +4322,7 @@ class JobRun(TypedDict, total=False):
     MaintenanceWindow: Optional[MaintenanceWindow]
     ProfileName: Optional[NameString]
     StateDetail: Optional[OrchestrationMessageString]
+    ExecutionRoleSessionPolicy: Optional[OrchestrationPolicyJsonString]
 
 
 JobRunList = List[JobRun]
@@ -5600,10 +5602,14 @@ class CreateIcebergTableInput(TypedDict, total=False):
     Properties: Optional[StringToStringMap]
 
 
+IntegrationSourcePropertiesMap = Dict[IntegrationString, IntegrationString]
+
+
 class IntegrationConfig(TypedDict, total=False):
     """Properties associated with the integration."""
 
     RefreshInterval: Optional[String128]
+    SourceProperties: Optional[IntegrationSourcePropertiesMap]
 
 
 class Tag(TypedDict, total=False):
@@ -6122,7 +6128,7 @@ class CreateTableRequest(ServiceRequest):
     CatalogId: Optional[CatalogIdString]
     DatabaseName: NameString
     Name: Optional[NameString]
-    TableInput: TableInput
+    TableInput: Optional[TableInput]
     PartitionIndexes: Optional[PartitionIndexList]
     TransactionId: Optional[TransactionIdString]
     OpenTableFormatInput: Optional[OpenTableFormatInput]
@@ -9073,6 +9079,7 @@ class StartJobRunRequest(ServiceRequest):
     WorkerType: Optional[WorkerType]
     NumberOfWorkers: Optional[NullableInteger]
     ExecutionClass: Optional[ExecutionClass]
+    ExecutionRoleSessionPolicy: Optional[OrchestrationPolicyJsonString]
 
 
 class StartJobRunResponse(TypedDict, total=False):
@@ -10981,9 +10988,9 @@ class GlueApi:
         self,
         context: RequestContext,
         database_name: NameString,
-        table_input: TableInput,
         catalog_id: CatalogIdString | None = None,
         name: NameString | None = None,
+        table_input: TableInput | None = None,
         partition_indexes: PartitionIndexList | None = None,
         transaction_id: TransactionIdString | None = None,
         open_table_format_input: OpenTableFormatInput | None = None,
@@ -10992,11 +10999,11 @@ class GlueApi:
         """Creates a new table definition in the Data Catalog.
 
         :param database_name: The catalog database in which to create the new table.
-        :param table_input: The ``TableInput`` object that defines the metadata table to create in
-        the catalog.
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table``.
         :param name: The unique identifier for the table within the specified database that
         will be created in the Glue Data Catalog.
+        :param table_input: The ``TableInput`` object that defines the metadata table to create in
+        the catalog.
         :param partition_indexes: A list of partition indexes, ``PartitionIndex`` structures, to create in
         the table.
         :param transaction_id: The ID of the transaction.
@@ -15016,6 +15023,7 @@ class GlueApi:
         worker_type: WorkerType | None = None,
         number_of_workers: NullableInteger | None = None,
         execution_class: ExecutionClass | None = None,
+        execution_role_session_policy: OrchestrationPolicyJsonString | None = None,
         **kwargs,
     ) -> StartJobRunResponse:
         """Starts a job run using a job definition.
@@ -15035,6 +15043,10 @@ class GlueApi:
         when a job runs.
         :param execution_class: Indicates whether the job is run with a standard or flexible execution
         class.
+        :param execution_role_session_policy: This inline session policy to the StartJobRun API allows you to
+        dynamically restrict the permissions of the specified execution role for
+        the scope of the job, without requiring the creation of additional IAM
+        roles.
         :returns: StartJobRunResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:

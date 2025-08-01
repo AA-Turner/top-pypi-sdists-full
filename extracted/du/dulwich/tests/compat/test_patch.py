@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -53,9 +53,11 @@ class CompatPatchTestCase(CompatTestCase):
             with open(file_path, "w"):
                 pass
 
-        self.repo.stage(file_list)
+        self.repo.get_worktree().stage(file_list)
 
-        first_commit = self.repo.do_commit(b"The first commit")
+        first_commit = self.repo.get_worktree().commit(
+            message=b"The first commit",
+        )
 
         # Make a copy of the repository so we can apply the diff later
         copy_path = os.path.join(self.test_dir, "copy")
@@ -70,9 +72,11 @@ class CompatPatchTestCase(CompatTestCase):
         with open(os.path.join(self.repo_path, "to_add"), "w"):
             pass
 
-        self.repo.stage(["to_modify", "to_delete", "to_add"])
+        self.repo.get_worktree().stage(["to_modify", "to_delete", "to_add"])
 
-        second_commit = self.repo.do_commit(b"The second commit")
+        second_commit = self.repo.get_worktree().commit(
+            message=b"The second commit",
+        )
 
         # Get the patch
         first_tree = self.repo[first_commit].tree

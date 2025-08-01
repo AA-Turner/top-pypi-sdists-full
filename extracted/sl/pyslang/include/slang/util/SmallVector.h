@@ -8,6 +8,7 @@
 #pragma once
 
 #include <algorithm>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -608,6 +609,9 @@ public:
         this->append_range(range);
     }
 
+    /// Constructs the SmallVector from an initializer list.
+    SmallVector(std::initializer_list<T> list) { this->append(list.begin(), list.end()); }
+
     /// Copy constructs from another vector.
     SmallVector(const SmallVector& other) : SmallVector(static_cast<const Base&>(other)) {}
 
@@ -615,13 +619,15 @@ public:
     SmallVector(const Base& other) : Base(N) { this->append(other.begin(), other.end()); }
 
     /// Move constructs from another vector.
-    SmallVector(SmallVector&& other) : SmallVector(static_cast<Base&&>(other)) {}
+    SmallVector(SmallVector&& other) noexcept : SmallVector(static_cast<Base&&>(other)) {}
 
     /// Move constructs from another vector.
-    SmallVector(Base&& other) {
+    SmallVector(Base&& other) noexcept {
         if (other.isSmall()) {
             this->cap = N;
-            this->append(std::move_iterator(other.begin()), std::move_iterator(other.end()));
+            this->append(std::make_move_iterator(other.begin()),
+                         std::make_move_iterator(other.end()));
+            other.clear();
         }
         else {
             this->data_ = std::exchange(other.data_, nullptr);

@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import copy
 from dataclasses import dataclass, field
 from itertools import chain
@@ -12,7 +13,6 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Optional,
     Union,
 )
 from collections.abc import Mapping, Sequence
@@ -200,13 +200,13 @@ class ContrastEvent:
         self,
         node: PolicyNode,
         tagged: Any,
-        self_obj: Optional[Any],
-        ret: Optional[Any],
+        self_obj: Any | None,
+        ret: Any | None,
         args: Sequence[Any],
         kwargs: dict[str, Any],
-        parents: list["ContrastEvent"],
+        parents: list[ContrastEvent],
         possible_key=None,
-        source_type: Optional[SourceType] = None,
+        source_type: SourceType | None = None,
         source_name=None,
     ):
         self.node = node
@@ -250,7 +250,7 @@ class ContrastEvent:
         - self.taint_location
         - self.span_override
         """
-        self.taint_location: Optional[Location] = (
+        self.taint_location: Location | None = (
             possible_key or self._find_taint_location(args, kwargs)
         )
         if self.taint_location and isinstance(tagged, dict):
@@ -296,7 +296,7 @@ class ContrastEvent:
         cls.ATOMIC_ID += 1
         return ret
 
-    def _find_taint_location(self, args, kwargs) -> Optional[Location]:
+    def _find_taint_location(self, args, kwargs) -> Location | None:
         """
         Find the location of the tagged value in the event. This is used to determine
         where the tagged value is in the event, so that we can mark it up in TeamServer.
@@ -388,7 +388,7 @@ class ContrastEvent:
         )
 
     def _build_assess_object(
-        self, field: Optional[Field], location: Location
+        self, field: Field | None, location: Location
     ) -> AssessObject:
         # For now, only the taint_target needs to be officially marked as tracked.
         # This means that agent-tagged strings may not be marked as "tracked" for TS.
@@ -413,10 +413,10 @@ class ContrastEvent:
             flags=0,  # only for the Java agent
         )
 
-    def _type_string(self, field: Optional[Field]) -> str:
+    def _type_string(self, field: Field | None) -> str:
         return field.type.__name__ if field else NONE_STRING
 
-    def history(self: "ContrastEvent"):
+    def history(self: ContrastEvent):
         """
         Return a generator that yields all the events in the history of this event,
         starting with the event itself and then its parents, and so on.
@@ -435,7 +435,7 @@ class ContrastEvent:
             yield event
             queue.extend(event for event in event.parents if event not in seen)
 
-    def dot_repr(self: "ContrastEvent") -> str:
+    def dot_repr(self: ContrastEvent) -> str:
         """
         Returns a DOT graph representation of self's history.
         """

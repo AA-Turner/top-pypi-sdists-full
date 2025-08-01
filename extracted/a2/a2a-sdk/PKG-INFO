@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.2.16
+Version: 0.3.0
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -21,22 +21,20 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: fastapi>=0.115.2
+Requires-Dist: fastapi>=0.95.0
+Requires-Dist: google-api-core>=1.26.0
 Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: opentelemetry-api>=1.33.0
-Requires-Dist: opentelemetry-sdk>=1.33.0
+Requires-Dist: protobuf==5.29.5
 Requires-Dist: pydantic>=2.11.3
 Requires-Dist: sse-starlette
 Requires-Dist: starlette
 Provides-Extra: encryption
 Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
 Provides-Extra: grpc
-Requires-Dist: google-api-core>=1.26.0; extra == 'grpc'
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'grpc'
 Requires-Dist: grpcio-tools>=1.60; extra == 'grpc'
 Requires-Dist: grpcio>=1.60; extra == 'grpc'
-Requires-Dist: protobuf==5.29.5; extra == 'grpc'
 Provides-Extra: mysql
 Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'mysql'
 Provides-Extra: postgresql
@@ -45,6 +43,9 @@ Provides-Extra: sql
 Requires-Dist: sqlalchemy[aiomysql,aiosqlite,asyncio,postgresql-asyncpg]>=2.0.0; extra == 'sql'
 Provides-Extra: sqlite
 Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'sqlite'
+Provides-Extra: telemetry
+Requires-Dist: opentelemetry-api>=1.33.0; extra == 'telemetry'
+Requires-Dist: opentelemetry-sdk>=1.33.0; extra == 'telemetry'
 Description-Content-Type: text/markdown
 
 # A2A Python SDK
@@ -88,6 +89,12 @@ To install with gRPC support:
 uv add "a2a-sdk[grpc]"
 ```
 
+To install with OpenTelemetry tracing support:
+
+```bash
+uv add "a2a-sdk[telemetry]"
+```
+
 To install with database support:
 
 ```bash
@@ -116,6 +123,12 @@ To install with gRPC support:
 
 ```bash
 pip install "a2a-sdk[grpc]"
+```
+
+To install with OpenTelemetry tracing support:
+
+```bash
+pip install "a2a-sdk[telemetry]"
 ```
 
 To install with database support:

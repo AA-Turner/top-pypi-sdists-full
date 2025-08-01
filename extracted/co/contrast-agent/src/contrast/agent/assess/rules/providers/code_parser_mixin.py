@@ -3,7 +3,6 @@
 import ast
 from inspect import getsourcefile
 from contrast.utils.decorators import fail_quietly
-from contrast.utils.module_parser import get_ast_parsed_code
 
 
 class CodeParserMixin:
@@ -36,7 +35,9 @@ class CodeParserMixin:
         """
         if not code_ast:
             path = getsourcefile(cls_or_module)
-            code_ast = get_ast_parsed_code(path)
+            with open(path, encoding="utf-8") as f:
+                source = f.read()
+            code_ast = ast.parse(source)
 
         # must use a mutable type to be able to
         # update it in a lower scope. This is needed

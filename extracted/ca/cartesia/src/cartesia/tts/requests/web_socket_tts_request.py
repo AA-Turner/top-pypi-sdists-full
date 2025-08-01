@@ -20,8 +20,16 @@ class WebSocketTtsRequestParams(typing_extensions.TypedDict):
     duration: typing_extensions.NotRequired[int]
     language: typing_extensions.NotRequired[str]
     add_timestamps: typing_extensions.NotRequired[bool]
-    use_original_timestamps: typing_extensions.NotRequired[bool]
+    """
+    Whether to return word-level timestamps. If `false` (default), no word timestamps will be produced at all. If `true`, the server will return timestamp events containing word-level timing information.
+    """
+
     add_phoneme_timestamps: typing_extensions.NotRequired[bool]
+    """
+    Whether to return phoneme-level timestamps. If `false` (default), no phoneme timestamps will be produced - if `add_timestamps` is `true`, the produced timestamps will be word timestamps instead. If `true`, the server will return timestamp events containing phoneme-level timing information.
+    """
+
+    use_normalized_timestamps: typing_extensions.NotRequired[bool]
     continue_: typing_extensions.NotRequired[typing_extensions.Annotated[bool, FieldMetadata(alias="continue")]]
     context_id: typing_extensions.NotRequired[str]
     max_buffer_delay_ms: typing_extensions.NotRequired[int]

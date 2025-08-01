@@ -9,6 +9,7 @@ from contrast.utils.string_utils import ends_with_any
 from contrast.utils.stack_trace_utils import build_and_clean_stack
 
 from contrast_vendor import structlog as logging
+import contextlib
 
 logger = logging.getLogger("contrast")
 
@@ -90,10 +91,8 @@ class Deserialization(BaseRule):
             data = ""
 
         # Return object to original stream position so it can be re-read
-        try:
+        with contextlib.suppress(Exception):
             user_input.seek(seek_loc)
-        except Exception:
-            pass
 
         return data
 

@@ -7,7 +7,7 @@ from setuptools import setup
 # download the README.md from the community repo
 readme_content = ""
 try:
-    url = "https://raw.githubusercontent.com/localstack/localstack/master/README.md"
+    url = "https://raw.githubusercontent.com/localstack/localstack/main/README.md"
     response = urllib.request.urlopen(url)
     charset = response.info().get_content_charset()
     readme_content = response.read().decode(charset)

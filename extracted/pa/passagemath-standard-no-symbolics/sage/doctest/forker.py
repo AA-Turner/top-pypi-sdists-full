@@ -56,7 +56,6 @@ import multiprocessing
 import os
 import platform
 import re
-import signal
 import sys
 import tempfile
 import time
@@ -250,7 +249,7 @@ def init_sage(controller: DocTestController | None = None) -> None:
 
     try:
         import sympy
-    except ImportError:
+    except (ImportError, AttributeError):
         # Do not require sympy for running doctests (Issue #25106).
         pass
     else:
@@ -263,7 +262,8 @@ def showwarning_with_traceback(message, category, filename, lineno, file=None, l
     r"""
     Displays a warning message with a traceback.
 
-    INPUT: see :func:`warnings.showwarning`.
+    INPUT: see :func:`warnings.showwarning` with the difference that with ``file=None``
+           the message will be written to stdout.
 
     OUTPUT: none
 
@@ -295,7 +295,7 @@ def showwarning_with_traceback(message, category, filename, lineno, file=None, l
     lines.extend(traceback.format_exception_only(category, category(message)))
 
     if file is None:
-        file = sys.stderr
+        file = sys.stdout
     try:
         file.writelines(lines)
         file.flush()
@@ -666,7 +666,8 @@ class SageDocTestRunner(doctest.DocTestRunner):
             # We print the example we're running for easier debugging
             # if this file times out or crashes.
             with OriginalSource(example):
-                print("sage: " + example.source[:-1] + " ## line %s ##" % (test.lineno + example.lineno + 1))
+                assert example.source.endswith("\n"), example
+                print("sage: " + example.source[:-1].replace("\n", "\n....: ") + " ## line %s ##" % (test.lineno + example.lineno + 1))
             # Update the position so that result comparison works
             self._fakeout.getvalue()
             if not quiet:
@@ -1099,7 +1100,7 @@ class SageDocTestRunner(doctest.DocTestRunner):
             False
             sage: doctests, extras = FDS.create_doctests(globs)
             sage: ex0 = doctests[0].examples[0]
-            sage: flags = 32768 if sys.version_info.minor < 8 else 524288
+            sage: flags = 524288
             sage: def compiler(ex):
             ....:     return compile(ex.source, '<doctest sage.doctest.forker[0]>',
             ....:                    'single', flags, 1)
@@ -1471,8 +1472,13 @@ class SageDocTestRunner(doctest.DocTestRunner):
                         # to make the current process group the
                         # foreground group.
                         restore_tcpgrp = os.tcgetpgrp(0)
-                        signal.signal(signal.SIGTTIN, signal.SIG_IGN)
-                        signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+                        try:
+                            import signal
+                        except ImportError:
+                            pass
+                        else:
+                            signal.signal(signal.SIGTTIN, signal.SIG_IGN)
+                            signal.signal(signal.SIGTTOU, signal.SIG_IGN)
                         os.tcsetpgrp(0, os.getpgrp())
                     print("*" * 70)
                     print("Previously executed commands:")
@@ -1492,6 +1498,7 @@ class SageDocTestRunner(doctest.DocTestRunner):
                     from sage.repl.configuration import sage_ipython_config
                     from IPython.terminal.embed import InteractiveShellEmbed
                     cfg = sage_ipython_config.default()
+                    cfg.InteractiveShell.enable_tip = False
                     # Currently this doesn't work: prompts only work in pty
                     # We keep simple_prompt=True, prompts will be "In [0]:"
                     # cfg.InteractiveShell.prompts_class = DebugPrompts
@@ -1502,12 +1509,14 @@ class SageDocTestRunner(doctest.DocTestRunner):
                     # Assume this is a *real* interrupt. We need to
                     # escalate this to the master doctesting process.
                     if not self.options.serial:
+                        import signal
                         os.kill(os.getppid(), signal.SIGINT)
                     raise
                 finally:
                     # Restore the foreground process group.
                     if restore_tcpgrp is not None:
                         os.tcsetpgrp(0, restore_tcpgrp)
+                        import signal
                         signal.signal(signal.SIGTTIN, signal.SIG_DFL)
                         signal.signal(signal.SIGTTOU, signal.SIG_DFL)
                     print("Returning to doctests...")
@@ -1631,6 +1640,7 @@ class SageDocTestRunner(doctest.DocTestRunner):
                         # to make the current process group the
                         # foreground group.
                         restore_tcpgrp = os.tcgetpgrp(0)
+                        import signal
                         signal.signal(signal.SIGTTIN, signal.SIG_IGN)
                         signal.signal(signal.SIGTTOU, signal.SIG_IGN)
                         os.tcsetpgrp(0, os.getpgrp())
@@ -1653,6 +1663,7 @@ class SageDocTestRunner(doctest.DocTestRunner):
                     # Restore the foreground process group.
                     if restore_tcpgrp is not None:
                         os.tcsetpgrp(0, restore_tcpgrp)
+                        import signal
                         signal.signal(signal.SIGTTIN, signal.SIG_DFL)
                         signal.signal(signal.SIGTTOU, signal.SIG_DFL)
                     self._fakeout.start_spoofing()
@@ -1918,6 +1929,7 @@ class DocTestDispatcher(SageObject):
         follow = None
 
         # Install signal handler for SIGCHLD
+        import signal
         signal.signal(signal.SIGCHLD, dummy_handler)
 
         # Logger
@@ -2489,6 +2501,7 @@ class DocTestWorker(multiprocessing.Process):
             self.rmessages = None
 
         try:
+            import signal
             if not self.killed:
                 self.killed = True
                 os.killpg(self.pid, signal.SIGQUIT)

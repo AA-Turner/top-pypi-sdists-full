@@ -615,7 +615,7 @@ class Agent:
             self.tool_handling()
 
         if self.llm is None:
-            self.llm = self.llm_handling(*args, **kwargs)
+            self.llm = self.llm_handling()
 
         if self.random_models_on is True:
             self.model_name = set_random_models_for_agents()
@@ -817,7 +817,7 @@ class Agent:
             return self.llm
         except AgentLLMInitializationError as e:
             logger.error(
-                f"Error in llm_handling: {e} Your current configuration is not supported. Please check the configuration and parameters."
+                f"AgentLLMInitializationError: Agent Name: {self.agent_name} Error in llm_handling: {e} Your current configuration is not supported. Please check the configuration and parameters."
             )
             return None
 

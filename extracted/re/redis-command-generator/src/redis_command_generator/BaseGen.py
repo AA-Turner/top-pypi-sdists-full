@@ -51,7 +51,8 @@ def exception_wrapper():
             (not ("RENAME" in str(e) and "no such key" in str(e))) and
             (not ("RESTORE" in str(e))) and
             (not ("LSET" in str(e) and "index out of range" in str(e))) and
-            (not ("LSET" in str(e) and "no such key" in str(e)))):
+            (not ("LSET" in str(e) and "no such key" in str(e))) and
+            (not (("MSET" in str(e) or "TS.MADD" in str(e)) and "Keys in request don't hash to the same slot" in str(e)))):
             raise e
 
 class KeyedLimitedRandomQueue:
@@ -134,8 +135,9 @@ class BaseGen():
     def _rand_str(self, str_size: int) -> str:
         return "".join(random.choices(string.ascii_letters + string.digits, k = str_size))
     
-    def _rand_key(self, type: str) -> str:
-        prefix = self.def_key_pref
+    def _rand_key(self, type: str, hash_tag = None) -> str:
+        prefix = self.def_key_pref + f"{hash_tag}:" if hash_tag else ""
+
         # The following types can't be directly scanned, so we must add a prefix to distinguish them
         prefix += f"{type}:" if type in self.UNSCANNABLE_TYPES else ""
         

@@ -5,6 +5,11 @@
 
 add_executable(
   unittests
+  analysis/AssertionAnalysisTests.cpp
+  analysis/CaseAnalysisTests.cpp
+  analysis/DFATests.cpp
+  analysis/MultiAssignTests.cpp
+  analysis/UnusedTests.cpp
   ast/AssertionTests.cpp
   ast/ClassTests.cpp
   ast/ConfigTests.cpp
@@ -29,13 +34,13 @@ add_executable(
   parsing/LexerTests.cpp
   parsing/MemberParsingTests.cpp
   parsing/PreprocessorTests.cpp
+  parsing/RewriterExpandTests.cpp
   parsing/VisitorTests.cpp
   parsing/StatementParsingTests.cpp
   util/CommandLineTests.cpp
   util/IntervalMapTests.cpp
   util/NumericTests.cpp
   util/SmallVectorTests.cpp
-  util/ThreadPoolTests.cpp
   util/UtilTests.cpp
   DriverTests.cpp
   FileTests.cpp

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -49,9 +49,12 @@ class LFSFilterIntegrationTests(TestCase):
         self.registry.register_driver("lfs", self.lfs_filter)
 
         # Set up gitattributes to use LFS for .bin files
-        self.gitattributes = {
-            b"*.bin": {b"filter": b"lfs"},
-        }
+        from dulwich.attrs import GitAttributes, Pattern
+
+        patterns = [
+            (Pattern(b"*.bin"), {b"filter": b"lfs"}),
+        ]
+        self.gitattributes = GitAttributes(patterns)
 
         self.normalizer = FilterBlobNormalizer(
             self.config, self.gitattributes, self.registry

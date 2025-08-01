@@ -3,16 +3,16 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.5.48.0',
-    'passagemath-conf ~= 10.5.48.0',
+    'passagemath-setup ~= 10.6.1.0',
+    'passagemath-conf ~= 10.6.1.0 ; sys_platform != "win32"',
     'pkgconfig',
-    'passagemath-environment ~= 10.5.48.0',
-    'passagemath-categories ~= 10.5.48.0',
-    'passagemath-modules ~= 10.5.48.0',
+    'passagemath-environment ~= 10.6.1.0',
+    'passagemath-categories ~= 10.6.1.0',
+    'passagemath-modules ~= 10.6.1.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'gmpy2 ~=2.1.b999',
     'numpy >=1.19', 'numpy >=1.22.4',
-    'cysignals >=1.11.2, != 1.12.0',
+    'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
 ]
 build-backend = "setuptools.build_meta"
 
@@ -21,16 +21,16 @@ name = "passagemath-symbolics"
 description = "passagemath: Symbolic calculus"
 dependencies = [
     'gmpy2 ~=2.1.b999',
-    'cysignals >=1.11.2, != 1.12.0',
+    'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'numpy >=1.19', 'numpy >=1.22.4',
-    'passagemath-categories ~= 10.5.48.0',
-    'passagemath-ecl ~= 10.5.48.0',
-    'passagemath-environment ~= 10.5.48.0',
-    'passagemath-flint ~= 10.5.48.0',
-    'passagemath-maxima ~= 10.5.48.0',
-    'passagemath-modules ~= 10.5.48.0',
-    'passagemath-ntl ~= 10.5.48.0',
-    'passagemath-singular ~= 10.5.48.0',
+    'passagemath-categories ~= 10.6.1.0',
+    'passagemath-ecl ~= 10.6.1.0',
+    'passagemath-environment ~= 10.6.1.0',
+    'passagemath-flint ~= 10.6.1.0',
+    'passagemath-maxima ~= 10.6.1.0',
+    'passagemath-modules ~= 10.6.1.0',
+    'passagemath-ntl ~= 10.6.1.0',
+    'passagemath-singular ~= 10.6.1.0',
     'sympy >=1.6, <2.0',
 ]
 dynamic = ["version"]
@@ -45,9 +45,9 @@ classifiers = [
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "Operating System :: POSIX",
+    "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -55,7 +55,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-requires-python = ">=3.9, <3.14"
+requires-python = ">=3.10, <3.14"
 
 [project.urls]
 "release notes" = "https://github.com/passagemath/passagemath/releases"

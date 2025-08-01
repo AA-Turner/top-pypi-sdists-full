@@ -2,9 +2,9 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
 
+
 import base64
 import contextlib
-from contextvars import ContextVar
 from dataclasses import dataclass
 from http.cookiejar import CookieJar, DefaultCookiePolicy
 import queue
@@ -16,14 +16,7 @@ from contrast.agent.request import Request
 from contrast.configuration.agent_config import AgentConfig
 from contrast.configuration.config_option import DEFAULT_VALUE_SRC
 from contrast.utils import timer
-from contrast_fireball import (
-    AssessFinding,
-    DiscoveredRoute,
-    InventoryComponent,
-    Library,
-    LibraryObservation,
-    ObservedRoute,
-)
+import contrast_fireball
 import contrast
 
 from contrast.agent import scope
@@ -46,13 +39,6 @@ REPORTING_CLIENT_THREAD_NAME = "ContrastReportingClient"
 
 MAX_ATTEMPTS = 2
 ERROR_STATUS_CODE = -1
-
-
-_trace_id: ContextVar[str | None] = ContextVar("contrast_trace_id", default=None)
-
-
-class ObservabilityError(Exception):
-    pass
 
 
 class ReportingClient(threading.Thread):
@@ -131,73 +117,47 @@ class ReportingClient(threading.Thread):
                 raise RuntimeError("Unexpected 500 response code from AgentStartup")
         return False
 
-    def new_discovered_routes(self, routes: set[DiscoveredRoute]):
+    def new_discovered_routes(self, routes: set[contrast_fireball.DiscoveredRoute]):
         self.add_message(teamserver_messages.ApplicationInventory(routes))
 
-    def new_observed_route(self, route: ObservedRoute):
+    def new_observed_route(self, route: contrast_fireball.ObservedRoute):
         self.add_message(teamserver_messages.ObservedRoute(route))
 
-    def new_findings(self, findings: list[AssessFinding], request: Request | None):
+    def new_findings(
+        self, findings: list[contrast_fireball.AssessFinding], request: Request | None
+    ):
         self.add_message(teamserver_messages.Preflight(findings, request))
 
-    def new_inventory_components(self, components: list[InventoryComponent]):
+    def new_inventory_components(
+        self, components: list[contrast_fireball.InventoryComponent]
+    ):
         self.add_message(
             teamserver_messages.ApplicationActivity(inventory_components=components)
         )
 
-    def new_libraries(self, libraries: list[Library]):
+    def new_libraries(self, libraries: list[contrast_fireball.Library]):
         self.add_message(teamserver_messages.ApplicationUpdate(libraries))
 
-    def new_library_observations(self, observations: list[LibraryObservation]):
+    def new_library_observations(
+        self, observations: list[contrast_fireball.LibraryObservation]
+    ):
         self.add_message(teamserver_messages.LibraryUsage(observations))
 
     @contextlib.contextmanager
-    def observability_trace_context(self) -> Generator[None, None, None]:
-        this_id = uuid.uuid4().hex
-        token = _trace_id.set(this_id)
-        try:
-            logger.debug("entering observability trace context", trace_id=this_id)
-            yield
-        finally:
-            try:
-                logger.debug("exiting observability trace context", trace_id=this_id)
-            finally:
-                _trace_id.reset(token)
+    def observability_trace(
+        self,
+        *,
+        send_trace: bool,
+        attributes: contrast_fireball.OtelAttributes | None = None,
+    ) -> Generator:
+        logger.error(
+            "Observe mode requires `api.reporting_client = fireball`, but direct"
+            " reporting is in use. Disabling observe mode."
+        )
+        from contrast.agent import agent_state
 
-    @contextlib.contextmanager
-    def new_action_span(
-        self, action: str, attributes: dict[str, str] | None = None
-    ) -> Generator[None, None, None]:
-        if (trace_id := _trace_id.get()) is None:
-            logger.debug(
-                "Attempted to add an observability span outside of trace context",
-                action=action,
-                attributes=attributes,
-            )
-            yield
-            return
-        this_id = uuid.uuid4().hex
-        logger.debug(
-            "entering observed span",
-            action=action,
-            attributes=attributes,
-            span_id=this_id,
-            trace_id=trace_id,
-        )
-        yield
-        logger.debug(
-            "exiting observed span",
-            action=action,
-            attributes=attributes,
-            span_id=this_id,
-            trace_id=trace_id,
-        )
-
-    def update_span_attributes(self, attributes: dict) -> None:
-        logger.debug(
-            "updated span attributes (note - currently has no effect)",
-            attributes=attributes,
-        )
+        agent_state.set_observe_enabled({"observe.enable": False})
+        yield None
 
     def init_certs(self, settings: Settings) -> None:
         self.verify = True

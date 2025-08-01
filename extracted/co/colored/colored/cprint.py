@@ -13,8 +13,8 @@ from .colored import fore_rgb as foreground_rgb
 def cprint(text: str,  # pylint: disable=[R0913,R0917]
            fore_256: Optional[int | str] = None,
            back_256: Optional[int | str] = None,
-           fore_rgb: Optional[tuple] = None,
-           back_rgb: Optional[tuple] = None,
+           fore_rgb: Optional[tuple[int | str, int | str, int | str]] = None,
+           back_rgb: Optional[tuple[int | str, int | str, int | str]] = None,
            formatting: int | str = '',
            line_color: int | str = '',
            reset: bool = True,
@@ -42,7 +42,7 @@ def cprint(text: str,  # pylint: disable=[R0913,R0917]
     print(f'{styling}{back_color}{fore_color}{text}{terminator}', **kwargs)
 
 
-def resolve_foreground(fore_256: Optional[int | str], fore_rgb: Optional[tuple]) -> str:
+def resolve_foreground(fore_256: Optional[int | str], fore_rgb: Optional[tuple[int | str, int | str, int | str]]) -> str:
     """Returns the correct foreground color string.
 
     Args:
@@ -62,7 +62,7 @@ def resolve_foreground(fore_256: Optional[int | str], fore_rgb: Optional[tuple])
     return fore_color
 
 
-def resolve_background(back_256: Optional[int | str], back_rgb: Optional[tuple]) -> str:
+def resolve_background(back_256: Optional[int | str], back_rgb: Optional[tuple[int | str, int | str, int | str]]) -> str:
     """Returns the correct background color string.
 
     Args:

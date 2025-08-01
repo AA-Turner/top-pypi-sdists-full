@@ -104,10 +104,7 @@ class FormatPropagator(BasePropagator):
         if source_properties:
             source_tags = source_properties.tags_at_range(token.span)
 
-            if formatted is not None:
-                token_len = len(formatted)
-            else:
-                token_len = len(token)
+            token_len = len(formatted) if formatted is not None else len(token)
 
             for name in source_tags:
                 end_offset = target_offset + token_len

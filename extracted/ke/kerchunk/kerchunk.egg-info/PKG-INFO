@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: kerchunk
-Version: 0.2.8
+Version: 0.2.9
 Summary: Functions to make reference descriptions for ReferenceFileSystem
 Author-email: Martin Durant <martin.durant@alumni.utoronto.ca>
 License: MIT
@@ -17,7 +17,7 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fsspec
+Requires-Dist: fsspec>=2025.2.0
 Requires-Dist: numcodecs
 Requires-Dist: numpy
 Requires-Dist: ujson
@@ -50,6 +50,7 @@ Requires-Dist: cfgrib; extra == "dev"
 Requires-Dist: scipy; extra == "dev"
 Requires-Dist: netcdf4; extra == "dev"
 Requires-Dist: pytest-subtests; extra == "dev"
+Dynamic: license-file
 
 # kerchunk
 

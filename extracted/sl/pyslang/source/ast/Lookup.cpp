@@ -329,8 +329,12 @@ bool lookupDownward(std::span<const NamePlusLoc> nameParts, NameComponents name,
         // - This is not a direct interface port, package, or $unit reference
         const bool isCBOrVirtualIface = symbol->kind == SymbolKind::ClockingBlock || isVirtualIface;
         if (it == nameParts.rbegin()) {
-            if (symbol->kind != SymbolKind::InterfacePort && symbol->kind != SymbolKind::Package &&
-                symbol->kind != SymbolKind::CompilationUnit && !isCBOrVirtualIface) {
+            if (symbol->kind == SymbolKind::InterfacePort) {
+                result.flags |= LookupResultFlags::IfacePort;
+                result.path.emplace_back(*symbol);
+            }
+            else if (symbol->kind != SymbolKind::Package &&
+                     symbol->kind != SymbolKind::CompilationUnit && !isCBOrVirtualIface) {
                 result.flags |= LookupResultFlags::IsHierarchical;
                 result.path.emplace_back(*symbol);
             }
@@ -360,8 +364,11 @@ bool lookupDownward(std::span<const NamePlusLoc> nameParts, NameComponents name,
             symbol->kind == SymbolKind::Checker) {
             // If we found an uninstantiated def, exit silently. An appropriate error was
             // already issued, so no need to pile on.
-            if (symbol->kind == SymbolKind::UninstantiatedDef)
+            if (symbol->kind == SymbolKind::UninstantiatedDef &&
+                !context.getCompilation().hasFlag(
+                    CompilationFlags::DisallowRefsToUnknownInstances)) {
                 return false;
+            }
 
             symbol = unwrapTypeParam(*context.scope, symbol);
             if (!symbol)
@@ -378,22 +385,30 @@ bool lookupDownward(std::span<const NamePlusLoc> nameParts, NameComponents name,
             }
 
             DiagCode code;
+            bool includeName;
             if (isType) {
                 code = diag::DotOnType;
+                includeName = false;
             }
             else if (symbol->kind == SymbolKind::Checker ||
                      symbol->kind == SymbolKind::CheckerInstance) {
                 code = diag::CheckerHierarchical;
+                includeName = false;
+            }
+            else if (symbol->kind == SymbolKind::UninstantiatedDef) {
+                code = diag::HierarchicalRefUnknownModule;
+                includeName = true;
             }
             else {
                 code = diag::NotAHierarchicalScope;
+                includeName = true;
             }
 
             auto& diag = result.addDiag(*context.scope, code, it->dotLocation);
             diag << name.range;
             diag << it->name.range;
 
-            if (!isType)
+            if (includeName)
                 diag << name.text;
 
             diag.addNote(diag::NoteDeclarationHere, symbol->location);
@@ -498,18 +513,21 @@ bool lookupDownward(std::span<const NamePlusLoc> nameParts, NameComponents name,
     if (!checkClassParams(name))
         return false;
 
-    if (result.flags.has(LookupResultFlags::IsHierarchical) && symbol) {
-        if (VariableSymbol::isKind(symbol->kind) &&
-            symbol->as<VariableSymbol>().lifetime == VariableLifetime::Automatic) {
-            // If we found an automatic variable check that we didn't try to reference it
-            // hierarchically.
-            result.addDiag(*context.scope, diag::AutoVariableHierarchical, name.range);
-            return false;
-        }
-        else if (symbol->isType()) {
-            // Types cannot be referenced hierarchically.
-            result.addDiag(*context.scope, diag::TypeHierarchical, name.range);
-            return false;
+    if (result.flags.has(LookupResultFlags::IsHierarchical | LookupResultFlags::IfacePort) &&
+        symbol) {
+        if (result.flags.has(LookupResultFlags::IsHierarchical)) {
+            if (VariableSymbol::isKind(symbol->kind) &&
+                symbol->as<VariableSymbol>().lifetime == VariableLifetime::Automatic) {
+                // If we found an automatic variable check that we didn't try to reference it
+                // hierarchically.
+                result.addDiag(*context.scope, diag::AutoVariableHierarchical, name.range);
+                return false;
+            }
+            else if (symbol->isType()) {
+                // Types cannot be referenced hierarchically.
+                result.addDiag(*context.scope, diag::TypeHierarchical, name.range);
+                return false;
+            }
         }
         result.path.emplace_back(*symbol);
     }
@@ -875,7 +893,7 @@ void unwrapResult(const Scope& scope, std::optional<SourceRange> range, LookupRe
     // the default specialization (if possible).
     if (result.found->kind == SymbolKind::GenericClassDef && unwrapGenericClasses) {
         auto& genericClass = result.found->as<GenericClassDefSymbol>();
-        result.found = genericClass.getDefaultSpecialization();
+        result.found = genericClass.getDefaultSpecialization(scope);
 
         if (!result.found) {
             if (range)
@@ -1041,8 +1059,15 @@ void Lookup::name(const NameSyntax& syntax, const ASTContext& context, bitmask<L
             // If this is a system name, look up directly in the compilation.
             Token nameToken = syntax.as<SystemNameSyntax>().systemIdentifier;
             result.found = nullptr;
-            result.systemSubroutine = scope.getCompilation().getSystemSubroutine(
-                nameToken.valueText());
+
+            if (auto knownNameId = nameToken.systemName();
+                knownNameId != KnownSystemName::Unknown) {
+                result.systemSubroutine = scope.getCompilation().getSystemSubroutine(knownNameId);
+            }
+            else {
+                result.systemSubroutine = scope.getCompilation().getSystemSubroutine(
+                    nameToken.valueText());
+            }
 
             if (!result.systemSubroutine) {
                 result.addDiag(scope, diag::UnknownSystemName, nameToken.range())
@@ -1193,8 +1218,9 @@ static const Symbol* selectSingleChild(const Symbol& symbol, const BitSelectSynt
             return nullptr;
         }
 
-        auto child = array.elements[size_t(array.range.translateIndex(*index))];
-        result.path.emplace_back(*child, *index);
+        int32_t translated = *index - array.range.lower();
+        auto child = array.elements[size_t(translated)];
+        result.path.emplace_back(*child, translated);
         return child;
     }
     else {
@@ -1202,11 +1228,13 @@ static const Symbol* selectSingleChild(const Symbol& symbol, const BitSelectSynt
         if (!array.valid)
             return nullptr;
 
+        int32_t idx = 0;
         for (auto entry : array.entries) {
             if (entry->arrayIndex && *entry->arrayIndex == *index) {
-                result.path.emplace_back(*entry, *index);
+                result.path.emplace_back(*entry, idx);
                 return entry;
             }
+            idx++;
         }
 
         auto& diag = result.addDiag(*context.scope, diag::ScopeIndexOutOfRange,
@@ -1265,8 +1293,8 @@ static const Symbol* selectChildRange(const InstanceArraySymbol& array,
         return nullptr;
     }
 
-    int32_t begin = array.range.translateIndex(selRange.left);
-    int32_t end = array.range.translateIndex(selRange.right);
+    int32_t begin = selRange.left - array.range.lower();
+    int32_t end = selRange.right - array.range.lower();
     if (begin > end)
         std::swap(begin, end);
 
@@ -1280,7 +1308,7 @@ static const Symbol* selectChildRange(const InstanceArraySymbol& array,
     auto& comp = context.getCompilation();
     auto children = comp.emplace<InstanceArraySymbol>(comp, ""sv, syntax.getFirstToken().location(),
                                                       elems, newRange);
-    result.path.emplace_back(*children);
+    result.path.emplace_back(*children, std::pair(begin, end));
     return children;
 }
 

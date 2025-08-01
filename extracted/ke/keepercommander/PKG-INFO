@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keepercommander
-Version: 17.1.3
+Version: 17.1.4
 Summary: Keeper Commander for Python 3
 Home-page: https://keepersecurity.com/
 Download-URL: https://github.com/Keeper-Security/Commander/releases
@@ -32,14 +32,15 @@ Requires-Dist: psutil; python_version >= "3.8"
 Requires-Dist: pycryptodomex>=3.20.0
 Requires-Dist: pyngrok; python_version >= "3.8"
 Requires-Dist: pyperclip
-Requires-Dist: pysocks
 Requires-Dist: python-dotenv
 Requires-Dist: requests>=2.31.0
 Requires-Dist: tabulate
 Requires-Dist: websockets
-Requires-Dist: aiortc; python_version >= "3.8"
+Requires-Dist: keeper_pam_webrtc_rs; python_version >= "3.8"
 Requires-Dist: pydantic>=2.6.4; python_version >= "3.8"
 Requires-Dist: fpdf2>=2.8.3
+Requires-Dist: cbor2; sys_platform == "darwin" and python_version >= "3.10"
+Requires-Dist: pyobjc-framework-LocalAuthentication; sys_platform == "darwin" and python_version >= "3.10"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: testfixtures; extra == "test"

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -97,7 +97,7 @@ def read_reflog(f: BinaryIO) -> Generator[Entry, None, None]:
     Returns: Iterator over Entry objects
     """
     for line in f:
-        yield parse_reflog_line(line)
+        yield parse_reflog_line(line.rstrip(b"\n"))
 
 
 def drop_reflog_entry(f: BinaryIO, index: int, rewrite: bool = False) -> None:
@@ -157,3 +157,28 @@ def drop_reflog_entry(f: BinaryIO, index: int, rewrite: bool = False) -> None:
             )
         )
     f.truncate()
+
+
+def iter_reflogs(logs_dir: str) -> Generator[bytes, None, None]:
+    """Iterate over all reflogs in a repository.
+
+    Args:
+        logs_dir: Path to the logs directory (e.g., .git/logs)
+
+    Yields:
+        Reference names (as bytes) that have reflogs
+    """
+    import os
+    from pathlib import Path
+
+    if not os.path.exists(logs_dir):
+        return
+
+    logs_path = Path(logs_dir)
+    for log_file in logs_path.rglob("*"):
+        if log_file.is_file():
+            # Get the ref name by removing the logs_dir prefix
+            ref_name = str(log_file.relative_to(logs_path))
+            # Convert path separators to / for refs
+            ref_name = ref_name.replace(os.sep, "/")
+            yield ref_name.encode("utf-8")

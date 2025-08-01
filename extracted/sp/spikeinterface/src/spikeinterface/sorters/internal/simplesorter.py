@@ -98,7 +98,7 @@ class SimpleSorter(ComponentsBasedSorter):
             noise_levels = np.ones(num_chans, dtype="float32")
         else:
             recording = recording_raw
-            noise_levels = get_noise_levels(recording, return_scaled=False)
+            noise_levels = get_noise_levels(recording, return_in_uV=False)
 
         # recording = cache_preprocessing(recording, **job_kwargs, **params["cache_preprocessing"])
 
@@ -185,6 +185,11 @@ class SimpleSorter(ComponentsBasedSorter):
 
             out = hdbscan.hdbscan(features_flat, **clust_params)
             peak_labels = out[0]
+        elif clust_method == "hdbscan-gpu":
+            from cuml.cluster import HDBSCAN as hdbscan
+
+            model = hdbscan(**clust_params).fit(features_flat)
+            peak_labels = model.labels_.copy()
         elif clust_method in ("kmeans"):
             from sklearn.cluster import MiniBatchKMeans
 

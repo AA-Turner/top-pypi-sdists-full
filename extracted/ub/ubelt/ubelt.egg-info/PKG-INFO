@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ubelt
-Version: 1.3.7
+Version: 1.3.8
 Summary: A Python utility belt containing simple tools, a stdlib like feel, and extra batteries
 Home-page: https://github.com/Erotemic/ubelt
 Author: Jon Crall
@@ -209,6 +209,18 @@ Provides-Extra: types-strict
 Requires-Dist: mypy; extra == "types-strict"
 Requires-Dist: autoflake==1.4; extra == "types-strict"
 Requires-Dist: yapf==0.32.0; extra == "types-strict"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 |GithubActions| |ReadTheDocs| |Pypi| |Downloads| |Codecov| |CircleCI| |Appveyor|
 
@@ -257,7 +269,7 @@ achieve 100% test coverage (with minor exceptions on Windows).
 * Motto: Good utilities lift all codes.
 
 
-Read the docs here: http://ubelt.readthedocs.io/en/latest/auto/
+Read the docs here: https://ubelt.readthedocs.io/en/latest
 
 These are some of the tasks that ubelt's API enables:
 

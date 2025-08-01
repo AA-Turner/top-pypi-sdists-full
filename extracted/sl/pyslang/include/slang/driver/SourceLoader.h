@@ -18,7 +18,7 @@
 #include "slang/syntax/SyntaxFwd.h"
 #include "slang/text/Glob.h"
 #include "slang/text/SourceLocation.h"
-#include "slang/util/Hash.h"
+#include "slang/util/FlatMap.h"
 #include "slang/util/Util.h"
 
 namespace slang {
@@ -134,6 +134,9 @@ public:
     /// Returns true if there is at least one source file to load,
     /// and false if none have been added to the loader.
     bool hasFiles() const { return !fileEntries.empty(); }
+
+    /// Returns the source paths that have been loaded.
+    std::vector<std::filesystem::path> getFilePaths() const;
 
     /// Loads all of the sources that have been added to the loader,
     /// but does not parse them. Returns the loaded buffers.

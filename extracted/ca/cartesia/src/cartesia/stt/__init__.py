@@ -10,8 +10,10 @@ from .types import (
     StreamingTranscriptionResponse_FlushDone,
     StreamingTranscriptionResponse_Transcript,
     SttEncoding,
+    TimestampGranularity,
     TranscriptMessage,
     TranscriptionResponse,
+    TranscriptionWord,
 )
 from .requests import (
     DoneMessageParams,
@@ -24,6 +26,7 @@ from .requests import (
     StreamingTranscriptionResponse_TranscriptParams,
     TranscriptMessageParams,
     TranscriptionResponseParams,
+    TranscriptionWordParams,
 )
 
 __all__ = [
@@ -44,8 +47,11 @@ __all__ = [
     "StreamingTranscriptionResponse_Transcript",
     "StreamingTranscriptionResponse_TranscriptParams",
     "SttEncoding",
+    "TimestampGranularity",
     "TranscriptMessage",
     "TranscriptMessageParams",
     "TranscriptionResponse",
     "TranscriptionResponseParams",
+    "TranscriptionWord",
+    "TranscriptionWordParams",
 ]

@@ -3,7 +3,7 @@ members = ["wheel"]
 
 [package]
 name = "clvmr"
-version = "0.16.0"
+version = "0.16.1"
 authors = ["Richard Kiss <him@richardkiss.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -38,13 +38,14 @@ openssl = ["chia-sha2/openssl"]
 lto = "thin"
 
 [workspace.dependencies]
-clvmr = { path = "." }
+clvmr = { path = ".", version = "0.16.1" }
+clvm-fuzzing = { path = "./clvm-fuzzing", version = "0.16.1" }
 lazy_static = "1.5.0"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 num-integer = "0.1.46"
-chia-bls = "0.22.0"
-chia-sha2 = "0.22.0"
+chia-bls = "0.28.1"
+chia-sha2 = "0.28.1"
 hex-literal = "0.4.1"
 # for secp sigs
 k256 = "0.13.4"
@@ -68,6 +69,7 @@ rand_chacha = "0.3.1"
 bitvec = "1.0.1"
 arbitrary = { version = "1.4.1", features = ["derive"] }
 bumpalo = "3.17.0"
+anyhow = "1.0.93"
 
 [dependencies]
 lazy_static = { workspace = true }
@@ -88,6 +90,7 @@ hex = { workspace = true }
 sha1 = { workspace = true }
 bumpalo = { workspace = true }
 thiserror = "1.0.69"
+
 
 [dev-dependencies]
 rstest = { workspace = true }

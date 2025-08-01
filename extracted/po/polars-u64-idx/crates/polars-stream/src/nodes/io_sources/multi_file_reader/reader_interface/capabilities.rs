@@ -14,10 +14,10 @@ bitflags! {
         ///
         /// ROW_INDEX will not be needed (or called) for PRE_SLICE, as it gets optimized to be applied
         /// after the PRE_SLICE instead by adjusting the offset.
-        const ROW_INDEX          = 1 << 0;
+        const ROW_INDEX = 1 << 0;
 
         /// Supports slicing with offsets relative to the start of the file (i.e. `offset >= 0 / Slice::Positive`).
-        const PRE_SLICE          = 1 << 1;
+        const PRE_SLICE = 1 << 1;
 
         /// Supports slicing with offsets relative to the end of the file (i.e. `offset < 0 / Slice::Negative`)
         const NEGATIVE_PRE_SLICE = 1 << 2;
@@ -32,7 +32,10 @@ bitflags! {
         /// `PARTIAL_FILTER` should also be enabled if this is enabled.
         const FULL_FILTER = 1 << 4;
 
+        /// The reader supports being passed `Projection::Mapped`.
+        const MAPPED_COLUMN_PROJECTION = 1 << 5;
+
         /// Supports applying an external filter mask.
-        const EXTERNAL_FILTER_MASK = 1 << 5;
+        const EXTERNAL_FILTER_MASK = 1 << 6;
     }
 }

@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use polars::io::mmap::MmapBytesReader;
+use polars::prelude::PlPath;
 use polars::prelude::file::DynWriteable;
 use polars::prelude::sync_on_close::SyncOnCloseType;
 use polars_error::polars_err;
@@ -171,26 +172,60 @@ impl Read for PyFileLikeObject {
 
 impl Write for PyFileLikeObject {
     fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
+        // Note on the .extract() method:
+        // In case of a PyString object, it returns the number of chars,
+        // so we need to take extra steps if the underlying string is not all ASCII.
+        // In case of a ByBytes object, it returns the number of bytes.
+        let expects_str = self.expects_str;
+        let expects_str_and_is_ascii = expects_str && buf.is_ascii();
+
         Python::with_gil(|py| {
-            let number_bytes_written = if self.expects_str {
-                self.inner.call_method(
-                    py,
-                    "write",
-                    (PyString::new(
+            let n_bytes = if expects_str_and_is_ascii {
+                let number_chars_written = unsafe {
+                    self.inner.call_method(
                         py,
-                        std::str::from_utf8(buf).map_err(io::Error::other)?,
-                    ),),
-                    None,
-                )
+                        "write",
+                        (PyString::new(py, std::str::from_utf8_unchecked(buf)),),
+                        None,
+                    )
+                }
+                .map_err(pyerr_to_io_err)?;
+                number_chars_written.extract(py).map_err(pyerr_to_io_err)?
+            } else if expects_str {
+                let number_chars_written = self
+                    .inner
+                    .call_method(
+                        py,
+                        "write",
+                        (PyString::new(
+                            py,
+                            std::str::from_utf8(buf).map_err(io::Error::other)?,
+                        ),),
+                        None,
+                    )
+                    .map_err(pyerr_to_io_err)?;
+                let n_chars: usize = number_chars_written.extract(py).map_err(pyerr_to_io_err)?;
+                // calculate n_bytes
+                if n_chars > 0 {
+                    std::str::from_utf8(buf)
+                        .map(|str| {
+                            str.char_indices()
+                                .nth(n_chars - 1)
+                                .map(|(i, ch)| i + ch.len_utf8())
+                                .unwrap()
+                        })
+                        .expect("unable to parse buffer as utf-8")
+                } else {
+                    0
+                }
             } else {
-                self.inner
+                let number_bytes_written = self
+                    .inner
                     .call_method(py, "write", (PyBytes::new(py, buf),), None)
-            }
-            .map_err(pyerr_to_io_err)?;
-
-            let n = number_bytes_written.extract(py).map_err(pyerr_to_io_err)?;
-
-            Ok(n)
+                    .map_err(pyerr_to_io_err)?;
+                number_bytes_written.extract(py).map_err(pyerr_to_io_err)?
+            };
+            Ok(n_bytes)
         })
     }
 
@@ -263,7 +298,7 @@ impl EitherRustPythonFile {
 
 pub(crate) enum PythonScanSourceInput {
     Buffer(MemSlice),
-    Path(PathBuf),
+    Path(PlPath),
     File(ClosableFile),
 }
 
@@ -386,7 +421,12 @@ pub(crate) fn get_python_scan_source_input(
         }
 
         if let Ok(s) = py_f.extract::<Cow<str>>() {
-            let file_path = resolve_homedir(&&*s);
+            let mut file_path = PlPath::new(&s);
+            if let Some(p) = file_path.as_ref().as_local_path() {
+                if p.starts_with("~/") {
+                    file_path = PlPath::Local(resolve_homedir(&p).into());
+                }
+            }
             Ok(PythonScanSourceInput::Path(file_path))
         } else {
             Ok(try_get_pyfile(py, py_f, write)?.0.into_scan_source_input())

@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-ntl
-# distutils: libraries = NTL_LIBRARIES gmp m
+# distutils: libraries = NTL_LIBRARIES gmp M_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -107,14 +107,14 @@ cdef class ntl_zz_p():
                 raise ValueError("Mismatched modulus for converting to zz_p.")
 
         elif isinstance(a, Integer):
-            self.x = mpz_get_si((<Integer>a).value)%self.c.p
+            self.x = mpz_get_si((<Integer>a).value) % self.c.p
 
         elif isinstance(a, int):
             ## we're lucky that python int is no larger than long
-            self.x = (<long>a)%self.c.p
+            self.x = (<long>a) % self.c.p
         else:
             a = Integer(a)
-            self.x = mpz_get_si((<Integer>a).value)%self.c.p
+            self.x = mpz_get_si((<Integer>a).value) % self.c.p
 
         return
 

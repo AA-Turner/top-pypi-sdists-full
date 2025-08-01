@@ -31,6 +31,7 @@ ImageDigest = str
 ImageFailureReason = str
 ImageManifest = str
 ImageTag = str
+ImageTagMutabilityExclusionFilterValue = str
 IsPTCRuleValid = bool
 KmsError = str
 KmsKey = str
@@ -121,6 +122,12 @@ class ImageFailureCode(StrEnum):
 class ImageTagMutability(StrEnum):
     MUTABLE = "MUTABLE"
     IMMUTABLE = "IMMUTABLE"
+    IMMUTABLE_WITH_EXCLUSION = "IMMUTABLE_WITH_EXCLUSION"
+    MUTABLE_WITH_EXCLUSION = "MUTABLE_WITH_EXCLUSION"
+
+
+class ImageTagMutabilityExclusionFilterType(StrEnum):
+    WILDCARD = "WILDCARD"
 
 
 class LayerAvailability(StrEnum):
@@ -832,6 +839,18 @@ class CreatePullThroughCacheRuleResponse(TypedDict, total=False):
 RCTAppliedForList = List[RCTAppliedFor]
 
 
+class ImageTagMutabilityExclusionFilter(TypedDict, total=False):
+    """Overrides the default image tag mutability setting of the repository for
+    image tags that match the specified filters.
+    """
+
+    filterType: ImageTagMutabilityExclusionFilterType
+    filter: ImageTagMutabilityExclusionFilterValue
+
+
+ImageTagMutabilityExclusionFilters = List[ImageTagMutabilityExclusionFilter]
+
+
 class Tag(TypedDict, total=False):
     """The metadata to apply to a resource to help you categorize and organize
     them. Each tag consists of a key and a value, both of which you define.
@@ -861,6 +880,7 @@ class CreateRepositoryCreationTemplateRequest(ServiceRequest):
     encryptionConfiguration: Optional[EncryptionConfigurationForRepositoryCreationTemplate]
     resourceTags: Optional[TagList]
     imageTagMutability: Optional[ImageTagMutability]
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
     repositoryPolicy: Optional[RepositoryPolicyText]
     lifecyclePolicy: Optional[LifecyclePolicyTextForRepositoryCreationTemplate]
     appliedFor: RCTAppliedForList
@@ -877,6 +897,7 @@ class RepositoryCreationTemplate(TypedDict, total=False):
     encryptionConfiguration: Optional[EncryptionConfigurationForRepositoryCreationTemplate]
     resourceTags: Optional[TagList]
     imageTagMutability: Optional[ImageTagMutability]
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
     repositoryPolicy: Optional[RepositoryPolicyText]
     lifecyclePolicy: Optional[LifecyclePolicyTextForRepositoryCreationTemplate]
     appliedFor: Optional[RCTAppliedForList]
@@ -923,6 +944,7 @@ class CreateRepositoryRequest(ServiceRequest):
     repositoryName: RepositoryName
     tags: Optional[TagList]
     imageTagMutability: Optional[ImageTagMutability]
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
     imageScanningConfiguration: Optional[ImageScanningConfiguration]
     encryptionConfiguration: Optional[EncryptionConfiguration]
 
@@ -936,6 +958,7 @@ class Repository(TypedDict, total=False):
     repositoryUri: Optional[Url]
     createdAt: Optional[CreationTimestamp]
     imageTagMutability: Optional[ImageTagMutability]
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
     imageScanningConfiguration: Optional[ImageScanningConfiguration]
     encryptionConfiguration: Optional[EncryptionConfiguration]
 
@@ -1622,12 +1645,14 @@ class PutImageTagMutabilityRequest(ServiceRequest):
     registryId: Optional[RegistryId]
     repositoryName: RepositoryName
     imageTagMutability: ImageTagMutability
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
 
 
 class PutImageTagMutabilityResponse(TypedDict, total=False):
     registryId: Optional[RegistryId]
     repositoryName: Optional[RepositoryName]
     imageTagMutability: Optional[ImageTagMutability]
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
 
 
 class PutLifecyclePolicyRequest(ServiceRequest):
@@ -1750,6 +1775,7 @@ class UpdateRepositoryCreationTemplateRequest(ServiceRequest):
     encryptionConfiguration: Optional[EncryptionConfigurationForRepositoryCreationTemplate]
     resourceTags: Optional[TagList]
     imageTagMutability: Optional[ImageTagMutability]
+    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
     repositoryPolicy: Optional[RepositoryPolicyText]
     lifecyclePolicy: Optional[LifecyclePolicyTextForRepositoryCreationTemplate]
     appliedFor: Optional[RCTAppliedForList]
@@ -2001,6 +2027,7 @@ class EcrApi:
         registry_id: RegistryId | None = None,
         tags: TagList | None = None,
         image_tag_mutability: ImageTagMutability | None = None,
+        image_tag_mutability_exclusion_filters: ImageTagMutabilityExclusionFilters | None = None,
         image_scanning_configuration: ImageScanningConfiguration | None = None,
         encryption_configuration: EncryptionConfiguration | None = None,
         **kwargs,
@@ -2015,6 +2042,8 @@ class EcrApi:
         :param tags: The metadata that you apply to the repository to help you categorize and
         organize them.
         :param image_tag_mutability: The tag mutability setting for the repository.
+        :param image_tag_mutability_exclusion_filters: Creates a repository with a list of filters that define which image tags
+        can override the default image tag mutability setting.
         :param image_scanning_configuration: The image scanning configuration for the repository.
         :param encryption_configuration: The encryption configuration for the repository.
         :returns: CreateRepositoryResponse
@@ -2039,6 +2068,7 @@ class EcrApi:
         | None = None,
         resource_tags: TagList | None = None,
         image_tag_mutability: ImageTagMutability | None = None,
+        image_tag_mutability_exclusion_filters: ImageTagMutabilityExclusionFilters | None = None,
         repository_policy: RepositoryPolicyText | None = None,
         lifecycle_policy: LifecyclePolicyTextForRepositoryCreationTemplate | None = None,
         custom_role_arn: CustomRoleArn | None = None,
@@ -2060,6 +2090,9 @@ class EcrApi:
         :param resource_tags: The metadata to apply to the repository to help you categorize and
         organize.
         :param image_tag_mutability: The tag mutability setting for the repository.
+        :param image_tag_mutability_exclusion_filters: Creates a repository creation template with a list of filters that
+        define which image tags can override the default image tag mutability
+        setting.
         :param repository_policy: The repository policy to apply to repositories created using the
         template.
         :param lifecycle_policy: The lifecycle policy to use for repositories created using the template.
@@ -2761,6 +2794,7 @@ class EcrApi:
         repository_name: RepositoryName,
         image_tag_mutability: ImageTagMutability,
         registry_id: RegistryId | None = None,
+        image_tag_mutability_exclusion_filters: ImageTagMutabilityExclusionFilters | None = None,
         **kwargs,
     ) -> PutImageTagMutabilityResponse:
         """Updates the image tag mutability settings for the specified repository.
@@ -2774,6 +2808,8 @@ class EcrApi:
         :param registry_id: The Amazon Web Services account ID associated with the registry that
         contains the repository in which to update the image tag mutability
         settings.
+        :param image_tag_mutability_exclusion_filters: Creates or updates a repository with filters that define which image
+        tags can override the default image tag mutability setting.
         :returns: PutImageTagMutabilityResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3044,6 +3080,7 @@ class EcrApi:
         | None = None,
         resource_tags: TagList | None = None,
         image_tag_mutability: ImageTagMutability | None = None,
+        image_tag_mutability_exclusion_filters: ImageTagMutabilityExclusionFilters | None = None,
         repository_policy: RepositoryPolicyText | None = None,
         lifecycle_policy: LifecyclePolicyTextForRepositoryCreationTemplate | None = None,
         applied_for: RCTAppliedForList | None = None,
@@ -3060,6 +3097,8 @@ class EcrApi:
         :param resource_tags: The metadata to apply to the repository to help you categorize and
         organize.
         :param image_tag_mutability: Updates the tag mutability setting for the repository.
+        :param image_tag_mutability_exclusion_filters: Updates a repository with filters that define which image tags can
+        override the default image tag mutability setting.
         :param repository_policy: Updates the repository policy created using the template.
         :param lifecycle_policy: Updates the lifecycle policy associated with the specified repository
         creation template.

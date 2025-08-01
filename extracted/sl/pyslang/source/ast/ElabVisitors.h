@@ -8,15 +8,22 @@
 #pragma once
 
 #include "slang/ast/ASTVisitor.h"
+#include "slang/ast/EvalContext.h"
 #include "slang/diagnostics/CompilationDiags.h"
 #include "slang/diagnostics/DeclarationsDiags.h"
 #include "slang/util/TimeTrace.h"
 
 namespace slang::ast {
 
+static bool isEligibleForCaching(const InstanceSymbol& symbol) {
+    return !symbol.resolvedConfig && !symbol.body.hierarchyOverrideNode &&
+           !symbol.body.flags.has(InstanceFlags::PreventsCaching);
+}
+
 class InstanceCacheKey {
 public:
-    InstanceCacheKey(const InstanceSymbol& symbol);
+    InstanceCacheKey(const InstanceSymbol& symbol, bool& valid,
+                     SmallSet<const InstanceSymbol*, 2>& visitedInstances);
 
     bool operator==(const InstanceCacheKey& other) const;
     bool operator!=(const InstanceCacheKey& other) const { return !(*this == other); }
@@ -25,7 +32,7 @@ public:
 
 private:
     not_null<const InstanceSymbol*> symbol;
-    std::vector<InstanceCacheKey> ifaceKeys;
+    std::vector<std::pair<InstanceCacheKey, const ModportSymbol*>> ifaceKeys;
     size_t savedHash;
 };
 
@@ -77,10 +84,8 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
 
         if constexpr (requires { symbol.getBody().bad(); }) {
             auto& body = symbol.getBody();
-            if (body.bad())
-                return true;
-
-            body.visit(*this);
+            if (!body.bad())
+                body.visit(*this);
         }
 
         visitDefault(symbol);
@@ -112,8 +117,14 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
             // processing and checking.
             if (!symbol.modport.empty()) {
                 auto [_, modport] = symbol.getConnection();
-                if (modport)
-                    modportsWithExports.push_back({&symbol, modport});
+                if (modport) {
+                    for (auto& method : modport->membersOfType<MethodPrototypeSymbol>()) {
+                        if (method.flags.has(MethodFlags::ModportExport)) {
+                            modportsWithExports.push_back({&symbol, modport});
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -175,8 +186,13 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
         if (auto sub = symbol.getSubroutine())
             handle(*sub);
 
-        if (symbol.flags.has(MethodFlags::InterfaceExtern))
+        if (symbol.flags.has(MethodFlags::InterfaceExtern)) {
             externIfaceProtos.push_back(&symbol);
+
+            auto scope = symbol.getParentScope();
+            SLANG_ASSERT(scope);
+            compilation.noteCannotCache(*scope);
+        }
     }
 
     void handle(const GenericClassDefSymbol& symbol) {
@@ -330,11 +346,7 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
         if (!visitInstances && symbol.body.flags.has(InstanceFlags::FromBind))
             return;
 
-        TimeTraceScope timeScope("AST Instance", [&] {
-            std::string buffer;
-            symbol.getHierarchicalPath(buffer);
-            return buffer;
-        });
+        TimeTraceScope timeScope("AST Instance", [&] { return symbol.getHierarchicalPath(); });
 
         for (auto conn : symbol.getPortConnections()) {
             conn->getExpression();
@@ -364,29 +376,9 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
         }
 
         // If we have already visited an identical instance body we don't have to do
-        // it again, because all possible diagnostics have already been collected,
-        // with some notable caveats that need to be handled:
-        // - "identical" needs to take into account parameters values and interface ports,
-        //   since they types of members and expression can vary based on those
-        // - TODO: Any upward hierarchical references that extend out of the instance need
-        //         to be re-resolved here, and the resolved types must match
-        // - TODO: Downward hierarchical references into such instances need to be accounted for
-        // - TODO: Bind directives needs to be accounted for
-        // - TODO: Defparams need to be accounted for
-        // - TODO: Configuration rules need to be accounted for
-        //
-        // Assuming we find an appropriately cached instance, we will store a pointer to it
-        // in other instances to facilitate downstream consumers in not needing to recreate
-        // this duplication detection logic again.
-        SLANG_ASSERT(symbol.getCanonicalBody() == nullptr);
-        auto [it, inserted] = instanceCache.try_emplace(symbol, &symbol.body);
-        if (!inserted) {
-            symbol.setCanonicalBody(*it->second);
-            if (!compilation.hasFlag(CompilationFlags::DisableInstanceCaching))
-                return;
-        }
-
-        if (visitInstances)
+        // it again, because all possible diagnostics have already been collected.
+        // Otherwise descend into the body and visit everything.
+        if (visitInstances && !tryApplyFromCache(symbol))
             visit(symbol.body);
     }
 
@@ -473,8 +465,35 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
     void finalize() {
         // Once everything has been visited, go back over and check things that might
         // have been influenced by visiting later symbols.
+
+        // For all hierarchical assignments, make sure we actually visited their
+        // target instances and didn't skip them due to caching.
+        while (!compilation.hierarchicalAssignments.empty()) {
+            disableCache = true;
+            auto hierarchicalAssignments = std::move(compilation.hierarchicalAssignments);
+            compilation.hierarchicalAssignments.clear();
+
+            for (auto hierRef : hierarchicalAssignments) {
+                // Walk the path and visit all instances we find that were previously cached.
+                for (auto& [sym, _] : hierRef->path) {
+                    if (sym->kind == SymbolKind::Instance) {
+                        // If this instance has a canonical pointer it means we previously
+                        // determined we could cache it, so we need to visit it here.
+                        // Additionally we will unset the canonical pointer so that
+                        // we don't try to cache it again in the future.
+                        auto& inst = sym->as<InstanceSymbol>();
+                        if (inst.getCanonicalBody() != nullptr) {
+                            inst.setCanonicalBody(nullptr);
+                            inst.visit(*this);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check the validity of virtual interface assignments.
         while (!compilation.virtualInterfaceInstances.empty()) {
-            auto vii = compilation.virtualInterfaceInstances;
+            auto vii = std::move(compilation.virtualInterfaceInstances);
             compilation.virtualInterfaceInstances.clear();
 
             for (auto inst : vii) {
@@ -520,12 +539,108 @@ struct DiagnosticVisitor : public ASTVisitor<DiagnosticVisitor, false, false> {
         }
     }
 
+    static bool isWithinInterface(const InstanceSymbol& symbol) {
+        auto scope = symbol.getParentScope();
+        while (scope) {
+            auto container = scope->getContainingInstance();
+            if (!container || !container->parentInstance)
+                return false;
+
+            if (container->parentInstance->isInterface())
+                return true;
+
+            scope = container->parentInstance->getParentScope();
+        }
+        return false;
+    }
+
+    bool tryApplyFromCache(const InstanceSymbol& symbol) {
+        if (disableCache)
+            return false;
+
+        // We can use a cached version of this instance's body if we have already
+        // visited an identical body elsewhere, with some caveats explained below.
+        SLANG_ASSERT(symbol.getCanonicalBody() == nullptr);
+
+        // Instances that are targeted by defparams, bind directives, or configuration rules,
+        // or that are themselves created by a bind directive, cannot participate in caching.
+        if (!isEligibleForCaching(symbol))
+            return false;
+
+        // "Identical" needs to take into account parameter values and interface ports,
+        // since the types of members and expression can vary based on those. This is
+        // computed in the InstanceCacheKey.
+        //
+        // Interface ports must be connected to instances that themselves follow the
+        // restrictions on defparams, bind directives, and config rules. This is checked
+        // in the InstanceCacheKey constructor and returned in the 'valid' parameter.
+        bool valid = true;
+        SmallSet<const InstanceSymbol*, 2> visitedInstances;
+        InstanceCacheKey key(symbol, valid, visitedInstances);
+        if (!valid)
+            return false;
+
+        auto [it, inserted] = instanceCache.try_emplace(std::move(key), symbol.body);
+        if (inserted)
+            return false;
+
+        // If we haven't resolved the side effects entry yet do that now.
+        // We do this opportunistically here because we know we have a cache hit.
+        auto& entry = it->second;
+        if (!entry.sideEffects) {
+            if (auto sideEffectIt = compilation.instanceSideEffectMap.find(entry.canonicalBody);
+                sideEffectIt != compilation.instanceSideEffectMap.end()) {
+                entry.sideEffects = sideEffectIt->second.get();
+            }
+            else {
+                entry.sideEffects = nullptr;
+            }
+        }
+
+        // If any hierarchical names extend upward out of the instance we won't consider
+        // it for caching, since the names could be different based on the context.
+        // This could be optimized in the future by having another layer of caching based
+        // on what the name resolves to for each instance.
+        auto sideEffects = entry.sideEffects.value();
+        if (sideEffects && (sideEffects->cannotCache || !sideEffects->upwardNames.empty())) {
+            return false;
+        }
+
+        // Assuming we find an appropriately cached instance, we will store a pointer to it
+        // in other instances to facilitate downstream consumers in not needing to recreate
+        // this duplication detection logic again.
+        symbol.setCanonicalBody(entry.canonicalBody);
+
+        // If this is an interface or an instance instantiated within an interface
+        // we want to return false so that we continue visiting the body. This is
+        // because we're very likely going to be connected to a module port and need
+        // all types resolved before we freeze the compilation and move on to the
+        // multithreaded analysis phase.
+        auto defKind = symbol.getDefinition().definitionKind;
+        if (compilation.hasFlag(CompilationFlags::DisableInstanceCaching) ||
+            defKind == DefinitionKind::Interface ||
+            (defKind == DefinitionKind::Program && isWithinInterface(symbol))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct InstanceCacheEntry {
+        not_null<const InstanceBodySymbol*> canonicalBody;
+        std::optional<const Compilation::InstanceSideEffects*> sideEffects;
+
+        explicit InstanceCacheEntry(const InstanceBodySymbol& canonicalBody) :
+            canonicalBody(&canonicalBody) {}
+    };
+
     Compilation& compilation;
     const size_t& numErrors;
     uint32_t errorLimit;
     bool visitInstances = true;
+    bool disableCache = false;
     bool hierarchyProblem = false;
-    flat_hash_map<InstanceCacheKey, const InstanceBodySymbol*> instanceCache;
+    flat_hash_map<InstanceCacheKey, InstanceCacheEntry> instanceCache;
     flat_hash_set<const InstanceBodySymbol*> activeInstanceBodies;
     flat_hash_set<const DefinitionSymbol*> usedIfacePorts;
     SmallVector<const GenericClassDefSymbol*> genericClasses;
@@ -641,225 +756,9 @@ struct DefParamVisitor : public ASTVisitor<DefParamVisitor, false, false> {
     const InstanceSymbol* hierarchyProblem = nullptr;
 };
 
-// This visitor runs post-elaboration and can be used to find and report on
-// things like unused code elements.
-struct PostElabVisitor : public ASTVisitor<PostElabVisitor, false, false> {
-    explicit PostElabVisitor(Compilation& compilation) : compilation(compilation) {}
-
-    void handle(const InstanceSymbol& symbol) {
-        // Ignore instances that have a duplicate body.
-        if (!symbol.getCanonicalBody())
-            visitDefault(symbol);
-    }
-
-    void handle(const NetSymbol& symbol) {
-        if (symbol.isImplicit) {
-            checkValueUnused(symbol, diag::UnusedImplicitNet, diag::UnusedImplicitNet,
-                             diag::UnusedImplicitNet);
-        }
-        else {
-            checkValueUnused(symbol, diag::UnusedNet, diag::UndrivenNet, diag::UnusedButSetNet);
-        }
-    }
-
-    void handle(const MethodPrototypeSymbol&) {
-        // Ignore method prototype arguments, they're not unused.
-    }
-
-    void handle(const SubroutineSymbol& symbol) {
-        if (symbol.flags.has(MethodFlags::Pure | MethodFlags::InterfaceExtern |
-                             MethodFlags::DPIImport | MethodFlags::Randomize)) {
-            return;
-        }
-
-        visitDefault(symbol);
-    }
-
-    void handle(const VariableSymbol& symbol) {
-        if (symbol.flags.has(VariableFlags::CompilerGenerated))
-            return;
-
-        if (symbol.kind == SymbolKind::Variable) {
-            // Class handles and covergroups are considered used if they are
-            // constructed, since construction can have side effects.
-            auto& type = symbol.getType();
-            if (type.isClass() || type.isCovergroup()) {
-                if (auto init = symbol.getDeclaredType()->getInitializer();
-                    init && (init->kind == ExpressionKind::NewClass ||
-                             init->kind == ExpressionKind::NewCovergroup)) {
-                    return;
-                }
-            }
-
-            checkValueUnused(symbol, diag::UnusedVariable, diag::UnassignedVariable,
-                             diag::UnusedButSetVariable);
-        }
-        else if (symbol.kind == SymbolKind::FormalArgument) {
-            auto parent = symbol.getParentScope();
-            SLANG_ASSERT(parent);
-
-            if (parent->asSymbol().kind == SymbolKind::Subroutine) {
-                auto& sub = parent->asSymbol().as<SubroutineSymbol>();
-                if (!sub.isVirtual())
-                    checkValueUnused(symbol, diag::UnusedArgument, std::nullopt, std::nullopt);
-            }
-        }
-    }
-
-    void handle(const ParameterSymbol& symbol) {
-        checkValueUnused(symbol, diag::UnusedParameter, {}, diag::UnusedParameter);
-    }
-
-    void handle(const TypeParameterSymbol& symbol) {
-        checkUnused(symbol, diag::UnusedTypeParameter);
-    }
-
-    void handle(const TypeAliasType& symbol) {
-        auto syntax = symbol.getSyntax();
-        if (!syntax || symbol.name.empty())
-            return;
-
-        {
-            auto [used, _] = compilation.isReferenced(*syntax);
-            if (used)
-                return;
-        }
-
-        // If this is a typedef for an enum declaration, count usage
-        // of any of the enum values as a usage of the typedef itself
-        // (since there's no good way otherwise to introduce enum values
-        // without the typedef).
-        auto& targetType = symbol.targetType.getType();
-        if (targetType.kind == SymbolKind::EnumType) {
-            for (auto& val : targetType.as<EnumType>().values()) {
-                if (auto valSyntax = val.getSyntax()) {
-                    auto [valUsed, _] = compilation.isReferenced(*valSyntax);
-                    if (valUsed)
-                        return;
-                }
-            }
-        }
-
-        addDiag(symbol, diag::UnusedTypedef);
-    }
-
-    void handle(const GenvarSymbol& symbol) { checkUnused(symbol, diag::UnusedGenvar); }
-
-    void handle(const SequenceSymbol& symbol) { checkAssertionDeclUnused(symbol, "sequence"sv); }
-    void handle(const PropertySymbol& symbol) { checkAssertionDeclUnused(symbol, "property"sv); }
-    void handle(const LetDeclSymbol& symbol) { checkAssertionDeclUnused(symbol, "let"sv); }
-    void handle(const CheckerSymbol& symbol) { checkAssertionDeclUnused(symbol, "checker"sv); }
-
-    void handle(const ExplicitImportSymbol& symbol) { checkUnused(symbol, diag::UnusedImport); }
-
-    void handle(const WildcardImportSymbol& symbol) {
-        auto syntax = symbol.getSyntax();
-        if (!syntax)
-            return;
-
-        auto [used, _] = compilation.isReferenced(*syntax);
-        if (!used) {
-            if (shouldWarn(symbol))
-                symbol.getParentScope()->addDiag(diag::UnusedWildcardImport, symbol.location);
-        }
-    }
-
-private:
-    void checkValueUnused(const ValueSymbol& symbol, DiagCode unusedCode,
-                          std::optional<DiagCode> unsetCode, std::optional<DiagCode> unreadCode) {
-        auto syntax = symbol.getSyntax();
-        if (!syntax || symbol.name.empty())
-            return;
-
-        auto [rvalue, lvalue] = compilation.isReferenced(*syntax);
-
-        auto portRef = symbol.getFirstPortBackref();
-        if (portRef) {
-            // This is a variable or net connected internally to a port.
-            // If there is more than one port connection something unusually
-            // complicated is going on so don't try to diagnose warnings.
-            if (portRef->getNextBackreference())
-                return;
-
-            // Otherwise check and warn about the port being unused.
-            switch (portRef->port->direction) {
-                case ArgumentDirection::In:
-                    if (!rvalue)
-                        addDiag(symbol, diag::UnusedPort);
-                    break;
-                case ArgumentDirection::Out:
-                    if (!lvalue)
-                        addDiag(symbol, diag::UndrivenPort);
-                    break;
-                case ArgumentDirection::InOut:
-                    if (!rvalue && !lvalue)
-                        addDiag(symbol, diag::UnusedPort);
-                    else if (!rvalue)
-                        addDiag(symbol, diag::UnusedButSetPort);
-                    else if (!lvalue)
-                        addDiag(symbol, diag::UndrivenPort);
-                    break;
-                case ArgumentDirection::Ref:
-                    if (!rvalue && !lvalue)
-                        addDiag(symbol, diag::UnusedPort);
-                    break;
-            }
-            return;
-        }
-
-        if (!rvalue && !lvalue)
-            addDiag(symbol, unusedCode);
-        else if (!rvalue && unreadCode)
-            addDiag(symbol, *unreadCode);
-        else if (!lvalue && !symbol.getDeclaredType()->getInitializerSyntax() && unsetCode)
-            addDiag(symbol, *unsetCode);
-    }
-
-    void checkUnused(const Symbol& symbol, DiagCode code) {
-        auto syntax = symbol.getSyntax();
-        if (!syntax || symbol.name.empty())
-            return;
-
-        auto [used, _] = compilation.isReferenced(*syntax);
-        if (!used)
-            addDiag(symbol, code);
-    }
-
-    void checkAssertionDeclUnused(const Symbol& symbol, std::string_view kind) {
-        auto syntax = symbol.getSyntax();
-        if (!syntax || symbol.name.empty())
-            return;
-
-        auto [used, _] = compilation.isReferenced(*syntax);
-        if (!used && shouldWarn(symbol)) {
-            symbol.getParentScope()->addDiag(diag::UnusedAssertionDecl, symbol.location)
-                << kind << symbol.name;
-        }
-    }
-
-    bool hasUnusedAttrib(const Symbol& symbol) {
-        for (auto attr : compilation.getAttributes(symbol)) {
-            if (attr->name == "unused"sv || attr->name == "maybe_unused"sv)
-                return attr->getValue().isTrue();
-        }
-        return false;
-    }
-
-    bool shouldWarn(const Symbol& symbol) {
-        auto scope = symbol.getParentScope();
-        return !scope->isUninstantiated() && scope->asSymbol().kind != SymbolKind::Package &&
-               symbol.name != "_"sv && !hasUnusedAttrib(symbol);
-    }
-
-    void addDiag(const Symbol& symbol, DiagCode code) {
-        if (shouldWarn(symbol))
-            symbol.getParentScope()->addDiag(code, symbol.location) << symbol.name;
-    }
-
-    Compilation& compilation;
-};
-
-InstanceCacheKey::InstanceCacheKey(const InstanceSymbol& symbol) : symbol(&symbol) {
+InstanceCacheKey::InstanceCacheKey(const InstanceSymbol& symbol, bool& valid,
+                                   SmallSet<const InstanceSymbol*, 2>& visitedInstances) :
+    symbol(&symbol) {
     size_t h = 0;
     hash_combine(h, &symbol.getDefinition());
 
@@ -882,8 +781,22 @@ InstanceCacheKey::InstanceCacheKey(const InstanceSymbol& symbol) : symbol(&symbo
             }
 
             if (iface) {
-                ifaceKeys.emplace_back(iface->as<InstanceSymbol>());
-                hash_combine(h, ifaceKeys.back().savedHash);
+                auto& ifaceInst = iface->as<InstanceSymbol>();
+                if (!isEligibleForCaching(ifaceInst) ||
+                    !visitedInstances.insert(&ifaceInst).second) {
+                    valid = false;
+                    return;
+                }
+
+                InstanceCacheKey ifaceKey(ifaceInst, valid, visitedInstances);
+                if (!valid)
+                    return;
+
+                ifaceKeys.emplace_back(std::move(ifaceKey), modport);
+                hash_combine(h, ifaceKeys.back().first.savedHash);
+
+                if (modport)
+                    hash_combine(h, modport->name);
             }
         }
     }
@@ -922,7 +835,12 @@ bool InstanceCacheKey::operator==(const InstanceCacheKey& other) const {
     }
 
     for (size_t i = 0; i < ifaceKeys.size(); i++) {
-        if (ifaceKeys[i] != other.ifaceKeys[i])
+        auto& l = ifaceKeys[i];
+        auto& r = other.ifaceKeys[i];
+        if (l.first != r.first)
+            return false;
+
+        if (bool(l.second) != bool(r.second) || (l.second && l.second->name != r.second->name))
             return false;
     }
 

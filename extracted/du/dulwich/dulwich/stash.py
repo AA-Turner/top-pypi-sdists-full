@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -25,6 +25,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Optional, TypedDict
 
+from .diff_tree import tree_changes
 from .file import GitFile
 from .index import (
     IndexEntry,
@@ -267,7 +268,7 @@ class Stash:
         # Create a dangling commit for the index state
         # Note: We pass ref=None which is handled specially in do_commit
         # to create a commit without updating any reference
-        index_commit_id = self._repo.do_commit(
+        index_commit_id = self._repo.get_worktree().commit(
             tree=index_tree_id,
             message=b"Index stash",
             merge_heads=[self._repo.head()],
@@ -298,7 +299,7 @@ class Stash:
         # TODO(jelmer): Just pass parents into do_commit()?
         self._repo.refs[self._ref] = self._repo.head()
 
-        cid = self._repo.do_commit(
+        cid = self._repo.get_worktree().commit(
             ref=self._ref,
             tree=stash_tree_id,
             message=message,
@@ -317,10 +318,13 @@ class Stash:
         # Update from stash tree to HEAD tree
         # This will remove files that were in stash but not in HEAD,
         # and restore files to their HEAD versions
+        changes = tree_changes(self._repo.object_store, stash_tree_id, head_tree_id)
         update_working_tree(
             self._repo,
             old_tree_id=stash_tree_id,
             new_tree_id=head_tree_id,
+            change_iterator=changes,
+            allow_overwrite_modified=True,  # We need to overwrite modified files
         )
 
         return cid

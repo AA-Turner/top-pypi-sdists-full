@@ -41,9 +41,10 @@ fastimport = ["fastimport"]
 https = ["urllib3>=1.24.1"]
 pgp = ["gpg"]
 paramiko = ["paramiko"]
+colordiff = ["rich"]
 dev = [
-    "ruff==0.12.1",
-    "mypy==1.16.1",
+    "ruff==0.12.4",
+    "mypy==1.17.0",
     "dissolve>=0.1.1"
 ]
 merge = ["merge3"]
@@ -114,11 +115,12 @@ ignore = [
 convention = "google"
 
 [tool.cibuildwheel]
+skip = "cp314-*"
 environment = {PATH="$HOME/.cargo/bin:$PATH"}
 before-build = "pip install -U setuptools-rust && curl https://sh.rustup.rs -sSf | sh -s -- --profile=minimal -y && rustup show"
 
 [tool.cibuildwheel.linux]
-skip = "*-musllinux_*"
+skip = "*-musllinux_* cp314-*"
 archs = ["auto", "aarch64"]
 before-build = "pip install -U setuptools-rust && yum -y install libatomic && curl https://sh.rustup.rs -sSf | sh -s -- --profile=minimal -y && rustup show"
 
@@ -131,4 +133,5 @@ skip = """\
     cp311-macosx_x86_64 cp311-macosx_universal2 \
     cp312-macosx_x86_64 cp312-macosx_universal2 \
     cp313-macosx_x86_64 cp313-macosx_universal2 \
+    cp314-macosx_x86_64 cp314-macosx_universal2 \
     """

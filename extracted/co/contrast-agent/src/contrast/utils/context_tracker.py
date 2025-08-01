@@ -1,10 +1,9 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
-
 import contextvars
 
-from contextlib import contextmanager
+import contextlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -36,10 +35,8 @@ class CvarContextTracker:
     def __get__(self, instance, instance_type=None):
         val = None
 
-        try:
+        with contextlib.suppress(LookupError):
             val = getattr(instance, self._cvar_instance_name).get()
-        except LookupError:
-            pass
 
         return val
 
@@ -72,7 +69,7 @@ class ContextTracker:
     def delete_current(self):
         self.request_context = None
 
-    @contextmanager
+    @contextlib.contextmanager
     def lifespan(self, context):
         self.set_current(context)
         try:

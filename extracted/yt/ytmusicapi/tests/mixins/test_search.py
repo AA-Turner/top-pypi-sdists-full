@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from ytmusicapi import YTMusic
@@ -51,7 +53,7 @@ class TestSearch:
             ),
         ],
     )
-    def test_search_album_artists(self, yt, case: tuple[str, dict]):
+    def test_search_album_artists(self, yt, case: tuple[str, dict[str, Any]]):
         (query, expected) = case
         results = yt.search(query, filter="albums")
 
@@ -79,7 +81,9 @@ class TestSearch:
         assert all(item["resultType"] == "song" for item in results)
         results = yt_auth.search(query, filter="videos")
         assert len(results) > 10
-        assert all(item["views"] != "" for item in results)
+        assert all(
+            item["views"] != "" for item in results if item["videoType"] != "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+        )  # video results include podcast episodes, which can't track views
         assert all(item["resultType"] == "video" for item in results)
         results = yt_auth.search(query, filter="albums", limit=40)
         assert len(results) > 20
@@ -108,12 +112,35 @@ class TestSearch:
         assert len(results) >= 3
         assert all(item["resultType"] == "episode" for item in results)
 
-    def test_search_top_result(self, yt):
+    def test_search_episode_category(self, yt):
+        """Test resultType detection for episodes by searching for a podcast without a filter."""
+        results = yt.search("Stanford Graduate School of Business")
+        episode = next(
+            item
+            for item in results
+            if item["category"] == "Episodes" and item["podcast"]["name"] == "Stanford GSB Podcasts"
+        )
+        assert episode["resultType"] == "episode"
+        assert episode["podcast"]["id"] == "MPSPPLxq_lXOUlvQDUNyoBYLkN8aVt5yAwEtG9"
+
+    def test_search_top_result_playlist(self, yt):
         results = yt.search("fdsfsfsd")  # issue 524
         assert results[0]["category"] == "Top result"
         assert results[0]["resultType"] == "playlist"
         assert results[0]["playlistId"].startswith("PL")
         assert len(results[0]["author"]) > 0
+
+    def test_search_top_result_episode(self, yt):
+        results = yt.search(
+            "Stanford GSB Podcasts 124. Making Meetings Meaningful, Pt. 1: How to Structure and Organize More Effective Gatherings"
+        )
+        assert results[0]["category"] == "Top result"
+        assert results[0]["resultType"] == "episode"
+        assert results[0]["videoId"] == "KNkyHCLOr1o"
+        assert results[0]["podcast"] == {
+            "id": "MPSPPLxq_lXOUlvQDUNyoBYLkN8aVt5yAwEtG9",
+            "name": "Stanford GSB Podcasts",
+        }
 
     def test_search_uploads(self, config, yt, yt_oauth):
         with pytest.raises(Exception, match="No filter can be set when searching uploads"):
@@ -125,6 +152,9 @@ class TestSearch:
             )
         results = yt_oauth.search(config["queries"]["uploads_songs"], scope="uploads", limit=40)
         assert len(results) > 20
+        assert all(isinstance(item["title"], str) for item in results)
+        assert all(item.get("browseId", None) or item.get("videoId", None) for item in results)
+        assert all(len(item["thumbnails"]) >= 2 for item in results)
 
     def test_search_library(self, config, yt_oauth):
         results = yt_oauth.search(config["queries"]["library_any"], scope="library")

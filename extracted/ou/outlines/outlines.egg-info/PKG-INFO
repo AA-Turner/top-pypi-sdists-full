@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: outlines
-Version: 1.1.1
+Version: 1.2.0
 Summary: Probabilistic Generative Model Programming
 Author: Outlines Developers
 License: Apache-2.0
@@ -18,10 +18,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: interegular
 Requires-Dist: jinja2
-Requires-Dist: lark
-Requires-Dist: nest_asyncio
 Requires-Dist: cloudpickle
 Requires-Dist: diskcache
 Requires-Dist: pydantic>=2.0
@@ -29,13 +26,11 @@ Requires-Dist: referencing
 Requires-Dist: jsonschema
 Requires-Dist: requests
 Requires-Dist: pillow
-Requires-Dist: tqdm
 Requires-Dist: typing_extensions
 Requires-Dist: iso3166
 Requires-Dist: airportsdata
-Requires-Dist: outlines_core==0.1.26
+Requires-Dist: outlines_core==0.2.11
 Requires-Dist: genson
-Requires-Dist: torch
 Requires-Dist: jsonpath_ng
 Provides-Extra: anthropic
 Requires-Dist: anthropic; extra == "anthropic"
@@ -46,6 +41,7 @@ Requires-Dist: google-genai; extra == "gemini"
 Provides-Extra: llamacpp
 Requires-Dist: huggingface-hub; extra == "llamacpp"
 Requires-Dist: llama-cpp-python; extra == "llamacpp"
+Requires-Dist: numba; extra == "llamacpp"
 Provides-Extra: mlxlm
 Requires-Dist: datasets; extra == "mlxlm"
 Requires-Dist: mlx; extra == "mlxlm"
@@ -64,6 +60,10 @@ Requires-Dist: datasets; extra == "transformers"
 Requires-Dist: transformers; extra == "transformers"
 Provides-Extra: vllm
 Requires-Dist: openai; extra == "vllm"
+Provides-Extra: xgrammar
+Requires-Dist: xgrammar; extra == "xgrammar"
+Provides-Extra: llguidance
+Requires-Dist: llguidance; extra == "llguidance"
 Provides-Extra: test
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -88,6 +88,7 @@ Requires-Dist: pillow; extra == "test"
 Requires-Dist: jax; extra == "test"
 Requires-Dist: flax; extra == "test"
 Requires-Dist: numpy<2.2.0,>=2.0.0; extra == "test"
+Requires-Dist: numba; extra == "test"
 Requires-Dist: torch; extra == "test"
 Requires-Dist: tensorflow; extra == "test"
 Requires-Dist: tf-keras; extra == "test"
@@ -95,6 +96,8 @@ Requires-Dist: ollama; extra == "test"
 Requires-Dist: dottxt; extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: mkdocs_gen_files; extra == "test"
+Requires-Dist: llguidance; extra == "test"
+Requires-Dist: xgrammar; extra == "test"
 Provides-Extra: test-gpu
 Requires-Dist: outlines[test]; extra == "test-gpu"
 Requires-Dist: vllm; sys_platform == "linux" and extra == "test-gpu"

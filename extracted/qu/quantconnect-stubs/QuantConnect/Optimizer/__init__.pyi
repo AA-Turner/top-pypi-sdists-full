@@ -230,6 +230,9 @@ class OptimizationStatus(Enum):
     COMPLETED = 3
     """Optimization job has completed (3)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
     """Base Lean optimizer class in charge of handling an optimization job packet"""

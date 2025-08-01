@@ -1,16 +1,12 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.16.0.2
+Version: 1.16.1.0
 Summary: Type annotations for SciPy
-Project-URL: Homepage, https://scipy.org/
-Project-URL: Repository, https://github.com/scipy/scipy-stubs/
-Project-URL: Issues, https://github.com/scipy/scipy-stubs/issues
-Project-URL: Changelog, https://github.com/scipy/scipy-stubs/releases
+Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
+Author: Joren Hammudoglu
 Author-email: Joren Hammudoglu <jhammudoglu@gmail.com>
-Maintainer-email: Joren Hammudoglu <jhammudoglu@gmail.com>, SciPy Developers <scipy-dev@python.org>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
-Keywords: mypy,pep484,pep561,pyright,scipy,scipy-stubs,stubs,typing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -22,10 +18,16 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Stubs Only
+Requires-Dist: optype[numpy]>=0.13.1,<0.14
+Requires-Dist: scipy>=1.16.1,<1.17 ; extra == 'scipy'
+Maintainer: Joren Hammudoglu, SciPy Developers
+Maintainer-email: Joren Hammudoglu <jhammudoglu@gmail.com>, SciPy Developers <scipy-dev@python.org>
 Requires-Python: >=3.11
-Requires-Dist: optype<1,>=0.10.0
+Project-URL: Changelog, https://github.com/scipy/scipy-stubs/releases
+Project-URL: Homepage, https://scipy.org/
+Project-URL: Issues, https://github.com/scipy/scipy-stubs/issues
+Project-URL: Repository, https://github.com/scipy/scipy-stubs/
 Provides-Extra: scipy
-Requires-Dist: scipy<1.17,>=1.16.0; extra == 'scipy'
 Description-Content-Type: text/markdown
 
 # scipy-stubs
@@ -200,14 +202,15 @@ See the `scipy` columns below for which classes are subscriptable at runtime.
 
 ### `scipy.integrate`
 
-| generic type             | `scipy-stubs` | `scipy`  |                                                                                               |
-| ------------------------ | ------------- | -------- | --------------------------------------------------------------------------------------------- |
-| `BDF[T: f64 \| c128]`    | `>=1.14.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.BDF.html)         |
-| `DOP853[T: f64 \| c128]` | `>=1.14.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.DOP853.html)      |
-| `RK23[T: f64 \| c128]`   | `>=1.14.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.RK23.html)        |
-| `RK45[T: f64 \| c128]`   | `>=1.14.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.RK45.html)        |
-| `ode[*ArgTs]`            | `>=1.14.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.ode.html)         |
-| `complex_ode[*ArgTs]`    | `>=1.14.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.complex_ode.html) |
+| generic type                  | `scipy-stubs`           | `scipy`  |                                                                                               |
+| ----------------------------- | ----------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `BDF[T: f64 \| c128]`         | `>=1.14.0.1`            | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.BDF.html)         |
+| `DOP853[T: f64 \| c128]`      | `>=1.14.0.1`            | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.DOP853.html)      |
+| `RK23[T: f64 \| c128]`        | `>=1.14.0.1`            | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.RK23.html)        |
+| `RK45[T: f64 \| c128]`        | `>=1.14.0.1`            | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.RK45.html)        |
+| `ode[*ArgTs]`                 | `>=1.14.0.0, <1.16.0.3` | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.ode.html)         |
+| `ode[T: f64 \| c128, *ArgTs]` | `>=1.16.0.3`            | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.ode.html)         |
+| `complex_ode[*ArgTs]`         | `>=1.14.0.0`            | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.complex_ode.html) |
 
 ### `scipy.interpolate`
 
@@ -305,6 +308,33 @@ We welcome contributions from the community! There are many ways to help improve
 ### Development Setup
 
 See the [CONTRIBUTING.md](https://github.com/scipy/scipy-stubs/blob/master/CONTRIBUTING.md) for detailed instructions.
+
+## Who's using `scipy-stubs`?
+
+`scipy-stubs` is used by a number of major open-source projects, including:
+
+- Apache Spark ([PySpark](https://github.com/apache/spark))
+- [Artisan](https://github.com/artisan-roaster-scope/artisan)
+- [Arviz](https://github.com/arviz-devs/arviz)
+- [asammdf](https://github.com/danielhrisca/asammdf)
+- [Colour](https://github.com/colour-science/colour)
+- [CSAPS](https://github.com/espdev/csaps)
+- [Efax](https://github.com/NeilGirdhar/efax)
+- [Fast GraphRAG](https://github.com/circlemind-ai/fast-graphrag)
+- [foamlib](https://github.com/gerlero/foamlib)
+- [Freqtrade](https://github.com/freqtrade/freqtrade)
+- [librosa](https://github.com/librosa/librosa)
+- [Lmo](https://github.com/jorenham/Lmo)
+- [MouseTracks](https://github.com/huntfx/MouseTracks)
+- [mypy_primer](https://github.com/hauntsaninja/mypy_primer)
+- [NeuroGym](https://github.com/neurogym/neurogym)
+- [Optuna](https://github.com/optuna/optuna)
+- [radioactivedecay](https://github.com/radioactivedecay/radioactivedecay)
+- [Scanpy](https://github.com/scverse/scanpy)
+- [TQEC](https://github.com/tqec/tqec)
+- [Ultralytics](https://github.com/ultralytics/ultralytics)
+- [Voctomix](https://github.com/voc/voctomix)
+- [xarray](https://github.com/pydata/xarray)
 
 ## License
 

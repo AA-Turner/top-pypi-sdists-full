@@ -13,7 +13,7 @@ use polars_utils::slice_enum::Slice;
 use super::OptimizationRule;
 #[cfg(feature = "python")]
 use crate::dsl::python_dsl::PythonScanSource;
-use crate::dsl::{DslPlan, FileScan, UnifiedScanArgs};
+use crate::dsl::{DslPlan, FileScanIR, UnifiedScanArgs};
 use crate::plans::IR;
 
 /// Note: Currently only used for iceberg. This is so that we can call iceberg to fetch the files
@@ -45,7 +45,7 @@ impl OptimizationRule for ExpandDatasets {
 
             match scan_type.as_ref() {
                 #[cfg(feature = "python")]
-                FileScan::PythonDataset {
+                FileScanIR::PythonDataset {
                     dataset_object,
                     cached_ir,
                 } => {
@@ -77,7 +77,7 @@ impl OptimizationRule for ExpandDatasets {
                     if config::verbose() {
                         eprintln!(
                             "expand_datasets(): python[{}]: limit: {:?}, project: {}",
-                            dataset_object.reader_name(),
+                            dataset_object.name(),
                             limit,
                             projection.as_ref().map_or(
                                 PlSmallStr::from_static("all"),
@@ -91,11 +91,12 @@ impl OptimizationRule for ExpandDatasets {
                     let (resolved_ir, python_scan) = match plan {
                         DslPlan::Scan {
                             sources: resolved_sources,
-                            file_info: _,
                             unified_scan_args: resolved_unified_scan_args,
                             scan_type: resolved_scan_type,
                             cached_ir: _,
                         } => {
+                            use crate::dsl::FileScanDsl;
+
                             let mut ir = ir.clone();
 
                             let IR::Scan {
@@ -107,7 +108,6 @@ impl OptimizationRule for ExpandDatasets {
                                 hive_parts: _,
                                 predicate: _,
                                 output_schema: _,
-                                id: _,
                             } = &mut ir
                             else {
                                 unreachable!()
@@ -130,6 +130,7 @@ impl OptimizationRule for ExpandDatasets {
                                 extra_columns_policy,
                                 include_file_paths: _include_file_paths @ None,
                                 deletion_files,
+                                column_mapping,
                             } = *resolved_unified_scan_args
                             else {
                                 panic!(
@@ -145,25 +146,54 @@ impl OptimizationRule for ExpandDatasets {
                             unified_scan_args.missing_columns_policy = missing_columns_policy;
                             unified_scan_args.extra_columns_policy = extra_columns_policy;
                             unified_scan_args.deletion_files = deletion_files;
+                            unified_scan_args.column_mapping = column_mapping;
 
                             *sources = resolved_sources;
-                            *scan_type = resolved_scan_type;
+                            *scan_type = Box::new(match *resolved_scan_type {
+                                #[cfg(feature = "csv")]
+                                FileScanDsl::Csv { options } => FileScanIR::Csv { options },
+
+                                #[cfg(feature = "ipc")]
+                                FileScanDsl::Ipc { options } => FileScanIR::Ipc {
+                                    options,
+                                    metadata: None,
+                                },
+
+                                #[cfg(feature = "parquet")]
+                                FileScanDsl::Parquet { options } => FileScanIR::Parquet {
+                                    options,
+                                    metadata: None,
+                                },
+
+                                #[cfg(feature = "json")]
+                                FileScanDsl::NDJson { options } => FileScanIR::NDJson { options },
+
+                                #[cfg(feature = "python")]
+                                FileScanDsl::PythonDataset { dataset_object } => {
+                                    FileScanIR::PythonDataset {
+                                        dataset_object,
+                                        cached_ir: Default::default(),
+                                    }
+                                },
+
+                                FileScanDsl::Anonymous {
+                                    options,
+                                    function,
+                                    file_info: _,
+                                } => FileScanIR::Anonymous { options, function },
+                            });
 
                             (ir, None)
                         },
 
-                        DslPlan::PythonScan { options } => {
-                            assert!(options.scan_fn.is_some());
-
-                            (
-                                ir.clone(),
-                                Some((
-                                    dataset_object.reader_name(),
-                                    options.scan_fn.expect("scan_fn is required"),
-                                    options.python_source,
-                                )),
-                            )
-                        },
+                        DslPlan::PythonScan { options } => (
+                            ir.clone(),
+                            Some(ExpandedPythonScan {
+                                name: dataset_object.name(),
+                                scan_fn: options.scan_fn.unwrap(),
+                                variant: options.python_source,
+                            }),
+                        ),
 
                         dsl => {
                             polars_bail!(
@@ -203,13 +233,21 @@ pub struct ExpandedDataset {
 
     /// Fallback python scan
     #[cfg(feature = "python")]
-    python_scan: Option<(PlSmallStr, PythonObject, PythonScanSource)>,
+    python_scan: Option<ExpandedPythonScan>,
+}
+
+#[cfg(feature = "python")]
+#[derive(Clone)]
+pub struct ExpandedPythonScan {
+    pub name: PlSmallStr,
+    pub scan_fn: PythonObject,
+    pub variant: PythonScanSource,
 }
 
 impl ExpandedDataset {
     #[cfg(feature = "python")]
-    pub fn python_scan(&self) -> Option<(&PlSmallStr, &PythonObject, &PythonScanSource)> {
-        self.python_scan.as_ref().map(|(a, b, c)| (a, b, c))
+    pub fn python_scan(&self) -> Option<&ExpandedPythonScan> {
+        self.python_scan.as_ref()
     }
 }
 
@@ -230,9 +268,15 @@ impl Debug for ExpandedDataset {
             resolved_ir,
 
             #[cfg(feature = "python")]
-            python_scan: python_scan.as_ref().map(|(name, _, scan_type)| {
-                format_pl_smallstr!("python-scan[{} @ {:?}]", name, scan_type)
-            }),
+            python_scan: python_scan.as_ref().map(
+                |ExpandedPythonScan {
+                     name,
+                     scan_fn: _,
+                     variant,
+                 }| {
+                    format_pl_smallstr!("python-scan[{} @ {:?}]", name, variant)
+                },
+            ),
         }
         .fmt(f);
 

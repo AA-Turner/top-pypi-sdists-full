@@ -13,96 +13,84 @@ if config.get_process()  == 'gpu':
 
 
 def _DEPIERRO_GPU(SMatrix, y, Omega, numIterations, beta, sigma, isSavingEachIteration, withTumor):
+    try:
+        if Omega != PotentialType.QUADRATIC:
+            raise ValueError("Depierro95 optimizer only supports QUADRATIC potential function.")
+        if beta is None or sigma is None:
+            raise ValueError("Depierro95 optimizer requires beta and sigma parameters.")
 
-    if Omega != PotentialType.QUADRATIC:
-        raise ValueError("Depierro95 optimizer only supports QUADRATIC potential function.")
-    if beta is None or sigma is None:
-        raise ValueError("Depierro95 optimizer requires beta and sigma parameters.")
+        device = torch.device(f"cuda:{config.select_best_gpu()}")
+        A_matrix_torch = torch.tensor(SMatrix, dtype=torch.float32).to(device)
+        y_torch = torch.tensor(y, dtype=torch.float32).to(device)
 
-    device = torch.device(f"cuda:{config.select_best_gpu()}")
+        T, Z, X, N = SMatrix.shape
+        J = Z * X
 
-    A_matrix_torch = torch.tensor(SMatrix, dtype=torch.float32).to(device)
-    y_torch = torch.tensor(y, dtype=torch.float32).to(device)
+        A_flat = A_matrix_torch.permute(0, 3, 1, 2).reshape(T * N, Z * X)
+        y_flat = y_torch.reshape(-1)
 
-    T, Z, X, N = SMatrix.shape
-    J = Z * X
+        theta_0 = torch.ones((Z, X), dtype=torch.float32, device=device)
+        matrix_theta_torch = [theta_0]
+        I_reconMatrix = [theta_0.cpu().numpy()]
 
-    A_flat = A_matrix_torch.permute(0, 3, 1, 2).reshape(T * N, Z * X)
-    y_flat = y_torch.reshape(-1)
+        normalization_factor = A_matrix_torch.sum(dim=(0, 3))
+        normalization_factor_flat = normalization_factor.reshape(-1)
 
-    theta_0 = torch.ones((Z, X), dtype=torch.float32, device=device)
-    matrix_theta_torch = []
-    matrix_theta_torch = [theta_0]
-    I_reconMatrix = [theta_0.cpu().numpy()]
+        adj_index, adj_values = _build_adjacency_sparse_GPU(Z, X)
 
-    normalization_factor = A_matrix_torch.sum(dim=(0, 3))                # (Z, X)
-    normalization_factor_flat = normalization_factor.reshape(-1)         # (Z*X,)
+        if withTumor:
+            description = f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- WITH TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
+        else:
+            description = f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- WITHOUT TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
 
-    adj_index, adj_values = _build_adjacency_sparse_GPU(Z, X)
+        for p in trange(numIterations, desc=description):
+            theta_p = matrix_theta_torch[-1]
 
-    if withTumor:
-        description = f"AOT-BioMaps -- Bayesian Recontruction Tomography : DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- WITH TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
-    else:
-        description = f"AOT-BioMaps -- Bayesian Recontruction Tomography : DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- WITHOUT TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
+            theta_p_flat = theta_p.reshape(-1)
+            q_flat = A_flat @ theta_p_flat
 
-    for p in trange(numIterations, desc = description):
+            e_flat = y_flat / (q_flat + torch.finfo(torch.float32).tiny)
 
-        theta_p = matrix_theta_torch[-1]
+            c_flat = A_flat.T @ e_flat
 
-        # Step 2: Forward projection of current estimate : q = A * theta + b (acc with GPU)
-        theta_p_flat = theta_p.reshape(-1)                               # shape: (Z * X, )
-        q_flat = A_flat @ theta_p_flat                                   # shape: (T * N, )
+            theta_EM_p_flat = theta_p_flat * c_flat
 
-        # Step 3: Current error estimate : compute ratio e = m / q
-        e_flat = y_flat / (q_flat + torch.finfo(torch.float32).tiny)     # shape: (T * N, )
+            alpha_j = normalization_factor_flat
 
-        # Step 4: Backward projection of the error estimate : c = A.T * e (acc with GPU)
-        c_flat = A_flat.T @ e_flat                                       # shape: (Z * X, )
+            W_j = scatter(adj_values, adj_index[0], dim=0, dim_size=J, reduce='sum') * (1.0 / sigma**2)
 
-        # Step 5: Multiplicative update of current estimate
-        #theta_p_plus_1_flat = (theta_p_flat / (normalization_factor_flat)) * c_flat
-        #theta_EM_p_flat = (theta_p_flat / (normalization_factor_flat)) * c_flat
-        theta_EM_p_flat = (theta_p_flat) * c_flat
+            theta_k = theta_p_flat[adj_index[1]]
+            weighted_theta_k = theta_k * adj_values
+            gamma_j = theta_p_flat * W_j + scatter(weighted_theta_k, adj_index[0], dim=0, dim_size=J, reduce='sum')
 
-        # --- Compute alpha_j ---
-        alpha_j = normalization_factor_flat                                                                     # (Z*X,)
+            A = 2 * beta * W_j
+            B = -beta * gamma_j + alpha_j
+            C = -theta_EM_p_flat
 
-        # --- Compute W_j = (1/σ²) * ∑ ω_{kj} ---
-        W_j = scatter(adj_values, adj_index[0], dim=0, dim_size=J, reduce='sum') * (1.0 / sigma**2)             # (Z*X,)
+            theta_p_plus_1_flat = (-B + torch.sqrt(B ** 2 - 4 * A * C)) / (2 * A + torch.finfo(torch.float32).tiny)
+            theta_p_plus_1_flat = torch.clamp(theta_p_plus_1_flat, min=0)
 
-        # --- Compute γ_j = θ_j W_j + ∑_{k in N_j} θ_k ω_{kj} ---
-        theta_k = theta_p_flat[adj_index[1]]
-        weighted_theta_k = theta_k * adj_values
-        gamma_j = theta_p_flat * W_j + scatter(weighted_theta_k, adj_index[0], dim=0, dim_size=J, reduce='sum')  # (Z*X,)
+            theta_next = theta_p_plus_1_flat.reshape(Z, X)
 
-        # --- Pierro update ---
-        A = 2 * beta * W_j
-        B = - beta * gamma_j + alpha_j
-        C = - theta_EM_p_flat
-        '''
-        if (p+1)%100 ==0 :
-            print(f"torch.max(torch.abs(beta * gamma_j + alpha_j)- normalization_factor_flat ) = {torch.max(torch.abs(beta * gamma_j + alpha_j )- normalization_factor_flat) }")
-            #print(f"torch.max(torch.abs(-B + torch.abs(B))) = {torch.max(torch.abs(-B + torch.abs(B)))}")
-            val1 = torch.sqrt(B ** 2 - 4 * A * C)
-            val2 = torch.abs(B) * (1 + 0.5 * (- 4 * A * C / (B**2)))
-            print(torch.max(torch.abs(val1 - val2)))
-        '''
-        theta_p_plus_1_flat = (- B + torch.sqrt(B ** 2 - 4 * A * C)) / (2 * A + torch.finfo(torch.float32).tiny) 
-        theta_p_plus_1_flat = torch.clamp(theta_p_plus_1_flat, min=0)
-        
-        theta_next = theta_p_plus_1_flat.reshape(Z, X)
-        if (p+1)%100 ==0 :
-            print(torch.sum(torch.abs(theta_p_plus_1_flat - theta_EM_p_flat/normalization_factor_flat)))
-        #matrix_theta_torch.append(theta_next) # save theta in GPU
-        matrix_theta_torch[-1] = theta_next    # do not save theta in GPU
+            matrix_theta_torch[-1] = theta_next
 
-        if p % 1 == 0:
-            I_reconMatrix.append(theta_next.cpu().numpy()) 
-        
-    if isSavingEachIteration:
-        return I_reconMatrix
-    else:
-        return I_reconMatrix[-1]
+            if p % 1 == 0:
+                I_reconMatrix.append(theta_next.cpu().numpy())
+
+            del theta_p_flat, q_flat, e_flat, c_flat, theta_EM_p_flat, theta_p_plus_1_flat, theta_next
+            torch.cuda.empty_cache()
+
+        del A_matrix_torch, y_torch, A_flat, y_flat, theta_0, normalization_factor, normalization_factor_flat
+        torch.cuda.empty_cache()
+
+        if isSavingEachIteration:
+            return I_reconMatrix
+        else:
+            return I_reconMatrix[-1]
+
+    except Exception as e:
+        print(f"An error occurred in _DEPIERRO_GPU: {e}")
+        raise
 
 def _DEPIERRO_CPU(SMatrix, y, Omega, numIterations, beta, sigma, isSavingEachIteration, withTumor):
     if Omega != PotentialType.QUADRATIC:

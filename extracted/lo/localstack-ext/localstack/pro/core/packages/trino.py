@@ -5,7 +5,7 @@ from localstack import config
 from localstack.constants import LOCALHOST,MAVEN_REPO_URL
 from localstack.packages import InstallTarget,Package
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller
-from localstack.pro.core import config as ext_config
+from localstack.pro.core import config as pro_config
 from localstack.pro.core.packages.bigdata_common import bigdata_jar_cache_dir,download_and_cache_jar_file
 from localstack.pro.core.packages.cve_fixes import CVEFix,FixStrategyDelete,fix_cves_in_jar_files
 from localstack.utils.files import cp_r,load_file,save_file
@@ -42,10 +42,10 @@ class TrinoInstaller(ArchiveDownloadAndExtractInstaller):
 		if not A:return
 		return os.path.join(A,'etc')
 	def write_trino_config(G,additional_configs):
-		B=config.external_service_url();C=f"{LOCALHOST}:{ext_config.PORT_HIVE_METASTORE}";D=TRINO_HIVE_CONFIG.format(s3_endpoint=B,hive_host=C)
+		B=config.external_service_url();C=f"{LOCALHOST}:{pro_config.PORT_HIVE_METASTORE}";D=TRINO_HIVE_CONFIG.format(s3_endpoint=B,hive_host=C)
 		for(E,H)in additional_configs.items():
 			if E in TRINO_HIVE_CONFIGS:D+=f"\n{E}={H}"
-		D+='\n';A=G.get_trino_etc_dir();I=os.path.join(A,'catalog/hive.properties');save_file(I,D);J=os.path.join(A,'catalog/iceberg.properties');K=TRINO_ICEBERG_CONFIG.format(hive_host=C,s3_endpoint=B);save_file(J,K);L=os.path.join(A,'catalog/deltalake.properties');M=TRINO_DELTALAKE_CONFIG.format(hive_host=C,s3_endpoint=B);save_file(L,M);F=os.path.join(A,_A);N=load_file(F).replace('8080',str(ext_config.PORT_TRINO_SERVER));save_file(F,N)
+		D+='\n';A=G.get_trino_etc_dir();I=os.path.join(A,'catalog/hive.properties');save_file(I,D);J=os.path.join(A,'catalog/iceberg.properties');K=TRINO_ICEBERG_CONFIG.format(hive_host=C,s3_endpoint=B);save_file(J,K);L=os.path.join(A,'catalog/deltalake.properties');M=TRINO_DELTALAKE_CONFIG.format(hive_host=C,s3_endpoint=B);save_file(L,M);F=os.path.join(A,_A);N=load_file(F).replace('8080',str(pro_config.PORT_TRINO_SERVER));save_file(F,N)
 	def _apply_cve_fixes(B,target):A=CVEFix(paths=['trino/389/plugin/phoenix5/trino-phoenix5-patched-389.jar','trino/389/plugin/pinot/helix-core-0.9.8.jar','trino/389/plugin/accumulo/log4j-1.2.17.jar'],strategy=FixStrategyDelete());fix_cves_in_jar_files(target,fixes=[A])
 	def get_java_home(B):from localstack.packages.java import java_package as A;return A.get_installer('11').get_java_home()
 class TrinoPackage(Package):

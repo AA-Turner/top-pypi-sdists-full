@@ -82,7 +82,7 @@ class Dataset:
         self._id: Optional[str] = id
         self._gateway = Gateway(api_key=api_key)
         self._file_stream: Optional[BinaryIO] = None
-        atexit.register(self._gateway._channel.close)
+        atexit.register(self._gateway.close)
 
         # Ensure exactly one of path, data, or id is provided
         provided_params = [path is not None, data is not None, id is not None]
@@ -228,8 +228,16 @@ class Dataset:
         """
         Generates an id for this dataset in the form of "dataset-{hash(self)}-{filename}"
         For datasets created from an existing ID, extracts the name from the ID.
+        If the ID includes the prefix "accounts/<account>/datasets/", it is removed from the output.
         """
         if self._id:
+            # Remove "accounts/<account>/datasets/" prefix if present
+            # Pattern: accounts/{account_id}/datasets/{dataset_id}
+            if self._id.startswith("accounts/") and "/datasets/" in self._id:
+                parts = self._id.split("/")
+                if len(parts) >= 4 and parts[0] == "accounts" and parts[2] == "datasets":
+                    # Extract the part after "/datasets/"
+                    return self._id.split("/datasets/", 1)[1]
             return self._id
         return f"dataset-{hash(self)}-{make_valid_resource_name(self.filename())}"
 
@@ -315,7 +323,21 @@ class Dataset:
         elif self._path:
             return open(self._path, "rb")
         elif self._id:
-            response = self._gateway.get_dataset_download_endpoint_sync(self._id)
+            # Validate account access if the ID contains an account prefix
+            if self._id.startswith("accounts/") and "/datasets/" in self._id:
+                parts = self._id.split("/")
+                if len(parts) >= 4 and parts[0] == "accounts" and parts[2] == "datasets":
+                    account_id = parts[1]
+                    api_key_account_id = self._gateway.account_id()
+
+                    # Check if the account ID in the dataset path matches the API key's account
+                    if account_id != api_key_account_id:
+                        raise ValueError(
+                            f"Dataset belongs to account '{account_id}' but API key is for account '{api_key_account_id}'. "
+                            f"Please use the correct API key for the dataset's account."
+                        )
+
+            response = self._gateway.get_dataset_download_endpoint_sync(self.id)
             if not response:
                 raise ValueError(f'Dataset with id "{self._id}" does not exist')
             signed_url = next(iter(response.filename_to_signed_urls.values()))

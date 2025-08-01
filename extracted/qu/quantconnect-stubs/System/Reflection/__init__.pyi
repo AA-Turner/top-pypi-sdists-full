@@ -94,6 +94,9 @@ class MemberTypes(Enum):
 
     ALL = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class BindingFlags(Enum):
     """This class has no documentation."""
@@ -140,6 +143,9 @@ class BindingFlags(Enum):
 
     DO_NOT_WRAP_EXCEPTIONS = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class CallingConventions(Enum):
     """This class has no documentation."""
@@ -153,6 +159,9 @@ class CallingConventions(Enum):
     HAS_THIS = ...
 
     EXPLICIT_THIS = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class CustomAttributeTypedArgument(System.IEquatable[System_Reflection_CustomAttributeTypedArgument]):
@@ -263,6 +272,9 @@ class PortableExecutableKinds(Enum):
 
     PREFERRED_32_BIT = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ImageFileMachine(Enum):
     """This class has no documentation."""
@@ -274,6 +286,9 @@ class ImageFileMachine(Enum):
     AMD_64 = ...
 
     ARM = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class ParameterModifier:
@@ -556,6 +571,9 @@ class EventAttributes(Enum):
 
     RESERVED_MASK = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class MethodAttributes(Enum):
     """This class has no documentation."""
@@ -608,6 +626,9 @@ class MethodAttributes(Enum):
 
     RESERVED_MASK = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class MethodImplAttributes(Enum):
     """This class has no documentation."""
@@ -648,6 +669,9 @@ class MethodImplAttributes(Enum):
 
     MAX_METHOD_IMPL_VAL = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class LocalVariableInfo(System.Object):
     """This class has no documentation."""
@@ -682,6 +706,9 @@ class ExceptionHandlingClauseOptions(Enum):
     FINALLY = ...
 
     FAULT = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class ExceptionHandlingClause(System.Object):
@@ -778,6 +805,9 @@ class ParameterAttributes(Enum):
     RESERVED_4 = ...
 
     RESERVED_MASK = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class ParameterInfo(System.Object, System.Reflection.ICustomAttributeProvider, System.Runtime.Serialization.IObjectReference):
@@ -1274,6 +1304,9 @@ class FieldAttributes(Enum):
 
     RESERVED_MASK = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class FieldInfo(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -1432,6 +1465,9 @@ class PropertyAttributes(Enum):
     RESERVED_4 = ...
 
     RESERVED_MASK = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class PropertyInfo(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
@@ -1701,6 +1737,9 @@ class ProcessorArchitecture(Enum):
 
     ARM = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class AssemblyContentType(Enum):
     """This class has no documentation."""
@@ -1708,6 +1747,9 @@ class AssemblyContentType(Enum):
     DEFAULT = 0
 
     WINDOWS_RUNTIME = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class AssemblyNameFlags(Enum):
@@ -1722,6 +1764,9 @@ class AssemblyNameFlags(Enum):
     ENABLE_JI_TCOMPILE_TRACKING = ...
 
     RETARGETABLE = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class StrongNameKeyPair(System.Object, System.Runtime.Serialization.IDeserializationCallback, System.Runtime.Serialization.ISerializable):
@@ -2000,6 +2045,9 @@ class ResourceAttributes(Enum):
 
     PRIVATE = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class Pointer(System.Object, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
@@ -2064,6 +2112,9 @@ class ResourceLocation(Enum):
     CONTAINED_IN_MANIFEST_FILE = 4
 
     EMBEDDED = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class ManifestResourceInfo(System.Object):
@@ -2481,6 +2532,9 @@ class TypeAttributes(Enum):
     HAS_SECURITY = ...
 
     RESERVED_MASK = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class InterfaceMapping:
@@ -3417,6 +3471,9 @@ class GenericParameterAttributes(Enum):
     DEFAULT_CONSTRUCTOR_CONSTRAINT = ...
 
     ALLOW_BY_REF_LIKE = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class AssemblyMetadataAttribute(System.Attribute):

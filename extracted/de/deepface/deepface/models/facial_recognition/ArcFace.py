@@ -1,6 +1,5 @@
-import os
-import gdown
-from deepface.commons import package_utils, folder_utils
+# project dependencies
+from deepface.commons import package_utils, weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
 
 from deepface.commons.logger import Logger
@@ -43,6 +42,8 @@ else:
         Dense,
     )
 
+WEIGHTS_URL="https://github.com/serengil/deepface_models/releases/download/v1.0/arcface_weights.h5"
+
 # pylint: disable=too-few-public-methods
 class ArcFaceClient(FacialRecognition):
     """
@@ -57,7 +58,7 @@ class ArcFaceClient(FacialRecognition):
 
 
 def load_model(
-    url="https://github.com/serengil/deepface_models/releases/download/v1.0/arcface_weights.h5",
+    url=WEIGHTS_URL,
 ) -> Model:
     """
     Construct ArcFace model, download its weights and load
@@ -79,19 +80,12 @@ def load_model(
     model = Model(inputs, embedding, name=base_model.name)
 
     # ---------------------------------------
-    # check the availability of pre-trained weights
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="arcface_weights.h5", source_url=url
+    )
 
-    home = folder_utils.get_deepface_home()
-
-    file_name = "arcface_weights.h5"
-    output = os.path.join(home, ".deepface/weights", file_name)
-
-    if not os.path.isfile(output):
-        logger.info(f"{file_name} will be downloaded to {output}")
-        gdown.download(url, output, quiet=False)
+    model = weight_utils.load_model_weights(model=model, weight_file=weight_file)
     # ---------------------------------------
-
-    model.load_weights(output)
 
     return model
 

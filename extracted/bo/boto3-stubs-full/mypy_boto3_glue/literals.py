@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_glue.literals import AdditionalOptionKeysType
 
-    data: AdditionalOptionKeysType = "observations.scope"
+    data: AdditionalOptionKeysType = "compositeRuleEvaluation.method"
     ```
 """
 
@@ -58,6 +58,7 @@ __all__ = (
     "DataQualityModelStatusType",
     "DataQualityRuleResultStatusType",
     "DatabaseAttributesType",
+    "DdbExportTypeType",
     "DeleteBehaviorType",
     "DeltaTargetCompressionTypeType",
     "DescribeEntityPaginatorName",
@@ -183,7 +184,9 @@ __all__ = (
 )
 
 
-AdditionalOptionKeysType = Literal["observations.scope", "performanceTuning.caching"]
+AdditionalOptionKeysType = Literal[
+    "compositeRuleEvaluation.method", "observations.scope", "performanceTuning.caching"
+]
 AggFunctionType = Literal[
     "avg",
     "count",
@@ -326,6 +329,7 @@ DataQualityEncryptionModeType = Literal["DISABLED", "SSE-KMS"]
 DataQualityModelStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 DataQualityRuleResultStatusType = Literal["ERROR", "FAIL", "PASS"]
 DatabaseAttributesType = Literal["NAME"]
+DdbExportTypeType = Literal["ddb", "s3"]
 DeleteBehaviorType = Literal["DELETE_FROM_DATABASE", "DEPRECATE_IN_DATABASE", "LOG"]
 DeltaTargetCompressionTypeType = Literal["snappy", "uncompressed"]
 DescribeEntityPaginatorName = Literal["describe_entity"]
@@ -493,7 +497,15 @@ PermissionType = Literal[
 PermissionTypeType = Literal[
     "CELL_FILTER_PERMISSION", "COLUMN_PERMISSION", "NESTED_CELL_PERMISSION", "NESTED_PERMISSION"
 ]
-PiiTypeType = Literal["ColumnAudit", "ColumnMasking", "RowAudit", "RowMasking"]
+PiiTypeType = Literal[
+    "ColumnAudit",
+    "ColumnHashing",
+    "ColumnMasking",
+    "RowAudit",
+    "RowHashing",
+    "RowMasking",
+    "RowPartialMasking",
+]
 PrincipalTypeType = Literal["GROUP", "ROLE", "USER"]
 PropertyTypeType = Literal["READ_ONLY", "SECRET", "SECRET_OR_USER_INPUT", "UNUSED", "USER_INPUT"]
 QuoteCharType = Literal["disabled", "quillemet", "quote", "single_quote"]

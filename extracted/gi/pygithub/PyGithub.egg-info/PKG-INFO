@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: PyGithub
-Version: 2.6.1
+Version: 2.7.0
 Summary: Use the full Github API v3
 Author-email: Vincent Jacques <vincent@vincent-jacques.net>
 Project-URL: Documentation, https://pygithub.readthedocs.io/en/stable/
@@ -27,10 +27,10 @@ License-File: COPYING.LESSER
 Requires-Dist: pynacl>=1.4.0
 Requires-Dist: requests>=2.14.0
 Requires-Dist: pyjwt[crypto]>=2.4.0
-Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: urllib3>=1.26.0
-Requires-Dist: Deprecated
 Provides-Extra: integrations
+Dynamic: license-file
 
 # PyGitHub
 

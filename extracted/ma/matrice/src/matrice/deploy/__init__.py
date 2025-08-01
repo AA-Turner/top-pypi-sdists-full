@@ -8,13 +8,14 @@ dependencies_check(
         "fastapi",
         "uvicorn",
         "pillow",
-        "confluent_kafka",
+        "confluent_kafka[snappy]",
         "aiokafka",
         "filterpy",
         "scipy",
         "scikit-learn",
         "matplotlib",
         "scikit-image",
+        "python-snappy"
     ]
 )
 

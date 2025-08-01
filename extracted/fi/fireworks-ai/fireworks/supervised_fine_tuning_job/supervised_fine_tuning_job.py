@@ -35,7 +35,7 @@ class SupervisedFineTuningJob:
         llm: "LLM",
         proto: SyncSupervisedFineTuningJob,
         dataset_or_id: Union[Dataset, str],
-        evaluation_dataset: Optional[Union[Dataset, str]] = None,
+        evaluation_dataset_or_id: Optional[Union[Dataset, str]] = None,
         api_key: Optional[str] = None,
     ):
         """
@@ -48,7 +48,7 @@ class SupervisedFineTuningJob:
         """
         self.llm = llm
         self.dataset_or_id = dataset_or_id
-        self.evaluation_dataset = evaluation_dataset
+        self.evaluation_dataset_or_id = evaluation_dataset_or_id
         self._api_key = api_key
         self._gateway = Gateway(api_key=api_key)
         self._proto = proto
@@ -97,8 +97,8 @@ class SupervisedFineTuningJob:
         # Make sure the datasets are synced before creating the job
         if isinstance(self.dataset_or_id, Dataset):
             self.dataset_or_id.sync()
-        if isinstance(self.evaluation_dataset, Dataset):
-            self.evaluation_dataset.sync()
+        if isinstance(self.evaluation_dataset_or_id, Dataset):
+            self.evaluation_dataset_or_id.sync()
 
         existing_job = self.get()
         if existing_job is not None:

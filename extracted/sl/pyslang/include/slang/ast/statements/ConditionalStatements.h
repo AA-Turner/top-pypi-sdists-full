@@ -7,19 +7,12 @@
 //------------------------------------------------------------------------------
 #pragma once
 
+#include "slang/ast/SemanticFacts.h"
 #include "slang/ast/Statement.h"
 
 namespace slang::ast {
 
 // clang-format off
-#define CASE_CONDITION(x) \
-    x(Normal) \
-    x(WildcardXOrZ) \
-    x(WildcardJustZ) \
-    x(Inside)
-SLANG_ENUM(CaseStatementCondition, CASE_CONDITION)
-#undef CASE_CONDITION
-
 #define UNIQUE_PRIORITY(x) \
     x(None) \
     x(Unique) \
@@ -30,7 +23,7 @@ SLANG_ENUM(UniquePriorityCheck, UNIQUE_PRIORITY)
 // clang-format on
 
 /// Represents a conditional statement.
-class SLANG_EXPORT ConditionalStatement : public Statement {
+class SLANG_EXPORT ConditionalStatement final : public Statement {
 public:
     /// A condition.
     struct Condition {
@@ -87,7 +80,7 @@ public:
 };
 
 /// Represents a case statement.
-class SLANG_EXPORT CaseStatement : public Statement {
+class SLANG_EXPORT CaseStatement final : public Statement {
 public:
     /// A group of items in a case statement.
     struct ItemGroup {
@@ -119,6 +112,11 @@ public:
         Statement(StatementKind::Case, sourceRange), expr(expr), items(items),
         defaultCase(defaultCase), condition(condition), check(check) {}
 
+    /// If the case expression and all items are constant, this returns
+    /// the branch that will be taken, if any. Otherwise returns a nullptr
+    /// statement and false for the second item in the pair.
+    std::pair<const Statement*, bool> getKnownBranch(EvalContext& context) const;
+
     EvalResult evalImpl(EvalContext& context) const;
 
     static Statement& fromSyntax(Compilation& compilation,
@@ -148,7 +146,7 @@ public:
 };
 
 /// Represents a pattern case statement.
-class SLANG_EXPORT PatternCaseStatement : public Statement {
+class SLANG_EXPORT PatternCaseStatement final : public Statement {
 public:
     /// A group of items in a pattern case statement.
     struct ItemGroup {

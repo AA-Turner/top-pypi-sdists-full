@@ -13,15 +13,15 @@ from ._compressed import _cs_matrix
 from ._coo import coo_array, coo_matrix
 from ._data import _minmax_mixin
 from ._matrix import spmatrix
-from ._typing import Numeric, ToShape2D
+from ._typing import _ToShape2D
 
 __all__ = ["bsr_array", "bsr_matrix", "isspmatrix_bsr"]
 
 ###
 
 _T = TypeVar("_T")
-_ScalarT = TypeVar("_ScalarT", bound=Numeric)
-_ScalarT_co = TypeVar("_ScalarT_co", bound=Numeric, default=Any, covariant=True)
+_ScalarT = TypeVar("_ScalarT", bound=npc.number | np.bool_)
+_ScalarT_co = TypeVar("_ScalarT_co", bound=npc.number | np.bool_, default=Any, covariant=True)
 
 _ToMatrixPy: TypeAlias = Sequence[_T] | Sequence[Sequence[_T]]
 _ToMatrix: TypeAlias = _spbase[_ScalarT] | onp.CanArrayND[_ScalarT] | Sequence[onp.CanArrayND[_ScalarT]] | _ToMatrixPy[_ScalarT]
@@ -54,7 +54,7 @@ class _bsr_base(_cs_matrix[_ScalarT_co, tuple[int, int]], _minmax_mixin[_ScalarT
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -91,67 +91,132 @@ class bsr_array(_bsr_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         self,
         /,
         arg1: _ToMatrix[_ScalarT_co] | _ToData[_ScalarT_co],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # 2-d shape-like, dtype: None
+    @overload  # 2-d shape-like, dtype: float64-like | None
     def __init__(
         self: bsr_array[np.float64],
         /,
-        arg1: ToShape2D,
-        shape: None = None,
-        dtype: None = None,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
-        blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.bool, dtype: type[bool] | None
+    @overload  # 2-d shape-like, dtype: bool-like (positional)
+    def __init__(
+        self: bsr_array[np.bool_],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: bool-like (keyword)
+    def __init__(
+        self: bsr_array[np.bool_],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyBoolDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: int-like (positional)
+    def __init__(
+        self: bsr_array[np.int64],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: int-like (keyword)
+    def __init__(
+        self: bsr_array[np.int64],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyIntDType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: complex128-like (positional)
+    def __init__(
+        self: bsr_array[np.complex128],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        *,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # 2-d shape-like, dtype: complex128-like (keyword)
+    def __init__(
+        self: bsr_array[np.complex128],
+        /,
+        arg1: _ToShape2D,
+        shape: _ToShape2D | None = None,
+        *,
+        dtype: onp.AnyComplex128DType,
+        copy: bool = False,
+        maxprint: int | None = None,
+    ) -> None: ...
+    @overload  # matrix-like builtins.bool, dtype: bool-like | None
     def __init__(
         self: bsr_array[np.bool_],
         /,
         arg1: _ToMatrixPy[bool],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.int, dtype: type[int] | None
+    @overload  # matrix-like builtins.int, dtype: int-like | None
     def __init__(
         self: bsr_array[np.int_],
         /,
         arg1: _ToMatrixPy[op.JustInt],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.float, dtype: type[float] | None
+    @overload  # matrix-like builtins.float, dtype: float64-like | None
     def __init__(
         self: bsr_array[np.float64],
         /,
         arg1: _ToMatrixPy[op.JustFloat],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.complex, dtype: type[complex] | None
+    @overload  # matrix-like builtins.complex, dtype: complex128-like | None
     def __init__(
         self: bsr_array[np.complex128],
         /,
         arg1: _ToMatrixPy[op.JustComplex],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -163,7 +228,7 @@ class bsr_array(_bsr_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None,
+        shape: _ToShape2D | None,
         dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -175,7 +240,7 @@ class bsr_array(_bsr_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
@@ -187,7 +252,7 @@ class bsr_array(_bsr_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], G
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -217,7 +282,7 @@ class bsr_matrix(_bsr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
         self,
         /,
         arg1: _ToMatrix[_ScalarT_co] | _ToData[_ScalarT_co],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -228,7 +293,7 @@ class bsr_matrix(_bsr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
     def __init__(
         self: bsr_matrix[np.float64],
         /,
-        arg1: ToShape2D,
+        arg1: _ToShape2D,
         shape: None = None,
         dtype: None = None,
         copy: bool = False,
@@ -236,48 +301,48 @@ class bsr_matrix(_bsr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.bool, dtype: type[bool] | None
+    @overload  # matrix-like builtins.bool, dtype: bool-like | None
     def __init__(
         self: bsr_matrix[np.bool_],
         /,
         arg1: _ToMatrixPy[bool],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyBoolDType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.int, dtype: type[int] | None
+    @overload  # matrix-like builtins.int, dtype: int-like | None
     def __init__(
         self: bsr_matrix[np.int_],
         /,
         arg1: _ToMatrixPy[op.JustInt],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyIntDType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.float, dtype: type[float] | None
+    @overload  # matrix-like builtins.float, dtype: float64-like | None
     def __init__(
         self: bsr_matrix[np.float64],
         /,
         arg1: _ToMatrixPy[op.JustFloat],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyFloat64DType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
         *,
         maxprint: int | None = None,
     ) -> None: ...
-    @overload  # matrix-like builtins.complex, dtype: type[complex] | None
+    @overload  # matrix-like builtins.complex, dtype: complex128-like | None
     def __init__(
         self: bsr_matrix[np.complex128],
         /,
         arg1: _ToMatrixPy[op.JustComplex],
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: onp.AnyComplex128DType | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -289,7 +354,7 @@ class bsr_matrix(_bsr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None,
+        shape: _ToShape2D | None,
         dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,
@@ -301,7 +366,7 @@ class bsr_matrix(_bsr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         *,
         dtype: onp.ToDType[_ScalarT_co],
         copy: bool = False,
@@ -313,7 +378,7 @@ class bsr_matrix(_bsr_base[_ScalarT_co], spmatrix[_ScalarT_co], Generic[_ScalarT
         self,
         /,
         arg1: onp.ToComplex2D,
-        shape: ToShape2D | None = None,
+        shape: _ToShape2D | None = None,
         dtype: npt.DTypeLike | None = None,
         copy: bool = False,
         blocksize: tuple[int, int] | None = None,

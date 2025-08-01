@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-30T20:52:28.242373                                                            #
+# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-31T17:05:42.466162                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -257,6 +257,8 @@ CONDA_USE_FAST_INIT: bool
 
 ESCAPE_HATCH_WARNING: bool
 
+FEAT_ALWAYS_UPLOAD_CODE_PACKAGE: bool
+
 DEBUG_OPTIONS: list
 
 DEBUG_SUBCOMMAND: bool
@@ -272,6 +274,8 @@ DEBUG_STUBGEN: bool
 DEBUG_USERCONF: bool
 
 DEBUG_CONDA: bool
+
+DEBUG_PACKAGE: bool
 
 AWS_SANDBOX_ENABLED: bool
 

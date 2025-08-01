@@ -13,17 +13,18 @@
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
 #include "slang/syntax/SyntaxFwd.h"
+#include "slang/util/FlatMap.h"
 #include "slang/util/Function.h"
-#include "slang/util/Hash.h"
 
 namespace slang::ast {
 
 class ASTContext;
 class Constraint;
 class Expression;
+class ForwardingTypedefSymbol;
 class GenericClassDefSymbol;
 
-class SLANG_EXPORT ClassPropertySymbol : public VariableSymbol {
+class SLANG_EXPORT ClassPropertySymbol final : public VariableSymbol {
 public:
     Visibility visibility;
     RandMode randMode = RandMode::None;
@@ -40,11 +41,14 @@ public:
 };
 
 /// Represents a class definition type.
-class SLANG_EXPORT ClassType : public Type, public Scope {
+class SLANG_EXPORT ClassType final : public Type, public Scope {
 public:
     /// If the class type was specialized from a generic class, this is
     /// a pointer to that generic class definition.
     const GenericClassDefSymbol* genericClass = nullptr;
+
+    /// The list of generic parameters for this class specialization, if any.
+    std::span<const Symbol* const> genericParameters;
 
     /// A variable that points to the instance of this class itself, which is
     /// used by non-static class property initializers that refers to the
@@ -61,6 +65,10 @@ public:
 
     /// Set to true if this class is marked final (i.e. it cannot be extended).
     bool isFinal = false;
+
+    /// Set to true if this class type was created from an uninstantiated
+    /// specialization of a generic class.
+    bool isUninstantiated = false;
 
     ClassType(Compilation& compilation, std::string_view name, SourceLocation loc);
 
@@ -163,8 +171,7 @@ namespace detail {
 // when that's the case so it's separated here for now.
 class ClassSpecializationKey {
 public:
-    ClassSpecializationKey(const GenericClassDefSymbol& def,
-                           std::span<const ConstantValue* const> paramValues,
+    ClassSpecializationKey(std::span<const ConstantValue* const> paramValues,
                            std::span<const Type* const> typeParams);
 
     size_t hash() const { return savedHash; }
@@ -172,7 +179,6 @@ public:
     bool operator==(const ClassSpecializationKey& other) const;
 
 private:
-    const GenericClassDefSymbol* definition;
     std::span<const ConstantValue* const> paramValues;
     std::span<const Type* const> typeParams;
     size_t savedHash;
@@ -187,7 +193,7 @@ struct ClassSpecializationHasher {
 /// Represents a generic class definition, which is a parameterized class that has not
 /// yet had its parameter values specified. This is a not a type -- the generic class
 /// must first be specialized in order to be a type usable in expressions and declarations.
-class SLANG_EXPORT GenericClassDefSymbol : public Symbol {
+class SLANG_EXPORT GenericClassDefSymbol final : public Symbol {
 public:
     using SpecializeFunc = function_ref<void(Compilation&, ClassType&, SourceLocation)>;
 
@@ -202,7 +208,7 @@ public:
 
     /// Gets the default specialization for the class, or nullptr if the generic
     /// class has no default specialization (because some parameters are not defaulted).
-    const Type* getDefaultSpecialization() const;
+    const Type* getDefaultSpecialization(const Scope& scope) const;
 
     /// Gets the specialization for the class given the specified parameter value
     /// assignments. The result is cached and reused if requested more than once.
@@ -293,7 +299,7 @@ enum class SLANG_EXPORT ConstraintBlockFlags : uint8_t {
 SLANG_BITMASK(ConstraintBlockFlags, Final)
 
 /// Represents a named constraint block declaration within a class.
-class SLANG_EXPORT ConstraintBlockSymbol : public Symbol, public Scope {
+class SLANG_EXPORT ConstraintBlockSymbol final : public Symbol, public Scope {
 public:
     /// If this is a non-static constraint block, this is a variable
     /// that represents the 'this' class handle.

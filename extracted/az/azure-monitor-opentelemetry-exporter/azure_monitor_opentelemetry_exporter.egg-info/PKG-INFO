@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-monitor-opentelemetry-exporter
-Version: 1.0.0b40
+Version: 1.0.0b41
 Summary: Microsoft Azure Monitor Opentelemetry Exporter Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/monitor/azure-monitor-opentelemetry-exporter
 Author: Microsoft Corporation
@@ -10,7 +10,6 @@ Keywords: azure,azure sdk
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,8 +22,8 @@ Requires-Dist: azure-core<2.0.0,>=1.28.0
 Requires-Dist: azure-identity~=1.17
 Requires-Dist: fixedint==0.1.6
 Requires-Dist: msrest>=0.6.10
-Requires-Dist: opentelemetry-api~=1.26
-Requires-Dist: opentelemetry-sdk~=1.26
+Requires-Dist: opentelemetry-api~=1.35
+Requires-Dist: opentelemetry-sdk~=1.35
 Requires-Dist: psutil<8,>=5.9
 
 # Microsoft OpenTelemetry exporter for Azure Monitor

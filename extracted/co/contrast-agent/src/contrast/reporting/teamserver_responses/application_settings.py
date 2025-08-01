@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from functools import cached_property
-from typing import Optional
 
 from contrast.reporting.teamserver_responses.protect_rule import ProtectRule
 
@@ -13,7 +13,7 @@ class ApplicationSettings:
     creation of this class, the specific schema is ApplicationSettings in agent-endpoints.yml.
     """
 
-    def __init__(self, application_settings_json: Optional[dict] = None):
+    def __init__(self, application_settings_json: dict | None = None):
         self.application_settings_json = application_settings_json or {}
 
     @cached_property
@@ -41,7 +41,7 @@ class ApplicationSettings:
         return self.application_settings_json.get("sensitive_data_masking_policy", {})
 
     @cached_property
-    def session_id(self) -> Optional[str]:
+    def session_id(self) -> str | None:
         return self.application_settings_json.get("session_id", None)
 
     def common_config(self):

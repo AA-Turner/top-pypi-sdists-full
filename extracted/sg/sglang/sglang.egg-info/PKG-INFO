@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.4.9.post6
+Version: 0.4.10.post1
 Summary: SGLang is yet another fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -246,14 +246,14 @@ Requires-Dist: sentencepiece; extra == "runtime-common"
 Requires-Dist: soundfile==0.13.1; extra == "runtime-common"
 Requires-Dist: scipy; extra == "runtime-common"
 Requires-Dist: torchao==0.9.0; extra == "runtime-common"
-Requires-Dist: transformers==4.54.0; extra == "runtime-common"
+Requires-Dist: transformers==4.54.1; extra == "runtime-common"
 Requires-Dist: timm==1.0.16; extra == "runtime-common"
 Requires-Dist: uvicorn; extra == "runtime-common"
 Requires-Dist: uvloop; extra == "runtime-common"
 Requires-Dist: xgrammar==0.1.21; extra == "runtime-common"
 Provides-Extra: srt
 Requires-Dist: sglang[runtime_common]; extra == "srt"
-Requires-Dist: sgl-kernel==0.2.7; extra == "srt"
+Requires-Dist: sgl-kernel==0.2.8; extra == "srt"
 Requires-Dist: torch==2.7.1; extra == "srt"
 Requires-Dist: torchaudio==2.7.1; extra == "srt"
 Requires-Dist: torchvision==0.22.1; extra == "srt"
@@ -427,7 +427,6 @@ SGLang has been deployed at large scale, generating trillions of tokens in produ
 <img src="https://raw.githubusercontent.com/sgl-project/sgl-learning-materials/refs/heads/main/slides/adoption.png" alt="logo" width="800" margin="10px"></img>
 
 ## Contact Us
-
 For enterprises interested in adopting or deploying SGLang at scale, including technical consulting, sponsorship opportunities, or partnership inquiries, please contact us at contact@sglang.ai.
 
 ## Acknowledgment

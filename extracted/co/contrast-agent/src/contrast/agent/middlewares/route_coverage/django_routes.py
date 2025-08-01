@@ -1,14 +1,13 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from inspect import isclass
+from __future__ import annotations
 from pathlib import Path
-from typing import Optional
 
 import functools
 
 from copy import copy
 from importlib import import_module
-from types import FunctionType, MethodType
+from types import FunctionType
 from contrast_fireball import DiscoveredRoute
 from django.urls import ResolverMatch, get_resolver
 from django.urls.exceptions import Resolver404
@@ -28,7 +27,7 @@ from contrast.utils.decorators import fail_quietly
 logger = logging.getLogger("contrast")
 
 
-def get_required_http_methods(func: FunctionType) -> Optional[set]:
+def get_required_http_methods(func: FunctionType) -> set | None:
     """
     Grabs the require_http_list closure variable from a view function through its code object.
     """
@@ -41,18 +40,19 @@ def get_required_http_methods(func: FunctionType) -> Optional[set]:
 
     method_types = _get_required_http_methods(func)
 
-    if wrapped := getattr(func, "__wrapped__", None):
-        if (restricted_methods := get_required_http_methods(wrapped)) is not None:
-            method_types = (
-                set(restricted_methods)
-                if method_types is None
-                else method_types.intersection(restricted_methods)
-            )
+    if (wrapped := getattr(func, "__wrapped__", None)) and (
+        restricted_methods := get_required_http_methods(wrapped)
+    ) is not None:
+        method_types = (
+            set(restricted_methods)
+            if method_types is None
+            else method_types.intersection(restricted_methods)
+        )
 
     return method_types
 
 
-def get_closure_variable(func: FunctionType, varname: str):
+def _get_closure_variable(func: FunctionType, varname: str):
     if not (closure := getattr(func, "__closure__", None)):
         return None
     if varname not in func.__code__.co_freevars:
@@ -76,24 +76,17 @@ def _get_required_http_methods(viewfunc: FunctionType):
         }
     if not viewfunc.__code__.co_filename.endswith(DJANGO_HTTP_DECORATOR_PATH_SUFFIX):
         return None
-    restricted_methods = get_closure_variable(viewfunc, "request_method_list")
+    restricted_methods = _get_closure_variable(viewfunc, "request_method_list")
     if restricted_methods and isinstance(restricted_methods, list):
         return set(restricted_methods)
     return None
-
-
-def get_lowest_function_call(func):
-    if isclass(func) or func.__closure__ is None:
-        return func
-    closure = (c.cell_contents for c in func.__closure__)
-    return next((c for c in closure if isinstance(c, (FunctionType, MethodType))), None)
 
 
 def get_method_info(pattern_or_resolver):
     if not (viewfunc := pattern_or_resolver.callback):
         return DEFAULT_ROUTE_METHODS, "()"
 
-    method_arg_names = build_args_from_function(get_lowest_function_call(viewfunc))
+    method_arg_names = build_args_from_function(viewfunc)
     method_types = (
         required_methods
         if (required_methods := get_required_http_methods(viewfunc)) is not None
@@ -193,7 +186,7 @@ def build_django_signature(obj, method_arg_names=None):
 
 
 @fail_quietly("Failed to get view function for django application")
-def get_matched_resolver(path) -> Optional[ResolverMatch]:
+def get_matched_resolver(path) -> ResolverMatch | None:
     from django.conf import settings
 
     try:

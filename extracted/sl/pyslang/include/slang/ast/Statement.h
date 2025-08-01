@@ -73,12 +73,9 @@ enum class StatementFlags {
     /// Statement creation is happening inside a randseq block.
     InRandSeq = 1 << 2,
 
-    /// Statement creation is happening inside a for loop.
-    InForLoop = 1 << 3,
-
     /// Statement creation has seen a timing-related error
     /// (and so should not issue another).
-    HasTimingError = 1 << 4
+    HasTimingError = 1 << 3
 };
 SLANG_BITMASK(StatementFlags, HasTimingError)
 
@@ -158,17 +155,13 @@ public:
 
         /// Records that we've entered a loop, and returns a guard that will
         /// revert back to the previous state on destruction.
-        [[nodiscard]] auto enterLoop(bool isForLoop = false) {
+        [[nodiscard]] auto enterLoop() {
             auto guard = ScopeGuard([this, savedFlags = flags] {
-                auto savableFlags = StatementFlags::InLoop | StatementFlags::InForLoop;
-                flags &= ~savableFlags;
-                flags |= savedFlags & savableFlags;
+                flags &= ~StatementFlags::InLoop;
+                flags |= savedFlags & StatementFlags::InLoop;
             });
 
             flags |= StatementFlags::InLoop;
-            if (isForLoop)
-                flags |= StatementFlags::InForLoop;
-
             return guard;
         }
     };
@@ -256,7 +249,7 @@ protected:
 ///
 /// Usually generated and inserted into a statement tree due
 /// to violation of language semantics or type checking.
-class SLANG_EXPORT InvalidStatement : public Statement {
+class SLANG_EXPORT InvalidStatement final : public Statement {
 public:
     /// A wrapped sub-statement that is considered invalid.
     const Statement* child;
@@ -274,7 +267,7 @@ public:
 };
 
 /// Represents a list of statements.
-class SLANG_EXPORT StatementList : public Statement {
+class SLANG_EXPORT StatementList final : public Statement {
 public:
     /// The list of child statements.
     std::span<const Statement* const> list;
@@ -298,7 +291,7 @@ public:
 };
 
 /// Represents a sequential or parallel block statement.
-class SLANG_EXPORT BlockStatement : public Statement {
+class SLANG_EXPORT BlockStatement final : public Statement {
 public:
     /// The block body.
     const Statement& body;

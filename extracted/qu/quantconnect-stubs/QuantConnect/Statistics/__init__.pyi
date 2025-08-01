@@ -27,6 +27,9 @@ class FillGroupingMethod(Enum):
     FLAT_TO_REDUCED = 2
     """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class FillMatchingMethod(Enum):
     """The method used to match offsetting order fills"""
@@ -37,6 +40,9 @@ class FillMatchingMethod(Enum):
     LIFO = 1
     """Last In Last Out fill matching method (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class TradeDirection(Enum):
     """Direction of a trade"""
@@ -46,6 +52,9 @@ class TradeDirection(Enum):
 
     SHORT = 1
     """Short direction (1)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Trade(System.Object):

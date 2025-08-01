@@ -269,7 +269,7 @@ const Statement& Statement::bind(const StatementSyntax& syntax, const ASTContext
             break;
         case SyntaxKind::CheckerInstanceStatement:
             result = &ProceduralCheckerStatement::fromSyntax(
-                comp, syntax.as<CheckerInstanceStatementSyntax>(), context);
+                comp, syntax.as<CheckerInstanceStatementSyntax>(), context, stmtCtx);
             break;
         default:
             SLANG_UNREACHABLE;
@@ -443,7 +443,8 @@ static void findBlocks(const Scope& scope, const StatementSyntax& syntax,
 
             for (auto item : block.items) {
                 // If we find any decls at all, this block gets its own scope.
-                if (!StatementSyntax::isKind(item->kind)) {
+                if (!StatementSyntax::isKind(item->kind) ||
+                    item->kind == SyntaxKind::CheckerInstanceStatement) {
                     results.push_back(&StatementBlockSymbol::fromSyntax(scope, block));
                     return;
                 }
@@ -708,15 +709,14 @@ Statement& BlockStatement::fromSyntax(Compilation& comp, const BlockStatementSyn
     // forked processes are effectively not in that loop (and statements like
     // continue and break do not apply to the outer loop).
     auto guard = ScopeGuard([&stmtCtx, savedFlags = stmtCtx.flags] {
-        const auto savableFlags = StatementFlags::InLoop | StatementFlags::InForLoop |
-                                  StatementFlags::InForkJoin;
+        const auto savableFlags = StatementFlags::InLoop | StatementFlags::InForkJoin;
         stmtCtx.flags &= ~savableFlags;
         stmtCtx.flags |= savedFlags & savableFlags;
     });
 
     if (blockKind != StatementBlockKind::Sequential) {
         stmtCtx.flags |= StatementFlags::InForkJoin;
-        stmtCtx.flags &= ~(StatementFlags::InLoop | StatementFlags::InForLoop);
+        stmtCtx.flags &= ~StatementFlags::InLoop;
     }
 
     bool anyBad = false;

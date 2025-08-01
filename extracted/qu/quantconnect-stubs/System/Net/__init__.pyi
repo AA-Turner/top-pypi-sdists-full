@@ -565,6 +565,9 @@ class HttpStatusCode(Enum):
 
     NETWORK_AUTHENTICATION_REQUIRED = 511
 
+    def __int__(self) -> int:
+        ...
+
 
 class ICredentials(metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -694,6 +697,9 @@ class DecompressionMethods(Enum):
     BROTLI = ...
 
     ALL = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class TransportContext(System.Object, metaclass=abc.ABCMeta):
@@ -1020,6 +1026,9 @@ class AuthenticationSchemes(Enum):
 
     INTEGRATED_WINDOWS_AUTHENTICATION = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class IPEndPoint(System.Net.EndPoint):
     """Provides an IP address."""
@@ -1151,6 +1160,9 @@ class CookieVariant(Enum):
     RFC_2965 = 3
 
     DEFAULT = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class IWebProxy(metaclass=abc.ABCMeta):

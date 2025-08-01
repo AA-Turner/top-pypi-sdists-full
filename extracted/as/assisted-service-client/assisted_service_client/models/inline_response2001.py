@@ -31,44 +31,68 @@ class InlineResponse2001(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'architectures': 'SupportLevels'
+        'features': 'list[Feature]',
+        'operators': 'list[Operator]'
     }
 
     attribute_map = {
-        'architectures': 'architectures'
+        'features': 'features',
+        'operators': 'operators'
     }
 
-    def __init__(self, architectures=None):  # noqa: E501
+    def __init__(self, features=None, operators=None):  # noqa: E501
         """InlineResponse2001 - a model defined in Swagger"""  # noqa: E501
 
-        self._architectures = None
+        self._features = None
+        self._operators = None
         self.discriminator = None
 
-        if architectures is not None:
-            self.architectures = architectures
+        if features is not None:
+            self.features = features
+        if operators is not None:
+            self.operators = operators
 
     @property
-    def architectures(self):
-        """Gets the architectures of this InlineResponse2001.  # noqa: E501
+    def features(self):
+        """Gets the features of this InlineResponse2001.  # noqa: E501
 
-        Keys will be one of architecture-support-level-id enum.  # noqa: E501
 
-        :return: The architectures of this InlineResponse2001.  # noqa: E501
-        :rtype: SupportLevels
+        :return: The features of this InlineResponse2001.  # noqa: E501
+        :rtype: list[Feature]
         """
-        return self._architectures
+        return self._features
 
-    @architectures.setter
-    def architectures(self, architectures):
-        """Sets the architectures of this InlineResponse2001.
+    @features.setter
+    def features(self, features):
+        """Sets the features of this InlineResponse2001.
 
-        Keys will be one of architecture-support-level-id enum.  # noqa: E501
 
-        :param architectures: The architectures of this InlineResponse2001.  # noqa: E501
-        :type: SupportLevels
+        :param features: The features of this InlineResponse2001.  # noqa: E501
+        :type: list[Feature]
         """
 
-        self._architectures = architectures
+        self._features = features
+
+    @property
+    def operators(self):
+        """Gets the operators of this InlineResponse2001.  # noqa: E501
+
+
+        :return: The operators of this InlineResponse2001.  # noqa: E501
+        :rtype: list[Operator]
+        """
+        return self._operators
+
+    @operators.setter
+    def operators(self, operators):
+        """Sets the operators of this InlineResponse2001.
+
+
+        :param operators: The operators of this InlineResponse2001.  # noqa: E501
+        :type: list[Operator]
+        """
+
+        self._operators = operators
 
     def to_dict(self):
         """Returns the model properties as a dict"""

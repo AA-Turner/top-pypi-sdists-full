@@ -625,6 +625,9 @@ class SecurityType(Enum):
     CRYPTO_FUTURE = 11
     """Crypto Future Type (11)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class OptionRight(Enum):
     """Specifies the different types of options"""
@@ -635,6 +638,9 @@ class OptionRight(Enum):
     PUT = 1
     """A put option, the right to sell at the strike price (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class OptionStyle(Enum):
     """Specifies the style of an option"""
@@ -644,6 +650,9 @@ class OptionStyle(Enum):
 
     EUROPEAN = 1
     """European style options are able to be exercised on the expiration date only (1)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityIdentifier], System.IComparable[QuantConnect_SecurityIdentifier]):
@@ -1601,6 +1610,9 @@ class TradingDayType(Enum):
     ECONOMIC_EVENT = 8
     """FX Economic Event (8)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class TradingCalendar(System.Object):
     """Class represents trading calendar, populated with variety of events relevant to currently trading instruments"""
@@ -2229,6 +2241,9 @@ class SeriesType(Enum):
 
     SCATTER_3D = 9
 
+    def __int__(self) -> int:
+        ...
+
 
 class BaseSeries(System.Object, metaclass=abc.ABCMeta):
     """Chart Series Object - Series data and properties for a chart:"""
@@ -2441,6 +2456,9 @@ class ChartType(Enum):
 
     STACKED = 1
 
+    def __int__(self) -> int:
+        ...
+
 
 class ScatterMarkerSymbol(Enum):
     """Shape or symbol for the marker in a scatter plot"""
@@ -2456,6 +2474,9 @@ class ScatterMarkerSymbol(Enum):
     TRIANGLE = 4
 
     TRIANGLE_DOWN = 5
+
+    def __int__(self) -> int:
+        ...
 
 
 class Series(QuantConnect.BaseSeries):
@@ -2740,6 +2761,9 @@ class Resolution(Enum):
 
     DAILY = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class TickType(Enum):
     """Types of tick data"""
@@ -2749,6 +2773,9 @@ class TickType(Enum):
     QUOTE = 1
 
     OPEN_INTEREST = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class DataNormalizationMode(Enum):
@@ -2778,6 +2805,9 @@ class DataNormalizationMode(Enum):
     SCALED_RAW = 7
     """Splits and dividends are adjusted into the prices in a given date. Only for history requests. (7)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class DataMappingMode(Enum):
     """Continuous contracts mapping modes"""
@@ -2797,6 +2827,9 @@ class DataMappingMode(Enum):
     OPEN_INTEREST_ANNUAL = 3
     """The contract maps when any of the back month contracts of the next year have a higher volume that the current front month (3)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class PositionSide(Enum):
     """Specifies what side a position is on, long/short"""
@@ -2809,6 +2842,9 @@ class PositionSide(Enum):
 
     LONG = 1
     """A long position, quantity greater than zero (1)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Extensions(System.Object):
@@ -3227,11 +3263,13 @@ class Extensions(System.Object):
         """
         Converts the numeric value of one or more enumerated constants to an equivalent enumerated string.
         
+        Deprecated as of 2025-07. Please use `str()`.
+        
         :param value: Numeric value
         :param py_object: Python object that encapsulated a Enum Type
         :returns: String that represents the enumerated object.
         """
-        ...
+        warnings.warn("Deprecated as of 2025-07. Please use `str()`.", DeprecationWarning)
 
     @staticmethod
     def get_exercise_direction(right: QuantConnect.OptionRight, is_short: bool) -> QuantConnect.Orders.OrderDirection:
@@ -4813,6 +4851,9 @@ class BrokerageEnvironment(Enum):
     PAPER = 1
     """Paper trading (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class Language(Enum):
     """Multilanguage support enum: which language is this project for the interop bridge converter."""
@@ -4832,6 +4873,9 @@ class Language(Enum):
     PYTHON = 4
     """Python Language Project (4)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ServerType(Enum):
     """Live server types available through the web IDE. / QC deployment."""
@@ -4845,6 +4889,9 @@ class ServerType(Enum):
     SERVER_2048 = 2
     """Server with 2048 MB Ram (2)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class AccountType(Enum):
     """Account type: margin or cash"""
@@ -4854,6 +4901,9 @@ class AccountType(Enum):
 
     CASH = 1
     """Cash account type (1)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class MarketDataType(Enum):
@@ -4873,6 +4923,9 @@ class MarketDataType(Enum):
 
     FUTURES_CHAIN = 6
 
+    def __int__(self) -> int:
+        ...
+
 
 class DataFeedEndpoint(Enum):
     """Datafeed enum options for selecting the source of the datafeed."""
@@ -4885,6 +4938,9 @@ class DataFeedEndpoint(Enum):
 
     DATABASE = 3
 
+    def __int__(self) -> int:
+        ...
+
 
 class StoragePermissions(Enum):
     """Cloud storage permission options."""
@@ -4892,6 +4948,9 @@ class StoragePermissions(Enum):
     PUBLIC = 0
 
     AUTHENTICATED = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class DelistingType(Enum):
@@ -4903,6 +4962,9 @@ class DelistingType(Enum):
     DELISTED = 1
     """Specifies the symbol has been delisted (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class SplitType(Enum):
     """Specifies the type of QuantConnect.Data.Market.Split data"""
@@ -4913,6 +4975,9 @@ class SplitType(Enum):
     SPLIT_OCCURRED = 1
     """Specifies the symbol has been split (1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class SettlementType(Enum):
     """Specifies the type of settlement in derivative deals"""
@@ -4922,6 +4987,9 @@ class SettlementType(Enum):
 
     CASH = 1
     """Cash is paid/received on settlement (1)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class AlgorithmStatus(Enum):
@@ -4950,6 +5018,9 @@ class AlgorithmStatus(Enum):
     INITIALIZING = 10
 
     HISTORY = 11
+
+    def __int__(self) -> int:
+        ...
 
 
 class AlgorithmControl(System.Object):
@@ -5014,6 +5085,9 @@ class SubscriptionTransportMedium(Enum):
     OBJECT_STORE = 4
     """The subscription's data comes from the object store (4)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class WritePolicy(Enum):
     """Used by the Data.LeanDataWriter to determine which merge write policy should be applied"""
@@ -5026,6 +5100,9 @@ class WritePolicy(Enum):
 
     APPEND = 2
     """Will append new data to the end of the file or zip entry (2)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Period(Enum):
@@ -5059,6 +5136,9 @@ class Period(Enum):
 
     SIX_HOURS = 21600
 
+    def __int__(self) -> int:
+        ...
+
 
 class CashBookUpdateType(Enum):
     """The different types of CashBook.Updated events"""
@@ -5071,6 +5151,9 @@ class CashBookUpdateType(Enum):
 
     UPDATED = 2
     """An existing Cash.Symbol was updated (2)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Exchange(System.Object):
@@ -5318,6 +5401,9 @@ class DeploymentTarget(Enum):
     PRIVATE_CLOUD_PLATFORM = 2
     """Private Cloud Platform (2)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class AlgorithmMode(Enum):
     """Represents the deployment modes of an algorithm"""
@@ -5333,6 +5419,9 @@ class AlgorithmMode(Enum):
 
     RESEARCH = 3
     """Research (3)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Isolator(System.Object):
@@ -9211,6 +9300,11 @@ class Messages(System.Object):
 
     class PortfolioTarget(System.Object):
         """Provides user-facing messages for the Algorithm.Framework.Portfolio.PortfolioTarget class and its consumers or related classes"""
+
+        @staticmethod
+        def invalid_insight_direction(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], insight_direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection) -> str:
+            """Returns a string message saying the insight direction is invalid for the given symbol"""
+            ...
 
         @staticmethod
         def invalid_target_percent(algorithm: QuantConnect.Interfaces.IAlgorithm, percent: float) -> str:

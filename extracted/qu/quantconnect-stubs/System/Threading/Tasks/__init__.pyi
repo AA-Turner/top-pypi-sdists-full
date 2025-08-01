@@ -180,6 +180,9 @@ class TaskCreationOptions(Enum):
     This option has precedence over TaskContinuationOptions.ExecuteSynchronously
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class TaskContinuationOptions(Enum):
     """Specifies flags that control optional behavior for the creation and execution of continuation tasks."""
@@ -266,6 +269,9 @@ class TaskContinuationOptions(Enum):
     created, the continuation will run on the thread creating the continuation.  Only very
     short-running continuations should be executed synchronously.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class TaskFactory(typing.Generic[System_Threading_Tasks_TaskFactory_TResult], System.Object):
@@ -1243,6 +1249,9 @@ class TaskStatus(Enum):
     FAULTED = 7
     """The task completed due to an unhandled exception."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ConfigureAwaitOptions(Enum):
     """Options to control behavior when awaiting."""
@@ -1267,6 +1276,9 @@ class ConfigureAwaitOptions(Enum):
     Forces an await on an already completed Task to behave as if the Task
     wasn't yet completed, such that the current asynchronous method will be forced to yield its execution.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class Task(typing.Generic[System_Threading_Tasks_Task_TResult], System_Threading_Tasks_Task):

@@ -1,27 +1,18 @@
-_A='latest'
 import logging
 from typing import List
-from localstack.packages import InstallTarget,Package,PackageInstaller
+from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import NodePackageInstaller
-from localstack.pro.core import config as config_ext
-from localstack.utils.run import run
+from localstack.pro.core import config as pro_config
 LOG=logging.getLogger(__name__)
-APPSYNC_UTILS_TARBALL_TEMPLATE='https://github.com/localstack/appsync-utils/archive/{ref}.tar.gz'
+APPSYNC_UTILS_TARBALL_TEMPLATE='https://api.github.com/repos/localstack/appsync-utils/tarball/{ref}'
+DEFAULT_APPSYNC_JS_LIBS_VERSION='v0.1.0'
 class AppSyncUtilsPackage(Package):
-	def __init__(A):super().__init__('AppSyncUtils',config_ext.APPSYNC_JS_LIBS_VERSION.lower()or _A)
+	def __init__(B):
+		A=pro_config.APPSYNC_JS_LIBS_VERSION.lower()or DEFAULT_APPSYNC_JS_LIBS_VERSION
+		if A in{'latest','refresh'}:LOG.warning("Deprecated value for APPSYNC_JS_LIBS_VERSION: '%s', reverting to locked version '%s' instead. It is still possible to override this value by providing a tag version or a commit sha. ie `v0.1.0` or `6a1d4045f5cd6a31ae3023908802433f3802a2d0`",A,DEFAULT_APPSYNC_JS_LIBS_VERSION);A=DEFAULT_APPSYNC_JS_LIBS_VERSION
+		super().__init__('AppSyncUtils',A)
 	def get_versions(A):return[A.default_version]
 	def _get_installer(A,version):return AppSyncUtilsPackageInstaller(version)
 class AppSyncUtilsPackageInstaller(NodePackageInstaller):
-	force_refresh:bool=False
-	def __init__(C,version):
-		A=version
-		if A=='refresh':C.force_refresh=True;A=_A
-		B=APPSYNC_UTILS_TARBALL_TEMPLATE.format(ref='refs/heads/main')
-		if A!=_A:
-			if A.startswith('v'):B=APPSYNC_UTILS_TARBALL_TEMPLATE.format(ref=f"refs/tags/{A}")
-			else:B=APPSYNC_UTILS_TARBALL_TEMPLATE.format(ref=A)
-		super().__init__(package_name='@aws-appsync/utils',version=A,package_spec=f"@aws-appsync/utils@{B}",main_module='index.js')
-	def _setup_existing_installation(A,target):
-		if not A.force_refresh:return
-		LOG.debug('updating @aws-appsync/utils installation');B=A._get_install_dir(target);run(['npm','install','--update','--prefix',B])
+	def __init__(B,version):A=version;super().__init__(package_name='@aws-appsync/utils',version=A,package_spec=f"@aws-appsync/utils@{APPSYNC_UTILS_TARBALL_TEMPLATE.format(ref=A)}",main_module='index.js')
 appsync_utils_package=AppSyncUtilsPackage()

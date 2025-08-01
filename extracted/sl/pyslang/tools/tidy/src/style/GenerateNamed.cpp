@@ -11,7 +11,7 @@ using namespace slang;
 using namespace slang::ast;
 
 namespace generate_named {
-struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, false> {
+struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, false, false, true> {
     explicit MainVisitor(Diagnostics& diagnostics) : TidyVisitor(diagnostics) {}
 
     void handle(const GenerateBlockSymbol& symbol) {
@@ -40,16 +40,18 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, false> {
 using namespace generate_named;
 class GenerateNamed : public TidyCheck {
 public:
-    [[maybe_unused]] explicit GenerateNamed(TidyKind kind) : TidyCheck(kind) {}
+    [[maybe_unused]] explicit GenerateNamed(TidyKind kind,
+                                            std::optional<slang::DiagnosticSeverity> severity) :
+        TidyCheck(kind, severity) {}
 
-    bool check(const ast::RootSymbol& root) override {
+    bool check(const ast::RootSymbol& root, const slang::analysis::AnalysisManager&) override {
         MainVisitor visitor(diagnostics);
         root.visit(visitor);
         return diagnostics.empty();
     }
 
     DiagCode diagCode() const override { return diag::GenerateNamed; }
-    DiagnosticSeverity diagSeverity() const override { return DiagnosticSeverity::Warning; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override { return "definition of an unnamed generate block"; }
     std::string name() const override { return "GenerateNamed"; }
     std::string description() const override { return shortDescription(); }

@@ -1,16 +1,17 @@
 # pyright: reportIncompatibleMethodOverride=false
-# mypy: disable-error-code="override"
+# mypy: disable-error-code="overload-overlap, override"
 
 from types import EllipsisType
-from typing import Any, Generic, Literal as L, LiteralString, Never, TypeAlias, TypedDict, final, overload, type_check_only
+from typing import Generic, Literal as L, LiteralString, Never, TypeAlias, TypedDict, final, overload, type_check_only
 from typing_extensions import TypeAliasType, TypeVar, Unpack, deprecated, override
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
+import optype.numpy.compat as npc
 from numpy.exceptions import ComplexWarning
 
-from scipy._typing import AnyShape, Casting, EnterNoneMixin, Falsy, OrderKACF, Truthy
+from scipy._typing import AnyShape, ExitMixin
 
 __all__ = [
     "agm",
@@ -255,16 +256,16 @@ __all__ = [
 _T = TypeVar("_T")
 _NameT_co = TypeVar("_NameT_co", bound=LiteralString, covariant=True)
 _IdentityT_co = TypeVar("_IdentityT_co", bound=L[0] | None, default=None, covariant=True)
-_OutT = TypeVar("_OutT", bound=onp.ArrayND[np.number[Any]])
-_OutT1 = TypeVar("_OutT1", bound=onp.ArrayND[np.number[Any]])
-_OutT2 = TypeVar("_OutT2", bound=onp.ArrayND[np.number[Any]])
-_OutT3 = TypeVar("_OutT3", bound=onp.ArrayND[np.number[Any]])
-_OutT4 = TypeVar("_OutT4", bound=onp.ArrayND[np.number[Any]])
+_OutT = TypeVar("_OutT", bound=onp.ArrayND[npc.number])
+_OutT1 = TypeVar("_OutT1", bound=onp.ArrayND[npc.number])
+_OutT2 = TypeVar("_OutT2", bound=onp.ArrayND[npc.number])
+_OutT3 = TypeVar("_OutT3", bound=onp.ArrayND[npc.number])
+_OutT4 = TypeVar("_OutT4", bound=onp.ArrayND[npc.number])
 
 _None2: TypeAlias = tuple[None, None]
 _None4: TypeAlias = tuple[None, None, None, None]
 
-_MaybeOutT = TypeVar("_MaybeOutT", bound=onp.ArrayND[np.number[Any]] | None, default=None)
+_MaybeOutT = TypeVar("_MaybeOutT", bound=onp.ArrayND[npc.number] | None, default=None)
 _Out1: TypeAlias = tuple[_MaybeOutT] | _MaybeOutT
 
 _OneOrMany: TypeAlias = _T | tuple[_T, ...]
@@ -273,27 +274,19 @@ _OneOrMany: TypeAlias = _T | tuple[_T, ...]
 _ToBool_D = TypeAliasType("_ToBool_D", onp.ToBool | onp.ToBoolND)
 _ToInt_D = TypeAliasType("_ToInt_D", onp.ToInt | onp.ToIntND)
 
-_Bool = TypeAliasType("_Bool", np.bool_)
-_Float16 = TypeAliasType("_Float16", np.float16)
-_Float32 = TypeAliasType("_Float32", np.float32)
-_Float64 = TypeAliasType("_Float64", np.float64)
-_LongDouble = TypeAliasType("_LongDouble", np.longdouble)
-_Complex64 = TypeAliasType("_Complex64", np.complex64)
-_Complex128 = TypeAliasType("_Complex128", np.complex128)
+_Float64ND: TypeAlias = onp.ArrayND[np.float64]
 
-_Float64ND: TypeAlias = onp.ArrayND[_Float64]
-
-_Float: TypeAlias = _Float32 | _Float64
+_Float: TypeAlias = np.float32 | np.float64
 _FloatND: TypeAlias = onp.ArrayND[_Float]
 _Float_D: TypeAlias = _Float | onp.ArrayND[_Float]
 _Float_DT = TypeVar("_Float_DT", bound=_Float_D)
 
-_LFloat: TypeAlias = _Float | _LongDouble
+_LFloat: TypeAlias = _Float | np.longdouble
 _LFloatND: TypeAlias = onp.ArrayND[_LFloat]
 _LFloat_D: TypeAlias = _LFloat | _LFloatND
 _LFloat_DT = TypeVar("_LFloat_DT", bound=_LFloat_D)
 
-_Complex: TypeAlias = _Complex64 | _Complex128
+_Complex: TypeAlias = np.complex64 | np.complex128
 _ComplexND: TypeAlias = onp.ArrayND[_Complex]
 _Complex_D: TypeAlias = _Complex | _ComplexND
 _Complex_DT = TypeVar("_Complex_DT", bound=_Complex_D)
@@ -303,17 +296,17 @@ _InexactND: TypeAlias = onp.ArrayND[_Inexact]
 _Inexact_D: TypeAlias = _Inexact | _InexactND
 _Inexact_DT = TypeVar("_Inexact_DT", bound=_Inexact_D)
 
-_CoInt: TypeAlias = np.integer[Any] | _Bool  # coercible to integer
-_CoFloat: TypeAlias = np.floating[Any] | _CoInt  # coercible to floating
-_CoFloat64: TypeAlias = _Float64 | _Float32 | _Float16 | _CoInt  # coercible to float64
-_CoComplex128: TypeAlias = _Complex128 | _Complex64 | _CoFloat64  # coercible to complex128
+_CoInt: TypeAlias = npc.integer | np.bool_  # coercible to integer
+_CoFloat: TypeAlias = npc.floating | _CoInt  # coercible to floating
+_CoFloat64: TypeAlias = np.float64 | np.float32 | np.float16 | _CoInt  # coercible to float64
+_CoComplex128: TypeAlias = np.complex128 | np.complex64 | _CoFloat64  # coercible to complex128
 
 _CoIntND: TypeAlias = onp.ArrayND[_CoInt]
 _CoFloatND: TypeAlias = onp.ArrayND[_CoFloat]
 _CoFloat64ND: TypeAlias = onp.ArrayND[_CoFloat64]
 _CoComplex128ND: TypeAlias = onp.ArrayND[_CoComplex128]
 
-_SubFloat: TypeAlias = _Float16 | _CoInt  # anything "below" float32 | float64 that isn't float32 | float64
+_SubFloat: TypeAlias = np.float16 | _CoInt  # anything "below" float32 | float64 that isn't float32 | float64
 _ToSubFloat: TypeAlias = op.JustFloat | int | _SubFloat  # does not overlap with float32 | float64
 _ToSubFloatND: TypeAlias = _ToND[_SubFloat, op.JustFloat | int]
 
@@ -323,10 +316,10 @@ _CoT = TypeVar("_CoT", bound=np.generic)
 _ToT = TypeVar("_ToT")
 _ToND: TypeAlias = onp.CanArrayND[_CoT] | onp.SequenceND[onp.CanArrayND[_CoT]] | onp.SequenceND[_ToT]
 
-_ToFloat32 = TypeAliasType("_ToFloat32", int | _Float32 | _SubFloat)
+_ToFloat32 = TypeAliasType("_ToFloat32", int | np.float32 | _SubFloat)
 _ToFloat64OrND: TypeAlias = onp.ToFloat64 | onp.ToFloat64_ND
 
-_ToComplex64 = TypeAliasType("_ToComplex64", _Complex64 | _ToFloat32)
+_ToComplex64 = TypeAliasType("_ToComplex64", np.complex64 | _ToFloat32)
 _ToComplex128 = TypeAliasType("_ToComplex128", complex | _CoComplex128)
 _ToComplex128ND = TypeAliasType("_ToComplex128ND", _ToND[_CoComplex128, _ToComplex128])
 _ToComplex128_D: TypeAlias = _ToComplex128 | _ToComplex128ND
@@ -403,8 +396,8 @@ _ToDTypes_d7 = TypeAliasType("_ToDTypes_d7", _Tuple7[_ToDType_d])
 
 @type_check_only
 class _KwBase(TypedDict, total=False):
-    order: OrderKACF
-    casting: Casting
+    order: L["K", "A", "C", "F"]
+    casting: L["no", "equiv", "safe", "same_kind", "unsafe"]
     subok: onp.ToBool
     where: _ToBool_D
 
@@ -766,13 +759,13 @@ class _UFunc11f(_UFunc11[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     def types(self, /) -> list[L["f->f", "d->d"]]: ...
     #
     @overload
-    def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float64: ...
+    def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> np.float64: ...
     @overload
     def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw11f]) -> _Float: ...
     @overload
     def __call__(self, x: _ToSubFloatND, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float64ND: ...
     @overload
-    def __call__(self, x: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...
     @overload
     def __call__(self, x: onp.ToFloat64_ND, /, out: _Out1 = None, **kw: Unpack[_Kw11f]) -> _FloatND: ...
     @overload
@@ -792,7 +785,7 @@ class _UFunc11g(_UFunc11[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     def types(self, /) -> list[L["f->f", "d->d", "g->g"]]: ...
     #
     @overload
-    def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float64: ...
+    def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> np.float64: ...
     @overload
     def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw11g]) -> _LFloat: ...
     @overload
@@ -820,7 +813,7 @@ class _UFunc11c(_UFunc11[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, x: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw11c]) -> _Complex: ...
     @overload
-    def __call__(self, x: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex_DT: ...
     @overload
     def __call__(self, x: _ToComplex128ND, /, out: _Out1 = None, **kw: Unpack[_Kw11c]) -> _ComplexND: ...
     @overload
@@ -840,15 +833,15 @@ class _UFunc11fc(_UFunc11[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identit
     def types(self, /) -> list[L["f->f", "d->d", "F->F", "D->D"]]: ...
     #
     @overload
-    def __call__(self, x: op.JustFloat | op.JustInt, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float64: ...
+    def __call__(self, x: op.JustFloat | op.JustInt, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> np.float64: ...
     @overload
     def __call__(self, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw11fc]) -> _Float: ...
     @overload
-    def __call__(self, x: op.JustComplex, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex128: ...
+    def __call__(self, x: op.JustComplex, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> np.complex128: ...
     @overload
     def __call__(self, x: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw11fc]) -> _Inexact: ...
     @overload
-    def __call__(self, x: _Inexact_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Inexact_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Inexact_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Inexact_DT: ...
     @overload
     def __call__(self, x: onp.ToFloat64_ND, /, out: _Out1 = None, **kw: Unpack[_Kw11fc]) -> _FloatND: ...
     @overload
@@ -873,7 +866,7 @@ class _UFunc12f(_UFunc12[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, x: _ToSubFloat, /, out: _None2 = ..., **kw: Unpack[_Kw12f]) -> _Tuple2[_Float]: ...
     @overload
-    def __call__(self, x: _Float_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Float_DT]: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Float_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Float_DT]: ...
     @overload
     def __call__(self, x: onp.ToFloat64_ND, /, out: _None2 = ..., **kw: Unpack[_Kw12f]) -> _Tuple2[_FloatND]: ...
     @overload
@@ -917,7 +910,7 @@ class _UFunc12fc(_UFunc12[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identit
     @overload
     def __call__(self, x: _ToSubComplex, /, out: _None2 = ..., **kw: Unpack[_Kw12fc]) -> _Tuple2[_Inexact]: ...
     @overload
-    def __call__(self, x: _Inexact_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Inexact_DT]: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Inexact_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Inexact_DT]: ...
     @overload
     def __call__(self, x: onp.ToFloat64_ND, /, out: _None2 = ..., **kw: Unpack[_Kw12fc]) -> _Tuple2[_FloatND]: ...
     @overload
@@ -941,7 +934,7 @@ class _UFunc14f(_UFunc14[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, x: _ToSubFloat, /, out: _None4 = ..., **kw: Unpack[_Kw14f]) -> _Tuple4[_Float]: ...
     @overload
-    def __call__(self, x: _Float_DT, /, out: _None4 = ..., **kw: Unpack[_KwBase]) -> _Tuple4[_Float_DT]: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Float_DT, /, out: _None4 = ..., **kw: Unpack[_KwBase]) -> _Tuple4[_Float_DT]: ...
     @overload
     def __call__(self, x: onp.ToFloat64_ND, /, out: _None4 = ..., **kw: Unpack[_Kw14f]) -> _Tuple4[_FloatND]: ...
     @overload
@@ -993,7 +986,7 @@ class _UFunc14fc(_UFunc14[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identit
     @overload
     def __call__(self, x: _ToSubComplex, /, out: _None4 = ..., **kw: Unpack[_Kw14fc]) -> _Tuple4[_Inexact]: ...
     @overload
-    def __call__(self, x: _Inexact_DT, /, out: _None4 = ..., **kw: Unpack[_KwBase]) -> _Tuple4[_Inexact_DT]: ...  # type: ignore[overload-overlap]
+    def __call__(self, x: _Inexact_DT, /, out: _None4 = ..., **kw: Unpack[_KwBase]) -> _Tuple4[_Inexact_DT]: ...
     @overload
     def __call__(self, x: onp.ToFloat64_ND, /, out: _None4 = ..., **kw: Unpack[_Kw14fc]) -> _Tuple4[_FloatND]: ...
     @overload
@@ -1051,9 +1044,9 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, a: _ToSubFloat, b: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw21f]) -> _Float: ...
     @overload
-    def __call__(self, a: _Float_DT, b: _Float_DT | _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _Float_DT, b: _Float_DT | _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...
     @overload
-    def __call__(self, a: _Float_DT | _ToFloat32, b: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _Float_DT | _ToFloat32, b: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...
     @overload
     def __call__(self, a: onp.ToFloat64_ND, b: _ToFloat64OrND, /, out: _Out1 = None, **kw: Unpack[_Kw21f]) -> _FloatND: ...
     @overload
@@ -1066,7 +1059,12 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     #
     @override
     def accumulate(
-        self, /, array: onp.ToFloat64_ND, axis: op.CanIndex = 0, dtype: _ToDType_fd = None, out: _Out1[_FloatND | None] = None
+        self,
+        /,
+        array: onp.ToFloat64_ND,
+        axis: op.CanIndex = 0,
+        dtype: _ToDType_fd | None = None,
+        out: _Out1[_FloatND | None] = None,
     ) -> _FloatND: ...
     #
     @overload
@@ -1075,9 +1073,9 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         /,
         array: onp.ToFloat64_ND,
         axis: None,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: onp.ToFloat64 = ...,
         where: _ToBool_D = True,
     ) -> _Float: ...
@@ -1087,9 +1085,9 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: onp.ToFloat64 = ...,
         where: _ToBool_D = True,
     ) -> _Float_D: ...
@@ -1099,10 +1097,10 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
         *,
-        keepdims: Truthy,
+        keepdims: onp.ToTrue,
         initial: onp.ToFloat64 = ...,
         where: _ToBool_D = True,
     ) -> _FloatND: ...
@@ -1124,7 +1122,7 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         *,
         out: _Out1[_OutT],
         keepdims: bool = False,
@@ -1139,7 +1137,7 @@ class _UFunc21f(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         array: onp.ToFloat64_ND,
         indices: _Indices,
         axis: op.CanIndex = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1[_FloatND | None] = None,
     ) -> _FloatND: ...
     #
@@ -1166,7 +1164,7 @@ class _UFunc21c1(_UFuncWithoutIdentity, _UFunc21[_NameT_co, _IdentityT_co], Gene
     @overload
     def __call__(self, a: onp.ToFloat64, b: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw21c1]) -> _Complex: ...
     @overload
-    def __call__(self, a: _ToFloat32, b: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _ToFloat32, b: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex_DT: ...
     @overload
     def __call__(self, a: onp.ToFloat64_ND, b: _ToComplex128_D, /, out: _Out1 = None, **kw: Unpack[_Kw21c1]) -> _ComplexND: ...
     @overload
@@ -1201,11 +1199,11 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
     @overload
     def __call__(self, a: onp.ToFloat64, b: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw21fc1]) -> _Float: ...
     @overload
-    def __call__(self, a: _ToFloat32, b: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _ToFloat32, b: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Complex_DT: ...
     @overload
-    def __call__(self, a: _Float_DT | _ToFloat32, b: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _Float_DT | _ToFloat32, b: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...
     @overload
-    def __call__(self, a: _Float_DT, b: _Float_DT | _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _Float_DT, b: _Float_DT | _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Float_DT: ...
     @overload
     def __call__(self, a: _ToFloat64OrND, b: onp.ToFloat64_ND, /, out: _Out1 = None, **kw: Unpack[_Kw21fc1]) -> _FloatND: ...
     @overload
@@ -1222,7 +1220,12 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
     #
     @override
     def accumulate(
-        self, /, array: onp.ToFloat64_ND, axis: op.CanIndex = 0, dtype: _ToDType_fd = None, out: _Out1[_FloatND | None] = None
+        self,
+        /,
+        array: onp.ToFloat64_ND,
+        axis: op.CanIndex = 0,
+        dtype: _ToDType_fd | None = None,
+        out: _Out1[_FloatND | None] = None,
     ) -> _FloatND: ...
     #
     @overload
@@ -1231,9 +1234,9 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         /,
         array: onp.ToFloat64_ND,
         axis: None,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: onp.ToFloat64 = ...,
         where: _ToBool_D = True,
     ) -> _Float: ...
@@ -1243,9 +1246,9 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: onp.ToFloat64 = ...,
         where: _ToBool_D = True,
     ) -> _Float_D: ...
@@ -1255,10 +1258,10 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
         *,
-        keepdims: Truthy,
+        keepdims: onp.ToTrue,
         initial: onp.ToFloat64 = ...,
         where: _ToBool_D = True,
     ) -> _FloatND: ...
@@ -1280,7 +1283,7 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         *,
         out: _Out1[_OutT],
         keepdims: bool = False,
@@ -1295,7 +1298,7 @@ class _UFunc21fc1(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         array: onp.ToFloat64_ND,
         indices: _Indices,
         axis: op.CanIndex = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1[_FloatND | None] = None,
     ) -> _FloatND: ...
     #
@@ -1329,9 +1332,9 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
     @overload
     def __call__(self, a: _ToSubComplex, b: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw21fc2]) -> _Inexact: ...
     @overload
-    def __call__(self, a: _ToFloat32, b: _Inexact_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Inexact_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _ToFloat32, b: _Inexact_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Inexact_DT: ...
     @overload
-    def __call__(self, a: _Inexact_DT, b: _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Inexact_DT: ...  # type: ignore[overload-overlap]
+    def __call__(self, a: _Inexact_DT, b: _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]) -> _Inexact_DT: ...
     @overload
     def __call__(self, a: _ToFloat64OrND, b: onp.ToFloat64_ND, /, out: _Out1 = None, **kw: Unpack[_Kw21fc2]) -> _FloatND: ...
     @overload
@@ -1350,7 +1353,12 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
     #
     @overload
     def accumulate(
-        self, /, array: onp.ToFloat64_ND, axis: op.CanIndex = 0, dtype: _ToDType_fd = None, out: _Out1[_FloatND | None] = None
+        self,
+        /,
+        array: onp.ToFloat64_ND,
+        axis: op.CanIndex = 0,
+        dtype: _ToDType_fd | None = None,
+        out: _Out1[_FloatND | None] = None,
     ) -> _FloatND: ...
     @overload
     def accumulate(
@@ -1368,9 +1376,9 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         /,
         array: onp.ToFloat64_ND,
         axis: None,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: onp.ToFloat = ...,
         where: _ToBool_D = True,
     ) -> _Float: ...
@@ -1380,10 +1388,10 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         /,
         array: onp.ToFloat64_ND,
         axis: _Axis = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1 = None,
         *,
-        keepdims: Truthy,
+        keepdims: onp.ToTrue,
         initial: onp.ToFloat = ...,
         where: _ToBool_D = True,
     ) -> _FloatND: ...
@@ -1395,7 +1403,7 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         axis: None,
         dtype: _ToDType_fdFD | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: _ToComplex128 = ...,
         where: _ToBool_D = True,
     ) -> _Inexact: ...
@@ -1408,7 +1416,7 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         dtype: _ToDType_fdFD | None = None,
         out: _Out1 = None,
         *,
-        keepdims: Truthy,
+        keepdims: onp.ToTrue,
         initial: _ToComplex128 = ...,
         where: _ToBool_D = True,
     ) -> _InexactND: ...
@@ -1420,7 +1428,7 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         axis: _Axis = 0,
         dtype: _ToDType_fdFD | None = None,
         out: _Out1 = None,
-        keepdims: Falsy = False,
+        keepdims: onp.ToFalse = False,
         initial: _ToComplex128 = ...,
         where: _ToBool_D = True,
     ) -> _Inexact_D: ...
@@ -1457,7 +1465,7 @@ class _UFunc21fc2(_UFunc21[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         array: onp.ToFloat64_ND,
         indices: _Indices,
         axis: op.CanIndex = 0,
-        dtype: _ToDType_fd = None,
+        dtype: _ToDType_fd | None = None,
         out: _Out1[_FloatND | None] = None,
     ) -> _FloatND: ...
     @overload
@@ -1500,9 +1508,9 @@ class _UFunc22f(_UFunc22[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, v: _ToSubFloat, x: _ToSubFloat, /, out: _None2 = ..., **kw: Unpack[_Kw22f]) -> _Tuple2[_Float]: ...
     @overload
-    def __call__(self, v: _ToFloat32, x: _Float_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Float_DT]: ...  # type: ignore[overload-overlap]
+    def __call__(self, v: _ToFloat32, x: _Float_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Float_DT]: ...
     @overload
-    def __call__(self, v: _Float_DT, x: _ToFloat32, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Float_DT]: ...  # type: ignore[overload-overlap]
+    def __call__(self, v: _Float_DT, x: _ToFloat32, /, out: _None2 = ..., **kw: Unpack[_KwBase]) -> _Tuple2[_Float_DT]: ...
     @overload
     def __call__(
         self, v: onp.ToFloat64_ND, x: onp.ToFloat64_ND, /, out: _None2 = ..., **kw: Unpack[_Kw22f]
@@ -1553,11 +1561,11 @@ class _UFunc24f(_UFunc24[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, u: _ToSubFloat, m: _ToSubFloat, /, out: _None4 = ..., **kw: Unpack[_Kw24f]) -> _Tuple4[_Float]: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, u: _Float_DT | _ToFloat32, m: _Float_DT, /, out: _None4 = ..., **kw: Unpack[_KwBase]
     ) -> _Tuple4[_Float_DT]: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, u: _Float_DT, m: _Float_DT | _ToFloat32, /, out: _None4 = ..., **kw: Unpack[_KwBase]
     ) -> _Tuple4[_Float_DT]: ...
     @overload
@@ -1613,15 +1621,15 @@ class _UFunc31f(_UFunc31[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
     @overload
     def __call__(self, a: _ToSubFloat, b: _ToSubFloat, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw31f]) -> _Float: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, a: onp.ToFloat64, b: onp.ToFloat64, x: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, a: onp.ToFloat64, b: _Float_DT, x: onp.ToFloat64, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, a: _Float_DT, b: onp.ToFloat64, x: onp.ToFloat64, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Float_DT: ...
     @overload
@@ -1657,23 +1665,23 @@ class _UFunc31fc1(_UFunc31[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         self, n: _ToSubFloat, a: _ToSubFloat, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw31fc1]
     ) -> _Float: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _ToSubFloat, a: _ToSubFloat, x: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw31fc1]
     ) -> _Inexact: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _ToFloat32, a: _ToFloat32, x: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Complex_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _Float_DT | _ToFloat32, a: _Float_DT | _ToFloat32, x: _Float_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _Float_DT | _ToFloat32, a: _Float_DT, x: _Float_DT | _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _Float_DT, a: _Float_DT | _ToFloat32, x: _Float_DT | _ToFloat32, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Float_DT: ...
     @overload
@@ -1725,7 +1733,7 @@ class _UFunc31fc3(_UFunc31[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         self, x: _ToSubComplex, y: _ToSubComplex, z: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw31fc3]
     ) -> _Inexact: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT | _ToComplex64,
         y: _Inexact_DT | _ToComplex64,
@@ -1735,7 +1743,7 @@ class _UFunc31fc3(_UFunc31[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_KwBase],
     ) -> _Inexact_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT | _ToComplex64,
         y: _Inexact_DT,
@@ -1745,7 +1753,7 @@ class _UFunc31fc3(_UFunc31[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_KwBase],
     ) -> _Inexact_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT,
         y: _Inexact_DT | _ToComplex64,
@@ -1798,15 +1806,15 @@ class _UFunc32f(_UFunc32[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         self, m: _ToSubFloat, q: _ToSubFloat, x: _ToSubFloat, /, out: _None2 = ..., **kw: Unpack[_Kw32f]
     ) -> _Tuple2[_Float]: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: _Float_DT | _ToFloat32, q: _Float_DT | _ToFloat32, x: _Float_DT, /, out: _None2 = ..., **kw: Unpack[_KwBase]
     ) -> _Tuple2[_Float_DT]: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: _Float_DT | _ToFloat32, q: _Float_DT, x: _Float_DT | _ToFloat32, /, out: _None2 = ..., **kw: Unpack[_KwBase]
     ) -> _Tuple2[_Float_DT]: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: _Float_DT, q: _Float_DT | _ToFloat32, x: _Float_DT | _ToFloat32, /, out: _None2 = ..., **kw: Unpack[_KwBase]
     ) -> _Tuple2[_Float_DT]: ...
     @overload
@@ -1845,7 +1853,7 @@ class _UFunc41f(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         self, dfn: _ToSubFloat, dfd: _ToSubFloat, nc: _ToSubFloat, f: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw41f]
     ) -> _Float: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         dfn: _Float_DT | _ToFloat32,
         dfd: _Float_DT | _ToFloat32,
@@ -1856,7 +1864,7 @@ class _UFunc41f(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_KwBase],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         dfn: _Float_DT | _ToFloat32,
         dfd: _Float_DT | _ToFloat32,
@@ -1867,7 +1875,7 @@ class _UFunc41f(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_KwBase],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         dfn: _Float_DT | _ToFloat32,
         dfd: _Float_DT,
@@ -1878,7 +1886,7 @@ class _UFunc41f(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_KwBase],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         dfn: _Float_DT,
         dfd: _Float_DT | _ToFloat32,
@@ -2031,15 +2039,15 @@ class _UFunc41fc1(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         self, n: _ToSubFloat, a: _ToSubFloat, b: _ToSubFloat, x: _ToSubFloat, /, out: _Out1 = None, **kw: Unpack[_Kw41fc1]
     ) -> _Float: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _ToSubFloat, a: _ToSubFloat, b: _ToSubFloat, x: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw41fc1]
     ) -> _Inexact: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, n: _ToFloat32, a: _ToFloat32, b: _ToFloat32, x: _Complex_DT, /, out: _Out1 = None, **kw: Unpack[_KwBase]
     ) -> _Complex_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         n: _Float_DT | _ToFloat32,
         a: _Float_DT | _ToFloat32,
@@ -2050,7 +2058,7 @@ class _UFunc41fc1(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_KwBase],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         n: _Float_DT | _ToFloat32,
         a: _Float_DT | _ToFloat32,
@@ -2061,7 +2069,7 @@ class _UFunc41fc1(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_KwBase],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         n: _Float_DT | _ToFloat32,
         a: _Float_DT,
@@ -2072,7 +2080,7 @@ class _UFunc41fc1(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_KwBase],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         n: _Float_DT,
         a: _Float_DT | _ToFloat32,
@@ -2202,7 +2210,7 @@ class _UFunc41fc4(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         self, x: _ToSubComplex, y: _ToSubComplex, z: _ToSubComplex, p: _ToSubComplex, /, out: _Out1 = None, **kw: Unpack[_Kw41fc4]
     ) -> _Inexact: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT | _ToComplex64,
         y: _Inexact_DT | _ToComplex64,
@@ -2213,7 +2221,7 @@ class _UFunc41fc4(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_Kw41fc4],
     ) -> _Inexact_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT | _ToComplex64,
         y: _Inexact_DT | _ToComplex64,
@@ -2224,7 +2232,7 @@ class _UFunc41fc4(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_Kw41fc4],
     ) -> _Inexact_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT | _ToComplex64,
         y: _Inexact_DT,
@@ -2235,7 +2243,7 @@ class _UFunc41fc4(_UFunc41[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identi
         **kw: Unpack[_Kw41fc4],
     ) -> _Inexact_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         x: _Inexact_DT,
         y: _Inexact_DT | _ToComplex64,
@@ -2360,19 +2368,19 @@ class _UFunc42f(_UFunc42[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         self, m: _ToSubFloat, n: _ToSubFloat, c: _ToSubFloat, x: _ToSubFloat, /, out: _None2 = ..., **kw: Unpack[_Kw42f]
     ) -> _Float: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: onp.ToFloat64, n: onp.ToFloat64, c: onp.ToFloat64, x: _Float_DT, /, out: _None2 = ..., **kw: Unpack[_Kw42f]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: onp.ToFloat64, n: onp.ToFloat64, c: _Float_DT, x: onp.ToFloat64, /, out: _None2 = ..., **kw: Unpack[_Kw42f]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: onp.ToFloat64, n: _Float_DT, c: onp.ToFloat64, x: onp.ToFloat64, /, out: _None2 = ..., **kw: Unpack[_Kw42f]
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, m: _Float_DT, n: onp.ToFloat64, c: onp.ToFloat64, x: onp.ToFloat64, /, out: _None2 = ..., **kw: Unpack[_Kw42f]
     ) -> _Float_DT: ...
     @overload
@@ -2466,7 +2474,7 @@ class _UFunc52f(_UFunc52[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_Kw52f],
     ) -> _Float: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         m: onp.ToFloat64,
         n: onp.ToFloat64,
@@ -2478,7 +2486,7 @@ class _UFunc52f(_UFunc52[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_Kw52f],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         m: onp.ToFloat64,
         n: onp.ToFloat64,
@@ -2490,7 +2498,7 @@ class _UFunc52f(_UFunc52[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_Kw52f],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         m: onp.ToFloat64,
         n: onp.ToFloat64,
@@ -2502,7 +2510,7 @@ class _UFunc52f(_UFunc52[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_Kw52f],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         m: onp.ToFloat64,
         n: _Float_DT,
@@ -2514,7 +2522,7 @@ class _UFunc52f(_UFunc52[_NameT_co, _IdentityT_co], Generic[_NameT_co, _Identity
         **kw: Unpack[_Kw52f],
     ) -> _Float_DT: ...
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         m: _Float_DT,
         n: onp.ToFloat64,
@@ -2645,8 +2653,9 @@ class _ErrKwargs(TypedDict, total=False):
 def geterr() -> _ErrDict: ...
 def seterr(**kwargs: Unpack[_ErrKwargs]) -> _ErrDict: ...
 
-class errstate(EnterNoneMixin):
+class errstate(ExitMixin):
     def __init__(self, /, **kwargs: Unpack[_ErrKwargs]) -> None: ...
+    def __enter__(self, /) -> None: ...
 
 ###
 

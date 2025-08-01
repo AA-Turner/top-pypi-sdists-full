@@ -1,16 +1,9 @@
-"""
-Road Lane Detection Use Case for Post-Processing
-
-This module provides road lane detection functionality with lane type classification,
-zone analysis, and alert generation.
-"""
-
 from typing import Any, Dict, List, Optional
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 import time
 from datetime import datetime, timezone
 
-from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
+from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
 from ..utils import (
     filter_by_confidence,
     filter_by_categories,
@@ -23,11 +16,13 @@ from ..utils import (
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
+from dataclasses import dataclass, field
 from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+
 
 @dataclass
 class LaneDetectionConfig(BaseConfig):
-    """Configuration for road lane detection use case."""
+    """Configuration for lane detection use case in road monitoring."""
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
@@ -35,39 +30,39 @@ class LaneDetectionConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
     confidence_threshold: float = 0.6
     usecase_categories: List[str] = field(
-        default_factory=lambda: ['Divider-Line', 'Dotted-Line', 'Double-Line', 'Random-Line', 'Road-Sign-Line', 'Solid-Line']
+        default_factory=lambda: ['divider-line', 'dotted-line', 'double-line', 'random-line', 'road-sign-line', 'solid-line']
     )
     target_categories: List[str] = field(
-        default_factory=lambda: ['Divider-Line', 'Dotted-Line', 'Double-Line', 'Random-Line', 'Road-Sign-Line', 'Solid-Line']
+        default_factory=lambda: ['divider-line', 'dotted-line', 'double-line', 'random-line', 'road-sign-line', 'solid-line']
     )
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: "Divider-Line",
-            1: "Dotted-Line",
-            2: "Double-Line",
-            3: "Random-Line",
-            4: "Road-Sign-Line",
-            5: "Solid-Line"
+            0: "divider-line",
+            1: "dotted-line",
+            2: "double-line",
+            3: "random-line",
+            4: "road-sign-line",
+            5: "solid-line"
         }
     )
 
+
 class LaneDetectionUseCase(BaseProcessor):
     CATEGORY_DISPLAY = {
-        "Divider-Line": "Divider Line",
-        "Dotted-Line": "Dotted Line",
-        "Double-Line": "Double Line",
-        "Random-Line": "Random Line",
-        "Road-Sign-Line": "Road Sign Line",
-        "Solid-Line": "Solid Line"
+        "divider-line": "Divider Line",
+        "dotted-line": "Dotted Line",
+        "double-line": "Double Line",
+        "random-line": "Random Line",
+        "road-sign-line": "Road Sign Line",
+        "solid-line": "Solid Line"
     }
-
     def __init__(self):
         super().__init__("lane_detection")
         self.category = "traffic"
         self.CASE_TYPE: Optional[str] = 'lane_detection'
         self.CASE_VERSION: Optional[str] = '1.0'
-        self.target_categories = ['Divider-Line', 'Dotted-Line', 'Double-Line', 'Random-Line', 'Road-Sign-Line', 'Solid-Line']
+        self.target_categories = ['divider-line', 'dotted-line', 'double-line', 'random-line', 'road-sign-line', 'solid-line']
         self.smoothing_tracker = None
         self.tracker = None
         self._total_frame_counter = 0
@@ -87,7 +82,6 @@ class LaneDetectionUseCase(BaseProcessor):
             return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
         if context is None:
             context = ProcessingContext()
-
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
@@ -97,7 +91,7 @@ class LaneDetectionUseCase(BaseProcessor):
             self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
             processed_data = data
-            self.logger.debug("No confidence filtering applied")
+            self.logger.debug("Did not apply confidence filtering")
 
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
@@ -198,39 +192,42 @@ class LaneDetectionUseCase(BaseProcessor):
         if not config.alert_config:
             return alerts
 
+        total = summary.get("total_count", 0)
         if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
             for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total_detections > threshold:
+                if category == "all" and total > threshold:
                     alerts.append({
-                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
-                        "alert_id": f"alert_{category}_{frame_key}",
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_" + category + '_' + frame_key,
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
                         "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
-                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
-                                                         getattr(config.alert_config, 'alert_value', ['JSON']))}
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])}
                     })
-                elif category in per_category_count and per_category_count[category] > threshold:
-                    alerts.append({
-                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
-                        "alert_id": f"alert_{category}_{frame_key}",
-                        "incident_category": self.CASE_TYPE,
-                        "threshold_level": threshold,
-                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
-                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
-                                                         getattr(config.alert_config, 'alert_value', ['JSON']))}
-                    })
+                elif category in per_category_count:
+                    count = per_category_count[category]
+                    if count > threshold:
+                        alerts.append({
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                            "alert_id": "alert_" + category + '_' + frame_key,
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                         getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])}
+                        })
         return alerts
 
     def _generate_incidents(self, counting_summary: Dict, alerts: List, config: LaneDetectionConfig,
-                           frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         incidents = []
         total_detections = counting_summary.get("total_count", 0)
         current_timestamp = self._get_current_timestamp_str(stream_info)
         camera_info = self.get_camera_info_from_stream(stream_info)
-
+        
         self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
-
+        
         if total_detections > 0:
             level = "low"
             intensity = 5.0
@@ -264,7 +261,7 @@ class LaneDetectionUseCase(BaseProcessor):
                     intensity = 10.0
                     self._ascending_alert_list.append(3)
                 elif total_detections > 25:
-                    level = "significant"
+                    level = " significant"
                     intensity = 9.0
                     self._ascending_alert_list.append(2)
                 elif total_detections > 15:
@@ -276,23 +273,23 @@ class LaneDetectionUseCase(BaseProcessor):
                     intensity = min(10.0, total_detections / 3.0)
                     self._ascending_alert_list.append(0)
 
-            human_text_lines = [f"LANE INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
             human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
             human_text = "\n".join(human_text_lines)
 
             alert_settings = []
             if config.alert_config and hasattr(config.alert_config, 'alert_type'):
                 alert_settings.append({
-                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                     "incident_category": self.CASE_TYPE,
                     "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
                     "ascending": True,
-                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
-                                                     getattr(config.alert_config, 'alert_value', ['JSON']))}
+                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                        getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])}
                 })
 
             event = self.create_incident(
-                incident_id=f"{self.CASE_TYPE}_{frame_number}",
+                incident_id=self.CASE_TYPE + '_' + str(frame_number),
                 incident_type=self.CASE_TYPE,
                 severity_level=level,
                 human_text=human_text,
@@ -307,11 +304,10 @@ class LaneDetectionUseCase(BaseProcessor):
         else:
             self._ascending_alert_list.append(0)
             incidents.append({})
-
         return incidents
 
     def _generate_tracking_stats(self, counting_summary: Dict, alerts: List, config: LaneDetectionConfig,
-                                frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+                              frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         camera_info = self.get_camera_info_from_stream(stream_info)
         tracking_stats = []
         total_detections = counting_summary.get("total_count", 0)
@@ -345,12 +341,12 @@ class LaneDetectionUseCase(BaseProcessor):
         alert_settings = []
         if config.alert_config and hasattr(config.alert_config, 'alert_type'):
             alert_settings.append({
-                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                 "incident_category": self.CASE_TYPE,
                 "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
                 "ascending": True,
-                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']),
-                                                 getattr(config.alert_config, 'alert_value', ['JSON']))}
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])}
             })
 
         human_text_lines = [f"Tracking Statistics:"]
@@ -361,10 +357,15 @@ class LaneDetectionUseCase(BaseProcessor):
         for cat, count in total_counts_dict.items():
             if count > 0:
                 human_text_lines.append(f"\t{cat}: {count}")
-        human_text_lines.append(f"Alerts: {alerts[0].get('settings', {})} sent @ {current_timestamp}" if alerts else "Alerts: None")
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+        else:
+            human_text_lines.append("Alerts: None")
         human_text = "\n".join(human_text_lines)
 
         reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts,
             current_counts=current_counts,
@@ -381,7 +382,7 @@ class LaneDetectionUseCase(BaseProcessor):
         return tracking_stats
 
     def _generate_business_analytics(self, counting_summary: Dict, alerts: Any, config: LaneDetectionConfig,
-                                    stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+                                  stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
         if is_empty:
             return []
 
@@ -389,18 +390,22 @@ class LaneDetectionUseCase(BaseProcessor):
         lines = {}
         lines["Application Name"] = self.CASE_TYPE
         lines["Application Version"] = self.CASE_VERSION
-        if incidents:
+        if len(incidents) > 0:
             lines["Incidents:"] = f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
-        if tracking_stats:
+        if len(tracking_stats) > 0:
             lines["Tracking Statistics:"] = f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
-        if business_analytics:
+        if len(business_analytics) > 0:
             lines["Business Analytics:"] = f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
-        if not incidents and not tracking_stats and not business_analytics:
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
             lines["Summary"] = "No Summary Data"
         return [lines]
 
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
-        frame_track_ids = {det.get('track_id') for det in detections if det.get('track_id') is not None}
+        frame_track_ids = set()
+        for det in detections:
+            tid = det.get('track_id')
+            if tid is not None:
+                frame_track_ids.add(tid)
         total_track_ids = set()
         for s in getattr(self, '_per_category_total_track_ids', {}).values():
             total_track_ids.update(s)
@@ -442,51 +447,71 @@ class LaneDetectionUseCase(BaseProcessor):
         seconds = round(float(timestamp % 60), 2)
         return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str] = None) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
+        """Get formatted current timestamp based on stream type."""
         if not stream_info:
-            return "00:00:00.00" if precision else "00:00:00"
+            return "00:00:00.00"
+        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                start_time = (int(frame_id) if frame_id else stream_info.get("input_settings", {}).get("start_frame", 30)) / stream_info.get("input_settings", {}).get("original_fps", 30)
-                return self._format_timestamp_for_video(start_time)
-            return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            start_time = (int(frame_id) if frame_id else stream_info.get("input_settings", {}).get("start_frame", 30)) / stream_info.get("input_settings", {}).get("original_fps", 30)
-            return self._format_timestamp_for_video(start_time)
-        stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
-        if stream_time_str:
-            try:
-                timestamp_str = stream_time_str.replace(" UTC", "")
-                dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-                return self._format_timestamp_for_stream(timestamp)
-            except:
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
                 return self._format_timestamp_for_stream(time.time())
-        return self._format_timestamp_for_stream(time.time())
 
     def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
         if not stream_info:
-            return "00:00:00" if not precision else "00:00:00.00"
+            return "00:00:00"
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                return "00:00:00.00"
-            return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             return "00:00:00"
-        if self._tracking_start_time is None:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
-            if stream_time_str:
-                try:
-                    timestamp_str = stream_time_str.replace(" UTC", "")
-                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                    self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                except:
+        else:
+            if self._tracking_start_time is None:
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        self._tracking_start_time = time.time()
+                else:
                     self._tracking_start_time = time.time()
-            else:
-                self._tracking_start_time = time.time()
-        dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-        dt = dt.replace(minute=0, second=0, microsecond=0)
-        return dt.strftime('%Y:%m:%d %H:%M:%S')
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _count_categories(self, detections: list, config: LaneDetectionConfig) -> dict:
         counts = {}
@@ -582,7 +607,7 @@ class LaneDetectionUseCase(BaseProcessor):
         self._canonical_tracks[canonical_id] = {
             "last_bbox": bbox,
             "last_update": now,
-            "raw_ids": {raw_id}
+            "raw_ids": {raw_id},
         }
         return canonical_id
 

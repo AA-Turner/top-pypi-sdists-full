@@ -70,7 +70,7 @@ pub fn make_sorted_completion_result_with_all_keywords(
 }
 
 #[test]
-fn test_completion() {
+fn test_completion_basic() {
     let root = get_test_files_root();
 
     run_test_lsp(TestCase {
@@ -106,53 +106,24 @@ fn test_completion() {
                     }
                 }),
             }),
-            Message::from(Request {
-                id: RequestId::from(3),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 11,
-                        "character": 2
-                    }
-                }),
-            }),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "text": format!("{}\n{}", std::fs::read_to_string(root.path().join("foo.py")).unwrap(), "Sequenc")
-                    }],
-                }),
-            }),
         ],
         expected_messages_from_language_server: vec![
             make_sorted_completion_result_with_all_keywords(
                 2,
-                vec![CompletionItem {
-                    label: "Bar".to_owned(),
-                    detail: Some("type[Bar]".to_owned()),
-                    kind: Some(CompletionItemKind::VARIABLE),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
-            ),
-            make_sorted_completion_result_with_all_keywords(
-                3,
-                vec![CompletionItem {
-                    label: "Bar".to_owned(),
-                    detail: Some("type[Bar]".to_owned()),
-                    kind: Some(CompletionItemKind::VARIABLE),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
+                vec![
+                    CompletionItem {
+                        label: "Bar".to_owned(),
+                        detail: Some("type[Bar]".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        sort_text: Some("0".to_owned()),
+                        ..Default::default()
+                    },
+                    // Ignore all completions after this since different python versions have different builtins
+                    CompletionItem {
+                        detail: Some("$$MATCH_EVERYTHING$$".to_owned()),
+                        ..Default::default()
+                    },
+                ],
             ),
         ],
         ..Default::default()
@@ -455,103 +426,6 @@ fn test_relative_module_completion() {
             })),
             error: None,
         })],
-        ..Default::default()
-    });
-}
-
-#[test]
-fn test_empty_filepath_file_completion() {
-    let root = get_test_files_root();
-    let empty_filename = root.path().join("empty_file.py");
-
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(Notification {
-                method: "textDocument/didOpen".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&empty_filename).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 1,
-                        "text": String::default(),
-                    }
-                }),
-            }),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&empty_filename).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "text": format!("{}\n{}\n", std::fs::read_to_string(root.path().join("notebook.py")).unwrap(), "t")
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&empty_filename).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 9,
-                        "character": 1
-                    }
-                }),
-            }),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&empty_filename).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 3
-                    },
-                    "contentChanges": [{
-                        "text": format!("{}\n{}", std::fs::read_to_string(root.path().join("notebook.py")).unwrap(), "t")
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(3),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&empty_filename).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 10,
-                        "character": 1
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![
-            make_sorted_completion_result_with_all_keywords(
-                2,
-                vec![CompletionItem {
-                    label: "tear".to_owned(),
-                    detail: Some("(a: int, b: int, c: str) -> int".to_owned()),
-                    kind: Some(CompletionItemKind::FUNCTION),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
-            ),
-            make_sorted_completion_result_with_all_keywords(
-                3,
-                vec![CompletionItem {
-                    label: "tear".to_owned(),
-                    detail: Some("(a: int, b: int, c: str) -> int".to_owned()),
-                    kind: Some(CompletionItemKind::FUNCTION),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
-            ),
-        ],
         ..Default::default()
     });
 }

@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-ntl
-# distutils: libraries = NTL_LIBRARIES gmp m
+# distutils: libraries = NTL_LIBRARIES gmp M_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -1521,8 +1521,8 @@ cdef class ntl_ZZ_pX_Modulus():
         ZZ_pX_Modulus_build(self.x, poly.x)
         self.poly = poly
 
-    def __repr__(self):
-        return "NTL ZZ_pXModulus %s (mod %s)"%(self.poly, self.poly.c.p)
+    def __repr__(self) -> str:
+        return "NTL ZZ_pXModulus %s (mod %s)" % (self.poly, self.poly.c.p)
 
     def degree(self):
         cdef Integer ans = Integer.__new__(Integer)

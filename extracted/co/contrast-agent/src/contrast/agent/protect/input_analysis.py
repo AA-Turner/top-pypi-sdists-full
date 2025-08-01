@@ -2,6 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
 
+
 from typing import Any
 import contrast
 
@@ -197,10 +198,7 @@ def _evaluate_key_value_parameters(
     """
     Used for both form parameters (from the request body) and query string parameters
     """
-    if querystring:
-        param_dict = context.request.GET
-    else:
-        param_dict = context.request.POST
+    param_dict = context.request.GET if querystring else context.request.POST
 
     for param_key, param_value in param_dict.items():
         if not isinstance(param_value, str):

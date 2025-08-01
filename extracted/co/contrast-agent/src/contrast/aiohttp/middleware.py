@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from functools import cached_property
-from typing import Optional
 
 import contrast
 
@@ -35,7 +35,7 @@ class AioHttpMiddleware(BaseMiddleware):
     # Since there is no way to get the `app` instance, on startup of AioHttp,
     # until the first request, hence we will not have `app` finder logic.
     @scope.contrast_scope()
-    def __init__(self, app_name: Optional[str] = None) -> None:
+    def __init__(self, app_name: str | None = None) -> None:
         self.app = None
         self.app_name = app_name or "aiohttp"
         agent_state.set_detected_framework("aiohttp")
@@ -73,9 +73,13 @@ class AioHttpMiddleware(BaseMiddleware):
                 self.prefilter(context)
 
                 with scope.pop_contrast_scope():
-                    response = await handler(request)
-                    wrapped_response = AioHttpResponseWrapper(response)
-                    context.extract_response(wrapped_response)
+                    try:
+                        response = await handler(request)
+                        wrapped_response = AioHttpResponseWrapper(response)
+                        context.extract_response(wrapped_response)
+                    except Exception as exc:
+                        context.response_exception = exc
+                        raise
 
                 self.postfilter(context)
                 self.check_for_blocked(context)

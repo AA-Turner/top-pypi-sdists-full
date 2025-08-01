@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: uiautomator2
-Version: 3.3.3
+Version: 3.3.4
 Summary: uiautomator for android device
 Home-page: https://github.com/openatx/uiautomator2
 License: MIT
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: Pillow
-Requires-Dist: adbutils (>=2.9.1,<3.0.0)
+Requires-Dist: adbutils (>=2.9.3,<2.10.0)
 Requires-Dist: importlib-resources ; python_version < "3.9"
 Requires-Dist: lxml
 Requires-Dist: requests
@@ -1292,10 +1292,6 @@ To specify a device, pass `--serial`, e.g., `python -m uiautomator2 --serial bff
     uiautomator2 start <package-name>
     uiautomator2 start <package-name>/<activity-name>
     ```
-- `list`: List connected devices
-    ```bash
-    uiautomator2 list
-    ```
 - `version`: Show uiautomator2 version
     ```bash
     uiautomator2 version
@@ -1338,3 +1334,4 @@ Reference: https://www.cnblogs.com/insist8089/p/6898181.html (Chinese)
 
 # LICENSE
 [MIT](LICENSE)
+

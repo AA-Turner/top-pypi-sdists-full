@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -52,7 +52,7 @@ class CherryPickCommandTests(TestCase):
 
                 # Create a branch and switch to it
                 porcelain.branch_create(".", "feature")
-                porcelain.checkout_branch(".", "feature")
+                porcelain.checkout(".", "feature")
 
                 # Add a file on feature branch
                 with open("file2.txt", "w") as f:
@@ -61,7 +61,7 @@ class CherryPickCommandTests(TestCase):
                 feature_commit = porcelain.commit(".", message=b"Add feature file")
 
                 # Go back to master
-                porcelain.checkout_branch(".", "master")
+                porcelain.checkout(".", "master")
 
                 # Cherry-pick via CLI
                 cmd = cmd_cherry_pick()
@@ -91,7 +91,7 @@ class CherryPickCommandTests(TestCase):
 
                 # Create a branch and switch to it
                 porcelain.branch_create(".", "feature")
-                porcelain.checkout_branch(".", "feature")
+                porcelain.checkout(".", "feature")
 
                 # Add a file on feature branch
                 with open("file2.txt", "w") as f:
@@ -100,7 +100,7 @@ class CherryPickCommandTests(TestCase):
                 feature_commit = porcelain.commit(".", message=b"Add feature file")
 
                 # Go back to master
-                porcelain.checkout_branch(".", "master")
+                porcelain.checkout(".", "master")
 
                 # Cherry-pick with --no-commit
                 cmd = cmd_cherry_pick()

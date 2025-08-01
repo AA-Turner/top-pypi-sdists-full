@@ -1,6 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Literal, Optional, Union
+from __future__ import annotations
+from typing import Literal
 import requests
 
 from .base_ts_message import BaseTsServerMessage
@@ -17,15 +18,15 @@ class ServerInventory(BaseTsServerMessage):
         hostname: str,
         is_kubernetes: bool,
         is_docker: bool,
-        cloud_provider: Optional[Literal["aws", "azure"]],
-        cloud_resource_id: Optional[str],
-        process_memory_limit_bytes: Optional[int],
+        cloud_provider: Literal["aws", "azure"] | None,
+        cloud_resource_id: str | None,
+        process_memory_limit_bytes: int | None,
     ):
         super().__init__()
 
         self.base_url = f"{self.settings.api_url}/agents/v1.1/"
 
-        self.body: dict[str, Union[str, dict[str, int]]] = {
+        self.body: dict[str, str | dict[str, int]] = {
             "operating_system": operating_system,
             "runtime_path": runtime_path,
             "runtime_version": runtime_version,

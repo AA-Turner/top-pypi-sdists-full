@@ -187,13 +187,17 @@ round_series = ["polars-plan/round_series", "polars-ops/round_series", "polars-e
 is_first_distinct = ["polars-plan/is_first_distinct"]
 is_last_distinct = ["polars-plan/is_last_distinct"]
 is_between = ["polars-plan/is_between", "polars-expr/is_between"]
+is_close = ["polars-plan/is_close"]
 is_unique = ["polars-plan/is_unique"]
 cross_join = ["polars-plan/cross_join", "polars-ops/cross_join"]
 asof_join = ["polars-plan/asof_join", "polars-time", "polars-ops/asof_join", "polars-mem-engine/asof_join"]
 iejoin = ["polars-plan/iejoin"]
 business = ["polars-plan/business"]
 concat_str = ["polars-plan/concat_str"]
-range = ["polars-plan/range"]
+range = [
+  "polars-plan/range",
+  "polars-stream?/range",
+]
 mode = ["polars-plan/mode"]
 cum_agg = ["polars-plan/cum_agg"]
 interpolate = ["polars-plan/interpolate"]
@@ -285,6 +289,13 @@ string_encoding = ["polars-plan/string_encoding"]
 bigidx = ["polars-plan/bigidx", "polars-utils/bigidx"]
 polars_cloud_client = ["polars-plan/polars_cloud_client"]
 polars_cloud_server = ["polars-plan/polars_cloud_server"]
+allow_unused = [
+  "polars-expr/allow_unused",
+  "polars-mem-engine/allow_unused",
+  "polars-time?/allow_unused",
+  "polars-io/allow_unused",
+  "polars-plan/allow_unused",
+]
 
 test = [
   "polars-plan/debugging",

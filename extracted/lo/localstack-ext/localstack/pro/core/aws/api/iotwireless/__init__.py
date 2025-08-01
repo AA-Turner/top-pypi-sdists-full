@@ -288,7 +288,6 @@ class EventNotificationPartnerType(StrEnum):
 
 
 class EventNotificationResourceType(StrEnum):
-    FuotaTask = "FuotaTask"
     SidewalkAccount = "SidewalkAccount"
     WirelessDevice = "WirelessDevice"
     WirelessGateway = "WirelessGateway"
@@ -338,7 +337,6 @@ class FuotaTaskType(StrEnum):
 class IdentifierType(StrEnum):
     PartnerAccountId = "PartnerAccountId"
     DevEui = "DevEui"
-    FuotaTaskId = "FuotaTaskId"
     GatewayEui = "GatewayEui"
     WirelessDeviceId = "WirelessDeviceId"
     WirelessGatewayId = "WirelessGatewayId"

@@ -220,11 +220,16 @@ RDS_PG_MAX_CONNECTIONS = int(os.getenv("RDS_PG_MAX_CONNECTIONS") or 0)
 
 # whether official MySQL is supported, spins up a MySQL docker container
 RDS_MYSQL_DOCKER = localstack_config.is_env_not_false("RDS_MYSQL_DOCKER")
+# User and group id for the spawned RDS containers. Format: uid:gid
+RDS_CONTAINER_USER_GROUP_ID = os.environ.get("RDS_CONTAINER_USER_GROUP_ID") or "1000:1000"
 
 # whether Cluster Endpoints should return the hostname only
 RDS_CLUSTER_ENDPOINT_HOST_ONLY = localstack_config.is_env_not_false(
     "RDS_CLUSTER_ENDPOINT_HOST_ONLY"
 )
+
+# whether Cluster Endpoints should return the hostname only
+RDS_CLUSTER_ENDPOINT_IP_BASED = localstack_config.is_env_true("RDS_CLUSTER_ENDPOINT_IP_BASED")
 
 # whether to start redis instances (ElastiCache/MemoryDB) in separate containers
 REDIS_CONTAINER_MODE = localstack_config.is_env_true("REDIS_CONTAINER_MODE")
@@ -380,7 +385,7 @@ POD_LOAD_CLI_TIMEOUT = int(os.getenv("POD_LOAD_CLI_TIMEOUT", "60"))
 PROVIDER_FORCE_EXPLICIT_LOADING = is_env_true("PROVIDER_FORCE_EXPLICIT_LOADING")
 
 # whether to ignore the existing appsync js libs path
-APPSYNC_JS_LIBS_VERSION = os.getenv("APPSYNC_JS_LIBS_VERSION", "latest")
+APPSYNC_JS_LIBS_VERSION = os.getenv("APPSYNC_JS_LIBS_VERSION", "")
 
 # whether neptune engine should start with SSL configuration enabled
 NEPTUNE_USE_SSL = localstack_config.is_env_true("NEPTUNE_USE_SSL")
@@ -399,6 +404,12 @@ MEDIACONVERT_DISABLE_JOB_DURATION = is_env_true("MEDIACONVERT_DISABLE_JOB_DURATI
 
 # Batch provider override
 BATCH_V2_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_BATCH") == "v2"
+
+# EventStudio
+EVENTSTUDIO_DEV_ENABLE = is_env_true(
+    "EVENTSTUDIO_DEV_ENABLE"
+)  # flag to hide EventStudio before official release
+EVENTSTUDIO_ENABLE = is_env_true("EVENTSTUDIO_ENABLE")
 
 # update variable names that need to be passed as arguments to Docker
 localstack_config.CONFIG_ENV_VARS += [
@@ -471,6 +482,7 @@ localstack_config.CONFIG_ENV_VARS += [
     "PROVIDER_FORCE_EXPLICIT_LOADING",
     "RDS_MYSQL_DOCKER",
     "RDS_CLUSTER_ENDPOINT_HOST_ONLY",
+    "RDS_CLUSTER_ENDPOINT_IP_BASED",
     "REDIS_CONTAINER_MODE",
     "POD_LOAD_CLI_TIMEOUT",
     "NEPTUNE_DB_TYPE",

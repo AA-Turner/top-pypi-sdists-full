@@ -22,7 +22,7 @@ for string theory in physics, as they serve as ambient spaces for mirror pairs
 of Calabi-Yau manifolds via constructions due to Victor V. Batyrev
 [Bat1994]_ and Lev A. Borisov [Bor1993]_.
 
-From the combinatorial point of view "crepant" requirement is much more simple
+From the combinatorial point of view, the "crepant" requirement is much more simple
 and natural to work with than "coherent." For this reason, the code in this
 module will allow work with arbitrary crepant subdivisions without checking
 whether they are coherent or not. We refer to corresponding toric varieties as
@@ -60,7 +60,7 @@ manifold::
       a0*z0^3 + a9*z0^2*z1 + a7*z0*z1^2 + a1*z1^3 + a8*z0^2*z2 + a6*z0*z1*z2
       + a4*z1^2*z2 + a5*z0*z2^2 + a3*z1*z2^2 + a2*z2^3
 
-In many cases it is sufficient to work with the "simplified polynomial
+In many cases, it is sufficient to work with the "simplified polynomial
 moduli space" of anticanonical hypersurfaces::
 
     sage: P2.anticanonical_hypersurface(monomial_points='simplified')
@@ -93,6 +93,7 @@ one-dimensional Calabi-Yau manifolds are elliptic curves!
 Now let's take a look at a toric realization of `M`-polarized K3 surfaces
 studied by Adrian Clingher and Charles F. Doran in [CD2007]_::
 
+    sage: # needs polytopes_db
     sage: p4318 = ReflexivePolytope(3, 4318)
     sage: FTV = CPRFanoToricVariety(Delta_polar=p4318)
     sage: FTV.anticanonical_hypersurface()
@@ -450,7 +451,7 @@ def CPRFanoToricVariety(Delta=None,
         Traceback (most recent call last):
         ...
         ValueError: (0, 2) does not form a chart of a subdivision of
-        the face fan of 2-d reflexive polytope #14 in 2-d lattice N!
+        the face fan of 2-d reflexive polytope ... in 2-d lattice N!
 
         sage: bad_charts = charts[:-1]
         sage: FTV = CPRFanoToricVariety(Delta_polar=square,
@@ -676,7 +677,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
         TESTS::
 
             sage: P1xP1 = toric_varieties.P1xP1()
-            sage: print(P1xP1._latex_())
+            sage: print(P1xP1._latex_())                                                # needs polytopes_db
             \mathbb{P}_{\Delta^{2}_{14}}
         """
         return r"\mathbb{P}_{%s}" % latex(self.Delta())
@@ -713,7 +714,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
 
         INPUT:
 
-        - ``monomial points`` -- list of integers or a string. A list will be
+        - ``monomial_points`` -- list of integers or a string. A list will be
           interpreted as indices of points of `\Delta` which should be used
           for monomials of this hypersurface. A string must be one of the
           following descriptions of points of `\Delta`:
@@ -952,7 +953,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
 
             sage: diamond = lattice_polytope.cross_polytope(2)
             sage: P1xP1 = CPRFanoToricVariety(Delta_polar=diamond)
-            sage: P1xP1.Delta()
+            sage: P1xP1.Delta()                                                         # needs polytopes_db
             2-d reflexive polytope #14 in 2-d lattice N
             sage: P1xP1.Delta() is diamond.polar()
             True
@@ -974,7 +975,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
 
             sage: diamond = lattice_polytope.cross_polytope(2)
             sage: P1xP1 = CPRFanoToricVariety(Delta_polar=diamond)
-            sage: P1xP1.Delta_polar()
+            sage: P1xP1.Delta_polar()                                                   # needs polytopes_db
             2-d reflexive polytope #3 in 2-d lattice M
             sage: P1xP1.Delta_polar() is diamond
             True
@@ -1050,6 +1051,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
         We construct several complete intersections associated to the same
         nef-partition of the 3-dimensional reflexive polytope #2254::
 
+            sage: # needs polytopes_db
             sage: p = ReflexivePolytope(3, 2254)
             sage: np = p.nef_partitions()[1]; np
             Nef-partition {2, 3, 4, 7, 8} ⊔ {0, 1, 5, 6}
@@ -1065,7 +1067,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
 
         Now we include only monomials associated to vertices of `\Delta_i`::
 
-            sage: X.nef_complete_intersection(np, monomial_points='vertices')
+            sage: X.nef_complete_intersection(np, monomial_points='vertices')           # needs polytopes_db
             Closed subscheme of 3-d CPR-Fano toric variety
              covered by 10 affine patches defined by:
               a0*z1*z4^2*z5^2*z7^3 + a2*z2*z4*z5*z6*z7^2*z8^2
@@ -1076,7 +1078,7 @@ class CPRFanoToricVariety_field(ToricVariety_field):
         (effectively, we set ``b5=0``). Next we provide coefficients explicitly
         instead of using default generic names::
 
-            sage: X.nef_complete_intersection(np,
+            sage: X.nef_complete_intersection(np,                                       # needs polytopes_db
             ....:       monomial_points='vertices',
             ....:       coefficients=[("a", "a^2", "a/e", "c_i"), list(range(1,6))])
             Closed subscheme of 3-d CPR-Fano toric variety
@@ -1089,9 +1091,9 @@ class CPRFanoToricVariety_field(ToricVariety_field):
         Finally, we take a look at the generic representative of these complete
         intersections in a completely resolved ambient toric variety::
 
-            sage: X = CPRFanoToricVariety(Delta_polar=p,
+            sage: X = CPRFanoToricVariety(Delta_polar=p,                                # needs polytopes_db
             ....:                         coordinate_points='all')
-            sage: X.nef_complete_intersection(np)
+            sage: X.nef_complete_intersection(np)                                       # needs polytopes_db
             Closed subscheme of 3-d CPR-Fano toric variety
              covered by 22 affine patches defined by:
               a2*z2*z4*z5*z6*z7^2*z8^2*z9^2*z10^2*z11*z12*z13

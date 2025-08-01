@@ -19,7 +19,6 @@ class ContextDuck:
 
     def propagated(self):
         """No action required, just a dummy method to satisfy the expected API"""
-        pass
 
 
 class MyString(str):

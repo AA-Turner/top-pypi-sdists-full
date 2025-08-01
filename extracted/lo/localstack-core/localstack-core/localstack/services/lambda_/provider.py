@@ -241,7 +241,6 @@ from localstack.utils.aws.client_types import ServicePrincipal
 from localstack.utils.bootstrap import is_api_enabled
 from localstack.utils.collections import PaginatedList
 from localstack.utils.event_matcher import validate_event_pattern
-from localstack.utils.lambda_debug_mode.lambda_debug_mode_session import LambdaDebugModeSession
 from localstack.utils.strings import get_random_hex, short_uid, to_bytes, to_str
 from localstack.utils.sync import poll_condition
 from localstack.utils.urls import localstack_host
@@ -279,17 +278,6 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
 
     def accept_state_visitor(self, visitor: StateVisitor):
         visitor.visit(lambda_stores)
-
-    def on_before_start(self):
-        # Attempt to start the Lambda Debug Mode session object.
-        try:
-            lambda_debug_mode_session = LambdaDebugModeSession.get()
-            lambda_debug_mode_session.ensure_running()
-        except Exception as ex:
-            LOG.error(
-                "Unexpected error encountered when attempting to initialise Lambda Debug Mode '%s'.",
-                ex,
-            )
 
     def on_before_state_reset(self):
         self.lambda_service.stop()
@@ -402,15 +390,6 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
 
         # TODO: should probably unregister routes?
         self.lambda_service.stop()
-        # Attempt to signal to the Lambda Debug Mode session object to stop.
-        try:
-            lambda_debug_mode_session = LambdaDebugModeSession.get()
-            lambda_debug_mode_session.signal_stop()
-        except Exception as ex:
-            LOG.error(
-                "Unexpected error encountered when attempting to signal Lambda Debug Mode to stop '%s'.",
-                ex,
-            )
 
     @staticmethod
     def _get_function(function_name: str, account_id: str, region: str) -> Function:
@@ -1592,6 +1571,8 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             function_name, qualifier, context
         )
 
+        user_agent = context.request.user_agent.string
+
         time_before = time.perf_counter()
         try:
             invocation_result = self.lambda_service.invoke(
@@ -1604,6 +1585,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 request_id=context.request_id,
                 trace_context=context.trace_context,
                 payload=payload.read() if payload else None,
+                user_agent=user_agent,
             )
         except ServiceException:
             raise

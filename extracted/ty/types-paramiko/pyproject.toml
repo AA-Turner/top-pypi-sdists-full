@@ -4,21 +4,16 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-paramiko"
-version = "3.5.0.20250708"
+version = "3.5.0.20250801"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for paramiko"
 readme = { text = """\
 ## Typing stubs for paramiko
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`paramiko`](https://github.com/paramiko/paramiko) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `paramiko`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`paramiko`](https://github.com/paramiko/paramiko) package. It can be used by type checkers
+to check code that uses `paramiko`. This version of
 `types-paramiko` aims to provide accurate annotations for
 `paramiko==3.5.*`.
 
@@ -29,12 +24,11 @@ for more details. The source for this package can be found in the
 [`stubs/paramiko`](https://github.com/python/typeshed/tree/main/stubs/paramiko)
 directory.
 
-This package was tested with
-mypy 1.16.1,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
 It was generated from typeshed commit
-[`f4bf1d90a64d3f885ea30c642fe5373e2d19c344`](https://github.com/python/typeshed/commit/f4bf1d90a64d3f885ea30c642fe5373e2d19c344).
+[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -26,6 +26,7 @@ import binascii
 import os
 import posixpath
 import stat
+import sys
 import zlib
 from collections import namedtuple
 from collections.abc import Callable, Iterable, Iterator
@@ -38,9 +39,14 @@ from typing import (
     Union,
 )
 
-try:
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+if sys.version_info >= (3, 10):
     from typing import TypeGuard  # type: ignore
-except ImportError:
+else:
     from typing_extensions import TypeGuard
 
 from . import replace_me
@@ -148,10 +154,10 @@ def hex_to_filename(
     # as path.
     if type(path) is not type(hex) and isinstance(path, str):
         hex = hex.decode("ascii")  # type: ignore
-    dir = hex[:2]
-    file = hex[2:]
+    dir_name = hex[:2]
+    file_name = hex[2:]
     # Check from object dir
-    return os.path.join(path, dir, file)  # type: ignore
+    return os.path.join(path, dir_name, file_name)  # type: ignore
 
 
 def filename_to_hex(filename: Union[str, bytes]) -> str:
@@ -538,7 +544,7 @@ class ShaFile:
         return obj
 
     @classmethod
-    def from_string(cls, string: bytes) -> "ShaFile":
+    def from_string(cls, string: bytes) -> Self:
         """Create a ShaFile from a string."""
         obj = cls()
         obj.set_raw_string(string)
@@ -1307,6 +1313,10 @@ class Tree(ShaFile):
           path: Path to lookup
         Returns: A tuple of (mode, SHA) of the resulting path.
         """
+        # Handle empty path - return the tree itself
+        if not path:
+            return stat.S_IFDIR, self.id
+
         parts = path.split(b"/")
         sha = self.id
         mode: Optional[int] = None

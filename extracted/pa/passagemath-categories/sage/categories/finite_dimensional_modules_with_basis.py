@@ -916,15 +916,14 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             MS = MatrixSpace(self.base_ring(), M.nrows(), M.ncols(), sparse=True)
             return Matrix_cmr_chr_sparse(MS, M)
 
-        @lazy_attribute
-        def is_unimodular(self):
+        def is_unimodular(self, **kwds):
             r"""
             Return whether ``self`` is a unimodular morphism.
 
             This does not depend on the choice of bases for
             domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_unimodular` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_unimodular` for
             the detailed documentation.
 
             EXAMPLES::
@@ -944,19 +943,18 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return matrix.is_unimodular
+                return matrix.is_unimodular(**kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def is_strongly_unimodular(self):
+        def is_strongly_unimodular(self, **kwds):
             r"""
             Return whether ``self`` is a strongly unimodular morphism.
 
             This does not depend on the choice of bases for
             domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_strongly_unimodular` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_strongly_unimodular` for
             the detailed documentation.
 
             EXAMPLES::
@@ -978,16 +976,15 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return matrix.is_strongly_unimodular
+                return matrix.is_strongly_unimodular(**kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def equimodulus(self):
+        def equimodulus(self, **kwds):
             r"""
             Return the integer `k` such that ``self`` is equimodular with determinant gcd `k`.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.equimodulus` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.equimodulus` for
             the detailed documentation.
             """
             try:
@@ -995,16 +992,15 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return matrix.equimodulus
+                return matrix.equimodulus(**kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def strong_equimodulus(self):
+        def strong_equimodulus(self, **kwds):
             r"""
             Return the integer `k` such that ``self`` is strongly equimodular with determinant gcd `k`.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.strong_equimodulus` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.strong_equimodulus` for
             the detailed documentation.
             """
             try:
@@ -1012,19 +1008,18 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return matrix.strong_equimodulus
+                return matrix.strong_equimodulus(**kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def is_k_equimodular(self):
+        def is_k_equimodular(self, k, **kwds):
             r"""
             Return whether ``self`` is an equimodular morphism with determinant gcd `k`.
 
             This does not depend on the choice of bases for
             domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_k_equimodular` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_k_equimodular` for
             the detailed documentation.
 
             EXAMPLES::
@@ -1046,19 +1041,18 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return matrix.is_k_equimodular
+                return matrix.is_k_equimodular(k, **kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def is_strongly_k_equimodular(self):
+        def is_strongly_k_equimodular(self, k, **kwds):
             r"""
             Return whether ``self`` is a strongly equimodular morphism with determinant gcd `k`.
 
             This does not depend on the choice of bases for
             domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_strongly_k_equimodular` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_strongly_k_equimodular` for
             the detailed documentation.
 
             EXAMPLES::
@@ -1086,9 +1080,9 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return matrix.is_strongly_k_equimodular
+                return matrix.is_strongly_k_equimodular(k, **kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
         def _wrapped_method_with_certificate(self, matrix_method):
 
@@ -1104,8 +1098,7 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
                                      **kwds)
             return wrapper
 
-        @lazy_attribute
-        def is_conetwork_matrix(self):
+        def is_conetwork_matrix(self, **kwds):
             r"""
             Return whether the matrix of ``self`` is a conetwork matrix.
 
@@ -1113,7 +1106,7 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
 
             This depends on the choice of bases for domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_conetwork_matrix` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_conetwork_matrix` for
             the detailed documentation.
 
             EXAMPLES::
@@ -1135,27 +1128,33 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
                 sage: result, certificate
                 (True,
                  (Digraph on 10 vertices,
-                  {0: (8, 7), 1: (1, 29), 2: (34, 2), 3: (41, 7)},
-                  {'a': (8, 22), 'b': (22, 29), 'c': (34, 0), 'd': (41, 2), 'e': (8, 7),
-                   'f': (7, 8), 'g': (0, 0), 'h': (7, 8), 'i': (36, 37)}))
+                  {'a': (8, 7),
+                   'b': (1, 29),
+                   'c': (34, 2),
+                   'd': (41, 7),
+                   'e': (7, 3),
+                   'f': (22, 0),
+                   'g': (3, 0),
+                   'h': (3, 1),
+                   'i': (2, 1)},
+                  {0: (8, 22), 1: (22, 29), 2: (34, 0), 3: (41, 2)}))
             """
             try:
                 matrix = self._matrix_cmr()
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return self._wrapped_method_with_certificate(matrix.is_conetwork_matrix)
+                return self._wrapped_method_with_certificate(matrix.is_conetwork_matrix)(**kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def is_network_matrix(self):
+        def is_network_matrix(self, **kwds):
             r"""
             Return whether the matrix of ``self`` is a network matrix.
 
             This depends on the choice of bases for domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_network_matrix` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_network_matrix` for
             the detailed documentation.
 
             EXAMPLES::
@@ -1190,18 +1189,17 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return self._wrapped_method_with_certificate(matrix.is_network_matrix)
+                return self._wrapped_method_with_certificate(matrix.is_network_matrix)(**kwds)
             except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
-        @lazy_attribute
-        def is_totally_unimodular(self):
+        def is_totally_unimodular(self, **kwds):
             r"""
             Return whether the matrix of ``self`` is totally unimodular.
 
             This depends on the choice of bases for domain and codomain.
 
-            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_sparse.is_totally_unimodular` for
+            See :meth:`~sage.matrix.matrix_cmr_sparse.Matrix_cmr_chr_sparse.is_totally_unimodular` for
             the detailed documentation.
 
             EXAMPLES::
@@ -1226,22 +1224,9 @@ class FiniteDimensionalModulesWithBasis(CategoryWithAxiom_over_base_ring):
             except (ImportError, TypeError):
                 matrix = self.matrix()
             try:
-                return self._wrapped_method_with_certificate(matrix.is_totally_unimodular)
+                return self._wrapped_method_with_certificate(matrix.is_totally_unimodular)(**kwds)
             except AttributeError:
-                return NotImplemented
-
-        @lazy_attribute
-        def is_complement_totally_unimodular(self):
-            r"""
-            """
-            try:
-                matrix = self._matrix_cmr()
-            except (ImportError, TypeError):
-                matrix = self.matrix()
-            try:
-                return self._wrapped_method_with_certificate(matrix.is_complement_totally_unimodular)
-            except AttributeError:
-                return NotImplemented
+                raise NotImplementedError
 
     class Homsets(HomsetsCategory):
 

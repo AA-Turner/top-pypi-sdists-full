@@ -163,11 +163,14 @@ class DataUniverseDownloadConfig(QuantConnect.DownloaderDataProvider.Launcher.Mo
         ...
 
 
-class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader):
+class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader, System.IDisposable):
     """Class for downloading data from a brokerage."""
 
     def __init__(self) -> None:
         """Initializes a new instance of the BrokerageDataDownloader class."""
+        ...
+
+    def dispose(self) -> None:
         ...
 
     def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:

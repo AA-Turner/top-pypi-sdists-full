@@ -1,5 +1,5 @@
 # sage_setup: distribution = sagemath-combinat
-# sage.doctest: needs lrcalc sage.combinat sage.modules
+# sage.doctest: needs lrcalc_python sage.combinat sage.modules
 """
 Orthogonal symmetric functions
 
@@ -22,10 +22,11 @@ AUTHORS:
 #                  https://www.gnu.org/licenses/
 # ****************************************************************************
 
-from . import sfa
-import sage.libs.lrcalc.lrcalc as lrcalc
 from sage.combinat.partition import Partitions
+from sage.libs.lrcalc import lrcalc
 from sage.misc.cachefunc import cached_method
+
+from . import sfa
 
 
 class SymmetricFunctionAlgebra_orthogonal(sfa.SymmetricFunctionAlgebra_generic):

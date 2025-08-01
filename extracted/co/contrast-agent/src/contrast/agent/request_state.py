@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 from collections.abc import Generator
 
 import uuid
@@ -12,9 +12,7 @@ from contrast_vendor import structlog as logging
 logger = logging.getLogger("contrast")
 
 
-_request_id: ContextVar[Optional[object]] = ContextVar(
-    "contrast_request_id", default=None
-)
+_request_id: ContextVar[object | None] = ContextVar("contrast_request_id", default=None)
 
 
 @contextlib.contextmanager
@@ -31,5 +29,5 @@ def request_id_context() -> Generator[None, None, None]:
         _request_id.reset(token)
 
 
-def get_request_id() -> Optional[object]:
+def get_request_id() -> object | None:
     return _request_id.get()

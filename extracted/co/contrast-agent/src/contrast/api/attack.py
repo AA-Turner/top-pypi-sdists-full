@@ -1,7 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from enum import Enum, auto
-from typing import Optional
 
 import contrast
 from contrast.agent.request import Request
@@ -38,7 +38,7 @@ class Attack:
     def __init__(self, rule_id: str):
         self.rule_id: str = rule_id
         self.samples: list[Sample] = []
-        self.response: Optional[ProtectResponse] = None
+        self.response: ProtectResponse | None = None
         self.start_time_ms = contrast.CS__CONTEXT_TRACKER.current().request.timestamp_ms
 
     @property
@@ -53,10 +53,7 @@ class Attack:
         self.samples.append(sample)
 
     def _convert_samples(self, request: Request) -> list[dict]:
-        if request is not None:
-            reportable_request = request.reportable_format
-        else:
-            reportable_request = {}
+        reportable_request = request.reportable_format if request is not None else {}
 
         return [
             {

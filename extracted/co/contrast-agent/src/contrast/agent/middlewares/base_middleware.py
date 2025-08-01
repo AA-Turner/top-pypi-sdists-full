@@ -1,5 +1,8 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
+
+
 from functools import cached_property
 import threading
 import contextlib
@@ -164,8 +167,10 @@ class BaseMiddleware:
         Enter the pre-request contexts expected before calling the handler with the agent.
         """
         stack.enter_context(contrast.CS__CONTEXT_TRACKER.lifespan(context))
-        if context.observe_enabled:
-            stack.enter_context(self.reporting_client.observability_trace_context())
+        if context.observe_enabled and self.reporting_client is not None:
+            context.observability_trace = stack.enter_context(
+                self.reporting_client.observability_trace(send_trace=True)
+            )
         return stack
 
     @cached_property
@@ -181,10 +186,7 @@ class BaseMiddleware:
         if self.settings is None:
             return False
 
-        if not self.settings.is_agent_config_enabled():
-            return False
-
-        return True
+        return self.settings.is_agent_config_enabled()
 
     def call_with_agent(self, *args):
         raise NotImplementedError("Must implement call_with_agent")
@@ -196,21 +198,19 @@ class BaseMiddleware:
         """
         raise NotImplementedError("Must implement call_without_agent")
 
-    def should_analyze_request(self, environ):
+    def should_analyze_request(self, environ) -> RequestContext | None:
         """
         Determine if request should be analyzed based on configured settings.
 
         While returning different types of objects based on logic is not a good
         pattern, in this case it's an optimization that allows us to create
         the request context obj when we need it.
-
-        :return: False or RequestContext instance
         """
         path = environ.get("PATH_INFO")
 
         if not self.is_agent_enabled():
             logger.debug("Will not analyze request: agent disabled.", path=path)
-            return False
+            return None
 
         # TODO: PYT-3778 As an optimization, we could skip analysis here (return False)
         # if none of the individual agent modes are enabled
@@ -229,7 +229,7 @@ class BaseMiddleware:
             logger.debug(
                 "Will not analyze request: request meets exclusions.", path=path
             )
-            return False
+            return None
 
         from contrast.agent.assess import sampling
 
@@ -240,27 +240,35 @@ class BaseMiddleware:
             )
             context.assess_enabled = False
 
-        return context  # equivalent to returning True
+        return context
 
     @fail_loudly("Unable to do handle_ensure")
     def handle_ensure(self, context: RequestContext, request):
         """
         Method that should run for all middlewares AFTER every request is made.
         """
-        if context is None:
-            logger.error("Context not defined in middleware ensure")
-            return
-
         thread_watcher.ensure_running(agent_state.module)
 
         if request is not None:
             if context.assess_enabled:
                 self._handle_observed_route(context, request)
                 update_preflight_hashes(context)
-            if context.observe_enabled and context.path_template is not None:
-                self.reporting_client.update_span_attributes(
-                    {"http.route": context.path_template}
-                )
+            if context.observe_enabled and (
+                (trace := context.observability_trace) is not None
+            ):
+                http_span_attrs = context.request.get_otel_attributes()
+                if context.path_template is not None:
+                    http_span_attrs["http.route"] = context.path_template
+                if context.response:
+                    http_span_attrs.update(
+                        response_wrappers.get_otel_attributes(context.response)
+                    )
+                if context.response_exception is not None:
+                    error_type = type(context.response_exception)
+                    http_span_attrs["error.type"] = (
+                        f"{error_type.__module__}.{error_type.__qualname__}"
+                    )
+                trace.update(http_span_attrs)
 
         logger.debug("Sending final messages for reporting.")
         for msg in self.final_ts_messages(context):
@@ -370,14 +378,6 @@ class BaseMiddleware:
 
         if context.assess_enabled:
             self.response_analysis(context)
-
-        if context.observe_enabled:
-            self.reporting_client.update_span_attributes(
-                {
-                    **context.request.get_otel_attributes(),
-                    **response_wrappers.get_otel_attributes(context.response),
-                }
-            )
 
     def _process_trigger_handler(self, handler):
         """

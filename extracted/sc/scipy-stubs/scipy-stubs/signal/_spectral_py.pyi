@@ -4,16 +4,16 @@ from typing import Literal, TypeAlias, overload
 import numpy as np
 import optype as op
 import optype.numpy as onp
+import optype.numpy.compat as npc
 
 from .windows._windows import _ToWindow
-from scipy._typing import Falsy, Truthy
 
 __all__ = ["check_COLA", "check_NOLA", "coherence", "csd", "istft", "lombscargle", "periodogram", "spectrogram", "stft", "welch"]
 
 _Float1D: TypeAlias = onp.Array1D[np.float64]
 _FloatND: TypeAlias = onp.ArrayND[np.float64]
 _FloatingND: TypeAlias = onp.ArrayND[np.float32 | np.float64 | np.longdouble]
-_CFloatingND: TypeAlias = onp.ArrayND[np.complex64 | np.complex128 | np.clongdouble]
+_CFloatingND: TypeAlias = onp.ArrayND[npc.complexfloating]
 
 _Detrend: TypeAlias = Literal["literal", "constant", False] | Callable[[onp.ArrayND], onp.ArrayND]
 _Scaling: TypeAlias = Literal["density", "spectrum"]
@@ -151,7 +151,7 @@ def istft(
     nperseg: onp.ToInt | None = None,
     noverlap: onp.ToInt | None = None,
     nfft: onp.ToInt | None = None,
-    input_onesided: Truthy = True,
+    input_onesided: onp.ToTrue = True,
     boundary: op.CanBool = True,
     time_axis: op.CanIndex = -1,
     freq_axis: op.CanIndex = -2,
@@ -165,7 +165,7 @@ def istft(
     nperseg: onp.ToInt | None,
     noverlap: onp.ToInt | None,
     nfft: onp.ToInt | None,
-    input_onesided: Falsy,
+    input_onesided: onp.ToFalse,
     boundary: op.CanBool = True,
     time_axis: op.CanIndex = -1,
     freq_axis: op.CanIndex = -2,
@@ -180,7 +180,7 @@ def istft(
     noverlap: onp.ToInt | None = None,
     nfft: onp.ToInt | None = None,
     *,
-    input_onesided: Falsy,
+    input_onesided: onp.ToFalse,
     boundary: op.CanBool = True,
     time_axis: op.CanIndex = -1,
     freq_axis: op.CanIndex = -2,

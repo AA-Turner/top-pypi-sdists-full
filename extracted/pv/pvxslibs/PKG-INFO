@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pvxslibs
-Version: 1.3.3
+Version: 1.4.0
 Summary: PVXS libraries packaged for python
 Home-page: https://epics-base.github.io/pvxs
 Author: Michael Davidsaver

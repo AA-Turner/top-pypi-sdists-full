@@ -124,19 +124,19 @@ class Utilities:
             self.colorterm = colorterm
             os.environ['COLORTERM'] = colorterm
 
-    def is_percentage(self, numbers: tuple[int | str, int | str, int | str]) -> list:
+    def is_percentage(self, numbers: tuple[int | str, int | str, int | str]) -> tuple[int, int, int]:
         """Checks a tuple of RGB numbers and convert them to integers.
 
         Args:
             numbers (tuple): Sets percentages of numbers.
 
         Returns:
-            list: List with RGB numbers.
+            tuple: Tuple with RGB numbers (all integers after conversion).
         """
-        rgb_list: list[str | int] = []
-        for num in numbers:
-            if isinstance(num, str) and num.endswith('%'):
-                rgb_list.append(self.convert_percentages(str(num)))
-            else:
-                rgb_list.append(num)
-        return rgb_list
+        r_in, g_in, b_in = numbers
+
+        r_out = self.convert_percentages(str(r_in)) if isinstance(r_in, str) and r_in.endswith('%') else int(r_in)
+        g_out = self.convert_percentages(str(g_in)) if isinstance(g_in, str) and g_in.endswith('%') else int(g_in)
+        b_out = self.convert_percentages(str(b_in)) if isinstance(b_in, str) and b_in.endswith('%') else int(b_in)
+
+        return (r_out, g_out, b_out)

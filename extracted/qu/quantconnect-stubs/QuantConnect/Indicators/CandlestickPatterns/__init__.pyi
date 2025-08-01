@@ -18,6 +18,9 @@ class CandleColor(Enum):
     BLACK = -1
     """Black is a down candle (close lower than open) (-1)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class CandleSettingType(Enum):
     """Types of candlestick settings"""
@@ -63,6 +66,9 @@ class CandleSettingType(Enum):
     When measuring distance between parts of candles or width of gaps
     "equal" means "<= 5% of the average of the 5 previous candles' high-low range" (10)
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Data.Market.IBaseDataBar], metaclass=abc.ABCMeta):
@@ -1524,6 +1530,9 @@ class CandleRangeType(Enum):
 
     SHADOWS = 2
     """The shadows (or tails) of the candle (2)"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class AbandonedBaby(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):

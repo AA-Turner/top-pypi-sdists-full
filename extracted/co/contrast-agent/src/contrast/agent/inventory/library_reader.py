@@ -1,10 +1,10 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 from collections import defaultdict
 from contextlib import suppress
 import time
 from types import ModuleType
-from typing import Optional
 from collections.abc import Iterable
 from contrast_vendor import importlib_metadata
 import threading
@@ -32,7 +32,7 @@ CONTRAST_DIST_NAMES = (
 )
 
 
-def try_distribution(name: str) -> Optional[importlib_metadata.Distribution]:
+def try_distribution(name: str) -> importlib_metadata.Distribution | None:
     with suppress(importlib_metadata.PackageNotFoundError):
         return importlib_metadata.distribution(name)
     return None
@@ -128,7 +128,7 @@ class LibraryReader:
 
 def library_from_distribution(
     dist: importlib_metadata.Distribution,
-) -> Optional[Library]:
+) -> Library | None:
     """
     Returns a Library object from the given distribution if it is a valid library.
     Otherwise, returns None.

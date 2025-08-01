@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.43.0.post20",
+    version="2.43.0.post22",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",
@@ -119,6 +119,7 @@ Class | Method | HTTP request | Description
 *InstallerApi* | [**deregister_infra_env**](docs/InstallerApi.md#deregister_infra_env) | **DELETE** /v2/infra-envs/{infra_env_id} | 
 *InstallerApi* | [**download_minimal_initrd**](docs/InstallerApi.md#download_minimal_initrd) | **GET** /v2/infra-envs/{infra_env_id}/downloads/minimal-initrd | 
 *InstallerApi* | [**get_cluster_supported_platforms**](docs/InstallerApi.md#get_cluster_supported_platforms) | **GET** /v2/clusters/{cluster_id}/supported-platforms | 
+*InstallerApi* | [**get_detailed_supported_features**](docs/InstallerApi.md#get_detailed_supported_features) | **GET** /v2/support-levels/features/detailed | 
 *InstallerApi* | [**get_infra_env**](docs/InstallerApi.md#get_infra_env) | **GET** /v2/infra-envs/{infra_env_id} | 
 *InstallerApi* | [**get_infra_env_download_url**](docs/InstallerApi.md#get_infra_env_download_url) | **GET** /v2/infra-envs/{infra_env_id}/downloads/image-url | 
 *InstallerApi* | [**get_infra_env_presigned_file_url**](docs/InstallerApi.md#get_infra_env_presigned_file_url) | **GET** /v2/infra-envs/{infra_env_id}/downloads/files-presigned | 
@@ -250,6 +251,7 @@ Class | Method | HTTP request | Description
  - [Error](docs/Error.md)
  - [Event](docs/Event.md)
  - [EventList](docs/EventList.md)
+ - [Feature](docs/Feature.md)
  - [FeatureSupportLevelId](docs/FeatureSupportLevelId.md)
  - [FinalizingStage](docs/FinalizingStage.md)
  - [FreeAddressesList](docs/FreeAddressesList.md)
@@ -281,6 +283,7 @@ Class | Method | HTTP request | Description
  - [ImageInfo](docs/ImageInfo.md)
  - [ImageType](docs/ImageType.md)
  - [ImportClusterParams](docs/ImportClusterParams.md)
+ - [IncompatibilityReason](docs/IncompatibilityReason.md)
  - [InfraEnv](docs/InfraEnv.md)
  - [InfraEnvCreateParams](docs/InfraEnvCreateParams.md)
  - [InfraEnvList](docs/InfraEnvList.md)
@@ -290,6 +293,7 @@ Class | Method | HTTP request | Description
  - [IngressVip](docs/IngressVip.md)
  - [InlineResponse200](docs/InlineResponse200.md)
  - [InlineResponse2001](docs/InlineResponse2001.md)
+ - [InlineResponse2002](docs/InlineResponse2002.md)
  - [InstallCmdRequest](docs/InstallCmdRequest.md)
  - [InstallerArgsParams](docs/InstallerArgsParams.md)
  - [Interface](docs/Interface.md)
@@ -327,6 +331,7 @@ Class | Method | HTTP request | Description
  - [NtpSynchronizationResponse](docs/NtpSynchronizationResponse.md)
  - [OpenshiftVersion](docs/OpenshiftVersion.md)
  - [OpenshiftVersions](docs/OpenshiftVersions.md)
+ - [Operator](docs/Operator.md)
  - [OperatorCreateParams](docs/OperatorCreateParams.md)
  - [OperatorHardwareRequirements](docs/OperatorHardwareRequirements.md)
  - [OperatorHostRequirements](docs/OperatorHostRequirements.md)

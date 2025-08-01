@@ -1160,6 +1160,7 @@ def hyperbolicity(G,
 
     Asking for an approximation in a grid graph::
 
+        sage: # needs sage.rings.real_mpfr
         sage: from sage.graphs.hyperbolicity import hyperbolicity
         sage: G = graphs.Grid2dGraph(2, 10)
         sage: L,C,U = hyperbolicity(G, algorithm='CCL', approximation_factor=1.5); L,U
@@ -1175,6 +1176,7 @@ def hyperbolicity(G,
 
     Asking for an approximation in a cycle graph::
 
+        sage: # needs sage.rings.real_mpfr
         sage: from sage.graphs.hyperbolicity import hyperbolicity
         sage: G = graphs.CycleGraph(10)
         sage: L,C,U = hyperbolicity(G, algorithm='CCL', approximation_factor=1.5); L,U
@@ -1247,7 +1249,7 @@ def hyperbolicity(G,
 
         sage: from sage.graphs.hyperbolicity import hyperbolicity
         sage: G = graphs.PetersenGraph()
-        sage: hyperbolicity(G, algorithm='CCL', approximation_factor=0.1)
+        sage: hyperbolicity(G, algorithm='CCL', approximation_factor=0.1)               # needs sage.rings.real_mpfr
         Traceback (most recent call last):
         ...
         ValueError: the approximation factor must be >= 1.0
@@ -1522,8 +1524,8 @@ cdef dict __hyperbolicity_distribution__(int N, unsigned short** distances):
 
 # We use this trick since it is way faster than using the sage randint function.
 cdef extern from "stdlib.h":
-    long c_libc_random "random"()
-    void c_libc_srandom "srandom"(unsigned int seed)
+    long c_libc_random "rand"()
+    void c_libc_srandom "srand"(unsigned int seed)
 
 
 cdef dict __hyperbolicity_sampling__(int N, unsigned short** distances, uint64_t sampling_size):

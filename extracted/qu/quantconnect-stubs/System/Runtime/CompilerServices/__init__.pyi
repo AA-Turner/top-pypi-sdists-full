@@ -463,6 +463,9 @@ class CompilationRelaxations(Enum):
 
     NO_STRING_INTERNING = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class CompilationRelaxationsAttribute(System.Attribute):
     """This class has no documentation."""
@@ -488,6 +491,9 @@ class LoadHint(Enum):
     ALWAYS = ...
 
     SOMETIMES = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class RefSafetyRulesAttribute(System.Attribute):
@@ -1079,6 +1085,9 @@ class MethodCodeType(Enum):
 
     RUNTIME = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class NullableAttribute(System.Attribute):
     """
@@ -1208,6 +1217,9 @@ class MethodImplOptions(Enum):
     ASYNC = ...
 
     INTERNAL_CALL = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class AsyncStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
@@ -1776,6 +1788,9 @@ class UnsafeAccessorKind(Enum):
 
     STATIC_FIELD = 4
     """Provide access to a static field."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class UnsafeAccessorAttribute(System.Attribute):

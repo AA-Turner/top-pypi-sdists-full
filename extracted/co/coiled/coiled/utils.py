@@ -1560,7 +1560,7 @@ def get_grafana_url(
 
 
 def _parse_targets(targets):
-    my_public_ip = None
+    my_public_ip = dask.config.get("coiled.client_public_ip", None)
     parsed = []
     for target in targets:
         if target == "everyone":
@@ -1570,11 +1570,19 @@ def _parse_targets(targets):
             if not my_public_ip:
                 with urllib3.PoolManager(ca_certs=certifi.where()) as pool:
                     try:
-                        my_public_ip = (
-                            pool.request("POST", "https://checkip.amazonaws.com").data.decode("utf-8").strip()
-                        )
-                    except Exception:
-                        my_public_ip = pool.request("GET", "https://api.ipify.org").data.decode("utf-8")
+                        my_public_ip = pool.request("GET", "https://checkip.amazonaws.com").data.decode("utf-8").strip()
+                    except Exception as aws_ip_exception:
+                        try:
+                            my_public_ip = pool.request("GET", "https://api.ipify.org").data.decode("utf-8")
+                        except Exception as ipify_ip_exception:
+                            raise RuntimeError(
+                                "Coiled was unable to determine your local client public IP address.\n"
+                                "As a possible workaround, you can explicitly specify your client public IP address "
+                                "using the DASK_COILED__CLIENT_PUBLIC_IP environment variable.\n\n"
+                                "Errors trying to determine IP address:\n"
+                                f"  {aws_ip_exception}\n"
+                                f"  {ipify_ip_exception}"
+                            ) from None
 
             cidr = f"{my_public_ip}/32"
         else:

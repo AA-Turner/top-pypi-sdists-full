@@ -141,16 +141,11 @@ def do_starlette_route_observation(
     if route := asgi_scope.get("route"):
         context.signature = common.build_signature(route.name, route.endpoint)
         context.path_template = route.path
+    elif (endpoint := asgi_scope.get("endpoint")) and isinstance(endpoint, StaticFiles):
+        context.signature = f"StaticFiles(directory={endpoint.directory})"
     else:
-        if (endpoint := asgi_scope.get("endpoint")) and isinstance(
-            endpoint, StaticFiles
-        ):
-            context.signature = f"StaticFiles(directory={endpoint.directory})"
-        else:
-            logger.debug(
-                "WARNING: did not find endpoint for starlette route observation"
-            )
-            return
+        logger.debug("WARNING: did not find endpoint for starlette route observation")
+        return
 
     logger.debug(
         "Found starlette route",

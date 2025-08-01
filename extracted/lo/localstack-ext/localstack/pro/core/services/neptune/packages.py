@@ -4,7 +4,7 @@ _B='3.5.2'
 _A='3.7.2'
 import logging,os
 from typing import List
-import localstack.pro.core.config as config_ext
+import localstack.pro.core.config as pro_config
 from localstack import config
 from localstack.packages import DownloadInstaller,InstallTarget,Package,PackageInstaller
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller
@@ -31,7 +31,7 @@ NEPTUNE_TRANSACTION_VERSION=_A
 TINKERPOP_VERSION_SUPPORT_NEPTUNE={'1.1.0.0':_D,'1.1.1.0':_B,'1.2.0.0':_B,'1.2.0.1':_B,'1.2.0.2':_B,'1.2.1.0':_C,'1.2.1.1':_C,'1.3.0.0':_C,'1.3.1.0':'3.6.5','1.3.2.0':_A,'1.3.2.1':_A,'1.3.4.0':_A,'1.4.0.0':_A,'1.4.1.0':_A,'1.4.2.0':_A,'1.4.3.0':_A}
 def get_gremlin_version_for_neptune_db_version(neptune_version):
 	A=TINKERPOP_VERSION_SUPPORT_NEPTUNE.get(neptune_version,TINKERPOP_DEFAULT_VERSION)
-	if config_ext.NEPTUNE_ENABLE_TRANSACTION and A<NEPTUNE_TRANSACTION_VERSION:LOG.warning("NEPTUNE_ENABLE_TRANSACTION flag is set. Ignoring 'engine-version' for version '%s' and installing: '%s'",A,NEPTUNE_TRANSACTION_VERSION);return NEPTUNE_TRANSACTION_VERSION
+	if pro_config.NEPTUNE_ENABLE_TRANSACTION and A<NEPTUNE_TRANSACTION_VERSION:LOG.warning("NEPTUNE_ENABLE_TRANSACTION flag is set. Ignoring 'engine-version' for version '%s' and installing: '%s'",A,NEPTUNE_TRANSACTION_VERSION);return NEPTUNE_TRANSACTION_VERSION
 	return A
 class Neo4JPackage(Package):
 	def __init__(A):super().__init__('Neo4J',NEO4J_DEFAULT_VERSION)
@@ -44,7 +44,7 @@ class Neo4JPackageInstaller(JavaInstallerMixin,ArchiveDownloadAndExtractInstalle
 class TinkerpopPackage(Package):
 	def __init__(A):super().__init__('Tinkerpop',TINKERPOP_DEFAULT_VERSION)
 	def get_versions(A):
-		if config_ext.NEPTUNE_ENABLE_TRANSACTION:return list(set(list(TINKERPOP_VERSION_SUPPORT_NEPTUNE.values())+[NEPTUNE_TRANSACTION_VERSION]))
+		if pro_config.NEPTUNE_ENABLE_TRANSACTION:return list(set(list(TINKERPOP_VERSION_SUPPORT_NEPTUNE.values())+[NEPTUNE_TRANSACTION_VERSION]))
 		return list(TINKERPOP_VERSION_SUPPORT_NEPTUNE.values())
 	def _get_installer(A,version):return TinkerpopPackageInstaller('tinkerpop',version)
 class TinkerpopPackageInstaller(JavaInstallerMixin,DownloadInstaller):

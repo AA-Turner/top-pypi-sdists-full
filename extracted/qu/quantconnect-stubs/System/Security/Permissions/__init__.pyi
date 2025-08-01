@@ -42,6 +42,9 @@ class SecurityPermissionFlag(Enum):
 
     UNMANAGED_CODE = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class SecurityAction(Enum):
     """Obsoletions.CodeAccessSecurityMessage"""
@@ -63,6 +66,9 @@ class SecurityAction(Enum):
     REQUEST_OPTIONAL = 9
 
     REQUEST_REFUSE = 10
+
+    def __int__(self) -> int:
+        ...
 
 
 class SecurityAttribute(System.Attribute, metaclass=abc.ABCMeta):
@@ -106,6 +112,9 @@ class PermissionState(Enum):
     NONE = 0
 
     UNRESTRICTED = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurityAttribute):

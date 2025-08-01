@@ -269,6 +269,9 @@ class StreamingContextStates(Enum):
 
     ALL = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class StreamingContext:
     """This class has no documentation."""

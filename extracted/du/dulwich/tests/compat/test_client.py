@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -130,7 +130,7 @@ class DulwichClientTestBase:
                 ("zop", "zop contents"),
             ]:
                 tree_id = self._add_file(local, tree_id, filename, contents)
-                commit_id = local.do_commit(
+                commit_id = local.get_worktree().commit(
                     message=b"add " + filename.encode("utf-8"),
                     committer=b"Joe Example <joe@example.com>",
                     tree=tree_id,

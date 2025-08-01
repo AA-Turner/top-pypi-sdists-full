@@ -1,22 +1,25 @@
-from typing import TypeAlias, TypeVar, overload
+from typing import Any, TypeAlias, TypeVar, overload
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
 import optype.numpy.compat as npc
 
-from scipy._typing import AnyShape, DCTType, NormalizationMode
+from ._typing import DCTType, NormalizationMode
+from scipy._typing import AnyShape
 
 __all__ = ["dct", "dctn", "dst", "dstn", "idct", "idctn", "idst", "idstn"]
 
-_DTypeT = TypeVar("_DTypeT", bound=np.dtype[np.float32 | np.float64 | np.longdouble | npc.complexfloating])
+_DTypeT = TypeVar("_DTypeT", bound=np.dtype[np.float32 | np.float64 | npc.floating80 | npc.complexfloating])
 _ShapeT = TypeVar("_ShapeT", bound=tuple[int, ...])
 
+# workaround for a strange bug in pyright's overlapping overload detection with `numpy<2.1`
+_WorkaroundForPyright: TypeAlias = tuple[int] | tuple[Any, ...]
+
 _ToIntOrND: TypeAlias = onp.ToInt | onp.ToIntND
-_FloatND: TypeAlias = onp.ArrayND[np.float32 | np.float64 | np.longdouble]  # doesn't include `numpy.float16`
+_FloatND: TypeAlias = onp.ArrayND[np.float32 | np.float64 | np.longdouble, _WorkaroundForPyright]
 
 ###
-
 # NOTE: These have (almost) identical signatures, so be sure to keep them in sync.
 
 @overload
@@ -254,7 +257,7 @@ def idstn(
 #
 @overload
 def dct(
-    x: onp.CanArrayND[np.integer, _ShapeT],
+    x: onp.CanArrayND[npc.integer, _ShapeT],
     type: DCTType = 2,
     n: onp.ToInt | None = None,
     axis: op.CanIndex = -1,
@@ -311,7 +314,7 @@ def dct(
 #
 @overload
 def idct(
-    x: onp.CanArrayND[np.integer, _ShapeT],
+    x: onp.CanArrayND[npc.integer, _ShapeT],
     type: DCTType = 2,
     n: onp.ToInt | None = None,
     axis: op.CanIndex = -1,
@@ -368,7 +371,7 @@ def idct(
 #
 @overload
 def dst(
-    x: onp.CanArrayND[np.integer, _ShapeT],
+    x: onp.CanArrayND[npc.integer, _ShapeT],
     type: DCTType = 2,
     n: onp.ToInt | None = None,
     axis: op.CanIndex = -1,
@@ -425,7 +428,7 @@ def dst(
 #
 @overload
 def idst(
-    x: onp.CanArrayND[np.integer, _ShapeT],
+    x: onp.CanArrayND[npc.integer, _ShapeT],
     type: DCTType = 2,
     n: onp.ToInt | None = None,
     axis: op.CanIndex = -1,

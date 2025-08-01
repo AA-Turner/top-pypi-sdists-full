@@ -51581,6 +51581,10 @@ class scout_compute_api_UnitOperation(ConjureEnumType):
     '''SUBTRACTION'''
     UNIT_CONVERSION = 'UNIT_CONVERSION'
     '''UNIT_CONVERSION'''
+    COMPARISON = 'COMPARISON'
+    '''COMPARISON'''
+    TERNARY_OPERATOR = 'TERNARY_OPERATOR'
+    '''TERNARY_OPERATOR'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -63361,6 +63365,104 @@ scout_datareview_api_DataReview.__qualname__ = "DataReview"
 scout_datareview_api_DataReview.__module__ = "nominal_api.scout_datareview_api"
 
 
+class scout_datareview_api_DataReviewCheckMetricsScope(ConjureUnionType):
+    _run_rid: Optional[str] = None
+    _asset_rid: Optional[str] = None
+    _data_review_rid: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'run_rid': ConjureFieldDefinition('runRid', scout_run_api_RunRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'data_review_rid': ConjureFieldDefinition('dataReviewRid', scout_rids_api_DataReviewRid)
+        }
+
+    def __init__(
+            self,
+            run_rid: Optional[str] = None,
+            asset_rid: Optional[str] = None,
+            data_review_rid: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (run_rid is not None) + (asset_rid is not None) + (data_review_rid is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if run_rid is not None:
+                self._run_rid = run_rid
+                self._type = 'runRid'
+            if asset_rid is not None:
+                self._asset_rid = asset_rid
+                self._type = 'assetRid'
+            if data_review_rid is not None:
+                self._data_review_rid = data_review_rid
+                self._type = 'dataReviewRid'
+
+        elif type_of_union == 'runRid':
+            if run_rid is None:
+                raise ValueError('a union value must not be None')
+            self._run_rid = run_rid
+            self._type = 'runRid'
+        elif type_of_union == 'assetRid':
+            if asset_rid is None:
+                raise ValueError('a union value must not be None')
+            self._asset_rid = asset_rid
+            self._type = 'assetRid'
+        elif type_of_union == 'dataReviewRid':
+            if data_review_rid is None:
+                raise ValueError('a union value must not be None')
+            self._data_review_rid = data_review_rid
+            self._type = 'dataReviewRid'
+
+    @builtins.property
+    def run_rid(self) -> Optional[str]:
+        return self._run_rid
+
+    @builtins.property
+    def asset_rid(self) -> Optional[str]:
+        return self._asset_rid
+
+    @builtins.property
+    def data_review_rid(self) -> Optional[str]:
+        return self._data_review_rid
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_datareview_api_DataReviewCheckMetricsScopeVisitor):
+            raise ValueError('{} is not an instance of scout_datareview_api_DataReviewCheckMetricsScopeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'runRid' and self.run_rid is not None:
+            return visitor._run_rid(self.run_rid)
+        if self._type == 'assetRid' and self.asset_rid is not None:
+            return visitor._asset_rid(self.asset_rid)
+        if self._type == 'dataReviewRid' and self.data_review_rid is not None:
+            return visitor._data_review_rid(self.data_review_rid)
+
+
+scout_datareview_api_DataReviewCheckMetricsScope.__name__ = "DataReviewCheckMetricsScope"
+scout_datareview_api_DataReviewCheckMetricsScope.__qualname__ = "DataReviewCheckMetricsScope"
+scout_datareview_api_DataReviewCheckMetricsScope.__module__ = "nominal_api.scout_datareview_api"
+
+
+class scout_datareview_api_DataReviewCheckMetricsScopeVisitor:
+
+    @abstractmethod
+    def _run_rid(self, run_rid: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _asset_rid(self, asset_rid: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _data_review_rid(self, data_review_rid: str) -> Any:
+        pass
+
+
+scout_datareview_api_DataReviewCheckMetricsScopeVisitor.__name__ = "DataReviewCheckMetricsScopeVisitor"
+scout_datareview_api_DataReviewCheckMetricsScopeVisitor.__qualname__ = "DataReviewCheckMetricsScopeVisitor"
+scout_datareview_api_DataReviewCheckMetricsScopeVisitor.__module__ = "nominal_api.scout_datareview_api"
+
+
 class scout_datareview_api_DataReviewPage(ConjureBeanType):
 
     @builtins.classmethod
@@ -64037,6 +64139,36 @@ then none of the actions will be applied.
 
         return
 
+    def get_data_review_check_metrics(self, auth_header: str, request: "scout_datareview_api_GetDataReviewCheckMetricsRequest") -> "scout_datareview_api_GetDataReviewCheckMetricsResponse":
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/data-review/data-review-check-metrics'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_datareview_api_GetDataReviewCheckMetricsResponse, self._return_none_for_unknown_union_types)
+
 
 scout_datareview_api_DataReviewService.__name__ = "DataReviewService"
 scout_datareview_api_DataReviewService.__qualname__ = "DataReviewService"
@@ -64258,6 +64390,154 @@ class scout_datareview_api_GeneratedAlertsState(ConjureBeanType):
 scout_datareview_api_GeneratedAlertsState.__name__ = "GeneratedAlertsState"
 scout_datareview_api_GeneratedAlertsState.__qualname__ = "GeneratedAlertsState"
 scout_datareview_api_GeneratedAlertsState.__module__ = "nominal_api.scout_datareview_api"
+
+
+class scout_datareview_api_GetDataReviewCheckMetricsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'scope': ConjureFieldDefinition('scope', scout_datareview_api_DataReviewCheckMetricsScope)
+        }
+
+    __slots__: List[str] = ['_scope']
+
+    def __init__(self, scope: "scout_datareview_api_DataReviewCheckMetricsScope") -> None:
+        self._scope = scope
+
+    @builtins.property
+    def scope(self) -> "scout_datareview_api_DataReviewCheckMetricsScope":
+        return self._scope
+
+
+scout_datareview_api_GetDataReviewCheckMetricsRequest.__name__ = "GetDataReviewCheckMetricsRequest"
+scout_datareview_api_GetDataReviewCheckMetricsRequest.__qualname__ = "GetDataReviewCheckMetricsRequest"
+scout_datareview_api_GetDataReviewCheckMetricsRequest.__module__ = "nominal_api.scout_datareview_api"
+
+
+class scout_datareview_api_GetDataReviewCheckMetricsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'checks_pending_execution': ConjureFieldDefinition('checksPendingExecution', int),
+            'checks_executing': ConjureFieldDefinition('checksExecuting', int),
+            'checks_passed': ConjureFieldDefinition('checksPassed', int),
+            'checks_with_events_pending_review': ConjureFieldDefinition('checksWithEventsPendingReview', int),
+            'checks_with_events_closed_with_ignore': ConjureFieldDefinition('checksWithEventsClosedWithIgnore', int),
+            'checks_with_events_closed_with_further_action': ConjureFieldDefinition('checksWithEventsClosedWithFurtherAction', int),
+            'checks_with_events': ConjureFieldDefinition('checksWithEvents', int),
+            'checks_with_too_many_events': ConjureFieldDefinition('checksWithTooManyEvents', int),
+            'checks_failed_to_execute_pending_review': ConjureFieldDefinition('checksFailedToExecutePendingReview', int),
+            'checks_failed_to_execute_closed_with_ignore': ConjureFieldDefinition('checksFailedToExecuteClosedWithIgnore', int),
+            'checks_failed_to_execute_closed_with_further_action': ConjureFieldDefinition('checksFailedToExecuteClosedWithFurtherAction', int),
+            'checks_failed_to_execute': ConjureFieldDefinition('checksFailedToExecute', int),
+            'checks_executed': ConjureFieldDefinition('checksExecuted', int),
+            'checks_total': ConjureFieldDefinition('checksTotal', int),
+            'events_pending_review': ConjureFieldDefinition('eventsPendingReview', int),
+            'events_closed_with_ignore': ConjureFieldDefinition('eventsClosedWithIgnore', int),
+            'events_closed_with_further_action': ConjureFieldDefinition('eventsClosedWithFurtherAction', int),
+            'events_total': ConjureFieldDefinition('eventsTotal', int)
+        }
+
+    __slots__: List[str] = ['_checks_pending_execution', '_checks_executing', '_checks_passed', '_checks_with_events_pending_review', '_checks_with_events_closed_with_ignore', '_checks_with_events_closed_with_further_action', '_checks_with_events', '_checks_with_too_many_events', '_checks_failed_to_execute_pending_review', '_checks_failed_to_execute_closed_with_ignore', '_checks_failed_to_execute_closed_with_further_action', '_checks_failed_to_execute', '_checks_executed', '_checks_total', '_events_pending_review', '_events_closed_with_ignore', '_events_closed_with_further_action', '_events_total']
+
+    def __init__(self, checks_executed: int, checks_executing: int, checks_failed_to_execute: int, checks_failed_to_execute_closed_with_further_action: int, checks_failed_to_execute_closed_with_ignore: int, checks_failed_to_execute_pending_review: int, checks_passed: int, checks_pending_execution: int, checks_total: int, checks_with_events: int, checks_with_events_closed_with_further_action: int, checks_with_events_closed_with_ignore: int, checks_with_events_pending_review: int, checks_with_too_many_events: int, events_closed_with_further_action: int, events_closed_with_ignore: int, events_pending_review: int, events_total: int) -> None:
+        self._checks_pending_execution = checks_pending_execution
+        self._checks_executing = checks_executing
+        self._checks_passed = checks_passed
+        self._checks_with_events_pending_review = checks_with_events_pending_review
+        self._checks_with_events_closed_with_ignore = checks_with_events_closed_with_ignore
+        self._checks_with_events_closed_with_further_action = checks_with_events_closed_with_further_action
+        self._checks_with_events = checks_with_events
+        self._checks_with_too_many_events = checks_with_too_many_events
+        self._checks_failed_to_execute_pending_review = checks_failed_to_execute_pending_review
+        self._checks_failed_to_execute_closed_with_ignore = checks_failed_to_execute_closed_with_ignore
+        self._checks_failed_to_execute_closed_with_further_action = checks_failed_to_execute_closed_with_further_action
+        self._checks_failed_to_execute = checks_failed_to_execute
+        self._checks_executed = checks_executed
+        self._checks_total = checks_total
+        self._events_pending_review = events_pending_review
+        self._events_closed_with_ignore = events_closed_with_ignore
+        self._events_closed_with_further_action = events_closed_with_further_action
+        self._events_total = events_total
+
+    @builtins.property
+    def checks_pending_execution(self) -> int:
+        return self._checks_pending_execution
+
+    @builtins.property
+    def checks_executing(self) -> int:
+        return self._checks_executing
+
+    @builtins.property
+    def checks_passed(self) -> int:
+        return self._checks_passed
+
+    @builtins.property
+    def checks_with_events_pending_review(self) -> int:
+        return self._checks_with_events_pending_review
+
+    @builtins.property
+    def checks_with_events_closed_with_ignore(self) -> int:
+        return self._checks_with_events_closed_with_ignore
+
+    @builtins.property
+    def checks_with_events_closed_with_further_action(self) -> int:
+        return self._checks_with_events_closed_with_further_action
+
+    @builtins.property
+    def checks_with_events(self) -> int:
+        return self._checks_with_events
+
+    @builtins.property
+    def checks_with_too_many_events(self) -> int:
+        return self._checks_with_too_many_events
+
+    @builtins.property
+    def checks_failed_to_execute_pending_review(self) -> int:
+        return self._checks_failed_to_execute_pending_review
+
+    @builtins.property
+    def checks_failed_to_execute_closed_with_ignore(self) -> int:
+        return self._checks_failed_to_execute_closed_with_ignore
+
+    @builtins.property
+    def checks_failed_to_execute_closed_with_further_action(self) -> int:
+        return self._checks_failed_to_execute_closed_with_further_action
+
+    @builtins.property
+    def checks_failed_to_execute(self) -> int:
+        return self._checks_failed_to_execute
+
+    @builtins.property
+    def checks_executed(self) -> int:
+        return self._checks_executed
+
+    @builtins.property
+    def checks_total(self) -> int:
+        return self._checks_total
+
+    @builtins.property
+    def events_pending_review(self) -> int:
+        return self._events_pending_review
+
+    @builtins.property
+    def events_closed_with_ignore(self) -> int:
+        return self._events_closed_with_ignore
+
+    @builtins.property
+    def events_closed_with_further_action(self) -> int:
+        return self._events_closed_with_further_action
+
+    @builtins.property
+    def events_total(self) -> int:
+        return self._events_total
+
+
+scout_datareview_api_GetDataReviewCheckMetricsResponse.__name__ = "GetDataReviewCheckMetricsResponse"
+scout_datareview_api_GetDataReviewCheckMetricsResponse.__qualname__ = "GetDataReviewCheckMetricsResponse"
+scout_datareview_api_GetDataReviewCheckMetricsResponse.__module__ = "nominal_api.scout_datareview_api"
 
 
 class scout_datareview_api_HistogramBucket(ConjureBeanType):
@@ -71464,6 +71744,10 @@ class scout_metadata_ResourceType(ConjureEnumType):
     '''DATASET'''
     MODULE = 'MODULE'
     '''MODULE'''
+    PROCEDURE_EXECUTION = 'PROCEDURE_EXECUTION'
+    '''PROCEDURE_EXECUTION'''
+    PROCEDURE = 'PROCEDURE'
+    '''PROCEDURE'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 

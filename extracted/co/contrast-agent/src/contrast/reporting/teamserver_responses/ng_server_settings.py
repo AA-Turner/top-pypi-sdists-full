@@ -1,12 +1,12 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Optional
+from __future__ import annotations
 
 from contrast.utils.mapping import GlomDict
 
 
 class NGServerSettings:
-    def __init__(self, features: Optional[dict] = None):
+    def __init__(self, features: dict | None = None):
         self.features = GlomDict(features or {})
 
     def common_config(self) -> dict[str, object]:

@@ -17,20 +17,22 @@
 #include "slang/syntax/AllSyntax.h"
 #include "slang/syntax/SyntaxVisitor.h"
 
-namespace {
+namespace slang::ast {
 
-using namespace slang;
-using namespace slang::ast;
+using namespace parsing;
+using namespace syntax;
 
-struct EvalVisitor {
+struct Expression::EvalVisitor {
     template<typename T>
     ConstantValue visit(const T& expr, EvalContext& context) {
-        if (expr.constant)
-            return *expr.constant;
+        if (expr.getConstant())
+            return *expr.getConstant();
 
         if (expr.bad()) {
-            if (context.cacheResults())
+            if (context.cacheResults()) {
+                SLANG_ASSERT(!context.getCompilation().isFrozen());
                 expr.constant = &ConstantValue::Invalid;
+            }
             return nullptr;
         }
 
@@ -49,8 +51,7 @@ struct EvalVisitor {
     }
 };
 
-class LValueVisitor {
-public:
+struct Expression::LValueVisitor {
     template<typename T>
     LValue visit(const T& expr, EvalContext& context) {
         if constexpr (requires { expr.evalLValueImpl(context); }) {
@@ -68,8 +69,7 @@ public:
     }
 };
 
-class EffectiveWidthVisitor {
-public:
+struct Expression::EffectiveWidthVisitor {
     template<typename T>
     std::optional<bitwidth_t> visit(const T& expr) {
         if constexpr (requires { expr.getEffectiveWidthImpl(); }) {
@@ -84,8 +84,7 @@ public:
     }
 };
 
-class EffectiveSignVisitor {
-public:
+struct Expression::EffectiveSignVisitor {
     using EffectiveSign = Expression::EffectiveSign;
 
     bool isForConversion;
@@ -106,7 +105,7 @@ public:
     }
 };
 
-struct HierarchicalVisitor {
+struct Expression::HierarchicalVisitor {
     bool any = false;
 
     template<typename T>
@@ -121,13 +120,6 @@ struct HierarchicalVisitor {
         }
     }
 };
-
-} // namespace
-
-namespace slang::ast {
-
-using namespace parsing;
-using namespace syntax;
 
 // This visitor handles inserting implicit conversions into an expression
 // tree where necessary. SystemVerilog has an additional weird feature where
@@ -245,29 +237,27 @@ const Expression& Expression::bindLValue(const ExpressionSyntax& lhs, const Type
     }
 
     bitmask<AssignFlags> assignFlags;
-    if (instance) {
-        if (isInout)
-            assignFlags = AssignFlags::InOutPort;
-        else if (instance->kind != SymbolKind::PrimitiveInstance)
-            assignFlags = AssignFlags::OutputPort;
-    }
-
-    bitmask<ASTFlags> astFlags = ASTFlags::OutputArg;
-    if (context.flags.has(ASTFlags::NotADriver))
-        astFlags |= ASTFlags::NotADriver;
+    if (instance && isInout)
+        assignFlags = AssignFlags::InOutPort;
 
     SourceRange lhsRange = lhs.sourceRange();
     return AssignmentExpression::fromComponents(comp, std::nullopt, assignFlags, *lhsExpr, *rhsExpr,
                                                 lhsRange, /* timingControl */ nullptr, lhsRange,
-                                                context.resetFlags(astFlags));
+                                                context.resetFlags(ASTFlags::OutputArg));
 }
 
 const Expression& Expression::bindLValue(const ExpressionSyntax& syntax, const ASTContext& context,
                                          bitmask<AssignFlags> assignFlags) {
-    auto& expr = bind(syntax, context, ASTFlags::LValue);
-    if (!expr.requireLValue(context, {}, assignFlags))
-        return badExpr(context.getCompilation(), &expr);
-    return expr;
+    auto& comp = context.getCompilation();
+    auto lhs = &create(comp, syntax, context, ASTFlags::LValue);
+    selfDetermined(context, lhs);
+
+    auto rhs = comp.emplace<EmptyArgumentExpression>(*lhs->type, lhs->sourceRange);
+
+    return AssignmentExpression::fromComponents(comp, std::nullopt, assignFlags, *lhs, *rhs,
+                                                lhs->sourceRange, /* timingControl */ nullptr,
+                                                lhs->sourceRange,
+                                                context.resetFlags(ASTFlags::OutputArg));
 }
 
 const Expression& Expression::bindRValue(const Type& lhs, const ExpressionSyntax& rhs,
@@ -374,10 +364,6 @@ const Expression& Expression::bindRefArg(const Type& lhs, bitmask<VariableFlags>
 
     // ref args are considered drivers unless they are const.
     if (!isConstRef) {
-        // The check for ref-args is more strict than the check for lvalues,
-        // so the net effect of this call is to get a driver registered for
-        // us without duplicating the logic for determining longest static prefix.
-        expr.requireLValue(context);
         if (auto sym = expr.getSymbolReference())
             comp.noteReference(*sym, /* isLValue */ true);
     }
@@ -404,16 +390,15 @@ const Expression& Expression::bindArgument(const Type& argType, ArgumentDirectio
 }
 
 bool Expression::checkConnectionDirection(const Expression& expr, ArgumentDirection direction,
-                                          const ASTContext& context, SourceLocation loc,
-                                          bitmask<AssignFlags> flags) {
+                                          const ASTContext& context, SourceLocation loc) {
     switch (direction) {
         case ArgumentDirection::In:
             // All expressions are fine for inputs.
             return true;
         case ArgumentDirection::Out:
-            return expr.requireLValue(context, loc, flags);
+            return expr.requireLValue(context, loc);
         case ArgumentDirection::InOut:
-            return expr.requireLValue(context, loc, flags | AssignFlags::InOutPort);
+            return expr.requireLValue(context, loc, AssignFlags::InOutPort);
         case ArgumentDirection::Ref:
             if (!canConnectToRefArg(context, expr, VariableFlags::None)) {
                 context.addDiag(diag::InvalidRefArg, loc) << expr.sourceRange;
@@ -502,32 +487,30 @@ std::optional<ConstantRange> Expression::evalSelector(EvalContext& context,
 }
 
 bool Expression::requireLValue(const ASTContext& context, SourceLocation location,
-                               bitmask<AssignFlags> flags,
-                               const Expression* longestStaticPrefix) const {
+                               bitmask<AssignFlags> flags) const {
     switch (kind) {
         case ExpressionKind::NamedValue:
         case ExpressionKind::HierarchicalValue: {
             auto& ve = as<ValueExpressionBase>();
-            return ve.requireLValueImpl(context, location, flags, longestStaticPrefix);
+            return ve.requireLValueImpl(context, location, flags);
         }
         case ExpressionKind::ElementSelect: {
             auto& select = as<ElementSelectExpression>();
-            return select.requireLValueImpl(context, location, flags, longestStaticPrefix);
+            return select.requireLValueImpl(context, location, flags);
         }
         case ExpressionKind::RangeSelect: {
             auto& select = as<RangeSelectExpression>();
-            return select.requireLValueImpl(context, location, flags, longestStaticPrefix);
+            return select.requireLValueImpl(context, location, flags);
         }
         case ExpressionKind::MemberAccess: {
             auto& access = as<MemberAccessExpression>();
-            return access.requireLValueImpl(context, location, flags, longestStaticPrefix);
+            return access.requireLValueImpl(context, location, flags);
         }
         case ExpressionKind::Concatenation: {
             auto& concat = as<ConcatenationExpression>();
             if (!concat.type->isIntegral())
                 break;
 
-            SLANG_ASSERT(!longestStaticPrefix || flags.has(AssignFlags::SlicedPort));
             for (auto op : concat.operands()) {
                 if (!op->requireLValue(context, location, flags | AssignFlags::InConcat)) {
                     return false;
@@ -538,21 +521,17 @@ bool Expression::requireLValue(const ASTContext& context, SourceLocation locatio
         case ExpressionKind::SimpleAssignmentPattern:
             return as<SimpleAssignmentPatternExpression>().isLValue;
         case ExpressionKind::Streaming: {
-            SLANG_ASSERT(!longestStaticPrefix);
             auto& stream = as<StreamingConcatenationExpression>();
             for (auto& op : stream.streams()) {
-                if (!op.operand->requireLValue(context, location, flags | AssignFlags::InConcat,
-                                               longestStaticPrefix)) {
+                if (!op.operand->requireLValue(context, location, flags | AssignFlags::InConcat))
                     return false;
-                }
             }
             return true;
         }
         case ExpressionKind::Conversion: {
             auto& conv = as<ConversionExpression>();
-            if (conv.isImplicit()) {
-                return conv.operand().requireLValue(context, location, flags, longestStaticPrefix);
-            }
+            if (conv.isImplicit())
+                return conv.operand().requireLValue(context, location, flags);
             break;
         }
         case ExpressionKind::Invalid:
@@ -567,59 +546,6 @@ bool Expression::requireLValue(const ASTContext& context, SourceLocation locatio
     auto& diag = context.addDiag(diag::ExpressionNotAssignable, location);
     diag << sourceRange;
     return false;
-}
-
-void Expression::getLongestStaticPrefixes(
-    SmallVector<std::pair<const ValueSymbol*, const Expression*>>& results,
-    EvalContext& evalContext, const Expression* longestStaticPrefix) const {
-
-    switch (kind) {
-        case ExpressionKind::NamedValue:
-        case ExpressionKind::HierarchicalValue: {
-            auto& ve = as<ValueExpressionBase>();
-            ve.getLongestStaticPrefixesImpl(results, longestStaticPrefix);
-            break;
-        }
-        case ExpressionKind::ElementSelect: {
-            auto& select = as<ElementSelectExpression>();
-            select.getLongestStaticPrefixesImpl(results, evalContext, longestStaticPrefix);
-            break;
-        }
-        case ExpressionKind::RangeSelect: {
-            auto& select = as<RangeSelectExpression>();
-            select.getLongestStaticPrefixesImpl(results, evalContext, longestStaticPrefix);
-            break;
-        }
-        case ExpressionKind::MemberAccess: {
-            auto& access = as<MemberAccessExpression>();
-            access.getLongestStaticPrefixesImpl(results, evalContext, longestStaticPrefix);
-            break;
-        }
-        case ExpressionKind::Concatenation: {
-            auto& concat = as<ConcatenationExpression>();
-            if (concat.type->isIntegral()) {
-                for (auto op : concat.operands())
-                    op->getLongestStaticPrefixes(results, evalContext, nullptr);
-            }
-            break;
-        }
-        case ExpressionKind::Streaming: {
-            SLANG_ASSERT(!longestStaticPrefix);
-            auto& stream = as<StreamingConcatenationExpression>();
-            for (auto& op : stream.streams())
-                op.operand->getLongestStaticPrefixes(results, evalContext, nullptr);
-            break;
-        }
-        case ExpressionKind::Conversion: {
-            auto& conv = as<ConversionExpression>();
-            if (conv.isImplicit())
-                conv.operand().getLongestStaticPrefixes(results, evalContext, longestStaticPrefix);
-            break;
-        }
-        case ExpressionKind::Invalid:
-        default:
-            break;
-    }
 }
 
 std::optional<bitwidth_t> Expression::getEffectiveWidth() const {
@@ -1375,6 +1301,9 @@ Expression* Expression::tryBindInterfaceRef(const ASTContext& context,
 
     // If we found an interface port we should unwrap to what it's connected to.
     if (symbol->kind == SymbolKind::InterfacePort) {
+        result.flags |= LookupResultFlags::IfacePort;
+        result.path.emplace_back(*symbol);
+
         ifacePort = &symbol->as<InterfacePortSymbol>();
         std::tie(symbol, modport) = ifacePort->getConnection();
 

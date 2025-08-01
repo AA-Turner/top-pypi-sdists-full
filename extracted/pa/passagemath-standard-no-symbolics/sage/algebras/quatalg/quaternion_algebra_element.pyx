@@ -1,6 +1,6 @@
 # sage_setup: distribution = sagemath-singular
 # distutils: language = c++
-# distutils: libraries = gmp m NTL_LIBRARIES
+# distutils: libraries = gmp M_LIBRARIES NTL_LIBRARIES
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: include_dirs = NTL_INCDIR
 # distutils: library_dirs = NTL_LIBDIR
@@ -705,7 +705,7 @@ cdef class QuaternionAlgebraElement_abstract(AlgebraElement):
         """
         if base_map is None:
             base_map = lambda v: v
-        return sum(base_map(c)*g for c,g in zip(self, [1] + list(im_gens)))
+        return sum(base_map(c) * g for c, g in zip(self, [1] + list(im_gens)))
 
 
 cdef class QuaternionAlgebraElement_generic(QuaternionAlgebraElement_abstract):

@@ -2,7 +2,6 @@
 from bs4 import BeautifulSoup
 from mkdocs import utils
 #from bs4.element import BeautifulSoup
-
 def create_info_box(soup,config):
 
     always_hint = config.get("always_show_hint",False)

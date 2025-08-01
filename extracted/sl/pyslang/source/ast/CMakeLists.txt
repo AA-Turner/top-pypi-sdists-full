@@ -50,6 +50,7 @@ target_sources(
           types/TypePrinter.cpp
           types/Type.cpp
           ASTContext.cpp
+          ASTDiagMap.cpp
           ASTSerializer.cpp
           Bitstream.cpp
           Compilation.cpp
@@ -59,6 +60,7 @@ target_sources(
           FmtHelpers.cpp
           HierarchicalReference.cpp
           Lookup.cpp
+          LSPUtilities.cpp
           LValue.cpp
           OpaqueInstancePath.cpp
           Patterns.cpp

@@ -371,6 +371,9 @@ class KnownColor(Enum):
 
     REBECCA_PURPLE = 174
 
+    def __int__(self) -> int:
+        ...
+
 
 class Color(System.IEquatable[System_Drawing_Color]):
     """This class has no documentation."""

@@ -4,6 +4,7 @@
 #include "Test.h"
 #include <fmt/core.h>
 
+#include "slang/analysis/AnalysisManager.h"
 #include "slang/ast/ASTVisitor.h"
 #include "slang/parsing/ParserMetadata.h"
 #include "slang/syntax/SyntaxPrinter.h"
@@ -649,6 +650,7 @@ TEST_CASE("Syntax rewriting with metadata updates") {
     auto tree = SyntaxTree::fromFileInMemory(R"(
 `default_nettype none
 `unconnected_drive pull0
+`celldefine
 `timescale 1ns/1ps
 `define FOO
 
@@ -693,6 +695,7 @@ class C; endclass
     CHECK(SyntaxPrinter::printFile(*newTree) == R"(
 `default_nettype none
 `unconnected_drive pull0
+`celldefine
 `timescale 1ns/1ps
 `define FOO
 
@@ -726,6 +729,7 @@ class C; endclass
         if (key->as<ModuleDeclarationSyntax>().header->name.valueText() == "FooBar") {
             CHECK(node.timeScale->base.unit == TimeUnit::Nanoseconds);
             CHECK(node.unconnectedDrive == TokenKind::Pull0Keyword);
+            CHECK(node.cellDefine == true);
         }
     }
 }
@@ -741,11 +745,50 @@ TEST_CASE("Visit all file") {
     Compilation compilation;
     compilation.addSyntaxTree(*tree);
 
-    int count = 0;
-    compilation.getRoot().visit(makeVisitor([&](auto& v, auto& elem) {
-        count++;
-        v.visitDefault(elem);
+    flat_hash_set<ast::SymbolKind> symKinds;
+    flat_hash_set<ast::ExpressionKind> exprKinds;
+    flat_hash_set<ast::StatementKind> stmtKinds;
+    compilation.getRoot().visit(makeVisitor(
+        [&](auto& v, std::derived_from<ast::Symbol> auto& node) {
+            symKinds.insert(node.kind);
+            v.visitDefault(node);
+        },
+        [&](auto& v, std::derived_from<ast::Expression> auto& node) {
+            exprKinds.insert(node.kind);
+            v.visitDefault(node);
+        },
+        [&](auto& v, std::derived_from<ast::Statement> auto& node) {
+            stmtKinds.insert(node.kind);
+            v.visitDefault(node);
+        }));
+
+    flat_hash_set<syntax::SyntaxKind> syntaxKinds;
+    (*tree)->root().visit(makeSyntaxVisitor([&](auto& v, const auto& node) {
+        syntaxKinds.insert(node.kind);
+        v.visitDefault(node);
     }));
 
-    CHECK(count == 1615);
+    auto printMissing = [](const std::string_view name, const auto& kinds, const auto& visited) {
+        for (auto kind : kinds) {
+            if (!visited.contains(kind)) {
+                fmt::print(stdout, "Did not visit {}: {}\n", name, toString(kind));
+            }
+        }
+    };
+    // printMissing("syntax", syntax::SyntaxKind_traits::values, syntaxes.syntaxKinds);
+    // printMissing("symbol", ast::SymbolKind_traits::values, symbols.symKinds);
+    // printMissing("expression", ast::ExpressionKind_traits::values, symbols.exprKinds);
+    // printMissing("statement", ast::StatementKind_traits::values, symbols.stmtKinds);
+
+    // Ideally this should visit all kinds (be zero)
+    CHECK(218 == syntax::SyntaxKind_traits::values.size() - syntaxKinds.size());
+
+    CHECK(42 == ast::SymbolKind_traits::values.size() - symKinds.size());
+    CHECK(11 == ast::ExpressionKind_traits::values.size() - exprKinds.size());
+    CHECK(5 == ast::StatementKind_traits::values.size() - stmtKinds.size());
+    compilation.getAllDiagnostics();
+    compilation.freeze();
+
+    analysis::AnalysisManager analysisManager;
+    analysisManager.analyze(compilation);
 }

@@ -153,7 +153,7 @@ class Projects:
         >>> else:
         >>>     print(f"Status: {message}")
         """
-        path = f"/v1/project/get_project_by_name?name={self.project_name}"
+        path = f"/v1/accounting/get_project_by_name?name={self.project_name}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -181,7 +181,7 @@ class Projects:
         >>> else:
         >>>     print(f"Status: {message}")
         """
-        path = f"/v1/project/{self.project_id}"
+        path = f"/v1/accounting/{self.project_id}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -1101,7 +1101,7 @@ class Projects:
         if error:
             print("Project is not found")
             sys.exit(1)
-        path = f"/v1/project/delete_project/{self.project_id}"
+        path = f"/v1/accounting/delete_project/{self.project_id}"
         resp = self.rpc.delete(path=path)
         return handle_response(
             resp,

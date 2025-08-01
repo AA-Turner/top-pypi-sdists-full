@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 5.21.0
+Version: 5.21.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
@@ -61,10 +61,10 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 Changelog
 ----------
 
-5.21.1.dev1
+5.21.1
 ***********
 
-- Internal changes.
+- `Fixed` The `--on-demand-compute` flag will now ask for confirmation.
 
 5.21.0
 ***********

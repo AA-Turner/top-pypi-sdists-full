@@ -10,7 +10,6 @@ class BaseResponseWrapper(metaclass=abc.ABCMeta):
         """
         Response body as bytes
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -29,7 +28,6 @@ class BaseResponseWrapper(metaclass=abc.ABCMeta):
         In order to properly extract response headers for analysis, we currently expect
         this field to be a multidict that implements a method called `dict_of_lists()`.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -37,4 +35,3 @@ class BaseResponseWrapper(metaclass=abc.ABCMeta):
         """
         Status code as an integer
         """
-        pass

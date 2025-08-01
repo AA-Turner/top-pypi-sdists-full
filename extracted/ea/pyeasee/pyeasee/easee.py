@@ -12,7 +12,7 @@ import pysignalr
 from pysignalr.client import SignalRClient
 from pysignalr.exceptions import AuthorizationError
 from pysignalr.messages import CompletionMessage
-import websockets.legacy.client
+import websockets.asyncio.client
 
 from .charger import Charger
 from .exceptions import (
@@ -27,7 +27,7 @@ from .site import Site, SiteState
 from .throttler import Throttler
 from .utils import convert_stream_data
 
-__VERSION__ = "0.8.14"
+__VERSION__ = "0.8.15"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,8 +79,8 @@ async def raise_for_status(response):
 
 
 async def __aiter__(
-    self: websockets.legacy.client.Connect,
-) -> AsyncIterator[websockets.legacy.client.WebSocketClientProtocol]:
+    self: websockets.asyncio.client.connect,
+) -> AsyncIterator[websockets.asyncio.client.ClientConnection]:
     """
     Asynchronous iterator for the websocket Connect object.
     This function overrides the error handling put in place in pysignalr so that exception propagates out.
@@ -113,6 +113,10 @@ class Easee:
         self.base = "https://api.easee.com"
         self.sr_base = "https://streams.easee.com/hubs/chargers"
         self.token = {}
+        self.get_headers = {
+            "User-Agent": f"pyeasee/{__VERSION__} REST client{append_user_agent}",
+            "Accept": "application/json",
+        }
         self.headers = {
             "User-Agent": f"pyeasee/{__VERSION__} REST client{append_user_agent}",
             "Accept": "application/json",
@@ -140,7 +144,7 @@ class Easee:
         self._sites_throttler = Throttler(rate_limit=10, period=3600, name="sites")
 
         # Override the __aiter__ method of the pysignalr.websocket Connect class
-        pysignalr.websockets.legacy.client.Connect.__aiter__ = __aiter__  # type: ignore[method-assign]
+        pysignalr.websockets.asyncio.client.connect.__aiter__ = __aiter__  # type: ignore[method-assign]
 
     def base_uri(self):
         return self.base
@@ -165,7 +169,7 @@ class Easee:
         _LOGGER.debug("GET: %s (%s)", url, kwargs)
         await self._verify_updated_token()
         async with self._general_throttler:
-            response = await self.session.get(f"{self.base}{url}", headers=self.headers, **kwargs)
+            response = await self.session.get(f"{self.base}{url}", headers=self.get_headers, **kwargs)
         await self.check_status(response)
         return response
 
@@ -207,6 +211,7 @@ class Easee:
             await self._refresh_token()
         accessToken = self.token["accessToken"]
         self.headers["Authorization"] = f"Bearer {accessToken}"
+        self.get_headers["Authorization"] = f"Bearer {accessToken}"
         self.sr_headers["Authorization"] = f"Bearer {accessToken}"
 
     async def _handle_token_response(self, res):

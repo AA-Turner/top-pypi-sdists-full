@@ -15,7 +15,7 @@ export interface CameraFrustumMessage {
     scale: number;
     line_width: number;
     color: [number, number, number];
-    image_media_type: "image/jpeg" | "image/png" | null;
+    _format: "jpeg" | "png";
     _image_data: Uint8Array | null;
     cast_shadow: boolean;
     receive_shadow: boolean;
@@ -365,7 +365,7 @@ export interface ImageMessage {
   type: "ImageMessage";
   name: string;
   props: {
-    media_type: "image/jpeg" | "image/png";
+    _format: "jpeg" | "png";
     _data: Uint8Array;
     render_width: number;
     render_height: number;
@@ -717,7 +717,7 @@ export interface GuiImageMessage {
     order: number;
     label: string | null;
     _data: Uint8Array | null;
-    media_type: "image/jpeg" | "image/png";
+    _format: "jpeg" | "png";
     visible: boolean;
   };
 }
@@ -1282,7 +1282,7 @@ export interface TransformControlsDragEndMessage {
  */
 export interface BackgroundImageMessage {
   type: "BackgroundImageMessage";
-  media_type: "image/jpeg" | "image/png";
+  format: "jpeg" | "png";
   rgb_data: Uint8Array | null;
   depth_data: Uint8Array | null;
 }

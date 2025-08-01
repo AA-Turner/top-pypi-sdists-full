@@ -60,7 +60,7 @@ class PriceTagUseCase(BaseProcessor):
         self.category = "retail"
 
         self.CASE_TYPE: Optional[str] = 'price_tag_detection'
-        self.CASE_VERSION: Optional[str] = '1.2'
+        self.CASE_VERSION: Optional[str] = '1.3'
 
         # List of  categories to track
         self.target_categories = ['pricetag']

@@ -204,9 +204,11 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
 
         Submodule paths will be relative to Git repo root.
         """
+
         from dulwich.config import ConfigFile, parse_submodules
 
         submodules: dict[str, str] = {}
+        assert self.root_dir
         config_path = os.path.join(self.root_dir, ".gitmodules")
         if os.path.isfile(config_path):
             config = ConfigFile.from_path(config_path)
@@ -218,7 +220,7 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
         self.repo.close()
 
     @property
-    def root_dir(self) -> str:
+    def root_dir(self) -> Optional[str]:
         return self.repo.path
 
     @classmethod
@@ -355,6 +357,7 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
                 # path relative to the submodule root.
                 fs_path = relpath(path, self.root_dir)
                 for sm_path in self._submodules.values():
+                    assert self.root_dir
                     if fs_path.startswith(sm_path):
                         path = os.path.join(
                             self.root_dir,
@@ -379,7 +382,7 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
 
         with reraise((Error, CommitError), SCMError("Git commit failed")):
             try:
-                commit(self.root_dir, message=msg, no_verify=no_verify)
+                commit(self.repo, message=msg, no_verify=no_verify)
             except InvalidUserIdentity as exc:
                 raise SCMError("Git username and email must be configured") from exc
             except TimezoneFormatError as exc:
@@ -422,7 +425,7 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
         from dulwich.porcelain import Error, branch_create
 
         try:
-            branch_create(self.root_dir, branch)
+            branch_create(self.repo, branch)
         except Error as exc:
             raise SCMError(f"Failed to create branch '{branch}'") from exc
 
@@ -648,8 +651,13 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
         def update_refs(refs):
             from dulwich.objects import ZERO_SHA
 
+            _refspecs = (
+                os.fsencode(refspecs)
+                if isinstance(refspecs, str)
+                else [os.fsencode(refspec) for refspec in refspecs]
+            )
             selected_refs.extend(
-                parse_reftuples(self.repo.refs, refs, refspecs, force=force)
+                parse_reftuples(self.repo.refs, refs, _refspecs, force=force)
             )
             new_refs = {}
             for lh, rh, _ in selected_refs:
@@ -901,7 +909,7 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
 
         with reraise(Error, SCMError("Git status failed")):
             staged, unstaged, untracked = git_status(
-                self.root_dir, ignored=ignored, untracked_files=untracked_files
+                self.repo, ignored=ignored, untracked_files=untracked_files
             )
 
         return (

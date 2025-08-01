@@ -11,12 +11,16 @@ Arn = str
 BaseModelIdentifier = str
 BedrockModelArn = str
 BedrockModelId = str
+BedrockRerankingModelArn = str
 Boolean = bool
 BrandedName = str
 BucketName = str
 ContentType = str
 CustomMetricInstructions = str
 CustomModelArn = str
+CustomModelDeploymentArn = str
+CustomModelDeploymentDescription = str
+CustomModelDeploymentIdentifier = str
 CustomModelName = str
 CustomModelUnitsVersion = str
 EndpointName = str
@@ -34,6 +38,7 @@ EvaluationPrecomputedInferenceSourceIdentifier = str
 EvaluationPrecomputedRagSourceIdentifier = str
 EvaluationRatingMethod = str
 EvaluatorModelIdentifier = str
+FieldForRerankingFieldNameString = str
 FilterKey = str
 Float = float
 FoundationModelArn = str
@@ -92,6 +97,8 @@ LogGroupName = str
 MaxResults = int
 MaxTokens = int
 Message = str
+MetadataAttributeSchemaDescriptionString = str
+MetadataAttributeSchemaKeyString = str
 MetricFloat = float
 MetricName = str
 ModelArchitecture = str
@@ -99,6 +106,7 @@ ModelArn = str
 ModelCopyJobArn = str
 ModelCustomizationJobArn = str
 ModelCustomizationJobIdentifier = str
+ModelDeploymentName = str
 ModelId = str
 ModelIdentifier = str
 ModelImportJobArn = str
@@ -143,6 +151,7 @@ Temperature = float
 TextPromptTemplate = str
 TopP = float
 UsePromptResponse = bool
+VectorSearchBedrockRerankingConfigurationNumberOfRerankedResultsInteger = int
 kBS3Uri = str
 
 
@@ -158,6 +167,13 @@ class ApplicationType(StrEnum):
     RagEvaluation = "RagEvaluation"
 
 
+class AttributeType(StrEnum):
+    STRING = "STRING"
+    NUMBER = "NUMBER"
+    BOOLEAN = "BOOLEAN"
+    STRING_LIST = "STRING_LIST"
+
+
 class AuthorizationStatus(StrEnum):
     AUTHORIZED = "AUTHORIZED"
     NOT_AUTHORIZED = "NOT_AUTHORIZED"
@@ -166,6 +182,12 @@ class AuthorizationStatus(StrEnum):
 class CommitmentDuration(StrEnum):
     OneMonth = "OneMonth"
     SixMonths = "SixMonths"
+
+
+class CustomModelDeploymentStatus(StrEnum):
+    Creating = "Creating"
+    Active = "Active"
+    Failed = "Failed"
 
 
 class CustomizationType(StrEnum):
@@ -442,6 +464,11 @@ class RegionAvailability(StrEnum):
     NOT_AVAILABLE = "NOT_AVAILABLE"
 
 
+class RerankingMetadataSelectionMode(StrEnum):
+    SELECTIVE = "SELECTIVE"
+    ALL = "ALL"
+
+
 class RetrieveAndGenerateType(StrEnum):
     KNOWLEDGE_BASE = "KNOWLEDGE_BASE"
     EXTERNAL_SOURCES = "EXTERNAL_SOURCES"
@@ -476,6 +503,10 @@ class SortOrder(StrEnum):
 class Status(StrEnum):
     REGISTERED = "REGISTERED"
     INCOMPATIBLE_ENDPOINT = "INCOMPATIBLE_ENDPOINT"
+
+
+class VectorSearchRerankingConfigurationType(StrEnum):
+    BEDROCK_RERANKING_MODEL = "BEDROCK_RERANKING_MODEL"
 
 
 class AccessDeniedException(ServiceException):
@@ -796,6 +827,18 @@ class Tag(TypedDict, total=False):
 TagList = List[Tag]
 
 
+class CreateCustomModelDeploymentRequest(ServiceRequest):
+    modelDeploymentName: ModelDeploymentName
+    modelArn: CustomModelArn
+    description: Optional[CustomModelDeploymentDescription]
+    tags: Optional[TagList]
+    clientRequestToken: Optional[IdempotencyToken]
+
+
+class CreateCustomModelDeploymentResponse(TypedDict, total=False):
+    customModelDeploymentArn: CustomModelDeploymentArn
+
+
 class S3DataSource(TypedDict, total=False):
     """The Amazon S3 data source of the model to import."""
 
@@ -959,6 +1002,93 @@ class GenerationConfiguration(TypedDict, total=False):
     additionalModelRequestFields: Optional[AdditionalModelRequestFields]
 
 
+class FieldForReranking(TypedDict, total=False):
+    """Specifies a field to be used during the reranking process in a Knowledge
+    Base vector search. This structure identifies metadata fields that
+    should be considered when reordering search results to improve
+    relevance.
+    """
+
+    fieldName: FieldForRerankingFieldNameString
+
+
+FieldsForReranking = List[FieldForReranking]
+
+
+class RerankingMetadataSelectiveModeConfiguration(TypedDict, total=False):
+    """Configuration for selectively including or excluding metadata fields
+    during the reranking process. This allows you to control which metadata
+    attributes are considered when reordering search results.
+    """
+
+    fieldsToInclude: Optional[FieldsForReranking]
+    fieldsToExclude: Optional[FieldsForReranking]
+
+
+class MetadataConfigurationForReranking(TypedDict, total=False):
+    """Configuration for how metadata should be used during the reranking
+    process in Knowledge Base vector searches. This determines which
+    metadata fields are included or excluded when reordering search results.
+    """
+
+    selectionMode: RerankingMetadataSelectionMode
+    selectiveModeConfiguration: Optional[RerankingMetadataSelectiveModeConfiguration]
+
+
+class VectorSearchBedrockRerankingModelConfiguration(TypedDict, total=False):
+    """Configuration for the Amazon Bedrock foundation model used for reranking
+    vector search results. This specifies which model to use and any
+    additional parameters required by the model.
+    """
+
+    modelArn: BedrockRerankingModelArn
+    additionalModelRequestFields: Optional[AdditionalModelRequestFields]
+
+
+class VectorSearchBedrockRerankingConfiguration(TypedDict, total=False):
+    """Configuration for using Amazon Bedrock foundation models to rerank
+    Knowledge Base vector search results. This enables more sophisticated
+    relevance ranking using large language models.
+    """
+
+    modelConfiguration: VectorSearchBedrockRerankingModelConfiguration
+    numberOfRerankedResults: Optional[
+        VectorSearchBedrockRerankingConfigurationNumberOfRerankedResultsInteger
+    ]
+    metadataConfiguration: Optional[MetadataConfigurationForReranking]
+
+
+VectorSearchRerankingConfiguration = TypedDict(
+    "VectorSearchRerankingConfiguration",
+    {
+        "type": VectorSearchRerankingConfigurationType,
+        "bedrockRerankingConfiguration": Optional[VectorSearchBedrockRerankingConfiguration],
+    },
+    total=False,
+)
+MetadataAttributeSchema = TypedDict(
+    "MetadataAttributeSchema",
+    {
+        "key": MetadataAttributeSchemaKeyString,
+        "type": AttributeType,
+        "description": MetadataAttributeSchemaDescriptionString,
+    },
+    total=False,
+)
+MetadataAttributeSchemaList = List[MetadataAttributeSchema]
+
+
+class ImplicitFilterConfiguration(TypedDict, total=False):
+    """Configuration for implicit filtering in Knowledge Base vector searches.
+    Implicit filtering allows you to automatically filter search results
+    based on metadata attributes without requiring explicit filter
+    expressions in each query.
+    """
+
+    metadataAttributes: MetadataAttributeSchemaList
+    modelArn: BedrockModelArn
+
+
 RetrievalFilter = TypedDict(
     "RetrievalFilter",
     {
@@ -1003,6 +1133,8 @@ class KnowledgeBaseVectorSearchConfiguration(TypedDict, total=False):
     numberOfResults: Optional[KnowledgeBaseVectorSearchConfigurationNumberOfResultsInteger]
     overrideSearchType: Optional[SearchType]
     filter: Optional[RetrievalFilter]
+    implicitFilterConfiguration: Optional[ImplicitFilterConfiguration]
+    rerankingConfiguration: Optional[VectorSearchRerankingConfiguration]
 
 
 class KnowledgeBaseRetrievalConfiguration(TypedDict, total=False):
@@ -1733,6 +1865,23 @@ class CreateProvisionedModelThroughputResponse(TypedDict, total=False):
     provisionedModelArn: ProvisionedModelArn
 
 
+class CustomModelDeploymentSummary(TypedDict, total=False):
+    """Contains summary information about a custom model deployment, including
+    its ARN, name, status, and associated custom model.
+    """
+
+    customModelDeploymentArn: CustomModelDeploymentArn
+    customModelDeploymentName: ModelDeploymentName
+    modelArn: ModelArn
+    createdAt: Timestamp
+    status: CustomModelDeploymentStatus
+    lastUpdatedAt: Optional[Timestamp]
+    failureMessage: Optional[ErrorMessage]
+
+
+CustomModelDeploymentSummaryList = List[CustomModelDeploymentSummary]
+
+
 class CustomModelSummary(TypedDict, total=False):
     """Summary information for a custom model."""
 
@@ -1774,6 +1923,14 @@ class DataProcessingDetails(TypedDict, total=False):
     status: Optional[JobStatusDetails]
     creationTime: Optional[Timestamp]
     lastModifiedTime: Optional[Timestamp]
+
+
+class DeleteCustomModelDeploymentRequest(ServiceRequest):
+    customModelDeploymentIdentifier: CustomModelDeploymentIdentifier
+
+
+class DeleteCustomModelDeploymentResponse(TypedDict, total=False):
+    pass
 
 
 class DeleteCustomModelRequest(ServiceRequest):
@@ -1974,6 +2131,21 @@ class FoundationModelSummary(TypedDict, total=False):
 
 
 FoundationModelSummaryList = List[FoundationModelSummary]
+
+
+class GetCustomModelDeploymentRequest(ServiceRequest):
+    customModelDeploymentIdentifier: CustomModelDeploymentIdentifier
+
+
+class GetCustomModelDeploymentResponse(TypedDict, total=False):
+    customModelDeploymentArn: CustomModelDeploymentArn
+    modelDeploymentName: ModelDeploymentName
+    modelArn: CustomModelArn
+    createdAt: Timestamp
+    status: CustomModelDeploymentStatus
+    description: Optional[CustomModelDeploymentDescription]
+    failureMessage: Optional[ErrorMessage]
+    lastUpdatedAt: Optional[Timestamp]
 
 
 class GetCustomModelRequest(ServiceRequest):
@@ -2576,6 +2748,23 @@ class LegalTerm(TypedDict, total=False):
     url: Optional[String]
 
 
+class ListCustomModelDeploymentsRequest(ServiceRequest):
+    createdBefore: Optional[Timestamp]
+    createdAfter: Optional[Timestamp]
+    nameContains: Optional[ModelDeploymentName]
+    maxResults: Optional[MaxResults]
+    nextToken: Optional[PaginationToken]
+    sortBy: Optional[SortModelsBy]
+    sortOrder: Optional[SortOrder]
+    statusEquals: Optional[CustomModelDeploymentStatus]
+    modelArnEquals: Optional[CustomModelArn]
+
+
+class ListCustomModelDeploymentsResponse(TypedDict, total=False):
+    nextToken: Optional[PaginationToken]
+    modelDeploymentSummaries: Optional[CustomModelDeploymentSummaryList]
+
+
 class ListCustomModelsRequest(ServiceRequest):
     creationTimeBefore: Optional[Timestamp]
     creationTimeAfter: Optional[Timestamp]
@@ -3168,6 +3357,54 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("CreateCustomModelDeployment")
+    def create_custom_model_deployment(
+        self,
+        context: RequestContext,
+        model_deployment_name: ModelDeploymentName,
+        model_arn: CustomModelArn,
+        description: CustomModelDeploymentDescription | None = None,
+        tags: TagList | None = None,
+        client_request_token: IdempotencyToken | None = None,
+        **kwargs,
+    ) -> CreateCustomModelDeploymentResponse:
+        """Deploys a custom model for on-demand inference in Amazon Bedrock. After
+        you deploy your custom model, you use the deployment's Amazon Resource
+        Name (ARN) as the ``modelId`` parameter when you submit prompts and
+        generate responses with model inference.
+
+        For more information about setting up on-demand inference for custom
+        models, see `Set up inference for a custom
+        model <https://docs.aws.amazon.com/bedrock/latest/userguide/model-customization-use.html>`__.
+
+        The following actions are related to the ``CreateCustomModelDeployment``
+        operation:
+
+        -  `GetCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_GetCustomModelDeployment.html>`__
+
+        -  `ListCustomModelDeployments <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListCustomModelDeployments.html>`__
+
+        -  `DeleteCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteCustomModelDeployment.html>`__
+
+        :param model_deployment_name: The name for the custom model deployment.
+        :param model_arn: The Amazon Resource Name (ARN) of the custom model to deploy for
+        on-demand inference.
+        :param description: A description for the custom model deployment to help you identify its
+        purpose.
+        :param tags: Tags to assign to the custom model deployment.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
+        completes no more than one time.
+        :returns: CreateCustomModelDeploymentResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises TooManyTagsException:
+        :raises ServiceQuotaExceededException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("CreateEvaluationJob")
     def create_evaluation_job(
         self,
@@ -3711,6 +3948,38 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteCustomModelDeployment")
+    def delete_custom_model_deployment(
+        self,
+        context: RequestContext,
+        custom_model_deployment_identifier: CustomModelDeploymentIdentifier,
+        **kwargs,
+    ) -> DeleteCustomModelDeploymentResponse:
+        """Deletes a custom model deployment. This operation stops the deployment
+        and removes it from your account. After deletion, the deployment ARN can
+        no longer be used for inference requests.
+
+        The following actions are related to the ``DeleteCustomModelDeployment``
+        operation:
+
+        -  `CreateCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_CreateCustomModelDeployment.html>`__
+
+        -  `GetCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_GetCustomModelDeployment.html>`__
+
+        -  `ListCustomModelDeployments <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListCustomModelDeployments.html>`__
+
+        :param custom_model_deployment_identifier: The Amazon Resource Name (ARN) or name of the custom model deployment to
+        delete.
+        :returns: DeleteCustomModelDeploymentResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteFoundationModelAgreement")
     def delete_foundation_model_agreement(
         self, context: RequestContext, model_id: BedrockModelId, **kwargs
@@ -3902,6 +4171,37 @@ class BedrockApi:
 
         :param model_identifier: Name or Amazon Resource Name (ARN) of the custom model.
         :returns: GetCustomModelResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetCustomModelDeployment")
+    def get_custom_model_deployment(
+        self,
+        context: RequestContext,
+        custom_model_deployment_identifier: CustomModelDeploymentIdentifier,
+        **kwargs,
+    ) -> GetCustomModelDeploymentResponse:
+        """Retrieves information about a custom model deployment, including its
+        status, configuration, and metadata. Use this operation to monitor the
+        deployment status and retrieve details needed for inference requests.
+
+        The following actions are related to the ``GetCustomModelDeployment``
+        operation:
+
+        -  `CreateCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_CreateCustomModelDeployment.html>`__
+
+        -  `ListCustomModelDeployments <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListCustomModelDeployments.html>`__
+
+        -  `DeleteCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteCustomModelDeployment.html>`__
+
+        :param custom_model_deployment_identifier: The Amazon Resource Name (ARN) or name of the custom model deployment to
+        retrieve information about.
+        :returns: GetCustomModelDeploymentResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -4173,6 +4473,55 @@ class BedrockApi:
 
         :returns: GetUseCaseForModelAccessResponse
         :raises ResourceNotFoundException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListCustomModelDeployments")
+    def list_custom_model_deployments(
+        self,
+        context: RequestContext,
+        created_before: Timestamp | None = None,
+        created_after: Timestamp | None = None,
+        name_contains: ModelDeploymentName | None = None,
+        max_results: MaxResults | None = None,
+        next_token: PaginationToken | None = None,
+        sort_by: SortModelsBy | None = None,
+        sort_order: SortOrder | None = None,
+        status_equals: CustomModelDeploymentStatus | None = None,
+        model_arn_equals: CustomModelArn | None = None,
+        **kwargs,
+    ) -> ListCustomModelDeploymentsResponse:
+        """Lists custom model deployments in your account. You can filter the
+        results by creation time, name, status, and associated model. Use this
+        operation to manage and monitor your custom model deployments.
+
+        We recommend using pagination to ensure that the operation returns
+        quickly and successfully.
+
+        The following actions are related to the ``ListCustomModelDeployments``
+        operation:
+
+        -  `CreateCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_CreateCustomModelDeployment.html>`__
+
+        -  `GetCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_GetCustomModelDeployment.html>`__
+
+        -  `DeleteCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteCustomModelDeployment.html>`__
+
+        :param created_before: Filters deployments created before the specified date and time.
+        :param created_after: Filters deployments created after the specified date and time.
+        :param name_contains: Filters deployments whose names contain the specified string.
+        :param max_results: The maximum number of results to return in a single call.
+        :param next_token: The token for the next set of results.
+        :param sort_by: The field to sort the results by.
+        :param sort_order: The sort order for the results.
+        :param status_equals: Filters deployments by status.
+        :param model_arn_equals: Filters deployments by the Amazon Resource Name (ARN) of the associated
+        custom model.
+        :returns: ListCustomModelDeploymentsResponse
+        :raises AccessDeniedException:
         :raises ValidationException:
         :raises InternalServerException:
         :raises ThrottlingException:

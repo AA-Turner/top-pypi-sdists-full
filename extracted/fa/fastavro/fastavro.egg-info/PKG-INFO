@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastavro
-Version: 1.11.1
+Version: 1.12.0
 Summary: Fast read/write of AVRO files
 Home-page: https://github.com/fastavro/fastavro
 Author: Miki Tebeka

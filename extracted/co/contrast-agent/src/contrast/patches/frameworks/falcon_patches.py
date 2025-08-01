@@ -190,10 +190,13 @@ def reverse_patches():
         patch_manager.reverse_patches_by_owner(falcon_asgi_module)
 
     unregister_module_patcher(FALCON_MULTIPART_MIDDLEWARE_MODULE)
-    if falcon_multipart_middleware_module := sys.modules.get(
-        FALCON_MULTIPART_MIDDLEWARE_MODULE
-    ):
-        if middleware_cls := getattr(
+    if (
+        falcon_multipart_middleware_module := sys.modules.get(
+            FALCON_MULTIPART_MIDDLEWARE_MODULE
+        )
+    ) and (
+        middleware_cls := getattr(
             falcon_multipart_middleware_module, FALCON_MULTIPART_MIDDLEWARE_CLASS
-        ):
-            patch_manager.reverse_patches_by_owner(middleware_cls)
+        )
+    ):
+        patch_manager.reverse_patches_by_owner(middleware_cls)

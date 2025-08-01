@@ -389,6 +389,9 @@ class FileFormat(Enum):
     into an instance of the data type (5)
     """
 
+    def __int__(self) -> int:
+        ...
+
 
 class SubscriptionDataSource(System.Object, System.IEquatable[QuantConnect_Data_SubscriptionDataSource]):
     """Represents the source location and transport medium for a subscription"""

@@ -1,7 +1,5 @@
-import os
-import zipfile
-import gdown
-from deepface.commons import package_utils, folder_utils
+# project dependencies
+from deepface.commons import package_utils, weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
 from deepface.commons.logger import Logger
 
@@ -32,9 +30,9 @@ else:
         Dropout,
     )
 
-
-# -------------------------------------
 # pylint: disable=line-too-long, too-few-public-methods
+WEIGHTS_URL="https://github.com/swghosh/DeepFace/releases/download/weights-vggface2-2d-aligned/VGGFace2_DeepFace_weights_val-0.9034.h5.zip"
+
 class DeepFaceClient(FacialRecognition):
     """
     Fb's DeepFace model class
@@ -56,7 +54,7 @@ class DeepFaceClient(FacialRecognition):
 
 
 def load_model(
-    url="https://github.com/swghosh/DeepFace/releases/download/weights-vggface2-2d-aligned/VGGFace2_DeepFace_weights_val-0.9034.h5.zip",
+    url=WEIGHTS_URL,
 ) -> Model:
     """
     Construct DeepFace model, download its weights and load
@@ -84,20 +82,11 @@ def load_model(
 
     # ---------------------------------
 
-    home = folder_utils.get_deepface_home()
-    filename = "VGGFace2_DeepFace_weights_val-0.9034.h5"
-    output = os.path.join(home, ".deepface/weights", filename)
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="VGGFace2_DeepFace_weights_val-0.9034.h5", source_url=url, compress_type="zip"
+    )
 
-    if not os.path.isfile(output):
-        logger.info(f"{filename} will be downloaded...")
-        output_zipped = output + ".zip"
-        gdown.download(url, output_zipped, quiet=False)
-
-        # unzip VGGFace2_DeepFace_weights_val-0.9034.h5.zip
-        with zipfile.ZipFile(output_zipped, "r") as zip_ref:
-            zip_ref.extractall(os.path.join(home, ".deepface/weights"))
-
-    base_model.load_weights(output)
+    base_model = weight_utils.load_model_weights(model=base_model, weight_file=weight_file)
 
     # drop F8 and D0. F7 is the representation layer.
     deepface_model = Model(inputs=base_model.layers[0].input, outputs=base_model.layers[-3].output)

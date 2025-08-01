@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-30T20:52:28.315942                                                            #
+# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-31T17:05:42.584654                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class PyPIStepDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         Version of Python to use, e.g. '3.7.4'. A default value of None implies
         that the version used will correspond to the version of the Python interpreter used to start the run.
     """
-    def __init__(self, attributes = None, statically_defined = False):
+    def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
     def step_init(self, flow, graph, step, decos, environment, flow_datastore, logger):
         ...
@@ -53,7 +53,7 @@ class PyPIFlowDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
         Version of Python to use, e.g. '3.7.4'. A default value of None implies
         that the version used will correspond to the version of the Python interpreter used to start the run.
     """
-    def __init__(self, attributes = None, statically_defined = False):
+    def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
     def flow_init(self, flow, graph, environment, flow_datastore, metadata, logger, echo, options):
         ...

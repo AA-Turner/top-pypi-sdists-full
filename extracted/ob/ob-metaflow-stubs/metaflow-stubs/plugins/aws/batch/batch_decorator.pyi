@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-30T20:52:28.334652                                                            #
+# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-31T17:05:42.603731                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -31,6 +31,8 @@ DATASTORE_LOCAL_DIR: str
 ECS_FARGATE_EXECUTION_ROLE: None
 
 ECS_S3_ACCESS_IAM_ROLE: None
+
+FEAT_ALWAYS_UPLOAD_CODE_PACKAGE: bool
 
 UBF_CONTROL: str
 

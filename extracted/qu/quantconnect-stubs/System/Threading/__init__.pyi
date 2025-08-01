@@ -732,6 +732,9 @@ class ThreadState(Enum):
 
     ABORTED = 256
 
+    def __int__(self) -> int:
+        ...
+
 
 class LockRecursionPolicy(Enum):
     """This class has no documentation."""
@@ -739,6 +742,9 @@ class LockRecursionPolicy(Enum):
     NO_RECURSION = 0
 
     SUPPORTS_RECURSION = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class ReaderWriterLockSlim(System.Object, System.IDisposable):
@@ -956,6 +962,9 @@ class EventResetMode(Enum):
     AUTO_RESET = 0
 
     MANUAL_RESET = 1
+
+    def __int__(self) -> int:
+        ...
 
 
 class NamedWaitHandleOptions:
@@ -1529,6 +1538,9 @@ class ThreadPriority(Enum):
 
     HIGHEST = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class ThreadStartException(System.SystemException):
     """This class has no documentation."""
@@ -1789,6 +1801,9 @@ class ApartmentState(Enum):
     MTA = 1
 
     UNKNOWN = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
@@ -2823,6 +2838,9 @@ class LazyThreadSafetyMode(Enum):
     handled carefully.  If valueFactory throws an exception when theLazy{T} is initialized, the exception will be cached and returned on
     subsequent accesses to Value. Also, if valueFactory recursively accesses Value on this Lazy{T} instance, a  InvalidOperationException will be thrown.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class ThreadExceptionEventArgs(System.EventArgs):

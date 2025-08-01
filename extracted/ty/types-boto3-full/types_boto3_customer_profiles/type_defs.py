@@ -25,6 +25,7 @@ from .literals import (
     AttributeMatchingModelType,
     ComparisonOperatorType,
     ConflictResolvingModelType,
+    ContactTypeType,
     DataFormatType,
     DataPullModeType,
     DateDimensionTypeType,
@@ -46,6 +47,8 @@ from .literals import (
     OperatorType,
     PartyTypeType,
     PeriodUnitType,
+    ProfileTypeDimensionTypeType,
+    ProfileTypeType,
     QueryResultType,
     ReadinessStatusType,
     RuleBasedMatchingStatusType,
@@ -122,6 +125,7 @@ __all__ = (
     "ConsolidationOutputTypeDef",
     "ConsolidationTypeDef",
     "ConsolidationUnionTypeDef",
+    "ContactPreferenceTypeDef",
     "CreateCalculatedAttributeDefinitionRequestTypeDef",
     "CreateCalculatedAttributeDefinitionResponseTypeDef",
     "CreateDomainLayoutRequestTypeDef",
@@ -176,6 +180,9 @@ __all__ = (
     "DimensionTypeDef",
     "DimensionUnionTypeDef",
     "DomainStatsTypeDef",
+    "EngagementPreferencesOutputTypeDef",
+    "EngagementPreferencesTypeDef",
+    "EngagementPreferencesUnionTypeDef",
     "EventStreamDestinationDetailsTypeDef",
     "EventStreamSummaryTypeDef",
     "EventTriggerConditionOutputTypeDef",
@@ -339,6 +346,9 @@ __all__ = (
     "ProfileQueryFailuresTypeDef",
     "ProfileQueryResultTypeDef",
     "ProfileTypeDef",
+    "ProfileTypeDimensionOutputTypeDef",
+    "ProfileTypeDimensionTypeDef",
+    "ProfileTypeDimensionUnionTypeDef",
     "PutIntegrationRequestTypeDef",
     "PutIntegrationResponseTypeDef",
     "PutProfileObjectRequestTypeDef",
@@ -551,6 +561,13 @@ class ConsolidationTypeDef(TypedDict):
     MatchingAttributesList: Sequence[Sequence[str]]
 
 
+class ContactPreferenceTypeDef(TypedDict):
+    KeyName: NotRequired[str]
+    KeyValue: NotRequired[str]
+    ProfileId: NotRequired[str]
+    ContactType: NotRequired[ContactTypeType]
+
+
 class ReadinessTypeDef(TypedDict):
     ProgressPercentage: NotRequired[int]
     Message: NotRequired[str]
@@ -757,6 +774,8 @@ class FieldSourceProfileIdsTypeDef(TypedDict):
     MailingAddress: NotRequired[str]
     BillingAddress: NotRequired[str]
     Attributes: NotRequired[Mapping[str, str]]
+    ProfileType: NotRequired[str]
+    EngagementPreferences: NotRequired[str]
 
 
 class FilterAttributeDimensionOutputTypeDef(TypedDict):
@@ -1161,9 +1180,19 @@ class ProfileAttributeValuesRequestTypeDef(TypedDict):
     AttributeName: str
 
 
+class ProfileTypeDimensionOutputTypeDef(TypedDict):
+    DimensionType: ProfileTypeDimensionTypeType
+    Values: List[ProfileTypeType]
+
+
 class ProfileDimensionTypeDef(TypedDict):
     DimensionType: StringDimensionTypeType
     Values: Sequence[str]
+
+
+class ProfileTypeDimensionTypeDef(TypedDict):
+    DimensionType: ProfileTypeDimensionTypeType
+    Values: Sequence[ProfileTypeType]
 
 
 class PutProfileObjectRequestTypeDef(TypedDict):
@@ -1506,33 +1535,6 @@ class AddressDimensionOutputTypeDef(TypedDict):
     State: NotRequired[ProfileDimensionOutputTypeDef]
 
 
-class CreateProfileRequestTypeDef(TypedDict):
-    DomainName: str
-    AccountNumber: NotRequired[str]
-    AdditionalInformation: NotRequired[str]
-    PartyType: NotRequired[PartyTypeType]
-    BusinessName: NotRequired[str]
-    FirstName: NotRequired[str]
-    MiddleName: NotRequired[str]
-    LastName: NotRequired[str]
-    BirthDate: NotRequired[str]
-    Gender: NotRequired[GenderType]
-    PhoneNumber: NotRequired[str]
-    MobilePhoneNumber: NotRequired[str]
-    HomePhoneNumber: NotRequired[str]
-    BusinessPhoneNumber: NotRequired[str]
-    EmailAddress: NotRequired[str]
-    PersonalEmailAddress: NotRequired[str]
-    BusinessEmailAddress: NotRequired[str]
-    Address: NotRequired[AddressTypeDef]
-    ShippingAddress: NotRequired[AddressTypeDef]
-    MailingAddress: NotRequired[AddressTypeDef]
-    BillingAddress: NotRequired[AddressTypeDef]
-    Attributes: NotRequired[Mapping[str, str]]
-    PartyTypeString: NotRequired[str]
-    GenderString: NotRequired[str]
-
-
 class WorkflowAttributesTypeDef(TypedDict):
     AppflowIntegration: NotRequired[AppflowIntegrationWorkflowAttributesTypeDef]
 
@@ -1614,6 +1616,16 @@ class TaskTypeDef(TypedDict):
 
 
 ConsolidationUnionTypeDef = Union[ConsolidationTypeDef, ConsolidationOutputTypeDef]
+
+
+class EngagementPreferencesOutputTypeDef(TypedDict):
+    Phone: NotRequired[List[ContactPreferenceTypeDef]]
+    Email: NotRequired[List[ContactPreferenceTypeDef]]
+
+
+class EngagementPreferencesTypeDef(TypedDict):
+    Phone: NotRequired[Sequence[ContactPreferenceTypeDef]]
+    Email: NotRequired[Sequence[ContactPreferenceTypeDef]]
 
 
 class CreateUploadJobRequestTypeDef(TypedDict):
@@ -1747,34 +1759,6 @@ class FilterDimensionOutputTypeDef(TypedDict):
 
 class FilterDimensionTypeDef(TypedDict):
     Attributes: Mapping[str, FilterAttributeDimensionTypeDef]
-
-
-class ProfileTypeDef(TypedDict):
-    ProfileId: NotRequired[str]
-    AccountNumber: NotRequired[str]
-    AdditionalInformation: NotRequired[str]
-    PartyType: NotRequired[PartyTypeType]
-    BusinessName: NotRequired[str]
-    FirstName: NotRequired[str]
-    MiddleName: NotRequired[str]
-    LastName: NotRequired[str]
-    BirthDate: NotRequired[str]
-    Gender: NotRequired[GenderType]
-    PhoneNumber: NotRequired[str]
-    MobilePhoneNumber: NotRequired[str]
-    HomePhoneNumber: NotRequired[str]
-    BusinessPhoneNumber: NotRequired[str]
-    EmailAddress: NotRequired[str]
-    PersonalEmailAddress: NotRequired[str]
-    BusinessEmailAddress: NotRequired[str]
-    Address: NotRequired[AddressTypeDef]
-    ShippingAddress: NotRequired[AddressTypeDef]
-    MailingAddress: NotRequired[AddressTypeDef]
-    BillingAddress: NotRequired[AddressTypeDef]
-    Attributes: NotRequired[Dict[str, str]]
-    FoundByItems: NotRequired[List[FoundByKeyValueTypeDef]]
-    PartyTypeString: NotRequired[str]
-    GenderString: NotRequired[str]
 
 
 class GetMatchesResponseTypeDef(TypedDict):
@@ -1934,6 +1918,9 @@ MatchingRuleUnionTypeDef = Union[MatchingRuleTypeDef, MatchingRuleOutputTypeDef]
 ObjectAttributeUnionTypeDef = Union[ObjectAttributeTypeDef, ObjectAttributeOutputTypeDef]
 ObjectTypeKeyUnionTypeDef = Union[ObjectTypeKeyTypeDef, ObjectTypeKeyOutputTypeDef]
 ProfileDimensionUnionTypeDef = Union[ProfileDimensionTypeDef, ProfileDimensionOutputTypeDef]
+ProfileTypeDimensionUnionTypeDef = Union[
+    ProfileTypeDimensionTypeDef, ProfileTypeDimensionOutputTypeDef
+]
 
 
 class RangeTypeDef(TypedDict):
@@ -1950,34 +1937,6 @@ class SourceConnectorPropertiesTypeDef(TypedDict):
     Salesforce: NotRequired[SalesforceSourcePropertiesTypeDef]
     ServiceNow: NotRequired[ServiceNowSourcePropertiesTypeDef]
     Zendesk: NotRequired[ZendeskSourcePropertiesTypeDef]
-
-
-class UpdateProfileRequestTypeDef(TypedDict):
-    DomainName: str
-    ProfileId: str
-    AdditionalInformation: NotRequired[str]
-    AccountNumber: NotRequired[str]
-    PartyType: NotRequired[PartyTypeType]
-    BusinessName: NotRequired[str]
-    FirstName: NotRequired[str]
-    MiddleName: NotRequired[str]
-    LastName: NotRequired[str]
-    BirthDate: NotRequired[str]
-    Gender: NotRequired[GenderType]
-    PhoneNumber: NotRequired[str]
-    MobilePhoneNumber: NotRequired[str]
-    HomePhoneNumber: NotRequired[str]
-    BusinessPhoneNumber: NotRequired[str]
-    EmailAddress: NotRequired[str]
-    PersonalEmailAddress: NotRequired[str]
-    BusinessEmailAddress: NotRequired[str]
-    Address: NotRequired[UpdateAddressTypeDef]
-    ShippingAddress: NotRequired[UpdateAddressTypeDef]
-    MailingAddress: NotRequired[UpdateAddressTypeDef]
-    BillingAddress: NotRequired[UpdateAddressTypeDef]
-    Attributes: NotRequired[Mapping[str, str]]
-    PartyTypeString: NotRequired[str]
-    GenderString: NotRequired[str]
 
 
 class ProfileAttributesOutputTypeDef(TypedDict):
@@ -2002,6 +1961,7 @@ class ProfileAttributesOutputTypeDef(TypedDict):
     MailingAddress: NotRequired[AddressDimensionOutputTypeDef]
     BillingAddress: NotRequired[AddressDimensionOutputTypeDef]
     Attributes: NotRequired[Dict[str, AttributeDimensionOutputTypeDef]]
+    ProfileType: NotRequired[ProfileTypeDimensionOutputTypeDef]
 
 
 class GetWorkflowResponseTypeDef(TypedDict):
@@ -2069,6 +2029,41 @@ class GetAutoMergingPreviewRequestTypeDef(TypedDict):
     Consolidation: ConsolidationUnionTypeDef
     ConflictResolution: ConflictResolutionTypeDef
     MinAllowedConfidenceScoreForMerging: NotRequired[float]
+
+
+class ProfileTypeDef(TypedDict):
+    ProfileId: NotRequired[str]
+    AccountNumber: NotRequired[str]
+    AdditionalInformation: NotRequired[str]
+    PartyType: NotRequired[PartyTypeType]
+    BusinessName: NotRequired[str]
+    FirstName: NotRequired[str]
+    MiddleName: NotRequired[str]
+    LastName: NotRequired[str]
+    BirthDate: NotRequired[str]
+    Gender: NotRequired[GenderType]
+    PhoneNumber: NotRequired[str]
+    MobilePhoneNumber: NotRequired[str]
+    HomePhoneNumber: NotRequired[str]
+    BusinessPhoneNumber: NotRequired[str]
+    EmailAddress: NotRequired[str]
+    PersonalEmailAddress: NotRequired[str]
+    BusinessEmailAddress: NotRequired[str]
+    Address: NotRequired[AddressTypeDef]
+    ShippingAddress: NotRequired[AddressTypeDef]
+    MailingAddress: NotRequired[AddressTypeDef]
+    BillingAddress: NotRequired[AddressTypeDef]
+    Attributes: NotRequired[Dict[str, str]]
+    FoundByItems: NotRequired[List[FoundByKeyValueTypeDef]]
+    PartyTypeString: NotRequired[str]
+    GenderString: NotRequired[str]
+    ProfileType: NotRequired[ProfileTypeType]
+    EngagementPreferences: NotRequired[EngagementPreferencesOutputTypeDef]
+
+
+EngagementPreferencesUnionTypeDef = Union[
+    EngagementPreferencesTypeDef, EngagementPreferencesOutputTypeDef
+]
 
 
 class ListEventStreamsResponseTypeDef(TypedDict):
@@ -2150,24 +2145,6 @@ FilterGroupTypeDef = TypedDict(
 )
 
 
-class BatchGetProfileResponseTypeDef(TypedDict):
-    Errors: List[BatchGetProfileErrorTypeDef]
-    Profiles: List[ProfileTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ProfileQueryResultTypeDef(TypedDict):
-    ProfileId: str
-    QueryResult: QueryResultType
-    Profile: NotRequired[ProfileTypeDef]
-
-
-class SearchProfilesResponseTypeDef(TypedDict):
-    Items: List[ProfileTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class RuleBasedMatchingRequestTypeDef(TypedDict):
     Enabled: bool
     MatchingRules: NotRequired[Sequence[MatchingRuleUnionTypeDef]]
@@ -2233,6 +2210,83 @@ CalculatedAttributeDimensionUnionTypeDef = Union[
     CalculatedAttributeDimensionTypeDef, CalculatedAttributeDimensionOutputTypeDef
 ]
 AutoMergingUnionTypeDef = Union[AutoMergingTypeDef, AutoMergingOutputTypeDef]
+
+
+class BatchGetProfileResponseTypeDef(TypedDict):
+    Errors: List[BatchGetProfileErrorTypeDef]
+    Profiles: List[ProfileTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ProfileQueryResultTypeDef(TypedDict):
+    ProfileId: str
+    QueryResult: QueryResultType
+    Profile: NotRequired[ProfileTypeDef]
+
+
+class SearchProfilesResponseTypeDef(TypedDict):
+    Items: List[ProfileTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateProfileRequestTypeDef(TypedDict):
+    DomainName: str
+    AccountNumber: NotRequired[str]
+    AdditionalInformation: NotRequired[str]
+    PartyType: NotRequired[PartyTypeType]
+    BusinessName: NotRequired[str]
+    FirstName: NotRequired[str]
+    MiddleName: NotRequired[str]
+    LastName: NotRequired[str]
+    BirthDate: NotRequired[str]
+    Gender: NotRequired[GenderType]
+    PhoneNumber: NotRequired[str]
+    MobilePhoneNumber: NotRequired[str]
+    HomePhoneNumber: NotRequired[str]
+    BusinessPhoneNumber: NotRequired[str]
+    EmailAddress: NotRequired[str]
+    PersonalEmailAddress: NotRequired[str]
+    BusinessEmailAddress: NotRequired[str]
+    Address: NotRequired[AddressTypeDef]
+    ShippingAddress: NotRequired[AddressTypeDef]
+    MailingAddress: NotRequired[AddressTypeDef]
+    BillingAddress: NotRequired[AddressTypeDef]
+    Attributes: NotRequired[Mapping[str, str]]
+    PartyTypeString: NotRequired[str]
+    GenderString: NotRequired[str]
+    ProfileType: NotRequired[ProfileTypeType]
+    EngagementPreferences: NotRequired[EngagementPreferencesUnionTypeDef]
+
+
+class UpdateProfileRequestTypeDef(TypedDict):
+    DomainName: str
+    ProfileId: str
+    AdditionalInformation: NotRequired[str]
+    AccountNumber: NotRequired[str]
+    PartyType: NotRequired[PartyTypeType]
+    BusinessName: NotRequired[str]
+    FirstName: NotRequired[str]
+    MiddleName: NotRequired[str]
+    LastName: NotRequired[str]
+    BirthDate: NotRequired[str]
+    Gender: NotRequired[GenderType]
+    PhoneNumber: NotRequired[str]
+    MobilePhoneNumber: NotRequired[str]
+    HomePhoneNumber: NotRequired[str]
+    BusinessPhoneNumber: NotRequired[str]
+    EmailAddress: NotRequired[str]
+    PersonalEmailAddress: NotRequired[str]
+    BusinessEmailAddress: NotRequired[str]
+    Address: NotRequired[UpdateAddressTypeDef]
+    ShippingAddress: NotRequired[UpdateAddressTypeDef]
+    MailingAddress: NotRequired[UpdateAddressTypeDef]
+    BillingAddress: NotRequired[UpdateAddressTypeDef]
+    Attributes: NotRequired[Mapping[str, str]]
+    PartyTypeString: NotRequired[str]
+    GenderString: NotRequired[str]
+    ProfileType: NotRequired[ProfileTypeType]
+    EngagementPreferences: NotRequired[EngagementPreferencesUnionTypeDef]
 
 
 class CreateEventTriggerResponseTypeDef(TypedDict):
@@ -2330,13 +2384,6 @@ class FilterTypeDef(TypedDict):
     Groups: Sequence[FilterGroupTypeDef]
 
 
-class GetSegmentMembershipResponseTypeDef(TypedDict):
-    SegmentDefinitionName: str
-    Profiles: List[ProfileQueryResultTypeDef]
-    Failures: List[ProfileQueryFailuresTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 EventTriggerDimensionUnionTypeDef = Union[
     EventTriggerDimensionTypeDef, EventTriggerDimensionOutputTypeDef
 ]
@@ -2392,6 +2439,13 @@ class MatchingRequestTypeDef(TypedDict):
     JobSchedule: NotRequired[JobScheduleTypeDef]
     AutoMerging: NotRequired[AutoMergingUnionTypeDef]
     ExportingConfig: NotRequired[ExportingConfigTypeDef]
+
+
+class GetSegmentMembershipResponseTypeDef(TypedDict):
+    SegmentDefinitionName: str
+    Profiles: List[ProfileQueryResultTypeDef]
+    Failures: List[ProfileQueryFailuresTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
@@ -2458,6 +2512,7 @@ class ProfileAttributesTypeDef(TypedDict):
     MailingAddress: NotRequired[AddressDimensionUnionTypeDef]
     BillingAddress: NotRequired[AddressDimensionUnionTypeDef]
     Attributes: NotRequired[Mapping[str, AttributeDimensionUnionTypeDef]]
+    ProfileType: NotRequired[ProfileTypeDimensionUnionTypeDef]
 
 
 class AppflowIntegrationTypeDef(TypedDict):

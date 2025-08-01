@@ -1,6 +1,5 @@
-import os
-import gdown
-from deepface.commons import package_utils, folder_utils
+# project dependencies
+from deepface.commons import package_utils, weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
 from deepface.commons.logger import Logger
 
@@ -40,6 +39,14 @@ else:
     from tensorflow.keras.layers import add
     from tensorflow.keras import backend as K
 
+# pylint:disable=line-too-long
+FACENET128_WEIGHTS = (
+    "https://github.com/serengil/deepface_models/releases/download/v1.0/facenet_weights.h5"
+)
+FACENET512_WEIGHTS = (
+    "https://github.com/serengil/deepface_models/releases/download/v1.0/facenet512_weights.h5"
+)
+
 # --------------------------------
 
 # pylint: disable=too-few-public-methods
@@ -57,7 +64,7 @@ class FaceNet128dClient(FacialRecognition):
 
 class FaceNet512dClient(FacialRecognition):
     """
-    FaceNet-1512d model class
+    FaceNet-512d model class
     """
 
     def __init__(self):
@@ -1655,7 +1662,7 @@ def InceptionResNetV1(dimension: int = 128) -> Model:
 
 
 def load_facenet128d_model(
-    url="https://github.com/serengil/deepface_models/releases/download/v1.0/facenet_weights.h5",
+    url=FACENET128_WEIGHTS,
 ) -> Model:
     """
     Construct FaceNet-128d model, download weights and then load weights
@@ -1666,26 +1673,16 @@ def load_facenet128d_model(
     """
     model = InceptionResNetV1()
 
-    # -----------------------------------
-
-    home = folder_utils.get_deepface_home()
-    output = os.path.join(home, ".deepface/weights/facenet_weights.h5")
-
-    if not os.path.isfile(output):
-        logger.info(f"{os.path.basename(output)} will be downloaded...")
-        gdown.download(url, output, quiet=False)
-
-    # -----------------------------------
-
-    model.load_weights(output)
-
-    # -----------------------------------
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="facenet_weights.h5", source_url=url
+    )
+    model = weight_utils.load_model_weights(model=model, weight_file=weight_file)
 
     return model
 
 
 def load_facenet512d_model(
-    url="https://github.com/serengil/deepface_models/releases/download/v1.0/facenet512_weights.h5",
+    url=FACENET512_WEIGHTS,
 ) -> Model:
     """
     Construct FaceNet-512d model, download its weights and load
@@ -1695,19 +1692,9 @@ def load_facenet512d_model(
 
     model = InceptionResNetV1(dimension=512)
 
-    # -------------------------
-
-    home = folder_utils.get_deepface_home()
-    output = os.path.join(home, ".deepface/weights/facenet512_weights.h5")
-
-    if not os.path.isfile(output):
-        logger.info(f"{os.path.basename(output)} will be downloaded...")
-        gdown.download(url, output, quiet=False)
-
-    # -------------------------
-
-    model.load_weights(output)
-
-    # -------------------------
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="facenet512_weights.h5", source_url=url
+    )
+    model = weight_utils.load_model_weights(model=model, weight_file=weight_file)
 
     return model

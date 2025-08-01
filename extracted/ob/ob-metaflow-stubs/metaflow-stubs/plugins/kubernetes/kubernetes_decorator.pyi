@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.5+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-30T20:52:28.308748                                                            #
+# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-31T17:05:42.587736                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ from .kube_utils import validate_kube_labels as validate_kube_labels
 from .kube_utils import parse_kube_keyvalue_list as parse_kube_keyvalue_list
 
 DATASTORE_LOCAL_DIR: str
+
+FEAT_ALWAYS_UPLOAD_CODE_PACKAGE: bool
 
 KUBERNETES_CONTAINER_IMAGE: None
 
@@ -118,7 +120,7 @@ class KubernetesDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         the scheduled node should not have GPUs.
     gpu_vendor : str, default KUBERNETES_GPU_VENDOR
         The vendor of the GPUs to be used for this step.
-    tolerations : List[str], default []
+    tolerations : List[Dict[str,str]], default []
         The default is extracted from METAFLOW_KUBERNETES_TOLERATIONS.
         Kubernetes tolerations to use when launching pod in Kubernetes.
     labels: Dict[str, str], default: METAFLOW_KUBERNETES_LABELS

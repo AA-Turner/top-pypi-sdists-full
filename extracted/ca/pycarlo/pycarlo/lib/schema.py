@@ -1427,10 +1427,7 @@ class DataExplorerWidgetModelWidgetType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `DISCRETE`: DISCRETE
-    * `FIELD_HEALTH`: FIELD_HEALTH
-    * `FIELD_PROFILE_TABLE`: FIELD_PROFILE_TABLE
     * `FIELD_PROFILE_TABLE_V2`: FIELD_PROFILE_TABLE_V2
-    * `NUMERIC_CONTINUOUS`: NUMERIC_CONTINUOUS
     * `NUMERIC_DESCRIPTIVE_STATS`: NUMERIC_DESCRIPTIVE_STATS
     * `TIMESTAMP_HISTOGRAM`: TIMESTAMP_HISTOGRAM
     """
@@ -1438,10 +1435,7 @@ class DataExplorerWidgetModelWidgetType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "DISCRETE",
-        "FIELD_HEALTH",
-        "FIELD_PROFILE_TABLE",
         "FIELD_PROFILE_TABLE_V2",
-        "NUMERIC_CONTINUOUS",
         "NUMERIC_DESCRIPTIVE_STATS",
         "TIMESTAMP_HISTOGRAM",
     )
@@ -4640,6 +4634,7 @@ class SqlDialect(sgqlc.types.Enum):
     * `SAPHANA`None
     * `SNOWFLAKE`None
     * `SPARK`None
+    * `SQL_SERVER`None
     * `TERADATA`None
     * `TSQL`None
     * `UNKNOWN`None
@@ -4665,6 +4660,7 @@ class SqlDialect(sgqlc.types.Enum):
         "SAPHANA",
         "SNOWFLAKE",
         "SPARK",
+        "SQL_SERVER",
         "TERADATA",
         "TSQL",
         "UNKNOWN",
@@ -5445,10 +5441,7 @@ class WidgetType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `DISCRETE`None
-    * `FIELD_HEALTH`None
-    * `FIELD_PROFILE_TABLE`None
     * `FIELD_PROFILE_TABLE_V2`None
-    * `NUMERIC_CONTINUOUS`None
     * `NUMERIC_DESCRIPTIVE_STATS`None
     * `TIMESTAMP_HISTOGRAM`None
     """
@@ -5456,10 +5449,7 @@ class WidgetType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "DISCRETE",
-        "FIELD_HEALTH",
-        "FIELD_PROFILE_TABLE",
         "FIELD_PROFILE_TABLE_V2",
-        "NUMERIC_CONTINUOUS",
         "NUMERIC_DESCRIPTIVE_STATS",
         "TIMESTAMP_HISTOGRAM",
     )
@@ -7991,12 +7981,6 @@ class NumericRangeInput(sgqlc.types.Input):
     """Numeric range start value"""
 
 
-class NumericalContinuousSimpleWidgetConfig(sgqlc.types.Input):
-    __schema__ = schema
-    __field_names__ = ("num_buckets",)
-    num_buckets = sgqlc.types.Field(Int, graphql_name="numBuckets")
-
-
 class OAuthConfiguration(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -8376,36 +8360,6 @@ class ReportArgumentsUnionInput(sgqlc.types.Input):
     monitor_id = sgqlc.types.Field(UUID, graphql_name="monitorId")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(ReportTypeEnum), graphql_name="type")
-
-
-class RetrieveComparisonWidgetDataRequestInput(sgqlc.types.Input):
-    __schema__ = schema
-    __field_names__ = (
-        "dataset_left",
-        "dataset_right",
-        "widget_type",
-        "field_name",
-        "limit",
-        "config",
-    )
-    dataset_left = sgqlc.types.Field(sgqlc.types.non_null(DatasetInput), graphql_name="datasetLeft")
-    """First dataset to be compared"""
-
-    dataset_right = sgqlc.types.Field(
-        sgqlc.types.non_null(DatasetInput), graphql_name="datasetRight"
-    )
-    """Second dataset to be compared"""
-
-    widget_type = sgqlc.types.Field(sgqlc.types.non_null(WidgetType), graphql_name="widgetType")
-    """Widget type"""
-
-    field_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldName")
-    """Field name"""
-
-    limit = sgqlc.types.Field(Int, graphql_name="limit")
-
-    config = sgqlc.types.Field(JSONString, graphql_name="config")
-    """Extra configuration"""
 
 
 class RetrieveTableDataRequestInput(sgqlc.types.Input):
@@ -9969,13 +9923,9 @@ class WidgetConfig(sgqlc.types.Input):
     """
 
     __schema__ = schema
-    __field_names__ = ("timestamp_histogram_config", "numerical_continuous_config")
+    __field_names__ = ("timestamp_histogram_config",)
     timestamp_histogram_config = sgqlc.types.Field(
         TimestampHistogramSimpleWidgetConfig, graphql_name="timestampHistogramConfig"
-    )
-
-    numerical_continuous_config = sgqlc.types.Field(
-        NumericalContinuousSimpleWidgetConfig, graphql_name="numericalContinuousConfig"
     )
 
 
@@ -25695,7 +25645,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing dbt cloud connection.
+    """Update credentials for an existing dbt cloud connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25727,6 +25684,14 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """Update credentials for an existing Transactional DB connection.
+    Note: This mutation only uploads credentials and returns a
+    temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25757,7 +25722,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Big Query connection.
+    """Update credentials for an existing Big Query connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25788,7 +25760,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Tableau connection.
+    """Update credentials for an existing Tableau connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25819,7 +25798,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Looker connection.
+    """Update credentials for an existing Looker connection.  Note: This
+    mutation only uploads credentials and returns a temporary key. To
+    complete the update:  Call testUpdatedCredentialsV2 with the
+    returned key as tempCredentialsKey and the same connectionId to
+    validate the credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25882,7 +25868,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing PowerBi connection.
+    """Update credentials for an existing PowerBi connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25913,7 +25906,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Snowflake connection.
+    """Update credentials for an existing Snowflake connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25944,7 +25944,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Redshift connection.
+    """Update credentials for an existing Redshift connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -25976,7 +25983,14 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """Update credentials for an existing Databricks Metastore
-    connection.
+    connection.  Note: This mutation only uploads credentials and
+    returns a temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -26007,7 +26021,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Spark connection.
+    """Update credentials for an existing Spark connection.  Note: This
+    mutation only uploads credentials and returns a temporary key. To
+    complete the update:  Call testUpdatedCredentialsV2 with the
+    returned key as tempCredentialsKey and the same connectionId to
+    validate the credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -26039,7 +26060,14 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """Update credentials for an existing Databricks Metastore SQL
-    Warehouse connection.
+    Warehouse connection.  Note: This mutation only uploads
+    credentials and returns a temporary key. To complete the update:
+    Call testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -26072,7 +26100,14 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """Update credentials for an existing Databricks SQL Warehouse
-    connection.
+    connection.  Note: This mutation only uploads credentials and
+    returns a temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -26184,7 +26219,14 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Update credentials for an existing Pinecone connection.
+    """Update credentials for an existing Pinecone connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
 
     Arguments:
 
@@ -41936,7 +41978,6 @@ class Query(sgqlc.types.Type):
         "get_field_metric_data",
         "get_field_overview_properties",
         "get_data_profiler_monitor_recommendations",
-        "retrieve_comparison_widget_data",
         "get_data_explorer_comparison_dashboards",
         "get_comparable_dashboards",
         "get_data_explorer_table_summary_stats",
@@ -43158,27 +43199,6 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `request` (`MonitorRecommendationsInput!`)None
-    """
-
-    retrieve_comparison_widget_data = sgqlc.types.Field(
-        DataResponseType,
-        graphql_name="retrieveComparisonWidgetData",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "request",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(RetrieveComparisonWidgetDataRequestInput),
-                        graphql_name="request",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """Arguments:
-
-    * `request` (`RetrieveComparisonWidgetDataRequestInput!`)None
     """
 
     get_data_explorer_comparison_dashboards = sgqlc.types.Field(
@@ -63139,7 +63159,16 @@ class UpdateAlert(sgqlc.types.Type):
 
 
 class UpdateAzureDataFactoryCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Azure Data Factory connection."""
+    """Update credentials for an existing Azure Data Factory connection.
+    Note: This mutation only uploads credentials and returns a
+    temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63164,7 +63193,15 @@ class UpdateBiConnectionNameMutation(sgqlc.types.Type):
 
 
 class UpdateBigQueryCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Big Query connection."""
+    """Update credentials for an existing Big Query connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63254,7 +63291,14 @@ class UpdateDataProductSharing(sgqlc.types.Type):
 
 class UpdateDatabricksMetastoreCredentialsV2Mutation(sgqlc.types.Type):
     """Update credentials for an existing Databricks Metastore
-    connection.
+    connection.  Note: This mutation only uploads credentials and
+    returns a temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
     """
 
     __schema__ = schema
@@ -63264,7 +63308,14 @@ class UpdateDatabricksMetastoreCredentialsV2Mutation(sgqlc.types.Type):
 
 class UpdateDatabricksMetastoreSQLWarehouseCredentialsV2Mutation(sgqlc.types.Type):
     """Update credentials for an existing Databricks Metastore SQL
-    Warehouse connection.
+    Warehouse connection.  Note: This mutation only uploads
+    credentials and returns a temporary key. To complete the update:
+    Call testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
     """
 
     __schema__ = schema
@@ -63292,7 +63343,14 @@ class UpdateDatabricksNotebookJob(sgqlc.types.Type):
 
 class UpdateDatabricksSQLWarehouseCredentialsV2Mutation(sgqlc.types.Type):
     """Update credentials for an existing Databricks SQL Warehouse
-    connection.
+    connection.  Note: This mutation only uploads credentials and
+    returns a temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
     """
 
     __schema__ = schema
@@ -63301,7 +63359,15 @@ class UpdateDatabricksSQLWarehouseCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateDbtCloudCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing dbt cloud connection."""
+    """Update credentials for an existing dbt cloud connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63361,7 +63427,15 @@ class UpdateLogsIntegration(sgqlc.types.Type):
 
 
 class UpdateLookerCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Looker connection."""
+    """Update credentials for an existing Looker connection.  Note: This
+    mutation only uploads credentials and returns a temporary key. To
+    complete the update:  Call testUpdatedCredentialsV2 with the
+    returned key as tempCredentialsKey and the same connectionId to
+    validate the credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63369,7 +63443,15 @@ class UpdateLookerCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateLookerGitAuthCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Looker connection."""
+    """Update credentials for an existing Looker connection.  Note: This
+    mutation only uploads credentials and returns a temporary key. To
+    complete the update:  Call testUpdatedCredentialsV2 with the
+    returned key as tempCredentialsKey and the same connectionId to
+    validate the credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63476,7 +63558,15 @@ class UpdatePiiFilteringPreferences(sgqlc.types.Type):
 
 
 class UpdatePineconeCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Pinecone connection."""
+    """Update credentials for an existing Pinecone connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63484,7 +63574,15 @@ class UpdatePineconeCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdatePowerBiCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing PowerBi connection."""
+    """Update credentials for an existing PowerBi connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63492,7 +63590,15 @@ class UpdatePowerBiCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Redshift connection."""
+    """Update credentials for an existing Redshift connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63500,8 +63606,14 @@ class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateSelfHostedCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing connection using self-hosted
-    credentials.
+    """Update credentials for an existing self-hosted connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
     """
 
     __schema__ = schema
@@ -63525,7 +63637,15 @@ class UpdateSlackChannelsMutation(sgqlc.types.Type):
 
 
 class UpdateSnowflakeCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Snowflake connection."""
+    """Update credentials for an existing Snowflake connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63533,7 +63653,15 @@ class UpdateSnowflakeCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateSparkCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Spark connection."""
+    """Update credentials for an existing Spark connection.  Note: This
+    mutation only uploads credentials and returns a temporary key. To
+    complete the update:  Call testUpdatedCredentialsV2 with the
+    returned key as tempCredentialsKey and the same connectionId to
+    validate the credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63576,7 +63704,15 @@ class UpdateTableauAssetWarning(sgqlc.types.Type):
 
 
 class UpdateTableauCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Tableau connection."""
+    """Update credentials for an existing Tableau connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -63584,7 +63720,16 @@ class UpdateTableauCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateTransactionalDbCredentialsV2Mutation(sgqlc.types.Type):
-    """Update credentials for an existing Transactional DB connection."""
+    """Update credentials for an existing Transactional DB connection.
+    Note: This mutation only uploads credentials and returns a
+    temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
 
     __schema__ = schema
     __field_names__ = ("result",)
@@ -67167,6 +67312,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "suggested_custom_sampling_sql",
         "selection",
         "is_ootb_replacement",
+        "is_migrated_from_field_quality",
         "connection_id",
         "mc_sql",
         "tags",
@@ -67434,6 +67580,13 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_ootb_replacement = sgqlc.types.Field(Boolean, graphql_name="isOotbReplacement")
     """Indicate if this rule replaces the default ootb detector"""
+
+    is_migrated_from_field_quality = sgqlc.types.Field(
+        Boolean, graphql_name="isMigratedFromFieldQuality"
+    )
+    """Indicate if the monitor was migrated from a field quality (metrics
+    legacy) rule
+    """
 
     connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")
     """The connection UUID associated with the rule"""

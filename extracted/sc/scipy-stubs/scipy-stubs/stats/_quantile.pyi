@@ -4,7 +4,7 @@ import numpy as np
 import optype as op
 import optype.numpy as onp
 
-from scipy._typing import Falsy, NanPolicy, Truthy
+from ._typing import NanPolicy
 
 _QuantileMethod: TypeAlias = Literal[
     "inverted_cdf",
@@ -20,8 +20,11 @@ _QuantileMethod: TypeAlias = Literal[
 
 ###
 
-@overload  # this mypy error is a false positive
-def quantile(  # type: ignore[overload-overlap]
+# NOTE: There is a false positive `overload-overlap` mypy error that only occurs with `numpy<2.2`
+# mypy: disable-error-code=overload-overlap
+
+@overload
+def quantile(
     x: onp.ToFloatStrict1D,
     p: onp.ToJustFloat,
     *,
@@ -38,7 +41,7 @@ def quantile(
     method: _QuantileMethod = "linear",
     axis: op.CanIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: Falsy | None = None,
+    keepdims: onp.ToFalse | None = None,
 ) -> np.float64: ...
 @overload
 def quantile(
@@ -58,5 +61,5 @@ def quantile(
     method: _QuantileMethod = "linear",
     axis: op.CanIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: Truthy,
+    keepdims: onp.ToTrue,
 ) -> onp.ArrayND[np.float64]: ...

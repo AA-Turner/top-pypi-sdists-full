@@ -1058,6 +1058,9 @@ class ExtractAlphaTrueBeatEarningsMetric(Enum):
     REVENUE = 1
     """Revenue"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class ExtractAlphaFiscalPeriod(System.Object):
     """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
@@ -4104,6 +4107,9 @@ class Party(Enum):
     DEMOCRATIC = 2
     """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     """Personal stock transactions by U.S. Representatives"""
@@ -4236,6 +4242,9 @@ class Congress(Enum):
 
     REPRESENTATIVES = 1
     """The United States House of Representatives"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
@@ -16188,6 +16197,9 @@ class EarningsType(Enum):
     SPLIT = 3
     """Stock Splits"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class TradingEconomicsEarnings(QuantConnect.Data.BaseData):
     """
@@ -16477,6 +16489,9 @@ class TradingEconomicsImportance(Enum):
 
     HIGH = 2
     """High importance"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class TradingEconomicsCalendar(QuantConnect.Data.BaseData):
@@ -17717,6 +17732,9 @@ class SmartInsiderEventType(Enum):
     NOT_SPECIFIED = 10
     """Announcement by a company not specified and/or not documented in the other categories. Further details are included in the note."""
 
+    def __int__(self) -> int:
+        ...
+
 
 class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
     """
@@ -18026,6 +18044,9 @@ class SmartInsiderExecution(Enum):
     ERROR = 3
     """Field is not in this enum"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class SmartInsiderExecutionEntity(Enum):
     """Entity that intends to or executed the transaction"""
@@ -18054,6 +18075,9 @@ class SmartInsiderExecutionEntity(Enum):
     ERROR = 6
     """The field was not found in this enum"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class SmartInsiderExecutionHolding(Enum):
     """Details regarding the way holdings will be or were processed in a buyback execution"""
@@ -18078,6 +18102,9 @@ class SmartInsiderExecutionHolding(Enum):
 
     ERROR = 6
     """The field was not found in the enum, or is representative of a SatisfyStockVesting entry."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
@@ -20134,6 +20161,9 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         WEIGHTED_ESTIMIZE = 3
         """Weighted consensus from Estimize"""
 
+        def __int__(self) -> int:
+            ...
+
     class ConsensusType(Enum):
         """Type of the consensus"""
 
@@ -20142,6 +20172,9 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
 
         REVENUE = 1
         """Consensus on revenue value"""
+
+        def __int__(self) -> int:
+            ...
 
     DATA_SOURCE_ID: int
     """Data source ID"""

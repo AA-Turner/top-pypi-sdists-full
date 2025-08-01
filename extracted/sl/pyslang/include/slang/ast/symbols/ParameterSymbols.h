@@ -40,7 +40,7 @@ private:
 };
 
 /// Represents a parameter value.
-class SLANG_EXPORT ParameterSymbol : public ValueSymbol, public ParameterSymbolBase {
+class SLANG_EXPORT ParameterSymbol final : public ValueSymbol, public ParameterSymbolBase {
 public:
     ParameterSymbol(std::string_view name, SourceLocation loc, bool isLocal, bool isPort);
 
@@ -72,7 +72,7 @@ private:
     bool isFromGv = false;
 };
 
-class SLANG_EXPORT TypeParameterSymbol : public Symbol, public ParameterSymbolBase {
+class SLANG_EXPORT TypeParameterSymbol final : public Symbol, public ParameterSymbolBase {
 public:
     DeclaredType targetType;
     ForwardTypeRestriction typeRestriction;
@@ -87,17 +87,18 @@ public:
     static bool isKind(SymbolKind kind) { return kind == SymbolKind::TypeParameter; }
 
     const Type& getTypeAlias() const { return *typeAlias; }
+    void setTypeSyntax(const syntax::SyntaxNode& syntax);
     bool isOverridden() const;
     void checkTypeRestriction() const;
 
     void serializeTo(ASTSerializer& serializer) const;
 
 private:
-    const Type* typeAlias;
+    Type* typeAlias;
 };
 
 /// Represents a defparam directive.
-class SLANG_EXPORT DefParamSymbol : public Symbol {
+class SLANG_EXPORT DefParamSymbol final : public Symbol {
 public:
     explicit DefParamSymbol(SourceLocation loc) : Symbol(SymbolKind::DefParam, "", loc) {}
 
@@ -120,7 +121,7 @@ private:
 };
 
 /// Represents a specify parameter.
-class SLANG_EXPORT SpecparamSymbol : public ValueSymbol {
+class SLANG_EXPORT SpecparamSymbol final : public ValueSymbol {
 public:
     bool isPathPulse = false;
 

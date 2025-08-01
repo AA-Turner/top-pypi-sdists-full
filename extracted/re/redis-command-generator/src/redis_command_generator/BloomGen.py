@@ -101,7 +101,7 @@ class BloomGen(BaseGen):
         # Classification: lookup
         redis_obj = self._pipe_to_redis(pipe)
         it, _ = redis_obj.bf().scandump(key, 0)
-        while it is not 0:
+        while it != 0:
             it, _ = redis_obj.bf().scandump(key, it)
 
 

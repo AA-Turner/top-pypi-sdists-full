@@ -255,6 +255,7 @@ class Series:
     ]
     """
 
+    # NOTE: This `= None` is needed to generate the docs with sphinx_accessor.
     _s: PySeries = None
     _accessors: ClassVar[set[str]] = {
         "arr",
@@ -819,12 +820,15 @@ class Series:
 
         if isinstance(other, Series):
             return self._from_pyseries(getattr(self._s, op)(other._s))
-
+        try:
+            f = get_ffi_func(op + "_<>", self.dtype, self._s)
+        except NotImplementedError:
+            f = None
+        if f is None:
+            msg = f"Series of type {self.dtype} does not have {op} operator"
+            raise NotImplementedError(msg)
         if other is not None:
             other = maybe_cast(other, self.dtype)
-        f = get_ffi_func(op + "_<>", self.dtype, self._s)
-        if f is None:
-            return NotImplemented
 
         return self._from_pyseries(f(other))
 
@@ -2269,7 +2273,11 @@ class Series:
         return self._s.quantile(quantile, interpolation)
 
     def to_dummies(
-        self, *, separator: str = "_", drop_first: bool = False
+        self,
+        *,
+        separator: str = "_",
+        drop_first: bool = False,
+        drop_nulls: bool = False,
     ) -> DataFrame:
         """
         Get dummy/indicator variables.
@@ -2280,6 +2288,8 @@ class Series:
             Separator/delimiter used when generating column names.
         drop_first
             Remove the first category from the variable being encoded.
+        drop_nulls
+            If there are `None` values in the series, a `null` column is not generated
 
         Examples
         --------
@@ -2308,7 +2318,7 @@ class Series:
         │ 0   ┆ 1   │
         └─────┴─────┘
         """
-        return wrap_df(self._s.to_dummies(separator, drop_first))
+        return wrap_df(self._s.to_dummies(separator, drop_first, drop_nulls))
 
     @unstable()
     def cut(
@@ -4498,6 +4508,64 @@ class Series:
 
         return out
 
+    def is_close(
+        self,
+        other: IntoExpr,
+        *,
+        abs_tol: float = 0.0,
+        rel_tol: float = 1e-09,
+        nans_equal: bool = False,
+    ) -> Series:
+        r"""
+        Get a boolean mask of the values being close to the other values.
+
+        Two values `a` and `b` are considered close if the following condition holds:
+
+        .. math::
+            |a-b| \le max \{ \text{rel_tol} \cdot max \{ |a|, |b| \}, \text{abs_tol} \}
+
+        Parameters
+        ----------
+        abs_tol
+            Absolute tolerance. This is the maximum allowed absolute difference between
+            two values. Must be non-negative.
+        rel_tol
+            Relative tolerance. This is the maximum allowed difference between two
+            values, relative to the larger absolute value. Must be in the range [0, 1).
+        nans_equal
+            Whether NaN values should be considered equal.
+
+        Returns
+        -------
+        Series
+            Series of data type :class:`Boolean`.
+
+        Notes
+        -----
+            The implementation of this method is symmetric and mirrors the behavior of
+            :meth:`math.isclose`. Specifically note that this behavior is different to
+            :meth:`numpy.isclose`.
+
+        Examples
+        --------
+        >>> s = pl.Series("s", [1.0, 1.2, 1.4, 1.45, 1.6])
+        >>> s.is_close(1.4, abs_tol=0.1)
+        shape: (5,)
+        Series: 's' [bool]
+        [
+            false
+            false
+            true
+            true
+            false
+        ]
+        """
+        return F.select(
+            F.lit(self).is_close(
+                other, abs_tol=abs_tol, rel_tol=rel_tol, nans_equal=nans_equal
+            )
+        ).to_series()
+
     def to_numpy(
         self,
         *,
@@ -4956,7 +5024,8 @@ class Series:
         """
         f = get_ffi_func("set_with_mask_<>", self.dtype, self._s)
         if f is None:
-            return NotImplemented
+            msg = f"Series of type {self.dtype} can not be set"
+            raise NotImplementedError(msg)
         return self._from_pyseries(f(filter._s, value))
 
     def scatter(
@@ -5703,9 +5772,13 @@ class Series:
 
         Notes
         -----
-        If your function is expensive and you don't want it to be called more than
-        once for a given input, consider applying an `@lru_cache` decorator to it.
-        If your data is suitable you may achieve *significant* speedups.
+        * If your function is expensive and you don't want it to be called more than
+          once for a given input, consider applying an `@lru_cache` decorator to it.
+          If your data is suitable you may achieve *significant* speedups.
+
+        * A UDF passed to `map_elements` must be pure, meaning that it cannot modify
+          or depend on state other than its arguments.
+
 
         Examples
         --------
@@ -6310,10 +6383,10 @@ class Series:
         [
                 null
                 null
-                1.0
                 2.0
                 3.0
                 4.0
+                6.0
         ]
         >>> s.rolling_quantile(quantile=0.33, interpolation="linear", window_size=3)
         shape: (6,)
@@ -7343,8 +7416,8 @@ class Series:
         Series: 'a' [i64]
         [
                 2
-                1
                 3
+                1
         ]
         """
 

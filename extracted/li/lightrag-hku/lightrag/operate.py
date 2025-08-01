@@ -28,6 +28,7 @@ from .utils import (
     remove_think_tags,
     linear_gradient_weighted_polling,
     process_chunks_unified,
+    build_file_path,
 )
 from .base import (
     BaseGraphStorage,
@@ -124,7 +125,7 @@ async def _handle_entity_relation_summary(
     use_llm_func = partial(use_llm_func, _priority=8)
 
     tokenizer: Tokenizer = global_config["tokenizer"]
-    llm_max_tokens = global_config["llm_model_max_token_size"]
+    llm_max_tokens = global_config["summary_max_tokens"]
 
     language = global_config["addon_params"].get(
         "language", PROMPTS["DEFAULT_LANGUAGE"]
@@ -968,16 +969,7 @@ async def _merge_nodes_then_upsert(
     source_id = GRAPH_FIELD_SEP.join(
         set([dp["source_id"] for dp in nodes_data] + already_source_ids)
     )
-    file_path = GRAPH_FIELD_SEP.join(
-        set(
-            [
-                dp.get("file_path", "unknown_source")
-                for dp in nodes_data
-                if dp.get("file_path")
-            ]
-            + [fp for fp in already_file_paths if fp]
-        )
-    )
+    file_path = build_file_path(already_file_paths, nodes_data, entity_name)
 
     force_llm_summary_on_merge = global_config["force_llm_summary_on_merge"]
 
@@ -1108,12 +1100,7 @@ async def _merge_edges_then_upsert(
             + already_source_ids
         )
     )
-    file_path = GRAPH_FIELD_SEP.join(
-        set(
-            [dp["file_path"] for dp in edges_data if dp.get("file_path")]
-            + [fp for fp in already_file_paths if fp]
-        )
-    )
+    file_path = build_file_path(already_file_paths, edges_data, f"{src_id}-{tgt_id}")
 
     for need_insert_id in [src_id, tgt_id]:
         if not (await knowledge_graph_inst.has_node(need_insert_id)):
@@ -1853,6 +1840,7 @@ async def extract_keywords_only(
         keywords_data = json.loads(match.group(0))
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error: {e}")
+        logger.error(f"LLM respond: {result}")
         return [], []
 
     hl_keywords = keywords_data.get("high_level_keywords", [])

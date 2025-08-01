@@ -53,6 +53,7 @@ __all__ = (
     "ComparisonOperatorType",
     "ConfidenceLevelType",
     "ConfigNameType",
+    "ConfigurationStatusType",
     "CustomMetricTypeType",
     "DayOfWeekType",
     "DetectMitigationActionExecutionStatusType",
@@ -66,6 +67,7 @@ __all__ = (
     "DomainTypeType",
     "DynamicGroupStatusType",
     "DynamoKeyTypeType",
+    "EncryptionTypeType",
     "EventTypeType",
     "FieldTypeType",
     "FleetMetricUnitType",
@@ -242,6 +244,7 @@ ComparisonOperatorType = Literal[
 ]
 ConfidenceLevelType = Literal["HIGH", "LOW", "MEDIUM"]
 ConfigNameType = Literal["CERT_AGE_THRESHOLD_IN_DAYS", "CERT_EXPIRATION_THRESHOLD_IN_DAYS"]
+ConfigurationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 CustomMetricTypeType = Literal["ip-address-list", "number", "number-list", "string-list"]
 DayOfWeekType = Literal["FRI", "MON", "SAT", "SUN", "THU", "TUE", "WED"]
 DetectMitigationActionExecutionStatusType = Literal[
@@ -272,6 +275,7 @@ DomainConfigurationStatusType = Literal["DISABLED", "ENABLED"]
 DomainTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED", "ENDPOINT"]
 DynamicGroupStatusType = Literal["ACTIVE", "BUILDING", "REBUILDING"]
 DynamoKeyTypeType = Literal["NUMBER", "STRING"]
+EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 EventTypeType = Literal[
     "CA_CERTIFICATE",
     "CERTIFICATE",
@@ -491,6 +495,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -723,6 +729,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -783,6 +790,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

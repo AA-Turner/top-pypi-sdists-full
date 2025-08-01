@@ -991,7 +991,6 @@ cdef class MixedIntegerLinearProgram(SageObject):
         """
         from sage.rings.integer import Integer as Integer
         cdef int i
-        cdef str s
         cdef GenericBackend b = self._backend
 
         result = []
@@ -1006,7 +1005,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             return (lb, b.row(indices), ub)
 
         # List of constraints
-        elif isinstance(indices, list):
+        if isinstance(indices, list):
             for i in indices:
                 lb, ub = b.row_bounds(i)
                 result.append((lb, b.row(i), ub))
@@ -1014,8 +1013,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             return result
 
         # Weird Input
-        else:
-            raise ValueError("constraints() requires a list of integers, though it will accommodate None or an integer.")
+        raise ValueError("constraints() requires a list of integers, though it will accommodate None or an integer.")
 
     def polyhedron(self, **kwds):
         r"""
@@ -1055,7 +1053,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             sage: p = MixedIntegerLinearProgram(solver='GLPK')
             sage: p.add_constraint(0 <= 2*p['x'] + p['y'] <= 1)
             sage: p.add_constraint(0 <= 3*p['y'] + p['x'] <= 2)
-            sage: P = p.polyhedron(); P
+            sage: P = p.polyhedron(); P                         # needs cddexec
             A 2-dimensional polyhedron in RDF^2 defined as the convex hull of 4 vertices
 
         3-D Polyhedron::
@@ -1064,7 +1062,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             sage: p.add_constraint(0 <= 2*p['x'] + p['y'] + 3*p['z'] <= 1)
             sage: p.add_constraint(0 <= 2*p['y'] + p['z'] + 3*p['x'] <= 1)
             sage: p.add_constraint(0 <= 2*p['z'] + p['x'] + 3*p['y'] <= 1)
-            sage: P = p.polyhedron(); P
+            sage: P = p.polyhedron(); P                         # needs cddexec
             A 3-dimensional polyhedron in RDF^3 defined as the convex hull of 8 vertices
 
         An empty polyhedron::
@@ -1074,14 +1072,14 @@ cdef class MixedIntegerLinearProgram(SageObject):
             sage: p.add_constraint(2*v['x'] + v['y'] + 3*v['z'] <= 1)
             sage: p.add_constraint(2*v['y'] + v['z'] + 3*v['x'] <= 1)
             sage: p.add_constraint(2*v['z'] + v['x'] + 3*v['y'] >= 2)
-            sage: P = p.polyhedron(); P
+            sage: P = p.polyhedron(); P                         # needs cddexec
             The empty polyhedron in RDF^3
 
         An unbounded polyhedron::
 
             sage: p = MixedIntegerLinearProgram(solver='GLPK')
             sage: p.add_constraint(2*p['x'] + p['y'] - p['z'] <= 1)
-            sage: P = p.polyhedron(); P
+            sage: P = p.polyhedron(); P                         # needs cddexec
             A 3-dimensional polyhedron in RDF^3 defined as the convex hull of 1 vertex, 1 ray, 2 lines
 
         A square (see :issue:`14395`) ::
@@ -1092,7 +1090,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             sage: p.add_constraint(x >= -1)
             sage: p.add_constraint(y <= 1)
             sage: p.add_constraint(y >= -1)
-            sage: p.polyhedron()
+            sage: p.polyhedron()                                # needs cddexec
             A 2-dimensional polyhedron in RDF^2 defined as the convex hull of 4 vertices
 
         We can also use a backend that supports exact arithmetic::
@@ -1103,7 +1101,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             sage: p.add_constraint(x >= -1)
             sage: p.add_constraint(y <= 1)
             sage: p.add_constraint(y >= -1)
-            sage: p.polyhedron()
+            sage: p.polyhedron()                                # needs cddexec
             A 2-dimensional polyhedron in QQ^2 defined as the convex hull of 4 vertices
 
         TESTS:
@@ -1116,7 +1114,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
             sage: p.set_objective(3.5*x + 2.5*y)
             sage: p.add_constraint(x + y <= 10)
             sage: p.add_constraint(18.5*x + 5.1*y <= 110.3)
-            sage: p.polyhedron()
+            sage: p.polyhedron()                                # needs cddexec
             A 2-dimensional polyhedron in RDF^2 defined as the convex hull of 4 vertices
         """
         from sage.geometry.polyhedron.constructor import Polyhedron
@@ -2173,7 +2171,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
                 return list(range(nrows_before, self._backend.nrows()))
             return
         elif isinstance(linear_function, LinearConstraint):
-            if not(min is None and max is None):
+            if not (min is None and max is None):
                 raise ValueError('min and max must not be specified for (in)equalities')
             relation = linear_function
             if return_indices:
@@ -2194,7 +2192,7 @@ cdef class MixedIntegerLinearProgram(SageObject):
                     row_indices.extend(new_indices)
             return row_indices
         elif isinstance(linear_function, LinearTensorConstraint):
-            if not(min is None and max is None):
+            if not (min is None and max is None):
                 raise ValueError('min and max must not be specified for (in)equalities')
             relation = linear_function
             M = relation.parent().linear_tensors().free_module()
@@ -2895,8 +2893,8 @@ cdef class MixedIntegerLinearProgram(SageObject):
         """
         d = {}
         for v in L:
-            for id,coeff  in v.iteritems():
-                d[id] = coeff + d.get(id,0)
+            for id, coeff in v.iteritems():
+                d[id] = coeff + d.get(id, 0)
         return self.linear_functions_parent()(d)
 
     def get_backend(self):

@@ -46,6 +46,9 @@ class PrincipalPolicy(Enum):
 
     WINDOWS_PRINCIPAL = 2
 
+    def __int__(self) -> int:
+        ...
+
 
 class TokenImpersonationLevel(Enum):
     """This class has no documentation."""
@@ -59,5 +62,8 @@ class TokenImpersonationLevel(Enum):
     IMPERSONATION = 3
 
     DELEGATION = 4
+
+    def __int__(self) -> int:
+        ...
 
 

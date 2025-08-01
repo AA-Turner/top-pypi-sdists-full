@@ -28,7 +28,7 @@ use crate::async_primitives::linearizer::Linearizer;
 use crate::morsel::{Morsel, MorselSeq, SourceToken, get_ideal_morsel_size};
 use crate::nodes::io_sources::multi_file_reader::reader_interface::output::FileReaderOutputSend;
 use crate::nodes::io_sources::multi_file_reader::reader_interface::{
-    FileReader, FileReaderCallbacks,
+    FileReader, FileReaderCallbacks, Projection,
 };
 use crate::{DEFAULT_DISTRIBUTOR_BUFFER_SIZE, DEFAULT_LINEARIZER_BUFFER_SIZE};
 
@@ -154,9 +154,9 @@ impl FileReader for IpcFileReader {
 
         // check_latest: IR resolution does not download IPC.
         // TODO: Streaming reads
-        if let ScanSourceRef::Path(p) = self.scan_source.as_scan_source_ref() {
+        if let ScanSourceRef::Path(addr) = self.scan_source.as_scan_source_ref() {
             polars_io::file_cache::init_entries_from_uri_list(
-                &[Arc::from(p.to_str().unwrap())],
+                &[Arc::from(addr.to_str())],
                 self.cloud_options.as_deref(),
             )?;
         }
@@ -196,7 +196,7 @@ impl FileReader for IpcFileReader {
         } = self.init_data.clone().unwrap();
 
         let BeginReadArgs {
-            projected_schema,
+            projection: Projection::Plain(projected_schema),
             row_index,
             pre_slice: pre_slice_arg,
             predicate: None,
@@ -242,8 +242,8 @@ impl FileReader for IpcFileReader {
             if verbose {
                 eprintln!(
                     "[IpcFileReader]: early return: \
-                    n_rows_in_file: {} \
-                    pre_slice: {:?} \
+                    n_rows_in_file: {}, \
+                    pre_slice: {:?}, \
                     resolved_pre_slice: {:?} \
                     ",
                     self._n_rows_in_file()?,
@@ -458,11 +458,10 @@ impl FileReader for IpcFileReader {
             })
             .collect::<Vec<_>>();
 
-        let memslice = memslice.clone();
-        let metadata = metadata.clone();
-        let slice = slice.clone();
-        let row_index = row_index.clone();
-        let projection_info = projection_info.clone();
+        let memslice = memslice;
+        let metadata = metadata;
+        let row_index = row_index;
+        let projection_info = projection_info;
 
         // Walker task.
         //

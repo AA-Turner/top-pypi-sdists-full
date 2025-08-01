@@ -1,7 +1,7 @@
 r'''
 # `aws_ebs_snapshot_import`
 
-Refer to the Terraform Registry for docs: [`aws_ebs_snapshot_import`](https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import).
+Refer to the Terraform Registry for docs: [`aws_ebs_snapshot_import`](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EbsSnapshotImport(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ebsSnapshotImport.EbsSnapshotImport",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import aws_ebs_snapshot_import}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import aws_ebs_snapshot_import}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class EbsSnapshotImport(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import aws_ebs_snapshot_import} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import aws_ebs_snapshot_import} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param disk_container: disk_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#disk_container EbsSnapshotImport#disk_container}
-        :param client_data: client_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#client_data EbsSnapshotImport#client_data}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#encrypted EbsSnapshotImport#encrypted}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#id EbsSnapshotImport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#kms_key_id EbsSnapshotImport#kms_key_id}.
-        :param permanent_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#permanent_restore EbsSnapshotImport#permanent_restore}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#region EbsSnapshotImport#region}
-        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#role_name EbsSnapshotImport#role_name}.
-        :param storage_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#storage_tier EbsSnapshotImport#storage_tier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#tags EbsSnapshotImport#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#tags_all EbsSnapshotImport#tags_all}.
-        :param temporary_restore_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#temporary_restore_days EbsSnapshotImport#temporary_restore_days}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#timeouts EbsSnapshotImport#timeouts}
+        :param disk_container: disk_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#disk_container EbsSnapshotImport#disk_container}
+        :param client_data: client_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#client_data EbsSnapshotImport#client_data}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#encrypted EbsSnapshotImport#encrypted}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#id EbsSnapshotImport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#kms_key_id EbsSnapshotImport#kms_key_id}.
+        :param permanent_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#permanent_restore EbsSnapshotImport#permanent_restore}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#region EbsSnapshotImport#region}
+        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#role_name EbsSnapshotImport#role_name}.
+        :param storage_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#storage_tier EbsSnapshotImport#storage_tier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#tags EbsSnapshotImport#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#tags_all EbsSnapshotImport#tags_all}.
+        :param temporary_restore_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#temporary_restore_days EbsSnapshotImport#temporary_restore_days}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#timeouts EbsSnapshotImport#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class EbsSnapshotImport(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EbsSnapshotImport to import.
-        :param import_from_id: The id of the existing EbsSnapshotImport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EbsSnapshotImport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EbsSnapshotImport to import is found.
         '''
         if __debug__:
@@ -163,10 +163,10 @@ class EbsSnapshotImport(
         upload_start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#comment EbsSnapshotImport#comment}.
-        :param upload_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_end EbsSnapshotImport#upload_end}.
-        :param upload_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_size EbsSnapshotImport#upload_size}.
-        :param upload_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_start EbsSnapshotImport#upload_start}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#comment EbsSnapshotImport#comment}.
+        :param upload_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_end EbsSnapshotImport#upload_end}.
+        :param upload_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_size EbsSnapshotImport#upload_size}.
+        :param upload_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_start EbsSnapshotImport#upload_start}.
         '''
         value = EbsSnapshotImportClientData(
             comment=comment,
@@ -187,10 +187,10 @@ class EbsSnapshotImport(
         user_bucket: typing.Optional[typing.Union["EbsSnapshotImportDiskContainerUserBucket", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#format EbsSnapshotImport#format}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#url EbsSnapshotImport#url}.
-        :param user_bucket: user_bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#user_bucket EbsSnapshotImport#user_bucket}
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#format EbsSnapshotImport#format}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#url EbsSnapshotImport#url}.
+        :param user_bucket: user_bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#user_bucket EbsSnapshotImport#user_bucket}
         '''
         value = EbsSnapshotImportDiskContainer(
             format=format, description=description, url=url, user_bucket=user_bucket
@@ -206,8 +206,8 @@ class EbsSnapshotImport(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#create EbsSnapshotImport#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#delete EbsSnapshotImport#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#create EbsSnapshotImport#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#delete EbsSnapshotImport#delete}.
         '''
         value = EbsSnapshotImportTimeouts(create=create, delete=delete)
 
@@ -567,10 +567,10 @@ class EbsSnapshotImportClientData:
         upload_start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#comment EbsSnapshotImport#comment}.
-        :param upload_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_end EbsSnapshotImport#upload_end}.
-        :param upload_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_size EbsSnapshotImport#upload_size}.
-        :param upload_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_start EbsSnapshotImport#upload_start}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#comment EbsSnapshotImport#comment}.
+        :param upload_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_end EbsSnapshotImport#upload_end}.
+        :param upload_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_size EbsSnapshotImport#upload_size}.
+        :param upload_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_start EbsSnapshotImport#upload_start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be8f752ac2633a3c410cc3e83de853f03a90a4c22b570c039d6fbc1410bdf5c0)
@@ -590,25 +590,25 @@ class EbsSnapshotImportClientData:
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#comment EbsSnapshotImport#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#comment EbsSnapshotImport#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def upload_end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_end EbsSnapshotImport#upload_end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_end EbsSnapshotImport#upload_end}.'''
         result = self._values.get("upload_end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def upload_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_size EbsSnapshotImport#upload_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_size EbsSnapshotImport#upload_size}.'''
         result = self._values.get("upload_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def upload_start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#upload_start EbsSnapshotImport#upload_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#upload_start EbsSnapshotImport#upload_start}.'''
         result = self._values.get("upload_start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -805,20 +805,20 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param disk_container: disk_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#disk_container EbsSnapshotImport#disk_container}
-        :param client_data: client_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#client_data EbsSnapshotImport#client_data}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#encrypted EbsSnapshotImport#encrypted}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#id EbsSnapshotImport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#kms_key_id EbsSnapshotImport#kms_key_id}.
-        :param permanent_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#permanent_restore EbsSnapshotImport#permanent_restore}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#region EbsSnapshotImport#region}
-        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#role_name EbsSnapshotImport#role_name}.
-        :param storage_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#storage_tier EbsSnapshotImport#storage_tier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#tags EbsSnapshotImport#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#tags_all EbsSnapshotImport#tags_all}.
-        :param temporary_restore_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#temporary_restore_days EbsSnapshotImport#temporary_restore_days}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#timeouts EbsSnapshotImport#timeouts}
+        :param disk_container: disk_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#disk_container EbsSnapshotImport#disk_container}
+        :param client_data: client_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#client_data EbsSnapshotImport#client_data}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#encrypted EbsSnapshotImport#encrypted}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#id EbsSnapshotImport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#kms_key_id EbsSnapshotImport#kms_key_id}.
+        :param permanent_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#permanent_restore EbsSnapshotImport#permanent_restore}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#region EbsSnapshotImport#region}
+        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#role_name EbsSnapshotImport#role_name}.
+        :param storage_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#storage_tier EbsSnapshotImport#storage_tier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#tags EbsSnapshotImport#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#tags_all EbsSnapshotImport#tags_all}.
+        :param temporary_restore_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#temporary_restore_days EbsSnapshotImport#temporary_restore_days}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#timeouts EbsSnapshotImport#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -963,7 +963,7 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disk_container(self) -> "EbsSnapshotImportDiskContainer":
         '''disk_container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#disk_container EbsSnapshotImport#disk_container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#disk_container EbsSnapshotImport#disk_container}
         '''
         result = self._values.get("disk_container")
         assert result is not None, "Required property 'disk_container' is missing"
@@ -973,14 +973,14 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_data(self) -> typing.Optional[EbsSnapshotImportClientData]:
         '''client_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#client_data EbsSnapshotImport#client_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#client_data EbsSnapshotImport#client_data}
         '''
         result = self._values.get("client_data")
         return typing.cast(typing.Optional[EbsSnapshotImportClientData], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -988,13 +988,13 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#encrypted EbsSnapshotImport#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#encrypted EbsSnapshotImport#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#id EbsSnapshotImport#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#id EbsSnapshotImport#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1004,7 +1004,7 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#kms_key_id EbsSnapshotImport#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#kms_key_id EbsSnapshotImport#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1012,7 +1012,7 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def permanent_restore(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#permanent_restore EbsSnapshotImport#permanent_restore}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#permanent_restore EbsSnapshotImport#permanent_restore}.'''
         result = self._values.get("permanent_restore")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1020,38 +1020,38 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#region EbsSnapshotImport#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#region EbsSnapshotImport#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#role_name EbsSnapshotImport#role_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#role_name EbsSnapshotImport#role_name}.'''
         result = self._values.get("role_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#storage_tier EbsSnapshotImport#storage_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#storage_tier EbsSnapshotImport#storage_tier}.'''
         result = self._values.get("storage_tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#tags EbsSnapshotImport#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#tags EbsSnapshotImport#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#tags_all EbsSnapshotImport#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#tags_all EbsSnapshotImport#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def temporary_restore_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#temporary_restore_days EbsSnapshotImport#temporary_restore_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#temporary_restore_days EbsSnapshotImport#temporary_restore_days}.'''
         result = self._values.get("temporary_restore_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1059,7 +1059,7 @@ class EbsSnapshotImportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EbsSnapshotImportTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#timeouts EbsSnapshotImport#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#timeouts EbsSnapshotImport#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EbsSnapshotImportTimeouts"], result)
@@ -1096,10 +1096,10 @@ class EbsSnapshotImportDiskContainer:
         user_bucket: typing.Optional[typing.Union["EbsSnapshotImportDiskContainerUserBucket", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#format EbsSnapshotImport#format}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#url EbsSnapshotImport#url}.
-        :param user_bucket: user_bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#user_bucket EbsSnapshotImport#user_bucket}
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#format EbsSnapshotImport#format}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#url EbsSnapshotImport#url}.
+        :param user_bucket: user_bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#user_bucket EbsSnapshotImport#user_bucket}
         '''
         if isinstance(user_bucket, dict):
             user_bucket = EbsSnapshotImportDiskContainerUserBucket(**user_bucket)
@@ -1121,20 +1121,20 @@ class EbsSnapshotImportDiskContainer:
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#format EbsSnapshotImport#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#format EbsSnapshotImport#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#description EbsSnapshotImport#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#url EbsSnapshotImport#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#url EbsSnapshotImport#url}.'''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1144,7 +1144,7 @@ class EbsSnapshotImportDiskContainer:
     ) -> typing.Optional["EbsSnapshotImportDiskContainerUserBucket"]:
         '''user_bucket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#user_bucket EbsSnapshotImport#user_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#user_bucket EbsSnapshotImport#user_bucket}
         '''
         result = self._values.get("user_bucket")
         return typing.cast(typing.Optional["EbsSnapshotImportDiskContainerUserBucket"], result)
@@ -1184,8 +1184,8 @@ class EbsSnapshotImportDiskContainerOutputReference(
     @jsii.member(jsii_name="putUserBucket")
     def put_user_bucket(self, *, s3_bucket: builtins.str, s3_key: builtins.str) -> None:
         '''
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#s3_bucket EbsSnapshotImport#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#s3_key EbsSnapshotImport#s3_key}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#s3_bucket EbsSnapshotImport#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#s3_key EbsSnapshotImport#s3_key}.
         '''
         value = EbsSnapshotImportDiskContainerUserBucket(
             s3_bucket=s3_bucket, s3_key=s3_key
@@ -1292,8 +1292,8 @@ class EbsSnapshotImportDiskContainerOutputReference(
 class EbsSnapshotImportDiskContainerUserBucket:
     def __init__(self, *, s3_bucket: builtins.str, s3_key: builtins.str) -> None:
         '''
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#s3_bucket EbsSnapshotImport#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#s3_key EbsSnapshotImport#s3_key}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#s3_bucket EbsSnapshotImport#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#s3_key EbsSnapshotImport#s3_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b17352542ee5252922c6c263cf634bd5636748487f06c0db1d9e0406e1723c9)
@@ -1306,14 +1306,14 @@ class EbsSnapshotImportDiskContainerUserBucket:
 
     @builtins.property
     def s3_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#s3_bucket EbsSnapshotImport#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#s3_bucket EbsSnapshotImport#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#s3_key EbsSnapshotImport#s3_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#s3_key EbsSnapshotImport#s3_key}.'''
         result = self._values.get("s3_key")
         assert result is not None, "Required property 's3_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1415,8 +1415,8 @@ class EbsSnapshotImportTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#create EbsSnapshotImport#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#delete EbsSnapshotImport#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#create EbsSnapshotImport#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#delete EbsSnapshotImport#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b1af9fcfbb12497b68cbea9e470aa02c581b1b381dcd982b35fbd2eeb8d1447)
@@ -1430,13 +1430,13 @@ class EbsSnapshotImportTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#create EbsSnapshotImport#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#create EbsSnapshotImport#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.6.0/docs/resources/ebs_snapshot_import#delete EbsSnapshotImport#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/ebs_snapshot_import#delete EbsSnapshotImport#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

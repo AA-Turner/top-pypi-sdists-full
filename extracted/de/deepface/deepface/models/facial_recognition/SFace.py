@@ -1,20 +1,19 @@
 # built-in dependencies
-import os
-from typing import Any, List
+from typing import Any, List, Union
 
 # 3rd party dependencies
 import numpy as np
 import cv2 as cv
-import gdown
 
 # project dependencies
-from deepface.commons import folder_utils
+from deepface.commons import weight_utils
 from deepface.models.FacialRecognition import FacialRecognition
 from deepface.commons.logger import Logger
 
 logger = Logger()
 
 # pylint: disable=line-too-long, too-few-public-methods
+WEIGHTS_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
 
 
 class SFaceClient(FacialRecognition):
@@ -28,7 +27,7 @@ class SFaceClient(FacialRecognition):
         self.input_shape = (112, 112)
         self.output_shape = 128
 
-    def forward(self, img: np.ndarray) -> List[float]:
+    def forward(self, img: np.ndarray) -> Union[List[float], List[List[float]]]:
         """
         Find embeddings with SFace model
             This model necessitates the override of the forward method
@@ -38,31 +37,31 @@ class SFaceClient(FacialRecognition):
         Returns
             embeddings (list): multi-dimensional vector
         """
-        # return self.model.predict(img)[0].tolist()
+        input_blob = (img * 255).astype(np.uint8)
 
-        # revert the image to original format and preprocess using the model
-        input_blob = (img[0] * 255).astype(np.uint8)
+        embeddings = []
+        for i in range(input_blob.shape[0]):
+            embedding = self.model.model.feature(input_blob[i])
+            embeddings.append(embedding)
+        embeddings = np.concatenate(embeddings, axis=0)
 
-        embeddings = self.model.model.feature(input_blob)
-
-        return embeddings[0].tolist()
+        if embeddings.shape[0] == 1:
+            return embeddings[0].tolist()
+        return embeddings.tolist()
 
 
 def load_model(
-    url="https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+    url=WEIGHTS_URL,
 ) -> Any:
     """
     Construct SFace model, download its weights and load
     """
 
-    home = folder_utils.get_deepface_home()
-    output = os.path.join(home, ".deepface/weights/face_recognition_sface_2021dec.onnx")
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="face_recognition_sface_2021dec.onnx", source_url=url
+    )
 
-    if not os.path.isfile(output):
-        logger.info(f"{os.path.basename(output)} weights will be downloaded...")
-        gdown.download(url, output, quiet=False)
-
-    model = SFaceWrapper(model_path=output)
+    model = SFaceWrapper(model_path=weight_file)
 
     return model
 

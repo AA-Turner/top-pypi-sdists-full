@@ -78,6 +78,9 @@ class UnicodeCategory(Enum):
 
     OTHER_NOT_ASSIGNED = 29
 
+    def __int__(self) -> int:
+        ...
+
 
 class CharUnicodeInfo(System.Object):
     """
@@ -204,6 +207,9 @@ class CalendarAlgorithmType(Enum):
 
     LUNISOLAR_CALENDAR = 3
 
+    def __int__(self) -> int:
+        ...
+
 
 class CalendarWeekRule(Enum):
     """This class has no documentation."""
@@ -213,6 +219,9 @@ class CalendarWeekRule(Enum):
     FIRST_FULL_WEEK = 1
 
     FIRST_FOUR_DAY_WEEK = 2
+
+    def __int__(self) -> int:
+        ...
 
 
 class Calendar(System.Object, System.ICloneable, metaclass=abc.ABCMeta):
@@ -979,6 +988,9 @@ class GregorianCalendarTypes(Enum):
 
     TRANSLITERATED_FRENCH = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class SortVersion(System.Object, System.IEquatable[System_Globalization_SortVersion]):
     """This class has no documentation."""
@@ -1075,6 +1087,9 @@ class CompareOptions(Enum):
     leading to a fast comparison but one that is culture-insensitive. A string starting with a code unit XXXX16 comes before a string starting with YYYY16,
     if XXXX16 is less than YYYY16. This value cannot be combined with other CompareOptions values and must be used alone.
     """
+
+    def __int__(self) -> int:
+        ...
 
 
 class SortKey(System.Object):
@@ -1794,6 +1809,9 @@ class DigitShapes(Enum):
 
     NATIVE_NATIONAL = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class RegionInfo(System.Object):
     """
@@ -2104,6 +2122,9 @@ class CultureTypes(Enum):
 
     FRAMEWORK_CULTURES = ...
     """CultureTypes.FrameworkCultures has been deprecated. Use other values in CultureTypes instead."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class NumberFormatInfo(System.Object, System.IFormatProvider, System.ICloneable):
@@ -3002,6 +3023,9 @@ class NumberStyles(Enum):
 
     ANY = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class GlobalizationExtensions(System.Object):
     """This class has no documentation."""
@@ -3432,6 +3456,9 @@ class TimeSpanStyles(Enum):
 
     ASSUME_NEGATIVE = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ChineseLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
     """This class has no documentation."""
@@ -3513,6 +3540,9 @@ class DateTimeStyles(Enum):
     ASSUME_UNIVERSAL = ...
 
     ROUNDTRIP_KIND = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class JulianCalendar(System.Globalization.Calendar):

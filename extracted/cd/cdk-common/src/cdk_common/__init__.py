@@ -5608,6 +5608,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    BUDGETS_SERVICE_ROLE_POLICY = "BUDGETS_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

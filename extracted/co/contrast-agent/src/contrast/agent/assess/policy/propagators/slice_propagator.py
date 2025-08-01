@@ -27,23 +27,18 @@ class SlicePropagator(BasePropagator):
             # and copies each tag individually to the target string.
             # For large slices, this is slower than the fast path above.
 
-            # Offset in the target string
-            target_offset = 0
-
             # This is like the coolest thing ever. I found it here:
             # https://stackoverflow.com/a/42883770/4312739
             # It converts a slice to a range of indices
             offsets = list(range(self.preshift.obj_length)[slice_])
 
-            for source_offset in offsets:
+            for target_offset, source_offset in enumerate(offsets):
                 span = AdjustedSpan(source_offset, source_offset + 1)
                 source_tags = source_properties.tags_at_range(span)
                 for name in source_tags:
                     end_offset = target_offset + 1
                     new_span = AdjustedSpan(target_offset, end_offset)
                     self.target_properties.add_tag(name, new_span)
-
-                target_offset += 1
 
         copy_events(self.target_properties, source_properties)
         merge_tags(self.target_properties.tags)

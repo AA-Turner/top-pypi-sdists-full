@@ -23,7 +23,6 @@ class FromstringAction(DefaultAction):
         parser = get_arg(orig_args, orig_kwargs, 1, "parser", None)
         if parser is not None and not isinstance(parser, etree.XMLParser):
             return False
-        if hasattr(parser, "resolve_entities") and parser.resolve_entities is False:
-            return False
-
-        return True
+        return not (
+            hasattr(parser, "resolve_entities") and parser.resolve_entities is False
+        )

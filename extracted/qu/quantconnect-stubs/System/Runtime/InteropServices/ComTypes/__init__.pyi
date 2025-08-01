@@ -491,6 +491,9 @@ class INVOKEKIND(Enum):
 
     INVOKE_PROPERTYPUTREF = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class DESCKIND(Enum):
     """This class has no documentation."""
@@ -506,6 +509,9 @@ class DESCKIND(Enum):
     DESCKIND_IMPLICITAPPOBJ = ...
 
     DESCKIND_MAX = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class BINDPTR:
@@ -557,6 +563,9 @@ class IMPLTYPEFLAGS(Enum):
 
     IMPLTYPEFLAG_FDEFAULTVTABLE = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class TYPEKIND(Enum):
     """This class has no documentation."""
@@ -578,6 +587,9 @@ class TYPEKIND(Enum):
     TKIND_UNION = ...
 
     TKIND_MAX = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class ITypeLib(metaclass=abc.ABCMeta):
@@ -757,6 +769,9 @@ class TYPEFLAGS(Enum):
 
     TYPEFLAG_FPROXY = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class TYPEDESC:
     """This class has no documentation."""
@@ -790,6 +805,9 @@ class IDLFLAG(Enum):
     IDLFLAG_FLCID = ...
 
     IDLFLAG_FRETVAL = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class IDLDESC:
@@ -975,6 +993,9 @@ class FUNCKIND(Enum):
 
     FUNC_DISPATCH = 4
 
+    def __int__(self) -> int:
+        ...
+
 
 class CALLCONV(Enum):
     """This class has no documentation."""
@@ -999,6 +1020,9 @@ class CALLCONV(Enum):
 
     CC_MAX = 9
 
+    def __int__(self) -> int:
+        ...
+
 
 class PARAMFLAG(Enum):
     """This class has no documentation."""
@@ -1018,6 +1042,9 @@ class PARAMFLAG(Enum):
     PARAMFLAG_FHASDEFAULT = ...
 
     PARAMFLAG_FHASCUSTDATA = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class PARAMDESC:
@@ -1189,6 +1216,9 @@ class VARKIND(Enum):
     VAR_CONST = ...
 
     VAR_DISPATCH = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class VARDESC:
@@ -1367,6 +1397,9 @@ class FUNCFLAGS(Enum):
 
     FUNCFLAG_FIMMEDIATEBIND = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class VARFLAGS(Enum):
     """This class has no documentation."""
@@ -1397,6 +1430,9 @@ class VARFLAGS(Enum):
 
     VARFLAG_FIMMEDIATEBIND = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class ITypeLib2(System.Runtime.InteropServices.ComTypes.ITypeLib, metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -1425,6 +1461,9 @@ class SYSKIND(Enum):
 
     SYS_WIN_64 = ...
 
+    def __int__(self) -> int:
+        ...
+
 
 class LIBFLAGS(Enum):
     """This class has no documentation."""
@@ -1436,6 +1475,9 @@ class LIBFLAGS(Enum):
     LIBFLAG_FHIDDEN = ...
 
     LIBFLAG_FHASDISKIMAGE = ...
+
+    def __int__(self) -> int:
+        ...
 
 
 class TYPELIBATTR:

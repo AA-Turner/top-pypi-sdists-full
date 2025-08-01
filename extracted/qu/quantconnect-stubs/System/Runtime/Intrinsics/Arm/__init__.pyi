@@ -4700,6 +4700,9 @@ class SveMaskPattern(Enum):
     ALL = 31
     """ALL"""
 
+    def __int__(self) -> int:
+        ...
+
 
 class SvePrefetchType(Enum):
     """This class has no documentation."""
@@ -4739,6 +4742,9 @@ class SvePrefetchType(Enum):
 
     STORE_L_3_NON_TEMPORAL = 13
     """PSTL3STRM"""
+
+    def __int__(self) -> int:
+        ...
 
 
 class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
@@ -7328,6 +7334,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint32_t svmlslt_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
           SMLSLT Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_by_selected_scalar_saturate_high(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmulh_lane[_s16](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          SQDMULH Zresult.H, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_saturate_high(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svqdmulh[_s8](svint8_t op1, svint8_t op2)
+          SQDMULH Zresult.B, Zop1.B, Zop2.B
         """
         ...
 

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdklabs.cdk-ethereum-node",
-    "version": "0.0.671",
+    "version": "0.0.672",
     "description": "CDK construct to deploy an Ethereum node running on Amazon Managed Blockchain",
     "license": "MIT-0",
     "url": "https://github.com/cdklabs/cdk-ethereum-node.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdklabs.cdk_ethereum_node._jsii": [
-            "cdk-ethereum-node@0.0.671.jsii.tgz"
+            "cdk-ethereum-node@0.0.672.jsii.tgz"
         ],
         "cdklabs.cdk_ethereum_node": [
             "py.typed"
@@ -36,7 +36,7 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.24.1, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.112.0, <2.0.0",
+        "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

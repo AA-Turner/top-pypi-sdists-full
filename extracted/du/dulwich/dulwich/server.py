@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
-# General Public License as public by the Free Software Foundation; version 2.0
+# General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
 # modify it under the terms of either of these two licenses.
 #
@@ -397,8 +397,6 @@ class UploadPackHandler(PackHandler):
             get_tagged=self.get_tagged,
         )
 
-        object_ids = list(missing_objects)
-
         # Did the process short-circuit (e.g. in a stateless RPC call)? Note
         # that the client still expects a 0-object pack in most cases.
         # Also, if it also happens that the object_iter is instantiated
@@ -407,6 +405,12 @@ class UploadPackHandler(PackHandler):
         # iterate through everything and write things out to the wire.
         if len(wants) == 0:
             return
+
+        # Handle shallow clone case where missing_objects can be None
+        if missing_objects is None:
+            return
+
+        object_ids = list(missing_objects)
 
         if not graph_walker.handle_done(
             not self.has_capability(CAPABILITY_NO_DONE), self._done_received

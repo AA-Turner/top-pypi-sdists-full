@@ -14,7 +14,7 @@
 #include "slang/ast/SemanticFacts.h"
 #include "slang/numeric/ConstantValue.h"
 #include "slang/syntax/SyntaxFwd.h"
-#include "slang/util/Hash.h"
+#include "slang/util/FlatMap.h"
 #include "slang/util/Util.h"
 
 namespace slang::ast {
@@ -138,59 +138,48 @@ enum class SLANG_EXPORT ASTFlags : uint64_t {
     /// AST creation is for an output (or inout) port or function argument.
     OutputArg = 1ull << 28,
 
-    /// AST creation is for a procedural assign statement.
-    ProceduralAssign = 1ull << 29,
-
-    /// AST creation is for a procedural force / release / deassign statement.
-    ProceduralForceRelease = 1ull << 30,
-
     /// AST creation is in a context that allows interconnect nets.
-    AllowInterconnect = 1ull << 31,
-
-    /// AST creation is in a context where drivers should not be registered for
-    /// lvalues, even if they otherwise would normally be. This is used, for example,
-    /// in potentially unrollable for loops to let the loop unroller handle the drivers.
-    NotADriver = 1ull << 32,
+    AllowInterconnect = 1ull << 29,
 
     /// AST creation is for a range expression inside a streaming concatenation operator.
-    StreamingWithRange = 1ull << 33,
+    StreamingWithRange = 1ull << 30,
 
     /// AST creation is happening inside a specify block.
-    SpecifyBlock = 1ull << 34,
+    SpecifyBlock = 1ull << 31,
 
     /// AST creation is for a specparam initializer expression.
-    SpecparamInitializer = 1ull << 35,
+    SpecparamInitializer = 1ull << 32,
 
     /// AST creation is for a DPI argument type.
-    DPIArg = 1ull << 36,
+    DPIArg = 1ull << 33,
 
     /// AST creation is for an assertion instance's default argument.
-    AssertionDefaultArg = 1ull << 37,
+    AssertionDefaultArg = 1ull << 34,
 
     /// AST creation is for an lvalue that also counts as an rvalue. Only valid
     /// when combined with the LValue flag -- used for things like the pre & post
     /// increment and decrement operators.
-    LAndRValue = 1ull << 38,
+    LAndRValue = 1ull << 35,
 
     /// AST binding should not count symbol references towards that symbol being "used".
     /// If this flag is not set, accessing a variable or net in an expression will count
     /// that symbol as being "used".
-    NoReference = 1ull << 39,
+    NoReference = 1ull << 36,
 
     /// AST binding is for a parameter inside a SystemVerilog configuration.
-    ConfigParam = 1ull << 40,
+    ConfigParam = 1ull << 37,
 
     /// AST binding is for the contents of the type() operator.
-    TypeOperator = 1ull << 41,
+    TypeOperator = 1ull << 38,
 
     /// AST binding is inside a fork-join_any or fork-join_none block.
-    ForkJoinAnyNone = 1ull << 42,
+    ForkJoinAnyNone = 1ull << 39,
 
     /// AST binding disallows nets with a user-defined nettype (UDNT).
-    DisallowUDNT = 1ull << 43,
+    DisallowUDNT = 1ull << 40,
 
     /// AST binding is for a bind instantiation (port connection or param value).
-    BindInstantiation = 1ull << 44,
+    BindInstantiation = 1ull << 41,
 };
 SLANG_BITMASK(ASTFlags, BindInstantiation)
 
@@ -369,10 +358,6 @@ public:
     /// Indicates whether the AST creation is happening inside an unevaluated branch.
     bool inUnevaluatedBranch() const { return flags.has(ASTFlags::UnevaluatedBranch); }
 
-    /// Indicates the kind of driver that each assignment expression created
-    /// using this context should use.
-    DriverKind getDriverKind() const;
-
     /// Gets the parent instance if this context is being used to bind expressions
     /// for an instantiation.
     const InstanceSymbolBase* getInstance() const;
@@ -380,9 +365,6 @@ public:
     /// If this context is within a procedural block, returns a pointer
     /// to that symbol.
     const ProceduralBlockSymbol* getProceduralBlock() const;
-
-    /// If this context is within a subroutine, returns a pointer to that subroutine.
-    const SubroutineSymbol* getContainingSubroutine() const;
 
     /// Indicates whether AST creation is happening within an always_comb
     /// or always_latch procedure.
@@ -411,19 +393,6 @@ public:
     /// Registers attributes for the given expression.
     void setAttributes(const Expression& expr,
                        std::span<const syntax::AttributeInstanceSyntax* const> syntax) const;
-
-    /// Registers a driver for the given symbol.
-    /// @param symbol The symbol that is being driven
-    /// @param longestStaticPrefix The portion of the symbol that is being driven
-    /// @param assignFlags Flags that specify how the driver functions
-    void addDriver(const ValueSymbol& symbol, const Expression& longestStaticPrefix,
-                   bitmask<AssignFlags> assignFlags) const;
-
-    /// @brief Gets the symbol that contains the AST context
-    ///
-    /// @returns Either a parent procedural block or subroutine if one is
-    /// registered, and if not the scope passed to the ASTContext constructor.
-    const Symbol& getContainingSymbol() const;
 
     /// Issues a new diagnostic.
     Diagnostic& addDiag(DiagCode code, SourceLocation location) const;

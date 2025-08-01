@@ -5,6 +5,7 @@
 //------------------------------------------------------------------------------
 #include "pyslang.h"
 
+#include "slang/analysis/AnalysisManager.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/ScriptSession.h"
 #include "slang/ast/SystemSubroutine.h"
@@ -33,7 +34,6 @@ void registerCompilation(py::module_& m) {
     EXPOSE_ENUM(m, ElabSystemTaskKind);
     EXPOSE_ENUM(m, RandMode);
     EXPOSE_ENUM(m, PrimitivePortDirection);
-    EXPOSE_ENUM(m, DriverKind);
 
     py::enum_<MinTypMax>(m, "MinTypMax")
         .value("Min", MinTypMax::Min)
@@ -45,18 +45,16 @@ void registerCompilation(py::module_& m) {
         .value("AllowHierarchicalConst", CompilationFlags::AllowHierarchicalConst)
         .value("RelaxEnumConversions", CompilationFlags::RelaxEnumConversions)
         .value("AllowUseBeforeDeclare", CompilationFlags::AllowUseBeforeDeclare)
-        .value("AllowDupInitialDrivers", CompilationFlags::AllowDupInitialDrivers)
         .value("AllowTopLevelIfacePorts", CompilationFlags::AllowTopLevelIfacePorts)
-        .value("StrictDriverChecking", CompilationFlags::StrictDriverChecking)
         .value("LintMode", CompilationFlags::LintMode)
-        .value("SuppressUnused", CompilationFlags::SuppressUnused)
         .value("IgnoreUnknownModules", CompilationFlags::IgnoreUnknownModules)
         .value("RelaxStringConversions", CompilationFlags::RelaxStringConversions)
         .value("AllowRecursiveImplicitCall", CompilationFlags::AllowRecursiveImplicitCall)
         .value("AllowBareValParamAssignment", CompilationFlags::AllowBareValParamAssignment)
         .value("AllowSelfDeterminedStreamConcat", CompilationFlags::AllowSelfDeterminedStreamConcat)
-        .value("AllowMultiDrivenLocals", CompilationFlags::AllowMultiDrivenLocals)
-        .value("AllowMergingAnsiPorts", CompilationFlags::AllowMergingAnsiPorts);
+        .value("AllowMergingAnsiPorts", CompilationFlags::AllowMergingAnsiPorts)
+        .value("DisableInstanceCaching", CompilationFlags::DisableInstanceCaching)
+        .value("DisallowRefsToUnknownInstances", CompilationFlags::DisallowRefsToUnknownInstances);
 
     py::class_<CompilationOptions>(m, "CompilationOptions")
         .def(py::init<>())
@@ -82,6 +80,7 @@ void registerCompilation(py::module_& m) {
         .def(py::init<const Bag&>(), "options"_a)
         .def_property_readonly("options", &Compilation::getOptions)
         .def_property_readonly("isFinalized", &Compilation::isFinalized)
+        .def_property_readonly("isElaborated", &Compilation::isElaborated)
         .def_property_readonly("sourceManager", &Compilation::getSourceManager)
         .def_property_readonly("defaultLibrary", &Compilation::getDefaultLibrary)
         .def("addSyntaxTree", &Compilation::addSyntaxTree, "tree"_a)
@@ -91,7 +90,9 @@ void registerCompilation(py::module_& m) {
              "subroutine"_a)
         .def("addSystemMethod", &Compilation::addSystemMethod, py::keep_alive<1, 3>(), "typeKind"_a,
              "method"_a)
-        .def("getSystemSubroutine", &Compilation::getSystemSubroutine, byrefint, "name"_a)
+        .def("getSystemSubroutine",
+             py::overload_cast<std::string_view>(&Compilation::getSystemSubroutine, py::const_),
+             byrefint, "name"_a)
         .def("getSystemMethod", &Compilation::getSystemMethod, byrefint, "typeKind"_a, "name"_a)
         .def("parseName", &Compilation::parseName, byrefint, "name"_a)
         .def("tryParseName", &Compilation::tryParseName, byrefint, "name"_a, "diags"_a)
@@ -140,7 +141,8 @@ void registerCompilation(py::module_& m) {
         .def_property_readonly("unboundedType", &Compilation::getUnboundedType)
         .def_property_readonly("typeRefType", &Compilation::getTypeRefType)
         .def_property_readonly("wireNetType", &Compilation::getWireNetType)
-        .def_property_readonly("hasIssuedErrors", &Compilation::hasIssuedErrors);
+        .def_property_readonly("hasIssuedErrors", &Compilation::hasIssuedErrors)
+        .def_property_readonly("hasFatalErrors", &Compilation::hasFatalErrors);
 
     py::class_<Compilation::DefinitionLookupResult>(comp, "DefinitionLookupResult")
         .def(py::init<>())
@@ -190,10 +192,16 @@ void registerCompilation(py::module_& m) {
              "includeDirectives"_a, "obfuscateIds"_a, "useFixedObfuscationSeed"_a = false)
         .def("reportMacros", &Driver::reportMacros)
         .def("parseAllSources", &Driver::parseAllSources)
+        .def("getDepfiles", &Driver::getDepfiles, "includesOnly"_a = false)
+        .def("serializeDepfiles", &Driver::serializeDepfiles, "files"_a,
+             "depfileTarget"_a = std::optional<std::string>())
         .def("createOptionBag", &Driver::createOptionBag)
         .def("createCompilation", &Driver::createCompilation)
         .def("reportParseDiags", &Driver::reportParseDiags)
-        .def("reportCompilation", &Driver::reportCompilation, "compilation"_a, "quiet"_a);
+        .def("reportCompilation", &Driver::reportCompilation, "compilation"_a, "quiet"_a)
+        .def("runAnalysis", &Driver::runAnalysis, "compilation"_a)
+        .def("reportDiagnostics", &Driver::reportDiagnostics, "quiet"_a)
+        .def("runFullCompilation", &Driver::runFullCompilation, "quiet"_a = false);
 
     py::class_<SourceOptions>(m, "SourceOptions")
         .def(py::init<>())
@@ -267,6 +275,7 @@ void registerCompilation(py::module_& m) {
     systemSub.def(py::init_alias<const std::string&, SubroutineKind>(), "name"_a, "kind"_a)
         .def_readwrite("name", &SystemSubroutine::name)
         .def_readwrite("kind", &SystemSubroutine::kind)
+        .def_readwrite("knownNameId", &SystemSubroutine::knownNameId)
         .def_readwrite("hasOutputArgs", &SystemSubroutine::hasOutputArgs)
         .def_readwrite("withClauseMode", &SystemSubroutine::withClauseMode)
         .def("allowEmptyArgument", &SystemSubroutine::allowEmptyArgument, "argIndex"_a)

@@ -569,7 +569,7 @@ class _drawing_tool:
 
     EXAMPLES::
 
-        sage: # needs sage.plot
+        sage: # needs sage.plot sage.symbolic
         sage: from sage.combinat.parallelogram_polyomino import (
         ....:     _drawing_tool, default_tikz_options,
         ....:     ParallelogramPolyominoesOptions
@@ -606,7 +606,7 @@ class _drawing_tool:
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: from sage.combinat.parallelogram_polyomino import (
             ....:     _drawing_tool, default_tikz_options,
             ....:     ParallelogramPolyominoesOptions
@@ -645,7 +645,7 @@ class _drawing_tool:
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: from sage.combinat.parallelogram_polyomino import (
             ....:     _drawing_tool, ParallelogramPolyominoesOptions
             ....: )
@@ -694,7 +694,7 @@ class _drawing_tool:
 
             The rotated position.
             """
-            [x, y] = pos
+            x, y = pos
             return [x*cos(angle) - y*sin(angle), x*sin(angle) + y*cos(angle)]
 
         def mirror(pos, axe):
@@ -756,7 +756,7 @@ class _drawing_tool:
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: from sage.combinat.parallelogram_polyomino import (
             ....:     _drawing_tool, ParallelogramPolyominoesOptions
             ....: )
@@ -770,8 +770,8 @@ class _drawing_tool:
             color = self._color_line
         if size is None:
             size = self._line_size
-        [x1, y1] = self.XY(v1)
-        [x2, y2] = self.XY(v2)
+        x1, y1 = self.XY(v1)
+        x2, y2 = self.XY(v2)
         return "\n  \\draw[color=%s, line width=%s] (%f, %f) -- (%f, %f);" % (
             color, size, float(x1), float(y1), float(x2), float(y2)
         )
@@ -796,7 +796,7 @@ class _drawing_tool:
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: from sage.combinat.parallelogram_polyomino import (
             ....:     _drawing_tool, ParallelogramPolyominoesOptions
             ....: )
@@ -833,7 +833,7 @@ class _drawing_tool:
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: from sage.combinat.parallelogram_polyomino import (
             ....:     _drawing_tool, ParallelogramPolyominoesOptions
             ....: )
@@ -846,14 +846,14 @@ class _drawing_tool:
             color = self._color_point
         if size is None:
             size = self._point_size
-        [x1, y1] = self.XY(p1)
+        x1, y1 = self.XY(p1)
         return "\n  \\filldraw[color=%s] (%f, %f) circle (%spt);" % (
             color, float(x1), float(y1), size
         )
 
 
 class ParallelogramPolyomino(ClonableList,
-        metaclass=InheritComparisonClasscallMetaclass):
+                             metaclass=InheritComparisonClasscallMetaclass):
     r"""
     Parallelogram Polyominoes.
 
@@ -2703,7 +2703,7 @@ class ParallelogramPolyomino(ClonableList,
 
         TESTS::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: pp = ParallelogramPolyomino(
             ....:     [[0, 0, 1, 0, 0, 0, 1, 1], [1, 0, 1, 1, 0, 0, 0, 0]]
             ....: )
@@ -2772,7 +2772,7 @@ class ParallelogramPolyomino(ClonableList,
 
         TESTS::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: pp = ParallelogramPolyomino(
             ....:     [[0, 0, 0, 1, 1, 0, 1, 1], [1, 0, 1, 1, 0, 1, 0, 0]]
             ....: )
@@ -2886,7 +2886,7 @@ class ParallelogramPolyomino(ClonableList,
 
         TESTS::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: pp = ParallelogramPolyomino(
             ....:     [[0, 0, 0, 1, 1, 0, 1, 1], [1, 0, 1, 1, 0, 1, 0, 0]]
             ....: )
@@ -3509,7 +3509,7 @@ class ParallelogramPolyomino(ClonableList,
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: pp = ParallelogramPolyomino(
             ....:     [[0,0,0,1,1,0,1,0,0,1,1,1],[1,1,1,0,0,1,1,0,0,1,0,0]]
             ....: )
@@ -3887,7 +3887,7 @@ class ParallelogramPolyomino(ClonableList,
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: pp = ParallelogramPolyomino([[0,1],[1,0]])
             sage: latex(pp)
             <BLANKLINE>
@@ -3906,7 +3906,7 @@ class ParallelogramPolyomino(ClonableList,
 
         EXAMPLES::
 
-            sage: # needs sage.plot
+            sage: # needs sage.plot sage.symbolic
             sage: pp = ParallelogramPolyomino([[0,1],[1,0]])
             sage: print(pp._latex_drawing())
             <BLANKLINE>
@@ -4085,7 +4085,7 @@ class ParallelogramPolyominoes_size(
         """
         return "Parallelogram polyominoes of size %s" % (self._size)
 
-    def an_element(self):
+    def _an_element_(self):
         r"""
         Return an element of a parallelogram polyomino of a given size.
 

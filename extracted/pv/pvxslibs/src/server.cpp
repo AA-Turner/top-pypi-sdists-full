@@ -441,14 +441,7 @@ Server::Pvt::Pvt(const Config &conf)
             listeners.push_back(manager.onSearch(any4, cb));
         }
 
-        if(evsocket::ipstack!=evsocket::Winsock
-                && addr.addr.family()==AF_INET && !addr.addr.isAny() && !addr.addr.isMCast()) {
-            /* An oddness of BSD sockets (not winsock) is that binding to
-             * INADDR_ANY will receive unicast and broadcast, but binding to
-             * a specific interface address receives only unicast.  The trick
-             * is to bind a second socket to the interface broadcast address,
-             * which will then receive only broadcasts.
-             */
+        if(addr.addr.family()==AF_INET && !addr.addr.isAny() && !addr.addr.isMCast()) {
             for(auto bcast : dummy.broadcasts(&addr.addr)) {
                 bcast.setPort(addr.addr.port());
                 listeners.push_back(manager.onSearch(bcast, cb));
@@ -692,7 +685,20 @@ void Server::Pvt::onSearch(const UDPManager::Search& msg)
         searchOp._names[i]._name = msg.names[i].name;
         searchOp._names[i]._claim = false;
     }
-    ipAddrToDottedIP(&msg.server->in, searchOp._src, sizeof(searchOp._src));
+    static_assert(sizeof(searchOp._src) >= INET6_ADDRSTRLEN+1, "");
+    switch(msg.server.family()) {
+    case AF_INET:
+        evutil_inet_ntop(AF_INET, &msg.server->in.sin_addr,
+                         searchOp._src, sizeof(searchOp._src)-1);
+        break;
+    case AF_INET6:
+        evutil_inet_ntop(AF_INET6, msg.server->in6.sin6_addr.s6_addr,
+                         searchOp._src, sizeof(searchOp._src)-1);
+        break;
+    default:
+        strcpy(searchOp._src, "?");
+        break;
+    }
 
     {
         auto G(sourcesLock.lockReader());
@@ -840,6 +846,7 @@ void Source::show(std::ostream& strm)
 }
 
 OpBase::~OpBase() {}
+RemoteLogger::~RemoteLogger() {}
 
 ChannelControl::~ChannelControl() {}
 

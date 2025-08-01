@@ -1,6 +1,6 @@
-Metadata-Version: 1.2
+Metadata-Version: 2.1
 Name: epicscorelibs
-Version: 7.0.7.99.1.1
+Version: 7.0.7.99.1.2
 Summary: The EPICS Core libraries for use by python modules
 Home-page: https://github.com/mdavidsaver/epicscorelibs
 Author: Michael Davidsaver
@@ -9,11 +9,7 @@ License: EPICS
 Project-URL: Source, https://github.com/mdavidsaver/epicscorelibs
 Project-URL: Tracker, https://github.com/mdavidsaver/epicscorelibs/issues
 Project-URL: Upstream, https://epics.anl.gov/
-Description: The EPICS (Experimental Physics and Industrial Control System) core libraries
-        for use by python modules.  Either dynamically with ctypes or statically by compiled extension.
-        
 Keywords: epics scada
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
@@ -26,3 +22,7 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=2.7
+License-File: LICENSE
+
+The EPICS (Experimental Physics and Industrial Control System) core libraries
+for use by python modules.  Either dynamically with ctypes or statically by compiled extension.

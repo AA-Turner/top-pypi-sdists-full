@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: textual
-Version: 5.0.1
+Version: 5.1.1
 Summary: Modern Text User Interface framework
-Home-page: https://github.com/Textualize/textual
 License: MIT
 Author: Will McGugan
 Author-email: will@textualize.io
@@ -47,6 +46,7 @@ Requires-Dist: tree-sitter-yaml (>=0.6.0) ; (python_version >= "3.10") and (extr
 Requires-Dist: typing-extensions (>=4.4.0,<5.0.0)
 Project-URL: Bug Tracker, https://github.com/Textualize/textual/issues
 Project-URL: Documentation, https://textual.textualize.io/
+Project-URL: Homepage, https://github.com/Textualize/textual
 Project-URL: Repository, https://github.com/Textualize/textual
 Description-Content-Type: text/markdown
 

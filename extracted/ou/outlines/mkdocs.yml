@@ -138,6 +138,7 @@ nav:
                     - Ollama: features/models/ollama.md
                     - OpenAI: features/models/openai.md
                     - OpenAI compatible API: features/models/openai_compatible.md
+                    - OpenRouter: features/models/openrouter.md
                     - SGLang: features/models/sglang.md
                     - TGI: features/models/tgi.md
                     - Transformers: features/models/transformers.md
@@ -161,6 +162,7 @@ nav:
 
           - Advanced:
                 - Logits Processors: features/advanced/logits_processors.md
+                - Structured Generation Backends: features/advanced/backends.md
 
     - API Reference: api_reference/
 

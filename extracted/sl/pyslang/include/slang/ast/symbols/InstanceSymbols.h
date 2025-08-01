@@ -12,6 +12,8 @@
 #include "slang/ast/Symbol.h"
 #include "slang/numeric/ConstantValue.h"
 #include "slang/syntax/SyntaxFwd.h"
+#include "slang/util/Function.h"
+#include "slang/util/SmallMap.h"
 
 namespace slang::ast {
 
@@ -53,14 +55,25 @@ enum class SLANG_EXPORT InstanceFlags : uint8_t {
 
     /// The instance resides in a parent instance that itself is from a bind directive.
     /// This applies recursively for the entire bound hierarchy.
-    ParentFromBind = 1 << 2
+    ParentFromBind = 1 << 2,
+
+    /// The instance is the target of a bind instantiation.
+    TargetedByBind = 1 << 3,
+
+    /// Flags that prevent caching of this instance in the elaboration cache.
+    PreventsCaching = Uninstantiated | FromBind | ParentFromBind
 };
-SLANG_BITMASK(InstanceFlags, ParentFromBind)
+SLANG_BITMASK(InstanceFlags, TargetedByBind)
 
 /// Common functionality for module, interface, program, and primitive instances.
 class SLANG_EXPORT InstanceSymbolBase : public Symbol {
 public:
-    std::span<const int32_t> arrayPath;
+    /// The path to this instance, if it is contained within an array (or multiple
+    /// nested arrays). This is a list of indices that can be used to index into the
+    /// arrays' elements list, always zero based. This is not necessarily what the
+    /// user wrote in the source code; the array dimensions are needed to translate
+    /// from this canonical space back to the source code indices.
+    std::span<const uint32_t> arrayPath;
 
     /// If this instance is part of an array, walk upward to find the array's name.
     /// Otherwise returns the name of the instance itself.
@@ -80,7 +93,7 @@ protected:
 };
 
 /// Represents an instance of a module, interface, or program.
-class SLANG_EXPORT InstanceSymbol : public InstanceSymbolBase {
+class SLANG_EXPORT InstanceSymbol final : public InstanceSymbolBase {
 public:
     const InstanceBodySymbol& body;
 
@@ -110,8 +123,8 @@ public:
     /// Otherwise returns nullptr.
     const InstanceBodySymbol* getCanonicalBody() const { return canonicalBody; }
 
-    void setCanonicalBody(const InstanceBodySymbol& newCanonical) const {
-        canonicalBody = &newCanonical;
+    void setCanonicalBody(const InstanceBodySymbol* newCanonical) const {
+        canonicalBody = newCanonical;
     }
 
     void serializeTo(ASTSerializer& serializer) const;
@@ -163,7 +176,7 @@ private:
     mutable const InstanceBodySymbol* canonicalBody = nullptr;
 };
 
-class SLANG_EXPORT InstanceBodySymbol : public Symbol, public Scope {
+class SLANG_EXPORT InstanceBodySymbol final : public Symbol, public Scope {
 public:
     /// The parent instance for which this is the body.
     const InstanceSymbol* parentInstance = nullptr;
@@ -214,13 +227,14 @@ private:
     friend class Scope;
 
     void setPorts(std::span<const Symbol* const> ports) const { portList = ports; }
+    void finishElaboration(function_ref<void(const Symbol&)> insertCB) const;
 
     const DefinitionSymbol& definition;
     mutable std::span<const Symbol* const> portList;
     std::span<const ParameterSymbolBase* const> parameters;
 };
 
-class SLANG_EXPORT InstanceArraySymbol : public Symbol, public Scope {
+class SLANG_EXPORT InstanceArraySymbol final : public Symbol, public Scope {
 public:
     std::span<const Symbol* const> elements;
     ConstantRange range;
@@ -245,7 +259,7 @@ public:
 /// Represents an instance of a definition (module / interface / program / checker)
 /// that is not actually instantiated in the design. This is a placeholder
 /// in the AST to record this instance and capture its port expressions.
-class SLANG_EXPORT UninstantiatedDefSymbol : public Symbol {
+class SLANG_EXPORT UninstantiatedDefSymbol final : public Symbol {
 public:
     /// The name of the definition.
     std::string_view definitionName;
@@ -309,7 +323,7 @@ private:
     mutable bool mustBeChecker = false;
 };
 
-class SLANG_EXPORT PrimitiveInstanceSymbol : public InstanceSymbolBase {
+class SLANG_EXPORT PrimitiveInstanceSymbol final : public InstanceSymbolBase {
 public:
     const PrimitiveSymbol& primitiveType;
 
@@ -345,7 +359,7 @@ private:
     mutable std::optional<const TimingControl*> delay;
 };
 
-class SLANG_EXPORT CheckerInstanceSymbol : public InstanceSymbolBase {
+class SLANG_EXPORT CheckerInstanceSymbol final : public InstanceSymbolBase {
 public:
     const CheckerInstanceBodySymbol& body;
 
@@ -394,7 +408,7 @@ public:
         Compilation& compilation, const ASTContext& context, const CheckerSymbol& checker,
         const syntax::HierarchicalInstanceSyntax& syntax,
         std::span<const syntax::AttributeInstanceSyntax* const> attributes,
-        SmallVectorBase<int32_t>& path, bool isProcedural, bitmask<InstanceFlags> flags);
+        SmallVectorBase<uint32_t>& path, bool isProcedural, bitmask<InstanceFlags> flags);
 
     void verifyMembers() const;
 
@@ -410,7 +424,7 @@ private:
     mutable bool connectionsResolved = false;
 };
 
-class SLANG_EXPORT CheckerInstanceBodySymbol : public Symbol, public Scope {
+class SLANG_EXPORT CheckerInstanceBodySymbol final : public Symbol, public Scope {
 public:
     /// The parent instance for which this is the body.
     const CheckerInstanceSymbol* parentInstance = nullptr;
