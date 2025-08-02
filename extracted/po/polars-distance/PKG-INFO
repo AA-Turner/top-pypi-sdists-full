@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: polars-distance
+Version: 0.5.3
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: polars>=0.20.16
+Summary: Polars plugin for pairwise distance functions
+Author-email: Ion Koutsours <15728914+ion-elgreco@users.noreply.github.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Repository, https://github.com/ion-elgreco/polars-distance
+Project-URL: Documentation, https://ion-elgreco.github.io/polars-distance/
+Project-URL: Change Log, https://github.com/ion-elgreco/polars-distance/releases
+Project-URL: Issue Tracker, https://github.com/ion-elgreco/polars-distance/issues
+
+Hellooo :)
+
+This plugin is a work-in progress, main goal is to provide distance metrics on list, arrays and string datatypes.
+
+The docs can be found here: https://ion-elgreco.github.io/polars-distance/
+
+## Examples
+
+```python
+import polars
+import polars_distance as pld
+
+df = pl.DataFrame({
+    "foo":"hello",
+    "bar":"hella world"
+})
+
+df.select(
+    pld.col("foo").dist_str.hamming('bar').alias('dist')
+)
+┌──────┐
+│ dist │
+│ ---  │
+│ u32  │
+╞══════╡
+│ 7    │
+└──────┘
+
+
+df.select(
+    pld.col('foo').dist_str.levenshtein('bar').alias('dist')
+)
+┌──────┐
+│ dist │
+│ ---  │
+│ u32  │
+╞══════╡
+│ 6    │
+└──────┘
+
+
+
+df = pl.DataFrame(
+    {
+        "arr": [[1, 2, 10]],
+        "arr2": [[2, 5, 9]],
+    },
+    schema={
+        "arr": pl.Array(inner=pl.Float64, width=3),
+        "arr2": pl.Array(inner=pl.Float64, width=3),
+    },
+)
+df.select(pld.col('arr').dist_arr.euclidean('arr2').alias('dist'))
+shape: (1, 1)
+┌──────────┐
+│ dist     │
+│ ---      │
+│ f64      │
+╞══════════╡
+│ 3.316625 │
+└──────────┘
+```

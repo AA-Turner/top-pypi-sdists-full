@@ -23,11 +23,7 @@ def event_tables_extended(event_tables, snowflake_version):
 
     try:
         for event_table_name in name_list:
-            event_tables.create(
-                EventTable(
-                    name=event_table_name,
-                )
-            )
+            event_tables.create(EventTable(name=event_table_name))
 
         yield event_tables
     finally:

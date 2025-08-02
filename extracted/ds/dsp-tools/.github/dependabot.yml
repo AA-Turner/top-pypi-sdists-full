@@ -1,0 +1,16 @@
+---
+
+# Use Dependabot to automatically keep dependencies updated to the latest version, 
+# even when they don’t have any known vulnerabilities.
+# See https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"

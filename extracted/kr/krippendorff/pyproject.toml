@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "krippendorff"
+version = "0.8.1"
+description = "Fast computation of the Krippendorff's alpha measure."
+authors = [
+    { name = "Santiago Castro", email = "sacastro@fing.edu.uy" },
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE.txt"]
+
+readme = "README.md"
+
+keywords = ["Krippendorff", "alpha", "agreement", "reliability", "coding", "coders", "units", "values"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21,<3", # For NumPy Typing.
+]
+
+[dependency-groups]
+dev = ["pytest>=7,<9"]
+
+[project.urls]
+Homepage = "https://github.com/pln-fing-udelar/fast-krippendorff"
+Documentation = "https://github.com/pln-fing-udelar/fast-krippendorff"
+Repository = "https://github.com/pln-fing-udelar/fast-krippendorff"
+"Bug Tracker" = "https://github.com/pln-fing-udelar/fast-krippendorff/issues"
+Changelog = "https://github.com/pln-fing-udelar/fast-krippendorff/releases"

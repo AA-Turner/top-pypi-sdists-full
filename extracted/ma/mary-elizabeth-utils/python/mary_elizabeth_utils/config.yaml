@@ -1,0 +1,182 @@
+# Define variables
+variables:
+  base_dir: "/path/to/base/directory" # Base directory for the project
+  output_dir: "${base_dir}/output" # Directory for output files
+  csv_dir: "/e/data"
+  parquet_dir: "/e/"
+
+# Year range for data processing
+start_year: 2000
+end_year: 2022
+
+# Register configurations
+registers:
+  LPR_DIAG:
+    file_pattern: "lpr_diag_{year}.parquet"
+    location: "${csv_dir}/lpr_diag"
+  MFR:
+    file_pattern: "mfr_{year}.parquet"
+    location: "${csv_dir}/mfr"
+  AKM:
+    file_pattern: "akm_{year}.parquet"
+    location: "${parquet_dir}/akm"
+  FAIK:
+    file_pattern: "faik_{year}.parquet"
+    location: "${csv_dir}/faik"
+  IND:
+    file_pattern: "ind_{year}.parquet"
+    location: "${csv_dir}/ind"
+  BEF:
+    file_pattern: "bef_{yearmonth}.parquet"
+    location: "${parquet_dir}/bef"
+    include_month: true
+    combined_year_month: true
+  UDDF:
+    file_pattern: "uddf_{year}.parquet"
+    location: "${csv_dir}/uddf"
+    years: [2020, 2022]
+  DOD:
+    file_pattern: "dod_{year}.parquet"
+    location: "${csv_dir}/dod"
+  DODSAARS:
+    file_pattern: "dodsaars_{year}.parquet"
+    location: "${csv_dir}/dodsaars"
+  DODSAASG:
+    file_pattern: "dodsaasg_{year}.parquet"
+    location: "${csv_dir}/dodsaasg"
+  FTBARN:
+    file_pattern: "ftbarn_{year}.parquet"
+    location: "${csv_dir}/ftbarn"
+  HANDIC:
+    file_pattern: "handic_{year}.parquet"
+    location: "${csv_dir}/handic"
+  UDFK:
+    file_pattern: "udfk_{year}.parquet"
+    location: "${csv_dir}/udfk"
+  VNDS:
+    file_pattern: "vnds_{year}.parquet"
+    location: "${csv_dir}/vnds"
+  LPR_ADM:
+    file_pattern: "lpr_adm_{year}.parquet"
+    location: "${csv_dir}/lpr_adm"
+  PRIV_DIAG:
+    file_pattern: "priv_diag_{year}.parquet"
+    location: "${csv_dir}/priv_diag"
+  PRIV_ADM:
+    file_pattern: "priv_adm_{year}.parquet"
+    location: "${csv_dir}/priv_adm"
+  PSYK_DIAG:
+    file_pattern: "psyk_diag_{year}.parquet"
+    location: "${csv_dir}/psyk_diag"
+  PSYK_ADM:
+    file_pattern: "psyk_adm_{year}.parquet"
+    location: "${csv_dir}/psyk_adm"
+  LPR_SKSOPR:
+    file_pattern: "lpr_sksopr_{year}.parquet"
+    location: "${csv_dir}/lpr_sksopr"
+  PRIV_SKSOPR:
+    file_pattern: "priv_sksopr_{year}.parquet"
+    location: "${csv_dir}/priv_sksopr"
+  IDAN:
+    file_pattern: "idan_{year}.parquet"
+    location: "${csv_dir}/idan"
+
+# Table names
+table_names:
+  - Person
+  - Family
+  - Child
+  - Diagnosis
+  - Medication
+  - Healthcare
+  - Employment
+  - Income
+  - Education
+  - Death
+  - Birth
+  - SocioEconomic
+  - Psychiatric
+  - Disability
+  - EducationDetails
+  - Migration
+
+# Path to the CSV file containing ICD-10 codes
+icd10_codes_file: "${base_dir}/data/icd10.csv"
+
+# Numeric columns for analysis and validation
+numeric_cols:
+  - birth_date
+  - family_size
+  - total_income
+  - VAEGT_BARN
+  - LAENGDE_BARN
+  - GESTATIONSALDER_DAGE
+  - APGARSCORE_EFTER5MINUTTER
+  - VMO_A_INDK_AM_BIDRAG_BETAL
+  - LOENMV_13
+  - PERINDKIALT_13
+
+# Categorical columns for analysis and validation
+categorical_cols:
+  - gender
+  - origin_type
+  - family_type
+  - socioeconomic_status
+  - KOEN
+  - IE_TYPE
+  - CIVST
+  - SOCSTIL_KODE
+  - SAGSART
+  - C_PATTYPE
+
+# Data validation settings
+validation:
+  missing_value_threshold: 0.1 # Maximum allowed proportion of missing values
+  outlier_detection:
+    method: IQR # Interquartile Range method
+    factor: 1.5 # IQR factor for outlier detection
+
+# # Data transformation settings
+# transformations:
+#   age_calculation:
+#     reference_date: "2023-01-01"
+
+# # Cohort creation settings
+# cohort_creation:
+#   exposed_group:
+#     max_age_at_diagnosis: 5 # Maximum age (in years) for diagnosis to be considered childhood onset
+#   matching:
+#     variables:
+#       - birth_date
+#       - gender
+#       - municipality_code
+#     caliper: 0.2 # Caliper for propensity score matching
+
+# # Analysis settings
+# analysis:
+#   time_periods:
+#     - name: short_term
+#       duration: 1 # 1 year after diagnosis
+#     - name: medium_term
+#       duration: 5 # 5 years after diagnosis
+#     - name: long_term
+#       duration: 10 # 10 years after diagnosis
+#   outcomes:
+#     - name: parental_income
+#       variable: total_income
+#     - name: parental_employment
+#       variable: socioeconomic_status
+
+# # Reporting settings
+# reporting:
+#   output_format:
+#     - pdf
+#     - html
+#   charts:
+#     - bar
+#     - line
+#     - scatter
+#   statistical_tests:
+#     - t_test
+#     - chi_square
+#     - regression

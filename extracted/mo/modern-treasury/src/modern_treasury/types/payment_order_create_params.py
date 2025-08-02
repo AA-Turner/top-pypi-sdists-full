@@ -270,7 +270,6 @@ class Document(TypedDict, total=False):
             "payment_orders",
             "transactions",
             "connections",
-            "conversations",
         ]
     ]
 
@@ -428,6 +427,9 @@ class ReceivingAccount(TypedDict, total=False):
     """Can be `checking`, `savings` or `other`."""
 
     contact_details: Iterable[ContactDetailCreateRequestParam]
+
+    external_id: Optional[str]
+    """An optional user-defined 180 character unique identifier."""
 
     ledger_account: LedgerAccountCreateRequest
     """Specifies a ledger account object that will be created with the external

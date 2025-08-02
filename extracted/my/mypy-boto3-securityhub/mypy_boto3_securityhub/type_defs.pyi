@@ -1006,6 +1006,7 @@ __all__ = (
     "ClassificationResultUnionTypeDef",
     "ClassificationStatusTypeDef",
     "CloudWatchLogsLogGroupArnConfigDetailsTypeDef",
+    "CodeRepositoryDetailsTypeDef",
     "CodeVulnerabilitiesFilePathTypeDef",
     "ComplianceOutputTypeDef",
     "ComplianceTypeDef",
@@ -3669,6 +3670,11 @@ class CellTypeDef(TypedDict):
 class ClassificationStatusTypeDef(TypedDict):
     Code: NotRequired[str]
     Reason: NotRequired[str]
+
+class CodeRepositoryDetailsTypeDef(TypedDict):
+    ProviderType: NotRequired[str]
+    ProjectName: NotRequired[str]
+    CodeSecurityIntegrationArn: NotRequired[str]
 
 class CodeVulnerabilitiesFilePathTypeDef(TypedDict):
     EndLine: NotRequired[int]
@@ -10796,6 +10802,7 @@ ResourceDetailsOutputTypeDef = TypedDict(
         "AwsMskCluster": NotRequired[AwsMskClusterDetailsOutputTypeDef],
         "AwsS3AccessPoint": NotRequired[AwsS3AccessPointDetailsTypeDef],
         "AwsEc2ClientVpnEndpoint": NotRequired[AwsEc2ClientVpnEndpointDetailsOutputTypeDef],
+        "CodeRepository": NotRequired[CodeRepositoryDetailsTypeDef],
     },
 )
 FirewallPolicyDetailsUnionTypeDef = Union[
@@ -11084,6 +11091,7 @@ ResourceDetailsTypeDef = TypedDict(
         "AwsMskCluster": NotRequired[AwsMskClusterDetailsUnionTypeDef],
         "AwsS3AccessPoint": NotRequired[AwsS3AccessPointDetailsTypeDef],
         "AwsEc2ClientVpnEndpoint": NotRequired[AwsEc2ClientVpnEndpointDetailsUnionTypeDef],
+        "CodeRepository": NotRequired[CodeRepositoryDetailsTypeDef],
     },
 )
 ResourceDetailsUnionTypeDef = Union[ResourceDetailsTypeDef, ResourceDetailsOutputTypeDef]

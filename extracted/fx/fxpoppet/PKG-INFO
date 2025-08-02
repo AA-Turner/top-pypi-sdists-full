@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: fxpoppet
+Version: 0.2.2
+Summary: A Python module that enables the automation of Firefox on Android
+Home-page: https://github.com/MozillaSecurity/fxpoppet
+Author: Tyson Smith
+Author-email: twsmith@mozilla.com
+Maintainer: Mozilla Fuzzing Team
+Maintainer-email: fuzzing@mozilla.com
+License: MPL 2.0
+Keywords: automation testing
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: ffpuppet>=0.16.0
+Requires-Dist: fuzzfetch
+Requires-Dist: PyYAML
+Requires-Dist: xvfbwrapper
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Dynamic: license-file
+
+FXPoppet
+========
+[![CI](https://github.com/MozillaSecurity/fxpoppet/actions/workflows/ci.yml/badge.svg)](https://github.com/MozillaSecurity/fxpoppet/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/MozillaSecurity/fxpoppet/branch/main/graph/badge.svg)](https://codecov.io/gh/MozillaSecurity/fxpoppet)
+[![Matrix](https://img.shields.io/badge/chat-%23fuzzing-green?logo=matrix)](https://matrix.to/#/#fuzzing:mozilla.org)
+[![PyPI](https://img.shields.io/pypi/v/fxpoppet)](https://pypi.org/project/fxpoppet)
+
+FXPoppet is a Python module that can be used to automate testing of Firefox on Android. Happy bug hunting!
+
+Are you [fuzzing](https://firefox-source-docs.mozilla.org/tools/fuzzing/index.html) the browser? [Grizzly](https://github.com/MozillaSecurity/grizzly) can help.

@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.dynamic_table import DownstreamLag, DynamicTable, DynamicTableColumn
+from snowflake.core.dynamic_table import DownstreamLag, DynamicTable, DynamicTableColumn, DynamicTableResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,18 +23,13 @@ DYNAMIC_TABLE = DynamicTable(
     name="my_table",
     target_lag=DownstreamLag(),
     warehouse="wh",
-    columns=[
-        DynamicTableColumn(name="c1", datatype="int"),
-    ],
+    columns=[DynamicTableColumn(name="c1", datatype="int")],
     query="SELECT * FROM foo",
 )
 
+
 def test_create_dynamic_table(fake_root, dynamic_tables):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables?createMode=errorIfExists")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists")],
         body={
@@ -48,7 +43,9 @@ def test_create_dynamic_table(fake_root, dynamic_tables):
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        dynamic_tables.create(DYNAMIC_TABLE)
+        dt_res = dynamic_tables.create(DYNAMIC_TABLE)
+        assert isinstance(dt_res, DynamicTableResource)
+        assert dt_res.name == "my_table"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -63,12 +60,17 @@ def test_create_dynamic_table_clone(fake_root, dynamic_tables):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/temp_clone_table:clone?" + \
-        "createMode=errorIfExists&copyGrants=False&targetDatabase=my_db&targetSchema=my_schema",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/dynamic-tables/temp_clone_table:clone?"
+        + "createMode=errorIfExists&copyGrants=False&targetDatabase=my_db&targetSchema=my_schema",
     )
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists"), ("copyGrants", False), ("targetDatabase", "my_db"),
-                      ("targetSchema", "my_schema")],
+        query_params=[
+            ("createMode", "errorIfExists"),
+            ("copyGrants", False),
+            ("targetDatabase", "my_db"),
+            ("targetSchema", "my_schema"),
+        ],
         body={"name": "my_table"},
     )
 
@@ -85,11 +87,7 @@ def test_create_dynamic_table_clone(fake_root, dynamic_tables):
 
 
 def test_iter_dynamic_table(fake_root, dynamic_tables):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables?deep=False",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables?deep=False")
     kwargs = extra_params(query_params=[("deep", False)])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -108,21 +106,16 @@ def test_iter_dynamic_table(fake_root, dynamic_tables):
 
 def test_fetch_dynamic_table(fake_root, dynamic_table):
     from snowflake.core.dynamic_table._generated.models import DynamicTable as DynamicTableModel
+
     model = DynamicTableModel(
         name="my_table",
         target_lag=DownstreamLag(),
         warehouse="wh",
-        columns=[
-            DynamicTableColumn(name="c1", datatype="int"),
-        ],
+        columns=[DynamicTableColumn(name="c1", datatype="int")],
         query="SELECT * FROM foo",
     )
 
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -140,11 +133,7 @@ def test_fetch_dynamic_table(fake_root, dynamic_table):
 
 
 def test_drop_dynamic_table(fake_root, dynamic_table):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -159,11 +148,7 @@ def test_drop_dynamic_table(fake_root, dynamic_table):
 
 
 def test_undrop_dynamic_table(fake_root, dynamic_table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:undrop",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:undrop")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -178,11 +163,7 @@ def test_undrop_dynamic_table(fake_root, dynamic_table):
 
 
 def test_suspend_dynamic_table(fake_root, dynamic_table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:suspend",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:suspend")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -197,11 +178,7 @@ def test_suspend_dynamic_table(fake_root, dynamic_table):
 
 
 def test_resume_dynamic_table(fake_root, dynamic_table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:resume",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:resume")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -216,11 +193,7 @@ def test_resume_dynamic_table(fake_root, dynamic_table):
 
 
 def test_refresh_dynamic_table(fake_root, dynamic_table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:refresh",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:refresh")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -238,8 +211,9 @@ def test_swap_with_dynamic_table(fake_root, dynamic_table):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:swap-with" + \
-        "?targetName=other_db.other_schema.other_table",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:swap-with"
+        + "?targetName=other_db.other_schema.other_table",
     )
     kwargs = extra_params(query_params=[("targetName", "other_db.other_schema.other_table")])
 
@@ -274,11 +248,7 @@ def test_suspend_recluster_dynamic_table(fake_root, dynamic_table):
 
 
 def test_resume_recluster_dynamic_table(fake_root, dynamic_table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:resume-recluster",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables/my_table:resume-recluster")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

@@ -33,8 +33,9 @@ class ExternalVolumeCollection(AccountObjectCollectionParent["ExternalVolumeReso
     ...         name="abcd-my-s3-us-west-2",
     ...         storage_base_url="s3://MY_EXAMPLE_BUCKET/",
     ...         storage_aws_role_arn="arn:aws:iam::123456789022:role/myrole",
-    ...         encryption=Encryption(type="AWS_SSE_KMS",
-    ...                                kms_key_id="1234abcd-12ab-34cd-56ef-1234567890ab")
+    ...         encryption=Encryption(
+    ...             type="AWS_SSE_KMS", kms_key_id="1234abcd-12ab-34cd-56ef-1234567890ab"
+    ...         ),
     ...     ),
     ...     comment="This is my external volume",
     ... )
@@ -49,10 +50,7 @@ class ExternalVolumeCollection(AccountObjectCollectionParent["ExternalVolumeReso
 
     @api_telemetry
     def create(
-        self,
-        external_volume: ExternalVolume,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, external_volume: ExternalVolume, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> "ExternalVolumeResource":
         """Create an external volume in Snowflake.
 
@@ -83,8 +81,9 @@ class ExternalVolumeCollection(AccountObjectCollectionParent["ExternalVolumeReso
         ...         name="abcd-my-s3-us-west-2",
         ...         storage_base_url="s3://MY_EXAMPLE_BUCKET/",
         ...         storage_aws_role_arn="arn:aws:iam::123456789022:role/myrole",
-        ...         encryption=Encryption(type="AWS_SSE_KMS",
-        ...                                kms_key_id="1234abcd-12ab-34cd-56ef-1234567890ab")
+        ...         encryption=Encryption(
+        ...             type="AWS_SSE_KMS", kms_key_id="1234abcd-12ab-34cd-56ef-1234567890ab"
+        ...         ),
         ...     ),
         ...     comment="This is my external volume",
         ... )
@@ -94,38 +93,27 @@ class ExternalVolumeCollection(AccountObjectCollectionParent["ExternalVolumeReso
         """
         real_mode = CreateMode[mode].value
         self._api.create_external_volume(
-            external_volume=external_volume,
-            create_mode=StrictStr(real_mode),
-            async_req=False,
+            external_volume=external_volume, create_mode=StrictStr(real_mode), async_req=False
         )
         return self[external_volume.name]
 
     @api_telemetry
     def create_async(
-        self,
-        external_volume: ExternalVolume,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, external_volume: ExternalVolume, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["ExternalVolumeResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_external_volume(
-            external_volume=external_volume,
-            create_mode=StrictStr(real_mode),
-            async_req=True,
+            external_volume=external_volume, create_mode=StrictStr(real_mode), async_req=True
         )
         return PollingOperation(future, lambda _: self[external_volume.name])
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[ExternalVolume]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[ExternalVolume]:
         """Iterate through ``ExternalVolume`` objects in Snowflake, filtering on any optional ``like`` pattern.
 
         Parameters
@@ -154,28 +142,19 @@ class ExternalVolumeCollection(AccountObjectCollectionParent["ExternalVolumeReso
         >>>     print(external_volume.name, external_volume.comment)
         """
         external_volumes = self._api.list_external_volumes(
-            StrictStr(like) if like is not None else None,
-            async_req=False,
+            StrictStr(like) if like is not None else None, async_req=False
         )
 
         return iter(external_volumes)
 
-
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[ExternalVolume]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[ExternalVolume]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_external_volumes(
-            StrictStr(like) if like is not None else None,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_external_volumes(StrictStr(like) if like is not None else None, async_req=True)
         return PollingOperations.iterator(future)
 
 
@@ -214,7 +193,7 @@ class ExternalVolumeResource(ObjectReferenceMixin[ExternalVolumeCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.fetch_external_volume(self.name, async_req=True)
         return PollingOperations.identity(future)
 
@@ -246,7 +225,7 @@ class ExternalVolumeResource(ObjectReferenceMixin[ExternalVolumeCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.delete_external_volume(self.name, if_exists, async_req=True)
         return PollingOperations.empty(future)
 
@@ -268,6 +247,6 @@ class ExternalVolumeResource(ObjectReferenceMixin[ExternalVolumeCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.undrop_external_volume(self.name, async_req=True)
         return PollingOperations.empty(future)

@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: llama-index-storage-kvstore-mongodb
+Version: 0.4.0
+Summary: llama-index kvstore mongodb integration
+Author-email: Your Name <you@example.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.9
+Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: motor~=3.6
+Requires-Dist: pymongo<5,>=4.6.1
+Description-Content-Type: text/markdown
+
+# LlamaIndex Kvstore Integration: Mongodb Kvstore

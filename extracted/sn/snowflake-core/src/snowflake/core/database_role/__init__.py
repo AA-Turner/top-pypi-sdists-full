@@ -7,7 +7,6 @@ Example:
     >>> database_roles[database_role_name].drop()
 """
 
-
 from ._database_role import (
     ContainingScope,
     DatabaseRole,
@@ -18,11 +17,4 @@ from ._database_role import (
 )
 
 
-__all__ = [
-    "DatabaseRole",
-    "DatabaseRoleCollection",
-    "DatabaseRoleResource",
-    "ContainingScope",
-    "Securable",
-    "Grant",
-]
+__all__ = ["DatabaseRole", "DatabaseRoleCollection", "DatabaseRoleResource", "ContainingScope", "Securable", "Grant"]

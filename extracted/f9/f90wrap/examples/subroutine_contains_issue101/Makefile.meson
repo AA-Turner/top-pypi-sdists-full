@@ -1,6 +1,0 @@
-include ../make.meson.inc
-
-NAME     := test
-
-test: build
-	$(PYTHON) run.py

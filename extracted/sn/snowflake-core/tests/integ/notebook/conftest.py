@@ -53,10 +53,10 @@ def notebook_stage_with_file(session, stages, table_name_for_execute_notebook_te
   }}
  ] 
 }}
-""").encode()  #noqa
+""").encode()  # noqa
             ),
             file_path,
-            auto_compress=False
+            auto_compress=False,
         )
 
         yield notebook_st
@@ -68,12 +68,14 @@ def notebook_stage_with_file(session, stages, table_name_for_execute_notebook_te
 def executable_notebook(set_internal_params, notebook_stage_with_file, notebooks, warehouse):
     notebook_name = random_string(5, "test_notebook_stage_")
 
-    notebook = Notebook(name=notebook_name,
-                        from_location=f"@{notebook_stage_with_file.database.name}"
-                                      f".{notebook_stage_with_file.schema.name}."
-                                      f"{notebook_stage_with_file.name}",
-                        main_file=notebook_file,
-                        query_warehouse=warehouse.name)
+    notebook = Notebook(
+        name=notebook_name,
+        from_location=f"@{notebook_stage_with_file.database.name}"
+        f".{notebook_stage_with_file.schema.name}."
+        f"{notebook_stage_with_file.name}",
+        main_file=notebook_file,
+        query_warehouse=warehouse.name,
+    )
 
     nb = notebooks.create(notebook)
 

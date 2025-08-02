@@ -1,0 +1,78 @@
+from orionis.services.environment.contracts.env import IEnv
+from orionis.services.environment.core.dot_env import DotEnv
+from typing import Any, Dict
+
+class Env(IEnv):
+
+    @staticmethod
+    def get(key: str, default: Any = None) -> Any:
+        """
+        Retrieve the value of an environment variable by key.
+
+        Parameters
+        ----------
+        key : str
+            The name of the environment variable to retrieve.
+        default : Any, optional
+            The value to return if the key is not found. Default is None.
+
+        Returns
+        -------
+        Any
+            The value of the environment variable if found, otherwise the default value.
+        """
+        dotenv = DotEnv()
+        return dotenv.get(key, default)
+
+    @staticmethod
+    def set(key: str, value: str, type_hint: str = None) -> bool:
+        """
+        Set an environment variable in the .env file.
+
+        Parameters
+        ----------
+        key : str
+            The name of the environment variable to set.
+        value : str
+            The value to assign to the environment variable.
+        type_hint : str, optional
+            The type of the environment variable (e.g., 'str', 'int'). Default is None.
+
+        Returns
+        -------
+        bool
+            True if the variable was set successfully, False otherwise.
+        """
+        dotenv = DotEnv()
+        return dotenv.set(key, value, type_hint)
+
+    @staticmethod
+    def unset(key: str) -> bool:
+        """
+        Remove the specified environment variable from the .env file.
+
+        Parameters
+        ----------
+        key : str
+            The name of the environment variable to remove.
+
+        Returns
+        -------
+        bool
+            True if the variable was successfully removed, False otherwise.
+        """
+        dotenv = DotEnv()
+        return dotenv.unset(key)
+
+    @staticmethod
+    def all() -> Dict[str, Any]:
+        """
+        Retrieve all environment variables as a dictionary.
+
+        Returns
+        -------
+        dict of str to Any
+            A dictionary containing all environment variables loaded by DotEnv.
+        """
+        dotenv = DotEnv()
+        return dotenv.all()

@@ -33,9 +33,7 @@ def test_create(image_repositories):
 
         ir_name = random_string(5, "test_ir_")
         ir_names += [ir_name]
-        test_ir = ImageRepository(
-            name=ir_name,
-        )
+        test_ir = ImageRepository(name=ir_name)
         image_repo = image_repositories.create(test_ir)
 
         # create an already existing image repository with errorifExists

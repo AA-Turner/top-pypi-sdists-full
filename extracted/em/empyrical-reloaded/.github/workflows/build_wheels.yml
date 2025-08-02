@@ -1,0 +1,76 @@
+name: PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        description: 'Package Index'
+        required: true
+        default: 'PYPI'
+        options: [ 'TESTPYPI', 'PYPI' ]
+      version:
+        description: 'Version to publish'
+        required: true
+        default: '0.5.12'
+
+jobs:
+  dist:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ "3.12" ]
+
+    steps:
+      - name: Checkout empyrical
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.version }}
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build wheels
+        run: pipx run build
+
+      - name: Store artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/*
+
+      - name: Check metadata
+        run: pipx run twine check dist/*
+
+  upload_pypi:
+    needs: [ dist ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: artifact
+          path: dist
+
+      - name: Publish to PyPI
+        if: ${{ github.event.inputs.target  == 'PYPI' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Publish to PyPI - Test
+        if: ${{ github.event.inputs.target  == 'TESTPYPI' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.TESTPYPI_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          verbose: true

@@ -5,17 +5,13 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, overload
 from pydantic import Field, StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
 from snowflake.core.notebook._generated.api import NotebookApi
 from snowflake.core.notebook._generated.api_client import StoredProcApiClient
 from snowflake.core.notebook._generated.models.notebook import Notebook
-from snowflake.core.notebook._generated.models.version_details import VersionDetails  #noqa
+from snowflake.core.notebook._generated.models.version_details import VersionDetails  # noqa
 
 
 if TYPE_CHECKING:
@@ -33,28 +29,18 @@ class NotebookCollection(SchemaObjectCollectionParent["NotebookResource"]):
     Creating a notebook instance:
 
     >>> notebooks = root.databases["my_db"].schemas["my_schema"].notebooks
-    >>> new_notebook = Notebook(
-    ...     name="my_notebook",
-    ...     comment="This is a notebook"
-    ... )
+    >>> new_notebook = Notebook(name="my_notebook", comment="This is a notebook")
     >>> notebooks.create(new_notebook)
     """
 
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, NotebookResource)
         self._api = NotebookApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root),
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
-    def create(
-        self,
-        notebook: Notebook,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "NotebookResource":
+    def create(self, notebook: Notebook, *, mode: CreateMode = CreateMode.error_if_exists) -> "NotebookResource":
         """Create a notebook in Snowflake.
 
         Parameters
@@ -79,11 +65,7 @@ class NotebookCollection(SchemaObjectCollectionParent["NotebookResource"]):
         ________
         Creating a notebook in Snowflake and getting the reference to it:
 
-        >>> notebook = Notebook(
-        ...     name="my_notebook",
-        ...     version="notebook_ver1",
-        ...     comment="This is a notebook"
-        ... )
+        >>> notebook = Notebook(name="my_notebook", version="notebook_ver1", comment="This is a notebook")
         >>> # Use the notebook collection created before to create a reference to the notebook resource
         >>> # in Snowflake.
         >>> notebook_reference = notebook_collection.create(notebook)
@@ -96,16 +78,13 @@ class NotebookCollection(SchemaObjectCollectionParent["NotebookResource"]):
 
     @api_telemetry
     def create_async(
-        self,
-        notebook: Notebook,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, notebook: Notebook, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["NotebookResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_notebook(
             self.database.name, self.schema.name, notebook, create_mode=StrictStr(real_mode), async_req=True
@@ -157,9 +136,15 @@ class NotebookCollection(SchemaObjectCollectionParent["NotebookResource"]):
         >>> for notebook in notebooks:
         ...     print(notebook.name, notebook.version, notebook.user_packages)
         """
-        notebooks = self._api.list_notebooks(database=self.database.name, var_schema=self.schema.name, like=like,
-                                             starts_with=starts_with, show_limit=show_limit, from_name=from_name,
-                                             async_req=False)
+        notebooks = self._api.list_notebooks(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            like=like,
+            starts_with=starts_with,
+            show_limit=show_limit,
+            from_name=from_name,
+            async_req=False,
+        )
 
         return iter(notebooks)
 
@@ -176,10 +161,16 @@ class NotebookCollection(SchemaObjectCollectionParent["NotebookResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_notebooks(database=self.database.name, var_schema=self.schema.name, like=like,
-                                             starts_with=starts_with, show_limit=show_limit, from_name=from_name,
-                                             async_req=True)
+        """  # noqa: D401
+        future = self._api.list_notebooks(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            like=like,
+            starts_with=starts_with,
+            show_limit=show_limit,
+            from_name=from_name,
+            async_req=True,
+        )
         return PollingOperations.iterator(future)
 
 
@@ -211,12 +202,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         >>> notebook = notebook_reference.fetch()
         >>> print(notebook.name, notebook.comment)
         """
-        return self._api.fetch_notebook(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        return self._api.fetch_notebook(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Notebook]:
@@ -224,13 +210,8 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.fetch_notebook(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.fetch_notebook(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
@@ -260,7 +241,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.delete_notebook(self.database.name, self.schema.name, self.name, if_exists, async_req=True)
         return PollingOperations.empty(future)
 
@@ -270,7 +251,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         target_name: str,
         target_database: Optional[str] = None,
         target_schema: Optional[str] = None,
-        if_exists: Optional[bool] = None
+        if_exists: Optional[bool] = None,
     ) -> None:
         """Rename this notebook.
 
@@ -296,7 +277,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
 
         Renaming this notebook if it exists:
 
-        >>> notebook_reference.rename("my_other_notebook", if_exists = True)
+        >>> notebook_reference.rename("my_other_notebook", if_exists=True)
         """
         self._rename(
             target_name=target_name,
@@ -312,13 +293,13 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         target_name: str,
         target_database: Optional[str] = None,
         target_schema: Optional[str] = None,
-        if_exists: Optional[bool] = None
+        if_exists: Optional[bool] = None,
     ) -> PollingOperation[None]:
         """An asynchronous version of :func:`rename`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         return self._rename(
             target_name=target_name,
             target_database=target_database,
@@ -328,9 +309,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         )
 
     @api_telemetry
-    def execute(
-        self,
-    ) -> None:
+    def execute(self) -> None:
         """Execute this notebook.
 
         Examples
@@ -339,28 +318,24 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
 
         >>> notebook_reference.execute()
         """
-        self._api.execute_notebook(database=self.database.name, var_schema=self.schema.name, name=self.name,
-                                   async_req=False)
+        self._api.execute_notebook(
+            database=self.database.name, var_schema=self.schema.name, name=self.name, async_req=False
+        )
 
     @api_telemetry
-    def execute_async(
-        self,
-    ) -> PollingOperation[None]:
+    def execute_async(self) -> PollingOperation[None]:
         """An asynchronous version of :func:`execute`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.execute_notebook(database=self.database.name, var_schema=self.schema.name, name=self.name,
-                                   async_req=True)
+        """  # noqa: D401
+        future = self._api.execute_notebook(
+            database=self.database.name, var_schema=self.schema.name, name=self.name, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def commit(
-        self,
-        version: Optional[str] = None,
-        comment: Optional[str] = None
-    ) -> None:
+    def commit(self, version: Optional[str] = None, comment: Optional[str] = None) -> None:
         """Commit the LIVE version of the notebook to the Git.
 
         If a Git connection is set up for the notebook, commits the
@@ -383,35 +358,36 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         ________
         Committing a notebook using its reference:
 
-        >>> notebook_reference.commit(version="prod-1.1.0",
-        ...                           comment="prod release 1.1.0")
+        >>> notebook_reference.commit(version="prod-1.1.0", comment="prod release 1.1.0")
         """
-        self._api.commit_notebook(database=self.database.name, var_schema=self.schema.name, name=self.name,
-                                  version=version, comment=comment,
-                                  async_req=False)
+        self._api.commit_notebook(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            version=version,
+            comment=comment,
+            async_req=False,
+        )
 
     @api_telemetry
-    def commit_async(
-        self,
-        version: Optional[str] = None,
-        comment: Optional[str] = None
-    ) -> PollingOperation[None]:
+    def commit_async(self, version: Optional[str] = None, comment: Optional[str] = None) -> PollingOperation[None]:
         """An asynchronous version of :func:`commit`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.commit_notebook(database=self.database.name, var_schema=self.schema.name, name=self.name,
-                                  version=version, comment=comment,
-                                  async_req=True)
+        """  # noqa: D401
+        future = self._api.commit_notebook(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            version=version,
+            comment=comment,
+            async_req=True,
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def add_live_version(
-        self,
-        from_last: Optional[bool] = None,
-        comment: Optional[str] = None
-    ) -> None:
+    def add_live_version(self, from_last: Optional[bool] = None, comment: Optional[str] = None) -> None:
         """Add a LIVE version to the notebook.
 
         The LIVE version is the version that runs when the notebook is
@@ -429,23 +405,26 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         ________
         Adding a LIVE version to this notebook using its reference:
 
-        >>> notebook_reference.add_live_version(from_last=True,
-        ...                                     comment="new live version")
+        >>> notebook_reference.add_live_version(from_last=True, comment="new live version")
         """
-        self._api.add_live_version_notebook(database=self.database.name, var_schema=self.schema.name, name=self.name,
-                                            from_last=from_last, comment=comment,
-                                            async_req=False)
+        self._api.add_live_version_notebook(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            from_last=from_last,
+            comment=comment,
+            async_req=False,
+        )
+
     @api_telemetry
     def add_live_version_async(
-        self,
-        from_last: Optional[bool] = None,
-        comment: Optional[str] = None
+        self, from_last: Optional[bool] = None, comment: Optional[str] = None
     ) -> PollingOperation[None]:
         """An asynchronous version of :func:`add_live_version`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.add_live_version_notebook(
             database=self.database.name,
             var_schema=self.schema.name,
@@ -464,8 +443,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         target_schema: Optional[str],
         if_exists: Optional[bool],
         async_req: Literal[True],
-    ) -> PollingOperation[None]:
-        ...
+    ) -> PollingOperation[None]: ...
 
     @overload
     def _rename(
@@ -475,8 +453,7 @@ class NotebookResource(SchemaObjectReferenceMixin[NotebookCollection]):
         target_schema: Optional[str],
         if_exists: Optional[bool],
         async_req: Literal[False],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def _rename(
         self,

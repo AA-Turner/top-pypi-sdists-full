@@ -1,0 +1,4 @@
+---
+fixes:
+  - |
+    Pytest is no longer pulled in as a dependency of docs-conf.

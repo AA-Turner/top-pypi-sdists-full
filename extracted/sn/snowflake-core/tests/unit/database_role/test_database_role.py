@@ -3,7 +3,13 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.database_role import ContainingScope, DatabaseRole, DatabaseRoleCollection, Securable
+from snowflake.core.database_role import (
+    ContainingScope,
+    DatabaseRole,
+    DatabaseRoleCollection,
+    DatabaseRoleResource,
+    Securable,
+)
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -24,18 +30,12 @@ def database_role(database_roles):
 
 
 def test_create_database_role(fake_root, database_roles):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/database-roles?createMode=errorIfExists",
-    )
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={"name": "my_db_role"},
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/database-roles?createMode=errorIfExists")
+    kwargs = extra_params(query_params=[("createMode", "errorIfExists")], body={"name": "my_db_role"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         db_role_res = database_roles.create(DB_ROLE)
+        assert isinstance(db_role_res, DatabaseRoleResource)
         assert db_role_res.name == "my_db_role"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -48,11 +48,7 @@ def test_create_database_role(fake_root, database_roles):
 
 
 def test_iter_database_role(fake_root, database_roles):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/database-roles",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/database-roles")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -71,11 +67,7 @@ def test_iter_database_role(fake_root, database_roles):
 
 
 def test_drop_database_role(fake_root, database_role):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/database-roles/my_db_role",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/database-roles/my_db_role")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -91,17 +83,8 @@ def test_drop_database_role(fake_root, database_role):
 
 @pytest.mark.parametrize("method, fn", [("grants", "grant_role"), ("grants:revoke", "revoke_role")])
 def test_grant_revoke_role(fake_root, database_role, method, fn):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}",
-    )
-    kwargs = extra_params(
-        body={
-            "securable": {"name": "my_role"},
-            "securable_type": "DATABASE_ROLE",
-        },
-    )
+    args = (fake_root, "POST", BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}")
+    kwargs = extra_params(body={"securable": {"name": "my_role"}, "securable_type": "DATABASE_ROLE"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         getattr(database_role, fn)("DATABASE_ROLE", ROLE)
@@ -116,17 +99,8 @@ def test_grant_revoke_role(fake_root, database_role, method, fn):
 
 @pytest.mark.parametrize("method, fn", [("grants", "grant_privileges"), ("grants:revoke", "revoke_privileges")])
 def test_grant_revoke_privileges(fake_root, database_role, method, fn):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}",
-    )
-    kwargs = extra_params(
-        body={
-            "securable_type": "database",
-            "privileges": ["USAGE"],
-        },
-    )
+    args = (fake_root, "POST", BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}")
+    kwargs = extra_params(body={"securable_type": "database", "privileges": ["USAGE"]})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         getattr(database_role, fn)(["USAGE"], "database")
@@ -139,23 +113,19 @@ def test_grant_revoke_privileges(fake_root, database_role, method, fn):
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-@pytest.mark.parametrize("method, fn", [("grants", "grant_privileges_on_all"),
-                                        ("grants:revoke", "revoke_privileges_on_all"),
-                                        ("future-grants", "grant_future_privileges"),
-                                        ("future-grants:revoke", "revoke_future_privileges"),
-                                        ])
+@pytest.mark.parametrize(
+    "method, fn",
+    [
+        ("grants", "grant_privileges_on_all"),
+        ("grants:revoke", "revoke_privileges_on_all"),
+        ("future-grants", "grant_future_privileges"),
+        ("future-grants:revoke", "revoke_future_privileges"),
+    ],
+)
 def test_grant_revoke_future_privileges_on_all(fake_root, database_role, method, fn):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}",
-    )
+    args = (fake_root, "POST", BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}")
     kwargs = extra_params(
-        body={
-            "containing_scope": {"database": "my_db"},
-            "securable_type": "database",
-            "privileges": ["USAGE"],
-        },
+        body={"containing_scope": {"database": "my_db"}, "securable_type": "database", "privileges": ["USAGE"]}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -170,18 +140,8 @@ def test_grant_revoke_future_privileges_on_all(fake_root, database_role, method,
 
 
 def test_revoke_grant_option_for_privileges(fake_root, database_role):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/database-roles/my_db_role/grants:revoke",
-    )
-    kwargs = extra_params(
-        body={
-            "securable_type": "database",
-            "grant_option": True,
-            "privileges": ["USAGE"],
-        },
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/database-roles/my_db_role/grants:revoke")
+    kwargs = extra_params(body={"securable_type": "database", "grant_option": True, "privileges": ["USAGE"]})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         database_role.revoke_grant_option_for_privileges(["USAGE"], "database")
@@ -194,22 +154,22 @@ def test_revoke_grant_option_for_privileges(fake_root, database_role):
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-@pytest.mark.parametrize("method, fn", [("grants:revoke", "revoke_grant_option_for_privileges_on_all"),
-                                        ("future-grants:revoke", "revoke_grant_option_for_future_privileges"),
-                                        ])
+@pytest.mark.parametrize(
+    "method, fn",
+    [
+        ("grants:revoke", "revoke_grant_option_for_privileges_on_all"),
+        ("future-grants:revoke", "revoke_grant_option_for_future_privileges"),
+    ],
+)
 def test_revoke_grant_option_for_future_privileges_on_all(fake_root, database_role, method, fn):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}",
-    )
+    args = (fake_root, "POST", BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}")
     kwargs = extra_params(
         body={
             "containing_scope": {"database": "my_db"},
             "securable_type": "database",
             "grant_option": True,
             "privileges": ["USAGE"],
-        },
+        }
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -223,16 +183,9 @@ def test_revoke_grant_option_for_future_privileges_on_all(fake_root, database_ro
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-
-@pytest.mark.parametrize("method, fn", [("grants", "iter_grants_to"),
-                                        ("future-grants", "iter_future_grants_to"),
-                                        ])
+@pytest.mark.parametrize("method, fn", [("grants", "iter_grants_to"), ("future-grants", "iter_future_grants_to")])
 def test_iter_grants_to(fake_root, database_role, method, fn):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}",
-    )
+    args = (fake_root, "GET", BASE_URL + f"/databases/my_db/database-roles/my_db_role/{method}")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

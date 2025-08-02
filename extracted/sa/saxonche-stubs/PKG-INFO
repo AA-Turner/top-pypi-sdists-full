@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: saxonche-stubs
+Version: 0.7.2
+Summary: Type stubs for saxonche
+License: GPL-3.0-or-later
+Author: Bpolitycki
+Author-email: bastian.politycki@unisg.ch
+Requires-Python: >=3.8
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: XML
+Classifier: Typing :: Typed
+Requires-Dist: saxonche (>=12.1.0,<13.0.0)
+Description-Content-Type: text/markdown
+
+# saxonche-stubs
+
+Type stubs for the [saxonche](https://pypi.org/project/saxonche/) python package. This package has no functionality itself, but is merely an addition to the completion within IDEs. The basis for type annotations and comments is the documentation of [the Saxon Python API](https://www.saxonica.com/saxon-c/doc11/html/saxonc.html).
+
+At the moment not all APIs are fully typed.
+
+## Author / Contact
+
+- [Bastian Politycki](https://github.com/Bpolitycki) – Swiss Law Sources
+

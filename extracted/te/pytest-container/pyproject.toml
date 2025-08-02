@@ -1,0 +1,60 @@
+[build-system]
+requires = [
+    "setuptools>=45",
+    "wheel",
+    "setuptools_scm[toml]>=6.0"
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools_scm]
+
+[tool.black]
+line-length = 79
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = "testinfra,deprecation"
+ignore_missing_imports = true
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+]
+
+line-length = 79
+indent-width = 4
+
+# Assume Python 3.7
+# Ideally we'd be 3.6 but upstream has no support for 3.6
+# https://github.com/astral-sh/ruff/issues/3826
+target-version = "py37"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I"
+]
+
+ignore = [
+    # too long lines
+    "E501"
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+case-sensitive = true

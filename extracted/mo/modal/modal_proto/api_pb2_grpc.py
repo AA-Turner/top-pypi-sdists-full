@@ -445,6 +445,21 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.ImageJoinStreamingRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ImageJoinStreamingResponse.FromString,
                 )
+        self.MapAwait = channel.unary_unary(
+                '/modal.client.ModalClient/MapAwait',
+                request_serializer=modal__proto_dot_api__pb2.MapAwaitRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.MapAwaitResponse.FromString,
+                )
+        self.MapCheckInputs = channel.unary_unary(
+                '/modal.client.ModalClient/MapCheckInputs',
+                request_serializer=modal__proto_dot_api__pb2.MapCheckInputsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.MapCheckInputsResponse.FromString,
+                )
+        self.MapStartOrContinue = channel.unary_unary(
+                '/modal.client.ModalClient/MapStartOrContinue',
+                request_serializer=modal__proto_dot_api__pb2.MapStartOrContinueRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.MapStartOrContinueResponse.FromString,
+                )
         self.MountGetOrCreate = channel.unary_unary(
                 '/modal.client.ModalClient/MountGetOrCreate',
                 request_serializer=modal__proto_dot_api__pb2.MountGetOrCreateRequest.SerializeToString,
@@ -588,6 +603,16 @@ class ModalClientStub(object):
         self.SandboxSnapshotFs = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxSnapshotFs',
                 request_serializer=modal__proto_dot_api__pb2.SandboxSnapshotFsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxSnapshotFsResponse.FromString,
+                )
+        self.SandboxSnapshotFsAsync = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxSnapshotFsAsync',
+                request_serializer=modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncResponse.FromString,
+                )
+        self.SandboxSnapshotFsAsyncGet = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxSnapshotFsAsyncGet',
+                request_serializer=modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncGetRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxSnapshotFsResponse.FromString,
                 )
         self.SandboxSnapshotGet = channel.unary_unary(
@@ -1350,6 +1375,25 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def MapAwait(self, request, context):
+        """Input Plane Map
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MapCheckInputs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MapStartOrContinue(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def MountGetOrCreate(self, request, context):
         """Mounts
         """
@@ -1525,6 +1569,18 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SandboxSnapshotFs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxSnapshotFsAsync(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxSnapshotFsAsyncGet(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2234,6 +2290,21 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.ImageJoinStreamingRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ImageJoinStreamingResponse.SerializeToString,
             ),
+            'MapAwait': grpc.unary_unary_rpc_method_handler(
+                    servicer.MapAwait,
+                    request_deserializer=modal__proto_dot_api__pb2.MapAwaitRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.MapAwaitResponse.SerializeToString,
+            ),
+            'MapCheckInputs': grpc.unary_unary_rpc_method_handler(
+                    servicer.MapCheckInputs,
+                    request_deserializer=modal__proto_dot_api__pb2.MapCheckInputsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.MapCheckInputsResponse.SerializeToString,
+            ),
+            'MapStartOrContinue': grpc.unary_unary_rpc_method_handler(
+                    servicer.MapStartOrContinue,
+                    request_deserializer=modal__proto_dot_api__pb2.MapStartOrContinueRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.MapStartOrContinueResponse.SerializeToString,
+            ),
             'MountGetOrCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.MountGetOrCreate,
                     request_deserializer=modal__proto_dot_api__pb2.MountGetOrCreateRequest.FromString,
@@ -2377,6 +2448,16 @@ def add_ModalClientServicer_to_server(servicer, server):
             'SandboxSnapshotFs': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxSnapshotFs,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxSnapshotFsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxSnapshotFsResponse.SerializeToString,
+            ),
+            'SandboxSnapshotFsAsync': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxSnapshotFsAsync,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncResponse.SerializeToString,
+            ),
+            'SandboxSnapshotFsAsyncGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxSnapshotFsAsyncGet,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncGetRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxSnapshotFsResponse.SerializeToString,
             ),
             'SandboxSnapshotGet': grpc.unary_unary_rpc_method_handler(
@@ -4072,6 +4153,57 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def MapAwait(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/MapAwait',
+            modal__proto_dot_api__pb2.MapAwaitRequest.SerializeToString,
+            modal__proto_dot_api__pb2.MapAwaitResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MapCheckInputs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/MapCheckInputs',
+            modal__proto_dot_api__pb2.MapCheckInputsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.MapCheckInputsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MapStartOrContinue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/MapStartOrContinue',
+            modal__proto_dot_api__pb2.MapStartOrContinueRequest.SerializeToString,
+            modal__proto_dot_api__pb2.MapStartOrContinueResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def MountGetOrCreate(request,
             target,
             options=(),
@@ -4560,6 +4692,40 @@ class ModalClient(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxSnapshotFs',
             modal__proto_dot_api__pb2.SandboxSnapshotFsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxSnapshotFsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxSnapshotFsAsync(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxSnapshotFsAsync',
+            modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxSnapshotFsAsyncGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxSnapshotFsAsyncGet',
+            modal__proto_dot_api__pb2.SandboxSnapshotFsAsyncGetRequest.SerializeToString,
             modal__proto_dot_api__pb2.SandboxSnapshotFsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

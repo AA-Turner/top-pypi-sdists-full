@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: retry-async
+Version: 0.1.4
+Summary: 
+Author: Jeremy Berman
+Author-email: jerber@sas.upenn.edu
+Requires-Python: >=3.10,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: decorator (>=5.1.1,<6.0.0)
+Description-Content-Type: text/markdown
+
+This is a fork of `https://github.com/invl/retry` that includes the ability to decorate async functions. See `https://github.com/invl/retry` for the README.
+Also using the sync tests from the original repo.
+
+`pip install retry-async`
+
+For mypy:
+
+`mypy retry_async`

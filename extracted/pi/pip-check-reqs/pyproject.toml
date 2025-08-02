@@ -1,0 +1,201 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools",
+]
+
+[project]
+name = "pip-check-reqs"
+description = "Find packages that should or should not be in requirements for a project"
+keywords = [
+  "lint",
+  "pip",
+]
+license = { file = "LICENSE" }
+maintainers = [
+  { name = "Adam Dangoor", email = "adamdangoor@gmail.com" },
+  { name = "Richard Jones", email = "r1chardj0n3s@gmail.com" },
+]
+authors = [
+  { name = "Adam Dangoor", email = "adamdangoor@gmail.com" },
+  { name = "Richard Jones", email = "r1chardj0n3s@gmail.com" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Build Tools",
+]
+dynamic = [
+  "dependencies",
+  "optional-dependencies",
+  "readme",
+  "version",
+]
+urls.Changelog = "https://github.com/adamtheturtle/pip-check-reqs/blob/master/CHANGELOG.rst"
+urls.Homepage = "https://github.com/adamtheturtle/pip-check-reqs"
+scripts.pip-extra-reqs = "pip_check_reqs.find_extra_reqs:main"
+scripts.pip-missing-reqs = "pip_check_reqs.find_missing_reqs:main"
+
+[tool.setuptools]
+packages = [
+  "pip_check_reqs",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "pip_check_reqs.__version__" }
+readme = { file = "README.rst", content-type = "text/x-rst" }
+dependencies = { file = "requirements.txt" }
+optional-dependencies = { dev = { file = "test-requirements.txt" } }
+
+[tool.ruff]
+
+target-version = "py39"
+
+line-length = 79
+lint.select = [
+  "ALL",
+]
+
+lint.ignore = [
+  # We are missing too many docstrings to quickly fix now.
+  "D100",
+  "D103",
+  "D104",
+  "D105",
+  "D203",
+  "D213",
+  # Allow functions to take as many arguments as they want.
+  "PLR0913",
+  # Allow 'assert' in tests as it is the standard for pytest.
+  # Also, allow 'assert' in other code as it is the standard for Python type hint
+  # narrowing - see
+  # https://mypy.readthedocs.io/en/stable/type_narrowing.html#type-narrowing-expressions.
+  "S101",
+]
+
+# Do not automatically remove commented out code.
+# We comment out code during development, and with VSCode auto-save, this code
+# is sometimes annoyingly removed.
+lint.unfixable = [
+  "ERA001",
+]
+
+[tool.pylint]
+
+[tool.pylint.'MASTER']
+
+# Pickle collected data for later comparisons.
+persistent = true
+
+# Use multiple processes to speed up Pylint.
+jobs = 0
+
+# List of plugins (as comma separated values of python modules names) to load,
+# usually to register additional checkers.
+load-plugins = [
+  'pylint.extensions.docparams',
+  'pylint.extensions.no_self_use',
+]
+
+# Allow loading of arbitrary C extensions. Extensions are imported into the
+# active Python interpreter and may run arbitrary code.
+unsafe-load-any-extension = false
+
+[tool.pylint.'MESSAGES CONTROL']
+
+# Enable the message, report, category or checker with the given id(s). You can
+# either give multiple identifier separated by comma (,) or put this option
+# multiple time (only on the command line, not in the configuration file where
+# it should appear only once). See also the "--disable" option for examples.
+enable = [
+  'spelling',
+  'useless-suppression',
+]
+
+# Disable the message, report, category or checker with the given id(s). You
+# can either give multiple identifiers separated by comma (,) or put this
+# option multiple times (only on the command line, not in the configuration
+# file where it should appear only once).You can also use "--disable=all" to
+# disable everything first and then reenable specific checks. For example, if
+# you want to run only the similarities checker, you can use "--disable=all
+# --enable=similarities". If you want to run only the classes checker, but have
+# no Warning level messages displayed, use"--disable=all --enable=classes
+# --disable=W"
+
+disable = [
+  'too-few-public-methods',
+  'too-many-locals',
+  'too-many-arguments',
+  'too-many-instance-attributes',
+  'too-many-return-statements',
+  'too-many-lines',
+  'locally-disabled',
+  # Let ruff handle long lines
+  'line-too-long',
+  # Let ruff handle unused imports
+  'unused-import',
+  # Let isort deal with sorting
+  'ungrouped-imports',
+  # We don't need everything to be documented because of mypy
+  'missing-type-doc',
+  'missing-return-type-doc',
+  # Too difficult to please
+  'duplicate-code',
+  # Let ruff handle imports
+  'wrong-import-order',
+  # It would be nice to add this, but it's too much work
+  "missing-function-docstring",
+  # We will remove this in issue 97
+  "deprecated-module",
+]
+
+[tool.pylint.'FORMAT']
+
+# Allow the body of an if to be on the same line as the test if there is no
+# else.
+single-line-if-stmt = false
+
+[tool.pylint.'SPELLING']
+
+# Spelling dictionary name. Available dictionaries: none. To make it working
+# install python-enchant package.
+spelling-dict = 'en_US'
+
+# A path to a file that contains private dictionary; one word per line.
+spelling-private-dict-file = 'spelling_private_dict.txt'
+
+# Tells whether to store unknown words to indicated private dictionary in
+# --spelling-private-dict-file option instead of raising a message.
+spelling-store-unknown-words = 'no'
+
+[tool.pyproject-fmt]
+keep_full_version = true
+max_supported_python = "3.13"
+
+[tool.coverage.run]
+
+branch = true
+
+[tool.coverage.report]
+
+exclude_also = [
+  "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+
+strict = true
+
+[tool.pyright]
+
+typeCheckingMode = "strict"

@@ -1,0 +1,23 @@
+Metadata-Version: 2.3
+Name: athina-client
+Version: 0.2.11
+Summary: Light weight SDK to interact with athina datasets
+License: MIT
+Author: Shiv Sakhuja
+Author-email: shiv@athina.ai
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
+Requires-Dist: requests
+Requires-Dist: retrying
+Description-Content-Type: text/markdown
+
+# athina-client
+A python SDK to log datasets to athina
+

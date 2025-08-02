@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
 import mcp.types
+from mcp import ServerSession
 from mcp.client.session import ClientSession
 from mcp.shared.context import LifespanContextT, RequestContext
 from mcp.shared.exceptions import McpError
@@ -36,6 +37,9 @@ from fastmcp.server.dependencies import get_context
 from fastmcp.server.server import FastMCP
 from fastmcp.tools.tool import Tool, ToolResult
 from fastmcp.tools.tool_manager import ToolManager
+from fastmcp.tools.tool_transform import (
+    apply_transformations_to_tools,
+)
 from fastmcp.utilities.components import MirroredComponent
 from fastmcp.utilities.logging import get_logger
 
@@ -71,7 +75,12 @@ class ProxyToolManager(ToolManager):
             else:
                 raise e
 
-        return all_tools
+        transformed_tools = apply_transformations_to_tools(
+            tools=all_tools,
+            transformations=self.transformations,
+        )
+
+        return transformed_tools
 
     async def list_tools(self) -> list[Tool]:
         """Gets the filtered list of tools including local, mounted, and proxy tools."""
@@ -246,6 +255,8 @@ class ProxyTool(Tool, MirroredComponent):
             parameters=mcp_tool.inputSchema,
             annotations=mcp_tool.annotations,
             output_schema=mcp_tool.outputSchema,
+            meta=mcp_tool.meta,
+            tags=(mcp_tool.meta or {}).get("_fastmcp", {}).get("tags", []),
             _mirrored=True,
         )
 
@@ -294,12 +305,15 @@ class ProxyResource(Resource, MirroredComponent):
         mcp_resource: mcp.types.Resource,
     ) -> ProxyResource:
         """Factory method to create a ProxyResource from a raw MCP resource schema."""
+
         return cls(
             client=client,
             uri=mcp_resource.uri,
             name=mcp_resource.name,
             description=mcp_resource.description,
             mime_type=mcp_resource.mimeType or "text/plain",
+            meta=mcp_resource.meta,
+            tags=(mcp_resource.meta or {}).get("_fastmcp", {}).get("tags", []),
             _mirrored=True,
         )
 
@@ -339,6 +353,8 @@ class ProxyTemplate(ResourceTemplate, MirroredComponent):
             description=mcp_template.description,
             mime_type=mcp_template.mimeType or "text/plain",
             parameters={},  # Remote templates don't have local parameters
+            meta=mcp_template.meta,
+            tags=(mcp_template.meta or {}).get("_fastmcp", {}).get("tags", []),
             _mirrored=True,
         )
 
@@ -371,6 +387,8 @@ class ProxyTemplate(ResourceTemplate, MirroredComponent):
             name=self.name,
             description=self.description,
             mime_type=result[0].mimeType,
+            meta=self.meta,
+            tags=(self.meta or {}).get("_fastmcp", {}).get("tags", []),
             _value=value,
         )
 
@@ -404,6 +422,8 @@ class ProxyPrompt(Prompt, MirroredComponent):
             name=mcp_prompt.name,
             description=mcp_prompt.description,
             arguments=arguments,
+            meta=mcp_prompt.meta,
+            tags=(mcp_prompt.meta or {}).get("_fastmcp", {}).get("tags", []),
             _mirrored=True,
         )
 
@@ -469,7 +489,11 @@ class FastMCPProxy(FastMCP):
             raise ValueError("Must specify 'client_factory'")
 
         # Replace the default managers with our specialized proxy managers.
-        self._tool_manager = ProxyToolManager(client_factory=self.client_factory)
+        self._tool_manager = ProxyToolManager(
+            client_factory=self.client_factory,
+            # Propagate the transformations from the base class tool manager
+            transformations=self._tool_manager.transformations,
+        )
         self._resource_manager = ProxyResourceManager(
             client_factory=self.client_factory
         )
@@ -554,11 +578,12 @@ class ProxyClient(Client[ClientTransportT]):
         A handler that forwards the elicitation request from the remote server to the proxy's connected clients and relays the response back to the remote server.
         """
         ctx = get_context()
-        result = await ctx.elicit(message, response_type)
-        if result.action == "accept":
-            return result.data
-        else:
-            return ElicitResult(action=result.action)
+        result = await ctx.session.elicit(
+            message=message,
+            requestedSchema=params.requestedSchema,
+            related_request_id=ctx.request_id,
+        )
+        return ElicitResult(action=result.action, content=result.content)
 
     @classmethod
     async def default_log_handler(cls, message: LogMessage) -> None:
@@ -566,7 +591,9 @@ class ProxyClient(Client[ClientTransportT]):
         A handler that forwards the log notification from the remote server to the proxy's connected clients.
         """
         ctx = get_context()
-        await ctx.log(message.data, level=message.level, logger_name=message.logger)
+        msg = message.data.get("msg")
+        extra = message.data.get("extra")
+        await ctx.log(msg, level=message.level, logger_name=message.logger, extra=extra)
 
     @classmethod
     async def default_progress_handler(
@@ -593,12 +620,24 @@ class StatefulProxyClient(ProxyClient[ClientTransportT]):
     Note that it is essential to ensure that the proxy server itself is also stateful.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._caches: dict[ServerSession, Client[ClientTransportT]] = {}
+
     async def __aexit__(self, exc_type, exc_value, traceback) -> None:
         """
         The stateful proxy client will be forced disconnected when the session is exited.
         So we do nothing here.
         """
         pass
+
+    async def clear(self):
+        """
+        Clear all cached clients and force disconnect them.
+        """
+        while self._caches:
+            _, cache = self._caches.popitem()
+            await cache._disconnect(force=True)
 
     def new_stateful(self) -> Client[ClientTransportT]:
         """
@@ -607,15 +646,15 @@ class StatefulProxyClient(ProxyClient[ClientTransportT]):
         Use this method as the client factory for stateful proxy server.
         """
         session = get_context().session
-        proxy_client = session.__dict__.get("_proxy_client", None)
+        proxy_client = self._caches.get(session, None)
 
         if proxy_client is None:
             proxy_client = self.new()
             logger.debug(f"{proxy_client} created for {session}")
-            session.__dict__["_proxy_client"] = proxy_client
+            self._caches[session] = proxy_client
 
             async def _on_session_exit():
-                proxy_client: Client = session.__dict__.pop("_proxy_client")
+                self._caches.pop(session)
                 logger.debug(f"{proxy_client} will be disconnect")
                 await proxy_client._disconnect(force=True)
 

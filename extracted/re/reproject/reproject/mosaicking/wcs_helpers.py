@@ -1,23 +1,28 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import warnings
+
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
 from astropy.io.fits import Header
-from astropy.utils import isiterable
 from astropy.wcs import WCS
 from astropy.wcs.utils import (
     celestial_frame_to_wcs,
     pixel_to_skycoord,
-    proj_plane_pixel_scales,
     skycoord_to_pixel,
     wcs_to_celestial_frame,
 )
 from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
 
 from ..utils import parse_input_shape
+from ..wcs_utils import pixel_scale
 
 __all__ = ["find_optimal_celestial_wcs"]
+
+
+# Note that if this is modified, the docstring should be updated
+NEGATIVE_CDELT_CTYPES = ["RA--", "GLON", "ELON", "HLON", "SLON"]
 
 
 def find_optimal_celestial_wcs(
@@ -28,6 +33,7 @@ def find_optimal_celestial_wcs(
     projection="TAN",
     resolution=None,
     reference=None,
+    negative_lon_cdelt=None,
 ):
     """
     Given one or more images, return an optimal WCS projection object and
@@ -83,6 +89,16 @@ def find_optimal_celestial_wcs(
     reference : `~astropy.coordinates.SkyCoord`
         The reference coordinate for the final header. If not specified, this
         is determined automatically from the input images.
+    negative_lon_cdelt : bool or str, optional
+        Whether the CDELT value for the longitude coordinate should be negative
+        (`True`) or positive (`False`), or determined automatically (``'auto'``).
+        For astronomical observations of the sky CDELT is usually negative,
+        while for coordinate systems used in solar physics this is usually
+        positive. If this is ``'auto'``, the value will be `True` if the
+        first four characters for CTYPE for the longitude is ``RA--``,
+        ``GLON``, ``ELON``, ``HLON``, or ``SLON``, and `False` otherwise.
+        The default is currently ``True``, and will become ``'auto'`` in
+        future.
 
     Returns
     -------
@@ -103,9 +119,9 @@ def find_optimal_celestial_wcs(
     # input data.
 
     if isinstance(input_data, str):
-        # Handle this explicitly as isiterable(str) is True
+        # Handle this explicitly as str is iterable too
         iterable = False
-    elif isiterable(input_data):
+    elif np.iterable(input_data):
         if len(input_data) == 2 and isinstance(
             input_data[1], BaseLowLevelWCS | BaseHighLevelWCS | Header
         ):
@@ -130,6 +146,10 @@ def find_optimal_celestial_wcs(
     resolutions = []
 
     for shape, wcs in input_shapes:
+
+        if len(shape) > wcs.pixel_n_dim:
+            shape = shape[-wcs.pixel_n_dim :]
+
         if len(shape) != 2:
             raise ValueError(f"Input data is not 2-dimensional (got shape {shape!r})")
 
@@ -175,23 +195,11 @@ def find_optimal_celestial_wcs(
             # 1-based.
             xp, yp = wcs.wcs.crpix
             references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).transform_to(frame).frame)
-
-            # Find the pixel scale at the reference position - we take the minimum
-            # since we are going to set up a header with 'square' pixels with the
-            # smallest resolution specified.
-            scales = proj_plane_pixel_scales(wcs)
-            resolutions.append(np.min(np.abs(scales)))
-
         else:
             xp, yp = (nx - 1) / 2, (ny - 1) / 2
             references.append(wcs.pixel_to_world(xp, yp).transform_to(frame).frame)
 
-            xs = np.array([xp, xp, xp + 1])
-            ys = np.array([yp, yp + 1, yp])
-            cs = wcs.pixel_to_world(xs, ys)
-            dx = abs(cs[0].separation(cs[2]).deg)
-            dy = abs(cs[0].separation(cs[1]).deg)
-            resolutions.append(min(dx, dy))
+        resolutions.append(pixel_scale(wcs, shape))
 
     # We now stack the coordinates - however the frame classes can't do this
     # so we have to use the high-level SkyCoord class.
@@ -211,10 +219,26 @@ def find_optimal_celestial_wcs(
 
     # Determine resolution if not specified
     if resolution is None:
-        resolution = np.min(resolutions) * u.deg
+        resolution = np.min(u.Quantity(resolutions))
 
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
+
+    negative_lon_cdelt_auto = wcs_final.wcs.ctype[0][:4] in NEGATIVE_CDELT_CTYPES
+
+    if negative_lon_cdelt == "auto":
+        negative_lon_cdelt = negative_lon_cdelt_auto
+    elif negative_lon_cdelt is None:
+        if not negative_lon_cdelt_auto:
+            warnings.warn(
+                "negative_lon_cdelt is not set, and currently defaults to True, "
+                "but in future will change to 'auto', and for this WCS this will "
+                "evaluate to False in future. It is recommended that you set "
+                "negative_lon_cdelt explicitly, either to 'auto', or to True/False.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        negative_lon_cdelt = True
 
     if wcs_final.wcs.cunit[0] == "":
         wcs_final.wcs.cunit[0] = "deg"
@@ -227,8 +251,11 @@ def find_optimal_celestial_wcs(
         rep.lon.to_value(wcs_final.wcs.cunit[0]),
         rep.lat.to_value(wcs_final.wcs.cunit[1]),
     )
+
+    lon_factor = -1 if negative_lon_cdelt else 1
+
     wcs_final.wcs.cdelt = (
-        -resolution.to_value(wcs_final.wcs.cunit[0]),
+        lon_factor * resolution.to_value(wcs_final.wcs.cunit[0]),
         resolution.to_value(wcs_final.wcs.cunit[1]),
     )
 

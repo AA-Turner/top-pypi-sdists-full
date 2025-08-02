@@ -26,4 +26,3 @@ def test_drop_basic(tasks, root):
 
     with pytest.raises(NotFoundError):
         tasks[random_object_name()].drop()
-

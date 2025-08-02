@@ -14,6 +14,7 @@ API_NOT_ENABLED = "Cortex Search API is not enabled"
 EXACTLY_ONE_OF = "The request must contain exactly one of 'query' or 'multi_index_query'"
 pytestmark = [pytest.mark.skip_gov]
 
+
 @pytest.fixture(autouse=True)
 def setup_cortex_search_service(connection, database, schema, warehouse, backup_warehouse_fixture):
     del backup_warehouse_fixture
@@ -25,19 +26,17 @@ def setup_cortex_search_service(connection, database, schema, warehouse, backup_
         test_table_name = f"{_database_name}.{_schema_name}.SNOWPY_TEST_TABLE"
         # Base Table
         cursor.execute(
-            f"CREATE OR REPLACE TABLE {test_table_name} (id NUMBER AUTOINCREMENT, col1 VARCHAR, col2 VARCHAR)",
+            f"CREATE OR REPLACE TABLE {test_table_name} (id NUMBER AUTOINCREMENT, col1 VARCHAR, col2 VARCHAR)"
         )
 
         rows = ",".join(["('hi', 'hello')"] * 20)
-        cursor.execute(
-            f"INSERT INTO {test_table_name} (col1, col2) VALUES {rows}",
-        )
+        cursor.execute(f"INSERT INTO {test_table_name} (col1, col2) VALUES {rows}")
 
         # Cortex Search Service
         cursor.execute(
             f"CREATE OR REPLACE CORTEX SEARCH SERVICE {_database_name}.{_schema_name}.{TEST_SERVICE_NAME} "
             f"ON col1 TARGET_LAG='1 minute' WAREHOUSE={warehouse.name} "
-            f"AS SELECT id, col1, col2 FROM {test_table_name}",
+            f"AS SELECT id, col1, col2 FROM {test_table_name}"
         )
 
         try:
@@ -78,12 +77,12 @@ def test_search_optionalized(cortex_search_services):
         cortex_search_services[TEST_SERVICE_NAME].search(limit=5)
     except Exception as err:
         if EXACTLY_ONE_OF not in err.body:
-          pytest.xfail(EXACTLY_ONE_OF)
+            pytest.xfail(EXACTLY_ONE_OF)
+
 
 def test_search_collection(cortex_search_services):
     resp = cortex_search_services.search(
-        TEST_SERVICE_NAME,
-        QueryRequest.from_dict({"query": "hi", "columns": ["col1", "col2"], "limit": 5}),
+        TEST_SERVICE_NAME, QueryRequest.from_dict({"query": "hi", "columns": ["col1", "col2"], "limit": 5})
     )
 
     assert len(resp.results) == 5
@@ -94,7 +93,7 @@ def test_search_collection(cortex_search_services):
 
 def test_experimental_arg(cortex_search_services) -> None:
     resp = cortex_search_services[TEST_SERVICE_NAME].search(
-        "hi", ["col1", "col2"], limit=5, experimental={"debug": True},
+        "hi", ["col1", "col2"], limit=5, experimental={"debug": True}
     )
     assert len(resp.results) == 5
     print(resp)

@@ -12,11 +12,7 @@ from pydantic import StrictInt, StrictStr
 from snowflake.core import PollingOperation
 from snowflake.core._operation import PollingOperations
 
-from .._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from .._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from .._internal.telemetry import api_telemetry
 from .._internal.utils import deprecated
 
@@ -54,8 +50,8 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
     ...     min_instances=1,
     ...     max_instances=2,
     ...     compute_pool="my_compute_pool",
-    ...     spec=ServiceSpec("@my_stage/my_service_spec.yaml")
-    ...    )
+    ...     spec=ServiceSpec("@my_stage/my_service_spec.yaml"),
+    ... )
     >>> root.databases["my_db"].schemas["my_schema"].services.create(my_service)
     """
 
@@ -135,7 +131,7 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_services(
             self.database.name,
             self.schema.name,
@@ -148,12 +144,7 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
         return PollingOperations.iterator(future)
 
     @api_telemetry
-    def create(
-        self,
-        service: Service,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "ServiceResource":
+    def create(self, service: Service, *, mode: CreateMode = CreateMode.error_if_exists) -> "ServiceResource":
         """Create a Snowpark Container service in Snowflake.
 
         Parameters
@@ -184,43 +175,30 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
         >>> my_service = Service(
         ...     name="my_service",
         ...     compute_pool="my_compute_pool",
-        ...     spec=ServiceSpec("@my_stage/my_service_spec.yaml")
+        ...     spec=ServiceSpec("@my_stage/my_service_spec.yaml"),
         ... )
         >>> services.create(my_service, mode=CreateMode.or_replace)
         """
         if mode == CreateMode.or_replace:
             raise ValueError(f"{mode} is not a valid value for this resource")
         real_mode = CreateMode[mode].value
-        self._api.create_service(
-            self.database.name,
-            self.schema.name,
-            service,
-            StrictStr(real_mode),
-            async_req=False,
-        )
+        self._api.create_service(self.database.name, self.schema.name, service, StrictStr(real_mode), async_req=False)
         return self[service.name]
 
     @api_telemetry
     def create_async(
-        self,
-        service: Service,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, service: Service, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["ServiceResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         if mode == CreateMode.or_replace:
             raise ValueError(f"{mode} is not a valid value for this resource")
         real_mode = CreateMode[mode].value
         future = self._api.create_service(
-            self.database.name,
-            self.schema.name,
-            service,
-            StrictStr(real_mode),
-            async_req=True,
+            self.database.name, self.schema.name, service, StrictStr(real_mode), async_req=True
         )
         return PollingOperation(future, lambda _: self[service.name])
 
@@ -239,18 +217,11 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
         Executing a job service:
 
         >>> job_service = JobService(
-        ...     name="my_job_service",
-        ...     compute_pool="my_cp",
-        ...     spec=ServiceSpec("@my_stage/my_service_spec.yaml"),
+        ...     name="my_job_service", compute_pool="my_cp", spec=ServiceSpec("@my_stage/my_service_spec.yaml")
         ... )
         >>> services.execute_job(job_service)
         """
-        self._api.execute_job_service(
-            self.database.name,
-            self.schema.name,
-            job_service,
-            async_req=False,
-        )
+        self._api.execute_job_service(self.database.name, self.schema.name, job_service, async_req=False)
         return self[job_service.name]
 
     @api_telemetry
@@ -260,12 +231,7 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
         """  # noqa: D401
-        future = self._api.execute_job_service(
-            self.database.name,
-            self.schema.name,
-            job_service,
-            async_req=True,
-        )
+        future = self._api.execute_job_service(self.database.name, self.schema.name, job_service, async_req=True)
         return PollingOperation(future, lambda _: self[job_service.name])
 
 
@@ -313,7 +279,7 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.create_or_alter_service(
             self.database.name, self.schema.name, self.name, service, async_req=True
         )
@@ -348,9 +314,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_service(
-            self.database.name, self.schema.name, self.name, if_exists, async_req=True)
+            self.database.name, self.schema.name, self.name, if_exists, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -371,7 +338,7 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_service(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
@@ -401,7 +368,7 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_service(
             self.database.name, self.schema.name, self.name, if_exists, async_req=True
         )
@@ -431,9 +398,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_service(
-            self.database.name, self.schema.name, self.name, if_exists, async_req=True)
+            self.database.name, self.schema.name, self.name, if_exists, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -458,9 +426,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.show_service_endpoints(
-            self.database.name, self.schema.name, self.name, async_req=True)
+            self.database.name, self.schema.name, self.name, async_req=True
+        )
         return PollingOperations.iterator(future)
 
     @api_telemetry
@@ -485,9 +454,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_service_containers(
-            self.database.name, self.schema.name, self.name, async_req=True)
+            self.database.name, self.schema.name, self.name, async_req=True
+        )
         return PollingOperations.iterator(future)
 
     @api_telemetry
@@ -512,9 +482,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_service_instances(
-            self.database.name, self.schema.name, self.name, async_req=True)
+            self.database.name, self.schema.name, self.name, async_req=True
+        )
         return PollingOperations.iterator(future)
 
     @api_telemetry
@@ -537,9 +508,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_service_roles(
-            self.database.name, self.schema.name, self.name, async_req=True)
+            self.database.name, self.schema.name, self.name, async_req=True
+        )
         return PollingOperations.iterator(future)
 
     @api_telemetry
@@ -569,9 +541,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_service_role_grants_of(
-            self.database.name, self.schema.name, self.name, role_name, async_req=True)
+            self.database.name, self.schema.name, self.name, role_name, async_req=True
+        )
         return PollingOperations.iterator(future)
 
     @api_telemetry
@@ -601,9 +574,10 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_service_role_grants_to(
-            self.database.name, self.schema.name, self.name, role_name, async_req=True)
+            self.database.name, self.schema.name, self.name, role_name, async_req=True
+        )
         return PollingOperations.iterator(future)
 
     @api_telemetry
@@ -633,11 +607,7 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
         >>> service_reference.get_service_status(timeout=10)
         """
         status = self.collection._api.fetch_service_status(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            StrictInt(timeout),
-            async_req=False,
+            self.database.name, self.schema.name, self.name, StrictInt(timeout), async_req=False
         )
         if status.systemget_service_status is None:
             return list()
@@ -650,18 +620,16 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_service_status(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            StrictInt(timeout),
-            async_req=True,
+            self.database.name, self.schema.name, self.name, StrictInt(timeout), async_req=True
         )
+
         def transform(status: FetchServiceStatus200Response) -> list[dict[str, Any]]:
             if status.systemget_service_status is None:
                 return list()
             return json.loads(status.systemget_service_status)
+
         return PollingOperation(future, transform)
 
     @api_telemetry
@@ -699,19 +667,15 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
             return ""
         return logs.systemget_service_logs
 
-
     @api_telemetry
     def get_service_logs_async(
-        self,
-        instance_id: str,
-        container_name: str,
-        num_lines: Optional[int] = None
+        self, instance_id: str, container_name: str, num_lines: Optional[int] = None
     ) -> PollingOperation[str]:
         """An asynchronous version of :func:`get_service_logs`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_service_logs(
             self.database.name,
             self.schema.name,
@@ -721,10 +685,12 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
             num_lines,
             async_req=True,
         )
+
         def transform(logs: FetchServiceLogs200Response) -> str:
             if logs.systemget_service_logs is None:
                 return ""
             return logs.systemget_service_logs
+
         return PollingOperation(future, transform)
 
 

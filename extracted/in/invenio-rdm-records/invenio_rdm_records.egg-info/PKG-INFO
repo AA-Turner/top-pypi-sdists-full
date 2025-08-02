@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-rdm-records
-Version: 19.5.3
+Version: 20.0.0
 Summary: InvenioRDM module for the communities feature.
 Home-page: https://github.com/inveniosoftware/invenio-rdm-records
 Author: CERN
@@ -24,8 +24,8 @@ Requires-Dist: flask-iiif<2.0.0,>=1.0.0
 Requires-Dist: ftfy<5.0.0,>=4.4.3
 Requires-Dist: invenio-administration<5.0.0,>=4.0.0
 Requires-Dist: invenio-base<3.0.0,>=2.3.0
-Requires-Dist: invenio-checks<1.0.0,>=0.5.0
-Requires-Dist: invenio-communities<20.0.0,>=19.0.0
+Requires-Dist: invenio-checks<2.0.0,>=1.0.0
+Requires-Dist: invenio-communities<21.0.0,>=20.0.0
 Requires-Dist: invenio-drafts-resources<8.0.0,>=7.0.0
 Requires-Dist: invenio-records-resources<9.0.0,>=8.0.0
 Requires-Dist: invenio-github<4.0.0,>=3.0.0
@@ -122,6 +122,17 @@ Tests
 
 Changes
 =======
+
+Version v20.0.0 (released 2025-08-01)
+
+- feat: implement request reviewers functionality
+  - Add RequestReviewers generator with configuration support
+  - Refactor request.reviewer to request.reviewers for consistency
+  - Remove deprecated approve action
+  - Add comprehensive tests for reviewer assignment
+  - Include configuration validation for reviewer settings
+- setup: bump major versions of invenio-communties and invenio-checks
+  - needed to isolate the new request reviewers functionality
 
 Version v19.5.3 (released 2025-07-31)
 

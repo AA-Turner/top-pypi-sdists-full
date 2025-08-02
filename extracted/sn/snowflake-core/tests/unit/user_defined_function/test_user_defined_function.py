@@ -4,17 +4,19 @@ from urllib.parse import quote
 import pytest
 
 from snowflake.core import PollingOperation, Root
-from snowflake.core.user_defined_function import ReturnDataType, SQLFunction, UserDefinedFunction
+from snowflake.core.user_defined_function import (
+    ReturnDataType,
+    SQLFunction,
+    UserDefinedFunction,
+    UserDefinedFunctionResource,
+)
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
 API_CLIENT_REQUEST = "snowflake.core.user_defined_function._generated.api_client.ApiClient.request"
 UDF = UserDefinedFunction(
-    name="my_udf",
-    arguments=[],
-    return_type=ReturnDataType(datatype="VARCHAR"),
-    language_config=SQLFunction(),
+    name="my_udf", arguments=[], return_type=ReturnDataType(datatype="VARCHAR"), language_config=SQLFunction()
 )
 
 
@@ -32,8 +34,9 @@ def test_create_user_defined_function(fake_root, user_defined_functions):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/user-defined-functions" + \
-            "?createMode=errorIfExists&copyGrants=False",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/user-defined-functions"
+        + "?createMode=errorIfExists&copyGrants=False",
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
@@ -46,7 +49,9 @@ def test_create_user_defined_function(fake_root, user_defined_functions):
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        user_defined_functions.create(UDF)
+        udf_res = user_defined_functions.create(UDF)
+        assert isinstance(udf_res, UserDefinedFunctionResource)
+        assert udf_res.name_with_args == "my_udf()"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -58,11 +63,7 @@ def test_create_user_defined_function(fake_root, user_defined_functions):
 
 
 def test_iter_user_defined_function(fake_root, user_defined_functions):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/user-defined-functions",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/user-defined-functions")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -135,9 +136,11 @@ def test_rename_user_defined_function(fake_root, user_defined_function, user_def
         return (
             fake_root,
             "POST",
-            BASE_URL + f"/databases/my_db/schemas/my_schema/user-defined-functions/{quote(udf_name)}:rename?" + \
-            "targetDatabase=my_db&targetSchema=my_schema&targetName=new_udf",
+            BASE_URL
+            + f"/databases/my_db/schemas/my_schema/user-defined-functions/{quote(udf_name)}:rename?"
+            + "targetDatabase=my_db&targetSchema=my_schema&targetName=new_udf",
         )
+
     kwargs = extra_params(
         query_params=[("targetDatabase", "my_db"), ("targetSchema", "my_schema"), ("targetName", "new_udf")]
     )

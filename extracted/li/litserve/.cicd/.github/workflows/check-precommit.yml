@@ -1,0 +1,65 @@
+name: Check formatting flow
+
+on:
+  workflow_call:
+    secrets:
+      github-token:
+        description: "if provided an user GH's token, it will push update; requires `push` event"
+        required: false
+    inputs:
+      python-version:
+        description: "Python version to use"
+        default: "3.9"
+        required: false
+        type: string
+      use-cache:
+        description: "enable using GH caching for performance boost"
+        type: boolean
+        required: false
+        default: true
+      push-fixes:
+        description: "if provided an user GH's token, it will push update; requires `push` event"
+        type: boolean
+        required: false
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.github-token || github.token }}
+
+      - name: Set up Python 🐍
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Cache 💽 pre-commit
+        if: ${{ inputs.use-cache == true }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit|py${{ inputs.python-version }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit 🤖
+        id: precommit
+        run: |
+          pip install -q pre-commit
+          pre-commit run --all-files
+
+      - name: Fixing Pull Request ↩️
+        if: always() && inputs.push-fixes == true && steps.precommit.outcome == 'failure'
+        uses: actions-js/push@v1.5
+        with:
+          github_token: ${{ secrets.github-token || github.token }}
+          message: "pre-commit: running and fixing..."
+          branch: ${{ github.ref_name }}

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "sphinx-tags"
+authors = [{name = "melissawm", email = "melissawm@gmail.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+
+keywords = [
+    "documentation",
+    "sphinx",
+]
+
+dependencies = [
+    "sphinx>=5.1",
+]
+
+[project.optional-dependencies]
+sphinx = [
+    "pydata-sphinx-theme>=0.13",
+    "sphinx-design",
+    "nbsphinx",
+    "myst-parser"
+]
+dev = [
+    "bs4",
+    "pytest>=6.0",
+    "pytest-cov",
+    "pre-commit"
+]
+
+[project.urls]
+Home = "https://github.com/melissawm/sphinx-tags"
+
+[tool.flit.module]
+name = "sphinx_tags"
+
+[tool.flit.sdist]
+include = [
+    "src/sphinx_tags/"
+]
+exclude = [
+  ".*",  # Any hidden folders or files
+  "docs/",
+]

@@ -1,12 +1,22 @@
 import time
 
 from contextlib import suppress
+from datetime import datetime, timezone
 
 import pytest
 
 from snowflake.core._common import CreateMode
 from snowflake.core.exceptions import ConflictError, NotFoundError
-from snowflake.core.stream import PointOfTimeOffset, Stream, StreamSourceStage, StreamSourceTable, StreamSourceView
+from snowflake.core.stream import (
+    PointOfTimeOffset,
+    PointOfTimeStatement,
+    PointOfTimeStream,
+    PointOfTimeTimestamp,
+    Stream,
+    StreamSourceStage,
+    StreamSourceTable,
+    StreamSourceView,
+)
 from tests.utils import random_string
 
 
@@ -25,17 +35,75 @@ def create_stream(name, stream_source, streams):
 @pytest.mark.min_sf_ver("8.35.0")
 @pytest.mark.parametrize("pot", (None, PointOfTimeOffset(reference="before", offset="-1")))
 def test_create_by_table(streams, src_temp_table, pot):
-    stream_name = random_string(10, 'test_stream_by_table_')
+    stream_name = random_string(10, "test_stream_by_table_")
     try:
         if pot is not None:
             time.sleep(1)
-        create_stream(stream_name, StreamSourceTable(
-            point_of_time = pot,
-            name = src_temp_table.name,
-            append_only = True,
-            show_initial_rows = False,
-            comment = "asdf"
-        ), streams)
+        create_stream(
+            stream_name,
+            StreamSourceTable(
+                point_of_time=pot, name=src_temp_table.name, append_only=True, show_initial_rows=False, comment="asdf"
+            ),
+            streams,
+        )
+    finally:
+        with suppress(NotFoundError):
+            streams[stream_name].drop()
+
+
+def test_create_by_table_stream_pot(streams, src_temp_table):
+    reference_stream_name = random_string(10, "test_reference_stream_")
+    stream_name = random_string(10, "test_pot_stream_")
+    pot = PointOfTimeStream(reference="at", stream=reference_stream_name)
+
+    try:
+        create_stream(
+            reference_stream_name,
+            StreamSourceTable(name=src_temp_table.name, append_only=True, show_initial_rows=False),
+            streams,
+        )
+        time.sleep(1)
+        create_stream(
+            stream_name,
+            StreamSourceTable(point_of_time=pot, name=src_temp_table.name, append_only=True, show_initial_rows=False),
+            streams,
+        )
+    finally:
+        with suppress(NotFoundError):
+            streams[reference_stream_name].drop()
+            streams[stream_name].drop()
+
+
+def test_create_by_table_timestamp_pot(streams, src_temp_table):
+    stream_name = random_string(10, "test_pot_timestamp_")
+    time.sleep(1)
+    epoch = int(datetime.now(timezone.utc).timestamp())
+    time.sleep(1)
+    pot = PointOfTimeTimestamp(reference="at", timestamp=f"TO_TIMESTAMP_TZ({epoch})")
+    try:
+        create_stream(
+            stream_name,
+            StreamSourceTable(point_of_time=pot, name=src_temp_table.name, append_only=True, show_initial_rows=False),
+            streams,
+        )
+    finally:
+        with suppress(NotFoundError):
+            streams[stream_name].drop()
+
+
+def test_create_by_table_statement_pot(streams, src_temp_table, connection):
+    stream_name = random_string(10, "test_pot_statement_")
+    time.sleep(1)
+    with connection.cursor() as cursor:
+        query_id = cursor.execute("SELECT 1").sfqid
+    time.sleep(1)
+    pot = PointOfTimeStatement(reference="at", statement=query_id)
+    try:
+        create_stream(
+            stream_name,
+            StreamSourceTable(point_of_time=pot, name=src_temp_table.name, append_only=True, show_initial_rows=False),
+            streams,
+        )
     finally:
         with suppress(NotFoundError):
             streams[stream_name].drop()
@@ -44,15 +112,12 @@ def test_create_by_table(streams, src_temp_table, pot):
 @pytest.mark.min_sf_ver("8.35.0")
 @pytest.mark.parametrize("pot", (None, PointOfTimeOffset(reference="before", offset="-1")))
 def test_create_by_view(streams, src_temp_view, pot):
-    stream_name = random_string(10, 'test_stream_by_view_')
+    stream_name = random_string(10, "test_stream_by_view_")
 
     try:
         if pot is not None:
             time.sleep(1)
-        create_stream(stream_name, StreamSourceView(
-            point_of_time = pot,
-            name = src_temp_view.name,
-        ), streams)
+        create_stream(stream_name, StreamSourceView(point_of_time=pot, name=src_temp_view.name), streams)
     finally:
         with suppress(NotFoundError):
             streams[stream_name].drop()
@@ -61,15 +126,12 @@ def test_create_by_view(streams, src_temp_view, pot):
 @pytest.mark.min_sf_ver("8.35.0")
 @pytest.mark.parametrize("pot", (None, PointOfTimeOffset(reference="before", offset="-1")))
 def test_create_by_directory_table(streams, temp_directory_table, pot):
-    stream_name = random_string(10, 'test_stream_by_stage_')
+    stream_name = random_string(10, "test_stream_by_stage_")
 
     try:
         if pot is not None:
             time.sleep(1)
-        create_stream(stream_name, StreamSourceStage(
-            point_of_time = pot,
-            name = temp_directory_table.name,
-        ), streams)
+        create_stream(stream_name, StreamSourceStage(point_of_time=pot, name=temp_directory_table.name), streams)
     finally:
         with suppress(NotFoundError):
             streams[stream_name].drop()
@@ -77,22 +139,19 @@ def test_create_by_directory_table(streams, temp_directory_table, pot):
 
 @pytest.mark.min_sf_ver("8.35.0")
 @pytest.mark.parametrize("pot", (None, PointOfTimeOffset(reference="before", offset="-1")))
-def test_create_by_view_with_multiple_base_tables(
-        streams, src_temp_view_with_multiple_base_tables, pot):
-    stream_name = random_string(10, 'test_stream_by_view_with_multiple_base_tables_')
+def test_create_by_view_with_multiple_base_tables(streams, src_temp_view_with_multiple_base_tables, pot):
+    stream_name = random_string(10, "test_stream_by_view_with_multiple_base_tables_")
 
     view_handle, table_a_name, table_b_name = src_temp_view_with_multiple_base_tables
     try:
         if pot is not None:
             time.sleep(1)
-        stream_handle = create_stream(stream_name, StreamSourceView(
-            point_of_time = pot,
-            name = view_handle.name,
-        ), streams)
+        stream_handle = create_stream(stream_name, StreamSourceView(point_of_time=pot, name=view_handle.name), streams)
 
         assert isinstance(stream_handle.stream_source, StreamSourceView)
-        assert sorted([i.split('.')[-1] for i in stream_handle.stream_source.base_tables]) \
-            == sorted([table_a_name.upper(), table_b_name.upper()])
+        assert sorted([i.split(".")[-1] for i in stream_handle.stream_source.base_tables]) == sorted(
+            [table_a_name.upper(), table_b_name.upper()]
+        )
     finally:
         with suppress(NotFoundError):
             streams[stream_name].drop()
@@ -100,38 +159,22 @@ def test_create_by_view_with_multiple_base_tables(
 
 @pytest.mark.min_sf_ver("8.35.0")
 def test_create_and_update(streams, src_temp_table):
-    stream_name = random_string(10, 'test_stream_by_table_')
+    stream_name = random_string(10, "test_stream_by_table_")
 
     try:
-        stream_handle = streams.create(Stream(
-            name=stream_name,
-            stream_source=StreamSourceTable(
-                name = src_temp_table.name,
-            )
-        ))
-
-        streams.create(Stream(
-            name=stream_name,
-            stream_source=StreamSourceTable(
-                name = src_temp_table.name,
-                copy_grants = True,
-            )
-        ), mode = CreateMode.or_replace)
-
-        with pytest.raises(
-            ConflictError
-        ):
-            streams.create(Stream(
-                name=stream_name,
-                stream_source=StreamSourceTable(
-                    name = src_temp_table.name,
-                )
-            ))
+        stream_handle = streams.create(
+            Stream(name=stream_name, stream_source=StreamSourceTable(name=src_temp_table.name))
+        )
 
         streams.create(
-            stream_handle.fetch(),
-            mode = CreateMode.or_replace
+            Stream(name=stream_name, stream_source=StreamSourceTable(name=src_temp_table.name, copy_grants=True)),
+            mode=CreateMode.or_replace,
         )
+
+        with pytest.raises(ConflictError):
+            streams.create(Stream(name=stream_name, stream_source=StreamSourceTable(name=src_temp_table.name)))
+
+        streams.create(stream_handle.fetch(), mode=CreateMode.or_replace)
     finally:
         with suppress(NotFoundError):
             streams[stream_name].drop()

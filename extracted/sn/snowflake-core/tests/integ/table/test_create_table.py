@@ -37,17 +37,9 @@ def test_create_from_model_create_mode(tables):
 
     # wrong name
     table_name = random_string(10, '"test_table_INTEGRATION_"')
-    with pytest.raises(
-        APIError,
-    ):
+    with pytest.raises(APIError):
         created_handle = tables.create(
-            Table(
-                name=table_name,
-                columns=[
-                    TableColumn(name="c1", datatype="varchar"),
-                ],
-            ),
-            mode="errorifexists",
+            Table(name=table_name, columns=[TableColumn(name="c1", datatype="varchar")]), mode="errorifexists"
         )
 
 
@@ -122,9 +114,7 @@ def test_create_clone(tables, table_handle):
             created_handle.drop()
 
     table_name = random_string(10, "test_table_")
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         tables.create(table_name, clone_table="non_existant_name", copy_grants=True, mode="errorifexists")
 
 
@@ -169,9 +159,7 @@ def test_create_clone_across_database(table_handle, temp_db):
 
     try:
         created_handle = created_schema.tables.create(
-            Table(
-                name=table_name,
-            ),
+            Table(name=table_name),
             clone_table=f"{table_handle.database.name}.{table_handle.schema.name}.{table_handle.name}",
         )
 

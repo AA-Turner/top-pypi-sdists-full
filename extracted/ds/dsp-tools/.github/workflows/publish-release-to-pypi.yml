@@ -1,0 +1,38 @@
+---
+
+name: Publish release to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  UV_PUBLISH_TOKEN: ${{ secrets.PYPI_DASCHBOT_TOKEN }}
+
+jobs:
+  publish-release-to-pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: build wheel
+        run: uv build
+      - name: publish new version to PyPI
+        run: uv publish
+
+  notification:
+    name: Google chat notification about release and published version
+    needs: [publish-release-to-pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification to google chat room "DSP releases"
+        uses: lakto/google-chat-action@main
+        with:
+          url: ${{ secrets.GOOGLE_CHAT_DSP_RELEASES_WEBHOOK_URL }}

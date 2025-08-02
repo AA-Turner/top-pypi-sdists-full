@@ -75,6 +75,7 @@ from .parallel_map import (
     _for_each_sync,
     _map_async,
     _map_invocation,
+    _map_invocation_inputplane,
     _map_sync,
     _spawn_map_async,
     _spawn_map_sync,
@@ -399,7 +400,8 @@ class _InputPlaneInvocation:
             parent_input_id=current_input_id() or "",
             input=input_item,
         )
-        metadata = await _InputPlaneInvocation._get_metadata(input_plane_region, client)
+
+        metadata = await client.get_input_plane_metadata(input_plane_region)
         response = await retry_transient_errors(stub.AttemptStart, request, metadata=metadata)
         attempt_token = response.attempt_token
 
@@ -415,7 +417,7 @@ class _InputPlaneInvocation:
                 timeout_secs=OUTPUTS_TIMEOUT,
                 requested_at=time.time(),
             )
-            metadata = await self._get_metadata(self.input_plane_region, self.client)
+            metadata = await self.client.get_input_plane_metadata(self.input_plane_region)
             await_response: api_pb2.AttemptAwaitResponse = await retry_transient_errors(
                 self.stub.AttemptAwait,
                 await_request,
@@ -450,6 +452,33 @@ class _InputPlaneInvocation:
                 return await _process_result(
                     await_response.output.result, await_response.output.data_format, control_plane_stub, self.client
                 )
+
+    async def run_generator(self):
+        items_received = 0
+        # populated when self.run_function() completes
+        items_total: Union[int, None] = None
+        async with aclosing(
+            async_merge(
+                _stream_function_call_data(
+                    self.client,
+                    self.stub,
+                    "",
+                    variant="data_out",
+                    attempt_token=self.attempt_token,
+                ),
+                callable_to_agen(self.run_function),
+            )
+        ) as streamer:
+            async for item in streamer:
+                if isinstance(item, api_pb2.GeneratorDone):
+                    items_total = item.items_total
+                else:
+                    yield item
+                    items_received += 1
+                # The comparison avoids infinite loops if a non-deterministic generator is retried
+                # and produces less data in the second run than what was already sent.
+                if items_total is not None and items_received >= items_total:
+                    break
 
     @staticmethod
     async def _get_metadata(input_plane_region: str, client: _Client) -> list[tuple[str, str]]:
@@ -600,7 +629,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         experimental_options: Optional[dict[str, str]] = None,
         _experimental_proxy_ip: Optional[str] = None,
         _experimental_custom_scaling_factor: Optional[float] = None,
-        _experimental_enable_gpu_snapshot: bool = False,
     ) -> "_Function":
         """mdmd:hidden"""
         # Needed to avoid circular imports
@@ -901,7 +929,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     _experimental_concurrent_cancellations=True,
                     _experimental_proxy_ip=_experimental_proxy_ip,
                     _experimental_custom_scaling=_experimental_custom_scaling_factor is not None,
-                    _experimental_enable_gpu_snapshot=_experimental_enable_gpu_snapshot,
                     # --- These are deprecated in favor of autoscaler_settings
                     warm_pool_size=min_containers or 0,
                     concurrency_limit=max_containers or 0,
@@ -938,7 +965,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                         _experimental_group_size=function_definition._experimental_group_size,
                         _experimental_buffer_containers=function_definition._experimental_buffer_containers,
                         _experimental_custom_scaling=function_definition._experimental_custom_scaling,
-                        _experimental_enable_gpu_snapshot=_experimental_enable_gpu_snapshot,
                         _experimental_proxy_ip=function_definition._experimental_proxy_ip,
                         snapshot_debug=function_definition.snapshot_debug,
                         runtime_perf_record=function_definition.runtime_perf_record,
@@ -1487,20 +1513,35 @@ Use the `Function.get_web_url()` method instead.
         else:
             count_update_callback = None
 
-        async with aclosing(
-            _map_invocation(
-                self,
-                input_queue,
-                self.client,
-                order_outputs,
-                return_exceptions,
-                wrap_returned_exceptions,
-                count_update_callback,
-                api_pb2.FUNCTION_CALL_INVOCATION_TYPE_SYNC,
-            )
-        ) as stream:
-            async for item in stream:
-                yield item
+        if self._input_plane_url:
+            async with aclosing(
+                _map_invocation_inputplane(
+                    self,
+                    input_queue,
+                    self.client,
+                    order_outputs,
+                    return_exceptions,
+                    wrap_returned_exceptions,
+                    count_update_callback,
+                )
+            ) as stream:
+                async for item in stream:
+                    yield item
+        else:
+            async with aclosing(
+                _map_invocation(
+                    self,
+                    input_queue,
+                    self.client,
+                    order_outputs,
+                    return_exceptions,
+                    wrap_returned_exceptions,
+                    count_update_callback,
+                    api_pb2.FUNCTION_CALL_INVOCATION_TYPE_SYNC,
+                )
+            ) as stream:
+                async for item in stream:
+                    yield item
 
     async def _call_function(self, args, kwargs) -> ReturnType:
         invocation: Union[_Invocation, _InputPlaneInvocation]
@@ -1544,13 +1585,24 @@ Use the `Function.get_web_url()` method instead.
     @live_method_gen
     @synchronizer.no_input_translation
     async def _call_generator(self, args, kwargs):
-        invocation = await _Invocation.create(
-            self,
-            args,
-            kwargs,
-            client=self.client,
-            function_call_invocation_type=api_pb2.FUNCTION_CALL_INVOCATION_TYPE_SYNC_LEGACY,
-        )
+        invocation: Union[_Invocation, _InputPlaneInvocation]
+        if self._input_plane_url:
+            invocation = await _InputPlaneInvocation.create(
+                self,
+                args,
+                kwargs,
+                client=self.client,
+                input_plane_url=self._input_plane_url,
+                input_plane_region=self._input_plane_region,
+            )
+        else:
+            invocation = await _Invocation.create(
+                self,
+                args,
+                kwargs,
+                client=self.client,
+                function_call_invocation_type=api_pb2.FUNCTION_CALL_INVOCATION_TYPE_SYNC_LEGACY,
+            )
         async for res in invocation.run_generator():
             yield res
 

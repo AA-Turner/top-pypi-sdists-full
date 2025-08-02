@@ -41,6 +41,7 @@ class ResourceHint(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     RESOURCE_HINT_UNSPECIFIED: _ClassVar[ResourceHint]
     RESOURCE_HINT_CPU: _ClassVar[ResourceHint]
     RESOURCE_HINT_IO: _ClassVar[ResourceHint]
+    RESOURCE_HINT_GPU: _ClassVar[ResourceHint]
 
 class Finalizer(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -84,6 +85,7 @@ RESOLVER_KIND_OFFLINE: ResolverKind
 RESOURCE_HINT_UNSPECIFIED: ResourceHint
 RESOURCE_HINT_CPU: ResourceHint
 RESOURCE_HINT_IO: ResourceHint
+RESOURCE_HINT_GPU: ResourceHint
 FINALIZER_UNSPECIFIED: Finalizer
 FINALIZER_ONE_OR_NONE: Finalizer
 FINALIZER_ONE: Finalizer
@@ -855,6 +857,7 @@ class Resolver(_message.Message):
         "data_sources_v2",
         "static_operation",
         "sql_settings",
+        "resource_group",
     )
     FQN_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
@@ -880,6 +883,7 @@ class Resolver(_message.Message):
     DATA_SOURCES_V2_FIELD_NUMBER: _ClassVar[int]
     STATIC_OPERATION_FIELD_NUMBER: _ClassVar[int]
     SQL_SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     kind: ResolverKind
     inputs: _containers.RepeatedCompositeFieldContainer[ResolverInput]
@@ -904,6 +908,7 @@ class Resolver(_message.Message):
     data_sources_v2: _containers.RepeatedCompositeFieldContainer[_sources_pb2_1.DatabaseSourceReference]
     static_operation: _expression_pb2.LogicalExprNode
     sql_settings: SQLResolverSettings
+    resource_group: str
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -930,6 +935,7 @@ class Resolver(_message.Message):
         data_sources_v2: _Optional[_Iterable[_Union[_sources_pb2_1.DatabaseSourceReference, _Mapping]]] = ...,
         static_operation: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         sql_settings: _Optional[_Union[SQLResolverSettings, _Mapping]] = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class SinkResolver(_message.Message):

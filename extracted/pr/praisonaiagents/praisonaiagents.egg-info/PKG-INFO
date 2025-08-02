@@ -1,0 +1,52 @@
+Metadata-Version: 2.4
+Name: praisonaiagents
+Version: 0.0.156
+Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
+Author: Mervin Praison
+Requires-Python: >=3.10
+Requires-Dist: pydantic
+Requires-Dist: rich
+Requires-Dist: openai
+Requires-Dist: posthog>=3.0.0
+Requires-Dist: aiohttp>=3.8.0
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.6.0; extra == "mcp"
+Requires-Dist: fastapi>=0.115.0; extra == "mcp"
+Requires-Dist: uvicorn>=0.34.0; extra == "mcp"
+Provides-Extra: memory
+Requires-Dist: chromadb>=1.0.0; extra == "memory"
+Requires-Dist: litellm>=1.72.6; extra == "memory"
+Provides-Extra: knowledge
+Requires-Dist: mem0ai>=0.1.0; extra == "knowledge"
+Requires-Dist: chromadb>=1.0.0; extra == "knowledge"
+Requires-Dist: markitdown[all]>=0.1.0; extra == "knowledge"
+Requires-Dist: chonkie>=1.0.2; extra == "knowledge"
+Provides-Extra: graph
+Requires-Dist: mem0ai[graph]>=0.1.0; extra == "graph"
+Requires-Dist: chromadb>=1.0.0; extra == "graph"
+Provides-Extra: llm
+Requires-Dist: litellm>=1.72.6; extra == "llm"
+Requires-Dist: pydantic>=2.4.2; extra == "llm"
+Provides-Extra: api
+Requires-Dist: fastapi>=0.115.0; extra == "api"
+Requires-Dist: uvicorn>=0.34.0; extra == "api"
+Provides-Extra: telemetry
+Requires-Dist: posthog>=3.0.0; extra == "telemetry"
+Provides-Extra: mongodb
+Requires-Dist: pymongo>=4.6.3; extra == "mongodb"
+Requires-Dist: motor>=3.4.0; extra == "mongodb"
+Provides-Extra: auth
+Requires-Dist: PyJWT>=2.8.0; extra == "auth"
+Requires-Dist: passlib[bcrypt]>=1.7.4; extra == "auth"
+Requires-Dist: python-jose[cryptography]>=3.3.0; extra == "auth"
+Requires-Dist: python-multipart>=0.0.6; extra == "auth"
+Provides-Extra: all
+Requires-Dist: praisonaiagents[memory]; extra == "all"
+Requires-Dist: praisonaiagents[knowledge]; extra == "all"
+Requires-Dist: praisonaiagents[graph]; extra == "all"
+Requires-Dist: praisonaiagents[llm]; extra == "all"
+Requires-Dist: praisonaiagents[mcp]; extra == "all"
+Requires-Dist: praisonaiagents[api]; extra == "all"
+Requires-Dist: praisonaiagents[telemetry]; extra == "all"
+Requires-Dist: praisonaiagents[mongodb]; extra == "all"
+Requires-Dist: praisonaiagents[auth]; extra == "all"

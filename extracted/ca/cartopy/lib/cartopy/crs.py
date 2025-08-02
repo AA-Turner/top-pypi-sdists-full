@@ -21,6 +21,7 @@ import numpy as np
 import pyproj
 from pyproj import Transformer
 from pyproj.exceptions import ProjError
+import shapely
 import shapely.geometry as sgeom
 from shapely.prepared import prep
 
@@ -493,7 +494,7 @@ class CRS(_CRS):
         # Rotate the input vectors to the projection.
         #
         # 1: Find the magnitude and direction of the input vectors.
-        vector_magnitudes = (u**2 + v**2)**0.5
+        vector_magnitudes = np.hypot(u, v)
         vector_angles = np.arctan2(v, u)
         # 2: Find a point in the direction of the original vector that is
         #    a small distance away from the base point of the vector (near
@@ -667,6 +668,7 @@ class Projection(CRS, metaclass=ABCMeta):
         'MultiPoint': '_project_multipoint',
         'MultiLineString': '_project_multiline',
         'MultiPolygon': '_project_multipolygon',
+        'GeometryCollection': '_project_geometry_collection'
     }
     # Whether or not this projection can handle wrapped coordinates
     _wrappable = False
@@ -694,6 +696,10 @@ class Projection(CRS, metaclass=ABCMeta):
             self.bounds = (x.min(), x.max(), y.min(), y.max())
             x0, x1, y0, y1 = self.bounds
             self.threshold = min(x1 - x0, y1 - y0) / 100.
+        elif self.is_geographic:
+            # If the projection is geographic without an area of use, assume
+            # the bounds are the full globe.
+            self.bounds = (-180, 180, -90, 90)
 
     @property
     def boundary(self):
@@ -835,7 +841,8 @@ class Projection(CRS, metaclass=ABCMeta):
     def _project_linear_ring(self, linear_ring, src_crs):
         """
         Project the given LinearRing from the src_crs into this CRS and
-        returns a list of LinearRings and a single MultiLineString.
+        returns a GeometryCollection containing zero or more LinearRings and
+        a single MultiLineString.
 
         """
         debug = False
@@ -915,7 +922,7 @@ class Projection(CRS, metaclass=ABCMeta):
         if rings:
             multi_line_string = sgeom.MultiLineString(line_strings)
 
-        return rings, multi_line_string
+        return sgeom.GeometryCollection([*rings, multi_line_string])
 
     def _project_multipoint(self, geometry, src_crs):
         geoms = []
@@ -939,6 +946,11 @@ class Projection(CRS, metaclass=ABCMeta):
                 geoms.extend(r.geoms)
         return sgeom.MultiPolygon(geoms)
 
+    def _project_geometry_collection(self, geometry, src_crs):
+        return sgeom.GeometryCollection(
+            [self.project_geometry(geom, src_crs) for geom in geometry.geoms])
+
+
     def _project_polygon(self, polygon, src_crs):
         """
         Return the projected polygon(s) derived from the given polygon.
@@ -957,7 +969,8 @@ class Projection(CRS, metaclass=ABCMeta):
         rings = []
         multi_lines = []
         for src_ring in [polygon.exterior] + list(polygon.interiors):
-            p_rings, p_mline = self._project_linear_ring(src_ring, src_crs)
+            geom_collection = self._project_linear_ring(src_ring, src_crs)
+            *p_rings, p_mline = geom_collection.geoms
             if p_rings:
                 rings.extend(p_rings)
             if len(p_mline.geoms) > 0:
@@ -1206,10 +1219,26 @@ class Projection(CRS, metaclass=ABCMeta):
             y3 -= by
             x4 += bx
             y4 += by
+
+            interior_polys = []
+
             for ring in interior_rings:
-                # Use shapely buffer in an attempt to fix invalid geometries
-                polygon = sgeom.Polygon(ring).buffer(0)
-                if not polygon.is_empty and polygon.is_valid:
+                polygon = shapely.make_valid(sgeom.Polygon(ring))
+                if not polygon.is_empty:
+                    if isinstance(polygon, sgeom.Polygon):
+                        interior_polys.append(polygon)
+                    elif isinstance(polygon, sgeom.MultiPolygon):
+                        interior_polys.extend(polygon.geoms)
+                    elif isinstance(polygon, sgeom.GeometryCollection):
+                        for geom in polygon.geoms:
+                            if isinstance(geom, sgeom.Polygon):
+                                interior_polys.append(geom)
+                            elif isinstance(geom, sgeom.MultiPolygon):
+                                interior_polys.extend(geom.geoms)
+                    else:
+                        # make_valid may produce some linestrings.  Ignore these
+                        continue
+
                     x1, y1, x2, y2 = polygon.bounds
                     bx = (x2 - x1) * 0.1
                     by = (y2 - y1) * 0.1
@@ -1217,23 +1246,28 @@ class Projection(CRS, metaclass=ABCMeta):
                     y1 -= by
                     x2 += bx
                     y2 += by
-                    box = sgeom.box(min(x1, x3), min(y1, y3),
-                                    max(x2, x4), max(y2, y4))
 
-                    # Invert the polygon
-                    polygon = box.difference(polygon)
+                    x3 = min(x1, x3)
+                    x4 = max(x2, x4)
+                    y3 = min(y1, y3)
+                    y4 = max(y2, y4)
 
-                    # Intersect the inverted polygon with the boundary
-                    polygon = boundary_poly.intersection(polygon)
+            box = sgeom.box(x3, y3, x4, y4, ccw=is_ccw)
 
-                    if not polygon.is_empty:
-                        polygon_bits.append(polygon)
+            # Invert the polygons
+            multi_poly = shapely.make_valid(sgeom.MultiPolygon(interior_polys))
+            polygon = box.difference(multi_poly)
 
-        if polygon_bits:
-            multi_poly = sgeom.MultiPolygon(polygon_bits)
-        else:
-            multi_poly = sgeom.MultiPolygon()
-        return multi_poly
+            # Intersect the inverted polygon with the boundary
+            polygon = boundary_poly.intersection(polygon)
+
+            if not polygon.is_empty:
+                if isinstance(polygon, sgeom.MultiPolygon):
+                    polygon_bits.extend(polygon.geoms)
+                else:
+                    polygon_bits.append(polygon)
+
+        return sgeom.MultiPolygon(polygon_bits)
 
     def quick_vertices_transform(self, vertices, src_crs):
         """
@@ -2064,9 +2098,14 @@ class Orthographic(Projection):
     _handles_ellipses = False
 
     def __init__(self, central_longitude=0.0, central_latitude=0.0,
-                 globe=None):
+                 azimuth=0.0, globe=None):
         proj4_params = [('proj', 'ortho'), ('lon_0', central_longitude),
-                        ('lat_0', central_latitude)]
+                        ('lat_0', central_latitude), ('alpha', azimuth)]
+        if pyproj.__proj_version__ < '9.5.0' and azimuth != 0.0:
+            warnings.warn(
+                'Setting azimuth is not supported with PROJ versions < 9.5.0. '
+                'Assuming azimuth=0. '
+                'Current PROJ version: %s' % pyproj.__proj_version__)
         super().__init__(proj4_params, globe=globe)
 
         # TODO: Let the globe return the semimajor axis always.
@@ -3188,6 +3227,44 @@ class ObliqueMercator(Projection):
     @property
     def y_limits(self):
         return self._y_limits
+
+class Spilhaus(Projection):
+    """
+    Spilhaus World Ocean Map in a Square.
+
+    This is a projection based on Adams World in a Square II projection with the
+    two major antipodal areas on land: South China
+    (115°E and 30°N) and Argentina (65°W and 30°S).
+    See https://storymaps.arcgis.com/stories/756bcae18d304a1eac140f19f4d5cb3d
+    """
+    def __init__(self, rotation=45, false_easting=0.0, false_northing=0.0, globe=None):
+        """
+        Parameters
+        ----------
+        rotation : optional
+            Clockwise rotation of the map in degrees. Defaults to 45.
+        false_easting : optional
+            X offset from the planar origin in metres. Defaults to 0.0.
+        false_northing : optional
+            Y offset from the planar origin in metres. Defaults to 0.0.
+
+        """
+        proj4_params = [('proj', 'spilhaus'),
+                        ('rot',rotation),
+                        ('x_0', false_easting),
+                        ('y_0', false_northing)]
+
+        super().__init__(proj4_params, globe=globe)
+        # The boundary on https://epsg.io/54099 are wrong
+        # The following bounds are calculated based on
+        #[-65.00000012, -29.99999981]
+        # and [115.00000024,  30.00000036]
+        self.bounds = [
+            -11802684.083372328,
+            11802683.949222516,
+            -11801129.925928915,
+            11801129.925928915
+        ]
 
 
 class _BoundaryPoint:

@@ -239,7 +239,7 @@ def _bake_image(app_config: AppConfig, cache_dir: str, logger):
         baking_status.resolved_image,
     )
     app_config.set_state("python_path", baking_status.python_path)
-    logger("🐳 Using The Docker Image : %s" % app_config.get_state("image"))
+    logger("🐳 Using the docker image : %s" % app_config.get_state("image"))
 
 
 def print_table(data, headers):
@@ -374,7 +374,7 @@ def _package_necessary_things(app_config: AppConfig, logger):
     #      or is it relative to where the caller command is sitting. Ideally it should work
     #      like Kustomizations where its relative to where the yaml file sits for simplicity
     #      of understanding relationships between config files. Ideally users can pass the src_path
-    #      from the command line and that will aliviate any need to package any other directories for
+    #      from the command line and that will alleviate any need to package any other directories for
     #
 
     package_dir = app_config.get_state("packaging_directory")
@@ -395,7 +395,7 @@ def _package_necessary_things(app_config: AppConfig, logger):
     )
     app_config.set_state("code_package_url", package_url)
     app_config.set_state("code_package_key", package_key)
-    logger("💾 Code Package Saved to : %s" % app_config.get_state("code_package_url"))
+    logger("💾 Code package saved to : %s" % app_config.get_state("code_package_url"))
 
 
 @app.command(help="Deploy an app to the Outerbounds Platform.")
@@ -465,7 +465,7 @@ def deploy(
 
         app_config.set_state("packaging_directory", packaging_directory)
         logger(
-            "📦 Packaging Directory : %s" % app_config.get_state("packaging_directory"),
+            "📦 Packaging directory : %s" % app_config.get_state("packaging_directory"),
         )
 
         if app_config.get("no_deps", False):
@@ -611,7 +611,7 @@ def deploy(
                     )
                 raise AppConfigError(message)
             capsule_logger(
-                f"🚀 {'' if not force_upgrade else 'Force'} Upgrading {capsule.capsule_type.lower()} `{capsule.name}`....",
+                f"🚀 {'Upgrading' if not force_upgrade else 'Force upgrading'} {capsule.capsule_type.lower()} `{capsule.name}`....",
                 color=ColorTheme.INFO_COLOR,
                 system_msg=True,
             )
@@ -632,7 +632,7 @@ def deploy(
             capsule_spinner.stop()
 
         logger(
-            f"💊 {capsule.capsule_type} {app_config.config['name']} ({capsule.identifier}) deployed! {capsule.capsule_type} exposed on the URL: {capsule.url}",
+            f"💊 {capsule.capsule_type} {app_config.config['name']} ({capsule.identifier}) deployed! {capsule.capsule_type} available on the URL: {capsule.url}",
             color=ColorTheme.INFO_COLOR,
             system_msg=True,
         )
@@ -761,7 +761,7 @@ def list(ctx, project, branch, name, tags, format, auth_type):
 def delete(ctx, name, cap_id, project, branch, tags, auto_approve):
 
     """Delete an app/apps from the Outerbounds Platform."""
-    # Atleast one of the args need to be provided
+    # At least one of the args need to be provided
     if not any(
         [
             name is not None,
@@ -772,7 +772,7 @@ def delete(ctx, name, cap_id, project, branch, tags, auto_approve):
         ]
     ):
         raise AppConfigError(
-            "Atleast one of the options need to be provided. You can use --name, --id, --project, --branch, --tag"
+            "At least one of the options need to be provided. You can use --name, --id, --project, --branch, --tag"
         )
 
     capsule_api = CapsuleApi(ctx.obj.api_url, ctx.obj.perimeter)

@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: avulto
+Version: 0.1.17
+License-File: LICENSE
+Summary: A Python API for working with BYOND projects.
+Author-email: Warriorstar Orion <orion@snowfrost.garden>
+Requires-Python: >=3.10
+Project-URL: repository, https://github.com/warriorstar-orion/avulto

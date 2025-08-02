@@ -30,7 +30,7 @@ def _Omega_RELATIVE_DIFFERENCE_CPU(theta_flat, index, values, gamma):
 
     return grad_U, hess_U
 
-def _Omega_RELATIVE_DIFFERENCE_GPU(theta_flat, index, values, gamma):
+def _Omega_RELATIVE_DIFFERENCE_GPU(theta_flat, index, values, device, gamma):
     j_idx, k_idx = index
     theta_j = theta_flat[j_idx]
     theta_k = theta_flat[k_idx]
@@ -45,12 +45,12 @@ def _Omega_RELATIVE_DIFFERENCE_GPU(theta_flat, index, values, gamma):
 
     # Compute Hessian contributions
     d2psi = (2 * denom ** 2 - 4 * diff * denom * (1 + gamma * torch.sign(diff))
-            + 2 * num * (1 + gamma * torch.sign(diff)) ** 2) / (denom ** 3 + 1e-8)
+             + 2 * num * (1 + gamma * torch.sign(diff)) ** 2) / (denom ** 3 + 1e-8)
     hess_pair = values * d2psi
 
-    # Initialize gradient and Hessian
-    grad_U = torch.zeros_like(theta_flat)
-    hess_U = torch.zeros_like(theta_flat)
+    # Initialize gradient and Hessian on the correct device
+    grad_U = torch.zeros_like(theta_flat, device=device)
+    hess_U = torch.zeros_like(theta_flat, device=device)
 
     # Accumulate gradient contributions
     grad_U.index_add_(0, j_idx, grad_pair)

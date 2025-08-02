@@ -1,5 +1,6 @@
 import difflib
 import sys
+import warnings
 from functools import partial
 
 import param
@@ -51,6 +52,8 @@ from pandas import DatetimeIndex, MultiIndex
 
 from .backend_transforms import _transfer_opts_cur_backend
 from .util import (
+    _HV_GE_1_21_0,
+    _Undefined,
     filter_opts,
     is_tabular,
     is_series,
@@ -78,6 +81,7 @@ from .util import (
     import_datashader,
     import_geoviews,
     is_mpl_cmap,
+    _find_stack_level,
 )
 from .utilities import hvplot_extension
 
@@ -131,33 +135,39 @@ class HoloViewsConverter:
         to see warning if the attrs can't be found, set to False to disable
         the behavior.
     by : str or list of str or None, default=None
-        Dimension(s) by which to group the data categories.
-        An NdOverlay is returned by default unless ``subplots=True``, then an NdLayout is returned.
+        Dimension(s) by which to group the data categories. An
+        :doc:`holoviews:reference/containers/bokeh/NdOverlay` is
+        returned by default unless ``subplots=True``, then an
+        :doc:`holoviews:reference/containers/bokeh/NdLayout` is returned.
     dynamic : bool, default=True
         Whether to return a dynamic plot which sends updates on widget and
         zoom/pan events or whether all the data should be embedded
         (warning: for large groupby operations embedded data can become
-        very large if dynamic=False)
+        very large if ``dynamic=False``).
     fields : dict, default={}
         A dictionary of fields for renaming or transforming data dimensions.
     groupby : str or list or None, default=None
-        Dimension(s) by which to group data, enabling widgets.
-        Returns a DynamicMap if ``dynamic=True``, else returns a HoloMap.
-        See ``dynamic`` for more information.
+        Dimension(s) by which to group data, enabling widgets. Returns a
+        :doc:`holoviews:reference/containers/bokeh/DynamicMap` if
+        ``dynamic=True``, else returns a
+        :doc:`holoviews:reference/containers/bokeh/HoloMap`. See ``dynamic``
+        for more information.
     group_label : str or None, default=None
-        Label for grouped data, typically in legends or axis labels.
+        Sets a custom label for the dimension created when plotting multiple columns.
+        When multiple columns are plotted (e.g., multiple y values), hvPlot automatically reshapes the data from wide to long format.
+        It creates a new grouping dimension that holds the original column names.
+        By default, this grouping dimension is labeled ``'Variable'``.
+        Setting ``group_label`` overrides this default label.
+
+        .. note::
+           ``group_label`` only applies when plotting multiple columns and does not control grouping with ``by``.
     kind : str, default='line'
-        The type of plot to generate.
+        The type of plot to generate. Should only be set when calling
+        ``hvplot()`` directly.
     label : str or None, default=None
         Label for the data, typically used in the plot title or legends.
     persist : bool, default=False
         Whether to persist the data in memory when using dask.
-    robust : bool or None, default=None
-        If True and clim are absent, the colormap range is computed
-        with 2nd and 98th percentiles instead of the extreme values
-        for image elements. For RGB elements, clips the "RGB", or
-        raw reflectance values between 2nd and 98th percentiles.
-        Follows the same logic as xarray's robust option.
     row : str or None, default=None
         Column name to use for splitting the plot into separate subplots by rows.
     col : str or None, default=None
@@ -166,21 +176,17 @@ class HoloViewsConverter:
         Whether to sort the x-axis by date before plotting
     subplots : bool, default=False
         Whether to display data in separate subplots when using the ``by`` parameter.
-    symmetric : bool or None, default=None
-        Whether the data are symmetric around zero. If left unset, the data
-        will be checked for symmetry as long as the size is less than
-        ``check_symmetric_max``.
-    check_symmetric_max : int, default=1000000
-        Size above which to stop checking for symmetry by default on the data.
     transforms : dict, default={}
         A dictionary of HoloViews dim transforms to apply before plotting
     use_dask : bool, default=False
-        Whether to use dask for processing the data, helpful for large datasets that do not fit into memory.
+        Enables support for Dask-backed xarray datasets, allowing out-of-core computation
+        and parallel processing. Only applicable when the input data is an xarray object.
+        Has no effect on Pandas or other non-xarray data structures.
     use_index : bool, default=True
         Whether to use the data's index for the x-axis by default.
-        if ``hover_cols == 'all'``, adds the index to the hover tools.
     value_label : str, default='value'
-        Label for the data values, typically used for the y-axis or in legends.
+        Sets a custom label for the values when the data is reshaped from wide to long format (e.g., when plotting multiple columns).
+        This label is typically used for the y-axis, colorbar, or in hover tooltips.
 
     Geographic Options
     ------------------
@@ -227,9 +233,16 @@ class HoloViewsConverter:
 
     Size And Layout Options
     -----------------------
-    fontscale : number
-        Scales the size of all fonts by the same amount, e.g. fontscale=1.5
-        enlarges all fonts (title, xticks, labels etc.) by 50%
+    aspect : float or {'equal', 'square'} or None, default=None
+        Sets the width-to-height ratio of the plot. When None (the default),
+        hvPlot chooses an appropriate aspect automatically. Use
+        ``'equal'`` or ``'square'`` to modify the unit ratio between axes,
+        or supply a numeric value (e.g. 2.0) for a custom ratio.
+        To control the scaling of individual axis units, use the
+        ``data_aspect`` option instead.
+    data_aspect : float or None, default=None
+        Defines the aspect of the axis scaling, i.e. the ratio of
+        y-unit to x-unit.
     frame_width/frame_height : int
         The width and height of the data area of the plot
     max_width/max_height : int
@@ -251,98 +264,132 @@ class HoloViewsConverter:
         size of the browser. Responsive mode will only work if at
         least one dimension of the plot is left undefined, e.g. when
         width and height or width and aspect are set the plot is set
-        to a fixed size, ignoring any responsive option.
+        to a fixed size, ignoring any responsive option. Only supported by the
+        interactive plotting backends.
+    widget_location : str, optional
+        Specifies where to place widgets generated by options like ``groupby``.
+        Valid values are: ``'right'`` (default), ``'left'``, ``'bottom'``,
+        ``'right'``, ``'top'``, ``'top_left'``, ``'top_right'``,
+        ``'bottom_left'``, ``'bottom_right'``, ``'left_top'``,
+        ``'left_bottom'``, ``'right_top'``, ``'right_bottom'``.
+        Only applies if the plot generates widgets (e.g. via ``groupby``).
 
     Axis Options
     ------------
-    aspect : str or float or None, default=None
-        The aspect ratio mode of the plot. By default, a plot may
-        select its own appropriate aspect ratio but sometimes it may
-        be necessary to force a square aspect ratio (e.g. to display
-        the plot as an element of a grid). The modes 'auto' and
-        'equal' correspond to the axis modes of the same name in
-        matplotlib, a numeric value specifying the ratio between plot
-        width and height may also be passed. To control the aspect
-        ratio between the axis scales use the ``data_aspect`` option
-        instead.
-    data_aspect : float or None, default=None
-        Defines the aspect of the axis scaling, i.e. the ratio of
-        y-unit to x-unit.
     autorange : Literal['x', 'y'] or None, default=None
         Whether to enable auto-ranging along the x- or y-axis when
-        zooming. Requires HoloViews >= 1.16.
+        zooming. Only supported by the Bokeh backend.
+
+        .. versionadded:: 0.9.0
     flip_xaxis/flip_yaxis : bool or None, default=None
-        Whether to flip the axis left to right or up and down respectively
+        Whether to flip the axis left to right or up and down respectively.
     framewise : bool, default=True
         Whether to compute the axis ranges frame-by-frame when using dynamic plots.
     invert : bool, default=False
-        Swaps x- and y-axis
+        Swaps x- and y-axis.
     logx/logy : bool, default=False
-        Enables logarithmic x- and y-axis respectively
+        Enables logarithmic x- and y-axis respectively.
     loglog : bool or None, default=None
-        Enables logarithmic x- and y-axis
+        Enables logarithmic x- and y-axis.
     rot : number or None, default=None
         Rotates the axis ticks along the x-axis by the specified
         number of degrees.
     shared_axes : bool, default=True
-        Whether to link axes between plots
+        Whether to link axes between plots.
     subcoordinate_y : bool or dict or None, default=None
        Whether to enable sub-coordinate y systems for this plot. Accepts also a
        dictionary of related options to pass down to HoloViews,
        e.g. ``{'subcoordinate_scale': 2}``.
+
+       .. versionadded:: 0.11.0
     title : str or None, default=None
-        Title for the plot
-    xaxis/yaxis : str or None
-        Whether to show the x/y-axis and whether to place it at the
-        'top'/'bottom' and 'left'/'right' respectively.
+        Title for the plot.
+    xaxis : str or bool or None
+        Whether to show the x-axis and whether to place it at the top or
+        bottom. A bare axis means that an axis line is still displayed but
+        there are no axis ticks and labels. Valid options include:
+        ``bottom`` (default), ``bottom-bare``, ``top``, ``top-bare``,
+        ``None`` (no axis at all), ``True`` (same as ``bottom``), and
+        ``False`` (same as ``None``).
+    yaxis : str or bool or None
+        Whether to show the y-axis and whether to place it at the left or
+        right. A bare axis means that an axis line is still displayed but
+        there are no axis ticks and labels. Valid options include:
+        ``left`` (default), ``left-bare``, ``right``, ``right-bare``,
+        ``None`` (no axis at all), ``True`` (same as ``left``), and
+        ``False`` (same as ``None``).
     xformatter/yformatter : str or bokeh.TickFormatter or None, default=None
         Formatter for the x-axis and y-axis (accepts printf formatter,
-        e.g. '%.3f', and bokeh TickFormatter)
+        e.g. '%.3f', and bokeh TickFormatter).
     xlabel/ylabel/clabel : str or None, default=None
-        Axis labels for the x-axis, y-axis, and colorbar
-    xlim/ylim : tuple or list or None, default=None
-        Plot limits of the x- and y-axis
-    xticks/yticks/cticks : int or list or None, default=None
-        Ticks along x-axis, y-axis, and colorbar specified as an integer, list of
-        ticks positions, or list of tuples of the tick positions and labels
+        Axis labels for the x-axis, y-axis, and colorbar.
+    xlim/ylim : tuple or None, default=None
+        Plot limits of the x- and y-axis. One bound can be left unset by
+        using ``None`` (e.g. ``xlim=(10, None)`` means there is no upper bound).
+    xticks/yticks/cticks : int or list or np.ndarray or None, default=None
+        Ticks along x-axis and y-axis, as an integer, list of ticks positions,
+        Numpy ndarray, or list of tuples of the tick positions and labels.
+        Also accepts a Bokeh ``Ticker`` instance when the Bokeh plotting backend
+        is enabled.
 
-    Grid And Legend Options
-    -----------------------
-    colorbar : bool or None, default=None
-        Enables a colorbar. Enabled by default for these plots: bivariate,
-        contour, contourf, heatmap, image, hexbin, quadmesh, polygons. Enabled
-        by default for rasterized plots.
-    grid : bool or None, default=None
-        Whether to show a grid
+        .. versionadded:: 0.11.0
+           ``cticks`` was added in this version and is only supported by the
+           Bokeh plotting backend.
+
+    Legend Options
+    --------------
     legend : bool or str or None, default=None
-        Whether to show a legend, or a legend position
-        ('top', 'bottom', 'left', 'right')
+        Whether to show a legend, or a legend position. A cardinal position
+        (``'top'``, ``'bottom'``, ``'left'``, ``'right'`` (default)) or a
+        corner placement (``'top_left'``, ``'top_right'``, ``'bottom_left'``,
+        ``'bottom_right'``).
+    legend_cols : int or None, default=None
+        Number of columns in the legend.
+    legend_opts : dict or None, default=None
+        Allows setting specific styling options for the legend. They keys
+        should be attributes of the ``Legend`` model for Bokeh and keyword
+        arguments of the ``Axes.legen`` method for Matplotlib.
 
     Interactivity Options
     ---------------------
-    hover : bool or None, default=None
-        Whether to show hover tooltips, default is True unless datashade is
-        True in which case hover is False by default
+    hover : bool or str or None, default=None
+        Whether to show hover tooltips, default is True unless ``datashade=True``
+        in which case hover is False by default. Also accepts ``'hline'``
+        and ``'vline'`` to change the hit-testing mode.
     hover_cols : list or str, default=[]
         Additional columns to add to the hover tool or 'all' which will
-        includes all columns (including indexes if use_index is True).
+        include all columns (including indexes if ``use_index=True``).
     hover_formatters : dict or None, default=None
         A dict of formatting options for the hover tooltip.
+
+        .. deprecated:: 0.12
+           Use ``hover_tooltips`` instead.
     hover_tooltips : list[str] or list[tuple] or None, default=None
         A list of dimensions to be displayed in the hover tooltip.
+    toolbar : str or bool or None, optional
+        Whether to display a toolbar and where to place it. Displayed by
+        default, disabled with ``'disable'``, ``None`` or ``False``. Location
+        must be one ``'above'``, ``'below'``, ``'left'``, or ``'right'``
+        (the default).
+    autohide_toolbar : bool, optional
+        Whether to automatically hide the toolbar until the user hovers over
+        the plot. This keyword has no effect if the toolbar is disabled
+        (``toolbar=None``). Default is False.
     tools : list, default=[]
         List of tool instances or strings (e.g. ['tap', 'box_select'])
 
-    Styling Options
-    ---------------
+    Color And Colormap Options
+    --------------------------
     bgcolor : str or None, default=None
         Background color of the data area of the plot
     color : str or list or column name or None, default=None
         Defines the color(s) to use for the plot. Accepts:
-        - a single color name (e.g., 'red', 'blue')
-        - a HEX color code (e.g., '#ff5733')
+
+        - a single color name (e.g., ``'red'``, ``'blue'``)
+        - a HEX color code (e.g., ``'#ff5733'``)
         - a list of colors for multiple elements
         - a column name from the dataset to map colors based on values.
+
     c : str or list or column name or None, default=None
         Alias for ``color``. If both ``color`` and ``c`` are provided,
         the ``color`` keyword takes precedence.
@@ -351,7 +398,8 @@ class HoloViewsConverter:
 
         Accepts:
 
-        - a predefined colormap name from Bokeh, Matplotlib, or Colorcet (e.g., 'viridis', 'plasma')
+        - a predefined colormap name from Bokeh, Matplotlib, or Colorcet
+          (e.g., ``'viridis'``, ``'plasma'``)
         - a list of named colors or HEX color codes.
         - a dictionary mapping categories to colors for discrete colormaps.
         - A colormap object from HoloViews or Matplotlib.
@@ -365,22 +413,22 @@ class HoloViewsConverter:
 
         You can override these defaults by explicitly setting ``cmap=<colormap_name>``.
         Only one of ``cmap``, ``colormap``, or ``color_key`` can be specified at a time.
+    colorbar : bool or None, default=None
+        Enables a colorbar. Enabled by default for these plots: ``bivariate``,
+        ``contour``, ``contourf``, ``heatmap``, ``image``, ``hexbin``, ``quadmesh``,
+        ``polygons``. Enabled by default for rasterized plots.
     colormap : str or list  or colormap object or None, default=None
-        Alias for ``cmap``. The colormap to apply when applying color mapping.
-        Accepts the same values as `cmap`. See `cmap` for more details.
+        Alias for ``cmap``. Accepts the same values as ``cmap``.
+        See ``cmap`` for more details.
         Only one of ``cmap``, ``colormap``, or ``color_key`` can be specified at a time.
     color_key : str or list or dict or None, default=None
-        Defines a categorical colormap for datashaded plots where distinct
-        colors must be assigned to different categories. The number of colors
-        must match or exceed the number of unique categories in the dataset.
+        Alias for ``cmap``. Accepts the same values as ``cmap``.
+        See ``cmap`` for more details.
         Only one of ``cmap``, ``colormap``, or ``color_key`` can be specified at a time.
     clim : tuple or None, default=None
         Lower and upper bound of the color scale
     cnorm : str, default='linear'
-        Color scaling which must be one of 'linear', 'log' or 'eq_hist'
-    fontsize : number or dict or None, default=None
-        Set title, label and legend text to the same fontsize. Finer control
-        by using a dict: {'title': '15pt', 'ylabel': '5px', 'ticks': 20}
+        Color scaling which must be one of ``'linear'``, ``'log'`` or ``'eq_hist'``.
     rescale_discrete_levels : bool or None, default=None
         If ``cnorm='eq_hist'`` and there are only a few discrete values,
         then ``rescale_discrete_levels=True`` (the default) decreases
@@ -388,13 +436,42 @@ class HoloViewsConverter:
         rendering towards the (more visible) top of the ``cmap`` range,
         thus avoiding washout of the lower values.  Has no effect if
         ``cnorm!=`eq_hist``.
+    robust : bool or None, default=None
+        If this option is True and no ``clim`` was provided, the colormap range
+        is computed with 2nd and 98th percentiles instead of the extreme values
+        for image elements. For RGB elements, clips the "RGB", or
+        raw reflectance values between 2nd and 98th percentiles.
+        Follows the same logic as xarray's robust option.
+    symmetric : bool or None, default=None
+        Whether the data are symmetric around zero. If left unset, the data
+        will be checked for symmetry as long as the size is less than
+        ``check_symmetric_max``.
+    check_symmetric_max : int, default=1000000
+        Size above which to stop checking for symmetry by default on the data.
+
+    Styling Options
+    ---------------
+    backend_opts : dict or None, optional
+        A dictionary of custom options to apply to the plot or subcomponents of
+        the plot. The keys in the dictionary mirror attribute access on the
+        underlying plotting backend objects stored in the plot's handles, e.g.
+        ``{'hover.attachment': 'vertical'}`` will index the hover in the handles
+        and then set the attachment.
+    fontscale : number
+        Scales the size of all fonts by the same amount, e.g. fontscale=1.5
+        enlarges all fonts (title, xticks, labels etc.) by 50%.
+    fontsize : number or dict or None, default=None
+        Set title, label and legend text to the same fontsize. Finer control
+        by using a dict: ``{'title': '15pt', 'ylabel': '5px', 'ticks': 20}``.
+    grid : bool or None, default=None
+        Whether to show a grid.
 
     Resampling Options
     ------------------
-    aggregator : str datashader.Reduction or None, default=None
+    aggregator : str, datashader.Reduction, or None, default=None
         Aggregator to use when applying rasterize or datashade operation
-        (valid options include 'mean', 'count', 'min', 'max' and more, and
-        datashader reduction objects)
+        (valid options include ``'mean'``, ``'count'``, ``'min'``, ``'max'``
+        and more, and datashader reduction objects)
     datashade : bool, default=False
         Whether to apply rasterization and shading (colormapping) using
         the Datashader library, returning an RGB object instead of
@@ -403,22 +480,20 @@ class HoloViewsConverter:
         Controls the application of downsampling to the plotted data,
         which is particularly useful for large timeseries datasets to
         reduce the amount of data sent to browser and improve
-        visualization performance. Requires HoloViews >= 1.16. Additional
-        dependencies: Installing the ``tsdownsample`` library is required
-        for using any downsampling methods other than the default 'lttb'.
+        visualization performance.
 
         Acceptable values:
 
-        - False: No downsampling is applied.
-        - True: Applies downsampling using HoloViews' default algorithm
+        - ``False``: No downsampling is applied.
+        - ``True``: Applies downsampling using HoloViews' default algorithm
           (LTTB - Largest Triangle Three Buckets).
-        - 'lttb': Explicitly applies the Largest Triangle Three Buckets
-          algorithm.
-        - 'minmax': Applies the MinMax algorithm, selecting the minimum
+        - ``'lttb'``: Explicitly applies the Largest Triangle Three Buckets
+          algorithm. Uses ``tsdownsample`` if installed.
+        - ``'minmax'``: Applies the MinMax algorithm, selecting the minimum
           and maximum values in each bin. Requires ``tsdownsample``.
-        - 'm4': Applies the M4 algorithm, selecting the minimum, maximum,
+        - ``'m4'``: Applies the M4 algorithm, selecting the minimum, maximum,
           first, and last values in each bin. Requires ``tsdownsample``.
-        - 'minmax-lttb': Combines MinMax and LTTB algorithms for
+        - ``'minmax-lttb'``: Combines MinMax and LTTB algorithms for
           downsampling, first applying MinMax to reduce to a preliminary
           set of points, then LTTB for further reduction. Requires
           ``tsdownsample``.
@@ -428,7 +503,7 @@ class HoloViewsConverter:
     dynspread : bool, default=False
         For plots generated with datashade=True or rasterize=True,
         automatically increase the point size when the data is sparse
-        so that individual points become more visible
+        so that individual points become more visible.
     max_px : int, default=3
         The maximum size in pixels for dynamically spreading elements in sparse data using ``dynspread``.
         This helps to increase the visibility of sparse data points.
@@ -444,11 +519,23 @@ class HoloViewsConverter:
     rasterize : bool, default=False
         Whether to apply rasterization using the Datashader library,
         returning an aggregated Image (to be colormapped by the
-        plotting backend) instead of individual points
-    resample_when : int, default=None
+        plotting backend) instead of individual points.
+    resample_when : int or None, default=None
         Applies a resampling operation (datashade, rasterize or downsample) if
-        the number of individual data points present in the current zoom range
+        the number of individual data points present in the current viewport
         is above this threshold. The raw plot is displayed otherwise.
+    selector : datashader.Reduction | str | tuple | None, default=None
+        Datashader reduction to apply during a ``rasterize`` or ``datashade``
+        operation, used to select additional information for inclusion in the
+        hover tooltip. Supported options include:
+
+        - string: only ``'first'`` and ``'last'``
+        - tuple of two strings: ``(<reduction>, <column>)``, e.g. ``('min', 'value')``.
+        - Datashader object: ``ds.first``, ``ds.last``, ``ds.min``, and ``ds.max``.
+
+        .. versionadded:: 0.12.0
+           Requires ``holoviews>=1.21``.
+           Requires ``bokeh>=3.7``.
     threshold : float, default=0.5
         When using ``dynspread``, this value defines the minimum density of overlapping points
         required before the spreading operation is applied.
@@ -485,13 +572,10 @@ class HoloViewsConverter:
         'kind',
         'label',
         'persist',
-        'robust',
         'row',
         'col',
         'sort_date',
         'subplots',
-        'symmetric',
-        'check_symmetric_max',
         'transforms',
         'use_dask',
         'use_index',
@@ -511,7 +595,8 @@ class HoloViewsConverter:
     ]
 
     _size_layout_options = [
-        'fontscale',
+        'aspect',
+        'data_aspect',
         'frame_height',
         'frame_width',
         'height',
@@ -521,12 +606,11 @@ class HoloViewsConverter:
         'min_width',
         'padding',
         'responsive',
+        'widget_location',
         'width',
     ]
 
     _axis_config_options = [
-        'aspect',
-        'data_aspect',
         'autorange',
         'clabel',
         'flip_xaxis',
@@ -553,10 +637,10 @@ class HoloViewsConverter:
         'cticks',
     ]
 
-    _grid_legend_options = [
-        'colorbar',
-        'grid',
+    _legend_options = [
         'legend',
+        'legend_cols',
+        'legend_opts',
     ]
 
     _interactivity_options = [
@@ -564,20 +648,32 @@ class HoloViewsConverter:
         'hover_cols',
         'hover_formatters',
         'hover_tooltips',
+        'toolbar',
+        'autohide_toolbar',
         'tools',
     ]
 
-    _style_options = [
+    _color_options = [
         'bgcolor',
         'clim',
         'color',
+        'colorbar',
         'colormap',
-        'fontsize',
         'c',
         'cmap',
         'color_key',
         'cnorm',
         'rescale_discrete_levels',
+        'robust',
+        'symmetric',
+        'check_symmetric_max',
+    ]
+
+    _style_options = [
+        'backend_opts',
+        'fontscale',
+        'fontsize',
+        'grid',
     ]
 
     _resample_options = [
@@ -592,6 +688,7 @@ class HoloViewsConverter:
         'dynspread',
         'max_px',
         'precompute',
+        'selector',
         'threshold',
     ]
 
@@ -605,7 +702,8 @@ class HoloViewsConverter:
         'geographic': 'Geographic Options',
         'size_layout': 'Size And Layout Options',
         'axis': 'Axis Options',
-        'grid_legend': 'Grid And Legend Options',
+        'legend': 'Legend Options',
+        'color': 'Color And Colormap Options',
         'interactivity': 'Interactivity Options',
         'style': 'Styling Options',
         'resampling': 'Resampling Options',
@@ -617,8 +715,9 @@ class HoloViewsConverter:
         'geographic': _geo_options,
         'size_layout': _size_layout_options,
         'axis': _axis_config_options,
-        'grid_legend': _grid_legend_options,
+        'legend': _legend_options,
         'interactivity': _interactivity_options,
+        'color': _color_options,
         'style': _style_options,
         'resampling': _resample_options,
         'streaming': _stream_options,
@@ -747,6 +846,8 @@ class HoloViewsConverter:
         dynamic=True,
         grid=None,
         legend=None,
+        legend_cols=None,
+        legend_opts=None,
         rot=None,
         title=None,
         xlim=None,
@@ -776,6 +877,7 @@ class HoloViewsConverter:
         debug=False,
         framewise=True,
         aggregator=None,
+        selector=None,
         projection=None,
         global_extent=None,
         geo=False,
@@ -787,6 +889,8 @@ class HoloViewsConverter:
         y_sampling=None,
         pixel_ratio=None,
         project=False,
+        toolbar=_Undefined,
+        autohide_toolbar=False,
         tools=[],
         attr_labels=None,
         coastline=False,
@@ -801,8 +905,16 @@ class HoloViewsConverter:
         rescale_discrete_levels=None,
         autorange=None,
         subcoordinate_y=None,
+        backend_opts=None,
         **kwds,
     ):
+        if debug:
+            warnings.warn(
+                '`debug` has been deprecated and will be removed in a future version.',
+                FutureWarning,
+                stacklevel=_find_stack_level(),
+            )
+
         # Process data and related options
         self._redim = fields
         self.use_index = use_index
@@ -886,12 +998,20 @@ class HoloViewsConverter:
                 'At least one resampling operation (rasterize, datashader, '
                 'downsample) must be enabled when resample_when is set.'
             )
+        if selector is not None:
+            if not _HV_GE_1_21_0:
+                msg = 'selector requires holoviews>=1.21.'
+                raise ImportError(msg)
+            if not (datashade or rasterize):
+                msg = 'rasterize or datashade must be enabled when selector is set.'
+                raise ValueError(msg)
         self.resample_when = resample_when
         self.datashade = datashade
         self.rasterize = rasterize
         self.downsample = downsample
         self.dynspread = dynspread
         self.aggregator = aggregator
+        self.selector = selector
         self.precompute = precompute
         self.x_sampling = x_sampling
         self.y_sampling = y_sampling
@@ -939,6 +1059,11 @@ class HoloViewsConverter:
                 'The legend option should be a boolean or '
                 f'a valid legend position (i.e. one of {list(self._legend_positions)}).'
             )
+        if legend_cols is not None:
+            plot_opts['legend_cols'] = legend_cols
+        if legend_opts is not None:
+            plot_opts['legend_opts'] = legend_opts
+
         if subcoordinate_y:
             plot_opts['subcoordinate_y'] = True
             if isinstance(subcoordinate_y, dict):
@@ -1018,7 +1143,7 @@ class HoloViewsConverter:
         if kind == 'errorbars':
             hover = False
         elif hover is None:
-            hover = not self.datashade
+            hover = True if self.selector else not self.datashade
         if hover and not any(
             t for t in tools if isinstance(t, HoverTool) or t in ['hover', 'vline', 'hline']
         ):
@@ -1029,8 +1154,31 @@ class HoloViewsConverter:
             if hover_tooltips:
                 plot_opts['hover_tooltips'] = hover_tooltips
             if hover_formatters:
+                warnings.warn(
+                    'hover_formatters has been deprecated and will be removed '
+                    'in a future version. Use hover_tooltips instead.',
+                    DeprecationWarning,
+                    stacklevel=_find_stack_level(),
+                )
                 plot_opts['hover_formatters'] = hover_formatters
+        if toolbar is not _Undefined:
+            if toolbar is False:
+                toolbar = None
+            elif toolbar is True:
+                toolbar = 'right'
+            plot_opts['toolbar'] = toolbar
+        if autohide_toolbar:
+            if not _HV_GE_1_21_0:
+                warnings.warn(
+                    'autohide_toolbar requires holoviews>=1.21, skipped.',
+                    stacklevel=_find_stack_level(),
+                )
+            else:
+                plot_opts['autohide_toolbar'] = autohide_toolbar
         plot_opts['tools'] = tools
+
+        if backend_opts is not None:
+            plot_opts['backend_opts'] = backend_opts
 
         if self.crs and global_extent:
             plot_opts['global_extent'] = global_extent
@@ -1121,12 +1269,6 @@ class HoloViewsConverter:
         ) and self.kind in ('scatter', 'line', 'area'):
             agg = ds.reductions.count_cat(self.group_label)
             categorical = True
-
-        (
-            (isinstance(self.y, list) and len(self.y) > 1)
-            or (self.y is None and len(set(self.variables) - set(self.indexes)) > 1)
-        )
-
         return categorical, agg
 
     def _process_symmetric(self, symmetric, clim, check_symmetric_max):
@@ -1563,7 +1705,7 @@ class HoloViewsConverter:
             except Exception as e:
                 if attr_labels is True:
                     param.main.param.warning(
-                        'Unable to auto label using xarray attrs ' f'because {e}'
+                        f'Unable to auto label using xarray attrs because {e}'
                     )
 
     def _process_plot(self):
@@ -1749,7 +1891,7 @@ class HoloViewsConverter:
             self._data_options
             + self._size_layout_options
             + self._axis_config_options
-            + self._grid_legend_options
+            + self._legend_options
             + self._resample_options
             + self._geo_options
             + kind_opts
@@ -1760,7 +1902,12 @@ class HoloViewsConverter:
         # See e.g. alpha for Area plots with plotly:
         # https://github.com/holoviz/holoviews/issues/5226
         if self._backend_compat == 'bokeh':
-            combined_opts = combined_opts + self._style_options + self._interactivity_options
+            combined_opts = (
+                combined_opts
+                + self._color_options
+                + self._style_options
+                + self._interactivity_options
+            )
         for mismatch in mismatches:
             suggestions = difflib.get_close_matches(mismatch, combined_opts)
             param.main.param.warning(
@@ -1943,13 +2090,24 @@ class HoloViewsConverter:
             layers = _transfer_opts_cur_backend(layers)
             return layers
 
-        import_datashader()
+        ds = import_datashader()
         from holoviews.operation.datashader import datashade, rasterize, dynspread
 
         categorical, agg = self._process_categorical_datashader()
         if agg:
             opts['aggregator'] = agg
-
+        if self.selector:
+            selector = self.selector
+            try:
+                if isinstance(selector, str):
+                    selector = getattr(ds, selector)()
+                elif isinstance(selector, tuple):
+                    selector = getattr(ds, selector[0])(selector[1])
+            except AttributeError as e:
+                sel = selector[0] if isinstance(selector, tuple) else selector
+                msg = f'Invalid selector value {sel!r}.'
+                raise ValueError(msg) from e
+            opts['selector'] = selector
         if self.precompute:
             opts['precompute'] = self.precompute
         if self.x_sampling:
@@ -2108,8 +2266,8 @@ class HoloViewsConverter:
                 f'{tile_source} tiles not recognized. tiles must be either True, a '
                 'xyzservices.TileProvider instance, a HoloViews'
                 + (' or Geoviews' if lib == 'geoviews' else '')
-                + " basemap string "
-                f"(one of {', '.join(sorted(sources))}), a HoloViews Tiles instance"
+                + ' basemap string '
+                f'(one of {", ".join(sorted(sources))}), a HoloViews Tiles instance'
                 + (', a Geoviews WMTS instance' if lib == 'geoviews' else '')
                 + '.'
             )
@@ -2589,6 +2747,7 @@ class HoloViewsConverter:
             'bin_range': self.kwds.get('bin_range', None),
             'normed': self.kwds.get('normed', False),
             'cumulative': self.kwds.get('cumulative', False),
+            'log': self._plot_opts.get('logx', False),
         }
         if 'bins' in self.kwds:
             bins = self.kwds['bins']
@@ -2965,8 +3124,8 @@ class HoloViewsConverter:
         nbands = len(data.coords[bands])
         if nbands < 3:
             raise ValueError(
-                'Selected bands coordinate (%s) has only %d channels,'
-                'expected at least three channels to convert to RGB.' % (bands, nbands)
+                f'Selected bands coordinate ({bands}) has only {nbands:d} channels,'
+                'expected at least three channels to convert to RGB.'
             )
 
         params = dict(self._relabel)

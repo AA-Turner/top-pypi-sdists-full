@@ -1,0 +1,130 @@
+Metadata-Version: 2.4
+Name: landlock
+Version: 1.0.0.dev5
+Summary: Python interface to the Landlock Linux Security Module.
+Author-email: Edward Knight <edw@rdknig.ht>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Operating System Kernels :: Linux
+License-File: LICENSE
+Requires-Dist: build ~= 1.2 ; extra == "deploy"
+Requires-Dist: twine ~= 6.1 ; extra == "deploy"
+Requires-Dist: pre-commit ~= 4.2 ; extra == "dev"
+Requires-Dist: landlock[test] ; extra == "dev"
+Requires-Dist: pytest ~= 8.3 ; extra == "test"
+Requires-Dist: pytest-cov ~= 6.1 ; extra == "test"
+Requires-Dist: pytest-forked ~= 1.6  ; extra == "test" and ( sys_platform != 'win32')
+Project-URL: Home, https://github.com/Edward-Knight/landlock
+Provides-Extra: deploy
+Provides-Extra: dev
+Provides-Extra: test
+
+# [🔒🐍 Landlock for Python](https://github.com/Edward-Knight/landlock)
+
+[![PyPI - Status](https://img.shields.io/pypi/status/landlock)](https://pypi.org/project/landlock/)
+[![PyPI - License](https://img.shields.io/pypi/l/landlock)](https://pypi.org/project/landlock/)
+[![PyPI - Python Versions](https://img.shields.io/pypi/pyversions/landlock)](https://pypi.org/project/landlock/)
+[![PyPI - Latest Project Version](https://img.shields.io/pypi/v/landlock)](https://pypi.org/project/landlock/)
+[![GitHub Workflow Status (main)](https://img.shields.io/github/actions/workflow/status/Edward-Knight/landlock/test.yml?branch=main)](https://github.com/Edward-Knight/landlock/actions/workflows/test.yml?query=branch%3Amain)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Edward-Knight/landlock/main.svg)](https://results.pre-commit.ci/latest/github/Edward-Knight/landlock/main)
+[![Coveralls branch](https://img.shields.io/coveralls/github/Edward-Knight/landlock/main)](https://coveralls.io/github/Edward-Knight/landlock)
+
+Harden your Python code by with rule-based file system access restrictions.
+
+## Example
+
+Let's write a simple HTTP server that serves files in the local directory.
+
+```python
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+server = HTTPServer(("", 8000), SimpleHTTPRequestHandler)
+server.serve_forever()
+```
+
+But if there's a symlink in the local directory, the program can "escape".
+
+```shell
+$ ln -s /etc oops
+$ python3 test.py &
+[1] ...
+$ curl localhost:8000
+...
+$ curl localhost:8000/oops/passwd
+uh oh
+$ kill $!
+[1]+  Terminated              python3 test.py
+```
+
+Now let's harden our server with Landlock!
+
+```python
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+from landlock import Ruleset
+
+server = HTTPServer(("", 8000), SimpleHTTPRequestHandler)
+
+# the ruleset by default disallows all filesystem access
+rs = Ruleset()
+# explicitly allow access to the local directory hierarchy
+rs.allow(".")
+# turn on protections
+rs.apply()
+
+server.serve_forever()
+```
+
+And now we get a permission denied error if we try and access files outside the current directory,
+even via a symlink:
+
+```shell
+$ python3 test.py &
+[1] ...
+$ curl localhost:8000
+...
+$ curl localhost:8000/oops/
+127.0.0.1 - - [DD/MMM/YYYY HH:MM:SS] code 404, message No permission to list directory
+...
+$ kill $!
+[1]+  Terminated              python3 test.py
+```
+
+Success! Instead of dumping the password file, we instead get a permission error!
+
+Landlock is great for hardening applications against both accidental programming mistakes,
+and attacks.
+It won't prevent an exploited application from all malicious behavior,
+but it can stop it reading with the filesystem and interacting with device files.
+
+## Features
+
+| Landlock ABI Version | Feature                   | Supported |
+|----------------------|---------------------------|-----------|
+| 1                    | Initial support           | ✅         |
+| 2                    | File renaming and linking | ✅         |
+| 3                    | File truncation           | ✅         |
+| 4                    | TCP bind and connect      | ❌         |
+| 5                    | Device IOCTL              | ✅         |
+| 6                    | Abstract UNIX socket      | ❌         |
+| 7                    | Linux audit logging       | ❌         |
+
+For more information about what these features are,
+please see the [Landlock user documentation section _Previous Limitations_](https://docs.kernel.org/userspace-api/landlock.html#previous-limitations).
+
+## Developer Information
+
+## Testing
+
+Tests are run using [pytest](https://docs.pytest.org/en/latest/).
+Each test is run in a separate subprocess using [pytest-forked](https://github.com/pytest-dev/pytest-forked)
+so Landlock rules don't conflict.
+

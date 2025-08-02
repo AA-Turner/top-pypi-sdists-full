@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: sslcontext
+Version: 1.4.3
+Summary: Python x509 utilities to work load, dump a certificate, key and trust chain that can be used as credentials
+Home-page: https://github.com/jose-pr/pypki
+Author: Jose A.
+Author-email: jose-pr@coqui.dev
+License: UNKNOWN
+Platform: UNKNOWN
+Description-Content-Type: text/markdown
+
+SSLContext and SSLSocket interfaces.
+
+Include basic implementattion of SSLContext based on the pyopenssl package (pyopenssl extra feature) based on urllib3.contrib.pyopenssl
+

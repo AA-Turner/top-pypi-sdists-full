@@ -1,9 +1,0 @@
-[workspace]
-resolver = "2"
-
-members = ["better_io", "dtype_dispatch", "pco", "pco_python"]
-
-exclude = [
-  # conflicting dependencies and not worth upgrading
-  "quantile-compression/q_compress_cli"
-]

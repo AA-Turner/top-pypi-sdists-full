@@ -5,6 +5,27 @@
 __version__ = "v1"
 __mf_extensions__ = "ob"
 
+from metaflow_extensions.outerbounds.toplevel.s3_proxy import (
+    get_aws_client_with_s3_proxy,
+    get_S3_with_s3_proxy,
+)
+
+_S3_PROXY_CONFIG = None
+
+
+def set_s3_proxy_config(config):
+    global _S3_PROXY_CONFIG
+    _S3_PROXY_CONFIG = config
+
+
+def clear_s3_proxy_config():
+    global _S3_PROXY_CONFIG
+    _S3_PROXY_CONFIG = None
+
+
+def get_s3_proxy_config():
+    return _S3_PROXY_CONFIG
+
 
 # Must match the signature of metaflow.plugins.aws.aws_client.get_aws_client
 # This function is called by the "userland" code inside tasks. Metaflow internals
@@ -34,13 +55,20 @@ def get_aws_client(
         if decorator_role_arn:
             role_arn = decorator_role_arn
 
-    return metaflow.plugins.aws.aws_client.get_aws_client(
+    if module == "s3" and _S3_PROXY_CONFIG is not None:
+        return get_aws_client_with_s3_proxy(
+            module, with_error, role_arn, session_vars, client_params, _S3_PROXY_CONFIG
+        )
+
+    client = metaflow.plugins.aws.aws_client.get_aws_client(
         module,
         with_error=with_error,
         role_arn=role_arn or USE_CSPR_ROLE_ARN_IF_SET,
         session_vars=session_vars,
         client_params=client_params,
     )
+
+    return client
 
 
 # This should match the signature of metaflow.plugins.datatools.s3.S3.
@@ -67,6 +95,10 @@ def S3(*args, **kwargs):
             kwargs["role"] = decorator_role_arn
         else:
             kwargs["role"] = USE_CSPR_ROLE_ARN_IF_SET
+
+    # Check if S3 proxy is active using module variable (like CSPR)
+    if _S3_PROXY_CONFIG is not None:
+        return get_S3_with_s3_proxy(_S3_PROXY_CONFIG, *args, **kwargs)
 
     return metaflow.plugins.datatools.s3.S3(*args, **kwargs)
 

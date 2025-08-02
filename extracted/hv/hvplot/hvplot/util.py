@@ -4,6 +4,7 @@ Provides utilities to convert data and projections
 
 import inspect
 import itertools
+import os
 import textwrap
 import sys
 
@@ -28,9 +29,33 @@ try:
 except ImportError:
     panel_available = False
 
+# To be deprecated.
 hv_version = Version(hv.__version__)
 bokeh_version = Version(bokeh.__version__)
+
+_HV_VERSION = hv_version.release
+_HV_GE_1_21_0 = _HV_VERSION >= (1, 21, 0)
+
 _fugue_ipython = None  # To be set to True in tests to mock ipython
+
+
+class _UndefinedType:
+    """
+    Dummy value to signal completely undefined values rather than
+    simple None values.
+    """
+
+    def __bool__(self):
+        # Haven't defined whether Undefined is falsy or truthy,
+        # so to avoid subtle bugs raise an error when it
+        # is used in a comparison without `is`.
+        raise RuntimeError('Use `is` to compare Undefined')
+
+    def __repr__(self):
+        return '<Undefined>'
+
+
+_Undefined = _UndefinedType()
 
 
 def with_hv_extension(func, extension='bokeh', logo=False):
@@ -142,6 +167,31 @@ def proj_to_cartopy(proj):
 
     import cartopy.crs as ccrs
 
+    PROJ_TO_CCRS = {
+        'longlat': 'PlateCarree',
+        'tmerc': 'TransverseMercator',
+        'lcc': 'LambertConformal',
+        'merc': 'Mercator',
+        'utm': 'UTM',
+        'stere': 'Stereographic',
+        'ob_tran': 'RotatedPole',
+        'aea': 'AlbersEqualArea',
+        'eqdc': 'EquidistantConic',
+        'aeqd': 'AzimuthalEquidistant',
+        'gnom': 'Gnomonic',
+        'ortho': 'Orthographic',
+        'robin': 'Robinson',
+        'moll': 'Mollweide',
+        'sinu': 'Sinusoidal',
+        'eck4': 'EckertIV',
+        'geos': 'Geostationary',
+        'nsper': 'NearsidePerspective',
+        'laea': 'LambertAzimuthalEqualArea',
+        'cea': 'LambertCylindrical',
+        'mill': 'Miller',
+        'vandg': 'InterruptedGoodeHomolosine',
+    }
+
     try:
         from osgeo import osr
 
@@ -208,23 +258,12 @@ def proj_to_cartopy(proj):
         except Exception:
             pass
         if k == 'proj':
-            if v == 'longlat':
-                cl = ccrs.PlateCarree
-            elif v == 'tmerc':
-                cl = ccrs.TransverseMercator
-                kw_proj['approx'] = True
-            elif v == 'lcc':
-                cl = ccrs.LambertConformal
-            elif v == 'merc':
-                cl = ccrs.Mercator
-            elif v == 'utm':
-                cl = ccrs.UTM
-            elif v == 'stere':
-                cl = ccrs.Stereographic
-            elif v == 'ob_tran':
-                cl = ccrs.RotatedPole
+            if v in PROJ_TO_CCRS:
+                cl = getattr(ccrs, PROJ_TO_CCRS[v])
             else:
                 raise NotImplementedError(f'Unknown projection {v}')
+            if v == 'tmerc':
+                kw_proj['approx'] = True
         if k in km_proj:
             if k == 'zone':
                 v = int(v)
@@ -241,27 +280,56 @@ def proj_to_cartopy(proj):
         kw_proj['standard_parallels'] = (kw_std['lat_1'], kw_std['lat_2'])
 
     # mercatoooor
-    if cl.__name__ == 'Mercator':
+    # Use issubclass to check projection class types
+    if issubclass(cl, ccrs.Mercator):
         kw_proj.pop('false_easting', None)
         kw_proj.pop('false_northing', None)
         if 'scale_factor' in kw_proj:
             kw_proj.pop('latitude_true_scale', None)
-    elif cl.__name__ == 'Stereographic':
+    elif issubclass(cl, ccrs.Stereographic):
         kw_proj.pop('scale_factor', None)
         if 'latitude_true_scale' in kw_proj:
             kw_proj['true_scale_latitude'] = kw_proj['latitude_true_scale']
             kw_proj.pop('latitude_true_scale', None)
-    elif cl.__name__ == 'RotatedPole':
+    elif issubclass(cl, ccrs.RotatedPole):
         if 'central_longitude' in kw_proj:
             kw_proj['pole_longitude'] = kw_proj['central_longitude'] - 180
             kw_proj.pop('central_longitude', None)
+    elif issubclass(
+        cl,
+        (
+            ccrs.Gnomonic,
+            ccrs.AzimuthalEquidistant,
+            ccrs.Orthographic,
+            ccrs.LambertAzimuthalEqualArea,
+            ccrs.LambertCylindrical,
+        ),
+    ):
+        kw_proj.pop('false_easting', None)
+        kw_proj.pop('false_northing', None)
+        kw_proj.pop('latitude_true_scale', None)
+    elif issubclass(
+        cl, (ccrs.Robinson, ccrs.Mollweide, ccrs.Sinusoidal, ccrs.EckertIV, ccrs.Miller)
+    ):
+        # Global projections - remove most parameters except central longitude
+        kw_proj = {k: v for k, v in kw_proj.items() if k in ['central_longitude']}
+    elif issubclass(cl, ccrs.Geostationary):
+        kw_proj.pop('false_easting', None)
+        kw_proj.pop('false_northing', None)
+        kw_proj.pop('latitude_true_scale', None)
+    elif issubclass(cl, ccrs.NearsidePerspective):
+        kw_proj.pop('false_easting', None)
+        kw_proj.pop('false_northing', None)
+        kw_proj.pop('latitude_true_scale', None)
+    elif issubclass(cl, ccrs.LambertCylindrical):
+        kw_proj.pop('latitude_true_scale', None)
     else:
         kw_proj.pop('latitude_true_scale', None)
 
     try:
         return cl(globe=globe, **kw_proj)
     except TypeError:
-        del kw_proj['approx']
+        kw_proj.pop('approx', None)
 
     return cl(globe=globe, **kw_proj)
 
@@ -859,17 +927,19 @@ def _get_doc_and_signature(
     backend_style_opts = _get_backend_style_options(kind, backend=backend)
     if style:
         formatter += '\n{style}'
-    style_opts = 'Styling options\n---------------\n' + '\n'.join(sorted(backend_style_opts))
+    style_opts = f'{backend.title()} Styling options\n---------------\n' + '\n'.join(
+        sorted(backend_style_opts)
+    )
 
     parameters = []
     # The options are built in this order in the signature and the docstring.
     groups = [
         'data',
-        'style',
-        'axis',
         'size_layout',
-        'grid_legend',
-        'streaming',
+        'axis',
+        'color',
+        'style',
+        'legend',
     ]
     extra_kwargs = kind_opts + list(
         itertools.chain.from_iterable([converter._options_groups[group] for group in groups])
@@ -890,6 +960,10 @@ def _get_doc_and_signature(
     if kind in converter._geo_types and find_spec('geoviews'):
         extra_kwargs.extend(converter._options_groups['geographic'])
         out_doc_sections.append(doc_sections[converter._docstring_sections['geographic']])
+
+    # Put streaming options towards the end.
+    extra_kwargs.extend(converter._options_groups['streaming'])
+    out_doc_sections.append(doc_sections[converter._docstring_sections['streaming']])
 
     extra_kwargs.extend(backend_style_opts)
 
@@ -1045,3 +1119,32 @@ def _get_docstring_group_parameters(option_group: str) -> list:
     with _patch_numpy_docstring():
         cdoc = NumpyDocString(HoloViewsConverter.__doc__)
         return cdoc[option_group]
+
+
+def _find_stack_level() -> int:
+    """
+    Find the first place in the stack that is not inside hvplot
+    (tests notwithstanding).
+    Inspired by: pandas.util._exceptions.find_stack_level
+    """
+    import hvplot
+
+    pkg_dir = os.path.dirname(hvplot.__file__)
+    test_dir = os.path.join(pkg_dir, 'tests')
+
+    # https://stackoverflow.com/questions/17407119/python-inspect-stack-is-slow
+    frame = inspect.currentframe()
+    try:
+        n = 0
+        while frame:
+            filename = inspect.getfile(frame)
+            if filename.startswith(pkg_dir) and not filename.startswith(test_dir):
+                frame = frame.f_back
+                n += 1
+            else:
+                break
+    finally:
+        # See note in
+        # https://docs.python.org/3/library/inspect.html#inspect.Traceback
+        del frame
+    return n

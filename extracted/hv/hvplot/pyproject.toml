@@ -1,9 +1,9 @@
 [build-system]
 requires = [
-    "setuptools >=30.3.0",
-    "setuptools_scm >=6",
+    "hatchling >=1.25.0",
+    "hatch-vcs >=0.4.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "hvplot"
@@ -11,7 +11,7 @@ dynamic = ["version"]
 description = "A high-level plotting API for the PyData ecosystem built on HoloViews."
 readme = "README.md"
 license = { text = "BSD" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Philipp Rudiger", email = "developers@holoviz.org" },
 ]
@@ -21,7 +21,6 @@ maintainers = [
 classifiers = [
         "License :: OSI Approved :: BSD License",
         "Development Status :: 5 - Production/Stable",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -130,6 +129,7 @@ examples = [
     "pooch >=1.6.0",
     "s3fs >=2022.1.0",
     "scikit-image >=0.17.2",
+    "scikit-learn >=1.4.0",
     "scipy >=1.5.3",
     "selenium >=3.141.0",
     "streamz >=0.3.0",
@@ -137,7 +137,7 @@ examples = [
     "xyzservices >=2022.9.0",
     "geodatasets >=2023.12.0",
     "bokeh_sampledata; python_version >= '3.10'",
-    "hvsampledata >=0.1.1",
+    "hvsampledata >=0.1.4a2",
 ]
 tests-nb = [
     "pytest-xdist",
@@ -151,7 +151,7 @@ examples-tests = [
 # Additional packages required to build the docs
 doc = [
     "hvplot[examples]",
-    "nbsite >=0.9.0a2",
+    "nbsite >=0.9.0a10",
     "sphinxext-rediraffe",
     "numpydoc",
     "sphinxcontrib-mermaid",
@@ -173,14 +173,18 @@ dev-extras = [
     "setuptools_scm >= 6"
 ]
 
-[tool.setuptools]
-include-package-data = true
+[tool.hatch.version]
+source = "vcs"
+raw-options = { version_scheme = "no-guess-dev" }
 
-[tool.setuptools.packages.find]
+[tool.hatch.build.targets.wheel]
 include = ["hvplot"]
 
-[tool.setuptools_scm]
-version_file = "hvplot/_version.py"
+[tool.hatch.build.targets.sdist]
+include = ["hvplot", "scripts", "doc"]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "hvplot/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "-v --pyargs"
@@ -213,6 +217,9 @@ line-length = 99
 [tool.ruff.lint]
 extend-select = [
     "UP",
+]
+ignore = [
+    "UP038",  # Use `X | Y` in `isinstance` call instead of `(X, Y)`
 ]
 
 [tool.ruff.format]

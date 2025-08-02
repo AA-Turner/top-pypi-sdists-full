@@ -5,7 +5,7 @@ from fhirpathpy.engine.util import arraify, get_data, set_paths, process_user_in
 from fhirpathpy.engine.nodes import FP_Type, ResourceNode
 
 __title__ = "fhirpathpy"
-__version__ = "2.0.3"
+__version__ = "2.1.0"
 __author__ = "beda.software"
 __license__ = "MIT"
 __copyright__ = "Copyright 2025 beda.software"
@@ -35,10 +35,30 @@ def apply_parsed_path(resource, parsedPath, context=None, model=None, options=No
             (options or {}).get("userInvocationTable", {})
         ),
     }
+
+    # Add trace callback if provided in options
+    if options and "traceFn" in options:
+        ctx["traceFn"] = options["traceFn"]
+
     node = do_eval(ctx, dataRoot, parsedPath["children"][0])
 
     # Resolve any internal "ResourceNode" instances.  Continue to let FP_Type
     # subclasses through.
+
+    if options and options.get("returnRawData", False):
+        if isinstance(node, list):
+            res = []
+            # Filter out intenal representation of primitive extensions
+            # even in this raw data mode (as they are not a part of the output)
+            for item in node:
+                if isinstance(item, ResourceNode):
+                    if isinstance(item.data, dict):
+                        keys = list(item.data.keys())
+                        if keys == ["extension"]:
+                            continue
+                res.append(item)
+            return res
+        return node
 
     def visit(node):
         data = get_data(node)

@@ -1,14 +1,5 @@
-
-from ._generated import (
-    ApiClient,
-    CortexSearchServiceApi,
-)
-from ._search_service import (
-    CortexSearchServiceCollection,
-    CortexSearchServiceResource,
-    QueryRequest,
-    QueryResponse,
-)
+from ._generated import ApiClient, CortexSearchServiceApi
+from ._search_service import CortexSearchServiceCollection, CortexSearchServiceResource, QueryRequest, QueryResponse
 
 
 CortexSearchServiceApiClient = ApiClient

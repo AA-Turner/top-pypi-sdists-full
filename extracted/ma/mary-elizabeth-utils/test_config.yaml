@@ -1,0 +1,115 @@
+# Define variables
+variables:
+  base_dir: "." # Base directory for the project (current directory)
+  output_dir: "${base_dir}/output" # Directory for output files
+  csv_dir: "${base_dir}/synth_data"
+  parquet_dir: "${base_dir}/synth_data"
+
+# Year range for data processing
+start_year: 2000
+end_year: 2022
+
+# Register configurations
+registers:
+  LPR_DIAG:
+    file_pattern: "lpr_diag_{year}.parquet"
+    location: "${parquet_dir}/lpr_diag"
+  MFR:
+    file_pattern: "mfr_{year}.parquet"
+    location: "${parquet_dir}/mfr"
+  AKM:
+    file_pattern: "akm_{year}.parquet"
+    location: "${parquet_dir}/akm"
+  FAIK:
+    file_pattern: "faik_{year}.parquet"
+    location: "${parquet_dir}/faik"
+  IND:
+    file_pattern: "ind_{year}.parquet"
+    location: "${parquet_dir}/ind"
+  BEF:
+    file_pattern: "bef_{year}.parquet"
+    location: "${parquet_dir}/bef"
+  UDDF:
+    file_pattern: "uddf_{year}.parquet"
+    location: "${parquet_dir}/uddf"
+  DOD:
+    file_pattern: "dod_{year}.parquet"
+    location: "${parquet_dir}/dod"
+  DODSAARS:
+    file_pattern: "dodsaars_{year}.parquet"
+    location: "${parquet_dir}/dodsaars"
+  DODSAASG:
+    file_pattern: "dodsaasg_{year}.parquet"
+    location: "${parquet_dir}/dodsaasg"
+  UDFK:
+    file_pattern: "udfk_{year}.parquet"
+    location: "${parquet_dir}/udfk"
+  VNDS:
+    file_pattern: "vnds_{year}.parquet"
+    location: "${parquet_dir}/vnds"
+  LPR_ADM:
+    file_pattern: "lpr_adm_{year}.parquet"
+    location: "${parquet_dir}/lpr_adm"
+  LPR_SKSOPR:
+    file_pattern: "lpr_sksopr_{year}.parquet"
+    location: "${parquet_dir}/lpr_sksopr"
+  IDAN:
+    file_pattern: "idan_{year}.parquet"
+    location: "${parquet_dir}/idan"
+
+# Table names
+table_names:
+  - Person
+  - Family
+  - Child
+  - Diagnosis
+  - Medication
+  - Healthcare
+  - Employment
+  - Income
+  - Education
+  - Death
+  - Birth
+  - SocioEconomic
+  - Migration
+
+# Path to the CSV file containing ICD-10 codes
+icd10_codes_file: "${base_dir}/python/mary_elizabeth_utils/icd10.csv"
+
+numeric_cols:
+  Person:
+    - age
+    - family_size
+  Birth:
+    - VAEGT_BARN
+    - LAENGDE_BARN
+    - GESTATIONSALDER_DAGE
+    - APGARSCORE_EFTER5MINUTTER
+  Income:
+    - total_income
+    - LOENMV_13
+    - PERINDKIALT_13
+  Employment:
+    - job_salary
+    - wage_income
+    - total_income
+
+# Categorical columns for analysis and validation
+categorical_cols:
+  - gender
+  - origin_type
+  - family_type
+  - socioeconomic_status
+  - KOEN
+  - IE_TYPE
+  - CIVST
+  - SOCSTIL_KODE
+  - SAGSART
+  - C_PATTYPE
+
+# Data validation settings
+validation:
+  missing_value_threshold: 0.1 # Maximum allowed proportion of missing values
+  outlier_detection:
+    method: IQR # Interquartile Range method
+    factor: 1.5 # IQR factor for outlier detection

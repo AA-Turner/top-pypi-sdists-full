@@ -12,7 +12,6 @@ RECOMMENDED_VERSION = "recommendedVersion"
 
 
 class ClientInfo:
-
     def __init__(self, client_support_info: Optional[dict[str, str]]) -> None:
         """Store the metadata about the client, and server configuration for the client.
 
@@ -38,8 +37,10 @@ class ClientInfo:
 
     @property
     def end_of_support_version(self) -> Optional[str]:
-        if (self._client_support_info is not None and
-                self._client_support_info[MINIMUM_NEARING_END_OF_SUPPORT_VERSION] != ""):
+        if (
+            self._client_support_info is not None
+            and self._client_support_info[MINIMUM_NEARING_END_OF_SUPPORT_VERSION] != ""
+        ):
             return self._client_support_info[MINIMUM_NEARING_END_OF_SUPPORT_VERSION]
 
         return None
@@ -62,8 +63,7 @@ class ClientInfo:
         if self._client_support_info is None or self.end_of_support_version is None:
             return False
 
-        return check_version_lte(self.client_version,
-                                 self.end_of_support_version)
+        return check_version_lte(self.client_version, self.end_of_support_version)
 
     @staticmethod
     def _validate_client_info(client_support_info: Optional[dict[str, Any]]) -> bool:
@@ -74,19 +74,25 @@ class ClientInfo:
                 return False
 
             # Regex pattern for valid version strings, which can be empty
-            pattern = re.compile(r'^(\d+\.\d+\.\d+)?$')
+            pattern = re.compile(r"^(\d+\.\d+\.\d+)?$")
 
             try:
-                if MINIMUM_SUPPORT_VERSION not in client_support_info or pattern.match(
-                        client_support_info[MINIMUM_SUPPORT_VERSION]) is None:
+                if (
+                    MINIMUM_SUPPORT_VERSION not in client_support_info
+                    or pattern.match(client_support_info[MINIMUM_SUPPORT_VERSION]) is None
+                ):
                     return False
 
-                if MINIMUM_NEARING_END_OF_SUPPORT_VERSION not in client_support_info or pattern.match(
-                        client_support_info[MINIMUM_NEARING_END_OF_SUPPORT_VERSION]) is None:
+                if (
+                    MINIMUM_NEARING_END_OF_SUPPORT_VERSION not in client_support_info
+                    or pattern.match(client_support_info[MINIMUM_NEARING_END_OF_SUPPORT_VERSION]) is None
+                ):
                     return False
 
-                if RECOMMENDED_VERSION not in client_support_info or pattern.match(
-                        client_support_info[RECOMMENDED_VERSION]) is None:
+                if (
+                    RECOMMENDED_VERSION not in client_support_info
+                    or pattern.match(client_support_info[RECOMMENDED_VERSION]) is None
+                ):
                     return False
 
             except TypeError:

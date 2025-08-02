@@ -13,7 +13,10 @@ class TestExasol(Validator):
         self.validate_identity("CAST(x AS MEDIUMTEXT)", "CAST(x AS VARCHAR)")
         self.validate_identity("CAST(x AS TINYBLOB)", "CAST(x AS VARCHAR)")
         self.validate_identity("CAST(x AS TINYTEXT)", "CAST(x AS VARCHAR)")
-        self.validate_identity("CAST(x AS TEXT)", "CAST(x AS VARCHAR)")
+        self.validate_identity("CAST(x AS TEXT)", "CAST(x AS LONG VARCHAR)")
+        self.validate_identity(
+            "SELECT CAST((CAST(202305 AS INT) - 100) AS LONG VARCHAR) AS CAL_YEAR_WEEK_ADJUSTED"
+        )
         self.validate_identity("CAST(x AS VARBINARY)", "CAST(x AS VARCHAR)")
         self.validate_identity("CAST(x AS VARCHAR)", "CAST(x AS VARCHAR)")
         self.validate_identity("CAST(x AS CHAR)", "CAST(x AS CHAR)")
@@ -400,6 +403,32 @@ class TestExasol(Validator):
                 "databricks": "SELECT DATE_TRUNC('MINUTE', CAST('2006-12-31 23:59:59' AS TIMESTAMP)) AS DATE_TRUNC",
             },
         )
+        test_cases = {
+            "ADD_DAYS": ("DAY", "add_days"),
+            "ADD_WEEKS": ("WEEK", "add_weeks"),
+            "ADD_MONTHS": ("MONTH", "add_months"),
+            "ADD_YEARS": ("YEAR", "add_years"),
+            "ADD_HOURS": ("HOUR", "add_hours"),
+            "ADD_MINUTES": ("MINUTE", "add_minutes"),
+            "ADD_SECONDS": ("SECOND", "add_seconds"),
+        }
+
+        for func_name, (unit, alias) in test_cases.items():
+            with self.subTest(f"Testing {func_name}"):
+                write = {
+                    "exasol": f"SELECT {func_name}(CAST('2000-02-28' AS DATE), 1) AS {alias}",
+                    "bigquery": f"SELECT DATE_ADD(CAST('2000-02-28' AS DATE), INTERVAL 1 {unit}) AS {alias}",
+                    "duckdb": f"SELECT CAST('2000-02-28' AS DATE) + INTERVAL 1 {unit} AS {alias}",
+                    "presto": f"SELECT DATE_ADD('{unit}', 1, CAST('2000-02-28' AS DATE)) AS {alias}",
+                    "redshift": f"SELECT DATEADD({unit}, 1, CAST('2000-02-28' AS DATE)) AS {alias}",
+                    "snowflake": f"SELECT DATEADD({unit}, 1, CAST('2000-02-28' AS DATE)) AS {alias}",
+                    "tsql": f"SELECT DATEADD({unit}, 1, CAST('2000-02-28' AS DATE)) AS {alias}",
+                }
+
+                self.validate_all(
+                    f"SELECT {func_name}(DATE '2000-02-28', 1) AS {alias}",
+                    write=write,
+                )
 
     def test_number_functions(self):
         self.validate_identity("SELECT TRUNC(123.456, 2) AS TRUNC")
@@ -508,4 +537,31 @@ class TestExasol(Validator):
                 "presto": "SHA512(x)",
                 "trino": "SHA512(x)",
             },
+        )
+        self.validate_all(
+            "SELECT NULLIFZERO(1) NIZ1",
+            write={
+                "exasol": "SELECT IF 1 = 0 THEN NULL ELSE 1 ENDIF AS NIZ1",
+                "snowflake": "SELECT IFF(1 = 0, NULL, 1) AS NIZ1",
+                "sqlite": "SELECT IIF(1 = 0, NULL, 1) AS NIZ1",
+                "presto": "SELECT IF(1 = 0, NULL, 1) AS NIZ1",
+                "spark": "SELECT IF(1 = 0, NULL, 1) AS NIZ1",
+                "hive": "SELECT IF(1 = 0, NULL, 1) AS NIZ1",
+                "duckdb": "SELECT CASE WHEN 1 = 0 THEN NULL ELSE 1 END AS NIZ1",
+            },
+        )
+        self.validate_all(
+            "SELECT ZEROIFNULL(NULL) NIZ1",
+            write={
+                "exasol": "SELECT IF NULL IS NULL THEN 0 ELSE NULL ENDIF AS NIZ1",
+                "snowflake": "SELECT IFF(NULL IS NULL, 0, NULL) AS NIZ1",
+                "sqlite": "SELECT IIF(NULL IS NULL, 0, NULL) AS NIZ1",
+                "presto": "SELECT IF(NULL IS NULL, 0, NULL) AS NIZ1",
+                "spark": "SELECT IF(NULL IS NULL, 0, NULL) AS NIZ1",
+                "hive": "SELECT IF(NULL IS NULL, 0, NULL) AS NIZ1",
+                "duckdb": "SELECT CASE WHEN NULL IS NULL THEN 0 ELSE NULL END AS NIZ1",
+            },
+        )
+        self.validate_identity(
+            "SELECT name, age, IF age < 18 THEN 'underaged' ELSE 'adult' ENDIF AS LEGALITY FROM persons"
         )

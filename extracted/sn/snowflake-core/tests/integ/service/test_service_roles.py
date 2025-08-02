@@ -8,12 +8,7 @@ from textwrap import dedent
 import pytest
 
 from snowflake.core.role import Role, Securable
-from snowflake.core.service import (
-    GrantOf,
-    Service,
-    ServiceRoleGrantTo,
-    ServiceSpecStageFile,
-)
+from snowflake.core.service import GrantOf, Service, ServiceRoleGrantTo, ServiceSpecStageFile
 from tests.utils import random_string
 
 
@@ -76,37 +71,48 @@ def test_service_roles(session, database, schema, services, roles, imagerepo, sh
         assert len(list(role.iter_grants_to())) == 0
         role.grant_role(
             role_type="SERVICE ROLE",
-            role=Securable(database=database.name, schema=schema.name, service=service_name, name="role1")
+            role=Securable(database=database.name, schema=schema.name, service=service_name, name="role1"),
         )
         assert len(list(role.iter_grants_to())) == 1
 
         # Verify the output of the iter_grants_of_service_role command
-        expected_grants_of = [GrantOf.from_dict({
-            "created_on": "2012-08-01T07:00:00.000+00:00",
-            "role": f"{database.name.upper()}.{schema.name.upper()}.{service_name.upper()}.ROLE1",
-            "granted_to": "ROLE",
-            "grantee_name": "ACCOUNTADMIN",
-            "granted_by": "",
-        }), GrantOf.from_dict({
-            "created_on": "2012-08-01T07:00:00.000+00:00",
-            "role": f"{database.name.upper()}.{schema.name.upper()}.{service_name.upper()}.ROLE1",
-            "granted_to": "ROLE",
-            "grantee_name": role_name.upper(),
-            "granted_by": "ACCOUNTADMIN",
-        })]
+        expected_grants_of = [
+            GrantOf.from_dict(
+                {
+                    "created_on": "2012-08-01T07:00:00.000+00:00",
+                    "role": f"{database.name.upper()}.{schema.name.upper()}.{service_name.upper()}.ROLE1",
+                    "granted_to": "ROLE",
+                    "grantee_name": "ACCOUNTADMIN",
+                    "granted_by": "",
+                }
+            ),
+            GrantOf.from_dict(
+                {
+                    "created_on": "2012-08-01T07:00:00.000+00:00",
+                    "role": f"{database.name.upper()}.{schema.name.upper()}.{service_name.upper()}.ROLE1",
+                    "granted_to": "ROLE",
+                    "grantee_name": role_name.upper(),
+                    "granted_by": "ACCOUNTADMIN",
+                }
+            ),
+        ]
 
         actual_grants_of = list(svc.iter_grants_of_service_role("role1"))
         assert actual_grants_of == expected_grants_of
 
         # Verify the output of the iter_grants_to_service_role command
-        expected_grants_to = [ServiceRoleGrantTo.from_dict({
-            "created_on": "2012-08-01T07:00:00.000+00:00",
-            "privilege": "USAGE",
-            "granted_on": "SERVICE_ENDPOINT",
-            "name": f"{database.name.upper()}.{schema.name.upper()}.{service_name.upper()}!echo",
-            "granted_to": "SERVICE ROLE",
-            "grantee_name": "ROLE1",
-        })]
+        expected_grants_to = [
+            ServiceRoleGrantTo.from_dict(
+                {
+                    "created_on": "2012-08-01T07:00:00.000+00:00",
+                    "privilege": "USAGE",
+                    "granted_on": "SERVICE_ENDPOINT",
+                    "name": f"{database.name.upper()}.{schema.name.upper()}.{service_name.upper()}!echo",
+                    "granted_to": "SERVICE ROLE",
+                    "grantee_name": "ROLE1",
+                }
+            )
+        ]
 
         actual_grants_to = list(svc.iter_grants_to_service_role("role1"))
         assert actual_grants_to == expected_grants_to
@@ -114,7 +120,7 @@ def test_service_roles(session, database, schema, services, roles, imagerepo, sh
         # Revoke service role from account role
         role.revoke_role(
             role_type="SERVICE ROLE",
-            role=Securable(database=database.name, schema=schema.name, service=service_name, name="role1")
+            role=Securable(database=database.name, schema=schema.name, service=service_name, name="role1"),
         )
         assert len(list(role.iter_grants_to())) == 0
     finally:

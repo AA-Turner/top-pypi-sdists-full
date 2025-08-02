@@ -5,12 +5,12 @@ import requests
 from ..helper import filter_none, format_media_prompt
 from ..base_provider import AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
 from ...typing import Union, AsyncResult, Messages, MediaListType
-from ...requests import StreamSession, StreamResponse, raise_for_status, see_stream
+from ...requests import StreamSession, StreamResponse, raise_for_status, sse_stream
 from ...image import use_aspect_ratio
 from ...image.copy_images import save_response_media
 from ...providers.response import FinishReason, ToolCalls, Usage, ImageResponse, ProviderInfo, AudioResponse, Reasoning
 from ...tools.media import render_messages
-from ...errors import MissingAuthError, ResponseError
+from ...errors import MissingAuthError
 from ... import debug
 
 class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin):
@@ -67,6 +67,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
         stop: Union[str, list[str]] = None,
         stream: bool = None,
         prompt: str = None,
+        user: str = None,
         headers: dict = None,
         impersonate: str = None,
         download_media: bool = True,
@@ -120,6 +121,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
                 top_p=top_p,
                 stop=stop,
                 stream="audio" not in extra_parameters if stream is None else stream,
+                user=user,
                 **extra_parameters,
                 **extra_body
             )
@@ -178,37 +180,35 @@ async def read_response(response: StreamResponse, stream: bool, prompt: str, pro
         reasoning = False
         first = True
         model_returned = False
-        async for data in see_stream(response):
+        async for data in sse_stream(response):
             OpenaiTemplate.raise_error(data)
             model = data.get("model")
             if not model_returned and model:
                 yield ProviderInfo(**provider_info, model=model)
                 model_returned = True
             choice = next(iter(data["choices"]), None)
-            if not choice:
-                continue
-            if "content" in choice["delta"] and choice["delta"]["content"]:
-                delta = choice["delta"]["content"]
-                if first:
-                    delta = delta.lstrip()
-                if delta:
-                    first = False
-                    if reasoning:
-                        yield Reasoning(status="")
-                        reasoning = False
-                    yield delta
-            tool_calls = choice.get("delta", {}).get("tool_calls")
-            if tool_calls:
-                yield ToolCalls(choice["delta"]["tool_calls"])
-            reasoning_content = choice.get("delta", {}).get("reasoning_content")
-            if reasoning_content:
-                reasoning = True
-                yield Reasoning(reasoning_content)
+            if choice:
+                if "content" in choice["delta"] and choice["delta"]["content"]:
+                    delta = choice["delta"]["content"]
+                    if first:
+                        delta = delta.lstrip()
+                    if delta:
+                        first = False
+                        if reasoning:
+                            yield Reasoning(status="")
+                            reasoning = False
+                        yield delta
+                tool_calls = choice.get("delta", {}).get("tool_calls")
+                if tool_calls:
+                    yield ToolCalls(choice["delta"]["tool_calls"])
+                reasoning_content = choice.get("delta", {}).get("reasoning_content")
+                if reasoning_content:
+                    reasoning = True
+                    yield Reasoning(reasoning_content)
             if "usage" in data and data["usage"]:
                 yield Usage(**data["usage"])
             if choice and choice.get("finish_reason") is not None:
                 yield FinishReason(choice["finish_reason"])
-                break
     else:
         await raise_for_status(response)
         async for chunk in save_response_media(response, prompt, [model]):

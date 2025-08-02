@@ -11,6 +11,7 @@ import time
 import typing
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import (
@@ -54,6 +55,7 @@ from ._utils.deprecation import deprecation_warning, warn_if_passing_namespace
 from ._utils.grpc_utils import retry_transient_errors
 from ._utils.http_utils import ClientSessionRegistry
 from ._utils.name_utils import check_object_name
+from ._utils.time_utils import timestamp_to_localized_dt
 from .client import _Client
 from .config import logger
 
@@ -90,6 +92,18 @@ class FileEntry:
             mtime=proto.mtime,
             size=proto.size,
         )
+
+
+@dataclass
+class VolumeInfo:
+    """Information about the Volume object."""
+
+    # This dataclass should be limited to information that is unchanging over the lifetime of the Volume,
+    # since it is transmitted from the server when the object is hydrated and could be stale when accessed.
+
+    name: Optional[str]
+    created_at: datetime
+    created_by: Optional[str]
 
 
 class _Volume(_Object, type_prefix="vo"):
@@ -167,6 +181,19 @@ class _Volume(_Object, type_prefix="vo"):
         obj = _Volume._from_loader(_load, "Volume()", hydrate_lazily=True, deps=lambda: [self])
         return obj
 
+    @property
+    def name(self) -> Optional[str]:
+        return self._name
+
+    def _hydrate_metadata(self, metadata: Optional[Message]):
+        if metadata:
+            assert isinstance(metadata, api_pb2.VolumeMetadata)
+            self._metadata = metadata
+            self._name = metadata.name
+
+    def _get_metadata(self) -> Optional[Message]:
+        return self._metadata
+
     async def _get_lock(self):
         # To (mostly*) prevent multiple concurrent operations on the same volume, which can cause problems under
         # some unlikely circumstances.
@@ -180,6 +207,14 @@ class _Volume(_Object, type_prefix="vo"):
         if self._lock is None:
             self._lock = asyncio.Lock()
         return self._lock
+
+    @property
+    def _is_v1(self) -> bool:
+        return self._metadata.version in [
+            None,
+            api_pb2.VolumeFsVersion.VOLUME_FS_VERSION_UNSPECIFIED,
+            api_pb2.VolumeFsVersion.VOLUME_FS_VERSION_V1,
+        ]
 
     @staticmethod
     def from_name(
@@ -220,24 +255,7 @@ class _Volume(_Object, type_prefix="vo"):
             response = await resolver.client.stub.VolumeGetOrCreate(req)
             self._hydrate(response.volume_id, resolver.client, response.metadata)
 
-        return _Volume._from_loader(_load, "Volume()", hydrate_lazily=True)
-
-    def _hydrate_metadata(self, metadata: Optional[Message]):
-        if metadata and isinstance(metadata, api_pb2.VolumeMetadata):
-            self._metadata = metadata
-        else:
-            raise TypeError("_hydrate_metadata() requires an `api_pb2.VolumeMetadata` to determine volume version")
-
-    def _get_metadata(self) -> Optional[Message]:
-        return self._metadata
-
-    @property
-    def _is_v1(self) -> bool:
-        return self._metadata.version in [
-            None,
-            api_pb2.VolumeFsVersion.VOLUME_FS_VERSION_UNSPECIFIED,
-            api_pb2.VolumeFsVersion.VOLUME_FS_VERSION_V1,
-        ]
+        return _Volume._from_loader(_load, "Volume()", hydrate_lazily=True, name=name)
 
     @classmethod
     @asynccontextmanager
@@ -337,6 +355,19 @@ class _Volume(_Object, type_prefix="vo"):
         )
         resp = await retry_transient_errors(client.stub.VolumeGetOrCreate, request)
         return resp.volume_id
+
+    @live_method
+    async def info(self) -> VolumeInfo:
+        """Return information about the Volume object."""
+        metadata = self._get_metadata()
+        if not metadata:
+            return VolumeInfo()
+        creation_info = metadata.creation_info
+        return VolumeInfo(
+            name=metadata.name or None,
+            created_at=timestamp_to_localized_dt(creation_info.created_at),
+            created_by=creation_info.created_by or None,
+        )
 
     @live_method
     async def _do_reload(self, lock=True):

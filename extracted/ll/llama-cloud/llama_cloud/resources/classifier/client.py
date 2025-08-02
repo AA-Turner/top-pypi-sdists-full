@@ -9,7 +9,11 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.remove_none_from_dict import remove_none_from_dict
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
-from ...types.classify_response import ClassifyResponse
+from ...types.classifier_rule import ClassifierRule
+from ...types.classify_job import ClassifyJob
+from ...types.classify_job_results import ClassifyJobResults
+from ...types.classify_job_with_status import ClassifyJobWithStatus
+from ...types.classify_parsing_configuration import ClassifyParsingConfiguration
 from ...types.http_validation_error import HttpValidationError
 
 try:
@@ -28,126 +32,149 @@ class ClassifierClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def classify_documents(
+    def create_classify_job(
         self,
         *,
         project_id: typing.Optional[str] = None,
         organization_id: typing.Optional[str] = None,
-        rules_json: str,
-        files: typing.Optional[typing.List[str]] = OMIT,
-        file_ids: typing.Optional[str] = OMIT,
-        matching_threshold: typing.Optional[float] = OMIT,
-        enable_metadata_heuristic: typing.Optional[bool] = OMIT,
-    ) -> ClassifyResponse:
+        rules: typing.List[ClassifierRule],
+        file_ids: typing.List[str],
+        parsing_configuration: typing.Optional[ClassifyParsingConfiguration] = OMIT,
+    ) -> ClassifyJob:
         """
-        **[BETA]** Classify documents based on provided rules - simplified classification system.
-
-        **This is a Beta feature** - API may change based on user feedback.
-
-        This endpoint supports:
-
-        - Classifying new uploaded files
-        - Classifying existing files by ID
-        - Both new files and existing file IDs in one request
-
-        ## v0 Features:
-
-        - **Simplified Rules**: Only `type` and `description` fields needed
-        - **Matching Threshold**: Confidence-based classification with configurable threshold
-        - **Smart Classification**: Filename heuristics + LLM content analysis
-        - **Document Type Filtering**: Automatically filters out non-document file types
-        - **Fast Processing**: Uses LlamaParse fast mode + GPT-4.1-nano
-        - **Optimized Performance**: Parses each file only once for all rules
-
-        ## Simplified Scoring Logic:
-
-        1. **Evaluate All Rules**: Compare document against all classification rules
-        2. **Best Match Selection**: Return the highest scoring rule above matching_threshold
-        3. **Unknown Classification**: Return as "unknown" if no rules score above threshold
-
-        This ensures optimal classification by:
-
-        - Finding the best possible match among all rules
-        - Avoiding false positives with confidence thresholds
-        - Maximizing performance with single-pass file parsing
-
-        ## Rule Format:
-
-        ```json
-        [
-          {
-            "type": "invoice",
-            "description": "contains invoice number, line items, and total amount"
-          },
-          {
-            "type": "receipt",
-            "description": "purchase receipt with transaction details and payment info"
-          }
-        ]
-        ```
-
-        ## Classification Process:
-
-        1. **Metadata Heuristics** (configurable via API):
-           - **Document Type Filter**: Only process document file types (PDF, DOC, DOCX, RTF, TXT, ODT, Pages, HTML, XML, Markdown)
-           - **Filename Heuristics**: Check if rule type appears in filename
-           - **Content Analysis**: Parse document content once and use LLM for semantic matching against all rules
-        2. **Result**: Returns type, confidence score, and matched rule information
-
-        ## API Parameters:
-
-        - `matching_threshold` (0.1-0.99, default: 0.6): Minimum confidence threshold for acceptable matches
-        - `enable_metadata_heuristic` (boolean, default: true): Enable metadata-based features
-
-        ## Supported Document Types:
-
-        **Text Documents**: pdf, doc, docx, rtf, txt, odt, pages
-        **Web Documents**: html, htm, xml
-        **Markup**: md, markdown
-
-        ## Limits (Beta):
-
-        - Maximum 100 files per request
-        - Maximum 10 rules per request
-        - Rule descriptions: 10-500 characters
-        - Document types: 1-50 characters (alphanumeric, hyphens, underscores)
-
-        **Beta Notice**: This API is subject to change. Please provide feedback!
+        Create a classify job.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
 
         Parameters:
             - project_id: typing.Optional[str].
 
             - organization_id: typing.Optional[str].
 
-            - rules_json: str. JSON string containing classifier rules
+            - rules: typing.List[ClassifierRule]. The rules to classify the files
 
-            - files: typing.Optional[typing.List[str]].
+            - file_ids: typing.List[str]. The IDs of the files to classify
 
-            - file_ids: typing.Optional[str].
+            - parsing_configuration: typing.Optional[ClassifyParsingConfiguration]. The configuration for the parsing job
+        ---
+        from llama_cloud import ClassifyParsingConfiguration, ParserLanguages
+        from llama_cloud.client import LlamaCloud
 
-            - matching_threshold: typing.Optional[float].
-
-            - enable_metadata_heuristic: typing.Optional[bool].
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.classifier.create_classify_job(
+            rules=[],
+            file_ids=[],
+            parsing_configuration=ClassifyParsingConfiguration(
+                lang=ParserLanguages.AF,
+            ),
+        )
         """
-        _request: typing.Dict[str, typing.Any] = {"rules_json": rules_json}
-        if files is not OMIT:
-            _request["files"] = files
-        if file_ids is not OMIT:
-            _request["file_ids"] = file_ids
-        if matching_threshold is not OMIT:
-            _request["matching_threshold"] = matching_threshold
-        if enable_metadata_heuristic is not OMIT:
-            _request["enable_metadata_heuristic"] = enable_metadata_heuristic
+        _request: typing.Dict[str, typing.Any] = {"rules": rules, "file_ids": file_ids}
+        if parsing_configuration is not OMIT:
+            _request["parsing_configuration"] = parsing_configuration
         _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/classifier/classify"),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/classifier/jobs"),
             params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(ClassifyResponse, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ClassifyJob, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_classify_job(
+        self,
+        classify_job_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> ClassifyJobWithStatus:
+        """
+        Get a classify job.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
+
+        Parameters:
+            - classify_job_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.classifier.get_classify_job(
+            classify_job_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/classifier/jobs/{classify_job_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ClassifyJobWithStatus, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_classification_job_results(
+        self,
+        classify_job_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> ClassifyJobResults:
+        """
+        Get the results of a classify job.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
+
+        Parameters:
+            - classify_job_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.classifier.get_classification_job_results(
+            classify_job_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/classifier/jobs/{classify_job_id}/results"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ClassifyJobResults, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -161,126 +188,149 @@ class AsyncClassifierClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def classify_documents(
+    async def create_classify_job(
         self,
         *,
         project_id: typing.Optional[str] = None,
         organization_id: typing.Optional[str] = None,
-        rules_json: str,
-        files: typing.Optional[typing.List[str]] = OMIT,
-        file_ids: typing.Optional[str] = OMIT,
-        matching_threshold: typing.Optional[float] = OMIT,
-        enable_metadata_heuristic: typing.Optional[bool] = OMIT,
-    ) -> ClassifyResponse:
+        rules: typing.List[ClassifierRule],
+        file_ids: typing.List[str],
+        parsing_configuration: typing.Optional[ClassifyParsingConfiguration] = OMIT,
+    ) -> ClassifyJob:
         """
-        **[BETA]** Classify documents based on provided rules - simplified classification system.
-
-        **This is a Beta feature** - API may change based on user feedback.
-
-        This endpoint supports:
-
-        - Classifying new uploaded files
-        - Classifying existing files by ID
-        - Both new files and existing file IDs in one request
-
-        ## v0 Features:
-
-        - **Simplified Rules**: Only `type` and `description` fields needed
-        - **Matching Threshold**: Confidence-based classification with configurable threshold
-        - **Smart Classification**: Filename heuristics + LLM content analysis
-        - **Document Type Filtering**: Automatically filters out non-document file types
-        - **Fast Processing**: Uses LlamaParse fast mode + GPT-4.1-nano
-        - **Optimized Performance**: Parses each file only once for all rules
-
-        ## Simplified Scoring Logic:
-
-        1. **Evaluate All Rules**: Compare document against all classification rules
-        2. **Best Match Selection**: Return the highest scoring rule above matching_threshold
-        3. **Unknown Classification**: Return as "unknown" if no rules score above threshold
-
-        This ensures optimal classification by:
-
-        - Finding the best possible match among all rules
-        - Avoiding false positives with confidence thresholds
-        - Maximizing performance with single-pass file parsing
-
-        ## Rule Format:
-
-        ```json
-        [
-          {
-            "type": "invoice",
-            "description": "contains invoice number, line items, and total amount"
-          },
-          {
-            "type": "receipt",
-            "description": "purchase receipt with transaction details and payment info"
-          }
-        ]
-        ```
-
-        ## Classification Process:
-
-        1. **Metadata Heuristics** (configurable via API):
-           - **Document Type Filter**: Only process document file types (PDF, DOC, DOCX, RTF, TXT, ODT, Pages, HTML, XML, Markdown)
-           - **Filename Heuristics**: Check if rule type appears in filename
-           - **Content Analysis**: Parse document content once and use LLM for semantic matching against all rules
-        2. **Result**: Returns type, confidence score, and matched rule information
-
-        ## API Parameters:
-
-        - `matching_threshold` (0.1-0.99, default: 0.6): Minimum confidence threshold for acceptable matches
-        - `enable_metadata_heuristic` (boolean, default: true): Enable metadata-based features
-
-        ## Supported Document Types:
-
-        **Text Documents**: pdf, doc, docx, rtf, txt, odt, pages
-        **Web Documents**: html, htm, xml
-        **Markup**: md, markdown
-
-        ## Limits (Beta):
-
-        - Maximum 100 files per request
-        - Maximum 10 rules per request
-        - Rule descriptions: 10-500 characters
-        - Document types: 1-50 characters (alphanumeric, hyphens, underscores)
-
-        **Beta Notice**: This API is subject to change. Please provide feedback!
+        Create a classify job.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
 
         Parameters:
             - project_id: typing.Optional[str].
 
             - organization_id: typing.Optional[str].
 
-            - rules_json: str. JSON string containing classifier rules
+            - rules: typing.List[ClassifierRule]. The rules to classify the files
 
-            - files: typing.Optional[typing.List[str]].
+            - file_ids: typing.List[str]. The IDs of the files to classify
 
-            - file_ids: typing.Optional[str].
+            - parsing_configuration: typing.Optional[ClassifyParsingConfiguration]. The configuration for the parsing job
+        ---
+        from llama_cloud import ClassifyParsingConfiguration, ParserLanguages
+        from llama_cloud.client import AsyncLlamaCloud
 
-            - matching_threshold: typing.Optional[float].
-
-            - enable_metadata_heuristic: typing.Optional[bool].
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.classifier.create_classify_job(
+            rules=[],
+            file_ids=[],
+            parsing_configuration=ClassifyParsingConfiguration(
+                lang=ParserLanguages.AF,
+            ),
+        )
         """
-        _request: typing.Dict[str, typing.Any] = {"rules_json": rules_json}
-        if files is not OMIT:
-            _request["files"] = files
-        if file_ids is not OMIT:
-            _request["file_ids"] = file_ids
-        if matching_threshold is not OMIT:
-            _request["matching_threshold"] = matching_threshold
-        if enable_metadata_heuristic is not OMIT:
-            _request["enable_metadata_heuristic"] = enable_metadata_heuristic
+        _request: typing.Dict[str, typing.Any] = {"rules": rules, "file_ids": file_ids}
+        if parsing_configuration is not OMIT:
+            _request["parsing_configuration"] = parsing_configuration
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/classifier/classify"),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/classifier/jobs"),
             params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(ClassifyResponse, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ClassifyJob, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_classify_job(
+        self,
+        classify_job_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> ClassifyJobWithStatus:
+        """
+        Get a classify job.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
+
+        Parameters:
+            - classify_job_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.classifier.get_classify_job(
+            classify_job_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/classifier/jobs/{classify_job_id}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ClassifyJobWithStatus, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_classification_job_results(
+        self,
+        classify_job_id: str,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+    ) -> ClassifyJobResults:
+        """
+        Get the results of a classify job.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
+
+        Parameters:
+            - classify_job_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.classifier.get_classification_job_results(
+            classify_job_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/classifier/jobs/{classify_job_id}/results"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ClassifyJobResults, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

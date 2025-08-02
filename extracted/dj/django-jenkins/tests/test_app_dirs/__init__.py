@@ -1,1 +1,0 @@
-from test_app_dirs.not_for_coverage import one, two

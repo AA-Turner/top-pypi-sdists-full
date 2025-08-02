@@ -5,7 +5,6 @@ import itertools
 import dask.array as da
 import numpy as np
 import pytest
-from astropy import units as u
 from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
@@ -17,6 +16,13 @@ from reproject.interpolation.high_level import reproject_interp
 from reproject.tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons
+
+
+@pytest.fixture(
+    params=[None, "memmap", "none"],
+)
+def dask_method(request):
+    return request.param
 
 
 def as_high_level_wcs(wcs):
@@ -889,7 +895,7 @@ def test_reproject_block_size_broadcasting():
 
     # But it should fail if we specify a block size that is smaller that the total array shape
 
-    with pytest.raises(ValueError, match="block shape for extra broadcasted dimensions"):
+    with pytest.raises(ValueError, match="block shape should either match output data shape"):
         reproject_interp(
             (array_in, wcs_in),
             wcs_out,
@@ -900,11 +906,11 @@ def test_reproject_block_size_broadcasting():
         )
 
 
-def test_reproject_dask_return_type():
+def test_reproject_dask_return_type(dask_method):
     # Regression test for a bug that caused dask arrays to not be computable
     # when using return_type='dask' when the input was a dask array.
 
-    array_in = da.ones((350, 250, 150))
+    array_in = da.ones((35, 250, 150))
     wcs_in = WCS(naxis=2)
     wcs_out = WCS(naxis=2)
 
@@ -914,6 +920,7 @@ def test_reproject_dask_return_type():
         shape_out=(300, 300),
         return_type="numpy",
         return_footprint=False,
+        dask_method=dask_method,
     )
 
     result_dask = reproject_interp(
@@ -923,12 +930,13 @@ def test_reproject_dask_return_type():
         block_size=(100, 100),
         return_type="dask",
         return_footprint=False,
+        dask_method=dask_method,
     )
 
     assert_allclose(result_numpy, result_dask.compute(scheduler="synchronous"))
 
 
-def test_auto_block_size():
+def test_auto_block_size(dask_method):
     # Unit test to make sure that specifying block_size='auto' works
 
     array_in = da.ones((350, 250, 150))
@@ -942,6 +950,7 @@ def test_auto_block_size():
             wcs_out,
             shape_out=(300, 300),
             return_type="dask",
+            dask_method=dask_method,
         )
 
     array_out, footprint_out = reproject_interp(
@@ -950,7 +959,103 @@ def test_auto_block_size():
         shape_out=(300, 300),
         return_type="dask",
         block_size="auto",
+        dask_method=dask_method,
     )
 
     assert array_out.chunksize[0] == 350
     assert footprint_out.chunksize[0] == 350
+
+
+@pytest.mark.parametrize("itemsize", (4, 8))
+def test_bigendian_dask(itemsize, dask_method):
+
+    # Regression test for an endianness issue that occurred when the input was
+    # passed in as (dask_array, wcs) and the dask array was big endian.
+
+    array_in_le = da.ones((35, 250, 150), dtype=f">f{itemsize}")
+    array_in_be = da.ones((35, 250, 150), dtype=f"<f{itemsize}")
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    array_out_be, _ = reproject_interp(
+        (array_in_be, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        block_size=(100, 100),
+        dask_method=dask_method,
+    )
+
+    array_out_le, _ = reproject_interp(
+        (array_in_le, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        block_size=(100, 100),
+        dask_method=dask_method,
+    )
+
+    assert_allclose(array_out_be, array_out_le)
+
+
+def test_reproject_parallel_broadcasting(caplog, dask_method):
+
+    # Unit test for reprojecting using parallelization along broadcasted
+    # dimensions
+
+    array_in = np.ones((350, 250, 150))
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    # By default if we give a block size that is only in the WCS dimensions,
+    # the data has a single chunk in the broadcasted dimensions
+
+    array1 = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(100, 100),
+        return_type="dask",
+        dask_method=dask_method,
+    )
+
+    assert array1.chunksize == (350, 100, 100)
+
+    assert "Broadcasting is being used" in caplog.text
+    assert "Not parallelizing along broadcasted dimension" in caplog.text
+    caplog.clear()
+
+    # However, we can also have one chunk in the WCS dimensions and several in
+    # the broadcasted dimensions.
+
+    array2 = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(1, 300, 300),
+        return_type="dask",
+        dask_method=dask_method,
+    )
+
+    assert array2.chunksize == (1, 300, 300)
+
+    assert "Broadcasting is being used" in caplog.text
+    assert "Parallelizing along broadcasted dimension" in caplog.text
+    caplog.clear()
+
+    # However, we can also have one chunk in the WCS dimensions and several in
+    # the broadcasted dimensions.
+
+    with pytest.raises(ValueError, match="block shape should either match output"):
+        reproject_interp(
+            (array_in, wcs_in),
+            wcs_out,
+            shape_out=(300, 300),
+            parallel=1,
+            return_footprint=False,
+            block_size=(1, 100, 100),
+            return_type="dask",
+            dask_method=dask_method,
+        )

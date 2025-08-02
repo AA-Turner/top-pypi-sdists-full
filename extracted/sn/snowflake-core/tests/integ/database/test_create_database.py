@@ -26,9 +26,7 @@ def test_create_database(databases: DatabaseCollection):
         assert created_database.kind == "TRANSIENT"
         assert created_database.comment == new_db_def.comment
 
-        with pytest.raises(
-            ConflictError,
-        ):
+        with pytest.raises(ConflictError):
             databases.create(new_db_def, mode=CreateMode.error_if_exists)
 
         new_db_def_1 = copy.deepcopy(new_db_def)
@@ -111,11 +109,7 @@ def test_create_clone(databases: DatabaseCollection):
     # replaced transient to permanent database
     new_database_def.kind = database_def.kind = "PERMANENT"
     databases.create(database_def, mode=CreateMode.or_replace)
-    db = databases.create(
-        new_database_def,
-        clone=Clone(source=database_name),
-        mode=CreateMode.or_replace,
-    )
+    db = databases.create(new_database_def, clone=Clone(source=database_name), mode=CreateMode.or_replace)
     try:
         db.fetch()
     finally:
@@ -128,11 +122,7 @@ def test_create_clone(databases: DatabaseCollection):
     new_database_def.suspend_task_after_num_failures = 2
     new_database_def.user_task_timeout_ms = 20000
     databases.create(database_def, mode=CreateMode.or_replace)
-    db = databases.create(
-        new_database_def,
-        clone=Clone(source=database_name),
-        mode=CreateMode.or_replace,
-    )
+    db = databases.create(new_database_def, clone=Clone(source=database_name), mode=CreateMode.or_replace)
     try:
         fetched_db = db.fetch()
         assert fetched_db.serverless_task_min_statement_size == "SMALL"
@@ -149,9 +139,7 @@ def test_create_from_share(databases: DatabaseCollection):
     new_db_name = random_string(3, "test_db_from_share_")
 
     try:
-        db = databases.create(
-            Database(name=new_db_name),
-            from_share='SFSALESSHARED.SFC_SAMPLES_PROD3."SAMPLE_DATA"',)
+        db = databases.create(Database(name=new_db_name), from_share='SFSALESSHARED.SFC_SAMPLES_PROD3."SAMPLE_DATA"')
 
         try:
             assert db.fetch().is_current
@@ -161,5 +149,5 @@ def test_create_from_share(databases: DatabaseCollection):
     except UnauthorizedError as err:
         # We can't import this more than once if another test has already imported it.
         # So, catch that case and pass if that is detected.
-        assert "importing more than once is not supported" in json.loads(err.body)['message']
+        assert "importing more than once is not supported" in json.loads(err.body)["message"]
         pytest.skip("Test was not run because of database was already shared.")

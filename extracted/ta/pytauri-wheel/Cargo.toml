@@ -1,0 +1,56 @@
+# 👉 NOTE: DO NOT use "workspace = true" or "pach = ..." syntax in this file,
+# or sdist will not work properly.
+
+[package]
+name = "pytauri-wheel"
+version = "0.7.0" # ❗ when bumping, remember to update workspace dependencies
+description = "Precompiled wheels for PyTauri"
+authors = ["Sean Wang <126865849+WSH032@users.noreply.github.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "pytauri_wheel_lib"
+# `cdylib` is required for building python extension modules files
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+
+[build-dependencies]
+tauri-build = { version = "2.2" }
+
+[dependencies]
+tauri = { version = "2.5.1", features = [
+    "config-toml",
+    "config-json5",
+    "devtools",
+    "image-ico",
+    "image-png",
+] }
+# NOTE: pin the minor version of `tauri-utils` because it's unstable,
+# see: <https://github.com/tauri-apps/tauri/pull/12890#discussion_r2008992986>
+tauri-utils = { version = "~2.4", features = [
+    "config-toml",
+    "config-json5",
+    "build",
+] }
+tauri-plugin-opener = { version = "2.3.0" }
+tauri-plugin-clipboard-manager = { version = "2.2.3" }
+tauri-plugin-dialog = { version = "2.2.2" }
+tauri-plugin-fs = { version = "2.3.0" }
+tauri-plugin-notification = { version = "2.2.3" }
+# Keep it the same as the version specified in `tauri-utils`,
+# TODO, FIXME: or we can create a feature request to tauri to re-export it.
+json-patch = { version = "3" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+pyo3 = { version = "0.25" }
+# ❗ when bumping, remember to update workspace dependencies.
+# 👇 when adding new workspace dependencies,
+# remember update `[patch.crates-io]` in root `/Cargo.toml` as well.
+pytauri = { version = "0.7", features = ["plugin-notification", "plugin-dialog"] }
+pytauri-core = { version = "0.7" }
+tauri-plugin-pytauri = { version = "0.7" }

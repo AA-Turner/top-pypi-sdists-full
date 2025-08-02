@@ -4,9 +4,7 @@ import pytest
 
 from pydantic import ValidationError
 
-from tests.integ.table.conftest import (
-    assert_table,
-)
+from tests.integ.table.conftest import assert_table
 from tests.utils import random_string
 
 
@@ -18,9 +16,7 @@ def test_iter_like(tables, table_postfix, table_handle, table_handle_case_sensti
     assert_table(listed_tables_not_deep[0], table_handle.name, database, schema, False)
 
     listed_tables_deep = list(tables.iter(like=f"test_table_{table_postfix}_case_sens%e", deep=True))
-    assert_table(
-        listed_tables_deep[0], table_handle_case_senstitive.name, database, schema, True
-    )
+    assert_table(listed_tables_deep[0], table_handle_case_senstitive.name, database, schema, True)
 
     listed_tables_deep = list(tables.iter(like=f"test_table_{table_postfix}%", deep=True))
     assert len(listed_tables_deep) == 2
@@ -41,9 +37,7 @@ def test_iter_starts_with(tables, table_postfix, table_handle, table_handle_case
 def test_iter_from_name(tables, table_postfix, table_handle, table_handle_case_senstitive, database, schema):
     listed_tables_deep = list(tables.iter(limit=10, from_name="test_table", deep=True))
     assert len(listed_tables_deep) == 1
-    assert_table(
-        listed_tables_deep[0], table_handle_case_senstitive.name, database, schema, True
-    )
+    assert_table(listed_tables_deep[0], table_handle_case_senstitive.name, database, schema, True)
 
     listed_tables_deep = list(tables.iter(limit=10, from_name=f"test_table_{table_postfix}_case_i".upper(), deep=True))
     assert 10 >= len(listed_tables_deep) >= 2
@@ -54,9 +48,7 @@ def test_iter_limit(tables):
     data = list(tables.iter(limit=10))
     assert len(data) <= 10
 
-    with pytest.raises(
-        ValidationError,
-    ):
+    with pytest.raises(ValidationError):
         data = list(tables.iter(limit=10001))
 
 

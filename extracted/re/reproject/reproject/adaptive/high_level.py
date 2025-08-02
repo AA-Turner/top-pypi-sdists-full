@@ -32,6 +32,7 @@ def reproject_adaptive(
     block_size=None,
     parallel=False,
     return_type=None,
+    dask_method=None,
 ):
     """
     Reproject a 2D array from one WCS to another using the DeForest (2004)
@@ -57,6 +58,7 @@ def reproject_adaptive(
               `~astropy.io.fits.Header` object
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
+            * The name of a PNG or JPEG file with AVM metadata
 
         If the data array contains more dimensions than are described by the
         input header or WCS, the extra dimensions (assumed to be the first
@@ -211,7 +213,19 @@ def reproject_adaptive(
         automatically). To use the currently active dask scheduler (e.g.
         dask.distributed), set this to ``'current-scheduler'``.
     return_type : {'numpy', 'dask'}, optional
-        Whether to return numpy or dask arrays - defaults to 'numpy'.
+        Whether to return numpy or dask arrays.
+    dask_method : {'memmap', 'none'}, optional
+        Method to use when input array is a dask array. The methods are:
+            * ``'memmap'``: write out the entire input dask array to a temporary
+              memory-mapped array. This requires enough disk space to store
+              the entire input array, but should avoid accidentally loading
+              the entire array into memory.
+            * ``'none'``: load the dask array into memory as needed. This may
+              result in the entire array being loaded into memory. However,
+              this can be efficient under two conditions: if the array easily
+              fits into memory (as this will then be faster than ``'memmap'``),
+              and when the data contains more dimensions than the input WCS and
+              the block_size is chosen to iterate over the extra dimensions.
 
     Returns
     -------

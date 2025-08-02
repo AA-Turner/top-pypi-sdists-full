@@ -22,15 +22,17 @@ MISSING_UV = not shutil.which('uv')
 
 
 INTEGRATION_SOURCES = {
-    'dateutil': ('dateutil/dateutil', '2.8.1'),
-    'pip': ('pypa/pip', '20.2.1'),
-    'Solaar': ('pwr-Solaar/Solaar', '1.0.3'),
-    'flit': ('takluyver/flit', '2.3.0'),
+    'dateutil': ('dateutil/dateutil', '2.9.0'),
+    'pip': ('pypa/pip', '25.0.1'),
+    'Solaar': ('pwr-Solaar/Solaar', '1.1.14'),
+    'flit': ('pypa/flit', '3.12.0'),
 }
 
 _SDIST = re.compile('.*.tar.gz')
 _WHEEL = re.compile('.*.whl')
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+EXCL = frozenset(['.tox', 'dist', '.git', '__pycache__', '.integration-sources', '.github', 'tests', 'docs'])
 
 
 def get_project(name, tmp_path):
@@ -39,12 +41,13 @@ def get_project(name, tmp_path):
         # our own project is available in-source, just ignore development files
 
         def _ignore_folder(base, filenames):
-            ignore = [n for n in filenames if n in excl or any(n.endswith(i) for i in ('_cache', '.egg-info', '.pyc'))]
-            if os.path.basename == ROOT and 'build' in filenames:  # ignore build only at root (our module is build too)
+            ignore = [
+                n for n in filenames if n in EXCL or n.endswith(('_cache', '.egg-info', '.pyc')) or n.startswith('.coverage')
+            ]
+            if os.path.basename(base) == ROOT and 'build' in filenames:  # ignore build only at root (our module is build too)
                 ignore.append('build')
             return ignore
 
-        excl = '.tox', 'dist', '.git', '__pycache__', '.integration-sources', '.github', 'tests', 'docs'
         shutil.copytree(ROOT, str(dest), ignore=_ignore_folder)
         return dest
 
@@ -113,7 +116,7 @@ def test_build(request, monkeypatch, project, args, call, tmp_path):
     monkeypatch.setenv('SETUPTOOLS_SCM_PRETEND_VERSION', '0+dummy')  # for the projects that use setuptools_scm
 
     if call and call[0] == 'pyproject-build':
-        exe_name = f"pyproject-build{'.exe' if sys.platform.startswith('win') else ''}"
+        exe_name = f'pyproject-build{".exe" if sys.platform.startswith("win") else ""}'
         exe = os.path.join(os.path.dirname(sys.executable), exe_name)
         if os.path.exists(exe):
             call[0] = exe

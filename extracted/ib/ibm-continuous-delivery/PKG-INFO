@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ibm_continuous_delivery
-Version: 2.0.1
+Version: 2.0.3
 Summary: Python client library to interact with the IBM Cloud Continuous Delivery Toolchain and Tekton Pipeline APIs
 Author-email: Omar Al Bastami <omar.albastami@ibm.com>, Brian Gleeson <brian.gleeson@ie.ibm.com>
 Project-URL: Repository, https://github.com/IBM/continuous-delivery-python-sdk
@@ -12,11 +12,11 @@ Project-URL: License, https://github.com/IBM/continuous-delivery-python-sdk/blob
 Keywords: ibm,cloud,ibm cloud services,toolchain,tekton
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -25,32 +25,33 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.20.6
+Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.2
 Provides-Extra: dev
-Requires-Dist: coverage<8.0.0,>=7.3.2; extra == "dev"
-Requires-Dist: pylint<4.0.0,>=3.0.0; extra == "dev"
-Requires-Dist: pytest<8.0.0,>=7.4.2; extra == "dev"
+Requires-Dist: coverage<8.0.0,>=7.9.0; extra == "dev"
+Requires-Dist: pylint<4.0.0,>=3.3.7; extra == "dev"
+Requires-Dist: pytest<8.0.0,>=7.4.4; extra == "dev"
 Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == "dev"
-Requires-Dist: responses<1.0.0,>=0.23.3; extra == "dev"
-Requires-Dist: black<25.0.0,>=24.0.0; extra == "dev"
+Requires-Dist: responses<1.0.0,>=0.25.7; extra == "dev"
+Requires-Dist: black<26.0.0,>=25.0.0; extra == "dev"
 Provides-Extra: publish
 Requires-Dist: build; extra == "publish"
 Requires-Dist: twine; extra == "publish"
+Dynamic: license-file
 
 [![Build Status](https://app.travis-ci.com/IBM/continuous-delivery-python-sdk.svg?branch=main)](https://app.travis-ci.com/github/IBM/continuous-delivery-python-sdk)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ibm-continuous-delivery)](https://pypi.org/project/ibm-continuous-delivery/)
 [![Latest Stable Version](https://img.shields.io/pypi/v/ibm-continuous-delivery.svg)](https://pypi.python.org/pypi/ibm-continuous-delivery)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 
-# IBM Cloud Continuous Delivery Python SDK v2.0.1
+# IBM Cloud Continuous Delivery Python SDK v2.0.3
 
 The Python client library to interact with the [IBM Cloud Continuous Delivery Toolchain and Tekton Pipeline APIs](https://cloud.ibm.com/docs?tab=api-docs&category=devops).
 
 # Python Version
-The current minimum Python version supported is 3.8.
+The current minimum Python version supported is 3.9.
 
 ## Table of Contents
 
@@ -66,7 +67,7 @@ The current minimum Python version supported is 3.8.
 
 <!-- toc -->
 
-- [IBM Cloud Continuous Delivery Python SDK v2.0.1](#ibm-cloud-continuous-delivery-python-sdk-v170)
+- [IBM Cloud Continuous Delivery Python SDK v2.0.3](#ibm-cloud-continuous-delivery-python-sdk-v170)
 - [Python Version](#python-version)
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)

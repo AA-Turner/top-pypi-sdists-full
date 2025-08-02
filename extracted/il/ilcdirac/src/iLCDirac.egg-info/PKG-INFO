@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: iLCDirac
+Version: 35.0.7
+Summary: iLCDirac is the iLC/CLIC/FCC extension of DIRAC
+Home-page: https://gitlab.cern.ch/clicdp/ilcdirac/ilcdirac.git
+Maintainer: Andre Sailer
+Maintainer-email: ilcdirac-support@cern.ch
+License: GPL-3.0-only
+Project-URL: Bug Tracker, https://its.cern.ch/jira/browse/ILCDIRAC
+Project-URL: Documentation, https://ilcdirac-doc.web.cern.ch/
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: DIRAC>=8.0.73
+Requires-Dist: requests
+Requires-Dist: six
+Provides-Extra: server
+Requires-Dist: DIRAC[server]; extra == "server"
+Requires-Dist: psutil; extra == "server"
+Provides-Extra: testing
+Requires-Dist: flake8; extra == "testing"
+Requires-Dist: flake8-commas; extra == "testing"
+Requires-Dist: flake8-docstrings; extra == "testing"
+Requires-Dist: future; extra == "testing"
+Requires-Dist: licenseheaders; extra == "testing"
+Requires-Dist: mock; extra == "testing"
+Requires-Dist: parameterized; extra == "testing"
+Requires-Dist: pylint; extra == "testing"
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: pytest-mock; extra == "testing"
+Requires-Dist: pytest-randomly; extra == "testing"
+Requires-Dist: pytest-timeout; extra == "testing"
+Requires-Dist: pytest-xdist; extra == "testing"
+Requires-Dist: sphinx-tabs; extra == "testing"
+Requires-Dist: sphinxcontrib-jquery; extra == "testing"
+
+# iLCDirac
+
+iLCDIRAC is the [Dirac](https://github.com/diracgrid/dirac.git) extension for the ILC/CALICE/FCC Virtual Organizations.
+
+## Documentation
+
+Documentation can be found [here](http://lcd-data.web.cern.ch/lcd-data/doc/ilcdiracdoc/).

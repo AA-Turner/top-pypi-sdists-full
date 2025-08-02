@@ -1,13 +1,6 @@
 """Manages Snowflake Tables."""
 
-from ..table._generated.models import (
-    Constraint,
-    ForeignKey,
-    PrimaryKey,
-    Table,
-    TableColumn,
-    UniqueKey,
-)
+from ..table._generated.models import Constraint, ForeignKey, PrimaryKey, Table, TableColumn, UniqueKey
 from ._table import TableCollection, TableResource
 
 

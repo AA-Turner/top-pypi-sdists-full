@@ -1,0 +1,10 @@
+[workspace]
+members = ["roqoqo", "roqoqo-derive", "qoqo", "qoqo-macros"]
+
+resolver = "2"
+
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = true

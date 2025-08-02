@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: readable_password
+Version: 1.1
+Summary: a password generator that creates easy-to-remember / readable / pronounceable passwords
+Home-page: https://github.com/splogamurugan/readable_password
+Author: Logamurugan Pilavadi
+Author-email: splogamurugan@gmail.com
+License: UNKNOWN
+Description: a password generator that creates easy-to-remember / readable / pronounceable passwords
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

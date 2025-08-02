@@ -60,6 +60,7 @@ from polars.testing import assert_frame_equal, assert_series_equal
 from pytest import mark, param, raises
 from whenever import Time, TimeZoneNotFoundError, ZonedDateTime
 
+import tests.test_math
 import utilities.polars
 from utilities.hypothesis import (
     assume_does_not_raise,
@@ -185,6 +186,7 @@ from utilities.polars import (
     read_series,
     reify_exprs,
     replace_time_zone,
+    round_to_float,
     serialize_dataframe,
     serialize_series,
     set_first_row_as_columns,
@@ -2415,6 +2417,24 @@ class TestReplaceTimeZone:
         series = Series(name="series", values=[True], dtype=Boolean)
         result = replace_time_zone(series, time_zone=None)
         assert_series_equal(result, series)
+
+
+class TestRoundToFloat:
+    @mark.parametrize(("x", "y", "exp_value"), tests.test_math.TestRoundToFloat.cases)
+    def test_main(self, *, x: float, y: float, exp_value: float) -> None:
+        series = Series(name="x", values=[x], dtype=Float64)
+        result = round_to_float(series, y)
+        expected = Series(name="x", values=[exp_value], dtype=Float64)
+        assert_series_equal(result, expected, check_exact=True)
+
+    def test_dataframe_name(self) -> None:
+        df = (
+            Series(name="x", values=[1.234], dtype=Float64)
+            .to_frame()
+            .with_columns(round_to_float("x", 0.1))
+        )
+        expected = Series(name="x", values=[1.2], dtype=Float64).to_frame()
+        assert_frame_equal(df, expected)
 
 
 class TestSerializeAndDeserializeDataFrame:

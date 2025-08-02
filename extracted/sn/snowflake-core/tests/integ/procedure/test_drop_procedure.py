@@ -1,13 +1,8 @@
-
 import pytest as pytest
 
 from snowflake.core._common import CreateMode
 from snowflake.core.exceptions import NotFoundError
-from snowflake.core.procedure import (
-    JavaScriptFunction,
-    Procedure,
-    ReturnDataType,
-)
+from snowflake.core.procedure import JavaScriptFunction, Procedure, ReturnDataType
 from tests.utils import random_string
 
 
@@ -20,7 +15,7 @@ def test_drop(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="REAL"),
         language_config=JavaScriptFunction(),
-        body="""return 3.14"""
+        body="""return 3.14""",
     )
     try:
         proc = procedures.create(procedure, mode=CreateMode.or_replace)

@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: Copyright DB InfraGO AG
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json
+
+derive:
+  image:
+    name: $DOCKER_REGISTRY/capella/base:${CAPELLA_DOCKER_IMAGES_TAG}
+    entrypoint: [""]
+
+  script:
+    - ': ${MODEL_MODIFIER_EMAIL:?MODEL_MODIFIER_EMAIL is required, please set the environment variable}'
+    - ': ${GIT_USERNAME:?GIT_USERNAME and GIT_PASSWORD are required, please set the environment variables}'
+    - ': ${GIT_PASSWORD:?GIT_PASSWORD is required, please set the environment variable}'
+
+    - if [[ -n $DERIVE_RESULTS ]]; then mapfile -d ";" -t derive_results < <(echo -n "$DERIVE_RESULTS"); else derive_results=(); fi
+
+    # Reset branch. This is helpful when chaining jobs
+    # and a previous job pushes changes that should be
+    # considered for the model badge generation.
+    - if [[ -n $CI_COMMIT_BRANCH ]]; then git fetch --depth 1; git reset --hard origin/$CI_COMMIT_BRANCH; fi
+    - python -m venv /tmp/.venv
+    - source /tmp/.venv/bin/activate
+    - pip install "capellambse[cli] @ git+https://github.com/DSD-DBS/py-capellambse.git@${CAPELLAMBSE_REVISION:-release-0.5}"
+    - export DISPLAY=:99
+    - |
+      xvfb-run python \
+        -m capellambse.extensions.filtering derive \
+        -m "${ENTRYPOINT:?}" \
+        -o derived-projects \
+        -p '{result.name}' \
+        "${derive_results[@]/#/--result=}" \
+        --exe="/opt/capella/capella"
+    - git fetch origin "+refs/heads/derived/*:refs/heads/derived/*"
+    - git config --global user.email "${MODEL_MODIFIER_EMAIL:?}";
+    - git config --global user.name "Filtering model modifier";
+    - mkdir -p .git/info && echo "derived-projects/" >> .git/info/exclude
+    - |
+      if [[ "${PUSH_DERIVED_MODELS:-1}" == "1" ]]; then
+        for result in derived-projects/*; do
+          RESULT_DIR_NAME="${result#derived-projects/}"
+          printf '\n=> Preparing derived model %s\n' "$RESULT_DIR_NAME"
+          DERIVED_BRANCH_NAME="$(echo "derived/$RESULT_DIR_NAME" | sed 's/[^a-zA-Z0-9.-_]/-/g')";
+          git switch "$DERIVED_BRANCH_NAME" || git switch --orphan "$DERIVED_BRANCH_NAME";
+          cp -r "$result/." .
+          git add .
+          git commit -m "feat: Add/update derived model '$RESULT_DIR_NAME'"
+          printf '=> Pushing derived model %s to %s\n' "$RESULT_DIR_NAME" "$DERIVED_BRANCH_NAME"
+          git push "https://${GIT_USERNAME:?}:${GIT_PASSWORD:?}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$DERIVED_BRANCH_NAME"
+        done
+      fi
+
+  artifacts:
+    paths:
+      - "derived-projects"
+
+  variables:
+    # Limit the derivation to the listed results.
+    # A semicolon separated list of result names and/or their UUIDs.
+    # Default: Empty, which means derive all results in the model.
+    DERIVE_RESULTS: ""
+
+variables:
+  # This is a workaround to set a default value until the following epic is implemented:
+  # https://gitlab.com/groups/gitlab-org/-/epics/7437
+  # Variables defined outside of jobs (globally) have a low precedence, so it's easy to overwrite it.
+  # When the image is overwritten, the variable is ignored.
+  # Otherwise, we recommend to set it to a specific tag.
+  # See the available list of tags here: https://github.com/DSD-DBS/capella-dockerimages/releases
+  CAPELLA_DOCKER_IMAGES_REVISION: main
+
+  # Depending on the local environment, images can be tagged differently.
+  # In this case, we use the tag, which is also used by the predefined images:
+  # https://dsd-dbs.github.io/capella-dockerimages/capella/introduction/#tagging-schema-for-prebuilt-images
+  CAPELLA_DOCKER_IMAGES_TAG: ${CAPELLA_VERSION}-selected-dropins-${CAPELLA_DOCKER_IMAGES_REVISION}

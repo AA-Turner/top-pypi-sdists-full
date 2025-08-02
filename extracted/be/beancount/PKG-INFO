@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: beancount
+Version: 3.1.0
+Summary: Command-line Double-Entry Accounting
+Author-Email: Martin Blais <blais@furius.ca>
+License: GPL-2.0-only
+Project-URL: homepage, https://beancount.github.io/
+Project-URL: documentation, https://beancount.github.io/docs/
+Project-URL: repository, https://github.com/beancount/beancount
+Requires-Python: >=3.9
+Requires-Dist: click>=7.0
+Requires-Dist: python-dateutil>=2.6.0
+Requires-Dist: regex>=2022.9.13
+Provides-Extra: types
+Requires-Dist: mypy==1.4.0; extra == "types"
+Requires-Dist: types-regex; extra == "types"
+Description-Content-Type: text/x-rst
+
+A double-entry accounting system that uses text files as input.
+
+Beancount defines a simple data format or "language" that lets you
+define financial transaction records in a text file, load them in
+memory and generate and export a variety of reports, such as balance
+sheets or income statements. It also provides a client with an
+SQL-like query language to filter and aggregate financial data, and a
+web interface which renders those reports to HTML. Finally, it
+provides the scaffolding required to automate the conversion of
+external data into one's input file in Beancount syntax.

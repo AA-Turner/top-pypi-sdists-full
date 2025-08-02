@@ -1,0 +1,102 @@
+Metadata-Version: 2.4
+Name: vibe-automation
+Version: 0.7.7
+Summary: Vibe Automation
+Keywords: automation,workflow
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10
+Requires-Dist: anthropic>=0.53.0
+Requires-Dist: fastapi>=0.104.0
+Requires-Dist: google-api-python-client>=2.172.0
+Requires-Dist: grpcio>=1.74.0
+Requires-Dist: instructor[anthropic]>=1.3.3
+Requires-Dist: libcst>=1.0.0
+Requires-Dist: mcp>=1.11.0
+Requires-Dist: mypy-protobuf>=3.6.0
+Requires-Dist: playwright>=1.52.0
+Requires-Dist: protobuf>=4.25.0
+Requires-Dist: pydantic>=2.11.5
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: requests-oauthlib>=1.3.1
+Requires-Dist: typer>=0.16.0
+Requires-Dist: uvicorn>=0.24.0
+Requires-Dist: warcio>=1.7.5
+Description-Content-Type: text/markdown
+
+# Vibe Automation SDK
+
+## Development Setup
+
+### Prerequisites
+
+- Python >=3.13
+- [uv](https://docs.astral.sh/uv/) package manager
+
+### Installation
+
+1. Install uv if you haven't already:
+
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   uv sync
+   ```
+
+3. Activate the virtual environment:
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+4. Add protos for `orby/va/public`:
+
+```bash
+uv run python -m scripts.generate_protos
+```
+
+### Running Examples
+
+```bash
+uv run python examples/form.py
+```
+
+## Version Management & Releases
+
+Use the release script for a streamlined release process:
+
+```bash
+# Test what would happen (dry-run)
+./release.sh patch --dry-run
+
+# Create a patch release (bug fixes)
+./release.sh patch
+
+# Create a minor release (new features, backward compatible)
+./release.sh minor
+
+# Create a major release (breaking changes)
+./release.sh major
+```
+
+The release script automatically:
+
+1. Ensures you're on the main branch with latest changes
+2. Bumps version in all files (`pyproject.toml`, `.bumpversion.toml`)
+3. Creates a git commit with the version change
+4. Creates a release branch (`release/v{version}`)
+5. Creates a pull request
+
+### Release Workflow
+
+The release process kicks off when the previous PR is merged. A first GitHub action creates a tag (`release/v{version}`) which in turn triggers a second Github action to:
+
+- Creates a GitHub release with auto-generated release notes
+- Builds the package using `uv build`
+- Publishes to PyPI using OpenID Connect (trusted publishing)

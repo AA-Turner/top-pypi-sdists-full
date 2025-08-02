@@ -13,10 +13,7 @@ pytestmark = pytest.mark.usefixtures("backup_database_schema")
 
 
 def test_create_schema(schemas: SchemaCollection):
-    new_schema_def = Schema(
-        name=random_string(10, "test_schema_int_test_"),
-        kind="TRANSIENT",
-    )
+    new_schema_def = Schema(name=random_string(10, "test_schema_int_test_"), kind="TRANSIENT")
     new_schema_def.comment = "schema first"
     schema = schemas.create(new_schema_def)
     try:
@@ -26,9 +23,7 @@ def test_create_schema(schemas: SchemaCollection):
         assert created_schema.comment == new_schema_def.comment
         assert created_schema.options != "MANAGED ACCESS"
 
-        with pytest.raises(
-            ConflictError,
-        ):
+        with pytest.raises(ConflictError):
             schemas.create(new_schema_def, mode=CreateMode.error_if_exists)
 
         new_schema_def_1 = copy.deepcopy(new_schema_def)
@@ -62,6 +57,7 @@ def test_create_schema(schemas: SchemaCollection):
         assert created_schema.name == unquote(new_schema_def.name)
     finally:
         schema.drop()
+
 
 def test_create_with_managed_access(schemas: SchemaCollection):
     new_schema_def = Schema(name=random_string(10, "test_schema_int_test_"), managed_access=True)
@@ -114,11 +110,7 @@ def test_create_clone(schemas: SchemaCollection):
     # replaced transient to permanent schema
     schema_def.kind = new_schema_def.kind = None
     schemas.create(schema_def, mode=CreateMode.or_replace)
-    schema = schemas.create(
-        new_schema_def,
-        clone=Clone(source=schema_name),
-        mode=CreateMode.or_replace,
-    )
+    schema = schemas.create(new_schema_def, clone=Clone(source=schema_name), mode=CreateMode.or_replace)
     try:
         schema.fetch()
     finally:
@@ -132,11 +124,7 @@ def test_create_clone(schemas: SchemaCollection):
     new_schema_def.suspend_task_after_num_failures = 2
     new_schema_def.user_task_timeout_ms = 20000
     schemas.create(schema_def, mode=CreateMode.or_replace)
-    schema = schemas.create(
-        new_schema_def,
-        clone=Clone(source=schema_name),
-        mode=CreateMode.or_replace,
-    )
+    schema = schemas.create(new_schema_def, clone=Clone(source=schema_name), mode=CreateMode.or_replace)
     try:
         fetched_schema = schema.fetch()
         assert fetched_schema.serverless_task_min_statement_size == "SMALL"
@@ -150,9 +138,7 @@ def test_create_clone(schemas: SchemaCollection):
 
 def test_create_clone_cross_database(schemas: SchemaCollection, temp_db):
     # clone temp_db.original_schema to <current database>.clone_schema
-    original_schema_def = Schema(
-        name=random_string(10, "test_schema_cross_database_"),
-    )
+    original_schema_def = Schema(name=random_string(10, "test_schema_cross_database_"))
     original_schema_def.comment = "original schema"
 
     original_schema = temp_db.schemas.create(original_schema_def)
@@ -160,10 +146,7 @@ def test_create_clone_cross_database(schemas: SchemaCollection, temp_db):
     clone_of_schema_in_new_db = Clone(source=f"{temp_db.name}.{original_schema_def.name}")
 
     clone_schema = schemas.create(
-        Schema(
-            name=random_string(10, "test_schema_cross_database_"),
-        ),
-        clone=clone_of_schema_in_new_db
+        Schema(name=random_string(10, "test_schema_cross_database_")), clone=clone_of_schema_in_new_db
     )
 
     try:
@@ -180,4 +163,3 @@ def test_create_clone_cross_database(schemas: SchemaCollection, temp_db):
     finally:
         clone_schema.drop()
         original_schema.drop()
-

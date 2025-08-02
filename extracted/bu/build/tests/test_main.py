@@ -93,6 +93,21 @@ ANSI_STRIP = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             [cwd, out, ['wheel'], {'--flag1': 'value', '--flag2': ['other_value', 'extra_value']}, True, False, None],
             'build_package_via_sdist',
         ),
+        (
+            ['--config-json={"one": 1, "two": [2, 3], "three": {"in": "out"}}'],
+            [cwd, out, ['wheel'], {'one': 1, 'two': [2, 3], 'three': {'in': 'out'}}, True, False, None],
+            'build_package_via_sdist',
+        ),
+        (
+            ['--config-json', '{"outer": {"inner": {"deeper": 2}}}'],
+            [cwd, out, ['wheel'], {'outer': {'inner': {'deeper': 2}}}, True, False, None],
+            'build_package_via_sdist',
+        ),
+        (
+            ['--config-json', '{}'],
+            [cwd, out, ['wheel'], {}, True, False, None],
+            'build_package_via_sdist',
+        ),
     ],
 )
 def test_parse_args(mocker, cli_args, build_args, hook):
@@ -141,7 +156,7 @@ def test_build_isolated(mocker, package_test_flit):
 
     build.__main__.build_package(package_test_flit, '.', ['sdist'])
 
-    install.assert_any_call({'flit_core >=2,<3'})
+    install.assert_any_call({'flit_core >=2,<4'})
 
     required_cmd.assert_called_with('sdist', {})
     install.assert_any_call(['dep1', 'dep2'])
@@ -177,6 +192,22 @@ def test_build_no_isolation_with_check_deps(mocker, package_test_flit, missing_d
     error.assert_called_with('Missing dependencies:' + output)
 
 
+@pytest.mark.parametrize(
+    ['cli_args', 'err_msg'],
+    [
+        (['-Cone=1', '--config-json={"two": 2}'], 'not allowed with argument'),
+        (['--config-json={"two": 2'], 'Invalid JSON in --config-json'),
+        (['--config-json=[1]'], '--config-json must contain a JSON object'),
+    ],
+)
+def test_config_json_errors(cli_args, err_msg, capsys):
+    with pytest.raises(SystemExit):
+        build.__main__.main(cli_args)
+
+    outerr = capsys.readouterr()
+    assert err_msg in outerr.out or err_msg in outerr.err
+
+
 @pytest.mark.isolated
 def test_build_raises_build_exception(mocker, package_test_flit):
     mocker.patch('build.ProjectBuilder.get_requires_for_build', side_effect=build.BuildException)
@@ -202,7 +233,7 @@ def test_build_package(tmp_dir, package_test_setuptools):
     build.__main__.build_package(package_test_setuptools, tmp_dir, ['sdist', 'wheel'])
 
     assert sorted(os.listdir(tmp_dir)) == [
-        'test_setuptools-1.0.0-py2.py3-none-any.whl',
+        'test_setuptools-1.0.0-py3-none-any.whl',
         'test_setuptools-1.0.0.tar.gz',
     ]
 
@@ -213,7 +244,7 @@ def test_build_package_via_sdist(tmp_dir, package_test_setuptools):
     build.__main__.build_package_via_sdist(package_test_setuptools, tmp_dir, ['wheel'])
 
     assert sorted(os.listdir(tmp_dir)) == [
-        'test_setuptools-1.0.0-py2.py3-none-any.whl',
+        'test_setuptools-1.0.0-py3-none-any.whl',
         'test_setuptools-1.0.0.tar.gz',
     ]
 
@@ -247,7 +278,7 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setu
                 '  - setuptools >= 42.0.0',
                 '* Getting build dependencies for wheel...',
                 '* Building wheel...',
-                'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py2.py3-none-any.whl',
+                'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py3-none-any.whl',
             ],
             id='via-sdist-isolation',
             marks=[pytest.mark.network, pytest.mark.isolated],
@@ -260,7 +291,7 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setu
                 '* Building wheel from sdist',
                 '* Getting build dependencies for wheel...',
                 '* Building wheel...',
-                'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py2.py3-none-any.whl',
+                'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py3-none-any.whl',
             ],
             id='via-sdist-no-isolation',
         ),
@@ -272,7 +303,7 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setu
                 '  - setuptools >= 42.0.0',
                 '* Getting build dependencies for wheel...',
                 '* Building wheel...',
-                'Successfully built test_setuptools-1.0.0-py2.py3-none-any.whl',
+                'Successfully built test_setuptools-1.0.0-py3-none-any.whl',
             ],
             id='wheel-direct-isolation',
             marks=[pytest.mark.network, pytest.mark.isolated],
@@ -282,7 +313,7 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setu
             [
                 '* Getting build dependencies for wheel...',
                 '* Building wheel...',
-                'Successfully built test_setuptools-1.0.0-py2.py3-none-any.whl',
+                'Successfully built test_setuptools-1.0.0-py3-none-any.whl',
             ],
             id='wheel-direct-no-isolation',
         ),
@@ -302,7 +333,7 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setu
                 '* Building sdist...',
                 '* Getting build dependencies for wheel...',
                 '* Building wheel...',
-                'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py2.py3-none-any.whl',
+                'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py3-none-any.whl',
             ],
             id='sdist-and-wheel-direct-no-isolation',
         ),

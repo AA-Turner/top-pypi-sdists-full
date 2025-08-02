@@ -1,0 +1,127 @@
+Metadata-Version: 2.4
+Name: rich-logger
+Version: 0.3.2
+Summary: Table logger using Rich
+Author-email: Perceval Wajsburt <perceval.wajsburt@gmail.com>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2021, Perceval Wajsburt
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Requires-Python: <4.0,>=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: rich>=10.11.0
+Requires-Dist: pydantic>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.1.3; extra == "dev"
+Requires-Dist: coverage>=6.5.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: pre-commit>=2.20.0; extra == "dev"
+Requires-Dist: tqdm>=2.0.0; extra == "dev"
+Requires-Dist: pytorch-lightning>=1.0.0; extra == "dev"
+Dynamic: license-file
+
+![tests](https://github.com/percevalw/rich-logger/actions/workflows/tests.yml/badge.svg)
+[![pypi](https://badge.fury.io/py/rich-logger.svg)](https://pypi.org/project/rich-logger)
+
+# rich-logger
+Table logger using Rich, aimed at Pytorch Lightning logging
+
+## Features
+
+- display your training logs with pretty [rich](https://github.com/willmcgugan/rich) tables
+- describe your fields with `goal` ("higher_is_better" or "lower_is_better"), `format` and `name`
+- a field descriptor can be matched with any regex
+- a field name can be computed as a regex substitution
+- works in Jupyter notebooks as well as in a command line
+- integrates easily with [Pytorch Lightning](https://github.com/PyTorchLightning/pytorch-lightning)
+
+## Demo
+```python
+from rich_logger import RichTablePrinter
+import time
+import random
+from tqdm import trange
+
+logger_fields = {
+    "step": {},
+    "(.*)_precision": {
+        "goal": "higher_is_better",
+        "format": "{:.4f}",
+        "name": r"\1_p",
+    },
+    "(.*)_recall": {
+        "goal": "higher_is_better",
+        "format": "{:.4f}",
+        "name": r"\1_r",
+    },
+    "duration": {"format": "{:.1f}", "name": "dur(s)"},
+    ".*": True,  # Any other field must be logged at the end
+}
+
+
+def optimization():
+    printer = RichTablePrinter(key="step", fields=logger_fields)
+    printer.hijack_tqdm()
+
+    t = time.time()
+    for i in trange(10):
+        time.sleep(random.random() / 3)
+        printer.log(
+            {
+                "step": i,
+                "task_precision": i / 10.0 if i < 5 else 0.5 - (i - 5) / 10.0,
+            }
+        )
+        time.sleep(random.random() / 3)
+        printer.log(
+            {
+                "step": i,
+                "task_recall": 0.0 if i < 3 else (i - 3) / 10.0,
+                "duration": time.time() - t,
+            }
+        )
+        printer.log({"test": i})
+        t = time.time()
+        for j in trange(5):
+            time.sleep(random.random() / 10)
+
+    printer.finalize()
+
+
+optimization()
+```
+![Demo](demo.gif)
+
+## Use it with PytorchLightning
+```python
+from rich_logger import RichTableLogger
+
+trainer = pl.Trainer(..., logger=[RichTableLogger(key="epoch", fields=logger_fields)])
+```

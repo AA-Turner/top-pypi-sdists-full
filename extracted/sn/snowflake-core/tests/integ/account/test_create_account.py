@@ -35,7 +35,7 @@ def test_create_account(temp_customer_account_accounts, sf_cursor, temp_customer
 
             # create account endpoint for rsa public key but since it is fake it will be rejected
             account.name = random_string(5, "test_create_account_")
-            account.admin_rsa_public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlmNyi9mEc18wdZw0lCeOxD3pwiLO9BzDIU84dqAws3hge4E2sgYaepcE3CUtC147jiWgD7atzKTHy0Ov88xh"  # pragma: allowlist secret  # noqa: E501
+            account.admin_rsa_public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlmNyi9mEc18wdZw0lCeOxD3pwiLO9BzDIU84dqAws3hge4E2sgYaepcE3CUtC147jiWgD7atzKTHy0Ov88xh"  # pragma: allowlist secret
             create_account(
                 temp_customer_account_accounts,
                 sf_cursor,

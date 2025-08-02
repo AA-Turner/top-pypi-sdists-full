@@ -27,11 +27,10 @@ test_table_template = Table(
 
 test_view_template = View(
     name="<to be set>",
-    columns=[
-        ViewColumn(name="c1"), ViewColumn(name="c2"), ViewColumn(name="c3"),
-    ],
+    columns=[ViewColumn(name="c1"), ViewColumn(name="c2"), ViewColumn(name="c3")],
     query="<to be set>",
 )
+
 
 @pytest.fixture(scope="module")
 def temp_table(tables) -> Generator[TableResource, None, None]:
@@ -43,4 +42,3 @@ def temp_table(tables) -> Generator[TableResource, None, None]:
         yield test_table_handle
     finally:
         test_table_handle.drop()
-

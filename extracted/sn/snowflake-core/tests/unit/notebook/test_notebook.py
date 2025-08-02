@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation, Root
-from snowflake.core.notebook import Notebook
+from snowflake.core.notebook import Notebook, NotebookResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,18 +23,13 @@ def notebook(notebooks):
 
 
 def test_create_notebook(fake_root, notebooks):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks?createMode=errorIfExists",
-    )
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={"name": "my_notebook"},
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks?createMode=errorIfExists")
+    kwargs = extra_params(query_params=[("createMode", "errorIfExists")], body={"name": "my_notebook"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        notebooks.create(NOTEBOOK)
+        notebook_res = notebooks.create(NOTEBOOK)
+        assert isinstance(notebook_res, NotebookResource)
+        assert notebook_res.name == "my_notebook"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -46,11 +41,7 @@ def test_create_notebook(fake_root, notebooks):
 
 
 def test_iter_notebook(fake_root, notebooks):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -71,11 +62,7 @@ def test_fetch_notebook(fake_root, notebook):
     from snowflake.core.notebook._generated.models import Notebook as NotebookModel
 
     model = NotebookModel(name="my_notebook")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -93,11 +80,7 @@ def test_fetch_notebook(fake_root, notebook):
 
 
 def test_drop_notebook(fake_root, notebook):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook?ifExists=False",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook?ifExists=False")
     kwargs = extra_params(query_params=[("ifExists", False)])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -116,9 +99,11 @@ def test_rename_notebook(fake_root, notebook, notebooks):
         return (
             fake_root,
             "POST",
-            BASE_URL + f"/databases/my_db/schemas/my_schema/notebooks/{notebook_name}:rename?" + \
-                "targetDatabase=my_db&targetSchema=my_schema&targetName=new_notebook",
+            BASE_URL
+            + f"/databases/my_db/schemas/my_schema/notebooks/{notebook_name}:rename?"
+            + "targetDatabase=my_db&targetSchema=my_schema&targetName=new_notebook",
         )
+
     kwargs = extra_params(
         query_params=[
             ("targetDatabase", notebooks.database.name),
@@ -142,11 +127,7 @@ def test_rename_notebook(fake_root, notebook, notebooks):
 
 
 def test_execute_notebook(fake_root, notebook):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:execute",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:execute")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -161,11 +142,7 @@ def test_execute_notebook(fake_root, notebook):
 
 
 def test_commit_notebook(fake_root, notebook):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:commit",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:commit")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -180,11 +157,7 @@ def test_commit_notebook(fake_root, notebook):
 
 
 def test_add_live_version_notebook(fake_root, notebook):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:add-live-version",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:add-live-version")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

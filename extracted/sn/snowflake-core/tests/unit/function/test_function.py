@@ -6,7 +6,7 @@ from urllib.parse import quote
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.function import ServiceFunction
+from snowflake.core.function import FunctionResource, ServiceFunction
 from snowflake.core.version import __version__ as VERSION
 
 from ...utils import BASE_URL, extra_params, mock_http_response
@@ -27,11 +27,7 @@ def function(functions):
 
 
 def test_create_function(fake_root, functions):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/functions?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/functions?createMode=errorIfExists")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists")],
         body={
@@ -46,7 +42,9 @@ def test_create_function(fake_root, functions):
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        functions.create(FUNCTION)
+        fn_res = functions.create(FUNCTION)
+        assert isinstance(fn_res, FunctionResource)
+        assert fn_res.name_with_args == "my_fn()"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -58,11 +56,7 @@ def test_create_function(fake_root, functions):
 
 
 def test_iter_function(fake_root, functions):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/functions",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/functions")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -83,11 +77,7 @@ def test_fetch_function(fake_root, function):
     from snowflake.core.function._generated.models import ServiceFunction as ServiceFunctionModel
 
     model = ServiceFunctionModel(name="my_fn", arguments=[], service="my_service", endpoint="", path="/path/to/myapp")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}",
-    )
+    args = (fake_root, "GET", BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -127,11 +117,7 @@ def test_execute_function(fake_root, function):
     from snowflake.core.function._generated.models import ServiceFunction as ServiceFunctionModel
 
     model = ServiceFunctionModel(name="my_fn", arguments=[], service="my_service", endpoint="", path="/path/to/myapp")
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/functions/my_fn:execute",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/functions/my_fn:execute")
     kwargs = extra_params(
         headers={
             "Accept": "application/json",

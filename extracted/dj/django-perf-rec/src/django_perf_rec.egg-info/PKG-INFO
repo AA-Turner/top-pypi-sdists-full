@@ -1,19 +1,19 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-perf-rec
-Version: 4.28.0
+Version: 4.29.0
 Summary: Keep detailed records of the performance of your Django code.
 Author-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/adamchainz/django-perf-rec/blob/main/CHANGELOG.rst
 Project-URL: Funding, https://adamj.eu/books/
 Project-URL: Repository, https://github.com/adamchainz/django-perf-rec
 Keywords: Django
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 6 - Mature
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -30,6 +30,7 @@ License-File: LICENSE
 Requires-Dist: django>=4.2
 Requires-Dist: pyyaml
 Requires-Dist: sqlparse>=0.4.4
+Dynamic: license-file
 
 ===============
 django-perf-rec
@@ -49,6 +50,14 @@ django-perf-rec
    :alt: pre-commit
 
 Keep detailed records of the performance of your Django code.
+
+----
+
+**Note (2025-08-01):**
+My new package `inline-snapshot-django <https://inline-snapshot-django.readthedocs.io/en/latest/>`__ is a faster and more convenient alternative to **django-perf-rec**.
+As a consequence, django-perf-rec is now in maintenance mode, and will not receive significant new features.
+
+----
 
 **django-perf-rec** is like Django's ``assertNumQueries`` on steroids. It lets
 you track the individual queries and cache operations that occur in your code.

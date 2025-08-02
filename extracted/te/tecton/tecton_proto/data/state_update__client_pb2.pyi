@@ -173,13 +173,14 @@ class PlanIntegrationTestTaskDiff(_message.Message):
     def __init__(self, display_string: _Optional[str] = ..., feature_view_name: _Optional[str] = ...) -> None: ...
 
 class StateUpdateEntry(_message.Message):
-    __slots__ = ["applied_at", "applied_by", "applied_by_principal", "commit_id", "created_at", "created_by", "error", "sdk_version", "status_type", "successful_plan_output", "workspace"]
+    __slots__ = ["applied_at", "applied_by", "applied_by_principal", "commit_id", "created_at", "created_by", "created_by_principal", "error", "sdk_version", "status_type", "successful_plan_output", "workspace"]
     APPLIED_AT_FIELD_NUMBER: _ClassVar[int]
     APPLIED_BY_FIELD_NUMBER: _ClassVar[int]
     APPLIED_BY_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     SDK_VERSION_FIELD_NUMBER: _ClassVar[int]
     STATUS_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -191,12 +192,13 @@ class StateUpdateEntry(_message.Message):
     commit_id: str
     created_at: _timestamp_pb2.Timestamp
     created_by: str
+    created_by_principal: _principal__client_pb2.PrincipalBasic
     error: str
     sdk_version: str
     status_type: PlanStatusType
     successful_plan_output: SuccessfulPlanOutput
     workspace: str
-    def __init__(self, commit_id: _Optional[str] = ..., applied_by: _Optional[str] = ..., applied_by_principal: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ..., applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ..., sdk_version: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_type: _Optional[_Union[PlanStatusType, str]] = ..., error: _Optional[str] = ..., successful_plan_output: _Optional[_Union[SuccessfulPlanOutput, _Mapping]] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, commit_id: _Optional[str] = ..., applied_by: _Optional[str] = ..., applied_by_principal: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ..., applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ..., sdk_version: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_type: _Optional[_Union[PlanStatusType, str]] = ..., error: _Optional[str] = ..., successful_plan_output: _Optional[_Union[SuccessfulPlanOutput, _Mapping]] = ..., created_by: _Optional[str] = ..., created_by_principal: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ...) -> None: ...
 
 class StateUpdatePlanSummary(_message.Message):
     __slots__ = ["applied_at", "applied_by", "applied_by_principal", "created_at", "created_by", "diff_items", "sdk_version", "workspace"]

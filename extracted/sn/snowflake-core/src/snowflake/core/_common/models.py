@@ -47,10 +47,9 @@ class PointOfTime(BaseModel):
     reference: Annotated[str, StringConstraints(strict=True)] = Field(
         ..., description="The relation to the point of time. At the time of writing at and before are supported."
     )
-    when: Annotated[
-        str,
-        StringConstraints(strict=True),
-    ] = Field(..., description="The actual description of the point of time.")
+    when: Annotated[str, StringConstraints(strict=True)] = Field(
+        ..., description="The actual description of the point of time."
+    )
     __properties = ["point_of_time_type", "reference", "when"]
 
     __discriminator_property_name = "point_of_time_type"
@@ -62,7 +61,7 @@ class PointOfTime(BaseModel):
     }
 
     class Config:
-        allow_population_by_field_name = True
+        validate_by_name = True
         validate_assignment = True
 
     def to_dict(self) -> dict[str, str]:
@@ -83,13 +82,8 @@ class PointOfTime(BaseModel):
 
     @classmethod
     def from_dict(
-            cls,
-            obj: dict[str, Optional[str]],
-    ) -> Union[
-        "PointOfTimeOffset",
-        "PointOfTimeStatement",
-        "PointOfTimeTimestamp",
-    ]:
+        cls, obj: dict[str, Optional[str]]
+    ) -> Union["PointOfTimeOffset", "PointOfTimeStatement", "PointOfTimeTimestamp"]:
         """Create an instance of PointOfTime from a dict."""
         object_type = cls.get_discriminator_value(obj)
         if not object_type:

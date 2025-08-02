@@ -1,0 +1,103 @@
+# pyproject.toml
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "langtrace-python-sdk"
+dynamic = ["version"]
+description = "Python SDK for LangTrace"
+readme = "README.md"
+authors = [{ name = "Scale3 Labs", email = "engineering@scale3labs.com" }]
+license = "Apache-2.0"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  'trace-attributes==7.2.1',
+  'opentelemetry-api>=1.25.0',
+  'opentelemetry-sdk>=1.25.0',
+  'opentelemetry-instrumentation>=0.47b0',
+  'opentelemetry-instrumentation-sqlalchemy>=0.46b0',
+  'opentelemetry-exporter-otlp-proto-http>=1.25.0',
+  'opentelemetry-exporter-otlp-proto-grpc>=1.25.0',
+  'tiktoken>=0.1.1',
+  'colorama>=0.4.6',
+  'sqlalchemy',
+  'fsspec>=2024.6.0',
+  "transformers>=4.11.3",
+  "sentry-sdk>=2.14.0",
+  "ujson>=5.10.0",
+  "boto3==1.38.0",
+  "setuptools",
+  "Deprecated==1.2.18",
+]
+
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+  "openai>=1.60.0",
+  "openai-agents>=0.0.3",
+  "anthropic",
+  "chromadb",
+  "qdrant-client",
+  "graphlit-client",
+  "python-dotenv",
+  "pinecone>=3.1.0,<=6.0.2",
+  "langchain",
+  "langchain-community",
+  "langchain-openai",
+  "litellm==1.48.7",
+  "chromadb",
+  "cohere",
+  "qdrant_client",
+  "weaviate-client",
+  "ollama",
+  "groq",
+  "google-generativeai",
+  "google-cloud-aiplatform",
+  "mistralai",
+  "embedchain",
+  "phidata",
+]
+
+test = ["pytest", "pytest-vcr", "pytest-asyncio"]
+
+
+[project.urls]
+Homepage = "https://github.com/Scale3-Labs/langtrace-python-sdk"
+
+
+[tool.hatch.version]
+path = "src/langtrace_python_sdk/version.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/langtrace_python_sdk", "src/examples", "src/tests"]
+
+[tool.hatch.source]
+url = "https://langtrace.gateway.scarf.sh/simple/"
+
+[global]
+extra-index-url = "https://langtrace.gateway.scarf.sh/simple/"
+
+[project.entry-points."fsspec.specs"]
+langtracefs = "langtrace_python_sdk:LangTraceFileSystem"
+
+# [tool.semantic_release]
+# version_variable = "pyproject.toml:version" # version location
+# branch = "development"                             # branch to make releases of
+# changelog_file = "CHANGELOG.md"             # changelog file
+# build_command = "poetry build"              # build dists
+# dist_path = "dist/"                         # where to put dists
+# upload_to_release = true                    # auto-create GitHub release
+# upload_to_pypi = false                      # don't auto-upload to PyPI
+# remove_dist = false                         # don't remove dists
+# patch_without_tag = true                    # patch release by default

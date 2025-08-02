@@ -6,6 +6,7 @@ from typing import Any, Callable, TypeVar
 T = TypeVar("T")
 U = TypeVar("U")
 
+
 class PollingOperation(Future[U]):
     """Encapsulates the asynchronous execution of a callable.
 
@@ -45,7 +46,9 @@ class PollingOperation(Future[U]):
 
     Scheduling 100 task creation jobs and waiting for all of them to complete:
 
-    >>> operations = [task_collection.create_async(Task(name=f"task_{n}", definition="select 1")) for n in range(100)]
+    >>> operations = [
+    ...     task_collection.create_async(Task(name=f"task_{n}", definition="select 1")) for n in range(100)
+    ... ]
     >>> concurrent.futures.wait(operations)
     """
 

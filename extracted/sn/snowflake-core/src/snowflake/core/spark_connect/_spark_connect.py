@@ -21,8 +21,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-
-
 class SparkConnectResource:
     """Represents a Spark Connect resource on GS.
 
@@ -39,9 +37,11 @@ class SparkConnectResource:
     gRPC service.
     """
 
-    def __init__(self,
-                 connection: Union[RESTConnection, SnowflakeConnection, "Session"],
-                 root_config: Optional[RootConfiguration] = None) -> None:
+    def __init__(
+        self,
+        connection: Union[RESTConnection, SnowflakeConnection, "Session"],
+        root_config: Optional[RootConfiguration] = None,
+    ) -> None:
         self._root = RESTRoot(connection, root_config)
         self._api = SparkConnectApi(
             root=self._root, resource_class=SparkConnectResource, sproc_client=StoredProcApiClient(root=self._root)
@@ -66,7 +66,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.execute_plan(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -79,7 +79,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.analyze_plan(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -92,7 +92,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.config(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -105,7 +105,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.add_artifacts(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -118,7 +118,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.artifact_status(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -131,7 +131,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.interrupt(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -144,7 +144,7 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.reattach_execute(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))
 
@@ -157,6 +157,6 @@ class SparkConnectResource:
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.release_execute(body=request, async_req=True)
         return PollingOperation(future, lambda response: self._assert_protobuf_response(response))

@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "saxonche-stubs"
+version = "0.7.2"
+description = "Type stubs for saxonche"
+authors = ["Bpolitycki <bastian.politycki@unisg.ch>"]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+packages = [{ include = "saxonche-stubs" }]
+
+classifiers = [
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python",
+    "Topic :: Text Processing :: Markup :: XML",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/Bpolitycki/saxonche-stubs"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+saxonche = "^12.1.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+ruff = "^0.0.262"
+
+[tool.mypy]
+mypy_path = "saxonche-stubs"
+check_untyped_defs = true
+ignore_errors = false
+ignore_missing_imports = true
+strict_optional = true
+
+[tool.ruff]
+select = ["E", "F", "I001"]
+ignore = ["E501"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

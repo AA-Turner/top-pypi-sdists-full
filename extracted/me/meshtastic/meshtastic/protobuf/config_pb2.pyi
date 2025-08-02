@@ -299,6 +299,12 @@ class Config(google.protobuf.message.Message):
             Non-notification system buzzer tones only.
             Buzzer is enabled only for non-notification tones such as button presses, startup, shutdown, but not for alerts.
             """
+            DIRECT_MSG_ONLY: Config.DeviceConfig._BuzzerMode.ValueType  # 4
+            """
+            Direct Message notifications only.
+            Buzzer is enabled only for direct messages and alerts, but not for button presses.
+            External notification config determines the specifics of the notification behavior.
+            """
 
         class BuzzerMode(_BuzzerMode, metaclass=_BuzzerModeEnumTypeWrapper):
             """
@@ -325,6 +331,12 @@ class Config(google.protobuf.message.Message):
         """
         Non-notification system buzzer tones only.
         Buzzer is enabled only for non-notification tones such as button presses, startup, shutdown, but not for alerts.
+        """
+        DIRECT_MSG_ONLY: Config.DeviceConfig.BuzzerMode.ValueType  # 4
+        """
+        Direct Message notifications only.
+        Buzzer is enabled only for direct messages and alerts, but not for button presses.
+        External notification config determines the specifics of the notification behavior.
         """
 
         ROLE_FIELD_NUMBER: builtins.int
@@ -1202,6 +1214,7 @@ class Config(google.protobuf.message.Message):
         """
         gps_format: global___Config.DisplayConfig.GpsCoordinateFormat.ValueType
         """
+        Deprecated in 2.7.4: Unused
         How the GPS coordinates are formatted on the OLED screen.
         """
         auto_screen_carousel_secs: builtins.int
@@ -1367,6 +1380,26 @@ class Config(google.protobuf.message.Message):
             """
             Philippines 915mhz
             """
+            ANZ_433: Config.LoRaConfig._RegionCode.ValueType  # 22
+            """
+            Australia / New Zealand 433MHz
+            """
+            KZ_433: Config.LoRaConfig._RegionCode.ValueType  # 23
+            """
+            Kazakhstan 433MHz
+            """
+            KZ_863: Config.LoRaConfig._RegionCode.ValueType  # 24
+            """
+            Kazakhstan 863MHz
+            """
+            NP_865: Config.LoRaConfig._RegionCode.ValueType  # 25
+            """
+            Nepal 865MHz
+            """
+            BR_902: Config.LoRaConfig._RegionCode.ValueType  # 26
+            """
+            Brazil 902MHz
+            """
 
         class RegionCode(_RegionCode, metaclass=_RegionCodeEnumTypeWrapper): ...
         UNSET: Config.LoRaConfig.RegionCode.ValueType  # 0
@@ -1456,6 +1489,26 @@ class Config(google.protobuf.message.Message):
         PH_915: Config.LoRaConfig.RegionCode.ValueType  # 21
         """
         Philippines 915mhz
+        """
+        ANZ_433: Config.LoRaConfig.RegionCode.ValueType  # 22
+        """
+        Australia / New Zealand 433MHz
+        """
+        KZ_433: Config.LoRaConfig.RegionCode.ValueType  # 23
+        """
+        Kazakhstan 433MHz
+        """
+        KZ_863: Config.LoRaConfig.RegionCode.ValueType  # 24
+        """
+        Kazakhstan 863MHz
+        """
+        NP_865: Config.LoRaConfig.RegionCode.ValueType  # 25
+        """
+        Nepal 865MHz
+        """
+        BR_902: Config.LoRaConfig.RegionCode.ValueType  # 26
+        """
+        Brazil 902MHz
         """
 
         class _ModemPreset:

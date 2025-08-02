@@ -22,8 +22,9 @@ pytestmark = [pytest.mark.skip_gov]
 
 
 @pytest.mark.usefixtures("qa_mode_enabled")
-def test_get_commands(services, session, imagerepo, shared_compute_pool, database, schema,
-                      setup_with_connector_execution):
+def test_get_commands(
+    services, session, imagerepo, shared_compute_pool, database, schema, setup_with_connector_execution
+):
     # Mock resource set status
     with setup_with_connector_execution(["alter session set ENABLE_MOCK_RESOURCE_SET_STATUS=true"], []):
         # Create a service
@@ -64,76 +65,89 @@ def test_get_commands(services, session, imagerepo, shared_compute_pool, databas
 
         try:
             # Verify the output of get_containers command
-            expected_containers = [ServiceContainer.from_dict({
-                "database_name": database.name.upper(),
-                "schema_name": schema.name.upper(),
-                "service_name": service_name.upper(),
-                "instance_id": "0",
-                "container_name": "main-container",
-                "status": "DONE",
-                "message": "DONE",
-                "image_name": f"{imagerepo}/hello-world:latest",
-                "image_digest": None,
-                "restart_count": 0,
-                "start_time": "2023-01-01T00:00:00Z"
-            }), ServiceContainer.from_dict({
-                "database_name": database.name.upper(),
-                "schema_name": schema.name.upper(),
-                "service_name": service_name.upper(),
-                "instance_id": "0",
-                "container_name": "other-container",
-                "status": "DONE",
-                "message": "DONE",
-                "image_name": f"{imagerepo}/hello-world:latest",
-                "image_digest": None,
-                "restart_count": 0,
-                "start_time": "2023-01-01T00:00:00Z"
-            })]
+            expected_containers = [
+                ServiceContainer.from_dict(
+                    {
+                        "database_name": database.name.upper(),
+                        "schema_name": schema.name.upper(),
+                        "service_name": service_name.upper(),
+                        "instance_id": "0",
+                        "container_name": "main-container",
+                        "status": "DONE",
+                        "message": "DONE",
+                        "image_name": f"{imagerepo}/hello-world:latest",
+                        "image_digest": None,
+                        "restart_count": 0,
+                        "start_time": "2023-01-01T00:00:00Z",
+                    }
+                ),
+                ServiceContainer.from_dict(
+                    {
+                        "database_name": database.name.upper(),
+                        "schema_name": schema.name.upper(),
+                        "service_name": service_name.upper(),
+                        "instance_id": "0",
+                        "container_name": "other-container",
+                        "status": "DONE",
+                        "message": "DONE",
+                        "image_name": f"{imagerepo}/hello-world:latest",
+                        "image_digest": None,
+                        "restart_count": 0,
+                        "start_time": "2023-01-01T00:00:00Z",
+                    }
+                ),
+            ]
 
             actual_containers = list(svc.get_containers())
             assert actual_containers == expected_containers
 
             # Verify the output of get_instances command
-            expected_instances = [ServiceInstance.from_dict({
-                "database_name": database.name.upper(),
-                "schema_name": schema.name.upper(),
-                "service_name": service_name.upper(),
-                "instance_id": "0",
-                "status": "SUCCEEDED",
-                "spec_digest": "",
-                "creation_time": "2023-01-01T00:00:00Z",
-                "start_time": "2023-01-01T00:00:00Z"
-            })]
+            expected_instances = [
+                ServiceInstance.from_dict(
+                    {
+                        "database_name": database.name.upper(),
+                        "schema_name": schema.name.upper(),
+                        "service_name": service_name.upper(),
+                        "instance_id": "0",
+                        "status": "SUCCEEDED",
+                        "spec_digest": "",
+                        "creation_time": "2023-01-01T00:00:00Z",
+                        "start_time": "2023-01-01T00:00:00Z",
+                    }
+                )
+            ]
 
             actual_instances = list(svc.get_instances())
             assert actual_instances == expected_instances
 
             # Verify the output of get_roles command
-            expected_roles = [ServiceRole.from_dict({
-                "created_on": "1967-06-23T07:00:00.123+00:00",
-                "name": "ALL_ENDPOINTS_USAGE",
-                "comment": None
-            }), ServiceRole.from_dict({
-                "created_on": "1967-06-23T07:00:00.123+00:00",
-                "name": "ROLE1",
-                "comment": None
-            })]
+            expected_roles = [
+                ServiceRole.from_dict(
+                    {"created_on": "1967-06-23T07:00:00.123+00:00", "name": "ALL_ENDPOINTS_USAGE", "comment": None}
+                ),
+                ServiceRole.from_dict(
+                    {"created_on": "1967-06-23T07:00:00.123+00:00", "name": "ROLE1", "comment": None}
+                ),
+            ]
 
             actual_roles = list(svc.get_roles())
             assert actual_roles == expected_roles
 
             # Verify the output of get_endpoints command
-            expected_endpoints = [ServiceEndpoint.from_dict({
-                "name": "echo",
-                "port": 8080,
-                "port_range": None,
-                "protocol": "HTTP",
-                "is_public": False,
-                "ingress_url": None
-            })]
+            expected_endpoints = [
+                ServiceEndpoint.from_dict(
+                    {
+                        "name": "echo",
+                        "port": 8080,
+                        "port_range": None,
+                        "protocol": "HTTP",
+                        "is_public": False,
+                        "ingress_url": None,
+                    }
+                )
+            ]
 
             actual_endpoints = list(svc.get_endpoints())
             assert actual_endpoints == expected_endpoints
         finally:
             svc.drop()
-

@@ -51,6 +51,9 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
+APPLIED_FILTER_APPLIED: AppliedFilter
+APPLIED_FILTER_UNAPPLIED: AppliedFilter
+APPLIED_FILTER_UNSPECIFIED: AppliedFilter
 DESCRIPTOR: _descriptor.FileDescriptor
 FCO_TYPE_ENTITY: FcoType
 FCO_TYPE_FEATURE_SERVICE: FcoType
@@ -1113,12 +1116,14 @@ class GetStateUpdateLogResponse(_message.Message):
     def __init__(self, entries: _Optional[_Iterable[_Union[_state_update__client_pb2.StateUpdateEntry, _Mapping]]] = ...) -> None: ...
 
 class GetStateUpdatePlanListRequest(_message.Message):
-    __slots__ = ["limit", "workspace"]
+    __slots__ = ["applied_filter", "limit", "workspace"]
+    APPLIED_FILTER_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    applied_filter: AppliedFilter
     limit: int
     workspace: str
-    def __init__(self, limit: _Optional[int] = ..., workspace: _Optional[str] = ...) -> None: ...
+    def __init__(self, limit: _Optional[int] = ..., workspace: _Optional[str] = ..., applied_filter: _Optional[_Union[AppliedFilter, str]] = ...) -> None: ...
 
 class GetStateUpdatePlanListResponse(_message.Message):
     __slots__ = ["entries"]
@@ -1559,12 +1564,13 @@ class QueryStateUpdateResponse(_message.Message):
     def __init__(self, ready: bool = ..., success: bool = ..., error: _Optional[str] = ..., recreates_suppressed: bool = ..., validation_result: _Optional[_Union[_state_update__client_pb2.ValidationResult, _Mapping]] = ..., diff_items: _Optional[_Iterable[_Union[_state_update__client_pb2.FcoDiff, _Mapping]]] = ..., latest_status_message: _Optional[str] = ..., plan_integration_validation_result: _Optional[_Union[_state_update__client_pb2.ValidationResult, _Mapping]] = ...) -> None: ...
 
 class QueryStateUpdateResponseV2(_message.Message):
-    __slots__ = ["applied_at", "applied_by", "applied_by_principal", "created_at", "created_by", "error", "latest_status_message", "ready", "sdk_version", "success", "successful_plan_output", "validation_errors", "workspace"]
+    __slots__ = ["applied_at", "applied_by", "applied_by_principal", "created_at", "created_by", "created_by_principal", "error", "latest_status_message", "ready", "sdk_version", "success", "successful_plan_output", "validation_errors", "workspace"]
     APPLIED_AT_FIELD_NUMBER: _ClassVar[int]
     APPLIED_BY_FIELD_NUMBER: _ClassVar[int]
     APPLIED_BY_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     LATEST_STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     READY_FIELD_NUMBER: _ClassVar[int]
@@ -1578,6 +1584,7 @@ class QueryStateUpdateResponseV2(_message.Message):
     applied_by_principal: _principal__client_pb2.PrincipalBasic
     created_at: _timestamp_pb2.Timestamp
     created_by: str
+    created_by_principal: _principal__client_pb2.PrincipalBasic
     error: str
     latest_status_message: str
     ready: bool
@@ -1586,7 +1593,7 @@ class QueryStateUpdateResponseV2(_message.Message):
     successful_plan_output: _state_update__client_pb2.SuccessfulPlanOutput
     validation_errors: _state_update__client_pb2.ValidationResult
     workspace: str
-    def __init__(self, ready: bool = ..., success: bool = ..., error: _Optional[str] = ..., latest_status_message: _Optional[str] = ..., validation_errors: _Optional[_Union[_state_update__client_pb2.ValidationResult, _Mapping]] = ..., successful_plan_output: _Optional[_Union[_state_update__client_pb2.SuccessfulPlanOutput, _Mapping]] = ..., applied_by: _Optional[str] = ..., applied_by_principal: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ..., applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ..., sdk_version: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, ready: bool = ..., success: bool = ..., error: _Optional[str] = ..., latest_status_message: _Optional[str] = ..., validation_errors: _Optional[_Union[_state_update__client_pb2.ValidationResult, _Mapping]] = ..., successful_plan_output: _Optional[_Union[_state_update__client_pb2.SuccessfulPlanOutput, _Mapping]] = ..., applied_by: _Optional[str] = ..., applied_by_principal: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ..., applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ..., sdk_version: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., created_by_principal: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ...) -> None: ...
 
 class RestartMaterializationTaskRequest(_message.Message):
     __slots__ = ["materialization_task_id"]
@@ -1749,6 +1756,9 @@ class ValidationResultToken(_message.Message):
     def __init__(self, validation_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., result_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., expectation_name: _Optional[str] = ...) -> None: ...
 
 class SortDirection(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []
+
+class AppliedFilter(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []
 
 class MaterializationEnabledSearchFilter(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):

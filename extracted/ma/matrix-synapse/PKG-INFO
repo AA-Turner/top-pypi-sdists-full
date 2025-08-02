@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: matrix-synapse
-Version: 1.134.0
+Version: 1.135.0
 Summary: Homeserver for the Matrix decentralised comms protocol
 License: AGPL-3.0-or-later
 Author: Matrix.org Team and Contributors
@@ -54,7 +54,7 @@ Requires-Dist: opentracing (>=2.2.0) ; extra == "opentracing" or extra == "all"
 Requires-Dist: packaging (>=20.0)
 Requires-Dist: parameterized (>=0.7.4) ; extra == "test"
 Requires-Dist: phonenumbers (>=8.2.0)
-Requires-Dist: prometheus-client (>=0.4.0)
+Requires-Dist: prometheus-client (>=0.6.0)
 Requires-Dist: psycopg2 (>=2.8) ; (platform_python_implementation != "PyPy") and (extra == "postgres" or extra == "all")
 Requires-Dist: psycopg2cffi (>=2.8) ; (platform_python_implementation == "PyPy") and (extra == "postgres" or extra == "all")
 Requires-Dist: psycopg2cffi-compat (==1.1) ; (platform_python_implementation == "PyPy") and (extra == "postgres" or extra == "all")

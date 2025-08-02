@@ -1,12 +1,9 @@
 from ._generated import ApiClient, CompleteRequestMessagesInner, CortexInferenceApi, StreamingTextContent
-from ._inference_service import (
-    CompleteRequest,
-    CortexInferenceService,
-)
+from ._inference_service import CompleteRequest, CortexInferenceService
 
 
-CortexInferenceServiceApi=CortexInferenceApi
-CortexInferenceServiceApiClient=ApiClient
+CortexInferenceServiceApi = CortexInferenceApi
+CortexInferenceServiceApiClient = ApiClient
 
 __all__ = [
     "CortexInferenceService",

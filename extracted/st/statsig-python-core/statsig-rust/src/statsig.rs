@@ -31,6 +31,7 @@ use crate::output_logger::{initialize_output_logger, shutdown_output_logger};
 use crate::persistent_storage::persistent_values_manager::PersistentValuesManager;
 use crate::sdk_diagnostics::diagnostics::{ContextType, Diagnostics};
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker};
+use crate::sdk_event_emitter::SdkEventEmitter;
 use crate::spec_store::SpecStore;
 use crate::specs_adapter::{StatsigCustomizedSpecsAdapter, StatsigHttpSpecsAdapter};
 use crate::statsig_err::StatsigErr;
@@ -56,6 +57,7 @@ use crate::{
     },
 };
 use chrono::Utc;
+use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::json;
@@ -63,7 +65,6 @@ use serde_json::Value;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
 use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
@@ -81,6 +82,7 @@ lazy_static::lazy_static! {
 pub struct Statsig {
     pub statsig_runtime: Arc<StatsigRuntime>,
     pub options: Arc<StatsigOptions>,
+    pub event_emitter: SdkEventEmitter,
 
     sdk_key: String,
     event_logger: Arc<EventLogger>,
@@ -257,6 +259,7 @@ impl Statsig {
             background_tasks_started: Arc::new(AtomicBool::new(false)),
             persistent_values_manager,
             initialize_details: Mutex::new(InitializeDetails::default()),
+            event_emitter: SdkEventEmitter::default(),
         }
     }
 
@@ -307,27 +310,34 @@ impl Statsig {
         };
         self.log_init_details(&init_details);
         if let Ok(details) = &init_details {
-            if let Ok(mut curr_init_details) = self.initialize_details.try_lock() {
-                *curr_init_details = details.clone();
+            match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
+                Some(mut curr_init_details) => {
+                    *curr_init_details = details.clone();
+                }
+                None => {
+                    log_e!(TAG, "Failed to lock initialize_details");
+                }
             }
         }
         init_details
     }
 
     pub fn get_initialize_details(&self) -> InitializeDetails {
-        match self.initialize_details.lock() {
-            Ok(details) => details.clone(),
-            Err(poison_error) => InitializeDetails::from_error(
+        match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
+            Some(details) => details.clone(),
+            None => InitializeDetails::from_error(
                 "Failed to lock initialize_details",
-                Some(StatsigErr::LockFailure(poison_error.to_string())),
+                Some(StatsigErr::LockFailure(
+                    "Failed to lock initialize_details".to_string(),
+                )),
             ),
         }
     }
 
     pub fn is_initialized(&self) -> bool {
-        match self.initialize_details.lock() {
-            Ok(details) => details.init_success,
-            Err(_) => false,
+        match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
+            Some(details) => details.init_success,
+            None => false,
         }
     }
 
@@ -459,7 +469,7 @@ impl Statsig {
                             background_tasks_started,
                         ).await;
                     }
-                );
+                )?;
                 Ok(self.timeout_failure(timeout_ms))
             },
         }
@@ -546,20 +556,44 @@ impl Statsig {
         self.set_default_environment_from_server();
 
         if self.options.wait_for_country_lookup_init.unwrap_or(false) {
-            if let Some(task_id) = init_country_lookup {
-                let _ = self
-                    .statsig_runtime
-                    .await_join_handle(INIT_IP_TAG, &task_id)
-                    .await;
+            match init_country_lookup {
+                Some(Ok(task_id)) => {
+                    let _ = self
+                        .statsig_runtime
+                        .await_join_handle(INIT_IP_TAG, &task_id)
+                        .await;
+                }
+                Some(Err(e)) => {
+                    log_error_to_statsig_and_console!(
+                        self.ops_stats.clone(),
+                        TAG,
+                        StatsigErr::UnstartedAdapter(format!(
+                            "Failed to spawn country lookup task: {e}"
+                        ))
+                    );
+                }
+                _ => {}
             }
         }
         if self.options.wait_for_user_agent_init.unwrap_or(false) {
-            if let Some(task_id) = init_ua {
-                let _ = self
-                    .statsig_runtime
-                    .await_join_handle(INIT_UA_TAG, &task_id)
-                    .await;
-            };
+            match init_ua {
+                Some(Ok(task_id)) => {
+                    let _ = self
+                        .statsig_runtime
+                        .await_join_handle(INIT_UA_TAG, &task_id)
+                        .await;
+                }
+                Some(Err(e)) => {
+                    log_error_to_statsig_and_console!(
+                        self.ops_stats.clone(),
+                        TAG,
+                        StatsigErr::UnstartedAdapter(format!(
+                            "Failed to spawn user agent parser task: {e}"
+                        ))
+                    );
+                }
+                _ => {}
+            }
         }
 
         let error = init_res.clone().err();
@@ -1033,10 +1067,13 @@ impl Statsig {
 
 impl Statsig {
     pub fn shared() -> Arc<Statsig> {
-        let lock = match SHARED_INSTANCE.lock() {
-            Ok(lock) => lock,
-            Err(e) => {
-                log_e!(TAG, "Statsig::shared() mutex error: {}", e);
+        let lock = match SHARED_INSTANCE.try_lock_for(Duration::from_secs(5)) {
+            Some(lock) => lock,
+            None => {
+                log_e!(
+                    TAG,
+                    "Statsig::shared() mutex error: Failed to lock SHARED_INSTANCE"
+                );
                 return Arc::new(Statsig::new(ERROR_SDK_KEY, None));
             }
         };
@@ -1057,8 +1094,8 @@ impl Statsig {
         sdk_key: &str,
         options: Option<Arc<StatsigOptions>>,
     ) -> Result<Arc<Statsig>, StatsigErr> {
-        match SHARED_INSTANCE.lock() {
-            Ok(mut lock) => {
+        match SHARED_INSTANCE.try_lock_for(Duration::from_secs(5)) {
+            Some(mut lock) => {
                 if lock.is_some() {
                     let message = "Statsig shared instance already exists. Call Statsig::remove_shared() before creating a new instance.";
                     log_e!(TAG, "{}", message);
@@ -1069,29 +1106,32 @@ impl Statsig {
                 *lock = Some(statsig.clone());
                 Ok(statsig)
             }
-            Err(e) => {
-                let message = format!("Statsig::new_shared() mutex error: {e}");
+            None => {
+                let message = "Statsig::new_shared() mutex error: Failed to lock SHARED_INSTANCE";
                 log_e!(TAG, "{}", message);
-                Err(StatsigErr::SharedInstanceFailure(message))
+                Err(StatsigErr::SharedInstanceFailure(message.to_string()))
             }
         }
     }
 
     pub fn remove_shared() {
-        match SHARED_INSTANCE.lock() {
-            Ok(mut lock) => {
+        match SHARED_INSTANCE.try_lock_for(Duration::from_secs(5)) {
+            Some(mut lock) => {
                 *lock = None;
             }
-            Err(e) => {
-                log_e!(TAG, "Statsig::remove_shared() mutex error: {e}");
+            None => {
+                log_e!(
+                    TAG,
+                    "Statsig::remove_shared() mutex error: Failed to lock SHARED_INSTANCE"
+                );
             }
         }
     }
 
     pub fn has_shared_instance() -> bool {
-        match SHARED_INSTANCE.lock() {
-            Ok(lock) => lock.is_some(),
-            Err(_) => false,
+        match SHARED_INSTANCE.try_lock_for(Duration::from_secs(5)) {
+            Some(lock) => lock.is_some(),
+            None => false,
         }
     }
 }
@@ -1114,7 +1154,12 @@ impl Statsig {
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
         let (details, evaluation) = self.get_gate_evaluation(&user_internal, gate_name);
+
         let value = evaluation.as_ref().map(|e| e.value).unwrap_or_default();
+        let rule_id = evaluation
+            .as_ref()
+            .map(|e| e.base.rule_id.clone())
+            .unwrap_or_default();
 
         if disable_exposure_logging {
             log_d!(TAG, "Exposure logging is disabled for gate {}", gate_name);
@@ -1129,6 +1174,8 @@ impl Statsig {
                 trigger: ExposureTrigger::Auto,
             });
         }
+
+        self.emit_gate_evaluated(gate_name, rule_id.as_str(), value, &details.reason);
 
         value
     }
@@ -1161,7 +1208,9 @@ impl Statsig {
             });
         }
 
-        make_feature_gate(gate_name, evaluation, details)
+        let gate = make_feature_gate(gate_name, evaluation, details);
+        self.emit_gate_evaluated(gate_name, &gate.rule_id, gate.value, &gate.details.reason);
+        gate
     }
 
     pub fn manually_log_gate_exposure(&self, user: &StatsigUser, gate_name: &str) {
@@ -1435,6 +1484,8 @@ impl Statsig {
             });
         }
 
+        self.emit_dynamic_config_evaluated(&dynamic_config);
+
         dynamic_config
     }
 
@@ -1520,6 +1571,8 @@ impl Statsig {
                 trigger: ExposureTrigger::Auto,
             });
         }
+
+        self.emit_experiment_evaluated(&experiment);
 
         experiment
     }
@@ -1686,7 +1739,10 @@ impl Statsig {
             return env.get(key).cloned();
         }
 
-        if let Ok(fallback_env) = self.fallback_environment.lock() {
+        if let Some(fallback_env) = self
+            .fallback_environment
+            .try_lock_for(Duration::from_secs(5))
+        {
             if let Some(env) = &*fallback_env {
                 return env.get(key).cloned();
             }
@@ -1718,7 +1774,10 @@ impl Statsig {
             return f(Some(env));
         }
 
-        if let Ok(fallback_env) = self.fallback_environment.lock() {
+        if let Some(fallback_env) = self
+            .fallback_environment
+            .try_lock_for(Duration::from_secs(5))
+        {
             if let Some(env) = &*fallback_env {
                 return f(Some(env));
             }
@@ -1877,6 +1936,9 @@ impl Statsig {
         }) {
             layer = persisted_layer
         }
+
+        self.emit_layer_evaluated(&layer);
+
         layer
     }
 
@@ -1892,8 +1954,16 @@ impl Statsig {
         if let Some(default_env) = data.values.default_environment.as_ref() {
             let env_map = HashMap::from([("tier".to_string(), dyn_value!(default_env.as_str()))]);
 
-            if let Ok(mut fallback_env) = self.fallback_environment.lock() {
-                *fallback_env = Some(env_map);
+            match self
+                .fallback_environment
+                .try_lock_for(Duration::from_secs(5))
+            {
+                Some(mut fallback_env) => {
+                    *fallback_env = Some(env_map);
+                }
+                None => {
+                    log_e!(TAG, "Failed to lock fallback_environment");
+                }
             }
         }
     }

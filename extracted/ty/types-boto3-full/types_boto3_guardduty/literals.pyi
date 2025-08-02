@@ -330,6 +330,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -744,6 +745,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

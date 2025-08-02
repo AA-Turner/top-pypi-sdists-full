@@ -1,39 +1,35 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: langsmith
-Version: 0.4.9
+Version: 0.4.10
 Summary: Client library to connect to the LangSmith LLM Tracing and Evaluation Platform.
-Home-page: https://smith.langchain.com/
-License: MIT
-Keywords: langsmith,langchain,llm,nlp,language,translation,evaluation,tracing,platform
-Author: LangChain
-Author-email: support@langchain.dev
-Requires-Python: >=3.9
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Provides-Extra: langsmith-pyo3
-Provides-Extra: openai-agents
-Provides-Extra: otel
-Provides-Extra: pytest
-Provides-Extra: vcr
-Requires-Dist: httpx (>=0.23.0,<1)
-Requires-Dist: langsmith-pyo3 (>=0.1.0rc2,<0.2.0) ; extra == "langsmith-pyo3"
-Requires-Dist: openai-agents (>=0.0.3,<0.1) ; extra == "openai-agents"
-Requires-Dist: opentelemetry-api (>=1.30.0,<2.0.0) ; extra == "otel"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.30.0,<2.0.0) ; extra == "otel"
-Requires-Dist: opentelemetry-sdk (>=1.30.0,<2.0.0) ; extra == "otel"
-Requires-Dist: orjson (>=3.9.14,<4.0.0) ; platform_python_implementation != "PyPy"
-Requires-Dist: packaging (>=23.2)
-Requires-Dist: pydantic (>=1,<3)
-Requires-Dist: pytest (>=7.0.0) ; extra == "pytest"
-Requires-Dist: requests (>=2,<3)
-Requires-Dist: requests-toolbelt (>=1.0.0,<2.0.0)
-Requires-Dist: rich (>=13.9.4,<14.0.0) ; extra == "pytest"
-Requires-Dist: zstandard (>=0.23.0,<0.24.0)
+Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
 Project-URL: Repository, https://github.com/langchain-ai/langsmith-sdk
+Author-email: LangChain <support@langchain.dev>
+License: MIT
+Keywords: evaluation,langchain,langsmith,language,llm,nlp,platform,tracing,translation
+Requires-Python: >=3.9
+Requires-Dist: httpx<1,>=0.23.0
+Requires-Dist: orjson>=3.9.14; platform_python_implementation != 'PyPy'
+Requires-Dist: packaging>=23.2
+Requires-Dist: pydantic<3,>=1
+Requires-Dist: requests-toolbelt>=1.0.0
+Requires-Dist: requests>=2.0.0
+Requires-Dist: zstandard>=0.23.0
+Provides-Extra: langsmith-pyo3
+Requires-Dist: langsmith-pyo3>=0.1.0rc2; extra == 'langsmith-pyo3'
+Provides-Extra: openai-agents
+Requires-Dist: openai-agents>=0.0.3; extra == 'openai-agents'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.30.0; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == 'otel'
+Requires-Dist: opentelemetry-sdk>=1.30.0; extra == 'otel'
+Provides-Extra: pytest
+Requires-Dist: pytest>=7.0.0; extra == 'pytest'
+Requires-Dist: rich>=13.9.4; extra == 'pytest'
+Requires-Dist: vcrpy>=7.0.0; extra == 'pytest'
+Provides-Extra: vcr
+Requires-Dist: vcrpy>=7.0.0; extra == 'vcr'
 Description-Content-Type: text/markdown
 
 # LangSmith Client SDK
@@ -466,4 +462,3 @@ See also official pytest docs: [How to install and use plugins](https://docs.pyt
 ## Additional Documentation
 
 To learn more about the LangSmith platform, check out the [docs](https://docs.smith.langchain.com/).
-

@@ -1,6 +1,0 @@
-from .models import USBDevice as USBDevice
-from collections.abc import Sequence
-from serial.tools.list_ports_common import ListPortInfo as ListPortInfo
-
-def usb_device_from_port(port: ListPortInfo) -> USBDevice: ...
-def scan_serial_ports() -> Sequence[USBDevice]: ...

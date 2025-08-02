@@ -1,8 +1,32 @@
+import datetime
+import google.protobuf.message
 import modal._object
 import modal.client
 import modal.object
+import modal_proto.api_pb2
 import typing
 import typing_extensions
+
+class SecretInfo:
+    """Information about the Secret object."""
+
+    name: typing.Optional[str]
+    created_at: datetime.datetime
+    created_by: typing.Optional[str]
+
+    def __init__(
+        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
 
 class _Secret(modal._object._Object):
     """Secrets provide a dictionary of environment variables for images.
@@ -13,6 +37,13 @@ class _Secret(modal._object._Object):
 
     See [the secrets guide page](https://modal.com/docs/guide/secrets) for more information.
     """
+
+    _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
+
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.SecretMetadata: ...
     @staticmethod
     def from_dict(env_dict: dict[str, typing.Optional[str]] = {}) -> _Secret:
         """Create a secret from a str-str dictionary. Values can also be `None`, which is ignored.
@@ -104,6 +135,12 @@ class _Secret(modal._object._Object):
         """mdmd:hidden"""
         ...
 
+    async def info(self) -> SecretInfo:
+        """Return information about the Secret object."""
+        ...
+
+SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
+
 class Secret(modal.object.Object):
     """Secrets provide a dictionary of environment variables for images.
 
@@ -113,10 +150,17 @@ class Secret(modal.object.Object):
 
     See [the secrets guide page](https://modal.com/docs/guide/secrets) for more information.
     """
+
+    _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
+
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.SecretMetadata: ...
     @staticmethod
     def from_dict(env_dict: dict[str, typing.Optional[str]] = {}) -> Secret:
         """Create a secret from a str-str dictionary. Values can also be `None`, which is ignored.
@@ -240,3 +284,14 @@ class Secret(modal.object.Object):
             ...
 
     create_deployed: __create_deployed_spec
+
+    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /) -> SecretInfo:
+            """Return information about the Secret object."""
+            ...
+
+        async def aio(self, /) -> SecretInfo:
+            """Return information about the Secret object."""
+            ...
+
+    info: __info_spec[typing_extensions.Self]

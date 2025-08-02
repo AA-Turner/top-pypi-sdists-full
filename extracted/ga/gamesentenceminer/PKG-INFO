@@ -1,0 +1,42 @@
+Metadata-Version: 2.4
+Name: GameSentenceMiner
+Version: 2.13.7.post1
+Summary: A tool for mining sentences from games. Update: Overlay?
+Author-email: Beangate <bpwhelan95@gmail.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/bpwhelan/GameSentenceMiner
+Project-URL: Repository, https://github.com/bpwhelan/GameSentenceMiner
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests~=2.32.3
+Requires-Dist: watchdog~=5.0.2
+Requires-Dist: DateTime~=5.5
+Requires-Dist: pyperclip~=1.9.0
+Requires-Dist: soundfile~=0.12.1
+Requires-Dist: toml~=0.10.2
+Requires-Dist: psutil~=6.0.0
+Requires-Dist: rapidfuzz~=3.9.7
+Requires-Dist: plyer~=2.1.0
+Requires-Dist: keyboard~=0.13.5
+Requires-Dist: websockets~=15.0.1
+Requires-Dist: openai-whisper
+Requires-Dist: stable-ts-whisperless
+Requires-Dist: silero-vad~=5.1.2
+Requires-Dist: ttkbootstrap~=1.10.1
+Requires-Dist: dataclasses_json~=0.6.7
+Requires-Dist: win10toast; sys_platform == "win32"
+Requires-Dist: numpy==2.2.6
+Requires-Dist: pystray
+Requires-Dist: pywin32; sys_platform == "win32"
+Requires-Dist: pygetwindow; sys_platform == "win32"
+Requires-Dist: flask
+Requires-Dist: groq
+Requires-Dist: obsws-python~=1.7.2
+Requires-Dist: matplotlib
+Requires-Dist: sounddevice
+Requires-Dist: google-genai
+Dynamic: license-file

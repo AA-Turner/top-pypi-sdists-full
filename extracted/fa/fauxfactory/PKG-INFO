@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: fauxfactory
+Version: 3.1.2
+Summary: Generates random data for your tests.
+Project-URL: Changelog, https://github.com/omaciel/fauxfactory/blob/master/HISTORY.rst
+Project-URL: Homepage, https://github.com/omaciel/fauxfactory
+Project-URL: Repository, https://github.com/omaciel/fauxfactory
+Author-email: "Og B. Maciel" <omaciel@ogmaciel.com>
+License: Apache-2.0
+License-File: AUTHORS.rst
+License-File: LICENSE
+Keywords: automation,data,python,testing
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.9
+Provides-Extra: dev
+Requires-Dist: codecov>=2.1.13; extra == 'dev'
+Requires-Dist: pytest-cov>=5.0.0; extra == 'dev'
+Requires-Dist: pytest>=8.1.1; extra == 'dev'
+Requires-Dist: ruff>=0.3.4; extra == 'dev'
+Requires-Dist: twine>=5.0.0; extra == 'dev'
+Requires-Dist: wheel>=0.43.0; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Description-Content-Type: text/x-rst
+
+FauxFactory
+===========
+
+.. image:: https://travis-ci.org/omaciel/fauxfactory.png?branch=master
+   :target: https://travis-ci.org/omaciel/fauxfactory
+   :alt: Build Status
+
+.. image:: https://img.shields.io/pypi/pyversions/fauxfactory.svg
+   :target: https://pypi.python.org/pypi/fauxfactory
+   :alt: Python Compatibility
+
+.. image:: https://badge.fury.io/py/fauxfactory.png
+   :target: http://badge.fury.io/py/fauxfactory
+   :alt: Current Version
+
+.. image:: https://img.shields.io/pypi/dm/fauxfactory.svg
+   :target: https://crate.io/packages/fauxfactory/
+   :alt: Download Statistics
+
+.. image:: https://coveralls.io/repos/omaciel/fauxfactory/badge.png?branch=master
+   :target: https://coveralls.io/r/omaciel/fauxfactory?branch=master
+   :alt: Test Coverage
+
+.. image:: https://img.shields.io/pypi/l/fauxfactory.svg
+   :target: https://pypi.python.org/pypi/fauxfactory/
+   :alt: License
+
+**FauxFactory** generates random data for your automated tests easily!
+
+There are times when you're writing tests for your application when you need to
+pass random, non-specific data to the areas you are testing. For these scenarios
+when all you need is a random string, numbers, dates, times, email address, IP,
+etc, then FauxFactory can help!
+
+The `full documentation
+<http://fauxfactory.readthedocs.org/en/latest/index.html>`_ is available on
+ReadTheDocs. It can also be generated locally::
+
+    pip install -r requirements-optional.txt
+    make docs-html

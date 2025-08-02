@@ -1,21 +1,9 @@
-
-from ._generated import (
-    ApiClient,
-    CortexLiteAgentApi,
-)
-from ._lite_agent_service import (
-    AgentRunRequest,
-    CortexAgentService,
-)
+from ._generated import ApiClient, CortexLiteAgentApi
+from ._lite_agent_service import AgentRunRequest, CortexAgentService
 
 
 CortexAgentServiceApi = CortexLiteAgentApi
 CortexAgentServiceApiClient = ApiClient
 
 
-__all__ = [
-    "CortexAgentService",
-    "AgentRunRequest",
-    "CortexAgentServiceApi",
-    "CortexAgentServiceApiClient",
-]
+__all__ = ["CortexAgentService", "AgentRunRequest", "CortexAgentServiceApi", "CortexAgentServiceApiClient"]

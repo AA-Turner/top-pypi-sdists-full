@@ -13,6 +13,7 @@ class ConfigurableDataSinkNames(str, enum.Enum):
     AZUREAI_SEARCH = "AZUREAI_SEARCH"
     MONGODB_ATLAS = "MONGODB_ATLAS"
     MILVUS = "MILVUS"
+    ASTRA_DB = "ASTRA_DB"
 
     def visit(
         self,
@@ -22,6 +23,7 @@ class ConfigurableDataSinkNames(str, enum.Enum):
         azureai_search: typing.Callable[[], T_Result],
         mongodb_atlas: typing.Callable[[], T_Result],
         milvus: typing.Callable[[], T_Result],
+        astra_db: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is ConfigurableDataSinkNames.PINECONE:
             return pinecone()
@@ -35,3 +37,5 @@ class ConfigurableDataSinkNames(str, enum.Enum):
             return mongodb_atlas()
         if self is ConfigurableDataSinkNames.MILVUS:
             return milvus()
+        if self is ConfigurableDataSinkNames.ASTRA_DB:
+            return astra_db()

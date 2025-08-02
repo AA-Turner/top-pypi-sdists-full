@@ -7,15 +7,7 @@ Example:
     >>> roles[role_name].delete()
 """
 
-
 from ._role import ContainingScope, Grant, Role, RoleCollection, RoleResource, Securable
 
 
-__all__ = [
-    "Role",
-    "RoleCollection",
-    "RoleResource",
-    "Securable",
-    "ContainingScope",
-    "Grant",
-]
+__all__ = ["Role", "RoleCollection", "RoleResource", "Securable", "ContainingScope", "Grant"]

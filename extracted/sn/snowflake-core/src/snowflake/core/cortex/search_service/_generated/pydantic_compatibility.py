@@ -6,6 +6,7 @@ Our code is based on pydantic 1.x, some functions in it are deprecated in pydant
 sure that customers could use our product with pydantic 2.x.
 This may be removed in the future when we are upgraded to pydantic 2.x.
 """
+
 try:
     from pydantic.v1 import *  # noqa: F403
 except ModuleNotFoundError:

@@ -40,11 +40,11 @@ def test_not_found_error(databases: DatabaseCollection, root):
 
 def test_not_found_error_traceback_disabled(databases: DatabaseCollection, root):
     test_database_name = random_string(3, "db_doesnt_exist")
-    os.environ["_SNOWFLAKE_PRINT_VERBOSE_STACK_TRACE"] = 'false'
+    os.environ["_SNOWFLAKE_PRINT_VERBOSE_STACK_TRACE"] = "false"
     root.parameters(refresh=True)
     with pytest.raises(NotFoundError) as exc_info:
         databases[test_database_name].fetch()
-    assert (f"Error Message: database '{test_database_name}' does not exist or not authorized." in str(exc_info.value))
+    assert f"Error Message: database '{test_database_name}' does not exist or not authorized." in str(exc_info.value)
     assert sys.tracebacklimit == 0
     del os.environ["_SNOWFLAKE_PRINT_VERBOSE_STACK_TRACE"]
     root.parameters(refresh=True)

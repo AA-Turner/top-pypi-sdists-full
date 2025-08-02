@@ -109,7 +109,6 @@ class Function(
         experimental_options: typing.Optional[dict[str, str]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
-        _experimental_enable_gpu_snapshot: bool = False,
     ) -> Function:
         """mdmd:hidden"""
         ...

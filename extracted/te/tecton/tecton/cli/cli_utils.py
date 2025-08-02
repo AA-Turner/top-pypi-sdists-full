@@ -1,4 +1,5 @@
 import functools
+import json
 import os
 import shutil
 import sys
@@ -45,6 +46,10 @@ def cli_indent(indentation_level=1):
 
 
 def timestamp_to_string(value: timestamp_pb2.Timestamp) -> str:
+    # Check if timestamp is valid
+    if value is None or (value.seconds == 0 and value.nanos == 0):
+        return "N/A"
+
     t = datetime.fromtimestamp(value.ToSeconds())
     return t.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
 
@@ -144,12 +149,12 @@ def display_principal(principal, default="", width=0):
     principal_type = principal.WhichOneof("basic_info")
 
     if principal_type == "user":
-        return f"{principal.user.login_email: <{width}}(User Email)"
+        return f"{principal.user.login_email: <{width}} (User)"
     if principal_type == "service_account":
         identifier = (
-            f"{principal.service_account.name: <{width}}(Service Account Name)"
+            f"{principal.service_account.name: <{width}} (Service Account Name)"
             if principal.service_account.name
-            else f"{principal.service_account.id: <{width}}(Service Account Id)"
+            else f"{principal.service_account.id: <{width}} (Service Account Id)"
         )
         return identifier
     return default
@@ -334,3 +339,22 @@ def click_exception_wrapper(func):
             raise click.ClickException(str(e))
 
     return wrapper
+
+
+def write_json_to_file(json_blob: dict, json_out_file: str):
+    json_out_path = Path(json_out_file).resolve()
+    json_out_path.parent.mkdir(parents=True, exist_ok=True)
+    json_out_path.write_text(json.dumps(json_blob, indent=2))
+    printer.safe_print(f"Output written to {json_out_path}")
+
+
+def parse_principal_for_json(principal, default_name=""):
+    """Parse a principal for JSON output, returning name and type separately."""
+    principal_type = principal.WhichOneof("basic_info")
+    if principal_type == "user":
+        return {"name": principal.user.login_email, "type": "USER"}
+    elif principal_type == "service_account":
+        name = principal.service_account.name if principal.service_account.name else principal.service_account.id
+        return {"name": name, "type": "SERVICE_ACCOUNT"}
+    else:
+        return {"name": default_name, "type": "UNKNOWN"}

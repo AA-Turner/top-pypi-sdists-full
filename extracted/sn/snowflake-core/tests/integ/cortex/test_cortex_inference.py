@@ -25,20 +25,19 @@ def test_cortex_inference(root: Root):
     # for e in res.events():
     #     print(e)
 
+
 def test_cortex_inference_xp(root: Root):
-    body_str = ('['
+    body_str = (
+        "["
         '{"event":"model1","comment":"testing","data":{"strProp":"test1","doubleProp":1.1,"flag":false}},'
         '{"event":"model2","data":{"strProp":"test2","doubleProp":2.2,"flag":false},"retry":200},'
         '{"id":"3","event":"model3","comment":"with ID",'
         '"data":{"strProp":"test2","doubleProp":2.3,"flag":true},"retry":1000}'
-        ']'
+        "]"
     )
 
     response = HTTPResponse(
-        body=body_str.encode('utf-8'),
-        status=200,
-        headers={"Content-Type": "application/json"},
-        preload_content=False,
+        body=body_str.encode("utf-8"), status=200, headers={"Content-Type": "application/json"}, preload_content=False
     )
     res = SSEClient(response)
 
@@ -54,14 +53,12 @@ def test_cortex_inference_xp(root: Root):
 
     assert event_num == 3
 
+
 def test_cortex_complete_xp(root: Root):
     body_str = '{"choices": [{"message": {"content": "Hello! \\n"}}]}'
 
     response = HTTPResponse(
-        body=body_str.encode('utf-8'),
-        status=200,
-        headers={"Content-Type": "application/json"},
-        preload_content=False,
+        body=body_str.encode("utf-8"), status=200, headers={"Content-Type": "application/json"}, preload_content=False
     )
     res = SSEClient(response)
 

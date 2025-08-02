@@ -26,13 +26,14 @@ PACKAGES = [
     # named in the stored procedure packages list.
     "atpublic",
     "snowflake-snowpark-python",
-    "snowflake.core"
+    "snowflake.core",
 ]
 
 
 @pytest.mark.usefixtures("anaconda_package_available")
 def test_create_task_from_python_function(tasks, session):
     from snowflake.snowpark import Session
+
     def f(session: Session, table_name: str) -> str:
         context = TaskContext(session)
         value = context.get_current_task_name()
@@ -79,12 +80,7 @@ def test_create_task_from_python_function(tasks, session):
         # create t1
         t1 = Task(
             task_name1,
-            StoredProcedureCall(
-                f,
-                args=[table_name],
-                stage_location=stage_name,
-                packages=PACKAGES,
-            ),
+            StoredProcedureCall(f, args=[table_name], stage_location=stage_name, packages=PACKAGES),
             warehouse=warehouse,
             config={"a": 1},
         )
@@ -97,12 +93,7 @@ def test_create_task_from_python_function(tasks, session):
         # create t2
         t2 = Task(
             task_name2,
-            StoredProcedureCall(
-                g,
-                args=[table_name, task_name1.upper()],
-                stage_location=stage_name,
-                packages=PACKAGES,
-            ),
+            StoredProcedureCall(g, args=[table_name, task_name1.upper()], stage_location=stage_name, packages=PACKAGES),
             predecessors=[task1.name],
             warehouse=None,
         )
@@ -150,9 +141,11 @@ def test_create_task_from_python_function(tasks, session):
         session.sql(f"drop task if exists {task_name1}").collect()
         session.sql(f"drop task if exists {task_name2}").collect()
 
+
 @pytest.mark.usefixtures("anaconda_package_available")
 def test_create_task_from_python_stored_proc(tasks, session):
     from snowflake.snowpark import Session
+
     def f(session: Session, table_name: str) -> int:
         session.sql(f"insert into {table_name} values(1, 'abc')").collect()
         return 0
@@ -171,30 +164,13 @@ def test_create_task_from_python_stored_proc(tasks, session):
         session.sql(f"create or replace table {table_name} (id int, str varchar)").collect()
 
         sproc1 = session.sproc.register(
-            f,
-            stage_location=stage_name,
-            packages=PACKAGES,
-            name=sp1_name,
-            replace=True,
-            is_permanent=True,
+            f, stage_location=stage_name, packages=PACKAGES, name=sp1_name, replace=True, is_permanent=True
         )
         sproc2 = session.sproc.register(
-            g,
-            stage_location=stage_name,
-            packages=PACKAGES,
-            name=sp2_name,
-            replace=True,
-            is_permanent=True,
+            g, stage_location=stage_name, packages=PACKAGES, name=sp2_name, replace=True, is_permanent=True
         )
         # create t1
-        t1 = Task(
-            task_name1,
-            StoredProcedureCall(
-                sproc1,
-                args=[table_name],
-            ),
-            warehouse=None,
-        )
+        t1 = Task(task_name1, StoredProcedureCall(sproc1, args=[table_name]), warehouse=None)
         with pytest.raises(ValueError) as ex_info:
             _ = t1.sql_definition
         assert "definition of this task can only be retrieved after creating the task" in str(ex_info)
@@ -203,13 +179,7 @@ def test_create_task_from_python_stored_proc(tasks, session):
 
         # create t2
         t2 = Task(
-            task_name2,
-            StoredProcedureCall(
-                sproc2,
-                args=[table_name],
-            ),
-            predecessors=[task1.name],
-            warehouse=warehouse,
+            task_name2, StoredProcedureCall(sproc2, args=[table_name]), predecessors=[task1.name], warehouse=warehouse
         )
         with pytest.raises(ValueError) as ex_info:
             _ = t2.sql_definition
@@ -260,16 +230,14 @@ def test_create_task_from_python_stored_proc(tasks, session):
 
 @pytest.mark.snowpark
 def test_create_task_from_python_function_requires_stage_location(tasks):
-    with pytest.raises(
-        ValueError,
-        match="stage_location has to be specified when func is a Python function",
-    ):
+    with pytest.raises(ValueError, match="stage_location has to be specified when func is a Python function"):
         StoredProcedureCall(lambda: 1)
 
 
 @pytest.mark.snowpark
 def test_task_context(tasks, session):
     from snowflake.snowpark.exceptions import SnowparkSQLException
+
     # we are not able to test it in a real task, so just call functions here
     task_context = TaskContext(session)
 

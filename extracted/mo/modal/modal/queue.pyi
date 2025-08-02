@@ -1,10 +1,34 @@
 import collections.abc
+import datetime
+import google.protobuf.message
 import modal._object
 import modal.client
 import modal.object
+import modal_proto.api_pb2
 import synchronicity.combined_types
 import typing
 import typing_extensions
+
+class QueueInfo:
+    """Information about the Queue object."""
+
+    name: typing.Optional[str]
+    created_at: datetime.datetime
+    created_by: typing.Optional[str]
+
+    def __init__(
+        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
 
 class _Queue(modal._object._Object):
     """Distributed, FIFO queue for data flow in Modal apps.
@@ -78,10 +102,17 @@ class _Queue(modal._object._Object):
 
     Partition keys must be non-empty and must not exceed 64 bytes.
     """
+
+    _metadata: typing.Optional[modal_proto.api_pb2.QueueMetadata]
+
     def __init__(self):
         """mdmd:hidden"""
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.QueueMetadata: ...
     @staticmethod
     def validate_partition_key(partition: typing.Optional[str]) -> bytes: ...
     @classmethod
@@ -155,6 +186,10 @@ class _Queue(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
     ): ...
+    async def info(self) -> QueueInfo:
+        """Return information about the Queue object."""
+        ...
+
     async def _get_nonblocking(self, partition: typing.Optional[str], n_values: int) -> list[typing.Any]: ...
     async def _get_blocking(
         self, partition: typing.Optional[str], timeout: typing.Optional[float], n_values: int
@@ -335,10 +370,17 @@ class Queue(modal.object.Object):
 
     Partition keys must be non-empty and must not exceed 64 bytes.
     """
+
+    _metadata: typing.Optional[modal_proto.api_pb2.QueueMetadata]
+
     def __init__(self):
         """mdmd:hidden"""
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.QueueMetadata: ...
     @staticmethod
     def validate_partition_key(partition: typing.Optional[str]) -> bytes: ...
     @classmethod
@@ -452,6 +494,17 @@ class Queue(modal.object.Object):
         ): ...
 
     delete: __delete_spec
+
+    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /) -> QueueInfo:
+            """Return information about the Queue object."""
+            ...
+
+        async def aio(self, /) -> QueueInfo:
+            """Return information about the Queue object."""
+            ...
+
+    info: __info_spec[typing_extensions.Self]
 
     class ___get_nonblocking_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, partition: typing.Optional[str], n_values: int) -> list[typing.Any]: ...

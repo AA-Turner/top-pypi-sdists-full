@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: url-py
+Version: 0.17.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Summary: Python bindings to Rust's url crate (from Servo)
+Keywords: data structures,rust,persistent
+Author-email: Julian Berman <Julian+url-py@GrayVines.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst; charset=UTF-8
+Project-URL: Documentation, https://url-py.readthedocs.io/
+Project-URL: Homepage, https://github.com/crate-py/url
+Project-URL: Issues, https://github.com/crate-py/url/issues/
+Project-URL: Funding, https://github.com/sponsors/Julian
+Project-URL: Source, https://github.com/crate-py/url
+
+==========
+``url.py``
+==========
+
+|PyPI| |Pythons| |CI|
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/url-py.svg
+  :alt: PyPI version
+  :target: https://pypi.org/project/url-py/
+
+.. |Pythons| image:: https://img.shields.io/pypi/pyversions/url-py.svg
+  :alt: Supported Python versions
+  :target: https://pypi.org/project/url-py/
+
+.. |CI| image:: https://github.com/crate-py/url/workflows/CI/badge.svg
+  :alt: Build status
+  :target: https://github.com/crate-py/url/actions?query=workflow%3ACI
+
+
+Python bindings to the `Rust url crate <https://docs.rs/url/>`_.
+
+Installation
+------------
+
+The distribution on PyPI is named ``url.py`` (equivalently ``url-py``), and thus can be installed via e.g.:
+
+.. code:: sh
+
+    $ pip install url-py
+
+Note that if you install ``url-py`` from source, you will need a Rust toolchain installed, as it is a build-time dependency.
+If you believe you are on a common platform which should have wheels built (i.e. and not need to compile from source), feel free to file an issue or pull request modifying the GitHub action used here to build wheels via ``maturin``.
+

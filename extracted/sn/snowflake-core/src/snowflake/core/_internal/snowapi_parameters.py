@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, Optional
 
 
-BRIDGE_OVERRIDE_PARAMETER_PREFIX = 'ENABLE_SNOW_API_FOR_'
+BRIDGE_OVERRIDE_PARAMETER_PREFIX = "ENABLE_SNOW_API_FOR_"
 
 
 class SnowApiParameter(Enum):
@@ -23,29 +23,19 @@ class SnowApiParameters:
         self.params_map = params_map
 
     def is_parameter_true(self, param_name: SnowApiParameter, default: str) -> bool:
-        return ((self.params_map.get(param_name, default) or default)
-                .lower()
-                .strip()
-                in (
-                    "true",
-                    "t",
-                    "yes",
-                    "y",
-                    "on",
-                )
-            )
+        return (self.params_map.get(param_name, default) or default).lower().strip() in ("true", "t", "yes", "y", "on")
 
     @property
     def should_retry_request(self) -> bool:
-        return self.is_parameter_true(SnowApiParameter.USE_CLIENT_RETRY, 'true')
+        return self.is_parameter_true(SnowApiParameter.USE_CLIENT_RETRY, "true")
 
     @property
     def should_print_verbose_stack_trace(self) -> bool:
-        return self.is_parameter_true(SnowApiParameter.PRINT_VERBOSE_STACK_TRACE, 'true')
+        return self.is_parameter_true(SnowApiParameter.PRINT_VERBOSE_STACK_TRACE, "true")
 
     @property
     def fix_hostname(self) -> bool:
-        return self.is_parameter_true(SnowApiParameter.FIX_HOSTNAME, 'true')
+        return self.is_parameter_true(SnowApiParameter.FIX_HOSTNAME, "true")
 
     @property
     def max_threads(self) -> Optional[int]:

@@ -12,10 +12,13 @@ import sysconfig
 import tempfile
 
 from functools import partial, update_wrapper
+from pathlib import Path
 
 import pytest
 
 import build.env
+
+from build._compat import tomllib
 
 
 def pytest_addoption(parser):
@@ -78,6 +81,12 @@ def local_pip(monkeypatch):
     monkeypatch.setattr(build.env._PipBackend, '_has_valid_outer_pip', None)
 
 
+@pytest.fixture(autouse=True)
+def avoid_constraints(monkeypatch):
+    monkeypatch.delenv('PIP_CONSTRAINT', raising=False)
+    monkeypatch.delenv('UV_CONSTRAINT', raising=False)
+
+
 @pytest.fixture(autouse=True, params=[False])
 def has_virtualenv(request, monkeypatch):
     if request.param is not None:
@@ -95,10 +104,28 @@ def packages_path():
     return os.path.realpath(os.path.join(__file__, '..', 'packages'))
 
 
+def is_setuptools(package_path):
+    if package_path.joinpath('setup.py').is_file():
+        return True
+    pyproject = package_path / 'pyproject.toml'
+    try:
+        with pyproject.open('rb') as f:
+            pp = tomllib.load(f)
+    except (FileNotFoundError, ValueError):
+        return True
+    return 'setuptools' in pp.get('build-system', {}).get('build-backend', 'setuptools')
+
+
 def generate_package_path_fixture(package_name):
     @pytest.fixture
-    def fixture(packages_path):
-        return os.path.join(packages_path, package_name)
+    def fixture(packages_path, tmp_path):
+        package_path = Path(packages_path) / package_name
+        if not is_setuptools(package_path):
+            return str(package_path)
+
+        new_path = tmp_path / package_name
+        shutil.copytree(package_path, new_path)
+        return str(new_path)
 
     return fixture
 
@@ -137,6 +164,7 @@ def pytest_report_header() -> str:
     interesting_packages = [
         'build',
         'colorama',
+        'coverage',
         'filelock',
         'packaging',
         'pip',

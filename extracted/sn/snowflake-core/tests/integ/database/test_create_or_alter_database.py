@@ -45,10 +45,7 @@ def test_resist_multi_statement_sql_injection(databases: DatabaseCollection):
     new_db_name = random_string(3, "test_db_resist_multi_statement_sql_injection_")
     sql_injection_comment = "'comment for disguise'; select '1'"
 
-    new_db = Database(
-        name=new_db_name,
-        comment=sql_injection_comment,
-    )
+    new_db = Database(name=new_db_name, comment=sql_injection_comment)
 
     db = databases.create(new_db)
     try:

@@ -240,10 +240,22 @@ def add(ctx, **kwargs):
     except agilicus_api.ApiException as e:
         if e.status == 409:
             print(f"error creating org reason: {e.reason}", file=sys.stderr)
-            # If there's a conflict
-            return json.loads(e.body)
+            org = _get_org_by_name_helper(apiclient, kwargs.get("organisation", ""))
+            if not org:
+                return json.loads(e.body)
+            return org
         else:
             raise
+
+
+def _get_org_by_name_helper(apiclient, organisation):
+    params = {}
+    params["organisation"] = organisation
+    orgs = apiclient.org_api.list_orgs(**params)["orgs"]
+    for org in orgs:
+        if org.organisation == organisation:
+            return {"id": org.id}
+    return {}
 
 
 def add_suborg(

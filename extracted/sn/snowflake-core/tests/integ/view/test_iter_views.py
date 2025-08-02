@@ -59,7 +59,7 @@ def test_iter_starts_with(views_extended):
 
 
 def test_iter_from_name(views_extended):
-    assert len(list(views_extended.iter(from_name='test_view_iter_b_'))) >= 10
+    assert len(list(views_extended.iter(from_name="test_view_iter_b_"))) >= 10
 
 
 def test_iter_deep(views_extended):
@@ -68,4 +68,3 @@ def test_iter_deep(views_extended):
 
     for v in views_extended.iter(show_limit=10, deep=True):
         assert len(v.columns) > 0
-

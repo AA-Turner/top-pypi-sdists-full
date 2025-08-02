@@ -71,7 +71,7 @@ SUPPORTED_PYTHON_SERIES: dict[ImageBuilderVersion, list[str]] = {
     "2023.12": ["3.9", "3.10", "3.11", "3.12"],
 }
 
-LOCAL_REQUIREMENTS_DIR = Path(__file__).parent / "requirements"
+LOCAL_REQUIREMENTS_DIR = Path(__file__).parent / "builder"
 CONTAINER_REQUIREMENTS_PATH = "/modal_requirements.txt"
 
 
@@ -658,7 +658,13 @@ class _Image(_Object, type_prefix="im"):
                         msg += " (Hint: Use `modal.enable_output()` to see logs from the process building the Image.)"
                     raise RemoteError(msg)
             elif result.status == api_pb2.GenericResult.GENERIC_STATUS_TERMINATED:
-                raise RemoteError(f"Image build for {image_id} terminated due to external shut-down. Please try again.")
+                msg = f"Image build for {image_id} terminated due to external shut-down. Please try again."
+                if result.exception:
+                    msg = (
+                        f"Image build for {image_id} terminated due to external shut-down with the exception:\n"
+                        f"{result.exception}"
+                    )
+                raise RemoteError(msg)
             elif result.status == api_pb2.GenericResult.GENERIC_STATUS_TIMEOUT:
                 raise RemoteError(
                     f"Image build for {image_id} timed out. Please try again with a larger `timeout` parameter."
@@ -1183,11 +1189,11 @@ class _Image(_Object, type_prefix="im"):
             else:
                 commands.append(f"COPY --from=ghcr.io/astral-sh/uv:{uv_version} /uv {UV_ROOT}/uv")
 
-            # NOTE: Using `which python` assumes:
+            # NOTE: Using $(command -v python) assumes:
             # - python is on the PATH and uv is installing into the first python in the PATH
-            # - the shell supports backticks for substitution
-            # - `which` command is on the PATH
-            uv_pip_args = ["--python `which python`", "--compile-bytecode"]
+            # - the shell supports $() for substitution
+            # - `command` command is on the PATH
+            uv_pip_args = ["--python $(command -v python)", "--compile-bytecode"]
             context_files = {}
 
             if find_links:
@@ -1350,6 +1356,8 @@ class _Image(_Object, type_prefix="im"):
         image = modal.Image.debian_slim().uv_sync()
         ```
 
+        The `pyproject.toml` and `uv.lock` in `uv_project_dir` are automatically added to the build context.
+
         Added in v1.1.0.
         """
 
@@ -1385,7 +1393,13 @@ class _Image(_Object, type_prefix="im"):
                 # a requirement in `uv.lock`
                 return
 
-            dependencies = pyproject_toml_content["project"]["dependencies"]
+            try:
+                dependencies = pyproject_toml_content["project"]["dependencies"]
+            except KeyError as e:
+                raise InvalidError(
+                    f"Invalid pyproject.toml file: missing key {e} in {pyproject_toml}. "
+                    "See https://packaging.python.org/en/latest/guides/writing-pyproject-toml for guidelines."
+                )
 
             for group in groups:
                 if (
@@ -1451,7 +1465,7 @@ class _Image(_Object, type_prefix="im"):
                 commands.append(f"COPY /.uv.lock {UV_ROOT}/uv.lock")
 
                 if frozen:
-                    # Do not update `uv.lock` when we have one when `frozen=True`. This it ehd efault because this
+                    # Do not update `uv.lock` when we have one when `frozen=True`. This is the default because this
                     # ensures that the runtime environment matches the local `uv.lock`.
                     #
                     # If `frozen=False`, then `uv sync` will update the the dependencies in the `uv.lock` file
@@ -1555,7 +1569,7 @@ class _Image(_Object, type_prefix="im"):
         self,
         entrypoint_commands: list[str],
     ) -> "_Image":
-        """Set the entrypoint for the image."""
+        """Set the ENTRYPOINT for the image."""
         if not isinstance(entrypoint_commands, list) or not all(isinstance(x, str) for x in entrypoint_commands):
             raise InvalidError("entrypoint_commands must be a list of strings.")
         args_str = _flatten_str_args("entrypoint", "entrypoint_commands", entrypoint_commands)
@@ -2231,7 +2245,9 @@ class _Image(_Object, type_prefix="im"):
         )
 
     def cmd(self, cmd: list[str]) -> "_Image":
-        """Set the default entrypoint argument (`CMD`) for the image.
+        """Set the default command (`CMD`) to run when a container is started.
+
+        Used with `modal.Sandbox`. Has no effect on `modal.Function`.
 
         **Example**
 

@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.pipe import Pipe
+from snowflake.core.pipe import Pipe, PipeResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,21 +23,15 @@ def pipe(pipes):
 
 
 def test_create_pipe(fake_root, pipes):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/pipes?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/pipes?createMode=errorIfExists")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={
-            "name": "my_pipe",
-            "copy_statement": "copy into my_tab",
-        },
+        query_params=[("createMode", "errorIfExists")], body={"name": "my_pipe", "copy_statement": "copy into my_tab"}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        pipes.create(PIPE)
+        pipe_res = pipes.create(PIPE)
+        assert isinstance(pipe_res, PipeResource)
+        assert pipe_res.name == "my_pipe"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -49,11 +43,7 @@ def test_create_pipe(fake_root, pipes):
 
 
 def test_iter_pipe(fake_root, pipes):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/pipes",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/pipes")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -74,11 +64,7 @@ def test_fetch_pipe(fake_root, pipe):
     from snowflake.core.pipe._generated.models import Pipe as PipeModel
 
     model = PipeModel(name="my_pipe", copy_statement="copy into my_tab")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/pipes/my_pipe",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/pipes/my_pipe")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -96,11 +82,7 @@ def test_fetch_pipe(fake_root, pipe):
 
 
 def test_drop_pipe(fake_root, pipe):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/pipes/my_pipe",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/pipes/my_pipe")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -115,11 +97,7 @@ def test_drop_pipe(fake_root, pipe):
 
 
 def test_refresh_pipe(fake_root, pipe):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/pipes/my_pipe:refresh",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/pipes/my_pipe:refresh")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

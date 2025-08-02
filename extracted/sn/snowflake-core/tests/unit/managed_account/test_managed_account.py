@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.managed_account import ManagedAccount, ManagedAccountCollection
+from snowflake.core.managed_account import ManagedAccount, ManagedAccountCollection, ManagedAccountResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,22 +23,15 @@ def managed_account(managed_accounts):
 
 
 def test_create_managed_account(fake_root, managed_accounts):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/managed-accounts",
-    )
+    args = (fake_root, "POST", BASE_URL + "/managed-accounts")
     kwargs = extra_params(
-        body={
-            "name": "my_acc",
-            "admin_name": "admin",
-            "admin_password": "test",
-            "account_type": "READER",
-        },
+        body={"name": "my_acc", "admin_name": "admin", "admin_password": "test", "account_type": "READER"}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        managed_accounts.create(MANAGED_ACCOUNT)
+        ma_res = managed_accounts.create(MANAGED_ACCOUNT)
+        assert isinstance(ma_res, ManagedAccountResource)
+        assert ma_res.name == "my_acc"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -50,11 +43,7 @@ def test_create_managed_account(fake_root, managed_accounts):
 
 
 def test_iter_managed_account(fake_root, managed_accounts):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/managed-accounts",
-    )
+    args = (fake_root, "GET", BASE_URL + "/managed-accounts")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -72,11 +61,7 @@ def test_iter_managed_account(fake_root, managed_accounts):
 
 
 def test_drop_managed_account(fake_root, managed_account):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/managed-accounts/my_acc",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/managed-accounts/my_acc")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

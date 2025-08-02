@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright DB InfraGO AG
+# SPDX-License-Identifier: Apache-2.0
+
+generate-model-badge:
+  image: python:3.11-bullseye
+  rules:
+    - if: $CI_COMMIT_BRANCH
+  script:
+    # Reset branch. This is helpful when chaining jobs
+    # and a previous job pushes changes that should be
+    # considered for the model badge generation.
+    - git fetch --depth 1
+    - git reset --hard origin/$CI_COMMIT_BRANCH
+    - pip install "git+https://github.com/DSD-DBS/py-capellambse.git@$CAPELLAMBSE_REVISION"
+    - |
+      python >"$OUTPUT_FILE" <<EOF
+      import os, capellambse
+      model = capellambse.loadcli(os.environ["ENTRYPOINT"])
+      print(model.description_badge, end="")
+      EOF
+    - if [[ "${CAPELLAMBSE_PUSH_MODEL_BADGE:-1}" != 1 ]]; then exit 0; fi
+    - git add "$OUTPUT_FILE"
+    - "if git diff --cached --exit-code &> /dev/null; then exit 0; fi"
+    - 'git commit -m "$COMMIT_MSG"'
+    - git push -o ci.skip "https://${GIT_USERNAME:?}:${GIT_PASSWORD:?}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:$CI_COMMIT_BRANCH"
+  artifacts:
+    paths:
+      - "$OUTPUT_FILE"
+  variables:
+    # Specify the output file
+    # Defaults to model-complexity-badge.svg
+    OUTPUT_FILE: model-complexity-badge.svg
+
+    # Specify the commit message when pushing model complexity badge
+    COMMIT_MSG: "docs: Add/Modify model complexity badge"
+
+variables:
+  CAPELLAMBSE_PUSH_MODEL_BADGE:
+    description: Commit the model badge to git and push it back to the current branch. 1 to enable (default), 0 to disable.
+    options: ["0", "1"]
+    value: "1"

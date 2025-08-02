@@ -1,0 +1,15 @@
+[environment]
+cwd="~/"
+
+[data]
+files_command = "eza -1 --no-quotes -a"
+
+commands = [
+  """eza -1 --no-quotes -a""",
+  """eza -1 /nosuchdirectory""",
+]
+
+header = [
+  "file",
+  "empty column"
+]

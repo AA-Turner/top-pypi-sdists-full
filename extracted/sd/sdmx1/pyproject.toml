@@ -1,0 +1,118 @@
+[build-system]
+requires = ["hatchling", "versioningit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sdmx1"
+description = "Statistical Data and Metadata eXchange (SDMX)"
+dynamic = ["version"]
+authors = [{ name = "SDMX Python developers" }]
+maintainers = [
+  { name = "Paul Natsuo Kishimoto", email = "mail@paul.kishimoto.name" },
+]
+readme = "README.rst"
+keywords = ["statistics", "SDMX", "pandas", "data", "economics", "science"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Financial and Insurance Industry",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "lxml >= 3.6",
+  "pandas >= 1.0",
+  "platformdirs >= 4.1",
+  "python-dateutil",
+  "requests >= 2.7",
+]
+
+[project.optional-dependencies]
+cache = ["requests-cache"]
+docs = ["furo", "IPython", "sphinx >= 8"]
+tests = [
+  "filelock",
+  "GitPython",
+  "Jinja2",
+  "pytest >= 5",
+  "pytest-cov",
+  "pytest-xdist",
+  "responses",
+  "sdmx1[cache]",
+]
+
+[project.urls]
+Homepage = "https://github.com/khaeru/sdmx"
+Repository = "https://github.com/khaeru/sdmx"
+Documentation = "https://sdmx1.readthedocs.io/en/latest"
+
+[tool.coverage.run]
+omit = [
+  "sdmx/experimental.py",
+  "sdmx/tests/writer/test_protobuf.py",
+  "sdmx/writer/protobuf.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+  # Don't complain about abstract methods, they aren't run
+  "@(abc\\.)?abstractmethod",
+  # Imports only used by type checkers
+  "if TYPE_CHECKING:",
+]
+
+[tool.hatch]
+build.targets.wheel.packages = ["sdmx"]
+version.source = "versioningit"
+
+[tool.mypy]
+files = [
+  "conftest.py",
+  "doc",
+  "sdmx",
+]
+
+[[tool.mypy.overrides]]
+# Packages/modules for which no type hints are available.
+module = [
+  "lxml.builder", # Not covered by types-lxml
+  "xdist",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = """
+  sdmx
+  --cov sdmx --cov-report=
+  -m "not experimental and not source"
+"""
+markers = [
+  "experimental: test of experimental features",
+  "network: tests requiring a network connection",
+  "source: slower, network tests of individual SDMX web services",
+]
+
+[tool.ruff.lint]
+select = ["C9", "E", "F", "I", "W"]
+ignore = ["E501", "W191"]
+# Exceptions:
+# - .client._handle_get_kwargs: 12
+# - .reader.csv.Reader.inspect_header: 12
+# - .reader.xml.v21._component_end: 12
+# - .testing.generate_endpoint_tests: 11
+# - .writer.pandas._maybe_convert_datetime: 23
+# - .writer.pandas.write_dataset: 12
+mccabe.max-complexity = 10
+
+[tool.versioningit]
+default-version = "0.1.dev1"  # Match setuptools-scm

@@ -1,0 +1,41 @@
+name: 'Run unit tests'
+description: 'Run the unit tests for a given Python version'
+
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: true
+  pydantic-version:
+    description: 'Pydantic version to use'
+    required: true
+  test-report-file:
+    description: 'File name to save the test report in'
+    required: true
+
+runs:
+  using: "composite"
+
+  steps:
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv-environment
+        with:
+          python-version: ${{ inputs.python-version }}
+          with-dev-dependencies: true
+
+      - name: Override pydantic version
+        if: ${{ inputs.pydantic-version }}
+        run: uv pip install pydantic==${{ inputs.pydantic-version }}
+        shell: bash
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          uv run python -m pytest tests --verbose --junitxml=${{ inputs.test-report-file }}
+        shell: bash
+
+      - name: Publish unit test report
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: ${{ inputs.test-report-file }}
+          check_name: Unit test report (Python ${{ inputs.python-version }}, Pydantic ${{ inputs.pydantic-version }})

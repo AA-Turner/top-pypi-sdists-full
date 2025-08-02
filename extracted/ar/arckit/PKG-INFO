@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: arckit
+Version: 0.1.0
+Summary: Tools for working with the Abstraction & Reasoning Corpus (ARC-AGI)
+Author: Mikel Bober-Irizar
+Author-email: mikel@mxbi.net
+License: Apache License 2.0
+Keywords: setuptools
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: rich
+Requires-Dist: drawsvg

@@ -5,9 +5,7 @@ from pydantic_core._pydantic_core import ValidationError
 from tests.utils import unquote
 
 
-pytestmark = [
-    pytest.mark.usefixtures("backup_database_schema"),
-]
+pytestmark = [pytest.mark.usefixtures("backup_database_schema")]
 
 
 def test_iter(schemas, temp_schema, temp_schema_case_sensitive):
@@ -44,7 +42,5 @@ def test_iter_limit(schemas):
     data = list(schemas.iter(limit=10))
     assert len(data) <= 10
 
-    with pytest.raises(
-        ValidationError,
-    ):
+    with pytest.raises(ValidationError):
         list(schemas.iter(limit=10001))

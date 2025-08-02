@@ -1,0 +1,72 @@
+name: py3dep-tests
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+# async-retriever deps
+- aiodns
+- aiohttp-client-cache >=0.12.3
+- brotli
+- cytoolz
+- nest-asyncio
+- ujson
+
+# pygeoogc deps
+# - async-retriever
+- cytoolz
+- defusedxml
+- joblib
+- multidict
+- owslib >=0.27.2
+- pyproj >=3.0.1
+- requests
+- requests-cache >=0.9.6
+- shapely >=2
+- typing_extensions
+- ujson
+- url-normalize >=1.4
+- urllib3
+- yarl
+
+# pygeoutils deps
+- cytoolz
+- geopandas-base >=1
+- netcdf4
+- numpy >=2
+- pyproj >=3.0.1
+- rasterio >=1.2
+- rioxarray >=0.11
+- scipy
+- shapely >=2.0
+- ujson
+- xarray >=2023.01
+
+# py3dep
+# - async-retriever
+- click >=0.7
+- cytoolz
+- geopandas-base >=1
+- numpy >=2
+# - pygeoogc
+# - pygeoutils
+- rasterio >=1.2
+- rioxarray >=0.11
+- scipy
+- shapely >=2
+- xarray >=2023.01
+
+# optional deps to speed up xarray
+- flox
+- numbagg
+
+# test deps
+- psutil
+- pytest
+- pytest-cov
+- pytest-xdist
+
+- pip
+- pip:
+  - git+https://github.com/hyriver/async-retriever.git
+  - git+https://github.com/hyriver/pygeoogc.git
+  - git+https://github.com/hyriver/pygeoutils.git

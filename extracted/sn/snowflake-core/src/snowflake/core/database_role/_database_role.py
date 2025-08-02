@@ -32,10 +32,7 @@ class DatabaseRoleCollection(DatabaseObjectCollectionParent["DatabaseRoleResourc
     Creating a database role instance:
 
     >>> database_role_collection = root.databases["my_db"].database_roles
-    >>> database_role_collection.create(DatabaseRole(
-    ...     name="test-role",
-    ...     comment="samplecomment"
-    ... ))
+    >>> database_role_collection.create(DatabaseRole(name="test-role", comment="samplecomment"))
     """
 
     def __init__(self, database: "DatabaseResource", root: "Root") -> None:
@@ -73,11 +70,10 @@ class DatabaseRoleCollection(DatabaseObjectCollectionParent["DatabaseRoleResourc
         ________
         Creating a database role, replacing any existing database role with the same name:
 
-        >>> database_role = DatabaseRole(
-        ...     name="test-role",
-        ...     comment="samplecomment"
+        >>> database_role = DatabaseRole(name="test-role", comment="samplecomment")
+        >>> database_role_ref = root.databases["my_db"].database_roles.create(
+        ...     database_role, mode=CreateMode.or_replace
         ... )
-        >>> database_role_ref = root.databases["my_db"].database_roles.create(database_role, mode=CreateMode.or_replace)
         """
         real_mode = CreateMode[mode].value
         self._api.create_database_role(self.database.name, database_role, StrictStr(real_mode), async_req=False)
@@ -91,18 +87,12 @@ class DatabaseRoleCollection(DatabaseObjectCollectionParent["DatabaseRoleResourc
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
-        future = self._api.create_database_role(
-            self.database.name, database_role, StrictStr(real_mode), async_req=True)
+        future = self._api.create_database_role(self.database.name, database_role, StrictStr(real_mode), async_req=True)
         return PollingOperation(future, lambda _: self[database_role.name])
 
-    def iter(
-        self,
-        *,
-        limit: Optional[int] = None,
-        from_name: Optional[str] = None,
-    ) -> Iterator[DatabaseRole]:
+    def iter(self, *, limit: Optional[int] = None, from_name: Optional[str] = None) -> Iterator[DatabaseRole]:
         """Iterate through ``DatabaseRole`` objects from Snowflake, filtering on any optional 'from_name' pattern.
 
         Parameters
@@ -127,33 +117,20 @@ class DatabaseRoleCollection(DatabaseObjectCollectionParent["DatabaseRoleResourc
         Using a for loop to retrieve information from iterator:
 
         >>> for database_role in database_roles:
-        ...    print(database_role.name, database_role.comment)
+        ...     print(database_role.name, database_role.comment)
         """
-        database_roles = self._api.list_database_roles(
-            self.database.name,
-            limit,
-            from_name=from_name,
-            async_req=False,
-        )
+        database_roles = self._api.list_database_roles(self.database.name, limit, from_name=from_name, async_req=False)
         return iter(database_roles)
 
     def iter_async(
-        self,
-        *,
-        limit: Optional[int] = None,
-        from_name: Optional[str] = None,
+        self, *, limit: Optional[int] = None, from_name: Optional[str] = None
     ) -> PollingOperation[Iterator[DatabaseRole]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_database_roles(
-            self.database.name,
-            limit,
-            from_name=from_name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_database_roles(self.database.name, limit, from_name=from_name, async_req=True)
         return PollingOperations.iterator(future)
 
 
@@ -195,9 +172,10 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_database_role(
-            self.database.name, self.name, if_exists=if_exists, async_req=True)
+            self.database.name, self.name, if_exists=if_exists, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -237,9 +215,7 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         >>> new_database_role_reference = database_role_reference.clone("new-role-name")
         """
         real_mode = CreateMode[mode].value
-        target_database_role_clone = DatabaseRoleClone(
-            name=target_database_role,
-        )
+        target_database_role_clone = DatabaseRoleClone(name=target_database_role)
         self.collection._api.clone_database_role(
             self.database.name, self.name, target_database_role_clone, real_mode, target_database, async_req=False
         )
@@ -258,11 +234,9 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
-        target_database_role_clone = DatabaseRoleClone(
-            name=target_database_role,
-        )
+        target_database_role_clone = DatabaseRoleClone(name=target_database_role)
         future = self.collection._api.clone_database_role(
             self.database.name, self.name, target_database_role_clone, real_mode, target_database, async_req=True
         )
@@ -293,10 +267,7 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         >>> database_role_reference.grant("database role", Securable(name="test_role"))
         """
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        grant = Grant(securable_type=role_type, securable=role)
         self.collection._api.grant_privileges(self.database.name, self.name, grant, async_req=False)
 
     @api_telemetry
@@ -305,11 +276,8 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        """  # noqa: D401
+        grant = Grant(securable_type=role_type, securable=role)
         future = self.collection._api.grant_privileges(self.database.name, self.name, grant, async_req=True)
         return PollingOperations.empty(future)
 
@@ -339,13 +307,12 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to grant privileges to it:
 
-        >>> database_role_reference.grant_privileges(["CREATE", "USAGE"], "database", Securable(database="test_db"))
+        >>> database_role_reference.grant_privileges(
+        ...     ["CREATE", "USAGE"], "database", Securable(database="test_db")
+        ... )
         """
         grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            securable=securable,
-            grant_option=grant_option,
+            privileges=privileges, securable_type=securable_type, securable=securable, grant_option=grant_option
         )
         self.collection._api.grant_privileges(self.database.name, self.name, grant, async_req=False)
 
@@ -361,12 +328,9 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            securable=securable,
-            grant_option=grant_option,
+            privileges=privileges, securable_type=securable_type, securable=securable, grant_option=grant_option
         )
         future = self.collection._api.grant_privileges(self.database.name, self.name, grant, async_req=True)
         return PollingOperations.empty(future)
@@ -397,8 +361,10 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to grant privileges on all schemas in a database to it:
 
-        >>> database_role_reference.grant_privileges_on_all(["CREATE", "USAGE"], "schema", ContainingScope(database="test_db"))
-        """  # noqa: E501
+        >>> database_role_reference.grant_privileges_on_all(
+        ...     ["CREATE", "USAGE"], "schema", ContainingScope(database="test_db")
+        ... )
+        """
         grant = Grant(
             privileges=privileges,
             securable_type=securable_type,
@@ -419,7 +385,7 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         grant = Grant(
             privileges=privileges,
             securable_type=securable_type,
@@ -455,8 +421,10 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to grant privileges on all future schemas in a database to it:
 
-        >>> database_role_reference.grant_future_privileges(["CREATE", "USAGE"], "schema", ContainingScope(database="test_db"))
-        """  # noqa: E501
+        >>> database_role_reference.grant_future_privileges(
+        ...     ["CREATE", "USAGE"], "schema", ContainingScope(database="test_db")
+        ... )
+        """
         grant = Grant(
             privileges=privileges,
             securable_type=securable_type,
@@ -477,7 +445,7 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         grant = Grant(
             privileges=privileges,
             securable_type=securable_type,
@@ -488,11 +456,7 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def revoke_role(
-        self,
-        role_type: str,
-        role: Securable,
-    ) -> None:
+    def revoke_role(self, role_type: str, role: Securable) -> None:
         """
         Revoke a role from this database role.
 
@@ -509,27 +473,17 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         >>> database_role_reference.revoke("database role", Securable(name="test_role"))
         """
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        grant = Grant(securable_type=role_type, securable=role)
         self.collection._api.revoke_grants(self.database.name, self.name, grant, async_req=False)
 
     @api_telemetry
-    def revoke_role_async(
-        self,
-        role_type: str,
-        role: Securable,
-    ) -> PollingOperation[None]:
+    def revoke_role_async(self, role_type: str, role: Securable) -> PollingOperation[None]:
         """An asynchronous version of :func:`revoke_role`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        """  # noqa: D401
+        grant = Grant(securable_type=role_type, securable=role)
         future = self.collection._api.revoke_grants(self.database.name, self.name, grant, async_req=True)
         return PollingOperations.empty(future)
 
@@ -569,13 +523,11 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to revoke privileges from it:
 
-        >>> database_role_reference.revoke_privileges(["CREATE", "USAGE"], "database", Securable(database="test_db"))
+        >>> database_role_reference.revoke_privileges(
+        ...     ["CREATE", "USAGE"], "database", Securable(database="test_db")
+        ... )
         """
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            securable=securable,
-        )
+        grant = Grant(privileges=privileges, securable_type=securable_type, securable=securable)
         self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=False)
 
     @api_telemetry
@@ -590,12 +542,8 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            securable=securable,
-        )
+        """  # noqa: D401
+        grant = Grant(privileges=privileges, securable_type=securable_type, securable=securable)
         future = self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=True)
         return PollingOperations.empty(future)
 
@@ -635,13 +583,11 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to revoke privileges on all schemas in a database from it:
 
-        >>> database_role_reference.revoke_privileges_on_all(["CREATE", "USAGE"], "schema", ContainingScope(database="test_db"))
-        """  # noqa: E501
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-        )
+        >>> database_role_reference.revoke_privileges_on_all(
+        ...     ["CREATE", "USAGE"], "schema", ContainingScope(database="test_db")
+        ... )
+        """
+        grant = Grant(privileges=privileges, securable_type=securable_type, containing_scope=containing_scope)
         self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=False)
 
     @api_telemetry
@@ -656,12 +602,8 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-        )
+        """  # noqa: D401
+        grant = Grant(privileges=privileges, securable_type=securable_type, containing_scope=containing_scope)
         future = self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=True)
         return PollingOperations.empty(future)
 
@@ -701,13 +643,11 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to revoke privileges on all future schemas in a database from it:
 
-        >>> database_role_reference.revoke_future_privileges(["CREATE", "USAGE"], "schema", ContainingScope(database="test_db"))
-        """  # noqa: E501
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-        )
+        >>> database_role_reference.revoke_future_privileges(
+        ...     ["CREATE", "USAGE"], "schema", ContainingScope(database="test_db")
+        ... )
+        """
+        grant = Grant(privileges=privileges, securable_type=securable_type, containing_scope=containing_scope)
         self.collection._api.revoke_future_grants(self.database.name, self.name, grant, mode, async_req=False)
 
     @api_telemetry
@@ -722,12 +662,8 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-        )
+        """  # noqa: D401
+        grant = Grant(privileges=privileges, securable_type=securable_type, containing_scope=containing_scope)
         future = self.collection._api.revoke_future_grants(self.database.name, self.name, grant, mode, async_req=True)
         return PollingOperations.empty(future)
 
@@ -767,14 +703,11 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to revoke grant option for privileges from it:
 
-        >>> database_role_reference.revoke_grant_option_for_privileges(["CREATE", "USAGE"], "database", Securable(database="test_db"))
-        """  # noqa: E501
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            securable=securable,
-            grant_option=True,
-        )
+        >>> database_role_reference.revoke_grant_option_for_privileges(
+        ...     ["CREATE", "USAGE"], "database", Securable(database="test_db")
+        ... )
+        """
+        grant = Grant(privileges=privileges, securable_type=securable_type, securable=securable, grant_option=True)
         self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=False)
 
     @api_telemetry
@@ -789,13 +722,8 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            securable=securable,
-            grant_option=True,
-        )
+        """  # noqa: D401
+        grant = Grant(privileges=privileges, securable_type=securable_type, securable=securable, grant_option=True)
         future = self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=True)
         return PollingOperations.empty(future)
 
@@ -835,13 +763,12 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to revoke grant option for privileges on all schemas in a database from it:
 
-        >>> database_role_reference.revoke_grant_option_for_privileges_on_all(["CREATE", "USAGE"], "schema", ContainingScope(database="test_db"))
-        """  # noqa: E501
+        >>> database_role_reference.revoke_grant_option_for_privileges_on_all(
+        ...     ["CREATE", "USAGE"], "schema", ContainingScope(database="test_db")
+        ... )
+        """
         grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-            grant_option=True,
+            privileges=privileges, securable_type=securable_type, containing_scope=containing_scope, grant_option=True
         )
         self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=False)
 
@@ -857,12 +784,9 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-            grant_option=True,
+            privileges=privileges, securable_type=securable_type, containing_scope=containing_scope, grant_option=True
         )
         future = self.collection._api.revoke_grants(self.database.name, self.name, grant, mode, async_req=True)
         return PollingOperations.empty(future)
@@ -903,13 +827,12 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         ________
         Using a database role reference to revoke grant option for privileges on all future schemas in a database from it:
 
-        >>> database_role_reference.revoke_grant_option_for_future_privileges(["CREATE", "USAGE"], "schema", ContainingScope(database="test_db"))
+        >>> database_role_reference.revoke_grant_option_for_future_privileges(
+        ...     ["CREATE", "USAGE"], "schema", ContainingScope(database="test_db")
+        ... )
         """  # noqa: E501
         grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-            grant_option=True,
+            privileges=privileges, securable_type=securable_type, containing_scope=containing_scope, grant_option=True
         )
         self.collection._api.revoke_future_grants(self.database.name, self.name, grant, mode, async_req=False)
 
@@ -925,12 +848,9 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         grant = Grant(
-            privileges=privileges,
-            securable_type=securable_type,
-            containing_scope=containing_scope,
-            grant_option=True,
+            privileges=privileges, securable_type=securable_type, containing_scope=containing_scope, grant_option=True
         )
         future = self.collection._api.revoke_future_grants(self.database.name, self.name, grant, mode, async_req=True)
         return PollingOperations.empty(future)
@@ -962,7 +882,7 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_grants(self.database.name, self.name, show_limit, async_req=True)
         return PollingOperations.iterator(future)
 
@@ -996,8 +916,6 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.list_future_grants(
-            self.database.name, self.name, show_limit, async_req=True
-        )
+        """  # noqa: D401
+        future = self.collection._api.list_future_grants(self.database.name, self.name, show_limit, async_req=True)
         return PollingOperations.iterator(future)

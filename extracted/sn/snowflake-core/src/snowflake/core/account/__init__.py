@@ -17,12 +17,7 @@ Example:
 Refer to :class:`snowflake.core.Root` to create the ``root``.
 """
 
-
 from ._account import Account, AccountCollection, AccountResource
 
 
-__all__ = [
-    "Account",
-    "AccountCollection",
-    "AccountResource",
-]
+__all__ = ["Account", "AccountCollection", "AccountResource"]

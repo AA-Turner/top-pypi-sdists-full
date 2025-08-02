@@ -8,11 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
@@ -60,7 +56,7 @@ class FunctionCollection(SchemaObjectCollectionParent["FunctionResource"]):
     ...     arguments=[FunctionArgument(datatype="NUMBER")],
     ...     service="python",
     ...     endpoint="https://example.com",
-    ...     path="example.py"
+    ...     path="example.py",
     ... )
     >>> functions.create(new_function)
     """
@@ -68,17 +64,11 @@ class FunctionCollection(SchemaObjectCollectionParent["FunctionResource"]):
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, FunctionResource)
         self._api = FunctionApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
-    def create(
-        self,
-        function: Function,
-        mode: CreateMode=CreateMode.error_if_exists,
-    ) -> "FunctionResource":
+    def create(self, function: Function, mode: CreateMode = CreateMode.error_if_exists) -> "FunctionResource":
         """Create a function in Snowflake.
 
         Parameters
@@ -112,50 +102,36 @@ class FunctionCollection(SchemaObjectCollectionParent["FunctionResource"]):
         ...     arguments=[FunctionArgument(datatype="NUMBER")],
         ...     service="python",
         ...     endpoint="https://example.com",
-        ...     path="example.py"
+        ...     path="example.py",
         ... )
         >>> functions.create(new_function, mode=CreateMode.or_replace)
         """
         real_mode = CreateMode[mode].value
 
         self._api.create_function(
-            self.database.name,
-            self.schema.name,
-            function,
-            create_mode=StrictStr(real_mode),
-            async_req=False,
+            self.database.name, self.schema.name, function, create_mode=StrictStr(real_mode), async_req=False
         )
 
         return FunctionResource(get_function_name_with_args(function), self)
 
     @api_telemetry
     def create_async(
-        self,
-        function: Function,
-        mode: CreateMode=CreateMode.error_if_exists,
+        self, function: Function, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["FunctionResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
 
         future = self._api.create_function(
-            self.database.name,
-            self.schema.name,
-            function,
-            create_mode=StrictStr(real_mode),
-            async_req=True,
+            self.database.name, self.schema.name, function, create_mode=StrictStr(real_mode), async_req=True
         )
         return PollingOperation(future, lambda _: FunctionResource(get_function_name_with_args(function), self))
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[Function]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[Function]:
         """Iterate through ``Function`` objects from Snowflake, filtering on any optional 'like' pattern.
 
         Parameters
@@ -184,29 +160,19 @@ class FunctionCollection(SchemaObjectCollectionParent["FunctionResource"]):
         ...     print(function.name)
         """
         functions = self._api.list_functions(
-            database=self.database.name,
-            var_schema=self.schema.name,
-            like=like,
-            async_req=False,
+            database=self.database.name, var_schema=self.schema.name, like=like, async_req=False
         )
         return iter(functions)
 
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[Function]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[Function]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_functions(
-            database=self.database.name,
-            var_schema=self.schema.name,
-            like=like,
-            async_req=True,
+            database=self.database.name, var_schema=self.schema.name, like=like, async_req=True
         )
         return PollingOperations.iterator(future)
 
@@ -218,11 +184,7 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
     as perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name_with_args: StrictStr,
-        collection: FunctionCollection
-    ) -> None:
+    def __init__(self, name_with_args: StrictStr, collection: FunctionCollection) -> None:
         self.collection = collection
         self.name_with_args = name_with_args
 
@@ -239,10 +201,7 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
         >>> print(my_function.name)
         """
         return self.collection._api.fetch_function(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            async_req=False,
+            self.database.name, self.schema.name, self.name_with_args, async_req=False
         )
 
     @api_telemetry
@@ -251,21 +210,15 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_function(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            async_req=True,
+            self.database.name, self.schema.name, self.name_with_args, async_req=True
         )
         return PollingOperations.identity(future)
 
     @api_telemetry
     @deprecated("drop")
-    def delete(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def delete(self, if_exists: bool = False) -> None:
         """Delete this function.
 
         Parameters
@@ -286,10 +239,7 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
         self.drop(if_exists=if_exists)
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def drop(self, if_exists: bool = False) -> None:
         """Drop this function.
 
         Parameters
@@ -308,29 +258,18 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
         >>> function_reference.drop(if_exists=True)
         """
         self.collection._api.delete_function(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name_with_args, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def drop_async(
-        self,
-        if_exists: bool = False,
-    ) -> PollingOperation[None]:
+    def drop_async(self, if_exists: bool = False) -> PollingOperation[None]:
         """An asynchronous version of :func:`drop`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_function(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name_with_args, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -358,16 +297,14 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         return self._execute(input_args=input_args, async_req=True)
 
     @overload
-    def _execute(self, input_args: Optional[list[Any]], async_req: Literal[True]) -> PollingOperation[Any]:
-        ...
+    def _execute(self, input_args: Optional[list[Any]], async_req: Literal[True]) -> PollingOperation[Any]: ...
 
     @overload
-    def _execute(self, input_args: Optional[list[Any]], async_req: Literal[False]) -> Any:
-        ...
+    def _execute(self, input_args: Optional[list[Any]], async_req: Literal[False]) -> Any: ...
 
     def _execute(self, input_args: Optional[list[Any]], async_req: bool) -> Union[Any, PollingOperation[Any]]:
         function = self.fetch()
@@ -387,11 +324,7 @@ class FunctionResource(SchemaObjectReferenceMixin[FunctionCollection]):
             function_args.append(argument)
 
         result_or_future = self.collection._api.execute_function(
-            self.database.name,
-            self.schema.name,
-            function.name,
-            function_args,
-            async_req=async_req,
+            self.database.name, self.schema.name, function.name, function_args, async_req=async_req
         )
 
         def map_result(result: object) -> Any:

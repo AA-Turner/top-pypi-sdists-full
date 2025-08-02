@@ -1,0 +1,80 @@
+Metadata-Version: 2.3
+Name: sql-compare
+Version: 0.1.9
+Summary: Compare SQL schemas
+License: Apache-2.0
+Keywords: sql,database,schema,compare,diff,migration
+Author: Charly Laurent
+Author-email: charly.laurent@mergify.com
+Maintainer: Mergify
+Maintainer-email: engineering@mergify.com
+Requires-Python: >=3.9
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Testing :: Unit
+Requires-Dist: sqlparse (>=0.5.0)
+Project-URL: Bug Tracker, https://github.com/Mergifyio/sql-compare/issues
+Project-URL: Repository, https://github.com/Mergifyio/sql-compare
+Description-Content-Type: text/markdown
+
+# SQL Compare
+
+Compare SQL schemas.
+
+This package allows to compare two SQL files (or strings) to know whether their
+statements are the same or not. The comparison doesn't care about the order of
+the columns in a table or the order of the values in an enumerator. It also
+excludes irrelevant data like comments.
+
+Its main usage is to compare the schemas of two databases (e.g. staging and
+production). See this [blog post](https://blog.mergify.com/ensuring-seamless-sql-migrations-in-production/)
+that tells about the creation of the package.
+
+## Installation
+
+```bash
+$ pip install sql-compare
+```
+
+## Usage
+
+Compare two SQL schemas using strings.
+
+```python
+import sql_compare
+
+assert sql_compare.compare(first_schema, second_schema)
+```
+
+Compare two SQL schemas using files.
+
+```python
+import pathlib
+import sql_compare
+
+first_schema = pathlib.Path("/path/to/schema.sql")
+second_schema = pathlib.Path("/path/to/other/schema.sql")
+
+assert sql_compare.compare_files(first_schema, second_schema)
+```
+
+## Dependencies
+
+SQL Compare relies on [`sqlparse`](https://sqlparse.readthedocs.io/en/latest/)
+to parse SQL statements.
+

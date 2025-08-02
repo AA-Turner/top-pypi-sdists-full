@@ -3259,6 +3259,7 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
+    @overload
     def get_enum_string(value: int, py_object: typing.Any) -> str:
         """
         Converts the numeric value of one or more enumerated constants to an equivalent enumerated string.
@@ -3269,7 +3270,21 @@ class Extensions(System.Object):
         :param py_object: Python object that encapsulated a Enum Type
         :returns: String that represents the enumerated object.
         """
-        warnings.warn("Deprecated as of 2025-07. Please use `str()`.", DeprecationWarning)
+        ...
+
+    @staticmethod
+    @overload
+    def get_enum_string(value: System.Enum, py_object: typing.Any) -> str:
+        """
+        Converts the numeric value of one or more enumerated constants to an equivalent enumerated string.
+        
+        Deprecated as of 2025-07. Please use `str()`.
+        
+        :param value: Numeric value
+        :param py_object: Python object that encapsulated a Enum Type
+        :returns: String that represents the enumerated object.
+        """
+        ...
 
     @staticmethod
     def get_exercise_direction(right: QuantConnect.OptionRight, is_short: bool) -> QuantConnect.Orders.OrderDirection:

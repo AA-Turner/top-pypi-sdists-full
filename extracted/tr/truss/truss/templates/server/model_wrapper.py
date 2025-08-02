@@ -626,13 +626,8 @@ class ModelWrapper:
     async def is_healthy(self) -> Optional[bool]:
         descriptor = self.model_descriptor.is_healthy
         is_healthy: Optional[bool] = None
-        if (
-            not descriptor
-            or self.load_failed
-            or self._status == ModelWrapper.Status.LOADING
-        ):
+        if not descriptor or self.load_failed:
             # return early with None if model does not have is_healthy method or load failed
-            # if we are loading, we know the model is not healthy.
             return None
         try:
             if descriptor.is_async:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modal
-Version: 1.1.0
+Version: 1.1.1
 Summary: Python client library for Modal
 Author-email: Modal Labs <support@modal.com>
 License: Apache-2.0
@@ -18,7 +18,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
 Requires-Dist: certifi
-Requires-Dist: click~=8.1.0
+Requires-Dist: click~=8.1
 Requires-Dist: grpclib<0.4.9,>=0.4.7
 Requires-Dist: protobuf!=4.24.0,<7.0,>=3.19
 Requires-Dist: rich>=12.0.0

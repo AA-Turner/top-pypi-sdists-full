@@ -1,0 +1,82 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.5.0"]
+
+[tool.poetry]
+name = "requests-hardened"
+readme = "README.rst"
+description = "A library that overrides the default behaviors of the requests library, and adds new security features."
+authors = [
+    "Saleor Commerce <hello@saleor.io>"
+]
+license = "BSD-3-Clause"
+version = "1.0.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Topic :: Security",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    'Operating System :: Microsoft :: Windows',
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[tool.poetry.urls]
+Homepage = "https://github.com/saleor/requests-hardened/"
+Source = "https://github.com/saleor/requests-hardened/"
+Issues = "https://github.com/saleor/requests-hardened/issues"
+Changelog = "https://github.com/saleor/requests-hardened/releases/"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+# We require >=2.32.3 due to depending on `get_connection_with_tls_context`.
+requests = ">=2.32.3,<3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+mypy = "^1.5.1"
+types-requests = ">=2.32.0,<3.0.0"
+trustme = ">=1.1.0,<2.0.0"
+pytest-socket = "^0.7.0"
+pproxy = "^2.7.9"
+requests = { version = ">=2.32.3,<3.0.0" , extras = ["socks"] }
+
+[tool.setuptools]
+zip-safe = false
+packages = ["requests_hardened"]
+
+[tool.pytest.ini_options]
+# Disallow creating sockets (using 'pytest-socket' library)
+# We block sockets during tests in order to detect unexpected
+# leaks/connections being made.
+addopts = "--disable-socket"
+
+[tool.mypy]
+# Checks
+check_untyped_defs = true
+ignore_missing_imports = true
+allow_redefinition = true
+
+# Error messages
+pretty = true
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+show_traceback = true
+
+exclude = [
+    "tests/"
+]

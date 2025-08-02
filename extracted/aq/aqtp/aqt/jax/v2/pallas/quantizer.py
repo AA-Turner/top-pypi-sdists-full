@@ -16,10 +16,13 @@
 # TODO(wppark): Remove this file. This is a temporary module before the
 # official release of AQT quant / dequant API.
 
+import functools
 from typing import Sequence
 
 from aqt.jax.v2 import aqt_quantizer
 from aqt.jax.v2 import aqt_tensor
+from aqt.jax.v2 import calibration
+from aqt.jax.v2.numerics import fp8_numerics
 
 import jax
 import jax.numpy as jnp
@@ -29,8 +32,9 @@ QTensor = aqt_tensor.QTensor
 
 def quant(
     x: jax.Array,
-    n_bits: int,
-    calibration_axes: Sequence[int],
+    n_bits: int | fp8_numerics.FP8Dtype,
+    calibration_axes: Sequence[int] | None = None,
+    use_dummy_static_bound: bool = False,
 ) -> QTensor:
   """Apply channel-wise quantization to x.
 
@@ -39,7 +43,9 @@ def quant(
   Args:
     x: input tensor
     n_bits: the precision for quantization.
-    calibration_axes: the calibration axes.
+    calibration_axes: the calibration axes. If None, calibration is done on the
+      entire tensor.
+    use_dummy_static_bound: If true, a static bound of 1.0 is used.
   Returns:
     A quantized QTensor
   """
@@ -51,7 +57,12 @@ def quant(
   quantizer = aqt_quantizer.quantizer_make(
       n_bits, scale_stop_grad=False, scale_dtype=jnp.float32
   )
-
+  if calibration_axes is None:
+    quantizer.calib_shared_axes = "per_tensor"
+  if use_dummy_static_bound:
+    quantizer.calibration = functools.partial(
+        calibration.ConstantCalibration, bound=1.0
+    )
   qx, _ = quantizer.quant(x, calibration_axes=calibration_axes)
   qx.dequant_dtype = jnp.float32
   return qx

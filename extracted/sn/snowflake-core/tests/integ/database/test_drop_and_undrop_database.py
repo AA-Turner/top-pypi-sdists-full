@@ -20,15 +20,11 @@ def test_drop(databases):
 
     # drop a database which exists
     new_db.drop()
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         new_db.fetch()
 
     # drop a database which does not exists
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         new_db.drop()
 
     # This should not error
@@ -42,9 +38,7 @@ def test_drop_and_undrop(databases):
 
     # drop a database which exists
     new_db.drop()
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         new_db.fetch()
 
     # undrop a database

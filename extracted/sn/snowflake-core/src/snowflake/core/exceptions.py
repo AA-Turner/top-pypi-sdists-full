@@ -26,14 +26,8 @@ class _OpenAPIError(SnowflakePythonError):
     def __init__(self, *args: typing.Any) -> None:
         super().__init__(*args)
         class_name = self.__class__.__name__
-        logger.debug(
-            "An exception of type %s was created, it's probably going to be raised.",
-            class_name,
-        )
-        logger.debug(
-            "This exception has the following args: %r.",
-            args,
-        )
+        logger.debug("An exception of type %s was created, it's probably going to be raised.", class_name)
+        logger.debug("This exception has the following args: %r.", args)
 
 
 class _APITypeError(_OpenAPIError, TypeError):
@@ -74,11 +68,7 @@ class _APITypeError(_OpenAPIError, TypeError):
 class _APIValueError(_OpenAPIError, ValueError):
     """Raises an exception for ValueErrors."""
 
-    def __init__(
-        self,
-        msg: str,
-        path_to_item: typing.Optional[list[typing.Union[str, int]]] = None,
-    ) -> None:
+    def __init__(self, msg: str, path_to_item: typing.Optional[list[typing.Union[str, int]]] = None) -> None:
         """Initialize an APIValueError.
 
         Parameters
@@ -219,18 +209,12 @@ class ConflictError(APIError):
 class UnexpectedResponseError(APIError):
     """Raised when spark-connect endpoint returns a response other than the expected protobuf."""
 
-    def __init__(
-        self,
-        root: "Root",
-        resp:typing.Any,
-    ):
+    def __init__(self, root: "Root", resp: typing.Any):
         super().__init__(root, status=200, reason="Unexpected response")
         self.body = json.dumps(resp)
 
 
-def _render_path(
-    path_to_item: typing.Optional[list[typing.Union[str, int]]],
-) -> str:
+def _render_path(path_to_item: typing.Optional[list[typing.Union[str, int]]]) -> str:
     """Return a string representation of a path."""
     result = ""
     if path_to_item:
@@ -255,10 +239,7 @@ class InvalidActionError(SnowflakePythonError):
 class InvalidResponseError(InvalidActionError):
     """Raised when the api response is invalid."""
 
-    def __init__(
-        self,
-        reason: typing.Optional[str] = None
-    ) -> None:
+    def __init__(self, reason: typing.Optional[str] = None) -> None:
         super().__init__(reason)
         self.reason = reason
 
@@ -266,10 +247,7 @@ class InvalidResponseError(InvalidActionError):
 class InvalidArgumentsError(InvalidActionError):
     """Raised when function args are invalid."""
 
-    def __init__(
-        self,
-        reason: typing.Optional[str] = None
-    ) -> None:
+    def __init__(self, reason: typing.Optional[str] = None) -> None:
         super().__init__(reason)
         self.reason = reason
 
@@ -277,10 +255,7 @@ class InvalidArgumentsError(InvalidActionError):
 class InvalidResultError(InvalidActionError):
     """Raised when function result is invalid."""
 
-    def __init__(
-        self,
-        reason: typing.Optional[str] = None
-    ) -> None:
+    def __init__(self, reason: typing.Optional[str] = None) -> None:
         super().__init__(reason)
         self.reason = reason
 
@@ -288,10 +263,7 @@ class InvalidResultError(InvalidActionError):
 class InvalidOperationError(InvalidActionError):
     """Raised when user tries to make an invalid operation."""
 
-    def __init__(
-        self,
-        reason: typing.Optional[str] = None
-    ) -> None:
+    def __init__(self, reason: typing.Optional[str] = None) -> None:
         super().__init__(reason)
         self.reason = reason
 
@@ -299,10 +271,7 @@ class InvalidOperationError(InvalidActionError):
 class RetryTimeoutError(SnowflakePythonError):
     """Raised when a request times out after any amount of retries."""
 
-    def __init__(
-            self,
-            reason: typing.Optional[str] = None
-    ) -> None:
+    def __init__(self, reason: typing.Optional[str] = None) -> None:
         super().__init__(reason)
         self.reason = reason
 

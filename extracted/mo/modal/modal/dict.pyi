@@ -1,12 +1,36 @@
 import collections.abc
+import datetime
+import google.protobuf.message
 import modal._object
 import modal.client
 import modal.object
+import modal_proto.api_pb2
 import synchronicity.combined_types
 import typing
 import typing_extensions
 
 def _serialize_dict(data): ...
+
+class DictInfo:
+    """Information about the Dict object."""
+
+    name: typing.Optional[str]
+    created_at: datetime.datetime
+    created_by: typing.Optional[str]
+
+    def __init__(
+        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
 
 class _Dict(modal._object._Object):
     """Distributed dictionary for storage in Modal apps.
@@ -49,10 +73,18 @@ class _Dict(modal._object._Object):
 
     For more examples, see the [guide](https://modal.com/docs/guide/dicts-and-queues#modal-dicts).
     """
+
+    _name: typing.Optional[str]
+    _metadata: typing.Optional[modal_proto.api_pb2.DictMetadata]
+
     def __init__(self, data={}):
         """mdmd:hidden"""
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.DictMetadata: ...
     @classmethod
     def ephemeral(
         cls: type[_Dict],
@@ -131,6 +163,10 @@ class _Dict(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
     ): ...
+    async def info(self) -> DictInfo:
+        """Return information about the Dict object."""
+        ...
+
     async def clear(self) -> None:
         """Remove all items from the Dict."""
         ...
@@ -264,10 +300,18 @@ class Dict(modal.object.Object):
 
     For more examples, see the [guide](https://modal.com/docs/guide/dicts-and-queues#modal-dicts).
     """
+
+    _name: typing.Optional[str]
+    _metadata: typing.Optional[modal_proto.api_pb2.DictMetadata]
+
     def __init__(self, data={}):
         """mdmd:hidden"""
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.DictMetadata: ...
     @classmethod
     def ephemeral(
         cls: type[Dict],
@@ -387,6 +431,17 @@ class Dict(modal.object.Object):
         ): ...
 
     delete: __delete_spec
+
+    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /) -> DictInfo:
+            """Return information about the Dict object."""
+            ...
+
+        async def aio(self, /) -> DictInfo:
+            """Return information about the Dict object."""
+            ...
+
+    info: __info_spec[typing_extensions.Self]
 
     class __clear_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /) -> None:

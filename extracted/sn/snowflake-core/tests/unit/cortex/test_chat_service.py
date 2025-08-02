@@ -17,15 +17,8 @@ def chat_service(fake_root):
 
 
 def test_chat(fake_root, chat_service):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/cortex/chat",
-    )
-    kwargs = extra_params(
-        body={"query": ""},
-        _preload_content=False,
-    )
+    args = (fake_root, "POST", BASE_URL + "/cortex/chat")
+    kwargs = extra_params(body={"query": ""}, _preload_content=False)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         op = chat_service.chat_async(ChatRequest(query=""))

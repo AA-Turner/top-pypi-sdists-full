@@ -1,0 +1,4 @@
+---
+features:
+  - |
+    Add support for sphinx-tabs (https://github.com/djungelorm/sphinx-tabs).

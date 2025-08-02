@@ -114,7 +114,7 @@ V = TypeVar("V")
 
 ResolverHook: TypeAlias = "Callable[[Resolver], None] | None"
 
-ResourceHint: TypeAlias = Literal["cpu", "io"]
+ResourceHint: TypeAlias = Literal["cpu", "io", "gpu"]
 
 _logger = get_logger(__name__)
 

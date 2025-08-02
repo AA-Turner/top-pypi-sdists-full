@@ -5,9 +5,7 @@
 import pytest
 
 from snowflake.core._common import CreateMode
-from snowflake.core.compute_pool import (
-    ComputePool,
-)
+from snowflake.core.compute_pool import ComputePool
 from snowflake.core.exceptions import APIError, ConflictError
 from tests.utils import random_string
 

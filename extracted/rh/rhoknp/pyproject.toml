@@ -1,0 +1,188 @@
+[project]
+name = "rhoknp"
+version = "1.7.1"
+description = "Yet another Python binding for Juman++/KNP/KWJA"
+license = "MIT"
+authors = [
+    { name = "Hirokazu Kiyomaru", email = "h.kiyomaru@gmail.com"},
+    { name = "Nobuhiro Ueda", email = "ueda@nlp.i.kyoto-u.ac.jp"},
+]
+maintainers = [
+    { name = "Hirokazu Kiyomaru", email = "h.kiyomaru@gmail.com"},
+    { name = "Nobuhiro Ueda", email = "ueda@nlp.i.kyoto-u.ac.jp"},
+]
+readme = "README.md"
+keywords = ["NLP", "Japanese", "Juman++", "KNP", "KWJA"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Japanese",
+    "Operating System :: MacOS",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+]
+requires-python = ">=3.9"
+
+dependencies = [
+    "typing-extensions>=4.4; python_version < '3.12'"
+]
+
+[project.optional-dependencies]
+cli = [
+    "typer-slim>=0.15.2",
+    "PyYAML>=6.0",
+    "rich>=12.6",
+    "uvicorn>=0.30.0",
+    "fastapi>=0.111.0",
+    "jinja2>=3.1.4",
+    "pygments>=2.18.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ku-nlp/rhoknp"
+Documentation = "https://rhoknp.readthedocs.io/en/latest"
+Repository = "https://github.com/ku-nlp/rhoknp"
+Issues = "https://github.com/ku-nlp/rhoknp/issues"
+
+[project.scripts]
+rhoknp = "rhoknp.cli.cli:app"
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+]
+test = [
+    "pytest>=8.0",
+    "coverage[toml]>=7.3",
+    "pytest-cov>=6.0",
+    "httpx>=0.25",
+]
+docs = [
+    "Sphinx>=7.0; python_version < '3.10'",
+    "Sphinx>=8.0; python_version >= '3.10'",
+    "sphinx-prompt>=1.8; python_version < '3.10'",
+    "sphinx-prompt>=1.9; python_version >= '3.10'",
+    "sphinx-copybutton>=0.5.0",
+    "myst-parser>=3.0; python_version < '3.10'",
+    "myst-parser>=4.0; python_version >= '3.10'",
+    "markdown-it-py>=3.0",
+    "furo>=2024.4",
+    "typing-extensions>=4.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["/src/rhoknp"]
+
+[tool.uv]
+package = true
+default-groups = ["dev", "test"]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+src = ["src"]
+target-version = "py39"  # The minimum Python version to target
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "B", "PL", "PD", "NPY", "RUF", "UP", "TID", "COM", "PT", "D", "ARG", "PYI", "ANN", "G", "FBT", "EM", "TRY", "PTH", "T", "INP"]
+#select = ["ALL"]
+ignore = [
+    "PLR0911",  # Too many return statements
+    "PLR0912",  # Too many branches
+    "PLR0913",  # Too many arguments in function definition
+    "PLR0915",  # Too many statements
+    "E501",  # Line too long
+    "RUF001",  # String contains ambiguous `ノ` (KATAKANA LETTER NO). Did you mean `/` (SOLIDUS)?
+    "RUF002",  # Docstring contains ambiguous `，` (FULLWIDTH COMMA). Did you mean `,` (COMMA)?
+    "RUF003",  # Comment contains ambiguous `（` (FULLWIDTH LEFT PARENTHESIS). Did you mean `(` (LEFT PARENTHESIS)?
+    "UP037",  # Remove quotes from type annotation
+    "COM812",  # Trailing comma missing
+    "PLR2004",  # Magic value used in comparison
+    "D100",  # Missing docstring in public module
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in `__init__`
+    "D301",  # Use `r"""` if any backslashes in a docstring
+    "D403",  # First word of the first line should be properly capitalized
+    "D415",  # First line should end with a period, question mark, or exclamation point
+    "ANN002",  # Missing type annotation for `*args`
+    "ANN003",  # Missing type annotation for `**kwargs`
+    "FA100",  # Missing `from __future__ import annotations`, but uses `...`
+    "S101",  # Use of `assert` detected
+    "G004",  # Logging statement uses f-string
+    "FBT001",  # Boolean-typed positional argument in function definition
+    "FBT002",  # Boolean default positional argument in function definition
+    "FBT003",  # Boolean positional value in function call
+    "EM101",  # Exception must not use a string literal, assign to variable first
+    "EM102",  # Exception must not use an f-string literal, assign to variable first
+    "TRY003",  # Avoid specifying long messages outside the exception class
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "D104",  # Missing docstring in public package
+]
+"tests/*" = [
+    "D",  # pydocstyle
+    "S101",  # Use of `assert` detected
+    "INP001",  # File `...` is part of an implicit namespace package. Add an `__init__.py`
+]
+"src/rhoknp/cli/*" = [
+    "T201",  # `print` found
+]
+"examples/*" = [
+    "T201",  # `print` found
+    "INP001",  # File `...` is part of an implicit namespace package. Add an `__init__.py`
+    "PTH123",  # `open()` should be replaced by `Path.open()`
+]
+"docs/conf.py" = [
+    "INP001",  # File `...` is part of an implicit namespace package. Add an `__init__.py`
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20  # default: 10
+
+[tool.mypy]
+python_version = "3.9"
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",  # Do not complain about missing debug-only code
+    "except ImportError",  # Do not complain about packages we have installed
+    # Do not complain if tests do not hit defensive assertion code
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "raise ImportError",
+    # Do not complain if non-runnable code is not run
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",  # Do not complain about abstract methods
+    "@overload",  # Do not complain about overloads
+]

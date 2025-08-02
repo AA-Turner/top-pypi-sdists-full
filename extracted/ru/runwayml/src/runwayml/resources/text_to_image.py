@@ -97,7 +97,7 @@ class TextToImageResource(SyncAPIResource):
           content_moderation: Settings that affect the behavior of the content moderation system.
 
           reference_images: An array of images to be used as references for the generated image output. Up
-              to three reference images can be provided.
+              to three reference images can be provided for `gen4_image`.
 
           seed: If unspecified, a random number is chosen. Varying the seed integer is a way to
               get different results for the same other request parameters. Using the same seed
@@ -198,7 +198,7 @@ class AsyncTextToImageResource(AsyncAPIResource):
           content_moderation: Settings that affect the behavior of the content moderation system.
 
           reference_images: An array of images to be used as references for the generated image output. Up
-              to three reference images can be provided.
+              to three reference images can be provided for `gen4_image`.
 
           seed: If unspecified, a random number is chosen. Varying the seed integer is a way to
               get different results for the same other request parameters. Using the same seed

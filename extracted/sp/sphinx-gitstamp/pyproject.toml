@@ -1,0 +1,37 @@
+[build-system]
+requires = [
+    "setuptools",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sphinx-gitstamp"
+description = "git timestamp generator for Sphinx"
+authors = [
+    {name = "Jared Dillard", email = "jared.dillard@gmail.com"},
+]
+maintainers = [
+    {name = "Jared Dillard", email = "jared.dillard@gmail.com"},
+]
+classifiers=[
+    "Framework :: Sphinx :: Extension",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Documentation :: Sphinx",
+]
+license = {text = "MIT"}
+readme = "README.rst"
+dynamic = [
+    "version",
+]
+
+[project.urls]
+download = "https://pypi.org/project/sphinx-gitstamp/"
+source = "https://github.com/jdillard/sphinx-gitstamp"
+
+[tool.isort]
+profile = "black"

@@ -38,6 +38,7 @@ def test_alter_all_params(schemas, temp_schema: SchemaResource):
     assert new_sc.serverless_task_max_statement_size == new_sc_def.serverless_task_max_statement_size
     assert new_sc.user_task_timeout_ms == new_sc_def.user_task_timeout_ms
 
+
 @pytest.mark.use_accountadmin
 def test_alter_with_managed_access(temp_schema: SchemaResource):
     new_sc_def = temp_schema.fetch()

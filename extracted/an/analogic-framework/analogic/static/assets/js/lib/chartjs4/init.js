@@ -1,1 +1,0 @@
-const Chart4 = Chart, ChartDataLabels4 = ChartDataLabels;

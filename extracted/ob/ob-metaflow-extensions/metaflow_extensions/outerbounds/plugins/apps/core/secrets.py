@@ -116,7 +116,7 @@ class SecretRetriever:
 
         if not perimeter:
             raise OuterboundsSecretsException(
-                "No perimeter set. Please make sure to run `outerbounds configure <...>` command which can be found on the Ourebounds UI or reach out to your Outerbounds support team."
+                "No perimeter set. Please make sure to run `outerbounds configure <...>` command which can be found on the Outerbounds UI or reach out to your Outerbounds support team."
             )
 
         if not integrations_url:

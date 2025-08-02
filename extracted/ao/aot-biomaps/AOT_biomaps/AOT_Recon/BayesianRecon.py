@@ -1,6 +1,8 @@
 from AOT_biomaps.AOT_Recon.AlgebraicRecon import AlgebraicRecon
 from AOT_biomaps.AOT_Recon.ReconEnums import ReconType, OptimizerType, PotentialType, ProcessType
+from .ReconTools import check_gpu_memory, calculate_memory_requirement
 from .AOT_Optimizers import MAPEM, DEPIERRO
+from AOT_biomaps.Config import config
 
 import warnings
 import numpy as np
@@ -75,66 +77,80 @@ class BayesianRecon(AlgebraicRecon):
                 raise ValueError(f"Unknown optimizer type: {self.optimizer.value}")
 
     def _MAPEM_STOP(self, SMatrix, y, withTumor):
+        """
+        This method implements the MAPEM_STOP algorithm using either CPU or single-GPU PyTorch acceleration.
+        Multi-GPU and Multi-CPU modes are not implemented for this algorithm.
+        """
+        result = None
+        required_memory = calculate_memory_requirement(SMatrix, y)
 
-        if self.isGPU and self.isMultiGPU:
-            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
+        if self.isGPU:
+            if check_gpu_memory(config.select_best_gpu(), required_memory):
+                try:
+                    result = MAPEM._MAPEM_GPU_STOP(SMatrix=SMatrix, y=y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+                except Exception as e:
+                    warnings.warn(f"Falling back to CPU implementation due to an error in GPU implementation: {e}")
+            else:
+                warnings.warn("Insufficient GPU memory for single GPU MAPEM_STOP. Falling back to CPU.")
+
+        if result is None:
             try:
-                return MAPEM._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return MAPEM._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if self.isGPU and not self.isMultiGPU:
-            try:
-                return MAPEM._MAPEM_GPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return MAPEM._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and self.isMultiCPU:
-            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
-            return MAPEM._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and not self.isMultiCPU:
-            return MAPEM._MAPEM_CPU_STOP(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        
+                result = MAPEM._MAPEM_CPU_STOP(SMatrix=SMatrix, y=y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+            except Exception as e:
+                warnings.warn(f"An error occurred in CPU implementation: {e}")
+                result = None
+
+        return result
+
     def _MAPEM(self, SMatrix, y, withTumor):
-        
-        if self.isGPU and self.isMultiGPU:
-            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
+        """
+        This method implements the MAPEM algorithm using either CPU or single-GPU PyTorch acceleration.
+        Multi-GPU and Multi-CPU modes are not implemented for this algorithm.
+        """
+        result = None
+        required_memory = calculate_memory_requirement(SMatrix, y)
+
+        if self.isGPU:
+            if check_gpu_memory(config.select_best_gpu(), required_memory):
+                try:
+                    result = MAPEM._MAPEM_GPU(SMatrix=SMatrix, y=y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+                except Exception as e:
+                    warnings.warn(f"Falling back to CPU implementation due to an error in GPU implementation: {e}")
+            else:
+                warnings.warn("Insufficient GPU memory for single GPU MAPEM. Falling back to CPU.")
+
+        if result is None:
             try:
-                return MAPEM._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations ,beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return MAPEM._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if self.isGPU and not self.isMultiGPU:
-            try:
-                return MAPEM._MAPEM_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return MAPEM._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and self.isMultiCPU:
-            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
-            return MAPEM._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and not self.isMultiCPU:
-            return MAPEM._MAPEM_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+                result = MAPEM._MAPEM_CPU(SMatrix=SMatrix, y=y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, delta=self.delta, gamma=self.gamma, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+            except Exception as e:
+                warnings.warn(f"An error occurred in CPU implementation: {e}")
+                result = None
+
+        return result
 
     def _DEPIERRO(self, SMatrix, y, withTumor):
-        if self.isGPU and self.isMultiGPU:
-            warnings.warn("Multi-GPU MAPEM_STOP is not implemented yet. Falling back to single GPU.")
-            try:
-                return DEPIERRO._DEPIERRO_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return DEPIERRO._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if self.isGPU and not self.isMultiGPU:
-            try:
-                return DEPIERRO._DEPIERRO_GPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Falling back to CPU implementation due to an error in GPU implementation.")
-                return DEPIERRO._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and self.isMultiCPU:
-            warnings.warn("Multi-CPU MAPEM_STOP is not implemented yet. Falling back to single CPU.")
-            return DEPIERRO._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and not self.isMultiCPU:
-            return DEPIERRO._DEPIERRO_CPU(SMatrix= SMatrix, y = y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+        """
+        This method implements the DEPIERRO algorithm using either CPU or single-GPU PyTorch acceleration.
+        Multi-GPU and Multi-CPU modes are not implemented for this algorithm.
+        """
+        result = None
+        required_memory = calculate_memory_requirement(SMatrix, y)
 
+        if self.isGPU:
+            if check_gpu_memory(config.select_best_gpu(), required_memory):
+                try:
+                    result = DEPIERRO._DEPIERRO_GPU(SMatrix=SMatrix, y=y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+                except Exception as e:
+                    warnings.warn(f"Falling back to CPU implementation due to an error in GPU implementation: {e}")
+            else:
+                warnings.warn("Insufficient GPU memory for single GPU DEPIERRO. Falling back to CPU.")
 
+        if result is None:
+            try:
+                result = DEPIERRO._DEPIERRO_CPU(SMatrix=SMatrix, y=y, Omega=self.potentialFunction, numIterations=self.numIterations, beta=self.beta, sigma=self.sigma, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+            except Exception as e:
+                warnings.warn(f"An error occurred in CPU implementation: {e}")
+                result = None
+
+        return result
 

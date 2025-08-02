@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: terminator-py
+Version: 0.10.15
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Quality Assurance
+Summary: Python bindings for the Terminator Rust library (via PyO3)
+Keywords: ui,automation,testing,desktop,windows
+Author-email: mediar-ai <louis@mediar.ai>
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/mediar-ai/terminator
+Project-URL: Bug Tracker, https://github.com/mediar-ai/terminator/issues
+Project-URL: Documentation, https://github.com/mediar-ai/terminator#readme
+Project-URL: Repository, https://github.com/mediar-ai/terminator

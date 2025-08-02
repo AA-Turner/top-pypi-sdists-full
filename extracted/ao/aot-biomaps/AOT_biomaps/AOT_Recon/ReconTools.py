@@ -79,6 +79,22 @@ def load_recon(hdr_path):
     
     return image.T
 
+def calculate_memory_requirement(SMatrix, y):
+    """Calculate the memory requirement for the given matrices in GB."""
+    num_elements_SMatrix = SMatrix.size
+    num_elements_y = y.size
+    num_elements_theta = SMatrix.shape[1] * SMatrix.shape[2]  # Assuming theta has shape (Z, X)
+
+    # Calculate total memory requirement in GB
+    total_memory = (num_elements_SMatrix + num_elements_y + num_elements_theta) * 32 / 8 / 1024**3
+    return total_memory
+
+def check_gpu_memory(device_index, required_memory):
+    """Check if enough memory is available on the specified GPU."""
+    free_memory, total_memory = torch.cuda.mem_get_info(f"cuda:{device_index}")
+    free_memory_gb = free_memory / 1024**3
+    print(f"Free memory on GPU {device_index}: {free_memory_gb:.2f} GB, Required memory: {required_memory:.2f} GB")
+    return free_memory_gb >= required_memory
 
 @njit(parallel=True)
 def _forward_projection(SMatrix, theta_p, q_p):
@@ -127,7 +143,7 @@ def _build_adjacency_sparse_CPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face
     values = np.array(weights, dtype=np.float32)
     return index, values 
 
-def _build_adjacency_sparse_GPU(Z, X, corner=(0.5 - np.sqrt(2) / 4) / np.sqrt(2), face=0.5 - np.sqrt(2) / 4):
+def _build_adjacency_sparse_GPU(Z, X, device, corner=(0.5 - np.sqrt(2) / 4) / np.sqrt(2), face=0.5 - np.sqrt(2) / 4):
     weight_dict = {}
 
     for z in range(Z):
@@ -154,8 +170,8 @@ def _build_adjacency_sparse_GPU(Z, X, corner=(0.5 - np.sqrt(2) / 4) / np.sqrt(2)
         cols.append(k)
         weights.append(weight)
 
-    index = torch.tensor([rows, cols], dtype=torch.long)
-    values = torch.tensor(weights, dtype=torch.float32)
+    index = torch.tensor([rows, cols], dtype=torch.long, device=device)
+    values = torch.tensor(weights, dtype=torch.float32, device=device)
 
     return index, values
 

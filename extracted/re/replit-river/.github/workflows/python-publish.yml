@@ -1,0 +1,49 @@
+# This workflow will upload a Python Package using Twine when a release is created
+# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+
+name: Upload Python Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'What version to use for the release'
+        required: true
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Set release version
+      run: |
+        tag="${{ github.event.inputs.version }}"
+        if [ -z "$tag" ]; then
+          tag="${GITHUB_REF_NAME}"
+        fi
+        version="${tag#v}"  # Strip leading v
+
+        # Bump library tag
+        sed -i'' "s~0.0.0a0~$version~" pyproject.toml
+
+    - name: Build and publish
+      run: |
+        uv sync --frozen  # NB: Not --locked, since bumping the version changes the lockfile.
+        uv build
+        UV_PUBLISH_TOKEN="${{ secrets.PYPI_TOKEN }}" \
+        uv publish

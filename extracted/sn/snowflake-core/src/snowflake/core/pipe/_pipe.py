@@ -5,11 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
 from snowflake.core.pipe._generated.api import PipeApi
@@ -41,18 +37,11 @@ class PipeCollection(SchemaObjectCollectionParent["PipeResource"]):
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, PipeResource)
         self._api = PipeApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root),
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
-    def create(
-        self,
-        pipe: Pipe,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "PipeResource":
+    def create(self, pipe: Pipe, *, mode: CreateMode = CreateMode.error_if_exists) -> "PipeResource":
         """Create a pipe in Snowflake.
 
         Parameters
@@ -76,10 +65,7 @@ class PipeCollection(SchemaObjectCollectionParent["PipeResource"]):
         ________
         Creating a pipe in Snowflake and getting reference to it:
 
-        >>> pipe_parameters = Pipe(
-        ...     name="my_pipe",
-        ...     comment="This is a pipe"
-        ... )
+        >>> pipe_parameters = Pipe(name="my_pipe", comment="This is a pipe")
         >>> # Use the pipe collection created before to create a referece to the pipe resource
         >>> # in Snowflake.
         >>> pipe_reference = pipe_collection.create(pipe_parameters)
@@ -92,16 +78,13 @@ class PipeCollection(SchemaObjectCollectionParent["PipeResource"]):
 
     @api_telemetry
     def create_async(
-        self,
-        pipe: Pipe,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, pipe: Pipe, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["PipeResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_pipe(
             self.database.name, self.schema.name, pipe, create_mode=StrictStr(real_mode), async_req=True
@@ -109,11 +92,7 @@ class PipeCollection(SchemaObjectCollectionParent["PipeResource"]):
         return PollingOperation(future, lambda _: PipeResource(pipe.name, self))
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[Pipe]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[Pipe]:
         """Iterate through ``Pipe`` objects in Snowflake, filtering on any optional ``like`` pattern.
 
         Parameters
@@ -148,16 +127,12 @@ class PipeCollection(SchemaObjectCollectionParent["PipeResource"]):
         return iter(pipes)
 
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[Pipe]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[Pipe]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_pipes(
             database=self.database.name, var_schema=self.schema.name, like=like, async_req=True
         )
@@ -192,12 +167,7 @@ class PipeResource(SchemaObjectReferenceMixin[PipeCollection]):
         # Accessing information of the pipe with pipe instance.
         >>> print(pipe.name, pipe.comment)
         """
-        return self._api.fetch_pipe(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        return self._api.fetch_pipe(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Pipe]:
@@ -205,13 +175,8 @@ class PipeResource(SchemaObjectReferenceMixin[PipeCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.fetch_pipe(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.fetch_pipe(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
@@ -242,7 +207,7 @@ class PipeResource(SchemaObjectReferenceMixin[PipeCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.delete_pipe(self.database.name, self.schema.name, self.name, if_exists, async_req=True)
         return PollingOperations.empty(future)
 
@@ -281,7 +246,7 @@ class PipeResource(SchemaObjectReferenceMixin[PipeCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.refresh_pipe(
             self.database.name, self.schema.name, self.name, if_exists, prefix, modified_after, async_req=True
         )

@@ -1,0 +1,96 @@
+Metadata-Version: 2.4
+Name: hivemind
+Version: 1.1.11
+Summary: Decentralized deep learning in PyTorch
+Home-page: https://github.com/learning-at-home/hivemind
+Author: Learning@home & contributors
+Author-email: hivemind-team@hotmail.com
+License: MIT
+Keywords: pytorch,deep learning,machine learning,gpu,distributed computing,volunteer computing,dht
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE
+Requires-Dist: PyYAML
+Requires-Dist: torch>=1.9.0
+Requires-Dist: numpy>=1.17
+Requires-Dist: scipy>=1.2.1
+Requires-Dist: prefetch_generator>=1.0.1
+Requires-Dist: msgpack>=0.5.6
+Requires-Dist: sortedcontainers
+Requires-Dist: uvloop>=0.14.0
+Requires-Dist: grpcio-tools>=1.33.2
+Requires-Dist: protobuf>=5.29.0
+Requires-Dist: configargparse>=1.2.3
+Requires-Dist: py-multihash>=0.2.3
+Requires-Dist: cryptography>=3.4.6
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: packaging>=20.9
+Requires-Dist: varint>=1.0.2
+Requires-Dist: base58>=1.0.2
+Requires-Dist: netaddr>=1.3.0
+Requires-Dist: idna>=3.10
+Requires-Dist: py-cid>=0.3.0
+Provides-Extra: dev
+Requires-Dist: pytest==8.3.5; extra == "dev"
+Requires-Dist: pytest-forked; extra == "dev"
+Requires-Dist: pytest-asyncio==0.16.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-timeout; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: tqdm; extra == "dev"
+Requires-Dist: scikit-learn; extra == "dev"
+Requires-Dist: codespell==2.2.2; extra == "dev"
+Requires-Dist: psutil; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: ruff==0.11.2; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: recommonmark==0.5.0; extra == "docs"
+Requires-Dist: sphinx_rtd_theme==0.4.3; extra == "docs"
+Requires-Dist: docutils==0.16; extra == "docs"
+Requires-Dist: sphinx==5.0.0; extra == "docs"
+Provides-Extra: bitsandbytes
+Requires-Dist: bitsandbytes~=0.45.2; extra == "bitsandbytes"
+Provides-Extra: all
+Requires-Dist: pytest==8.3.5; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
+Requires-Dist: pytest-asyncio==0.16.0; extra == "all"
+Requires-Dist: pytest-cov; extra == "all"
+Requires-Dist: pytest-timeout; extra == "all"
+Requires-Dist: coverage; extra == "all"
+Requires-Dist: tqdm; extra == "all"
+Requires-Dist: scikit-learn; extra == "all"
+Requires-Dist: codespell==2.2.2; extra == "all"
+Requires-Dist: psutil; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: ruff==0.11.2; extra == "all"
+Requires-Dist: recommonmark==0.5.0; extra == "all"
+Requires-Dist: sphinx_rtd_theme==0.4.3; extra == "all"
+Requires-Dist: docutils==0.16; extra == "all"
+Requires-Dist: sphinx==5.0.0; extra == "all"
+Requires-Dist: bitsandbytes~=0.45.2; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
+
+Decentralized deep learning in PyTorch. Built to train models on thousands of volunteers across the world.

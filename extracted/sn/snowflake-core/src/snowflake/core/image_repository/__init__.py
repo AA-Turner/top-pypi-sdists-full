@@ -1,9 +1,7 @@
 """Manages Snowpark Container Image Repositories.
 
 Example:
-    >>> new_image_repository = ImageRepository(
-    ...     name="my_imagerepo",
-    ... )
+    >>> new_image_repository = ImageRepository(name="my_imagerepo")
     >>> image_repositories = root.databases["MYDB"].schemas["MYSCHEMA"].image_repositories
     >>> my_image_repo = image_repositories.create(new_image_repository)
     >>> my_image_repo_snapshot = my_image_repo.fetch()
@@ -14,16 +12,7 @@ Example:
 Refer to :class:`snowflake.core.Root` to create the ``root``.
 """
 
-
-from ._image_repository import (
-    ImageRepository,
-    ImageRepositoryCollection,
-    ImageRepositoryResource,
-)
+from ._image_repository import ImageRepository, ImageRepositoryCollection, ImageRepositoryResource
 
 
-__all__ = [
-    "ImageRepository",
-    "ImageRepositoryCollection",
-    "ImageRepositoryResource",
-]
+__all__ = ["ImageRepository", "ImageRepositoryCollection", "ImageRepositoryResource"]

@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: astpath
+Version: 0.9.1
+Summary: A query language for Python abstract syntax trees
+Home-page: https://github.com/hchasestevens/astpath
+Author: H. Chase Stevens
+Author-email: chase@chasestevens.com
+License: MIT
+Description: UNKNOWN
+Keywords: xpath xml ast asts syntax query
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Provides-Extra: xpath

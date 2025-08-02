@@ -1,0 +1,9 @@
+_fw_name: FileWriteTask
+dest: "."
+files_to_write:
+- contents: |
+    hello
+    world
+  filename: myfile1
+- contents: world
+  filename: myfile2

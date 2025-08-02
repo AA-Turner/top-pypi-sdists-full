@@ -1,0 +1,12 @@
+---
+project_cfg: lfdocs
+project: lfdocs-conf
+
+extensions:
+  - reno.sphinxext
+  - sphinx.ext.autodoc
+  - sphinx.ext.doctest
+  - sphinx.ext.intersphinx
+  - sphinx.ext.todo
+  - sphinx.ext.coverage
+  - sphinx.ext.viewcode

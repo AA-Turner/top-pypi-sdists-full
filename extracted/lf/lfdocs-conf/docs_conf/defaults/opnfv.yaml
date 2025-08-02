@@ -1,0 +1,30 @@
+---
+project: OPNFV
+release: Latest
+version: Latest
+author: Open Platform for NFV
+copyright: "{}, OPNFV. Licensed under CC BY 4.0"
+
+needs_sphinx: "1.3"
+extensions:
+  - sphinxcontrib.httpdomain
+  - sphinx.ext.autodoc
+  - sphinx.ext.napoleon
+  - sphinx.ext.viewcode
+exclude_patterns:
+  - .DS_Store
+  - _build
+  - Thumbs.db
+  - .tox
+todo_include_todos: false
+
+html_theme: opnfv
+html_theme_options:
+  bootswatch_theme: journal
+  navbar_sidebarrel: false
+  navbar_title: " "
+html_logo: _static/logo.png
+html_favicon: _static/favicon.ico
+html_static_path:
+  - _static
+htmlhelp_basename: OPNFV

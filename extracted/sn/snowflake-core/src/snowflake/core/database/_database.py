@@ -38,9 +38,8 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
 
     >>> databases = root.databases
     >>> new_database = Database(
-    ...     name="my_new_database",
-    ...     comment="this is my new database to prototype a new feature in",
-    ...    )
+    ...     name="my_new_database", comment="this is my new database to prototype a new feature in"
+    ... )
     >>> databases.create(new_database)
     """
 
@@ -94,13 +93,7 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
             >>> new_db_ref = root.databases.create(Database(name="my_new_database"), mode=CreateMode.if_not_exists)
             >>> print(new_db_ref.fetch())
         """
-        self._create(
-            database=database,
-            clone=clone,
-            from_share=from_share,
-            mode=mode,
-            async_req=False,
-        )
+        self._create(database=database, clone=clone, from_share=from_share, mode=mode, async_req=False)
         return self[database.name]
 
     @api_telemetry
@@ -116,14 +109,8 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._create(
-            database=database,
-            clone=clone,
-            from_share=from_share,
-            mode=mode,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._create(database=database, clone=clone, from_share=from_share, mode=mode, async_req=True)
         return PollingOperation(future, lambda _: self[database.name])
 
     @api_telemetry
@@ -195,7 +182,7 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_databases(
             StrictStr(like) if like is not None else None,
             StrictStr(starts_with) if starts_with else None,
@@ -213,8 +200,7 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
         from_share: Optional[str],
         mode: CreateMode,
         async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
@@ -224,8 +210,7 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
         from_share: Optional[str],
         mode: CreateMode,
         async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+    ) -> SuccessResponse: ...
 
     def _create(
         self,
@@ -244,32 +229,19 @@ class DatabaseCollection(AccountObjectCollectionParent["DatabaseResource"]):
             if isinstance(clone, Clone) and isinstance(clone.point_of_time, PointOfTime):
                 pot = DatabasePointOfTime.from_dict(clone.point_of_time.to_dict())
             real_clone = Clone(source=clone) if isinstance(clone, str) else clone
-            clone_req = DatabaseClone(
-                point_of_time=pot,
-                **database._to_model().to_dict(),
-            )
+            clone_req = DatabaseClone(point_of_time=pot, **database._to_model().to_dict())
             return self._api.clone_database(
-                name=real_clone.source,
-                database_clone=clone_req,
-                create_mode=StrictStr(real_mode),
-                async_req=async_req,
+                name=real_clone.source, database_clone=clone_req, create_mode=StrictStr(real_mode), async_req=async_req
             )
 
         if from_share is not None:
-            share_req = DatabaseFromShare(
-                **database._to_model().to_dict(),
-            )
+            share_req = DatabaseFromShare(**database._to_model().to_dict())
             return self._api.create_database_from_share(
-                database_from_share=share_req,
-                share=from_share,
-                create_mode=StrictStr(real_mode),
-                async_req=async_req,
+                database_from_share=share_req, share=from_share, create_mode=StrictStr(real_mode), async_req=async_req
             )
 
         return self._api.create_database(
-            database=database._to_model(),
-            create_mode=StrictStr(real_mode),
-            async_req=async_req,
+            database=database._to_model(), create_mode=StrictStr(real_mode), async_req=async_req
         )
 
 
@@ -299,12 +271,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
         >>> my_database = root.databases["my_db"].fetch()
         >>> print(my_database.is_current)
         """
-        return Database._from_model(
-            self.collection._api.fetch_database(
-                self.name,
-                async_req=False,
-            )
-        )
+        return Database._from_model(self.collection._api.fetch_database(self.name, async_req=False))
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Database]:
@@ -312,11 +279,8 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_database(
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_database(self.name, async_req=True)
         return PollingOperation(future, lambda rest_model: Database._from_model(rest_model))
 
     @api_telemetry
@@ -358,11 +322,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         >>> root.databases["to_be_dropped"].drop(if_exists=True)
         """
-        self.collection._api.delete_database(
-            name=self.name,
-            if_exists=if_exists,
-            async_req=False,
-        )
+        self.collection._api.delete_database(name=self.name, if_exists=if_exists, async_req=False)
 
     @api_telemetry
     def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
@@ -370,12 +330,8 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.delete_database(
-            name=self.name,
-            if_exists=if_exists,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.delete_database(name=self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -388,10 +344,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         >>> root.databases["to_be_undropped"].undrop()
         """
-        self.collection._api.undrop_database(
-            name=self.name,
-            async_req=False,
-        )
+        self.collection._api.undrop_database(name=self.name, async_req=False)
 
     @api_telemetry
     def undrop_async(self) -> PollingOperation[None]:
@@ -399,19 +352,13 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.undrop_database(
-            name=self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.undrop_database(name=self.name, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
     @deprecated("create_or_alter")
-    def create_or_update(
-        self,
-        database: Database,
-    ) -> None:
+    def create_or_update(self, database: Database) -> None:
         """Create or update an existing database.
 
         Examples
@@ -424,23 +371,17 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
         self.create_or_alter(database=database)
 
     @api_telemetry
-    def create_or_alter(
-        self,
-        database: Database,
-    ) -> None:
+    def create_or_alter(self, database: Database) -> None:
         """Create or alter a database in Snowflake."""
         self._api.create_or_alter_database(database.name, database._to_model(), async_req=False)
 
     @api_telemetry
-    def create_or_alter_async(
-        self,
-        database: Database,
-    ) -> PollingOperation[None]:
+    def create_or_alter_async(self, database: Database) -> PollingOperation[None]:
         """An asynchronous version of :func:`create_or_alter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.create_or_alter_database(database.name, database._to_model(), async_req=True)
         return PollingOperations.empty(future)
 
@@ -471,14 +412,11 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
         Enabling replication of "my_db" database on 2 other accounts using its reference:
 
         >>> root.databases["my_db"].enable_replication(
-        ...     accounts=["accountName1", "accountName2"],
-        ...     ignore_edition_check=True,
+        ...     accounts=["accountName1", "accountName2"], ignore_edition_check=True
         ... )
         """
         if len(accounts) == 0:
-            raise ValueError(
-                "Account list given to replication cannot be empty.",
-            )
+            raise ValueError("Account list given to replication cannot be empty.")
         self.collection._api.enable_database_replication(
             name=self.name,
             account_identifiers=AccountIdentifiers(accounts=accounts),
@@ -488,19 +426,15 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
     @api_telemetry
     def enable_replication_async(
-        self,
-        accounts: list[str],
-        ignore_edition_check: bool = False,
+        self, accounts: list[str], ignore_edition_check: bool = False
     ) -> PollingOperation[None]:
         """An asynchronous version of :func:`enable_replication`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         if len(accounts) == 0:
-            raise ValueError(
-                "Account list given to replication cannot be empty.",
-            )
+            raise ValueError("Account list given to replication cannot be empty.")
         future = self.collection._api.enable_database_replication(
             name=self.name,
             account_identifiers=AccountIdentifiers(accounts=accounts),
@@ -508,7 +442,6 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
             async_req=True,
         )
         return PollingOperations.empty(future)
-
 
     @api_telemetry
     def disable_replication(self, accounts: Optional[list[str]] = None) -> None:
@@ -539,9 +472,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
         if accounts is None:
             accounts = []
         self.collection._api.disable_database_replication(
-            name=self.name,
-            account_identifiers=AccountIdentifiers(accounts=accounts),
-            async_req=False,
+            name=self.name, account_identifiers=AccountIdentifiers(accounts=accounts), async_req=False
         )
 
     @api_telemetry
@@ -550,13 +481,11 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         if accounts is None:
             accounts = []
         future = self.collection._api.disable_database_replication(
-            name=self.name,
-            account_identifiers=AccountIdentifiers(accounts=accounts),
-            async_req=True,
+            name=self.name, account_identifiers=AccountIdentifiers(accounts=accounts), async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -572,10 +501,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         >>> root.databases["db_replication"].refresh_replication()
         """
-        self.collection._api.refresh_database_replication(
-            name=self.name,
-            async_req=False,
-        )
+        self.collection._api.refresh_database_replication(name=self.name, async_req=False)
 
     @api_telemetry
     def refresh_replication_async(self) -> PollingOperation[None]:
@@ -583,11 +509,8 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.refresh_database_replication(
-            name=self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.refresh_database_replication(name=self.name, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -606,13 +529,9 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
         >>> root.databases["my_db"].enable_failover(accounts=["my_failover_acc"])
         """
         if len(accounts) == 0:
-            raise ValueError(
-                "Account list given to replication cannot be empty.",
-            )
+            raise ValueError("Account list given to replication cannot be empty.")
         self.collection._api.enable_database_failover(
-            name=self.name,
-            account_identifiers=AccountIdentifiers(accounts=accounts),
-            async_req=False,
+            name=self.name, account_identifiers=AccountIdentifiers(accounts=accounts), async_req=False
         )
 
     @api_telemetry
@@ -621,15 +540,11 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         if len(accounts) == 0:
-            raise ValueError(
-                "Account list given to replication cannot be empty.",
-            )
+            raise ValueError("Account list given to replication cannot be empty.")
         future = self.collection._api.enable_database_failover(
-            name=self.name,
-            account_identifiers=AccountIdentifiers(accounts=accounts),
-            async_req=True,
+            name=self.name, account_identifiers=AccountIdentifiers(accounts=accounts), async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -657,9 +572,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
         if accounts is None:
             accounts = []
         self.collection._api.disable_database_failover(
-            name=self.name,
-            account_identifiers=AccountIdentifiers(accounts=accounts),
-            async_req=False,
+            name=self.name, account_identifiers=AccountIdentifiers(accounts=accounts), async_req=False
         )
 
     @api_telemetry
@@ -668,13 +581,11 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         if accounts is None:
             accounts = []
         future = self.collection._api.disable_database_failover(
-            name=self.name,
-            account_identifiers=AccountIdentifiers(accounts=accounts),
-            async_req=True,
+            name=self.name, account_identifiers=AccountIdentifiers(accounts=accounts), async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -691,10 +602,7 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         >>> root.databases["my_db"].promote_to_primary_failover()
         """
-        self.collection._api.primary_database_failover(
-            name=self.name,
-            async_req=False,
-        )
+        self.collection._api.primary_database_failover(name=self.name, async_req=False)
 
     @api_telemetry
     def promote_to_primary_failover_async(self) -> PollingOperation[None]:
@@ -702,11 +610,8 @@ class DatabaseResource(ObjectReferenceMixin[DatabaseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.primary_database_failover(
-            name=self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.primary_database_failover(name=self.name, async_req=True)
         return PollingOperations.empty(future)
 
     @cached_property

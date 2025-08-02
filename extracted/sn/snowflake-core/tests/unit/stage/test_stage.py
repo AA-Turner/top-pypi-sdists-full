@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.stage import Stage
+from snowflake.core.stage import Stage, StageResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -22,21 +22,15 @@ def stage(stages):
 
 
 def test_create_stage(fake_root, stages):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/stages?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/stages?createMode=errorIfExists")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={
-            "name": "my_stage",
-            "kind": "PERMANENT",
-        },
+        query_params=[("createMode", "errorIfExists")], body={"name": "my_stage", "kind": "PERMANENT"}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        stages.create(Stage(name="my_stage"))
+        stage_res = stages.create(Stage(name="my_stage"))
+        assert isinstance(stage_res, StageResource)
+        assert stage_res.name == "my_stage"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -48,11 +42,7 @@ def test_create_stage(fake_root, stages):
 
 
 def test_iter_stage(fake_root, stages):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/stages",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/stages")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -73,11 +63,7 @@ def test_fetch_stage(fake_root, stage):
     from snowflake.core.stage._generated.models import Stage as StageModel
 
     model = StageModel(name="my_stage")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -95,11 +81,7 @@ def test_fetch_stage(fake_root, stage):
 
 
 def test_drop_stage(fake_root, stage):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -114,11 +96,7 @@ def test_drop_stage(fake_root, stage):
 
 
 def test_list_files(fake_root, stage):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage/files",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage/files")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

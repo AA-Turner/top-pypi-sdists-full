@@ -1,13 +1,13 @@
 [build-system]
-requires = ["flit-core >= 3.8"]
+requires = ["flit-core >= 3.11"]
 build-backend = "flit_core.buildapi"
 
 [project]
 name = "build"
 description = "A simple, correct Python build frontend"
 readme = "README.md"
-requires-python = ">= 3.8"
-license.file = "LICENSE"
+requires-python = ">= 3.9"
+license = "MIT"
 authors = [
   { name = "Filipe Laíns", email = "lains@riseup.net" },
   { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
@@ -15,15 +15,14 @@ authors = [
   { name = "Henry Schreiner", email = "henryschreineriii@gmail.com" },
 ]
 classifiers = [
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -43,6 +42,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+uv = [
+  "uv >= 0.1.18",
+]
+virtualenv = [
+  "virtualenv >= 20.11; python_version < '3.10'",
+  "virtualenv >= 20.17; python_version >= '3.10' and python_version < '3.14'",
+  "virtualenv >= 20.31; python_version >= '3.14'",
+]
+
+[project.scripts]
+pyproject-build = "build.__main__:entrypoint"
+
+[project.entry-points."pipx.run"]
+build = "build.__main__:entrypoint"
+
+[dependency-groups]
+extra = [
+  "uv >= 0.1.18",
+  "virtualenv >= 20.0.35",
+]
 docs = [
   "furo >= 2023.08.17",
   "sphinx ~= 7.0",
@@ -51,7 +70,6 @@ docs = [
   "sphinx-issues >= 3.0.0",
 ]
 test = [
-  "build[uv, virtualenv]",
   "filelock >= 3",
   "pytest >= 6.2.4",
   "pytest-cov >= 2.12",
@@ -63,26 +81,20 @@ test = [
   'setuptools >= 56.0.0; python_version == "3.10"',
   'setuptools >= 56.0.0; python_version == "3.11"',
   'setuptools >= 67.8.0; python_version >= "3.12"',
+  "setuptools_scm >= 6",
+  { include-group = "extra" },
 ]
 typing = [
-  "build[uv]",
   "importlib-metadata >= 5.1",
-  "mypy ~= 1.9.0",
+  "mypy ~= 1.15.0",
   "tomli",
   "typing-extensions >= 3.7.4.3",
+  { include-group = "extra" },
 ]
-uv = [
-  "uv >= 0.1.18",
+dev = [
+  { include-group = "test" },
+  { include-group = "typing" },
 ]
-virtualenv = [
-  "virtualenv >= 20.0.35",
-]
-
-[project.scripts]
-pyproject-build = "build.__main__:entrypoint"
-
-[project.entry-points."pipx.run"]
-build = "build.__main__:entrypoint"
 
 [tool.flit.sdist]
 include = ["tests/", ".gitignore", "CHANGELOG.rst", "docs/", ".dockerignore", "tox.ini"]
@@ -93,6 +105,11 @@ exclude = ["**/__pycache__", "docs/_build", "**/*.egg-info", "tests/packages/*/b
 source = [
   "build",
   "tests",
+]
+omit = ["tests/conftest.py"]
+disable_warnings = [
+  "module-not-measured",  # Triggers in multithreaded context on build
+  "no-sysmon",
 ]
 
 [tool.coverage.report]
@@ -129,12 +146,14 @@ filterwarnings = [
   "error",
   "ignore:path is deprecated.:DeprecationWarning",
   "ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning",
+  "ignore:check_home argument is deprecated and ignored:DeprecationWarning:",  # PyPy 3.11
   "default:Python 3.14 will, by default, filter extracted tar archives:DeprecationWarning",
+  "default:unclosed:ResourceWarning", # Python 3.11 Windows
 ]
 
 [tool.mypy]
 files = "src"
-python_version = "3.8"
+python_version = "3.9"
 strict = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "truthy-bool", "redundant-expr"]

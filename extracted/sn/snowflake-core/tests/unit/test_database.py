@@ -1,4 +1,3 @@
-
 from collections import defaultdict
 from contextlib import suppress
 from unittest import mock
@@ -22,8 +21,10 @@ def test_fetch_with_ua(fake_root, db):
             "GET",
             "http://localhost:80/api/v2/databases/my_db",
             query_params=[],
-            headers={"Accept": "application/json",
-                    "User-Agent": SNOWPY_USER_AGENT_VAL + " customized_ua snowFlake/412.123.432a"},
+            headers={
+                "Accept": "application/json",
+                "User-Agent": SNOWPY_USER_AGENT_VAL + " customized_ua snowFlake/412.123.432a",
+            },
             post_params=[],
             body=None,
             _preload_content=True,
@@ -36,27 +37,15 @@ def test_fetch_with_ua(fake_root, db):
 
 def test_create_from_share(fake_root, dbs):
     with mock.patch("snowflake.core.database._generated.api_client.ApiClient.request") as mocked_request:
-        dbs.create(
-            database=Database(name="name"),
-            from_share="share",
-        )
+        dbs.create(database=Database(name="name"), from_share="share")
     mocked_request.assert_called_once_with(
         fake_root,
         "POST",
         "http://localhost:80/api/v2/databases:from-share?createMode=errorIfExists&share=share",
-        query_params=[
-            ("createMode", "errorIfExists"),
-            ("share", "share"),
-        ],
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": SNOWPY_USER_AGENT_VAL,
-        },
+        query_params=[("createMode", "errorIfExists"), ("share", "share")],
+        headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": SNOWPY_USER_AGENT_VAL},
         post_params=[],
-        body={
-            "name": "name",
-        },
+        body={"name": "name"},
         _preload_content=True,
         _request_timeout=None,
     )
@@ -123,7 +112,7 @@ def test_fetch_with_throttling(fake_root, db):
 
         def side_effect(*args, **kwargs):
             status_code = http_throttle_codes.pop(0)
-            return MockResponse("{\"name\": \"name\"}", status_code, "")
+            return MockResponse('{"name": "name"}', status_code, "")
 
         mocked_request.side_effect = side_effect
         db.fetch()

@@ -1,0 +1,114 @@
+name: CI
+on:
+    push:
+        branches:
+        - main
+    pull_request:
+        paths-ignore:
+        - 'doc/*.rst'
+    schedule:
+        - cron:  '17 3 * * 0'
+
+concurrency:
+    group: ${{ github.head_ref || github.ref_name }}
+    cancel-in-progress: true
+
+jobs:
+    ruff:
+        name: Ruff
+        runs-on: ubuntu-latest
+        steps:
+        -   uses: actions/checkout@v4
+        -   uses: actions/setup-python@v5
+        -   name: "Main Script"
+            run: |
+                pip install ruff
+                ruff check
+
+    pytest:
+        name: Pytest on Py${{ matrix.python-version }}
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: ['3.10', '3.12', '3.x']
+        steps:
+        -   uses: actions/checkout@v4
+        -
+            uses: actions/setup-python@v5
+            with:
+                python-version: ${{ matrix.python-version }}
+        -   uses: MarkusJx/install-boost@v2
+            with:
+                boost_version: 1.87.0
+                boost_install_dir: /home/runner/boost
+            id: install-boost
+        -   name: "Main Script"
+            env:
+                BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
+            run: |
+                curl -L -O https://tiker.net/ci-support-v0
+                . ./ci-support-v0
+
+                PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
+                cat > $HOME/.aksetup-defaults.py <<EOF
+                BOOST_INC_DIR = ["$BOOST_ROOT/include"]
+                BOOST_LIB_DIR = ["$BOOST_ROOT/lib"]
+                BOOST_PYTHON_LIBNAME = ["boost_python$PY_VER-mt-x64"]
+                EOF
+
+                build_py_project_in_venv
+
+                export LD_LIBRARY_PATH="$BOOST_ROOT/lib:$LD_LIBRARY_PATH"
+                test_py_project
+
+    mypy:
+        name: Mypy
+        runs-on: ubuntu-latest
+        steps:
+        -   uses: actions/checkout@v4
+        -
+            uses: actions/setup-python@v5
+            with:
+                python-version: '3.x'
+        -   name: "Main Script"
+            run: |
+                EXTRA_INSTALL="mypy pytest pybind11"
+                curl -L -O https://tiker.net/ci-support-v0
+                . ./ci-support-v0
+
+                build_py_project_in_venv
+                python -m mypy codepy test examples
+
+    docs:
+        name: Documentation
+        runs-on: ubuntu-latest
+        steps:
+        -   uses: actions/checkout@v4
+        -
+            uses: actions/setup-python@v5
+            with:
+                python-version: '3.x'
+        -   name: "Main Script"
+            run: |
+                curl -L -O https://gitlab.tiker.net/inducer/ci-support/raw/main/ci-support.sh
+                . ci-support.sh
+                build_py_project_in_venv
+                build_docs
+
+    downstream_tests:
+        strategy:
+            matrix:
+                downstream_project: [loopy]
+        name: Tests for downstream project ${{ matrix.downstream_project }}
+        runs-on: ubuntu-latest
+        steps:
+        -   uses: actions/checkout@v4
+        -   name: "Main Script"
+            env:
+                DOWNSTREAM_PROJECT: ${{ matrix.downstream_project }}
+            run: |
+                curl -L -O https://tiker.net/ci-support-v0
+                . ./ci-support-v0
+                test_downstream "$DOWNSTREAM_PROJECT"
+
+# vim: sw=4

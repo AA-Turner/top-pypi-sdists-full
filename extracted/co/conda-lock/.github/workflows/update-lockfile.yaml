@@ -1,0 +1,95 @@
+name: Run conda-lock to update dependencies
+
+# Disable default permissions and grant minimal required permissions
+permissions: {}
+
+on:
+  workflow_dispatch:
+  schedule:
+  # At 5:28am UTC Monday and Thursday
+  - cron: 28 5 * * MON,THU
+
+jobs:
+  create-lockfiles:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.9", "3.13" ]
+
+    # Don't run scheduled job on forks. Ref: <https://github.com/orgs/community/discussions/26684#discussioncomment-3252843>
+    if: (github.event_name == 'schedule' && github.repository == 'conda/conda-lock') || (github.event_name != 'schedule')
+    defaults:
+      run:
+        # Ensure the environment is activated
+        # <https://github.com/mamba-org/provision-with-micromamba#important>
+        shell: bash -l {0}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write  # for uploading artifacts
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      with:
+        persist-credentials: false
+    - name: Install Micromamba
+      uses: mamba-org/setup-micromamba@b09ef9b599704322748535812ca03efb2625677b # v2
+      with:
+        environment-file: environments/conda-lock.yml
+        environment-name: conda-lock-dev
+
+    - name: Install conda-lock from branch
+      run: pip install --editable .
+
+    - name: Run conda-lock to recreate lockfile from scratch
+      run: |
+        PYTHON_VERSION=${{ matrix.python-version }}
+        rm environments/conda-lock-python-${PYTHON_VERSION}.yaml
+        conda-lock \
+            --file=environments/dev-environment.yaml \
+            --file=environments/python-${PYTHON_VERSION}.yaml \
+            --file=pyproject.toml \
+            --lockfile=environments/conda-lock-python-${PYTHON_VERSION}.yaml
+
+    - name: Upload lockfile
+      uses: actions/upload-artifact@v4
+      with:
+        name: conda-lock-python-${{ matrix.python-version }}
+        path: environments/conda-lock-python-${{ matrix.python-version }}.yaml
+
+  create-pr:
+    needs: create-lockfiles
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # for creating pull requests
+      pull-requests: write # for creating pull requests
+      actions: read       # for downloading artifacts
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      with:
+        persist-credentials: false
+
+    - name: Download all lockfiles
+      uses: actions/download-artifact@v4
+      with:
+        path: environments/
+
+    - name: Open a pull request
+      uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
+      with:
+        # # The default GITHUB_TOKEN doesn't allow other workflows to trigger.
+        # # Thus if there are tests to be run, they won't be run. For more info,
+        # # see the note under
+        # # <https://github.com/peter-evans/create-pull-request#action-inputs>.
+        # # One possible workaround is to specify a Personal Access Token (PAT).
+        # # This PAT should have read-write permissions for "Pull Requests"
+        # # and read-write permissions for "Contents".
+        token: ${{ secrets.GH_PAT_FOR_PR }}
+        commit-message: Relock dependencies
+        title: Relock dependencies
+        body: >
+          This pull request relocks the dependencies with conda-lock.
+          It is triggered by [update-lockfile](https://github.com/conda/conda-lock/blob/main/.github/workflows/update-lockfile.yaml).
+        branch: relock-deps
+        labels: conda-lock
+        reviewers: maresb
+        delete-branch: true

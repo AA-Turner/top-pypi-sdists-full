@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.external_volume import ExternalVolume, ExternalVolumeCollection
+from snowflake.core.external_volume import ExternalVolume, ExternalVolumeCollection, ExternalVolumeResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -22,21 +22,15 @@ def external_volume(external_volumes):
 
 
 def test_create_external_volume(fake_root, external_volumes):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/external-volumes?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/external-volumes?createMode=errorIfExists")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={
-            "name": "my_volume",
-            "storage_locations": [],
-        },
+        query_params=[("createMode", "errorIfExists")], body={"name": "my_volume", "storage_locations": []}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        external_volumes.create(ExternalVolume(name="my_volume", storage_locations=[]))
+        ev_res = external_volumes.create(ExternalVolume(name="my_volume", storage_locations=[]))
+        assert isinstance(ev_res, ExternalVolumeResource)
+        assert ev_res.name == "my_volume"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -48,11 +42,7 @@ def test_create_external_volume(fake_root, external_volumes):
 
 
 def test_iter_external_volume(fake_root, external_volumes):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/external-volumes",
-    )
+    args = (fake_root, "GET", BASE_URL + "/external-volumes")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -73,11 +63,7 @@ def test_fetch_external_volume(fake_root, external_volume):
     from snowflake.core.external_volume._generated.models import ExternalVolume as ExternalVolumeModel
 
     model = ExternalVolumeModel(name="my_volume", storage_locations=[])
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/external-volumes/my_volume",
-    )
+    args = (fake_root, "GET", BASE_URL + "/external-volumes/my_volume")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -95,11 +81,7 @@ def test_fetch_external_volume(fake_root, external_volume):
 
 
 def test_drop_external_volume(fake_root, external_volume):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/external-volumes/my_volume",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/external-volumes/my_volume")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -114,11 +96,7 @@ def test_drop_external_volume(fake_root, external_volume):
 
 
 def test_undrop_external_volume(fake_root, external_volume):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/external-volumes/my_volume:undrop",
-    )
+    args = (fake_root, "POST", BASE_URL + "/external-volumes/my_volume:undrop")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

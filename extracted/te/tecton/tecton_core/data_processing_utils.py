@@ -254,6 +254,16 @@ def _agglomerative_clustering_split(
     return split_dfs
 
 
+def validate_spine_input(spine: pyarrow.Table, join_keys: List[str], time_column: str) -> None:
+    missing_join_keys = [key for key in join_keys if key not in spine.column_names]
+    if missing_join_keys:
+        error = f"join_keys must be present in events_df. Missing join keys: {', '.join(missing_join_keys)}"
+        raise ValueError(error)
+    if time_column is not None and time_column not in spine.column_names:
+        error = f"time_column {time_column} must be a column in events_df"
+        raise ValueError(error)
+
+
 def pyarrow_split_spine(
     spine: pyarrow.Table,
     join_keys: List[str],

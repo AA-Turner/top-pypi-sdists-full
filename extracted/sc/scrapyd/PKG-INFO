@@ -1,0 +1,59 @@
+Metadata-Version: 2.4
+Name: scrapyd
+Version: 1.6.0
+Summary: A service for running Scrapy spiders, with an HTTP API
+Author-email: Scrapy developers <info@scrapy.org>
+License: BSD
+Project-URL: Homepage, https://github.com/scrapy/scrapyd
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: No Input/Output (Daemon)
+Classifier: Topic :: Internet :: WWW/HTTP
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: packaging
+Requires-Dist: pywin32; platform_system == "Windows"
+Requires-Dist: scrapy>=2.0.0
+Requires-Dist: setuptools<81
+Requires-Dist: twisted>=17.9
+Requires-Dist: w3lib
+Requires-Dist: zope.interface
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: py-html-checker; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-twisted; extra == "test"
+Requires-Dist: requests; extra == "test"
+Requires-Dist: twisted>=19.7; extra == "test"
+Provides-Extra: docs
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-autobuild; extra == "docs"
+Requires-Dist: sphinxcontrib-zopeext; extra == "docs"
+Dynamic: license-file
+
+|PyPI Version| |Build Status| |Coverage Status| |Python Version| |Pypi Downloads|
+
+Scrapyd is a service for deploying and running `Scrapy <https://scrapy.org>`__ spiders.
+
+It allows you to upload Scrapy projects and control their spiders using a JSON API.
+
+(If you are viewing this on GitHub, open the `full documentation <https://scrapyd.readthedocs.io/>`__ for additional details.)
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/scrapyd.svg
+   :target: https://pypi.org/project/scrapyd/
+.. |Build Status| image:: https://github.com/scrapy/scrapyd/workflows/Tests/badge.svg
+.. |Coverage Status| image:: https://coveralls.io/repos/github/scrapy/scrapyd/badge.svg?branch=master
+   :target: https://coveralls.io/github/scrapy/scrapyd?branch=master
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/scrapyd.svg
+   :target: https://pypi.org/project/scrapyd/
+.. |Pypi Downloads| image:: https://img.shields.io/pypi/dm/scrapyd.svg
+   :target: https://pypi.python.org/pypi/scrapyd/

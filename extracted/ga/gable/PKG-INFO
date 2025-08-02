@@ -1,0 +1,152 @@
+Metadata-Version: 2.1
+Name: gable
+Version: 0.37.5
+Summary: Command line interface (CLI) and software development kit (SDK) to interact with Gable API
+Author: Gable.ai
+Author-email: engineers@gable.ai
+Requires-Python: >=3.10,<3.12
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Provides-Extra: all
+Provides-Extra: mssql
+Provides-Extra: mysql
+Provides-Extra: postgres
+Provides-Extra: s3
+Requires-Dist: GitPython (>=3.1.0,<4.0.0)
+Requires-Dist: boto3 (>=1.34.0,<1.35.0) ; extra == "s3" or extra == "all"
+Requires-Dist: botocore (>=1.34.0,<1.35.0) ; extra == "s3" or extra == "all"
+Requires-Dist: click (>=8.1.3,<9.0.0)
+Requires-Dist: click-option-group (>=0.5.6,<0.6.0)
+Requires-Dist: deepdiff (>=7.0.1,<8.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: duckdb (>=1.2.2,<2.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: fastavro (>=1.10.0,<2.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: fsspec (>=2023.0.0,<2025.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: giturlparse (>=0.10.0,<0.11.0)
+Requires-Dist: h11 (>=0.16.0,<0.17.0)
+Requires-Dist: jsonpickle (>=3.0.0,<4.0.0)
+Requires-Dist: jsonref (>=1.1.0,<2.0.0)
+Requires-Dist: loguru (>=0.7.0,<0.8.0)
+Requires-Dist: mypy-boto3-apigateway (==1.38.0) ; extra == "s3" or extra == "all"
+Requires-Dist: mypy-boto3-s3 (>=1.0.0,<2.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: mysql-connector-python (>=9.1.0,<10.0.0) ; extra == "mysql" or extra == "all"
+Requires-Dist: numpy (>=1.0.0,<2.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: pandas (>=1.5.3,<3.0.0) ; extra == "s3" or extra == "all"
+Requires-Dist: psycopg2-binary (>=2.7) ; extra == "postgres" or extra == "all"
+Requires-Dist: pyarrow (>=11,<17) ; extra == "s3" or extra == "all"
+Requires-Dist: pycryptodome (>=3.17.0,<4.0.0)
+Requires-Dist: pydantic[email] (>=1.10.11,<2.0.0)
+Requires-Dist: pymssql (>=2.2.8,<3.0.0) ; extra == "mssql" or extra == "all"
+Requires-Dist: python-snappy (>=0.7.3,<0.8.0) ; extra == "s3" or extra == "all"
+Requires-Dist: pyyaml (>=6.0.0,<7.0.0)
+Requires-Dist: recap-core[json,proto] (>=0.12.0,<0.13.0) ; python_version >= "3.10" and python_version < "4.0"
+Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: rich (>=13.5.0,<14.0.0)
+Requires-Dist: tqdm (>=4.67.1,<5.0.0)
+Description-Content-Type: text/markdown
+
+# Gable CLI and SDK
+
+`gable` is Gable on the command line. It publishes contracts, registers data assets and more.
+
+```bash
+gable --help
+Usage: gable [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --endpoint TEXT  Customer API endpoint for Gable, in the format
+                   https://api.company.gable.ai/
+  --api-key TEXT   API Key for Gable
+  --version        Show the version and exit.
+  --help           Show this message and exit.
+
+Commands:
+  auth        View configured Gable authentication information
+  contract    Validate/publish contracts and check data asset compliance
+  data-asset  Commands for data assets
+  ping        Pings the Gable API to check for connectivity
+```
+
+## Getting Started
+
+`gable` is [hosted on PyPi](https://pypi.org/project/gable/), so to install it just run:
+
+```bash
+pip install gable
+```
+
+### Installing Additional Modules for MySQL and PostgreSQL
+
+Gable's CLI allows you to introspect your database and register tables as data assets within Gable's system. Connecting to these databases require additional packages to communicate with your database(s) of choice.
+
+For MySQL, install the additional packages by running:
+
+```bash
+pip install 'gable[mysql]'
+```
+
+For PostgreSQL, install the additional packages by running:
+
+```bash
+pip install 'gable[postgres]'
+```
+
+To install all additional dependencies at once, you can run:
+
+```bash
+pip install 'gable[all]'
+```
+
+## Setting up zsh/bash Autocomplete
+
+The Gable CLI supports shell autocomplete for `zsh` and `bash` so you can hit `TAB` to see available commands and options as you write the command.
+
+To enable it, run the following commands:
+
+```bash
+_SHELL=zsh # or bash
+GABLE_CONFIG_DIR=~/.config/gable
+mkdir -p $GABLE_CONFIG_DIR
+_GABLE_COMPLETE=${_SHELL}_source gable > $GABLE_CONFIG_DIR/complete.sh
+```
+
+Then add the following to your shell startup scripts (e.g. `.zshrc`, `.bashrc`):
+
+```bash
+source ~/.config/gable/complete.sh
+```
+
+### Authentication
+
+To establish an authenticated connection with Gable via the CLI, you need:
+
+- The API endpoint associated with your organization
+- An API key that corresponds to the endpoint
+
+In order to find your API key and API endpoint, see the documentation in your Gable web app at (`/docs/settings/api_keys`).
+
+There are two supported methods for providing this config to the CLI:
+
+#### Authenticating with CLI Arguments
+
+You have the option to pass the endpoint and API key information directly as arguments during the CLI invocation. For example:
+
+```bash
+gable --endpoint "https://api.yourorganization.gable.ai" --api-key "yourapikey" ping
+```
+
+#### Authenticating with Environment Variables
+
+To avoid providing this config every time you execute a command, you can set them as environment variables: `GABLE_API_ENDPOINT` and `GABLE_API_KEY`. To make them persistent in your environment, add this to your shell initialization file (e.g. `.zshrc` or `.bashrc`):
+
+```bash
+export GABLE_API_ENDPOINT="https://api.yourorganization.gable.ai"
+export GABLE_API_KEY="yourapikey"
+```
+
+Then, you can simply use the CLI as follows:
+
+```bash
+gable ping
+```
+

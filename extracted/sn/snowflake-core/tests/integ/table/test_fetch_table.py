@@ -1,4 +1,3 @@
-
 from tests.integ.table.conftest import assert_table
 
 

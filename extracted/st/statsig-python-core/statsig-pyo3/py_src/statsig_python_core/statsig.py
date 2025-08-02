@@ -1,4 +1,10 @@
-from statsig_python_core import StatsigBasePy, StatsigOptions, notify_python_shutdown
+import os
+from statsig_python_core import (
+    StatsigBasePy,
+    StatsigOptions,
+    notify_python_fork,
+    notify_python_shutdown,
+)
 from typing import Optional
 from .error_boundary import ErrorBoundary
 import atexit
@@ -9,6 +15,16 @@ def handle_atexit():
 
 
 atexit.register(handle_atexit)
+
+
+def handle_fork():
+    notify_python_fork()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(
+        before=handle_fork,
+    )
 
 
 class Statsig(StatsigBasePy):

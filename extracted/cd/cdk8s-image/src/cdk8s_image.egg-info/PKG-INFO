@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: cdk8s-image
+Version: 0.2.694
+Summary: Build & Push local docker images inside CDK8s applications
+Home-page: https://github.com/cdk8s-team/cdk8s-image.git
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/cdk8s-team/cdk8s-image.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cdk8s<3.0.0,>=2.68.91
+Requires-Dist: constructs<11.0.0,>=10.3.0
+Requires-Dist: jsii<2.0.0,>=1.113.0
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<4.3.0,>=2.13.3
+
+# cdk8s-image
+
+An `Image` construct which takes care of building & pushing docker images that
+can be used in [CDK8s](https://github.com/awslabs/cdk8s) apps.
+
+The following example will build the docker image from `Dockerfile` under the
+`my-app` directory, push it to a local registry and then define a Kubernetes
+deployment that deploys containers that run this image.
+
+```python
+const image = new Image(this, 'image', {
+  dir: `${__dirname}/my-app`,
+  registry: 'localhost:5000'
+});
+
+new Deployment(this, 'deployment', {
+  containers: [ new Container({ image: image.url }) ],
+});
+```
+
+## Contributions
+
+All contributions are celebrated.
+
+## License
+
+Licensed under [Apache 2.0](./LICENSE).

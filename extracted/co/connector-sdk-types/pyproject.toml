@@ -1,0 +1,52 @@
+[project]
+name = "connector-sdk-types"
+description = "Generated types for the Lumos Connector SDK"
+readme = "README.md"
+requires-python = ">=3.10"
+license =  { file = "LICENSE.txt" }
+keywords = ["integrations", "types"]
+authors = [
+    { name = "teamlumos", email = "security@lumos.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "pydantic >= 2, < 2.10",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest >= 8",
+    "pytest-asyncio >= 0.23",
+]
+all = ["connector-sdk-types[dev]"]
+
+[project.urls]
+Documentation = "https://developers.lumos.com/reference/the-lumos-connector-api"
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "connector_sdk_types.__about__.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["logs"]
+
+[tool.setuptools.package-data]
+connector_sdk_types = ["generated/*", "py.typed"]
+
+[tool.mypy]
+exclude = []
+
+[[tool.mypy.overrides]]
+module = []
+ignore_missing_imports = true

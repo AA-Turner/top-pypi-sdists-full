@@ -1,12 +1,7 @@
-
 import pytest as pytest
 
 from snowflake.core._common import CreateMode
-from snowflake.core.procedure import (
-    JavaScriptFunction,
-    Procedure,
-    ReturnDataType,
-)
+from snowflake.core.procedure import JavaScriptFunction, Procedure, ReturnDataType
 from tests.utils import random_string
 
 
@@ -24,7 +19,7 @@ def test_iter(procedures):
                 arguments=[],
                 return_type=ReturnDataType(datatype="REAL"),
                 language_config=JavaScriptFunction(),
-                body="""return 3.14"""
+                body="""return 3.14""",
             )
             proc = procedures.create(procedure, mode=CreateMode.or_replace)
             procs.append(proc)
@@ -37,7 +32,7 @@ def test_iter(procedures):
                 arguments=[],
                 return_type=ReturnDataType(datatype="REAL"),
                 language_config=JavaScriptFunction(),
-                body="""return 3.14"""
+                body="""return 3.14""",
             )
             proc = procedures.create(procedure, mode=CreateMode.or_replace)
             procs.append(proc)

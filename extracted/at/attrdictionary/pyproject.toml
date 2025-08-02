@@ -1,0 +1,84 @@
+[tool.ruff]
+line-length = 120
+#select = ["Q002", "Q001", "Q000"]
+select = [
+    "A", # https://beta.ruff.rs/docs/rules/#flake8-builtins-a
+    "B", # https://beta.ruff.rs/docs/rules/#flake8-bugbear-b
+    "BLE", # https://beta.ruff.rs/docs/rules/#flake8-blind-except-ble
+    "C", # https://beta.ruff.rs/docs/rules/#flake8-comprehensions-c4
+    "COM", # https://beta.ruff.rs/docs/rules/#flake8-commas-com
+    "DTZ", # https://beta.ruff.rs/docs/rules/#flake8-datetimez-dtz
+    "E", # https://beta.ruff.rs/docs/rules/#pycodestyle-e-w
+    "F", # https://beta.ruff.rs/docs/rules/#pyflakes-f
+    "I", # https://beta.ruff.rs/docs/rules/#isort-i
+    "ISC", # https://beta.ruff.rs/docs/rules/#flake8-implicit-str-concat-isc
+    "N", # https://beta.ruff.rs/docs/rules/#pep8-naming-n
+    "PIE",
+    "Q", # https://beta.ruff.rs/docs/rules/#flake8-quotes-q
+    "S", # https://beta.ruff.rs/docs/rules/#flake8-bandit-s
+    "SIM", # https://beta.ruff.rs/docs/rules/#flake8-simplify-sim
+    "T20", # https://beta.ruff.rs/docs/rules/#flake8-print-t20
+    "UP", # https://beta.ruff.rs/docs/rules/#pyupgrade-up
+    "W", # https://beta.ruff.rs/docs/rules/#pycodestyle-e-w
+]
+ignore = [
+    "F405",
+    "B904",
+    "UP031",
+    "S101", # Use of `assert` detected
+    "N818",
+]
+unfixable = ["B"]
+
+exclude = [
+    #
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".idea",
+    "__pypackages__",
+    "__pycache__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    # virtual enviroments
+    "venv",
+    ".venv",
+    ".venv38",
+    # project files
+    "**/migrations/*",
+    "node_modules",
+    "frontend",
+    "test_**.py",
+    "config",
+    "locale",
+    "manage.py",
+    "conftest.py",
+]
+
+target-version = "py311"
+
+
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "double"
+multiline-quotes = "double"
+
+[tool.ruff.isort]
+combine-as-imports = true
+
+[tool.ruff.pep8-naming]
+classmethod-decorators = ["classmethod", "classproperty"]
+
+[tool.ruff.mccabe]
+max-complexity = 18

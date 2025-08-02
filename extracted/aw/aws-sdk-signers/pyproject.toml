@@ -1,0 +1,51 @@
+[project]
+name = "aws-sdk-signers"
+version = "0.0.3"
+requires-python = ">=3.12"
+authors = [
+  {name = "Amazon Web Services"},
+]
+description = "Standalone HTTP Request Signers for Amazon Web Services"
+readme = "README.md"
+license = {text = "Apache License 2.0"}
+keywords = ["aws", "sdk", "amazon", "signing", "sigv4", "http"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Natural Language :: English",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [
+ "tests",
+]
+
+[project.optional-dependencies]
+test = [
+    "freezegun",
+    "pytest",
+    "pytest-asyncio",
+    "mypy",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-W error"
+
+[tool.ruff]
+src = ["src"]

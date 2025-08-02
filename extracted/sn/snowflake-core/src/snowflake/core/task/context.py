@@ -30,9 +30,9 @@ class TaskContext:
 
     def _get_root_prefix(self) -> Optional[str]:
         root_task_name = self.get_current_root_task_name()
-        root_prefix = root_task_name[root_task_name.rfind('.')+1:] + "$"
+        root_prefix = root_task_name[root_task_name.rfind(".") + 1 :] + "$"
         current_task_name = self.get_current_task_name()
-        current_task_name = current_task_name[root_task_name.rfind('.')+1:]
+        current_task_name = current_task_name[root_task_name.rfind(".") + 1 :]
         if current_task_name.startswith(root_prefix):
             return root_prefix
         return None
@@ -53,7 +53,7 @@ class TaskContext:
             >>> def task_handler(session: Session) -> None:
             >>>     from snowflake.core.task.context import TaskContext
             >>>     context = TaskContext(session)
-            >>>     # this return value can be retrieved by successor Tasks.
+            >>> # this return value can be retrieved by successor Tasks.
             >>>     context.set_return_value("predecessor_return_value")
         """
         self._session.call("system$set_return_value", str(value))
@@ -114,9 +114,9 @@ class TaskContext:
         """
         root_prefix = self._get_root_prefix()
         name = self.get_current_task_name()
-        name = name[name.rfind('.')+1:]
+        name = name[name.rfind(".") + 1 :]
         if root_prefix and name.startswith(root_prefix):
-            return name[len(root_prefix):]
+            return name[len(root_prefix) :]
         return name
 
     def get_task_graph_config(self) -> Optional[dict[str, Any]]:
@@ -169,13 +169,15 @@ class TaskContext:
         try:
             if property_name in (
                 "CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP",
-                "LAST_SUCCESSFUL_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP"
+                "LAST_SUCCESSFUL_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP",
             ):
                 result = self._session.sql(
-                    f"select to_timestamp(system$task_runtime_info('{property_name_upper}'))").collect()[0][0]
+                    f"select to_timestamp(system$task_runtime_info('{property_name_upper}'))"
+                ).collect()[0][0]
             else:
                 result = self._session.sql(
-                    f"select to_char(system$task_runtime_info('{property_name_upper}'))").collect()[0][0]
+                    f"select to_char(system$task_runtime_info('{property_name_upper}'))"
+                ).collect()[0][0]
             return result
         except Exception as sse:
             if "NULL result in a non-nullable column" in str(sse):
@@ -183,6 +185,4 @@ class TaskContext:
             raise sse
 
 
-__all__ = [
-    "TaskContext",
-]
+__all__ = ["TaskContext"]

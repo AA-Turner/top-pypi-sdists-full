@@ -10,11 +10,13 @@ from snowflake.core.task.context import TaskContext
 @pytest.mark.snowpark
 def test_task_context(fake_root):
     from snowflake.snowpark.exceptions import SnowparkSQLException
+
     task_context = TaskContext(fake_root)
     mock_result_str = Mock()
 
     def side_effect_collect_str():
         return [["abc"]]
+
     mock_result_str.collect.side_effect = side_effect_collect_str
     mock_result_datetime = Mock()
 
@@ -27,14 +29,13 @@ def test_task_context(fake_root):
         "select to_char(system$task_runtime_info('CURRENT_ROOT_TASK_UUID'))": mock_result_str,
         "select to_char(system$task_runtime_info('LAST_SUCCESSFUL_TASK_GRAPH_RUN_GROUP_ID'))": mock_result_str,
         "select to_char(system$task_runtime_info('CURRENT_TASK_GRAPH_RUN_GROUP_ID'))": mock_result_str,
-        "select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))":
-            mock_result_datetime,
-        "select to_timestamp(system$task_runtime_info('LAST_SUCCESSFUL_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))":
-            mock_result_datetime,
+        "select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))": mock_result_datetime,
+        "select to_timestamp(system$task_runtime_info('LAST_SUCCESSFUL_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))": mock_result_datetime,
     }
 
     def side_effect_sql(k):
         return mock_sql_result[k]
+
     fake_root.sql.side_effect = side_effect_sql
 
     assert task_context.get_current_root_task_name() == "abc"
@@ -65,20 +66,23 @@ def test_task_context(fake_root):
 
     def side_effect_call_none(sp_name, para=None):
         if sp_name == "SYSTEM$GET_TASK_GRAPH_CONFIG":
-            return ''
+            return ""
+
     fake_root.call.side_effect = side_effect_call_none
     assert task_context.get_task_graph_config() is None
     with pytest.raises(ValueError) as ve:
-        task_context.get_runtime_info('')
+        task_context.get_runtime_info("")
     assert ve.match("`property_name` must be an non-empty str.")
 
     def side_effect_raise_null_result(*args):
         raise SnowparkSQLException("NULL result in a non-nullable column")
+
     fake_root.sql.side_effect = side_effect_raise_null_result
     assert task_context.get_runtime_info("CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP") is None
 
     def side_effect_raise_other_error(*args):
         raise SnowparkSQLException("Some errors")
+
     fake_root.sql.side_effect = side_effect_raise_other_error
     with pytest.raises(SnowparkSQLException) as sse:
         task_context.get_runtime_info("CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP")

@@ -1,0 +1,154 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+# Minimum requirements for the build system to execute.
+requires = [
+  "setuptools>=78.0.2",
+  "translate-toolkit"
+]
+
+[project]
+authors = [
+  {email = "michal@weblate.org", name = "Michal Čihař"}
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python",
+  "Topic :: Software Development :: Internationalization",
+  "Topic :: Software Development :: Localization",
+  "Topic :: Utilities"
+]
+description = "Language definitions for Weblate"
+keywords = [
+  "i18n l10n gettext git mercurial translate"
+]
+license = "MIT"
+license-files = ["LICENSE"]
+name = "weblate-language-data"
+requires-python = ">=3.9"
+version = "2025.8"
+
+[project.optional-dependencies]
+dev = [
+  "translate-toolkit==3.15.5",
+  "weblate-language-data[lint,test,types]"
+]
+django = [
+  "Django"
+]
+lint = [
+  "pre-commit==4.2.0"
+]
+test = [
+]
+types = [
+  "django-stubs==5.2.1",
+  "mypy==1.16.1"
+]
+
+[project.readme]
+content-type = "text/x-rst"
+file = "README.rst"
+
+[project.urls]
+Documentation = "https://docs.weblate.org/"
+Download = "https://github.com/WeblateOrg/language-data"
+Funding = "https://weblate.org/donate/"
+Homepage = "https://weblate.org/"
+"Issue Tracker" = "https://github.com/WeblateOrg/language-data/issues"
+"Source Code" = "https://github.com/WeblateOrg/language-data"
+Twitter = "https://twitter.com/WeblateOrg"
+
+[tool.black]
+target-version = ['py39']
+
+[tool.check-manifest]
+ignore = [
+  "*.csv",
+  "*.json",
+  "*.toml",
+  "*.yaml",
+  "*.yml",
+  ".editorconfig",
+  ".gitmodules",
+  ".reuse/dep5",
+  ".weblate",
+  ".well-known/*",
+  "json/*",
+  "languages-po/*",
+  "LICENSES/*",
+  "Makefile",
+  "modules/**",
+  "scripts/*",
+  "scripts/*"
+]
+ignore-bad-ideas = [
+  "modules/gettext/gettext-tools/tests/*.mo"
+]
+
+[tool.codespell]
+builtin = "clear,rare,informal,usage"
+skip = '*.po,*.pot,*.csv,weblate_language_data/aliases.py,weblate_language_data/population.py,weblate_language_data/plurals.py,weblate_language_data/language_codes.py,weblate_language_data/languages.py,weblate_language_data/check_languages.py,weblate_language_data/plural_tags.py,PLURALS_DIFF.md,weblate_language_data/case_insensitive.py,weblate_language_data/country_codes.py'
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = [
+  "COM812",  # CONFIG: trailing newlines
+  "D10",  # TODO: we are missing many docstrings
+  "D203",  # CONFIG: incompatible with D211
+  "D212",  # CONFIG: incompatible with D213
+  "E501",  # WONTFIX: we accept long strings (rest is formatted by black)
+  "EM",  # TODO: exception literals
+  "FBT",  # TODO: Boolean in function definition
+  "ISC001",  # CONFIG: incompatible with formatter
+  "PERF401",  # TODO
+  "PTH",  # TODO: Not using pathlib
+  "RUF001",  # WONTFIX: String contains ambiguous unicode character, we are using Unicode
+  "RUF012",  # TODO: Mutable class attributes should be annotated with `typing.ClassVar`
+  "T201",  # WONTFIX: using print() (maybe add noqa)
+  "T203",  # WONTFIX: using pprint() (maybe add noqa)
+  "TRY003"  # WONTFIX: Avoid specifying long messages outside the exception class
+]
+select = ["ALL"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 16
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["ANN", "S310", "S603", "S607"]
+
+[tool.setuptools]
+include-package-data = true
+platforms = [
+  "any"
+]
+
+[tool.setuptools.package-dir]
+weblate_language_data = "weblate_language_data"
+
+[tool.setuptools.packages.find]
+exclude = ["modules*", "scripts*"]
+namespaces = true
+
+[tool.tomlsort]
+ignore_case = true
+sort_inline_arrays = true
+sort_inline_tables = true
+sort_table_keys = true
+spaces_before_inline_comment = 2

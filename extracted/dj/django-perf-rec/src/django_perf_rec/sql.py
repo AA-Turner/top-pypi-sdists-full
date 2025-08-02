@@ -3,12 +3,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from sqlparse import parse
-from sqlparse import tokens
-from sqlparse.sql import Comment
-from sqlparse.sql import IdentifierList
-from sqlparse.sql import Parenthesis
-from sqlparse.sql import Token
+from sqlparse import parse, tokens
+from sqlparse.sql import Comment, IdentifierList, Parenthesis, Token
 
 
 @lru_cache(maxsize=500)
@@ -23,12 +19,17 @@ def sql_fingerprint(query: str, hide_columns: bool = True) -> str:
     if not parsed_queries:
         return ""
 
-    parsed_query = sql_recursively_strip(parsed_queries[0])
-    sql_recursively_simplify(parsed_query, hide_columns=hide_columns)
-    return str(parsed_query).strip()
+    fingerprinted_queries = []
+    for parsed_query in parsed_queries:
+        stripped_query = sql_recursively_strip(parsed_query)
+        sql_recursively_simplify(stripped_query, hide_columns=hide_columns)
+
+        fingerprinted_queries.append(stripped_query)
+
+    return "".join([str(q) for q in fingerprinted_queries]).strip()
 
 
-sql_deleteable_tokens = frozenset(
+sql_deletable_tokens = frozenset(
     (
         tokens.Number,
         tokens.Number.Float,
@@ -81,14 +82,14 @@ def sql_recursively_simplify(node: Token, hide_columns: bool = True) -> None:
     # Erase which fields are being updated in an UPDATE
     if node.tokens[0].value == "UPDATE":
         i_set = [i for (i, t) in enumerate(node.tokens) if t.value == "SET"][0]
-        i_wheres = [
+        where_indexes = [
             i
             for (i, t) in enumerate(node.tokens)
             if t.is_group and t.tokens[0].value == "WHERE"
         ]
-        if i_wheres:
-            i_where = i_wheres[0]
-            end = node.tokens[i_where:]
+        if where_indexes:
+            where_index = where_indexes[0]
+            end = node.tokens[where_index:]
         else:
             end = []
         middle = [Token(tokens.Punctuation, " ... ")]
@@ -104,7 +105,7 @@ def sql_recursively_simplify(node: Token, hide_columns: bool = True) -> None:
                 if isinstance(t, Parenthesis)
             )
             if all(
-                getattr(t, "ttype", "") in sql_deleteable_tokens
+                getattr(t, "ttype", "") in sql_deletable_tokens
                 for t in parenthesis.tokens[1:-1]
             ):
                 parenthesis.tokens[1:-1] = [Token(tokens.Punctuation, "...")]
@@ -153,9 +154,7 @@ def sql_recursively_simplify(node: Token, hide_columns: bool = True) -> None:
             token.tokens = [Token(tokens.Punctuation, "...")]
         elif hasattr(token, "tokens"):
             sql_recursively_simplify(token, hide_columns=hide_columns)
-        elif ttype in sql_deleteable_tokens:
-            token.value = "#"
-        elif getattr(token, "value", None) == "NULL":
+        elif ttype in sql_deletable_tokens or getattr(token, "value", None) == "NULL":
             token.value = "#"
 
         if not token.is_whitespace:

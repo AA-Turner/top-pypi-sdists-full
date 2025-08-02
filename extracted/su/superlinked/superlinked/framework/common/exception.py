@@ -1,0 +1,67 @@
+# Copyright 2024 Superlinked, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ============================================================================
+# Base Exception Classes
+# ============================================================================
+
+
+class SuperlinkedException(Exception):
+    """Base exception for all Superlinked framework exceptions."""
+
+
+class InternalException(SuperlinkedException):
+    """Framework bugs or unexpected internal conditions."""
+
+
+class ExternalException(SuperlinkedException):
+    """External input/output or service dependency errors."""
+
+
+# ============================================================================
+# Internal Exceptions
+# ============================================================================
+
+
+class NotImplementedException(InternalException):
+    """Functionality not yet implemented."""
+
+
+class InvalidStateException(InternalException):
+    """Application state inconsistent or unsafe for operation."""
+
+
+# ============================================================================
+# External Exceptions
+# ============================================================================
+
+
+class UnexpectedResponseException(ExternalException):
+    """External service returned malformed or unexpected response."""
+
+
+class RequestTimeoutException(ExternalException):
+    """Request exceeded timeout limit."""
+
+
+class InvalidInputException(ExternalException):
+    """Input data failed validation or parsing."""
+
+
+class FeatureNotSupportedException(ExternalException):
+    """Requested operation or configuration not supported."""
+
+
+class NotFoundException(ExternalException):
+    """Requested resource not found."""

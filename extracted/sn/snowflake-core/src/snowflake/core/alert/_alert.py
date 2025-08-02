@@ -26,6 +26,7 @@ from ._generated.models.point_of_time import PointOfTime as AlertPointOfTime
 if TYPE_CHECKING:
     from snowflake.core.schema import SchemaResource
 
+
 class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
     """Represents the collection operations on the Snowflake Alert resource.
 
@@ -33,41 +34,29 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
     current context.
     """
 
-    def __init__(
-        self,
-        schema: "SchemaResource",
-    ):
+    def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, AlertResource)
         self._api = AlertApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @overload
     @api_telemetry
     def create(
-        self, alert: str,
-        *,
-        clone_alert: Union[str, Clone],
-        mode: CreateMode=CreateMode.error_if_exists,
-    ) -> "AlertResource":
-        ...
+        self, alert: str, *, clone_alert: Union[str, Clone], mode: CreateMode = CreateMode.error_if_exists
+    ) -> "AlertResource": ...
     @overload
     @api_telemetry
     def create(
-        self, alert: Alert,
-        *,
-        clone_alert: None,
-        mode: CreateMode=CreateMode.error_if_exists,
-    ) -> "AlertResource":
-        ...
+        self, alert: Alert, *, clone_alert: None, mode: CreateMode = CreateMode.error_if_exists
+    ) -> "AlertResource": ...
     @api_telemetry
     def create(
-        self, alert: Union[Alert, str],
+        self,
+        alert: Union[Alert, str],
         *,
         clone_alert: Optional[Union[str, Clone]] = None,
-        mode: CreateMode=CreateMode.error_if_exists,
+        mode: CreateMode = CreateMode.error_if_exists,
     ) -> "AlertResource":
         """Create an alert in Snowflake.
 
@@ -101,11 +90,7 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
         Cloning an alert instance:
 
         >>> alerts = schema.alerts
-        >>> alerts.create(
-        ...     new_alert_name,
-        ...     clone_alert=alert_name_to_be_cloned,
-        ...     mode=CreateMode.if_not_exists,
-        ... )
+        >>> alerts.create(new_alert_name, clone_alert=alert_name_to_be_cloned, mode=CreateMode.if_not_exists)
 
         **Creating an alert from scratch**
 
@@ -145,37 +130,25 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
         ...     mode=CreateMode.if_not_exists,
         ... )
         """
-        self._create(
-            alert=alert,
-            clone_alert=clone_alert,
-            mode=mode,
-            async_req=False,
-        )
+        self._create(alert=alert, clone_alert=clone_alert, mode=mode, async_req=False)
         return AlertResource(alert.name if isinstance(alert, Alert) else alert, self)
 
     @overload
     @api_telemetry
     def create_async(
-        self, alert: str,
-        *,
-        clone_alert: Union[str, Clone],
-        mode: CreateMode=CreateMode.error_if_exists,
-    ) -> PollingOperation["AlertResource"]:
-        ...
+        self, alert: str, *, clone_alert: Union[str, Clone], mode: CreateMode = CreateMode.error_if_exists
+    ) -> PollingOperation["AlertResource"]: ...
 
     @overload
     @api_telemetry
     def create_async(
-        self, alert: Alert,
-        *,
-        clone_alert: None,
-        mode: CreateMode=CreateMode.error_if_exists,
-    ) -> PollingOperation["AlertResource"]:
-        ...
+        self, alert: Alert, *, clone_alert: None, mode: CreateMode = CreateMode.error_if_exists
+    ) -> PollingOperation["AlertResource"]: ...
 
     @api_telemetry
     def create_async(
-        self, alert: Union[Alert, str],
+        self,
+        alert: Union[Alert, str],
         *,
         clone_alert: Optional[Union[str, Clone]] = None,
         mode: CreateMode = CreateMode.error_if_exists,
@@ -184,15 +157,11 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._create(
-            alert=alert,
-            clone_alert=clone_alert,
-            mode=mode,
-            async_req=True,
+        """  # noqa: D401
+        future = self._create(alert=alert, clone_alert=clone_alert, mode=mode, async_req=True)
+        return PollingOperation(
+            future, lambda _: AlertResource(alert.name if isinstance(alert, Alert) else alert, self)
         )
-        return PollingOperation(future,
-                                lambda _: AlertResource(alert.name if isinstance(alert, Alert) else alert, self))
 
     @api_telemetry
     def iter(
@@ -263,7 +232,7 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_alerts(
             database=self.database.name,
             var_schema=self.schema.name,
@@ -277,27 +246,24 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
 
     @overload
     def _create(
-        self, alert: Union[Alert, str],
+        self,
+        alert: Union[Alert, str],
         clone_alert: Optional[Union[str, Clone]],
         mode: CreateMode,
         async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
-        self, alert: Union[Alert, str],
+        self,
+        alert: Union[Alert, str],
         clone_alert: Optional[Union[str, Clone]],
         mode: CreateMode,
         async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+    ) -> SuccessResponse: ...
 
     def _create(
-        self, alert: Union[Alert, str],
-        clone_alert: Optional[Union[str, Clone]],
-        mode: CreateMode,
-        async_req: bool,
+        self, alert: Union[Alert, str], clone_alert: Optional[Union[str, Clone]], mode: CreateMode, async_req: bool
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
         real_mode = CreateMode[mode].value
 
@@ -310,10 +276,7 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
             if isinstance(clone_alert, Clone) and isinstance(clone_alert.point_of_time, PointOfTime):
                 pot = AlertPointOfTime.from_dict(clone_alert.point_of_time.to_dict())
             real_clone = Clone(source=clone_alert) if isinstance(clone_alert, str) else clone_alert
-            req = AlertClone(
-                point_of_time=pot,
-                name=alert,
-            )
+            req = AlertClone(point_of_time=pot, name=alert)
 
             source_alert_fqn = FQN.from_string(real_clone.source)
             return self._api.clone_alert(
@@ -330,11 +293,7 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
         if not isinstance(alert, Alert):
             raise TypeError("alert has to be Alert object")
         return self._api.create_alert(
-            self.database.name,
-            self.schema.name,
-            alert,
-            create_mode=StrictStr(real_mode),
-            async_req=async_req,
+            self.database.name, self.schema.name, alert, create_mode=StrictStr(real_mode), async_req=async_req
         )
 
 
@@ -345,11 +304,7 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
     as perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name: StrictStr,
-        collection: AlertCollection
-    ) -> None:
+    def __init__(self, name: StrictStr, collection: AlertCollection) -> None:
         self.name = name
         self.collection = collection
 
@@ -364,12 +319,7 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
         >>> my_alert = alert_reference.fetch()
         >>> print(my_alert.name, my_alert.condition, my_alert.action)
         """
-        return self.collection._api.fetch_alert(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        return self.collection._api.fetch_alert(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Alert]:
@@ -377,20 +327,12 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_alert(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_alert(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def drop(self, if_exists: bool = False) -> None:
         """Drop this alert.
 
         Parameters
@@ -410,11 +352,7 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
         >>> alert_reference.drop(if_exists=True)
         """
         self.collection._api.delete_alert(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists = if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
@@ -423,13 +361,9 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_alert(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists = if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -443,12 +377,7 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
 
         >>> alert_reference.execute()
         """
-        self.collection._api.execute_alert(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        self.collection._api.execute_alert(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def execute_async(self) -> PollingOperation[None]:
@@ -456,11 +385,6 @@ class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.execute_alert(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.execute_alert(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.empty(future)

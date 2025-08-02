@@ -1,0 +1,98 @@
+docker#v5.12.0: &image-config
+  image: europe-docker.pkg.dev/gensyn-main/registry/cuda-python-rust-ci:main
+  expand-image-vars: true
+  # We will mount it manually
+  mount-checkout: false
+  mount-buildkite-agent: true
+  workdir: /home/gensyn/workdir
+  entrypoint: .buildkite/tools/start-debug-entrypoint.sh
+  network: build
+  ulimits:
+    - host
+  privileged: true
+  propagate-environment: true
+  always-pull: true
+  volumes:
+    # We need to mount the workdir manually, to idmap it.
+    # Buildkite Agent runs as root, our CI container runs with UID 1001
+    - .:/home/gensyn/workdir:idmap=uids=0-1001-1;gids=0-1001-1,z
+    - /etc/buildkite-agent/secrets/id_rsa_buildkite_git:/home/gensyn/host_ssh/id_rsa:idmap=uids=0-1001-1;gids=0-1001-1,z
+    # Mount container creds, in case we need them.
+    - /run/containers/0/auth.json:/docker_config.json:z
+    - bazel_repo_cache:/home/gensyn/.cache/bazel
+
+ci-container-config-block: &ci-container-config
+  docker#v5.12.0:
+    <<: *image-config
+
+aws-secrets-block: &aws-secrets
+  seek-oss/aws-sm#v2.3.2:
+    json-to-env:
+      - secret-id: "arn:aws:secretsmanager:us-west-2:552179855668:secret:common/ci-secrets-HkoqU0"
+        json-key: ".EnvVars"
+
+aws-role-block: &aws-role
+  aws-assume-role-with-web-identity#v1.0.0:
+    role-arn: arn:aws:iam::552179855668:role/buildkite-oidc-role-live
+
+default-envs-block: &default-envs
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_REGION: eu-central-1
+  AWS_SESSION_TOKEN: $AWS_SESSION_TOKEN
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  IMAGE_TAG: $IMAGE_TAG
+  RUSTC_WRAPPER: sccache
+  SCCACHE_BUCKET: gensyn-sccache
+  SCCACHE_REGION: eu-central-1
+  STATSIG_STAGING_CLIENT_KEY: client-p8b1J0OYxmICF06mwmYMK48ZaY5nGD2tFRPxPpm307M
+  STATSIG_PROD_CLIENT_KEY: client-8YXA7faZ7fJR06FSKRyKHqJnMm9ItblgUNRZ4FcW9HI
+  GITHUB_TOKEN: $GITHUB_TOKEN
+  BUILDKITE_API_ACCESS_TOKEN: $BUILDKITE_API_ACCESS_TOKEN
+  BUILDKITE_ARTIFACT_UPLOAD_DESTINATION: "gs://gensyn-buildkite-artifacts/$BUILDKITE_PIPELINE_ID/$BUILDKITE_BUILD_ID/$BUILDKITE_JOB_ID"
+  BUILDKITE_GCS_ACCESS_HOST: "storage.cloud.google.com"
+  BAZEL_CACHE_URL: $BAZEL_CACHE_URL
+
+standard-step-block: &standard-step
+  timeout_in_minutes: 80
+  agents:
+    queue: default
+  env:
+    <<: *default-envs
+  plugins:
+    - <<: *ci-container-config
+    - <<: *aws-role
+    - <<: *aws-secrets
+
+standard-step-with-env: &standard-step-with-env
+  timeout_in_minutes: 80
+  agents:
+    queue: default
+  env:
+    <<: *default-envs
+
+steps:
+  - label: "Set Image Tag Suffix"
+    agents:
+      queue: default
+    command: |
+      if [ ! "$BUILDKITE_PULL_REQUEST" == "false" ]; then
+        buildkite-agent meta-data set "env-IMAGE_TAG" "pr-$BUILDKITE_PULL_REQUEST"
+      else
+        buildkite-agent meta-data set "env-IMAGE_TAG" "main"
+      fi
+
+      buildkite-agent meta-data set "env-REPO_PREFIX" "europe-docker.pkg.dev/gensyn-main/registry"
+
+
+  - wait
+
+  - group: "Unit Tests"
+    key: unit-tests
+    steps:
+      - label: "Run unit tests"
+        agents:
+          queue: default
+        cancel_on_build_failing: true
+        command: .buildkite/steps/unit_tests.sh
+        <<: *standard-step

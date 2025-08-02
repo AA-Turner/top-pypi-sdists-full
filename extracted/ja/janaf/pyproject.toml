@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/janaf/_version.py"
+build.targets.sdist.exclude = [
+  "/.github"
+]
+
+[project]
+dynamic = ["version"]
+name = "janaf"
+description = "Python wrapper for NIST-JANAF Thermochemical Tables"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+  { name = "Takumasa Nakamura", email = "n.takumasa@gmail.com" },
+]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+urls.Repository = "https://github.com/n-takumasa/py-janaf"
+
+dependencies = [
+  "polars>=1.0.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest >= 8", "pytest-cov", "janaf[example]"]
+script = ["aiofiles", "aiohttp"]
+lint = ["ruff"]
+type = ["mypy[install-types]", "janaf[test,script]"]
+example = [
+  "matplotlib",
+]
+dev = [
+  "janaf[test,script,lint,type,example]",
+  "tox >= 4",
+  "tox-uv",
+]
+
+[tool.uv]
+managed = false
+dev-dependencies = [
+  "janaf[dev]",
+]
+
+[tool.ruff]
+line-length = 88
+lint.extend-select = [
+  "B",  # flake8-bugbear
+  "I",  # isort
+  "UP",  # pyupgrade
+]
+
+[tool.coverage]
+run.source_pkgs = ["janaf", "tests"]
+run.branch = true
+run.parallel = true
+report.exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "@overload",
+]
+
+[tool.mypy]
+files = "src,scripts,example"
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]

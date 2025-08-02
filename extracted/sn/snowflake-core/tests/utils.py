@@ -20,7 +20,7 @@ def is_preprod_deployment(snowflake_region: str) -> bool:
 
 
 def is_prod_deployment(version_str: str) -> bool:
-    return version_str and all(character.isdigit() or character == '.' for character in version_str)
+    return version_str and all(character.isdigit() or character == "." for character in version_str)
 
 
 def is_prod_or_preprod(version_str: str, snowflake_region: str) -> bool:
@@ -45,10 +45,7 @@ def extract_version_number(version_str: str) -> str:
 
 
 def random_string(
-    length: int,
-    prefix: str = "",
-    suffix: str = "",
-    choices: Sequence[str] = string.ascii_lowercase,
+    length: int, prefix: str = "", suffix: str = "", choices: Sequence[str] = string.ascii_lowercase
 ) -> str:
     """Our convenience function to generate random string for object names.
 
@@ -72,10 +69,7 @@ def unquote(name: str) -> str:
 
 
 def extra_params(**kwargs) -> dict[str, Any]:
-    headers =  {
-        "Accept": "application/json",
-        "User-Agent": "python_api/" + VERSION,
-    }
+    headers = {"Accept": "application/json", "User-Agent": "python_api/" + VERSION}
     if "body" in kwargs:
         headers["Content-Type"] = "application/json"
     return {

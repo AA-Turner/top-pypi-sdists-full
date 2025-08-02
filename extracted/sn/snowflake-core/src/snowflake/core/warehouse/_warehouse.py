@@ -28,27 +28,18 @@ class WarehouseCollection(AccountObjectCollectionParent["WarehouseResource"]):
     Creating a warehouse instance:
 
     >>> warehouses = root.warehouses
-    >>> new_wh = Warehouse(
-    ...     name="my_wh",
-    ...     warehouse_size="XSMALL")
+    >>> new_wh = Warehouse(name="my_wh", warehouse_size="XSMALL")
     >>> warehouses.create(new_wh)
     """
 
     def __init__(self, root: "Root") -> None:
         super().__init__(root, ref_class=WarehouseResource)
         self._api = WarehouseApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
-    def create(
-        self,
-        warehouse: Warehouse,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists
-    ) -> "WarehouseResource":
+    def create(self, warehouse: Warehouse, *, mode: CreateMode = CreateMode.error_if_exists) -> "WarehouseResource":
         """Create a warehouse in Snowflake.
 
         Parameters
@@ -88,26 +79,19 @@ class WarehouseCollection(AccountObjectCollectionParent["WarehouseResource"]):
 
     @api_telemetry
     def create_async(
-        self,
-        warehouse: Warehouse,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists
+        self, warehouse: Warehouse, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["WarehouseResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_warehouse(warehouse._to_model(), StrictStr(real_mode), async_req=True)
         return PollingOperation(future, lambda _: self[warehouse.name])
 
     @api_telemetry
-    def iter(
-            self,
-            *,
-            like: Optional[str] = None,
-    ) -> Iterator[Warehouse]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[Warehouse]:
         """Iterate through ``Warehouse`` objects in Snowflake, filtering on any optional `like` pattern.
 
         Parameters
@@ -135,28 +119,18 @@ class WarehouseCollection(AccountObjectCollectionParent["WarehouseResource"]):
         >>> for warehouse in warehouses:
         >>>     print(warehouse.name, warehouse.warehouse_size)
         """
-        warehouses = self._api.list_warehouses(
-            StrictStr(like) if like is not None else None,
-            async_req=False,
-        )
+        warehouses = self._api.list_warehouses(StrictStr(like) if like is not None else None, async_req=False)
 
         return map(Warehouse._from_model, iter(warehouses))
 
     @api_telemetry
-    def iter_async(
-            self,
-            *,
-            like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[Warehouse]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[Warehouse]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_warehouses(
-            StrictStr(like) if like is not None else None,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_warehouses(StrictStr(like) if like is not None else None, async_req=True)
         return PollingOperation(future, lambda rest_models: map(Warehouse._from_model, iter(rest_models)))
 
 
@@ -173,17 +147,11 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
     @api_telemetry
     @deprecated("create_or_alter")
-    def create_or_update(
-        self,
-        warehouse: Warehouse
-    ) -> None:
+    def create_or_update(self, warehouse: Warehouse) -> None:
         self.create_or_alter(warehouse=warehouse)
 
     @api_telemetry
-    def create_or_alter(
-            self,
-            warehouse: Warehouse
-    ) -> None:
+    def create_or_alter(self, warehouse: Warehouse) -> None:
         """Create a warehouse in Snowflake or alter one if it already exists.
 
         Parameters
@@ -207,15 +175,12 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
         self.collection._api.create_or_alter_warehouse(warehouse.name, warehouse._to_model(), async_req=False)
 
     @api_telemetry
-    def create_or_alter_async(
-            self,
-            warehouse: Warehouse
-    ) -> PollingOperation[None]:
+    def create_or_alter_async(self, warehouse: Warehouse) -> PollingOperation[None]:
         """An asynchronous version of :func:`create_or_alter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.create_or_alter_warehouse(warehouse.name, warehouse._to_model(), async_req=True)
         return PollingOperations.empty(future)
 
@@ -247,7 +212,7 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_warehouse(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)
 
@@ -279,13 +244,13 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_warehouse(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
     @deprecated("drop")
-    def delete(self,  if_exists: Optional[bool] = None) -> None:
+    def delete(self, if_exists: Optional[bool] = None) -> None:
         self.drop(if_exists=if_exists)
 
     @api_telemetry
@@ -308,11 +273,7 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         >>> warehouse_reference.drop(if_exists=True)
         """
-        self.collection._api.delete_warehouse(
-             self.name,
-             if_exists=if_exists,
-             async_req=False,
-         )
+        self.collection._api.delete_warehouse(self.name, if_exists=if_exists, async_req=False)
 
     @api_telemetry
     def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
@@ -320,12 +281,8 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.delete_warehouse(
-             self.name,
-             if_exists=if_exists,
-             async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.delete_warehouse(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -349,7 +306,7 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_warehouse(self.name, async_req=True)
         return PollingOperation(future, lambda rest_model: Warehouse._from_model(rest_model))
 
@@ -375,8 +332,9 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
         Using a warehouse reference to rename a warehouse in Snowflake, if it exists:
         >>>  warehouse_reference.rename("new_wh_name", if_exists=True)
         """
-        self.collection._api.rename_warehouse(self.name, Warehouse(new_name)._to_model(),
-                                              if_exists=if_exists, async_req=False)
+        self.collection._api.rename_warehouse(
+            self.name, Warehouse(new_name)._to_model(), if_exists=if_exists, async_req=False
+        )
 
     @api_telemetry
     def rename_async(self, new_name: str, if_exists: Optional[bool] = None) -> PollingOperation[None]:
@@ -384,9 +342,10 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.rename_warehouse(self.name, Warehouse(new_name)._to_model(),
-                                              if_exists=if_exists, async_req=True)
+        """  # noqa: D401
+        future = self.collection._api.rename_warehouse(
+            self.name, Warehouse(new_name)._to_model(), if_exists=if_exists, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -416,7 +375,7 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.abort_all_queries_on_warehouse(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)
 
@@ -438,8 +397,9 @@ class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.use_warehouse(self.name, async_req=True)
         return PollingOperations.empty(future)
+
 
 __all__ = ["Warehouse", "WarehouseCollection", "WarehouseResource"]

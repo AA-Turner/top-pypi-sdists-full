@@ -14,6 +14,7 @@ if typing.TYPE_CHECKING:
 def foo1(session: "Session") -> str:
     return "abc"
 
+
 def foo2(session: "Session") -> str:
     return "abc"
 

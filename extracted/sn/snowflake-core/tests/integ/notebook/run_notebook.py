@@ -28,18 +28,12 @@ all_notebook_files = [
         "have_output_file": True,
         "is_integration_test": True,
     },
-    {
-        "notebook_name": "doc_notebook_1",
-        "notebook_file_name": "doc_notebook_1.ipynb",
-        "have_output_file": False,
-    },
+    {"notebook_name": "doc_notebook_1", "notebook_file_name": "doc_notebook_1.ipynb", "have_output_file": False},
 ]
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--tests-only", action="store_true", default=False,
-    help="Only run the notebooks with tests"
-)
+parser.add_argument("--tests-only", action="store_true", default=False, help="Only run the notebooks with tests")
+
 
 def run(tests_only: bool):
     execution_output = None
@@ -108,14 +102,14 @@ def run(tests_only: bool):
                     # fetch the output of the notebook execution and read
                     notebook_execution_output_file_name = f"{notebook_file['notebook_name']}_output.txt"
                     if notebook_file["have_output_file"]:
-                        source_path = f"{TEST_DATABASE_NAME}.{TEST_SCHEMA}.{STAGE_NAME}/{notebook_file['notebook_name']}/{notebook_execution_output_file_name}"  # noqa: E501
+                        source_path = f"{TEST_DATABASE_NAME}.{TEST_SCHEMA}.{STAGE_NAME}/{notebook_file['notebook_name']}/{notebook_execution_output_file_name}"
                         target_directory = f"{notebook_directory_path}"
                         # download the output file
                         try:
                             cursor.execute(f"GET @{source_path} file://{target_directory}")
                         except Exception as e:
                             print(
-                                f"Error downloading the notebook {notebook_file['notebook_file_name']}:\n {e.with_traceback(None)}"  # noqa: E501
+                                f"Error downloading the notebook {notebook_file['notebook_file_name']}:\n {e.with_traceback(None)}"
                             )
                             should_fail_job = True
                             continue
@@ -129,7 +123,7 @@ def run(tests_only: bool):
                                 print(f"Notebook {notebook_file['notebook_name']} Output::::::ENDS")
                         except Exception as e:
                             print(
-                                f"Error reading the notebook {notebook_file['notebook_file_name']}:\n {e.with_traceback(None)}"  # noqa: E501
+                                f"Error reading the notebook {notebook_file['notebook_file_name']}:\n {e.with_traceback(None)}"
                             )
                             should_fail_job = True
                             continue

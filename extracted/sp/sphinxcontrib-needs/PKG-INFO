@@ -1,0 +1,106 @@
+Metadata-Version: 2.1
+Name: sphinxcontrib-needs
+Version: 0.7.9
+Summary: Sphinx needs extension for managing needs/requirements and specifications
+Home-page: http://github.com/useblocks/sphinxcontrib-needs
+License: MIT
+Author: team useblocks
+Author-email: info@useblocks.com
+Requires-Python: >3.6.2,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Documentation
+Classifier: Topic :: Utilities
+Provides-Extra: docs
+Requires-Dist: jsonschema (==3.2.0)
+Requires-Dist: matplotlib (>3.1.0)
+Requires-Dist: requests (>=2.25.1,<3.0.0)
+Requires-Dist: requests-file (>=1.5.1,<2.0.0)
+Requires-Dist: sphinx (>2.2); python_version >= "3.7"
+Requires-Dist: sphinx (>2.2,<=3.0); python_version >= "3.6" and python_version < "3.7"
+Requires-Dist: sphinx-data-viewer (>=0.1.1,<0.2.0)
+Project-URL: Documentation, https://sphinxcontrib-needs.readthedocs.io/en/latest/
+Project-URL: Repository, http://github.com/useblocks/sphinxcontrib-needs
+Description-Content-Type: text/x-rst
+
+**Complete documentation**: http://sphinxcontrib-needs.readthedocs.io/en/latest/
+
+Introduction
+============
+
+``Sphinx-Needs`` allows the definition, linking and filtering of class-like need-objects, which are by default:
+
+* requirements
+* specifications
+* implementations
+* test cases.
+
+This list can be easily customized via configuration (for instance to support bugs or user stories).
+
+A default requirement need looks like:
+
+.. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/need_1.png
+   :align: center
+
+Layout and style of needs can be highly customized, so that a need can also look like:
+
+.. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/need_2.png
+   :align: center
+
+Take a look into our `Examples <https://sphinxcontrib-needs.readthedocs.io/en/latest/examples/index.html>`_ for more
+pictures and ideas how to use ``Sphinx-Needs``.
+
+For filtering and analyzing needs, ``Sphinx-Needs`` provides different, powerful possibilities:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 46,14,40
+
+   - * `needtable <https://sphinxcontrib-needs.readthedocs.io/en/latest/directives/needtable.html>`_
+     * `needflow <https://sphinxcontrib-needs.readthedocs.io/en/latest/directives/needflow.html>`_
+     * `needpie <https://sphinxcontrib-needs.readthedocs.io/en/latest/directives/needpie.html>`_
+   - * .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/needtable_1.png
+     * .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/needflow_1.png
+     * .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/needpie_1.png
+
+Installation
+============
+
+Using poetry
+------------
+::
+
+    poetry add sphinxcontrib-needs
+
+
+Using pip
+---------
+::
+
+    pip install sphinxcontrib-needs
+
+Using sources
+-------------
+::
+
+    git clone https://github.com/useblocks/sphinxcontrib-needs
+    cd sphinxcontrib-needs
+    pip install .
+
+Activation
+----------
+
+Add **sphinxcontrib.needs** to your extensions::
+
+    extensions = ["sphinxcontrib.needs",]
+

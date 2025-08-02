@@ -1,0 +1,56 @@
+[project]
+name = "apebench"
+version = "0.1.1"
+description = "Benchmark suite for Autoregressive Neural Emulators of PDEs in JAX."
+readme = "README.md"
+requires-python ="~=3.10"
+authors = [
+  {name = "Felix Koehler"},
+]
+keywords = ["jax", "sciml", "deep-learning", "pde", "neural operator"]
+urls = {repository = "https://github.com/Ceyron/apebench" }
+dependencies = [
+  "jax>=0.4.13",
+  "jaxtyping>=0.2.20",
+  "typing_extensions>=4.5.0",
+  "equinox>=0.11.3",
+  "optax>=0.2.0",
+  "tqdm>=4.63.2",
+  "matplotlib>=3.8.1",
+  "pandas>=2.2.0",
+  "seaborn>=0.13.0",
+  "exponax==0.1.0",
+  "pdequinox==0.1.2",
+  "trainax==0.0.2",
+]
+
+[project.scripts]
+apebench = "apebench._cli:app"
+
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | docs
+  )/
+)
+'''
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["apebench*"]  # package names should match these glob patterns (["*"] by default)
+exclude = []  # exclude packages matching these glob patterns (empty by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)

@@ -1,0 +1,131 @@
+Metadata-Version: 2.4
+Name: idf-ci
+Version: 0.2.6
+Summary: The python library for CI/CD of ESP-IDF projects
+Author-email: Fu Hanxi <fuhanxi@espressif.com>
+Project-URL: Homepage, https://github.com/espressif/idf-ci
+Project-URL: Documentation, https://docs.espressif.com/projects/idf-ci
+Project-URL: Repository, https://github.com/espressif/idf-ci.git
+Project-URL: Changelog, https://github.com/espressif/idf-ci/blob/master/CHANGELOG.md
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: click
+Requires-Dist: tomlkit
+Requires-Dist: pyyaml
+Requires-Dist: jinja2
+Requires-Dist: python-gitlab
+Requires-Dist: minio
+Requires-Dist: idf-build-apps<3,>=2.11
+Requires-Dist: pytest-embedded-idf[serial]~=1.16
+Requires-Dist: pytest-embedded-jtag~=1.16
+Requires-Dist: pytest-embedded-qemu~=1.16
+Requires-Dist: pytest-ignore-test-results<1,>=0.3.0
+Requires-Dist: pytest-timeout
+Requires-Dist: pytest-rerunfailures
+Requires-Dist: rich
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: doc
+Requires-Dist: sphinx; extra == "doc"
+Requires-Dist: sphinx-rtd-theme; extra == "doc"
+Requires-Dist: sphinx_copybutton; extra == "doc"
+Requires-Dist: myst-parser; extra == "doc"
+Requires-Dist: sphinxcontrib-mermaid; extra == "doc"
+Requires-Dist: sphinx-argparse; extra == "doc"
+Requires-Dist: sphinx-tabs; extra == "doc"
+Requires-Dist: autodoc-pydantic; extra == "doc"
+
+# idf-ci
+
+[![Documentation Status](https://readthedocs.com/projects/espressif-idf-ci/badge/?version=latest)](https://espressif-idf-ci.readthedocs-hosted.com/en/latest/)
+![Python 3.7+](https://img.shields.io/pypi/pyversions/idf-ci)
+
+A tool designed to streamline the CI/CD of ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
+
+## Installation
+
+```bash
+pip install -U idf-ci
+```
+
+## Key Features
+
+- **Sensible Defaults**
+
+  Easy setup with default settings for [idf-build-apps](https://github.com/espressif/idf-build-apps) and [pytest-embedded](https://github.com/espressif/pytest-embedded)
+
+- **Build Management**
+
+  Build ESP-IDF apps for multiple targets (ESP32, ESP32-S2, ESP32-C3, etc.) with parallel builds and smart filtering based on changed files or test needs.
+
+- **Test Management**
+
+  Run `pytest` with ESP-IDF configs, including target-specific test discovery and marker filtering.
+
+- **GitLab CI/CD Integration**
+
+  Full pipeline support with artifacts, S3 uploads, and auto-generated jobs for builds and tests.
+
+- **GitHub Actions Integration**
+
+  Generate test matrix from project settings.
+
+## Basic Usage
+
+### Initialize Configuration Files
+
+```bash
+# Create .idf_ci.toml with default idf-ci settings
+idf-ci init
+
+# Create .idf_build_apps.toml with default build settings
+idf-ci build init
+
+# Create pytest.ini with default test settings
+idf-ci test init
+```
+
+### Build Apps
+
+```bash
+# Build all apps
+idf-ci build run
+
+# Build apps for specific target
+idf-ci build run -t esp32
+
+# Build only test-related apps
+idf-ci build run --only-test-related
+
+# Preview what would be built (dry run)
+idf-ci build run --dry-run
+```
+
+### Run Tests
+
+We implement a pytest plugin to run tests with sensible defaults with another plugin [pytest-embedded](https://github.com/espressif/pytest-embedded)
+
+```bash
+# Only collect tests that would run
+pytest --collect-only
+
+# Run tests with target esp32
+pytest --target esp32
+```
+
+## Documentation
+
+For detailed usage and configuration options, please refer to the [documentation](https://espressif-idf-ci.readthedocs-hosted.com/en/latest/).

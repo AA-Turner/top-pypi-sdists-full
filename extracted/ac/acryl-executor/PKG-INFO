@@ -1,0 +1,99 @@
+Metadata-Version: 2.4
+Name: acryl-executor
+Version: 0.2.5
+Summary: An library used within Acryl Agents to execute tasks
+Home-page: https://datahubproject.io/
+License: Apache License 2.0
+Project-URL: Documentation, https://datahubproject.io/docs/
+Project-URL: Source, https://github.com/linkedin/datahub
+Project-URL: Changelog, https://github.com/linkedin/datahub/releases
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Topic :: Software Development
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: botocore!=1.23.0
+Requires-Dist: typing_extensions>=3.7.4; python_version < "3.11"
+Requires-Dist: acryl-datahub[datahub-rest]>=0.15.0
+Requires-Dist: mypy_extensions>=0.4.3
+Requires-Dist: sqlalchemy-stubs>=0.4
+Requires-Dist: pydantic>=1.5.1
+Requires-Dist: boto3
+Provides-Extra: dev
+Requires-Dist: botocore!=1.23.0; extra == "dev"
+Requires-Dist: types-freezegun; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest]>=0.15.0; extra == "dev"
+Requires-Dist: types-toml; extra == "dev"
+Requires-Dist: freezegun; extra == "dev"
+Requires-Dist: pydantic>=1.5.1; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: requests-mock; extra == "dev"
+Requires-Dist: typing_extensions>=3.7.4; python_version < "3.11" and extra == "dev"
+Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: mypy_extensions>=0.4.3; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-dataclasses; extra == "dev"
+Requires-Dist: pytest>=6.2.2; extra == "dev"
+Requires-Dist: ruff>=0.8.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: sqlalchemy-stubs>=0.4; extra == "dev"
+Requires-Dist: mypy>=1.16.0; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Acryl Executor
+
+Remote execution agent used for running DataHub tasks, such as ingestion powered through the UI. 
+
+
+```bash
+python3 -m venv --upgrade-deps venv
+source venv/bin/activate
+pip3 install .
+```
+
+## Notes
+
+By default, this library comes with a set of default task implementations: 
+
+### RUN_INGEST Task
+
+- **SubprocessProcessIngestionTask** - Executes a metadata ingestion run by spinning off a subprocess. Supports ingesting from a particular version, and with a specific plugin (based on the platform type requested) 
+
+- **InMemoryIngestionTask** - Executes a metadata ingestion run using the datahub library in the same process. Not great for production where we can see strange dependency conflicts when certain packages are executed together. Use this for testing, as it has no ability to check out a specific DataHub Metadata Ingestion plugin. 
+
+### Cloud Logging (S3)
+
+There is one implementation of a cloud logging client that writes logs to S3. This is used by the Acryl Executor to write logs to S3.
+To enable it you should set the following environment variables:
+`ENV DATAHUB_CLOUD_LOG_BUCKET` - The S3 bucket to write logs to
+`ENV DATAHUB_CLOUD_LOG_PATH` - The S3 path to write logs to
+
+The logs are compressed with tar and gzipped before being uploaded to S3 to the following path:
+`s3://CLOUD_LOG_BUCKET/CLOUD_LOG_PATH/<pipeline_id>/year=/month=/day=/<run_id>/`

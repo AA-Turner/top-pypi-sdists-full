@@ -1,0 +1,33 @@
+repositories:
+  # Web Frameworks
+  - name: "fastapi"
+    url: "https://github.com/tiangolo/fastapi"
+    category: "web_framework"
+    test_dir: "tests"
+    test_patterns:
+      - "test_*.py"
+      - "*_test.py"
+    
+  # HTTP Libraries
+  - name: "httpx"
+    url: "https://github.com/encode/httpx"
+    category: "http_library"
+    test_dir: "tests"
+    test_patterns:
+      - "test_*.py"
+    
+    
+
+# Benchmark configurations
+benchmark_configs:
+  collect_only:
+    description: "Test discovery performance"
+    pytest_args: "--collect-only"
+    rtest_args: "--collect-only"
+    timeout: 300
+    
+  execution:
+    description: "Test execution performance"
+    pytest_args: "--maxfail=3 -x"
+    rtest_args: "--maxfail=3 -x"
+    timeout: 300

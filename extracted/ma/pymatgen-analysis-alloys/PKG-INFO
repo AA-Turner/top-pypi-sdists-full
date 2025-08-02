@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: pymatgen-analysis-alloys
+Version: 0.0.7
+Summary: A pymatgen add-on library with classes useful for describing alloy (disordered) systems.
+Home-page: https://github.com/materialsproject/pymatgen-analysis-alloys
+Author: Rachel Woods-Robinson, Matthew Horton
+Author-email: rwoodsrobinson@lbl.gov
+Maintainer: Rachel Woods-Robinson, Matthew Horton
+Keywords: pymatgen
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+Requires-Dist: pymatgen>=2023.7.17
+Requires-Dist: shapely>=1.8.2
+
+pymatgen-analysis-alloys
+========================
+
+`pymatgen-analysis-alloys` is an add-on package for [pymatgen](https://pymatgen.org) intended to contain useful classes 
+for describing alloy systems and analyzing data relevant to these systems. It currently contains the base classes and 
+plotting functionality described in [this paper](https://arxiv.org/abs/2206.10715).

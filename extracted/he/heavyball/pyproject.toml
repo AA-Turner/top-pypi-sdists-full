@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heavyball"
+description = "Efficient Optimizers"
+version = "1.7.2"
+authors = [{ name = "HeavyBall Authors", email = "github.heavyball@nestler.sh" }]
+classifiers = ["Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+dependencies = ["opt-einsum>=3.4.0",
+    "torch>=2.1.0",
+    "numpy",
+]
+keywords = ["torch",
+    "optimizer",
+    "muon",
+    "soap",
+    "psgd",
+]
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["pre-commit", "pytest", "ruff", "matplotlib", "seaborn", "hyperopt", "pandas", "typer"]
+
+[project.urls]
+source = "https://github.com/HomebrewML/HeavyBall"
+tracker = "https://github.com/HomebrewML/HeavyBall/issues"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["I", "W"]
+ignore = ["E741"]
+preview = true
+
+[tool.ruff.lint.isort]
+relative-imports-order = "closest-to-furthest"
+
+[tool.ruff.format]
+preview = true
+
+[tool.setuptools.packages.find]
+include = ["heavyball*"]

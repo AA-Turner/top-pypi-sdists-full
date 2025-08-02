@@ -45,7 +45,7 @@ def _Omega_QUADRATIC_CPU(theta_flat, j_idx, k_idx, values, sigma=1.0):
     U_value *= 0.5
     return grad_U, hess_U, U_value
 
-def _Omega_QUADRATIC_GPU(theta_flat, index, values, sigma=1.0):
+def _Omega_QUADRATIC_GPU(theta_flat, index, values, device, sigma=1.0):
     """
     GPU implementation of the quadratic potential function, gradient and Hessian.
     
@@ -63,28 +63,24 @@ def _Omega_QUADRATIC_GPU(theta_flat, index, values, sigma=1.0):
     j_idx, k_idx = index
     diff = theta_flat[j_idx] - theta_flat[k_idx]
 
-    # Energy term (potential ψ)
+    # Energy
     psi_pair = 0.5 * (diff / sigma) ** 2
     psi_pair = values * psi_pair
 
-    # Gradient ∂ψ/∂θ_j = -(θ_k - θ_j) / σ^2
+    # Gradient
     grad_pair = values * (-diff / sigma**2)
 
-    # Hessian ∂²ψ/∂θ_j² = 1 / σ² (constant per edge)
+    # Hessian
     hess_pair = values * (1.0 / sigma**2)
 
-    # Initialize zero tensors on GPU
-    grad_U = torch.zeros_like(theta_flat)
-    hess_U = torch.zeros_like(theta_flat)
+    # Allocate buffers on correct device
+    grad_U = torch.zeros_like(theta_flat, device=device)
+    hess_U = torch.zeros_like(theta_flat, device=device)
 
-    # Aggregate contributions (scatter equivalent)
-    grad_U = grad_U.index_add(0, j_idx, grad_pair)
-    hess_U = hess_U.index_add(0, j_idx, hess_pair)
+    # Accumulate
+    grad_U.index_add_(0, j_idx, grad_pair)
+    hess_U.index_add_(0, j_idx, hess_pair)
 
-    # Total energy U(θ)
     U_value = 0.5 * psi_pair.sum()
 
     return grad_U, hess_U, U_value
-
-
-

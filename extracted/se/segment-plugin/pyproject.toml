@@ -1,0 +1,51 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "segment-plugin"
+license = { file = "LICENSE" }
+
+requires-python = ">=3.8"
+
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "polars>=1.31.0",
+    "scipy>=1.16.0",
+    "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+pandas = ["pandas>=2.2.3"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "segment_plugin._internal"
+
+[tool.bumpversion]
+current_version = "0.2.8"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Release v{new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} ➡ {new_version}"
+commit_args = ""
+
+[[tool.bumpversion.files]]
+filename = "Cargo.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""

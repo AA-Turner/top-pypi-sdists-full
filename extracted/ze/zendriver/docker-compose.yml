@@ -1,0 +1,26 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    ports:
+      - 5911:5911 # VNC server port
+    volumes:
+      - swayvnc-wayvnc-certs:/certs
+      - ./zendriver:/app/zendriver
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    environment:
+      - RENDER_GROUP_GID=107 # replace with GID of the group which owns the /dev/dri/renderD128 device
+      - SWAY_RESOLUTION=1920x1080
+      - WAYVNC_PORT=5911
+      - WAYVNC_ENABLE_AUTH=true
+      - WAYVNC_USERNAME=wayvnc
+      - WAYVNC_PASSWORD=wayvnc
+      # When set to true, the test runner will pause after each test is complete to allow debugging with VNC client
+      # Proceed to the next test by sending Mod+Return over VNC
+      - ZENDRIVER_PAUSE_AFTER_TEST=false
+    privileged: true
+
+volumes:
+  swayvnc-wayvnc-certs:

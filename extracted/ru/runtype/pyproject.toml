@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "runtype"
+version = "0.5.3"
+description = "Type dispatch and validation for run-time Python"
+authors = ["Erez Shinan <erezshin@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/erezsh/runtype"
+keywords = ["types", "typing", "dispatch", "multimethods", "dataclass", "runtime"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+]
+packages = [{ include = "runtype" }]
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+typing_extensions = "*"
+mypy = ">=1.9.0"
+# The following are used for benchmarking - 
+pytest-benchmark = "*"
+# beartype = "*"
+# plum-dispatch = "*"
+# multipledispatch = "*"
+
+# -- Groups not supported by old versions of poetry, had problems with gh-actions
+# [tool.poetry.group.docs]
+# optional = true
+# [tool.poetry.group.docs.dependencies]
+# recommonmark = "*"
+# sphinx-gallery = "*"
+# sphinx_markdown_tables = "*"
+# sphinx_rtd_theme = ">=1.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+# addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+addopts = "--benchmark-skip --benchmark-warmup=on --benchmark-warmup-iterations=5 --benchmark-disable-gc --benchmark-name=short --benchmark-sort=mean --benchmark-group-by=fullfunc"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

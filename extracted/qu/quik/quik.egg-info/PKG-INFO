@@ -1,0 +1,76 @@
+Metadata-Version: 1.1
+Name: quik
+Version: 0.2.2
+Summary: A fast and lightweight Python template engine
+Home-page: https://github.com/avelino/quik
+Author: Thiago Avelino
+Author-email: thiago@avelino.xxx
+License: MIT
+Description: ====
+        Quik
+        ====
+        
+        .. image:: https://travis-ci.org/avelino/quik.png?branch=master
+            :target: https://travis-ci.org/avelino/quik
+            :alt: Build Status - Travis CI
+        
+        A fast and lightweight Python template engine
+        
+        
+        Features
+        --------
+        
+        - Easy to use.
+        - High performance.
+        - Autoescaping.
+        - Template inheritance.
+        - Supports native python expressions.
+        
+        
+        Nutshell
+        --------
+        
+        Here a small example of a Quik template
+        
+        .. code-block:: html
+        
+            <ul>
+                #for @user in @users:
+                    #if @user.age > 18:
+                    <li><a href="@user.url">@user.username</a></li>
+                    #end
+                #end
+            </ul>
+        
+        
+        Use It
+        ------
+        
+        Render via template:
+        
+        .. code-block:: python
+        
+            from quik import FileLoader
+        
+            loader = FileLoader('html')
+            template = loader.load_template('index.html')
+            print template.render({'author': 'Thiago Avelino'},
+                                  loader=loader).encode('utf-8')
+        
+        
+        
+        
+Keywords: template,engine,web,fast,lightweight
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: HTML

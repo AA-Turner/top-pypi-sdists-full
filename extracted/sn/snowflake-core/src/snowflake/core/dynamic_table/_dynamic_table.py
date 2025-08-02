@@ -41,34 +41,33 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
     >>> dynamic_tables = root.databases["my_db"].schemas["my_schema"].dynamic_tables
     >>> dynamic_tables.create(
     ...     DynamicTable(
-    ...        name="my_dynamic_table",
-    ...        columns=[
-    ...            DynamicTableColumn(name="c1"),
-    ...            DynamicTableColumn(name='"cc2"', datatype="varchar"),
-    ...        ],
-    ...        warehouse=db_parameters["my_warehouse"],
-    ...        target_lag=UserDefinedLag(seconds=60),
-    ...        query="SELECT * FROM my_table",
-    ...    ),
-    ...    mode=CreateMode.error_if_exists,
+    ...         name="my_dynamic_table",
+    ...         columns=[
+    ...             DynamicTableColumn(name="c1"),
+    ...             DynamicTableColumn(name='"cc2"', datatype="varchar"),
+    ...         ],
+    ...         warehouse=db_parameters["my_warehouse"],
+    ...         target_lag=UserDefinedLag(seconds=60),
+    ...         query="SELECT * FROM my_table",
+    ...     ),
+    ...     mode=CreateMode.error_if_exists,
     ... )
     """
 
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, DynamicTableResource)
         self._api = DynamicTableApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
     def create(
-        self, table: Union[DynamicTable, DynamicTableClone, str],
+        self,
+        table: Union[DynamicTable, DynamicTableClone, str],
         *,
         clone_table: Optional[Union[str, Clone]] = None,
         copy_grants: Optional[bool] = False,
-        mode: CreateMode=CreateMode.error_if_exists,
+        mode: CreateMode = CreateMode.error_if_exists,
     ) -> "DynamicTableResource":
         """Create a dynamic table.
 
@@ -105,29 +104,26 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
         >>> dynamic_tables = root.databases["my_db"].schemas["my_schema"].dynamic_tables
         >>> dynamic_tables.create(
         ...     DynamicTable(
-        ...        name="my_dynamic_table",
-        ...        columns=[
-        ...            DynamicTableColumn(name="c1"),
-        ...            DynamicTableColumn(name='"cc2"', datatype="varchar"),
-        ...        ],
-        ...        warehouse=db_parameters["my_warehouse"],
-        ...        target_lag=UserDefinedLag(seconds=60),
-        ...        query="SELECT * FROM my_table",
-        ...    ),
-        ...    mode=CreateMode.error_if_exists,
+        ...         name="my_dynamic_table",
+        ...         columns=[
+        ...             DynamicTableColumn(name="c1"),
+        ...             DynamicTableColumn(name='"cc2"', datatype="varchar"),
+        ...         ],
+        ...         warehouse=db_parameters["my_warehouse"],
+        ...         target_lag=UserDefinedLag(seconds=60),
+        ...         query="SELECT * FROM my_table",
+        ...     ),
+        ...     mode=CreateMode.error_if_exists,
         ... )
 
         Creating a dynamic table by cloning an existing table:
 
         >>> dynamic_tables = root.databases["my_db"].schemas["my_schema"].dynamic_tables
         >>> dynamic_tables.create(
-        ...     DynamicTableClone(
-        ...         name="my_dynamic_table",
-        ...         target_lag=UserDefinedLag(seconds=120),
-        ...     ),
+        ...     DynamicTableClone(name="my_dynamic_table", target_lag=UserDefinedLag(seconds=120)),
         ...     clone_table=Clone(
         ...         source="my_source_dynamic_table",
-        ...         point_of_time=PointOfTimeOffset(reference="before", when="-1")
+        ...         point_of_time=PointOfTimeOffset(reference="before", when="-1"),
         ...     ),
         ...     copy_grants=True,
         ... )
@@ -136,48 +132,35 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
 
         >>> dynamic_tables = root.databases["my_db"].schemas["my_schema"].dynamic_tables
         >>> dynamic_tables.create(
-        ...     DynamicTableClone(
-        ...         name="my_dynamic_table",
-        ...         target_lag=UserDefinedLag(seconds=120),
-        ...     ),
+        ...     DynamicTableClone(name="my_dynamic_table", target_lag=UserDefinedLag(seconds=120)),
         ...     clone_table=Clone(
         ...         source="database_of_source_table.schema_of_source_table.my_source_dynamic_table",
-        ...         point_of_time=PointOfTimeOffset(reference="before", when="-1")
+        ...         point_of_time=PointOfTimeOffset(reference="before", when="-1"),
         ...     ),
         ...     copy_grants=True,
         ... )
         """
-        self._create(
-            table=table,
-            clone_table=clone_table,
-            copy_grants=copy_grants,
-            mode=mode,
-            async_req=False,
-        )
+        self._create(table=table, clone_table=clone_table, copy_grants=copy_grants, mode=mode, async_req=False)
         return DynamicTableResource(table if isinstance(table, str) else table.name, self)
 
     @api_telemetry
     def create_async(
-        self, table: Union[DynamicTable, DynamicTableClone, str],
+        self,
+        table: Union[DynamicTable, DynamicTableClone, str],
         *,
         clone_table: Optional[Union[str, Clone]] = None,
         copy_grants: Optional[bool] = False,
-        mode: CreateMode=CreateMode.error_if_exists,
+        mode: CreateMode = CreateMode.error_if_exists,
     ) -> PollingOperation["DynamicTableResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._create(
-            table=table,
-            clone_table=clone_table,
-            copy_grants=copy_grants,
-            mode=mode,
-            async_req=True,
+        """  # noqa: D401
+        future = self._create(table=table, clone_table=clone_table, copy_grants=copy_grants, mode=mode, async_req=True)
+        return PollingOperation(
+            future, lambda _: DynamicTableResource(table if isinstance(table, str) else table.name, self)
         )
-        return PollingOperation(future, lambda _:
-            DynamicTableResource(table if isinstance(table, str) else table.name, self))
 
     @api_telemetry
     def iter(
@@ -229,8 +212,13 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
         ...     print(dynamic_table.name, dynamic_table.query)
         """
         tables = self._api.list_dynamic_tables(
-            database=self.database.name, var_schema=self.schema.name, like=like,
-            starts_with=starts_with, show_limit=limit, from_name=from_name, deep=deep,
+            database=self.database.name,
+            var_schema=self.schema.name,
+            like=like,
+            starts_with=starts_with,
+            show_limit=limit,
+            from_name=from_name,
+            deep=deep,
             async_req=False,
         )
 
@@ -250,36 +238,42 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_dynamic_tables(
-            database=self.database.name, var_schema=self.schema.name, like=like,
-            starts_with=starts_with, show_limit=limit, from_name=from_name, deep=deep,
+            database=self.database.name,
+            var_schema=self.schema.name,
+            like=like,
+            starts_with=starts_with,
+            show_limit=limit,
+            from_name=from_name,
+            deep=deep,
             async_req=True,
         )
         return PollingOperations.iterator(future)
 
     @overload
     def _create(
-        self, table: Union[DynamicTable, DynamicTableClone, str],
+        self,
+        table: Union[DynamicTable, DynamicTableClone, str],
         clone_table: Optional[Union[str, Clone]],
         copy_grants: Optional[bool],
         mode: CreateMode,
         async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
-        self, table: Union[DynamicTable, DynamicTableClone, str],
+        self,
+        table: Union[DynamicTable, DynamicTableClone, str],
         clone_table: Optional[Union[str, Clone]],
         copy_grants: Optional[bool],
         mode: CreateMode,
         async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+    ) -> SuccessResponse: ...
 
     def _create(
-        self, table: Union[DynamicTable, DynamicTableClone, str],
+        self,
+        table: Union[DynamicTable, DynamicTableClone, str],
         clone_table: Optional[Union[str, Clone]],
         copy_grants: Optional[bool],
         mode: CreateMode,
@@ -298,10 +292,7 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
                 pot = TablePointOfTime.from_dict(clone_table.point_of_time.to_dict())
             real_clone = Clone(source=clone_table) if isinstance(clone_table, str) else clone_table
             req = DynamicTableClone(
-                name=table.name,
-                target_lag=table.target_lag,
-                warehouse=table.warehouse,
-                point_of_time=pot,
+                name=table.name, target_lag=table.target_lag, warehouse=table.warehouse, point_of_time=pot
             )
 
             source_table_fqn = FQN.from_string(real_clone.source)
@@ -309,7 +300,8 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
                 source_table_fqn.database or self.database.name,
                 source_table_fqn.schema or self.schema.name,
                 source_table_fqn.name,
-                req, create_mode=StrictStr(real_mode),
+                req,
+                create_mode=StrictStr(real_mode),
                 copy_grants=copy_grants,
                 target_database=self.database.name,
                 target_schema=self.schema.name,
@@ -322,8 +314,7 @@ class DynamicTableCollection(SchemaObjectCollectionParent["DynamicTableResource"
             raise ValueError("`table` must be a `DynamicTable` unless `clone_table` is used")
 
         return self._api.create_dynamic_table(
-            self.database.name, self.schema.name, table, create_mode=StrictStr(real_mode),
-            async_req=async_req,
+            self.database.name, self.schema.name, table, create_mode=StrictStr(real_mode), async_req=async_req
         )
 
 
@@ -353,7 +344,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> print(my_dynamic_table.name, my_dynamic_table.query)
         """
         return self.collection._api.fetch_dynamic_table(
-            self.database.name, self.schema.name, self.name, async_req=False,
+            self.database.name, self.schema.name, self.name, async_req=False
         )
 
     @api_telemetry
@@ -362,9 +353,9 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_dynamic_table(
-            self.database.name, self.schema.name, self.name, async_req=True,
+            self.database.name, self.schema.name, self.name, async_req=True
         )
         return PollingOperations.identity(future)
 
@@ -374,10 +365,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         self.drop()
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def drop(self, if_exists: Optional[bool] = None) -> None:
         """Drop the dynamic table.
 
         Parameters
@@ -393,11 +381,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.drop()
         """
         self.collection._api.delete_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
@@ -406,13 +390,9 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -422,9 +402,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         self.undrop()
 
     @api_telemetry
-    def undrop(
-        self,
-    ) -> None:
+    def undrop(self) -> None:
         """Undrop the previously dropped dynamic table.
 
         Examples
@@ -433,12 +411,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         >>> dynamic_table_reference.undrop()
         """
-        self.collection._api.undrop_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        self.collection._api.undrop_dynamic_table(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def undrop_async(self) -> PollingOperation[None]:
@@ -446,20 +419,14 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.undrop_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def suspend(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def suspend(self, if_exists: Optional[bool] = None) -> None:
         """Suspend the dynamic table.
 
         Parameters
@@ -475,11 +442,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.suspend()
         """
         self.collection._api.suspend_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
@@ -488,21 +451,14 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def resume(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def resume(self, if_exists: Optional[bool] = None) -> None:
         """Resume the dynamic table.
 
         Parameters
@@ -518,11 +474,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.resume()
         """
         self.collection._api.resume_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
@@ -531,21 +483,14 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def refresh(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def refresh(self, if_exists: Optional[bool] = None) -> None:
         """Refresh the dynamic table.
 
         Parameters
@@ -561,11 +506,7 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.refresh()
         """
         self.collection._api.refresh_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
@@ -574,22 +515,14 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.refresh_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def swap_with(
-        self,
-        to_swap_table_name: str,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def swap_with(self, to_swap_table_name: str, if_exists: Optional[bool] = None) -> None:
         """Swap the name with another dynamic table.
 
         Parameters
@@ -608,40 +541,23 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.swap_with("my_other_dynamic_table")
         """
         self.collection._api.swap_with_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            to_swap_table_name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, to_swap_table_name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def swap_with_async(
-        self,
-        to_swap_table_name: str,
-        if_exists: Optional[bool] = None,
-    ) -> PollingOperation[None]:
+    def swap_with_async(self, to_swap_table_name: str, if_exists: Optional[bool] = None) -> PollingOperation[None]:
         """An asynchronous version of :func:`swap_with`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.swap_with_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            to_swap_table_name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, to_swap_table_name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def suspend_recluster(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def suspend_recluster(self, if_exists: Optional[bool] = None) -> None:
         """Disable reclustering the dynamic table.
 
         Parameters
@@ -657,37 +573,23 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.suspend_recluster()
         """
         self.collection._api.suspend_recluster_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def suspend_recluster_async(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> PollingOperation[None]:
+    def suspend_recluster_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
         """An asynchronous version of :func:`suspend_recluster`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_recluster_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def resume_recluster(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def resume_recluster(self, if_exists: Optional[bool] = None) -> None:
         """Enable reclustering the dynamic table.
 
         Parameters
@@ -703,28 +605,17 @@ class DynamicTableResource(SchemaObjectReferenceMixin[DynamicTableCollection]):
         >>> dynamic_table_reference.resume_recluster()
         """
         self.collection._api.resume_recluster_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def resume_recluster_async(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> PollingOperation[None]:
+    def resume_recluster_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
         """An asynchronous version of :func:`resume_recluster`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_recluster_dynamic_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)

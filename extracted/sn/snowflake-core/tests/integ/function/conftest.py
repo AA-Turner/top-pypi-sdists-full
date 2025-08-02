@@ -5,10 +5,7 @@ import pytest
 
 from pydantic import StrictStr
 
-from snowflake.core.service import (
-    Service,
-    ServiceSpecStageFile,
-)
+from snowflake.core.service import Service, ServiceSpecStageFile
 
 from ..utils import random_string
 

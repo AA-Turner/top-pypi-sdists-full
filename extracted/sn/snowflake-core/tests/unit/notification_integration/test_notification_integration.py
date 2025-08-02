@@ -7,6 +7,7 @@ from snowflake.core.notification_integration import (
     NotificationEmail,
     NotificationIntegration,
     NotificationIntegrationCollection,
+    NotificationIntegrationResource,
 )
 
 from ...utils import BASE_URL, extra_params, mock_http_response
@@ -14,6 +15,7 @@ from ...utils import BASE_URL, extra_params, mock_http_response
 
 API_CLIENT_REQUEST = "snowflake.core.notification_integration._generated.api_client.ApiClient.request"
 NOTIFICATION_INTEGRATION = NotificationIntegration(name="my_int", notification_hook=NotificationEmail())
+
 
 @pytest.fixture
 def notification_integrations(fake_root):
@@ -26,21 +28,15 @@ def notification_integration(notification_integrations):
 
 
 def test_create_notification_integration(fake_root, notification_integrations):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/notification-integrations?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/notification-integrations?createMode=errorIfExists")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={
-            "name": "my_int",
-            "notification_hook": {"type": "EMAIL"},
-        },
+        query_params=[("createMode", "errorIfExists")], body={"name": "my_int", "notification_hook": {"type": "EMAIL"}}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        notification_integrations.create(NOTIFICATION_INTEGRATION)
+        ni_res = notification_integrations.create(NOTIFICATION_INTEGRATION)
+        assert isinstance(ni_res, NotificationIntegrationResource)
+        assert ni_res.name == "my_int"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -52,11 +48,7 @@ def test_create_notification_integration(fake_root, notification_integrations):
 
 
 def test_iter_notification_integration(fake_root, notification_integrations):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/notification-integrations",
-    )
+    args = (fake_root, "GET", BASE_URL + "/notification-integrations")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -80,11 +72,7 @@ def test_fetch_notification_integration(fake_root, notification_integration):
     )
 
     model = NotificationIntegrationModel(name="my_int", notification_hook=NotificationEmailModel())
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/notification-integrations/my_int",
-    )
+    args = (fake_root, "GET", BASE_URL + "/notification-integrations/my_int")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -101,13 +89,8 @@ def test_fetch_notification_integration(fake_root, notification_integration):
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-
 def test_drop_notification_integration(fake_root, notification_integration):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/notification-integrations/my_int",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/notification-integrations/my_int")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

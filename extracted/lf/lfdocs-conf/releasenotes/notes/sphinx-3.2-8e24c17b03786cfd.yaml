@@ -1,0 +1,4 @@
+---
+upgrade:
+  - |
+    Sphinx has been upgraded to 3.2.x.

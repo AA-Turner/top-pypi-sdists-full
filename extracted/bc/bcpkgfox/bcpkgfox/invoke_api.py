@@ -453,6 +453,7 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                 raise ValueError('Não conseguiu achar o sistema no certificado')
 
             if len(div_list) == 1:
+                time.sleep(1)
                 div_list[0].click()
 
             # Just do this loop if there are more than one system

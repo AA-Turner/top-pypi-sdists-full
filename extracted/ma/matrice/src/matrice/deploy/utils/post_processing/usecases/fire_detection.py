@@ -4,10 +4,11 @@ Fire and Smoke Detection use case implementation.
 This module provides a structured implementation of fire and smoke detection
 with counting, insights generation, alerting, and tracking.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import time
+import re
 
 from ..core.base import (
     BaseProcessor,
@@ -39,7 +40,10 @@ class FireSmokeConfig(BaseConfig):
 
     # Only fire and smoke categories included here (exclude normal)
     fire_smoke_categories: List[str] = field(
-        default_factory=lambda: ["Fire", "Smoke"]
+        default_factory=lambda: ["fire", "smoke"]
+    )
+    target_categories: List[str] = field(
+        default_factory=lambda: ['fire']
     )
 
     alert_config: Optional[AlertConfig] = None
@@ -50,8 +54,8 @@ class FireSmokeConfig(BaseConfig):
     # Map only fire and smoke; ignore normal (index 1 not included)
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: "Fire",
-            1: "Smoke",
+            0: "fire",
+            1: "smoke",
         }
     )
 
@@ -71,6 +75,8 @@ class FireSmokeConfig(BaseConfig):
         self.fire_smoke_categories = [cat.lower() for cat in self.fire_smoke_categories]
         if self.index_to_category:
             self.index_to_category = {k: v.lower() for k, v in self.index_to_category.items()}
+        if self.target_categories:
+                self.target_categories = [cat.lower() for cat in self.target_categories]
 
 
 
@@ -86,6 +92,7 @@ class FireSmokeUseCase(BaseProcessor):
 
         self.smoothing_tracker = None  # Required for bbox smoothing
         self._fire_smoke_recent_history = []
+        self.target_categories=['fire']
 
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
@@ -130,6 +137,10 @@ class FireSmokeUseCase(BaseProcessor):
             if config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 self.logger.debug("Applied category mapping")
+
+            if self.target_categories:
+                processed_data = [d for d in processed_data if d.get('category').lower() in self.target_categories]
+                self.logger.debug(f"Applied category filtering")
 
             # Step 3.5: BBox smoothing for fire/smoke
             if config.enable_smoothing:
@@ -176,6 +187,8 @@ class FireSmokeUseCase(BaseProcessor):
                     frame_number = start_frame
 
              # Step 7: alerts
+            print("-----------ALERT_PROCESSING_IPP-----------")
+            print(fire_smoke_summary)
             alerts = self._check_alerts(fire_smoke_summary, frame_number, config, stream_info)
 
 
@@ -363,10 +376,10 @@ class FireSmokeUseCase(BaseProcessor):
                     intensity_pct = min(100.0, (total_area / threshold_area) * 100)
 
                     if config.alert_config and config.alert_config.count_thresholds:
-                            if intensity_pct >= 60:
+                            if intensity_pct >= 40:
                                 level = "critical"
                                 self._ascending_alert_list.append(3)
-                            elif intensity_pct >= 40:
+                            elif intensity_pct >= 30:
                                 level = "significant"
                                 self._ascending_alert_list.append(2)
                             elif intensity_pct >= 5:
@@ -376,11 +389,11 @@ class FireSmokeUseCase(BaseProcessor):
                                 level = "low"
                                 self._ascending_alert_list.append(0)
                     else:
-                            if intensity_pct > 60:
+                            if intensity_pct > 40:
                                 level = "critical"
                                 intensity = 10.0
                                 self._ascending_alert_list.append(3)
-                            elif intensity_pct > 40:
+                            elif intensity_pct > 30:
                                 level = "significant"
                                 intensity = 9.0
                                 self._ascending_alert_list.append(2)
@@ -414,6 +427,7 @@ class FireSmokeUseCase(BaseProcessor):
                             severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
                             level_settings= {"low": 1, "medium": 5, "significant":40, "critical": 60})
+                    event['duration'] = self.get_duration_seconds(start_timestamp, self.current_incident_end_timestamp)
                     incidents.append(event)
 
         else:
@@ -585,7 +599,7 @@ class FireSmokeUseCase(BaseProcessor):
             ]
             counts = {}
             for det in detections:
-                cat = det.get('category', 'unknown')
+                cat = det.get('category', 'unknown').lower()
                 counts[cat] = counts.get(cat, 0) + 1
             
 
@@ -713,7 +727,7 @@ class FireSmokeUseCase(BaseProcessor):
                 "fire_smoke_categories": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "default": ["Fire", "Smoke"],
+                    "default": ["fire", "smoke"],
                     "description": "Category names that represent fire and smoke",
                 },
                 "index_to_category": {
@@ -741,8 +755,8 @@ class FireSmokeUseCase(BaseProcessor):
         defaults = {
             "category": self.category,
             "usecase": self.name,
-            "confidence_threshold": 0.5,
-            "fire_smoke_categories": ["Fire", "Smoke"],
+            "confidence_threshold": 0.3,
+            "fire_smoke_categories": ["fire", "smoke"],
         }
         defaults.update(overrides)
         return FireSmokeConfig(**defaults)
@@ -846,6 +860,53 @@ class FireSmokeUseCase(BaseProcessor):
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def get_duration_seconds(self, start_time, end_time):
+        def parse_relative_time(t):
+            """Parse HH:MM:SS(.f) manually into timedelta"""
+            try:
+                parts = t.strip().split(":")
+                if len(parts) != 3:
+                    return None
+                hours = int(parts[0])
+                minutes = int(parts[1])
+                seconds = float(parts[2])  # works for 7.4
+                return timedelta(hours=hours, minutes=minutes, seconds=seconds)
+            except:
+                return None
+
+        def parse_time(t):
+            # Check for HH:MM:SS(.ms) format
+            if re.match(r'^\d{1,2}:\d{2}:\d{1,2}(\.\d+)?$', t):
+                return parse_relative_time(t)
+
+            # Check for full UTC format like 2025-08-01-14:23:45.123456 UTC
+            if "UTC" in t:
+                try:
+                    return datetime.strptime(t, "%Y-%m-%d-%H:%M:%S.%f UTC")
+                except ValueError:
+                    return None
+
+            return None
+
+        start_dt = parse_time(start_time)
+        end_dt = parse_time(end_time)
+
+        # Return None if invalid
+        if start_dt is None or end_dt is None:
+            print("Invalid timestamp(s). Ignoring.")
+            return 'N/A'
+
+        # If timedelta (relative time), subtract directly
+        if isinstance(start_dt, timedelta) and isinstance(end_dt, timedelta):
+            delta = end_dt - start_dt
+        elif isinstance(start_dt, datetime) and isinstance(end_dt, datetime):
+            delta = end_dt - start_dt
+        else:
+            print("Mismatched timestamp formats.")
+            return None
+
+        return delta.total_seconds()
 
 
 

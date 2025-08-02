@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.image_repository import ImageRepository
+from snowflake.core.image_repository import ImageRepository, ImageRepositoryResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -27,13 +27,12 @@ def test_create_image_repository(fake_root, image_repositories):
         "POST",
         BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories?createMode=errorIfExists",
     )
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={"name": "my_rep"},
-    )
+    kwargs = extra_params(query_params=[("createMode", "errorIfExists")], body={"name": "my_rep"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        image_repositories.create(ImageRepository(name="my_rep"))
+        ir_res = image_repositories.create(ImageRepository(name="my_rep"))
+        assert isinstance(ir_res, ImageRepositoryResource)
+        assert ir_res.name == "my_rep"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -45,11 +44,7 @@ def test_create_image_repository(fake_root, image_repositories):
 
 
 def test_iter_image_repository(fake_root, image_repositories):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -70,11 +65,7 @@ def test_fetch_image_repository(fake_root, image_repository):
     from snowflake.core.image_repository._generated.models import ImageRepository as ImageRepositoryModel
 
     model = ImageRepositoryModel(name="my_rep")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -92,11 +83,7 @@ def test_fetch_image_repository(fake_root, image_repository):
 
 
 def test_drop_image_repository(fake_root, image_repository):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -111,11 +98,7 @@ def test_drop_image_repository(fake_root, image_repository):
 
 
 def test_list_images_in_repository(fake_root, image_repository):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep/images",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep/images")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

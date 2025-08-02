@@ -1,0 +1,95 @@
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "moyopy"
+authors = [
+    {name = "Kohei Shinohara", email = "kshinohara0508@gmail.com"},
+]
+description = "Python binding of Moyo"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+requires-python = ">=3.9"
+dynamic = [
+    'version',
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "typing-extensions",
+]
+
+[project.optional-dependencies]
+interface = [
+    "numpy",
+    "pymatgen",
+    "ase>=3.23",
+]
+testing = [
+    "moyopy[interface]",
+    "pytest",
+    "pre-commit",
+    "numpy",
+]
+docs = [
+    "Sphinx >= 7.0",
+    "sphinx-autobuild",
+    "sphinxcontrib-bibtex >= 2.5",
+    "sphinx-book-theme",
+    "sphinx-autoapi",
+    "myst-parser >= 2.0",
+    "linkify-it-py",
+]
+dev = [
+    "moyopy[testing]",
+    "moyopy[docs]",
+    "nbconvert",
+]
+
+[tool.maturin]
+python-source = "python"
+module-name = "moyopy._moyopy"
+# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
+features = ["pyo3/extension-module"]
+manifest-path = "moyopy/Cargo.toml"
+
+[tool.ruff]
+line-length = 99
+[tool.ruff.lint]
+extend-select = [
+    "F",           # pyflakes
+    "E",           # pycodestyle-errors
+    "I",           # isort
+    # "D",           # pydocstyle
+    "UP",          # pyupgrade
+]
+extend-ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D203",  # Conflict with D211
+    "D205",
+    "D213",  # Conflict with D212
+]
+isort.known-first-party = ["moyopy"]
+
+[tool.mypy]
+mypy_path = ["python"]
+python_version = "3.11"
+warn_unused_configs = true
+show_error_codes = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+no_strict_optional = true

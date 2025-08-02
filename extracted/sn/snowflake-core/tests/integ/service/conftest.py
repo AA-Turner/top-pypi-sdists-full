@@ -12,13 +12,9 @@ from ..utils import random_string
 @pytest.fixture(scope="module")
 def service_spec_file_on_stage(stages, imagerepo, session) -> ServiceSpecStageFile:
     stage_name = random_string(5, "test_stage_")
-    stage = Stage(
-        name=stage_name,
-        comment="created by service_spec_file_on_stage",
-    )
+    stage = Stage(name=stage_name, comment="created by service_spec_file_on_stage")
     temp_stage = stages.create(stage)
     try:
-
         spec_file = "spec.yaml"
         stage_file = f"@{temp_stage.name}"
         spec = f"{stage_file}/{spec_file}"

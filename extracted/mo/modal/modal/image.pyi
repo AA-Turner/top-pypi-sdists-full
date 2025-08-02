@@ -524,6 +524,8 @@ class _Image(modal._object._Object):
         image = modal.Image.debian_slim().uv_sync()
         ```
 
+        The `pyproject.toml` and `uv.lock` in `uv_project_dir` are automatically added to the build context.
+
         Added in v1.1.0.
         """
         ...
@@ -584,7 +586,7 @@ class _Image(modal._object._Object):
         ...
 
     def entrypoint(self, entrypoint_commands: list[str]) -> _Image:
-        """Set the entrypoint for the image."""
+        """Set the ENTRYPOINT for the image."""
         ...
 
     def shell(self, shell_commands: list[str]) -> _Image:
@@ -912,7 +914,9 @@ class _Image(modal._object._Object):
         ...
 
     def cmd(self, cmd: list[str]) -> _Image:
-        """Set the default entrypoint argument (`CMD`) for the image.
+        """Set the default command (`CMD`) to run when a container is started.
+
+        Used with `modal.Sandbox`. Has no effect on `modal.Function`.
 
         **Example**
 
@@ -1364,6 +1368,8 @@ class Image(modal.object.Object):
         image = modal.Image.debian_slim().uv_sync()
         ```
 
+        The `pyproject.toml` and `uv.lock` in `uv_project_dir` are automatically added to the build context.
+
         Added in v1.1.0.
         """
         ...
@@ -1424,7 +1430,7 @@ class Image(modal.object.Object):
         ...
 
     def entrypoint(self, entrypoint_commands: list[str]) -> Image:
-        """Set the entrypoint for the image."""
+        """Set the ENTRYPOINT for the image."""
         ...
 
     def shell(self, shell_commands: list[str]) -> Image:
@@ -1752,7 +1758,9 @@ class Image(modal.object.Object):
         ...
 
     def cmd(self, cmd: list[str]) -> Image:
-        """Set the default entrypoint argument (`CMD`) for the image.
+        """Set the default command (`CMD`) to run when a container is started.
+
+        Used with `modal.Sandbox`. Has no effect on `modal.Function`.
 
         **Example**
 

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.40.0
-Summary: Type annotations for boto3 1.40.0 generated with mypy-boto3-builder 8.11.0
+Version: 1.40.1
+Summary: Type annotations for boto3 1.40.1 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.41.0,>=1.40.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.40.0; extra == "boto3"
+Requires-Dist: boto3==1.40.1; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-account<1.41.0,>=1.40.0; extra == "all"
@@ -64,6 +64,7 @@ Requires-Dist: types-boto3-apprunner<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-appstream<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-appsync<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-apptest<1.41.0,>=1.40.0; extra == "all"
+Requires-Dist: types-boto3-arc-region-switch<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-arc-zonal-shift<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-artifact<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-athena<1.41.0,>=1.40.0; extra == "all"
@@ -510,6 +511,8 @@ Provides-Extra: appsync
 Requires-Dist: types-boto3-appsync<1.41.0,>=1.40.0; extra == "appsync"
 Provides-Extra: apptest
 Requires-Dist: types-boto3-apptest<1.41.0,>=1.40.0; extra == "apptest"
+Provides-Extra: arc-region-switch
+Requires-Dist: types-boto3-arc-region-switch<1.41.0,>=1.40.0; extra == "arc-region-switch"
 Provides-Extra: arc-zonal-shift
 Requires-Dist: types-boto3-arc-zonal-shift<1.41.0,>=1.40.0; extra == "arc-zonal-shift"
 Provides-Extra: artifact
@@ -1308,7 +1311,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.40.0](https://pypi.org/project/boto3/) compatible
+Type annotations for [boto3 1.40.1](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1366,7 +1369,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.1' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1694,9 +1697,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 412 services in one package
+- `types-boto3[full]` - Type annotations for all 413 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 412 services in separate
+- `types-boto3[all]` - Type annotations for all 413 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -1783,6 +1786,9 @@ repository.
   service.
 - `types-boto3[apptest]` - Type annotations for
   [MainframeModernizationApplicationTesting](https://youtype.github.io/types_boto3_docs/types_boto3_apptest/)
+  service.
+- `types-boto3[arc-region-switch]` - Type annotations for
+  [ARCRegionswitch](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/)
   service.
 - `types-boto3[arc-zonal-shift]` - Type annotations for
   [ARCZonalShift](https://youtype.github.io/types_boto3_docs/types_boto3_arc_zonal_shift/)

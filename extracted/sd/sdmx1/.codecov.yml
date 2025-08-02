@@ -1,0 +1,15 @@
+codecov:
+  notify:
+    after_n_builds: 5
+
+comment:
+  # Don't display the large graph
+  layout: "diff, files"
+
+coverage:
+  status:
+    project:
+      default:
+        # PR branches do not run network tests of individual data sources,
+        # which results in an apparent coverage drop of 2.84 percent
+        threshold: 3%

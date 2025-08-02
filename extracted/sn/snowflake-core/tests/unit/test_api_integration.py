@@ -47,20 +47,13 @@ class TestApiIntegrationResource:
     def test_fetch_api_integration(self, _mock_collection, is_async):
         api_integration = ApiIntegrationResource(name="my_resource", collection=_mock_collection)
         get_method(api_integration, "fetch", is_async)()
-        _mock_collection._api.fetch_api_integration.assert_called_once_with(
-            "my_resource",
-            async_req=is_async,
-        )
+        _mock_collection._api.fetch_api_integration.assert_called_once_with("my_resource", async_req=is_async)
 
     @parametrize_async()
     def test_create_or_alter_api_integration(self, _mock_collection, is_async):
         api_integration = ApiIntegration(
             name="name",
-            api_hook=AwsHook(
-                api_provider='AWS_API_GATEWAY',
-                api_aws_role_arn="your_arn",
-                api_key="dummy_api_key",
-            ),
+            api_hook=AwsHook(api_provider="AWS_API_GATEWAY", api_aws_role_arn="your_arn", api_key="dummy_api_key"),
             api_allowed_prefixes=["https://snowflake.com"],
             enabled=True,
         )
@@ -68,9 +61,7 @@ class TestApiIntegrationResource:
         resource = ApiIntegrationResource(name="my_resource", collection=_mock_collection)
         get_method(resource, "create_or_alter", is_async)(api_integration)
         _mock_collection._api.create_or_alter_api_integration.assert_called_once_with(
-            name=api_integration.name,
-            api_integration=api_integration,
-            async_req=is_async,
+            name=api_integration.name, api_integration=api_integration, async_req=is_async
         )
 
     @parametrize_if_exists()
@@ -79,9 +70,7 @@ class TestApiIntegrationResource:
         api_integration = ApiIntegrationResource(name="my_resource", collection=_mock_collection)
         get_method(api_integration, "drop", is_async)(if_exists=if_exists)
         _mock_collection._api.delete_api_integration.assert_called_once_with(
-            "my_resource",
-            if_exists=if_exists,
-            async_req=is_async,
+            "my_resource", if_exists=if_exists, async_req=is_async
         )
 
 
@@ -91,35 +80,19 @@ class TestApiIntegrationCollection:
 
     @parametrize_async()
     def test_iter(self, _mock_api, fake_root, _mock_api_integrations_collection, is_async):
-        get_method(_mock_api_integrations_collection, "iter", is_async)(
-            like="%my_resource",
-        )
+        get_method(_mock_api_integrations_collection, "iter", is_async)(like="%my_resource")
 
-        _mock_api.list_api_integrations.assert_called_once_with(
-            like="%my_resource",
-            async_req=is_async,
-        )
+        _mock_api.list_api_integrations.assert_called_once_with(like="%my_resource", async_req=is_async)
 
     @parametrize_mode()
     @parametrize_async()
     def test_create_api_integration(self, _mock_api, _mock_api_integrations_collection, mode, is_async):
         api_integration = ApiIntegration(
             name="name",
-            api_hook=AwsHook(
-                api_provider='AWS_API_GATEWAY',
-                api_aws_role_arn="your_arn",
-                api_key="dummy_api_key",
-            ),
+            api_hook=AwsHook(api_provider="AWS_API_GATEWAY", api_aws_role_arn="your_arn", api_key="dummy_api_key"),
             api_allowed_prefixes=["https://snowflake.com"],
             enabled=True,
         )
-        get_method(_mock_api_integrations_collection, "create", is_async)(
-            api_integration=api_integration,
-            mode=mode,
-        )
+        get_method(_mock_api_integrations_collection, "create", is_async)(api_integration=api_integration, mode=mode)
 
-        _mock_api.create_api_integration.assert_called_once_with(
-            api_integration,
-            create_mode=mode,
-            async_req=is_async,
-        )
+        _mock_api.create_api_integration.assert_called_once_with(api_integration, create_mode=mode, async_req=is_async)

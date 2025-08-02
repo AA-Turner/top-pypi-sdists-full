@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: code-loader
+Version: 1.0.97
+Summary: 
+Home-page: https://github.com/tensorleap/code-loader
+License: MIT
+Author: dorhar
+Author-email: doron.harnoy@tensorleap.ai
+Requires-Python: >=3.8,<3.12
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: numpy (>=1.22.3,<2.0.0)
+Requires-Dist: psutil (>=5.9.5,<6.0.0)
+Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
+Requires-Dist: requests (>=2.32.3,<3.0.0)
+Project-URL: Repository, https://github.com/tensorleap/code-loader
+Description-Content-Type: text/markdown
+
+# tensorleap code loader
+Used to load user code to tensorleap 
+

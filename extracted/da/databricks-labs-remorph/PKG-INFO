@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: databricks-labs-remorph
+Version: 0.9.1
+Summary: SQL code converter and data reconcilation tool for accelerating data onboarding to Databricks from EDW, CDW and other ETL sources.
+Project-URL: Documentation, https://github.com/databrickslabs/remorph
+Project-URL: Issues, https://github.com/databrickslabs/remorph/issues
+Project-URL: Source, https://github.com/databrickslabs/remorph
+License-File: LICENSE
+License-File: NOTICE
+Keywords: Databricks
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.10
+Requires-Dist: cryptography>=41.0.3
+Requires-Dist: databricks-labs-blueprint[yaml]>=0.2.3
+Requires-Dist: databricks-labs-lsql<0.14.0,>=0.7.5
+Requires-Dist: databricks-sdk~=0.29.0
+Requires-Dist: sqlglot==25.32.1
+Description-Content-Type: text/markdown
+
+Databricks Labs Remorph
+---
+![Databricks Labs Remorph](docs/img/remorph-logo.svg)
+
+-----
+
+## **⚠️ This project is no longer maintained and is officially sunset.
+#### For Databricks Migration tooling, please refer to [Databricks Labs Lakebridge](https://databrickslabs.github.io/lakebridge)
+>
+> No further updates, bug fixes, or support will be provided for Remorph, please use Lakebridge instead.

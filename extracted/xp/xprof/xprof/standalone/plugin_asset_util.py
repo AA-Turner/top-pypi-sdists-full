@@ -23,10 +23,29 @@ _PLUGINS_DIR = "plugins"
 _PROTOCOL_PREFIXES = ("gs://",)
 
 
+def _get_protocol_from_parsed_url_scheme(scheme: str) -> str:
+  """Returns the protocol from the parsed URL scheme.
+
+  If the scheme is not recognized, returns "file" as the default protocol.
+
+  Args:
+    scheme: The parsed URL scheme.
+
+  Returns:
+    The protocol from the parsed URL scheme.
+  """
+  if not scheme:
+    return "file"
+  for prefix in _PROTOCOL_PREFIXES:
+    if prefix.startswith(scheme):
+      return scheme
+  return "file"
+
+
 def get_fs_protocol(path):
   string_path = str(path)
   parsed_url = urllib.parse.urlparse(string_path)
-  protocol = parsed_url.scheme or "file"
+  protocol = _get_protocol_from_parsed_url_scheme(parsed_url.scheme)
   return fsspec.filesystem(protocol)
 
 

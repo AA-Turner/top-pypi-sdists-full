@@ -62,15 +62,9 @@ class Grant:
     def grant_option(self) -> bool:
         return self._grant_option
 
-    def to_dict(
-        self,
-        hide_readonly_properties: bool = False,
-    ) -> dict[str, Any]:
+    def to_dict(self, hide_readonly_properties: bool = False) -> dict[str, Any]:
         privileges = [privilege.value for privilege in self.privileges] if self.privileges else None
         request_body = GrantModel(
-            privileges=privileges,
-            grant_option=self.grant_option,
-            securable_type=self.securable.securable_type
+            privileges=privileges, grant_option=self.grant_option, securable_type=self.securable.securable_type
         )
         return request_body.to_dict(hide_readonly_properties=hide_readonly_properties)
-

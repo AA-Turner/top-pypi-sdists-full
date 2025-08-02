@@ -3938,7 +3938,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param symbol: The symbol whose Donchian Channel we seek.
         :param period: The period over which to compute the Donchian Channel.
         :param resolution: The resolution.
-        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a IBaseDataBar
         :returns: The Donchian Channel indicator for the requested symbol.
         """
         ...
@@ -7000,6 +7000,18 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The TargetDownsideDeviation indicator for the requested symbol over the specified period.
+        """
+        ...
+
+    def tds(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.TomDemarkSequential:
+        """
+        Creates a new TomDemark Sequential candlestick indicator for the symbol. The indicator will be automatically
+        updated on the symbol's subscription resolution.
+        
+        :param symbol: The symbol whose TomDemark Sequential we want
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a IBaseDataBar
+        :returns: The TomDemark Sequential indicator for the requested symbol over the specified period.
         """
         ...
 

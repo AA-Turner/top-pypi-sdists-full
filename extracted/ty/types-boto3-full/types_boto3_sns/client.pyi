@@ -495,7 +495,7 @@ class SNSClient(BaseClient):
         self, **kwargs: Unpack[PublishBatchInputTypeDef]
     ) -> PublishBatchResponseTypeDef:
         """
-        Publishes up to ten messages to the specified topic.
+        Publishes up to 10 messages to the specified topic in a single batch.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sns/client/publish_batch.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/client/#publish_batch)

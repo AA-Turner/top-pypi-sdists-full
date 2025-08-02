@@ -5,11 +5,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated, get_file, put_file
 from snowflake.core._operation import PollingOperations
@@ -34,28 +30,18 @@ class StageCollection(SchemaObjectCollectionParent["StageResource"]):
     Creating a stage instance:
 
     >>> stages = root.databases["my_db"].schemas["my_schema"].stages
-    >>> new_stage = Stage(
-    ...     name="my_stage",
-    ...     comment="This is a stage",
-    ... )
+    >>> new_stage = Stage(name="my_stage", comment="This is a stage")
     >>> stages.create(new_stage)
     """
 
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, StageResource)
         self._api = StageApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root),
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
-    def create(
-        self,
-        stage: Stage,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "StageResource":
+    def create(self, stage: Stage, *, mode: CreateMode = CreateMode.error_if_exists) -> "StageResource":
         """Create a stage in Snowflake.
 
         Parameters
@@ -83,10 +69,7 @@ class StageCollection(SchemaObjectCollectionParent["StageResource"]):
         Creating a stage, replacing any existing stage with the same name:
 
         >>> stages = root.databases["my_db"].schemas["my_schema"].stages
-        >>> new_stage = Stage(
-        ...     name="my_stage",
-        ...     comment="This is a stage",
-        ... )
+        >>> new_stage = Stage(name="my_stage", comment="This is a stage")
         >>> stages.create(new_stage, mode=CreateMode.or_replace)
         """
         real_mode = CreateMode[mode].value
@@ -97,16 +80,13 @@ class StageCollection(SchemaObjectCollectionParent["StageResource"]):
 
     @api_telemetry
     def create_async(
-        self,
-        stage: Stage,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, stage: Stage, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["StageResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_stage(
             self.database.name, self.schema.name, stage, create_mode=StrictStr(real_mode), async_req=True
@@ -114,11 +94,7 @@ class StageCollection(SchemaObjectCollectionParent["StageResource"]):
         return PollingOperation(future, lambda _: StageResource(stage.name, self))
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[Stage]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[Stage]:
         """Iterate through ``Stage`` objects from Snowflake, filtering on any optional 'like' pattern.
 
         Parameters
@@ -153,16 +129,12 @@ class StageCollection(SchemaObjectCollectionParent["StageResource"]):
         return iter(stages)
 
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[Stage]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[Stage]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_stages(
             database=self.database.name, var_schema=self.schema.name, like=like, async_req=True
         )
@@ -191,12 +163,7 @@ class StageResource(SchemaObjectReferenceMixin[StageCollection]):
         >>> my_stage = stage_reference.fetch()
         >>> print(my_stage.name)
         """
-        return self.collection._api.fetch_stage(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        return self.collection._api.fetch_stage(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Stage]:
@@ -204,13 +171,8 @@ class StageResource(SchemaObjectReferenceMixin[StageCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_stage(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_stage(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
@@ -242,17 +204,14 @@ class StageResource(SchemaObjectReferenceMixin[StageCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_stage(
-            self.database.name, self.schema.name, self.name, if_exists, async_req=True)
+            self.database.name, self.schema.name, self.name, if_exists, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def list_files(
-        self,
-        *,
-        pattern: Optional[str] = None,
-    ) -> Iterator[StageFile]:
+    def list_files(self, *, pattern: Optional[str] = None) -> Iterator[StageFile]:
         """List files in the stage, filtering on any optional 'pattern'.
 
         Parameters
@@ -281,16 +240,12 @@ class StageResource(SchemaObjectReferenceMixin[StageCollection]):
         return iter(files)
 
     @api_telemetry
-    def list_files_async(
-        self,
-        *,
-        pattern: Optional[str] = None,
-    ) -> PollingOperation[Iterator[StageFile]]:
+    def list_files_async(self, *, pattern: Optional[str] = None) -> PollingOperation[Iterator[StageFile]]:
         """An asynchronous version of :func:`list_files`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_files(
             self.database.name, self.schema.name, self.name, pattern, async_req=True
         )
@@ -299,12 +254,7 @@ class StageResource(SchemaObjectReferenceMixin[StageCollection]):
     @api_telemetry
     @deprecated("put")
     def upload_file(
-        self,
-        file_path: str,
-        stage_folder_path: str,
-        *,
-        auto_compress: bool = True,
-        overwrite: bool = False,
+        self, file_path: str, stage_folder_path: str, *, auto_compress: bool = True, overwrite: bool = False
     ) -> None:
         self.put(file_path, stage_folder_path, auto_compress=auto_compress, overwrite=overwrite)
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import typing as t
 
 from sqlglot import exp, generator, parser, tokens
-from sqlglot.dialects.clickhouse import timestamptrunc_sql
 from sqlglot.dialects.dialect import (
     Dialect,
     binary_from_function,
@@ -12,6 +11,8 @@ from sqlglot.dialects.dialect import (
     strposition_sql,
     timestrtotime_sql,
     unit_to_str,
+    timestamptrunc_sql,
+    build_date_delta,
 )
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get
@@ -44,6 +45,18 @@ def _build_trunc(args: t.List[exp.Expression], dialect: DialectType) -> exp.Expr
         return exp.DateTrunc(this=first, unit=second)
 
     return exp.Anonymous(this="TRUNC", expressions=args)
+
+
+# https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/zeroifnull.htm
+def _build_zeroifnull(args: t.List) -> exp.If:
+    cond = exp.Is(this=seq_get(args, 0), expression=exp.Null())
+    return exp.If(this=cond, true=exp.Literal.number(0), false=seq_get(args, 0))
+
+
+# https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/nullifzero.htm
+def _build_nullifzero(args: t.List) -> exp.If:
+    cond = exp.EQ(this=seq_get(args, 0), expression=exp.Literal.number(0))
+    return exp.If(this=cond, true=exp.Null(), false=seq_get(args, 0))
 
 
 class Exasol(Dialect):
@@ -79,11 +92,28 @@ class Exasol(Dialect):
         KEYWORDS = {
             **tokens.Tokenizer.KEYWORDS,
             "USER": TokenType.CURRENT_USER,
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/if.htm
+            "ENDIF": TokenType.END,
+            "LONG VARCHAR": TokenType.TEXT,
         }
 
     class Parser(parser.Parser):
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_days.htm
+            "ADD_DAYS": build_date_delta(exp.DateAdd, default_unit="DAY"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_years.htm
+            "ADD_YEARS": build_date_delta(exp.DateAdd, default_unit="YEAR"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_months.htm
+            "ADD_MONTHS": build_date_delta(exp.DateAdd, default_unit="MONTH"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_weeks.htm
+            "ADD_WEEKS": build_date_delta(exp.DateAdd, default_unit="WEEK"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_hour.htm
+            "ADD_HOURS": build_date_delta(exp.DateAdd, default_unit="HOUR"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_minutes.htm
+            "ADD_MINUTES": build_date_delta(exp.DateAdd, default_unit="MINUTE"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/add_seconds.htm
+            "ADD_SECONDS": build_date_delta(exp.DateAdd, default_unit="SECOND"),
             "BIT_AND": binary_from_function(exp.BitwiseAnd),
             "BIT_OR": binary_from_function(exp.BitwiseOr),
             "BIT_XOR": binary_from_function(exp.BitwiseXor),
@@ -127,6 +157,8 @@ class Exasol(Dialect):
                 timestamp=seq_get(args, 0),
                 options=seq_get(args, 3),
             ),
+            "NULLIFZERO": _build_nullifzero,
+            "ZEROIFNULL": _build_zeroifnull,
         }
         CONSTRAINT_PARSERS = {
             **parser.Parser.CONSTRAINT_PARSERS,
@@ -146,7 +178,8 @@ class Exasol(Dialect):
             exp.DataType.Type.MEDIUMTEXT: "VARCHAR",
             exp.DataType.Type.TINYBLOB: "VARCHAR",
             exp.DataType.Type.TINYTEXT: "VARCHAR",
-            exp.DataType.Type.TEXT: "VARCHAR",
+            # https://docs.exasol.com/db/latest/sql_references/data_types/datatypealiases.htm
+            exp.DataType.Type.TEXT: "LONG VARCHAR",
             exp.DataType.Type.VARBINARY: "VARCHAR",
         }
 
@@ -161,6 +194,16 @@ class Exasol(Dialect):
             exp.DataType.Type.DECIMAL128: "DECIMAL",
             exp.DataType.Type.DECIMAL256: "DECIMAL",
             exp.DataType.Type.DATETIME: "TIMESTAMP",
+        }
+
+        DATE_ADD_FUNCTION_BY_UNIT = {
+            "DAY": "ADD_DAYS",
+            "WEEK": "ADD_WEEKS",
+            "MONTH": "ADD_MONTHS",
+            "YEAR": "ADD_YEARS",
+            "HOUR": "ADD_HOURS",
+            "MINUTE": "ADD_MINUTES",
+            "SECOND": "ADD_SECONDS",
         }
 
         def datatype_sql(self, expression: exp.DataType) -> str:
@@ -249,3 +292,18 @@ class Exasol(Dialect):
             options = expression.args.get("options")
 
             return self.func("CONVERT_TZ", datetime, from_tz, to_tz, options)
+
+        def if_sql(self, expression: exp.If) -> str:
+            this = self.sql(expression, "this")
+            true = self.sql(expression, "true")
+            false = self.sql(expression, "false")
+            return f"IF {this} THEN {true} ELSE {false} ENDIF"
+
+        def dateadd_sql(self, expression: exp.DateAdd) -> str:
+            unit = expression.text("unit").upper() or "DAY"
+            func_name = self.DATE_ADD_FUNCTION_BY_UNIT.get(unit)
+            if not func_name:
+                self.unsupported(f"'{unit}' is not supported in Exasol.")
+                return self.function_fallback_sql(expression)
+
+            return self.func(func_name, expression.this, expression.expression)

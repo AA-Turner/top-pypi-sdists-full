@@ -1,0 +1,160 @@
+Metadata-Version: 2.4
+Name: splinebox
+Version: 0.5.1
+Summary: A python package for fitting splines.
+Author-email: Florian Aymanns <florian.aymanns@epfl.ch>, Virginie Uhlmann <uhlmann@ebi.ac.uk>, Edward Andò <edward.ando@epfl.ch>
+Maintainer-email: Florian Aymanns <flroian.aymanns@epfl.ch>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2024, EPFL Center for Imaging
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: Repository, https://github.com/EPFL-Center-for-Imaging/splinebox
+Keywords: splines
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: numba
+Provides-Extra: test
+Requires-Dist: tox; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: examples
+Requires-Dist: matplotlib; extra == "examples"
+Requires-Dist: scikit-image; extra == "examples"
+Requires-Dist: pandas; extra == "examples"
+Requires-Dist: seaborn; extra == "examples"
+Provides-Extra: docs
+Requires-Dist: splinebox[examples]; extra == "docs"
+Requires-Dist: sphinx-gallery; extra == "docs"
+Requires-Dist: pydata-sphinx-theme; extra == "docs"
+Requires-Dist: sphinx-design; extra == "docs"
+Requires-Dist: pyvista[jupyter]; extra == "docs"
+Requires-Dist: skan; extra == "docs"
+Provides-Extra: all
+Requires-Dist: splinebox[docs,examples,test]; extra == "all"
+Dynamic: license-file
+
+<img style="float: right;" src="https://imaging.epfl.ch/resources/logo-for-gitlab.svg">
+
+# splinebox
+A python package for fitting splines.
+Developed by the [EPFL Center for Imaging](https://imaging.epfl.ch/) as part of a collaboration with the [Uhlmann Group at EMBL-EBI](https://www.ebi.ac.uk/research/uhlmann/) in Feb 2024.
+
+[![Documentation Status](https://readthedocs.org/projects/splinebox/badge/?version=latest)](https://splinebox.readthedocs.io/en/latest/?badge=latest)
+[![License BSD-3](https://img.shields.io/pypi/l/splinebox.svg?color=green)](https://github.com/EPFL-Center-for-Imaging/splinebox/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/splinebox.svg?color=green)](https://pypi.org/project/splinebox)
+[![Python Version](https://img.shields.io/pypi/pyversions/splinebox.svg?color=green)](https://python.org)
+[![tests](https://github.com/EPFL-Center-for-Imaging/splinebox/workflows/tests/badge.svg)](https://github.com/EPFL-Center-for-Imaging/splinebox/actions)
+[![codecov](https://codecov.io/gh/EPFL-Center-for-Imaging/splinebox/branch/main/graph/badge.svg)](https://codecov.io/gh/EPFL-Center-for-Imaging/splinebox)
+[![DOI](https://zenodo.org/badge/759892900.svg)](https://zenodo.org/doi/10.5281/zenodo.13358354)
+
+## Features
+* Flexible spline fitting for various applications.
+* Support for many spline types in any dimesnionality.
+* High-perfomance implementation in Python
+* Extensive [documentation](https://splinebox.readthedocs.io/en/latest/?badge=latest) with [examples](https://splinebox.readthedocs.io/en/latest/auto_examples/index.html)
+
+## Installation
+
+You can install `splinebox` via pip:
+```
+pip install splinebox
+```
+
+## Usage
+
+Here is a minimal example of a cubic B-spline in 2D with 3 knots.
+
+```python
+import splinebox
+import numpy as np
+import matplotlib.pyplot as plt
+
+n_knots = 4
+spline = splinebox.spline_curves.Spline(M=n_knots, basis_function=splinebox.basis_functions.B3(), closed=True)
+spline.knots = np.array([[1, 2], [3, 2], [4, 3], [1, 1]])
+
+t = np.linspace(0, n_knots, 100)
+vals = spline(t, derivative=0)
+
+plt.scatter(spline.knots[:, 0], spline.knots[:, 1])
+plt.plot(vals[:, 0], vals[:, 1])
+plt.show()
+```
+
+## Support
+
+If you encounter any problems, please [file and issue](https://github.com/EPFL-Center-for-Imaging/splinebox/issues/new) describing the issue and include minimal example to reproduce the issue.
+
+## Contributing
+
+We welcome contributions! Before you submit a pull request, please ensure that the tests are passing. You can run the tests with [pytest](https://docs.pytest.org/en/stable/). If you are unsure how to implement something, feel free to open an issue to discuss.
+
+## Citing splinebox
+
+If you use splinebox in the context of scientific publication, please cite it as follows.
+Note, that you will have to fill in the version yourself. If you are unsure what version you are running,
+you can find out by running
+
+```python
+import splinebox
+print(splinbox.__version__)`
+```
+
+BibTeX:
+
+```
+@misc{splinebox,
+  author = {Aymanns, Florian and Andò, Edward and Uhlmann, Virginie},
+  title = {{S}pline{B}ox},
+  url = {https://pypi.org/project/splinebox/},
+  doi = {10.5281/zenodo.13358354},
+  note = {{V}ersion V.V.Vb1},
+  year = 2024,
+}
+```
+
+
+## License
+
+This is an open source project licensed under the BSD-3-Clause License.

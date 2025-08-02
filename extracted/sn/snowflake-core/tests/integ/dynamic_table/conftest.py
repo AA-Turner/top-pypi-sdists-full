@@ -27,10 +27,7 @@ def table_handle(schema) -> Iterator[TableResource]:
     test_table = schema.tables.create(
         Table(
             name=table_name,
-            columns=[
-                TableColumn(name="c1", datatype="int"),
-                TableColumn(name="c2", datatype="varchar"),
-            ],
+            columns=[TableColumn(name="c1", datatype="int"), TableColumn(name="c2", datatype="varchar")],
         )
     )
     try:
@@ -47,10 +44,7 @@ def dynamic_table_handle(dynamic_tables, db_parameters, table_handle) -> Iterato
             name=table_name,
             warehouse=db_parameters["warehouse"],
             target_lag=DownstreamLag(),
-            columns=[
-                DynamicTableColumn(name="a"),
-                DynamicTableColumn(name="b", datatype="varchar", comment="comment"),
-            ],
+            columns=[DynamicTableColumn(name="a"), DynamicTableColumn(name="b", datatype="varchar", comment="comment")],
             query=f"SELECT * FROM {table_handle.name}",
             initialize="ON_SCHEDULE",
             cluster_by=["b"],

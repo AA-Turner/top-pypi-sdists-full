@@ -3791,6 +3791,7 @@ class Permission(sgqlc.types.Enum):
     * `DashboardAccess`None
     * `DashboardEdit`None
     * `DashboardEditTheirOwn`None
+    * `DataExportsAccess`None
     * `DataproductsAccess`None
     * `DataproductsEdit`None
     * `DataproductsEditAll`None
@@ -3854,6 +3855,7 @@ class Permission(sgqlc.types.Enum):
         "DashboardAccess",
         "DashboardEdit",
         "DashboardEditTheirOwn",
+        "DataExportsAccess",
         "DataproductsAccess",
         "DataproductsEdit",
         "DataproductsEditAll",
@@ -5201,20 +5203,20 @@ class UserDefinedMonitorSearchFields(sgqlc.types.Enum):
 class UserDefinedMonitors(sgqlc.types.Enum):
     """Enumeration Choices:
 
-    * `CATEGORIES`None
-    * `COMPARISON`None
-    * `CUSTOM_SQL`None
-    * `FIELD_QUALITY`None
-    * `FRESHNESS`None
-    * `JSON_SCHEMA`None
-    * `METRIC_COMPARISON`None
-    * `QUERY_PERF`None
-    * `SCHEMA`None
-    * `STATS`None
-    * `TABLE`None
-    * `TABLE_METRIC`None
-    * `VALIDATION`None
-    * `VOLUME`None
+    * `CATEGORIES`: Dimension - legacy
+    * `COMPARISON`: Comparison - legacy
+    * `CUSTOM_SQL`: Custom SQL
+    * `FIELD_QUALITY`: Metric - legacy
+    * `FRESHNESS`: Freshness
+    * `JSON_SCHEMA`: JSON schema
+    * `METRIC_COMPARISON`: Comparison
+    * `QUERY_PERF`: Query performance
+    * `SCHEMA`: Schema
+    * `STATS`: Metric
+    * `TABLE`: Table
+    * `TABLE_METRIC`: Volume - legacy
+    * `VALIDATION`: Validation
+    * `VOLUME`: Volume
     """
 
     __schema__ = schema
@@ -22739,7 +22741,9 @@ class ListMonitorTagsOutput(sgqlc.types.Type):
     total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
     """Total count of the monitor tags in a user's account."""
 
-    tags = sgqlc.types.Field(sgqlc.types.list_of("TagInfoOutput"), graphql_name="tags")
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagInfoOutput")), graphql_name="tags"
+    )
     """Monitor Tags list."""
 
 

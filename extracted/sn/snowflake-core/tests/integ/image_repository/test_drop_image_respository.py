@@ -14,14 +14,10 @@ from snowflake.core.image_repository import ImageRepository
 def test_drop(image_repositories):
     try:
         ir_name = random_string(5, "test_ir_")
-        test_ir = ImageRepository(
-            name=ir_name,
-        )
+        test_ir = ImageRepository(name=ir_name)
         image_repositories.create(test_ir)
         image_repositories[test_ir.name].drop()
-        with pytest.raises(
-            NotFoundError,
-        ):
+        with pytest.raises(NotFoundError):
             image_repositories[test_ir.name].fetch()
 
         # creating again, making sure it's not an issue

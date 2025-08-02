@@ -1,2 +1,0 @@
-class AnlsException(Exception):
-    pass

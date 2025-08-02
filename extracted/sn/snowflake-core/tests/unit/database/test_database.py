@@ -1,25 +1,17 @@
 from unittest import mock
 
 from snowflake.core import PollingOperation
-from snowflake.core.database import Database
+from snowflake.core.database import Database, DatabaseResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
 API_CLIENT_REQUEST = "snowflake.core.database._generated.api_client.ApiClient.request"
 
+
 def test_create_database(fake_root, dbs):
-    database = Database(
-        name="sophie_db",
-        kind="TRANSIENT",
-        comment="This is Sophie's database",
-        trace_level="always",
-    )
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases?createMode=errorIfExists",
-    )
+    database = Database(name="sophie_db", kind="TRANSIENT", comment="This is Sophie's database", trace_level="always")
+    args = (fake_root, "POST", BASE_URL + "/databases?createMode=errorIfExists")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists")],
         body={
@@ -33,6 +25,7 @@ def test_create_database(fake_root, dbs):
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         db_res = dbs.create(database)
+        assert isinstance(db_res, DatabaseResource)
         assert db_res.name == database.name
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -51,22 +44,13 @@ def test_iter_database(fake_root, dbs):
         assert isinstance(op, PollingOperation)
         it = op.result()
         assert list(it) == []
-    mocked_request.assert_called_once_with(
-        fake_root,
-        "GET",
-        BASE_URL + "/databases",
-        **extra_params()
-    )
+    mocked_request.assert_called_once_with(fake_root, "GET", BASE_URL + "/databases", **extra_params())
 
 
 def test_fetch_database(fake_root, db):
     from snowflake.core.database._generated.models import Database as DatabaseModel
 
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -84,11 +68,7 @@ def test_fetch_database(fake_root, db):
 
 
 def test_drop_database(fake_root, db):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -103,11 +83,7 @@ def test_drop_database(fake_root, db):
 
 
 def test_undrop_database(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db:undrop",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db:undrop")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -122,15 +98,8 @@ def test_undrop_database(fake_root, db):
 
 
 def test_enable_replication(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/replication:enable?ignore_edition_check=False",
-    )
-    kwargs = extra_params(
-        query_params=[("ignore_edition_check", False)],
-        body={"accounts": ["acc"]},
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/replication:enable?ignore_edition_check=False")
+    kwargs = extra_params(query_params=[("ignore_edition_check", False)], body={"accounts": ["acc"]})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         db.enable_replication(["acc"])
@@ -144,11 +113,7 @@ def test_enable_replication(fake_root, db):
 
 
 def test_disable_replication(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/replication:disable",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/replication:disable")
     kwargs = extra_params(body={"accounts": []})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -163,11 +128,7 @@ def test_disable_replication(fake_root, db):
 
 
 def test_refresh_replication(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/replication:refresh",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/replication:refresh")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -182,11 +143,7 @@ def test_refresh_replication(fake_root, db):
 
 
 def test_enable_failover(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/failover:enable",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/failover:enable")
     kwargs = extra_params(body={"accounts": ["acc"]})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -201,11 +158,7 @@ def test_enable_failover(fake_root, db):
 
 
 def test_disable_failover(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/failover:disable",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/failover:disable")
     kwargs = extra_params(body={"accounts": []})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -220,11 +173,7 @@ def test_disable_failover(fake_root, db):
 
 
 def test_promote_to_primary_failover(fake_root, db):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/failover:primary",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/failover:primary")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

@@ -3,7 +3,7 @@
 
 # We just hit the 1600 line limit for main.py, but I currently have a huge set of powermon/structured logging changes
 # later we can have a separate changelist to refactor main.py into smaller files
-# pylint: disable=too-many-lines
+# pylint: disable=R0917,C0302
 
 from typing import List, Optional, Union
 from types import ModuleType
@@ -339,7 +339,7 @@ def onConnected(interface):
             # can include lat/long/alt etc: latitude = 37.5, longitude = -122.1
             interface.getNode(args.dest, False, **getNode_kwargs).setFixedPosition(lat, lon, alt)
 
-        if args.set_owner or args.set_owner_short:
+        if args.set_owner or args.set_owner_short or args.set_is_unmessageable:
             closeNow = True
             waitForAckNak = True
 
@@ -358,11 +358,23 @@ def onConnected(interface):
                 print(f"Setting device owner to {args.set_owner} and short name to {args.set_owner_short}")
             elif args.set_owner:
                 print(f"Setting device owner to {args.set_owner}")
-            else: # short name only
+            elif args.set_owner_short and not args.set_owner:
                 print(f"Setting device owner short to {args.set_owner_short}")
-            interface.getNode(args.dest, False, **getNode_kwargs).setOwner(long_name=args.set_owner, short_name=args.set_owner_short)
 
-        # TODO: add to export-config and configure
+            if args.set_is_unmessageable:
+                unmessagable = (
+                    meshtastic.util.fromStr(args.set_is_unmessageable)
+                    if isinstance(args.set_is_unmessageable, str)
+                    else args.set_is_unmessageable
+                )
+
+                if unmessagable is not None:
+                    print(f"Setting device owner is_unmessageable to {unmessagable}")
+                    interface.getNode(
+                        args.dest, False, **getNode_kwargs).setOwner(long_name=args.set_owner,
+                        short_name=args.set_owner_short, is_unmessagable=unmessagable
+                    )
+
         if args.set_canned_message:
             closeNow = True
             waitForAckNak = True
@@ -371,7 +383,6 @@ def onConnected(interface):
                 args.set_canned_message
             )
 
-        # TODO: add to export-config and configure
         if args.set_ringtone:
             closeNow = True
             waitForAckNak = True
@@ -705,6 +716,16 @@ def onConnected(interface):
                     interface.getNode(args.dest, **getNode_kwargs).setURL(configuration["channelUrl"])
                     time.sleep(0.5)
 
+                if "canned_messages" in configuration:
+                    print("Setting canned message messages to", configuration["canned_messages"])
+                    interface.getNode(args.dest, **getNode_kwargs).set_canned_message(configuration["canned_messages"])
+                    time.sleep(0.5)
+
+                if "ringtone" in configuration:
+                    print("Setting ringtone to", configuration["ringtone"])
+                    interface.getNode(args.dest, **getNode_kwargs).set_ringtone(configuration["ringtone"])
+                    time.sleep(0.5)
+
                 if "location" in configuration:
                     alt = 0
                     lat = 0.0
@@ -755,9 +776,20 @@ def onConnected(interface):
             if args.dest != BROADCAST_ADDR:
                 print("Exporting configuration of remote nodes is not supported.")
                 return
-            # export the configuration (the opposite of '--configure')
+
             closeNow = True
-            export_config(interface)
+            config_txt = export_config(interface)
+
+            if args.export_config == "-":
+                # Output to stdout (preserves legacy use of `> file.yaml`)
+                print(config_txt)
+            else:
+                try:
+                    with open(args.export_config, "w", encoding="utf-8") as f:
+                        f.write(config_txt)
+                    print(f"Exported configuration to {args.export_config}")
+                except Exception as e:
+                    meshtastic.util.our_exit(f"ERROR: Failed to write config file: {e}")
 
         if args.ch_set_url:
             closeNow = True
@@ -928,12 +960,14 @@ def onConnected(interface):
         if args.get_canned_message:
             closeNow = True
             print("")
-            interface.getNode(args.dest, **getNode_kwargs).get_canned_message()
+            messages = interface.getNode(args.dest, **getNode_kwargs).get_canned_message()
+            print(f"canned_plugin_message:{messages}")
 
         if args.get_ringtone:
             closeNow = True
             print("")
-            interface.getNode(args.dest, **getNode_kwargs).get_ringtone()
+            ringtone = interface.getNode(args.dest, **getNode_kwargs).get_ringtone()
+            print(f"ringtone:{ringtone}")
 
         if args.info:
             print("")
@@ -1088,15 +1122,38 @@ def subscribe() -> None:
 
     # pub.subscribe(onNode, "meshtastic.node")
 
+def set_missing_flags_false(config_dict: dict, true_defaults: set[tuple[str, str]]) -> None:
+    """Ensure that missing default=True keys are present in the config_dict and set to False."""
+    for path in true_defaults:
+        d = config_dict
+        for key in path[:-1]:
+            if key not in d or not isinstance(d[key], dict):
+                d[key] = {}
+            d = d[key]
+        if path[-1] not in d:
+            d[path[-1]] = False
 
 def export_config(interface) -> str:
     """used in --export-config"""
     configObj = {}
 
+    # A list of configuration keys that should be set to False if they are missing
+    true_defaults = {
+        ("bluetooth", "enabled"),
+        ("lora", "sx126xRxBoostedGain"),
+        ("lora", "txEnabled"),
+        ("lora", "usePreset"),
+        ("position", "positionBroadcastSmartEnabled"),
+        ("security", "serialEnabled"),
+        ("mqtt", "encryptionEnabled"),
+    }
+
     owner = interface.getLongName()
     owner_short = interface.getShortName()
     channel_url = interface.localNode.getURL()
     myinfo = interface.getMyNodeInfo()
+    canned_messages = interface.getCannedMessage()
+    ringtone = interface.getRingtone()
     pos = myinfo.get("position")
     lat = None
     lon = None
@@ -1115,6 +1172,10 @@ def export_config(interface) -> str:
             configObj["channelUrl"] = channel_url
         else:
             configObj["channel_url"] = channel_url
+    if canned_messages:
+        configObj["canned_messages"] = canned_messages
+    if ringtone:
+        configObj["ringtone"] = ringtone
     # lat and lon don't make much sense without the other (so fill with 0s), and alt isn't meaningful without both
     if lat or lon:
         configObj["location"] = {"lat": lat or float(0), "lon": lon or float(0)}
@@ -1145,6 +1206,8 @@ def export_config(interface) -> str:
         else:
             configObj["config"] = config
 
+        set_missing_flags_false(configObj["config"], true_defaults)
+
     module_config = MessageToDict(interface.localNode.moduleConfig)
     if module_config:
         # Convert inner keys to correct snake/camelCase
@@ -1160,7 +1223,6 @@ def export_config(interface) -> str:
     config_txt = "# start of Meshtastic configure yaml\n"		#checkme - "config" (now changed to config_out)
                                                                         #was used as a string here and a Dictionary above
     config_txt += yaml.dump(configObj)
-    print(config_txt)
     return config_txt
 
 
@@ -1460,8 +1522,10 @@ def addImportExportArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentPar
     )
     group.add_argument(
         "--export-config",
-        help="Export the configuration in yaml(.yml) format.",
-        action="store_true",
+        nargs="?",
+        const="-",  # default to "-" if no value provided
+        metavar="FILE",
+        help="Export device config as YAML (to stdout if no file given)"
     )
     return parser
 
@@ -1581,6 +1645,11 @@ def addConfigArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
     group.add_argument(
         "--set-ham", help="Set licensed Ham ID and turn off encryption", action="store"
+    )
+
+    group.add_argument(
+        "--set-is-unmessageable", "--set-is-unmessagable",
+        help="Set if a node is messageable or not", action="store"
     )
 
     group.add_argument(

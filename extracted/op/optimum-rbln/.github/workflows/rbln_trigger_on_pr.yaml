@@ -1,0 +1,95 @@
+name: Optimum-rbln / PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  REBEL_PYPI_ENDPOINT: ${{ vars.REBEL_PYPI_INTERNAL_ENDPOINT }}
+  REBEL_PYPI_USERNAME: ${{ secrets.REBEL_PYPI_USERNAME }}
+  REBEL_PYPI_PASSWORD: ${{ secrets.REBEL_PYPI_PASSWORD }}
+
+jobs:
+  check-skip-ci:
+    runs-on: rebel-k8s-runner
+    outputs:
+      should_skip: ${{ contains(github.event.pull_request.head.commit.message, '[skip ci]') }}
+    steps:
+      - name: Check if [skip ci] is in commit message
+        run: |
+          if ${{ contains(github.event.pull_request.head.commit.message, '[skip ci]') }}; then
+            echo "Found [skip ci] in commit message, skipping CI"
+          else
+            echo "No [skip ci] found, continuing with CI"
+          fi
+
+  check-code-quality:
+    needs: check-skip-ci
+    if: ${{ needs.check-skip-ci.outputs.should_skip != 'true' }}
+    uses: ./.github/workflows/check_code_quality.yml
+    
+  test-docstrings:
+    needs: check-skip-ci
+    if: ${{ needs.check-skip-ci.outputs.should_skip != 'true' }}
+    uses: ./.github/workflows/test-docstrings.yml
+
+  load-version:
+    runs-on: rebel-k8s-runner
+    needs: [check-skip-ci, check-code-quality, test-docstrings]
+    if: ${{ needs.check-skip-ci.outputs.should_skip != 'true' }}
+    outputs:
+      compiler_version: ${{ steps.get_version.outputs.compiler_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Get compiler version
+        id: get_version
+        run: |
+          VERSION=$(grep rebel_compiler_version .github/version.yaml | cut -d ':' -f2 | tr -d ' ')
+          echo "compiler_version=$VERSION" >> $GITHUB_OUTPUT
+
+  check-compiler:
+    needs: [check-skip-ci, check-code-quality, test-docstrings, load-version]
+    if: ${{ needs.check-skip-ci.outputs.should_skip != 'true' }}
+    uses: ./.github/workflows/rbln_check_compiler.yaml
+    with:
+      compiler_version: ${{ needs.load-version.outputs.compiler_version }}
+    secrets: inherit
+
+  check-team-member:
+    runs-on: rebel-k8s-runner
+    needs: [check-skip-ci, check-code-quality, test-docstrings, check-compiler]
+    if: ${{ needs.check-skip-ci.outputs.should_skip != 'true' && needs.check-compiler.outputs.is_deploy_version == 'true' }}
+    outputs:
+      is_team_member: ${{ steps.check_member.outputs.IS_TEAM_MEMBER }}
+    steps:
+      - name: Fetch team members
+        id: fetch_team
+        run: |
+          response=$(curl -s -H "Authorization: Bearer ${{ secrets.GIT_PAT }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"query { organization(login: \"rebellions-sw\") { team(slug: \"rebel-sw-team\") { members(first: 100) { nodes { login } } } } }"}' \
+            https://api.github.com/graphql)
+          echo "$response" | jq -r '.data.organization.team.members.nodes[].login' > team_members.txt
+
+      - name: Check if PR author is a team member
+        id: check_member
+        run: |
+          pr_author=${{ github.event.pull_request.user.login }}
+          if grep -qx "$pr_author" team_members.txt; then
+            echo "IS_TEAM_MEMBER=true" >> $GITHUB_OUTPUT
+          else
+            echo "IS_TEAM_MEMBER=false" >> $GITHUB_OUTPUT
+          fi
+
+  optimum-rbln-pytest:
+    needs: [check-skip-ci, check-code-quality, test-docstrings, check-compiler, check-team-member]
+    if: ${{ needs.check-skip-ci.outputs.should_skip != 'true' && needs.check-team-member.outputs.is_team_member == 'true' }}
+    uses: ./.github/workflows/rbln_optimum_pytest.yaml
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+      rebel_compiler_version: ${{ needs.check-compiler.outputs.compiler_version }}
+      test_level: "default"
+    secrets: inherit

@@ -1,0 +1,10 @@
+apiVersion: api_version
+kind: kind
+metadata:
+  name: name
+  namespace: namespace
+spec:
+  description: name
+  extends: extends
+  setValues: []
+  title: Best Practices NIST CONTROLS Profile

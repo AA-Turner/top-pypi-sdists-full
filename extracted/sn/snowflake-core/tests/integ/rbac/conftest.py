@@ -74,7 +74,7 @@ def test_function_name(connection):
     function_name = random_string(10, "test_function_")
     with connection.cursor() as cursor:
         cursor.execute(
-            f"CREATE FUNCTION {function_name}(a number, b number) RETURNS number COMMENT='multiply two numbers' AS 'a * b'"  # noqa: E501
+            f"CREATE FUNCTION {function_name}(a number, b number) RETURNS number COMMENT='multiply two numbers' AS 'a * b'"
         )
         try:
             yield function_name

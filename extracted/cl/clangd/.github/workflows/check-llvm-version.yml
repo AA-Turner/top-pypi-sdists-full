@@ -1,0 +1,61 @@
+name: Check LLVM Version
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags, needed for PR
+
+      - name: Get current version
+        id: current_version
+        # Only read first three version components, last one is for wheel
+        run: |
+          echo "current_version=$(cut -d'.' -f1-3 clangd_version.txt)" >> $GITHUB_OUTPUT
+
+      - name: Check latest LLVM version
+        id: latest_version
+        run: |
+          latest_version=$(curl -s https://api.github.com/repos/llvm/llvm-project/releases/latest | jq -r '.tag_name' | sed 's/llvmorg-//')
+          echo "latest_version=$latest_version" >> $GITHUB_OUTPUT
+
+      - name: Update version file
+        if: steps.latest_version.outputs.latest_version != steps.current_version.outputs.current_version
+        id: update_version_file
+        run: |
+          full_version="${{ steps.latest_version.outputs.latest_version }}.0"
+          echo "full_version=$full_version" >> $GITHUB_OUTPUT
+          echo "$full_version" > clangd_version.txt
+          
+          echo "Updated clangd_version.txt to $full_version"
+
+      - name: Create Pull Request
+        if: steps.latest_version.outputs.latest_version != steps.current_version.outputs.current_version
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Update LLVM version to ${{ steps.update_version_file.outputs.full_version }}"
+          commit-message: "Update LLVM version to ${{ steps.update_version_file.outputs.full_version }}"
+          body: |
+            This PR updates the LLVM version from ${{ steps.current_version.outputs.current_version }} to ${{ steps.update_version_file.outputs.full_version }}.
+            
+            This is an automated PR created by the LLVM version checker workflow.
+          sign-commits: true
+          branch: update/llvm-${{ steps.update_version_file.outputs.full_version }}
+          base: main
+          labels: |
+            automated
+            llvm-version-update
+          reviewers: 
+            jmpfar

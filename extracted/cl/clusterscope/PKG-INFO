@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: clusterscope
+Version: 0.0.10
+Summary: clusterscope is a python library to extract core information from HPC Clusters
+Author-email: Lucca Bertoncini <luccab@meta.com>, Kalyan Saladi <skalyan@meta.com>
+License: MIT License
+        
+        Copyright (c) 2020 Facebook
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/facebookresearch/clusterscope
+Project-URL: Issues, https://github.com/facebookresearch/clusterscope/issues
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ufmt; extra == "dev"
+Requires-Dist: usort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Dynamic: license-file
+
+# Cluster Scope
+
+clusterscope is a binary and python library to extract core information from HPC Clusters.
+
+## Install from pypi
+
+```bash
+$ pip install clusterscope
+```
+
+You can use it as a python library:
+
+```bash
+$ python
+>>> import clusterscope
+>>> clusterscope.cluster()
+'<your-cluster-name>'
+```
+
+You can also use it as a CLI:
+
+```bash
+$ cscope
+usage: cscope [-h] {info,cpus,gpus,check-gpu,aws} ...
+...
+```
+
+## Contributing
+
+Read our contributing guide to learn about our development process, how to propose bugfixes and feature requests, and how to build your changes.
+
+### [Code of Conduct](https://code.fb.com/codeofconduct)
+
+Facebook has adopted a Code of Conduct that we expect project participants to adhere to. Please read [the full text](https://code.fb.com/codeofconduct) so that you can understand what actions will and will not be tolerated.
+
+## Mantainers
+
+clusterscope is actively maintained by [Lucca Bertoncini](https://github.com/luccabb), and [Kalyan Saladi](https://github.com/skalyan).
+
+### License
+
+clusterscope is licensed under the [MIT](./LICENSE) license.

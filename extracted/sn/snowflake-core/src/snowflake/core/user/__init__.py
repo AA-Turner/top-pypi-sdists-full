@@ -8,16 +8,8 @@ Example:
     >>> root.users["test_user"].delete()
 """
 
-
 from ._generated.models import ContainingScope as ContainingScope
 from ._user import Grant, Securable, User, UserCollection, UserResource
 
 
-__all__ = [
-    "User",
-    "UserCollection",
-    "UserResource",
-    "Securable",
-    "Grant",
-    "ContainingScope",
-]
+__all__ = ["User", "UserCollection", "UserResource", "Securable", "Grant", "ContainingScope"]

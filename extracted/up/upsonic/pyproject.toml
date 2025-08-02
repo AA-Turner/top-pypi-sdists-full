@@ -1,0 +1,74 @@
+[project]
+name = "upsonic"
+version = "0.60.0"
+description = "Task oriented AI agent framework for digital workers and vertical AI agents"
+readme = "README.md"
+authors = [
+    { name = "Onur ULUSOY", email = "onur@upsonic.co" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "psutil==6.1.1",
+    "rich>=13.9.4",
+    "sentry-sdk[opentelemetry]>=2.19.2",
+    "toml>=0.10.2",
+    "uv>=0.5.20",
+    "mcp[cli]==1.9.4",
+    "pydantic-ai==0.3.2",
+    "python-dotenv>=1.0.1",
+    "uvicorn>=0.34.0",
+    "beautifulsoup4>=4.12.3",
+    "boto3>=1.35.99",
+    "botocore>=1.35.99",
+    "google>=3.0.0",
+    "markitdown[all]==0.0.1",
+    "python-multipart>=0.0.20",
+    "requests>=2.32.3",
+    "duckduckgo-search>=7.3.1",
+    "nest-asyncio>=1.6.0",
+    "pydantic-ai-slim[anthropic,bedrock,openai,mcp]>=0.3.2",
+    "pydantic==2.10.5",
+    "celery[redis]>=5.5.3",
+]
+
+[project.optional-dependencies]
+rag = [
+    "future>=1.0.0",
+    "graspologic>=3.4.1",
+    "lightrag-hku==1.2.6",
+    "pipmaster>=0.5.1",
+    "tenacity>=9.0.0",
+    "tiktoken>=0.9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.uv]
+default-groups = ["dev"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "pre-commit>=4.0.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.1",
+]
+
+
+
+
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+publish-url = "https://upload.pypi.org/legacy/"
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+
+

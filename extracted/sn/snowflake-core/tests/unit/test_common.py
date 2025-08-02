@@ -8,18 +8,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core.database import DatabaseCollection
 from snowflake.core.schema import SchemaResource
 
 
 PROJECT_SRC = Path(__file__).parent.parent.parent / "src" / "snowflake" / "core"
 DEPRECATED_METHODS = ["delete", "undelete", "create_or_update", "download_file", "upload_file"]
-IGNORED_METHODS = DEPRECATED_METHODS + ["get", "put"] # StageResource.get, StageResource.put
+IGNORED_METHODS = DEPRECATED_METHODS + ["get", "put"]  # StageResource.get, StageResource.put
 
 
 class XyzCollection(SchemaObjectCollectionParent["XyzReference"]):
@@ -118,7 +114,7 @@ def _generate_all_resources():
         if module.name.startswith("_") or module.is_file():
             continue
         if module.name in [
-            "cortex",   # Needs getting into underlying package
+            "cortex",  # Needs getting into underlying package
             "cortex_analyst",
             "session",  # Session is not resource
         ]:
@@ -129,7 +125,7 @@ def _generate_all_resources():
         yield resource_module, module.name
 
 
-def _generate_all_classes(suffix = ""):
+def _generate_all_classes(suffix=""):
     for resource_module, module_name in _generate_all_resources():
         class_name = "".join(s.capitalize() for s in module_name.split("_")) + suffix
         if hasattr(resource_module, class_name):
@@ -151,10 +147,13 @@ def test_collection_defines_async_methods(collection_class, method):
 
 @pytest.mark.parametrize("resource_class", _generate_all_classes(suffix="Resource"))
 def test_resource_defines_async_methods(resource_class):
-    method_names = (f"{m}_async" for m in dir(resource_class) if
-                    callable(getattr(resource_class, m))
-                    and not m.startswith("_")
-                    and not m.endswith("async")
-                    and m not in IGNORED_METHODS)
+    method_names = (
+        f"{m}_async"
+        for m in dir(resource_class)
+        if callable(getattr(resource_class, m))
+        and not m.startswith("_")
+        and not m.endswith("async")
+        and m not in IGNORED_METHODS
+    )
     for method_name in method_names:
         assert hasattr(resource_class, method_name), f"{resource_class.__name__} missing {method_name} method"

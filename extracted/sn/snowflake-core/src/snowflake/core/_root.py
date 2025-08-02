@@ -10,10 +10,7 @@ from snowflake.connector import Error, SnowflakeConnection, cursor
 from snowflake.core._options import require_snowpark
 
 from ._common import TokenType
-from ._constants import (
-    PLATFORM,
-    PYTHON_VERSION,
-)
+from ._constants import PLATFORM, PYTHON_VERSION
 from ._internal.client_info import ClientInfo
 from ._internal.root_configuration import RootConfiguration
 from ._internal.snowapi_parameters import SnowApiParameter, SnowApiParameters
@@ -62,12 +59,12 @@ class Root:
     >>> from snowflake.core import Root
     >>> from snowflake.snowpark import Session
     >>> CONNECTION_PARAMETERS = {
-    ...    "account": os.environ["snowflake_account_demo"],
-    ...    "user": os.environ["snowflake_user_demo"],
-    ...    "password": os.environ["snowflake_password_demo"],
-    ...    "database": test_database,
-    ...    "warehouse": test_warehouse,
-    ...    "schema": test_schema,
+    ...     "account": os.environ["snowflake_account_demo"],
+    ...     "user": os.environ["snowflake_user_demo"],
+    ...     "password": os.environ["snowflake_password_demo"],
+    ...     "database": test_database,
+    ...     "warehouse": test_warehouse,
+    ...     "schema": test_schema,
     ... }
     >>> # create from a Snowflake Connection
     >>> connection = connect(**CONNECTION_PARAMETERS)
@@ -87,9 +84,7 @@ class Root:
     """
 
     def __init__(
-        self,
-        connection: Union[SnowflakeConnection, "Session"],
-        root_config: Optional[RootConfiguration] = None,
+        self, connection: Union[SnowflakeConnection, "Session"], root_config: Optional[RootConfiguration] = None
     ) -> None:
         self._session: Optional[Session] = None
         if isinstance(connection, SnowflakeConnection):
@@ -166,12 +161,9 @@ class Root:
         require_snowpark()
         if self._session is None:
             from snowflake.snowpark.session import Session, _active_sessions
-            self._session = Session.builder.configs(
-                {"connection": self._connection}
-            ).create()
-            _active_sessions.remove(
-                self._session
-            )  # This is supposed to avoid a user double using sessions
+
+            self._session = Session.builder.configs({"connection": self._connection}).create()
+            _active_sessions.remove(self._session)  # This is supposed to avoid a user double using sessions
         return self._session
 
     @property
@@ -380,12 +372,12 @@ class Root:
         Using the ``Grants`` object to grant a privilege to a role:
 
         >>> grants.grant(
-        ...    Grant(
-        ...        grantee=Grantees.role(name="public"),
-        ...        securable=Securables.database("invaliddb123"),
-        ...        privileges=[Privileges.create_database],
-        ...        grant_option=False,
-        ...    )
+        ...     Grant(
+        ...         grantee=Grantees.role(name="public"),
+        ...         securable=Securables.database("invaliddb123"),
+        ...         privileges=[Privileges.create_database],
+        ...         grant_option=False,
+        ...     )
         ... )
         """
         return self._grants
@@ -468,8 +460,9 @@ class Root:
                 # Find the entry that corresponds to PyCore. If not found, then we assume all versions
                 # are supported; this will be None and ClientInfo will be instantiated with None
                 # as the value for the support info.
-                client_support_info = next((client for client in client_info_from_query if
-                                            client.get("clientId") == "PyCore"), None)
+                client_support_info = next(
+                    (client for client in client_info_from_query if client.get("clientId") == "PyCore"), None
+                )
         except (Error, JSONDecodeError) as error:
             warning = "Could not fetch client version info from Snowflake. Please make sure your client is up to date."
             logger.warning(warning, exc_info=error)
@@ -479,8 +472,10 @@ class Root:
 
         if not client_info.version_is_supported():
             # Later on, we may make this more aggressive and terminate with an error.
-            warning = (f"Your current version of the client, {client_info.client_version}, "
-                       f"is not supported. The minimum supported version is {client_info.minimum_supported_version}.")
+            warning = (
+                f"Your current version of the client, {client_info.client_version}, "
+                f"is not supported. The minimum supported version is {client_info.minimum_supported_version}."
+            )
 
             if client_info.recommended_version:
                 warning = warning + f" The recommended version is {client_info.recommended_version}."
@@ -490,7 +485,8 @@ class Root:
 
         elif client_info.version_is_nearing_end_of_support():
             warning = (
-                f"Your current version of the client, {client_info.client_version}, is nearing the end of support.")
+                f"Your current version of the client, {client_info.client_version}, is nearing the end of support."
+            )
 
             if client_info.recommended_version:
                 warning = warning + f" The recommended version is {client_info.recommended_version}."

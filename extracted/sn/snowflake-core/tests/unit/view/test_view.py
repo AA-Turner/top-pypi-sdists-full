@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.view import View, ViewColumn
+from snowflake.core.view import View, ViewColumn, ViewResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -30,15 +30,13 @@ def test_create_view(fake_root, views):
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
-        body={
-            "name": "my_view",
-            "columns": [{"name": "col1"}],
-            "query": "select col1 from my_tab",
-        },
+        body={"name": "my_view", "columns": [{"name": "col1"}], "query": "select col1 from my_tab"},
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        views.create(VIEW)
+        view_res = views.create(VIEW)
+        assert isinstance(view_res, ViewResource)
+        assert view_res.name == "my_view"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -50,11 +48,7 @@ def test_create_view(fake_root, views):
 
 
 def test_iter_view(fake_root, views):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/views",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/views")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -76,11 +70,7 @@ def test_fetch_view(fake_root, view):
     from snowflake.core.view._generated.models import ViewColumn as ViewColumnModel
 
     model = ViewModel(name="my_view", columns=[ViewColumnModel(name="col1")], query="select col1 from my_tab")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/views/my_view",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/views/my_view")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -98,11 +88,7 @@ def test_fetch_view(fake_root, view):
 
 
 def test_drop_view(fake_root, view):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/views/my_view",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/views/my_view")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

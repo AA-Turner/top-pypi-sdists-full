@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynetdicom
-Version: 3.0.3
+Version: 3.0.4
 Summary: A Python implementation of the DICOM networking protocol
 Keywords: dicom,networking,pydicom
 Author: pynetdicom contributors

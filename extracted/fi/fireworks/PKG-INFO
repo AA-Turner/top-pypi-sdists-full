@@ -1,0 +1,80 @@
+Metadata-Version: 2.2
+Name: FireWorks
+Version: 2.0.4
+Summary: FireWorks workflow software
+Home-page: https://github.com/materialsproject/fireworks
+Author: Anubhav Jain
+Author-email: anubhavster@gmail.com
+License: modified BSD
+Classifier: Programming Language :: Python
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Information Technology
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Other/Nonlisted Topic
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: ruamel.yaml>=0.15.35
+Requires-Dist: pymongo>=4.0.0
+Requires-Dist: Jinja2>=2.8.0
+Requires-Dist: monty>=1.0.1
+Requires-Dist: python-dateutil>=2.5.3
+Requires-Dist: tabulate>=0.7.5
+Requires-Dist: flask>=0.11.1
+Requires-Dist: flask-paginate>=0.4.5
+Requires-Dist: gunicorn>=19.6.0
+Requires-Dist: tqdm>=4.8.4
+Requires-Dist: importlib-metadata>=4.8.2; python_version < "3.8"
+Requires-Dist: typing-extensions; python_version < "3.8"
+Provides-Extra: rtransfer
+Requires-Dist: paramiko>=2.4.2; extra == "rtransfer"
+Provides-Extra: newt
+Requires-Dist: requests>=2.01; extra == "newt"
+Provides-Extra: daemon-mode
+Requires-Dist: fabric>=2.3.1; extra == "daemon-mode"
+Provides-Extra: flask-plotting
+Requires-Dist: matplotlib>=2.0.1; extra == "flask-plotting"
+Provides-Extra: workflow-checks
+Requires-Dist: igraph>=0.7.1; extra == "workflow-checks"
+Provides-Extra: graph-plotting
+Requires-Dist: graphviz; extra == "graph-plotting"
+Provides-Extra: mongomock
+Requires-Dist: mongomock-persistence>=0.0.3; extra == "mongomock"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+<h1 align="center">
+  <img alt="FireWorks" src="docs_rst/_static/fireworks-logo.svg" width="350">
+</h1>
+
+FireWorks stores, executes, and manages calculation workflows.
+
+- **Website (including documentation):** https://materialsproject.github.io/fireworks/
+- **Help/Support:** https://discuss.matsci.org/c/fireworks
+- **Source:** https://github.com/materialsproject/fireworks/
+
+If you like FireWorks, you might also like [rocketsled](https://github.com/hackingmaterials/rocketsled).
+
+If you find FireWorks useful, please consider citing the paper:
+
+```txt
+Jain, A., Ong, S. P., Chen, W., Medasani, B., Qu, X., Kocher, M., Brafman, M.,
+Petretto, G., Rignanese, G.-M., Hautier, G., Gunter, D., and Persson, K. A.
+(2015) FireWorks: a dynamic workflow system designed for high-throughput
+applications. Concurrency Computat.: Pract. Exper., 27: 5037–5059.
+doi: 10.1002/cpe.3505.
+```

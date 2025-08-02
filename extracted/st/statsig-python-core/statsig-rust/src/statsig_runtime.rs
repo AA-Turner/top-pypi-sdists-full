@@ -1,21 +1,18 @@
+use crate::statsig_global::StatsigGlobal;
+use crate::StatsigErr;
+use crate::{log_d, log_e};
 use futures::future::join_all;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, Weak};
-use tokio::runtime::{Builder, Handle, Runtime};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::runtime::{Builder, Handle};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
-use crate::log_e;
-use crate::StatsigErr;
-use crate::{log_d, log_w};
-
 const TAG: &str = stringify!(StatsigRuntime);
-
-lazy_static::lazy_static! {
-    static ref OWNED_TOKIO_RUNTIME: Mutex<Option<Weak<Runtime>>> = Mutex::new(None);
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct TaskId {
@@ -24,8 +21,6 @@ struct TaskId {
 }
 
 pub struct StatsigRuntime {
-    pub runtime_handle: Handle,
-    inner_runtime: Mutex<Option<Arc<Runtime>>>,
     spawned_tasks: Arc<Mutex<HashMap<TaskId, JoinHandle<()>>>>,
     shutdown_notify: Arc<Notify>,
     is_shutdown: Arc<AtomicBool>,
@@ -34,27 +29,40 @@ pub struct StatsigRuntime {
 impl StatsigRuntime {
     #[must_use]
     pub fn get_runtime() -> Arc<StatsigRuntime> {
-        let (opt_runtime, runtime_handle) = create_runtime_if_required();
-        let shutdown_notify = Notify::new();
+        create_runtime_if_required();
 
         Arc::new(StatsigRuntime {
-            inner_runtime: Mutex::new(opt_runtime),
-            runtime_handle,
             spawned_tasks: Arc::new(Mutex::new(HashMap::new())),
-            shutdown_notify: Arc::new(shutdown_notify),
+            shutdown_notify: Arc::new(Notify::new()),
             is_shutdown: Arc::new(AtomicBool::new(false)),
         })
     }
 
-    pub fn get_handle(&self) -> Handle {
-        self.runtime_handle.clone()
+    pub fn get_handle(&self) -> Result<Handle, StatsigErr> {
+        if let Ok(handle) = Handle::try_current() {
+            return Ok(handle);
+        }
+
+        let global = StatsigGlobal::get();
+        let rt = global
+            .tokio_runtime
+            .try_lock_for(Duration::from_secs(5))
+            .ok_or_else(|| StatsigErr::LockFailure("Failed to lock tokio runtime".to_string()))?;
+
+        if let Some(rt) = rt.as_ref() {
+            return Ok(rt.handle().clone());
+        }
+
+        Err(StatsigErr::ThreadFailure(
+            "No tokio runtime found".to_string(),
+        ))
     }
 
     pub fn get_num_active_tasks(&self) -> usize {
-        match self.spawned_tasks.lock() {
-            Ok(lock) => lock.len(),
-            Err(e) => {
-                log_e!(TAG, "Failed to lock spawned tasks {}", e);
+        match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+            Some(lock) => lock.len(),
+            None => {
+                log_e!(TAG, "Failed to lock spawned tasks for get_num_active_tasks");
                 0
             }
         }
@@ -63,14 +71,19 @@ impl StatsigRuntime {
     pub fn shutdown(&self) {
         self.shutdown_notify.notify_waiters();
 
-        if let Ok(mut lock) = self.spawned_tasks.lock() {
-            for (_, task) in lock.drain() {
-                task.abort();
+        match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+            Some(mut lock) => {
+                for (_, task) in lock.drain() {
+                    task.abort();
+                }
+            }
+            None => {
+                log_e!(TAG, "Failed to lock spawned tasks for shutdown");
             }
         }
     }
 
-    pub fn spawn<F, Fut>(&self, tag: &str, task: F) -> tokio::task::Id
+    pub fn spawn<F, Fut>(&self, tag: &str, task: F) -> Result<tokio::task::Id, StatsigErr>
     where
         F: FnOnce(Arc<Notify>) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
@@ -82,7 +95,7 @@ impl StatsigRuntime {
 
         log_d!(TAG, "Spawning task {}", tag);
 
-        let handle = self.runtime_handle.spawn(async move {
+        let handle = self.get_handle()?.spawn(async move {
             if is_shutdown.load(std::sync::atomic::Ordering::Relaxed) {
                 return;
             }
@@ -93,14 +106,14 @@ impl StatsigRuntime {
             remove_join_handle_with_id(spawned_tasks, tag_string, &task_id);
         });
 
-        self.insert_join_handle(tag, handle)
+        Ok(self.insert_join_handle(tag, handle))
     }
 
     pub async fn await_tasks_with_tag(&self, tag: &str) {
         let mut handles = Vec::new();
 
-        match self.spawned_tasks.lock() {
-            Ok(mut lock) => {
+        match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+            Some(mut lock) => {
                 let keys: Vec<TaskId> = lock.keys().cloned().collect();
                 for key in &keys {
                     if key.tag == tag {
@@ -115,8 +128,8 @@ impl StatsigRuntime {
                     }
                 }
             }
-            Err(e) => {
-                log_e!(TAG, "Failed to lock spawned tasks {}", e);
+            None => {
+                log_e!(TAG, "Failed to lock spawned tasks for await_tasks_with_tag");
                 return;
             }
         };
@@ -134,8 +147,8 @@ impl StatsigRuntime {
             tokio_id: *handle_id,
         };
 
-        let handle = match self.spawned_tasks.lock() {
-            Ok(mut lock) => match lock.remove(&task_id) {
+        let handle = match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+            Some(mut lock) => match lock.remove(&task_id) {
                 Some(handle) => handle,
                 None => {
                     return Err(StatsigErr::ThreadFailure(
@@ -143,14 +156,11 @@ impl StatsigRuntime {
                     ));
                 }
             },
-            Err(e) => {
-                log_e!(
-                    TAG,
-                    "An error occurred while getting join handle with id: {}: {}",
-                    handle_id,
-                    e.to_string()
-                );
-                return Err(StatsigErr::ThreadFailure(e.to_string()));
+            None => {
+                log_e!(TAG, "Failed to lock spawned tasks for await_join_handle");
+                return Err(StatsigErr::ThreadFailure(
+                    "Failed to lock spawned tasks".to_string(),
+                ));
             }
         };
 
@@ -168,16 +178,12 @@ impl StatsigRuntime {
             tokio_id: handle_id,
         };
 
-        match self.spawned_tasks.lock() {
-            Ok(mut lock) => {
+        match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+            Some(mut lock) => {
                 lock.insert(task_id, handle);
             }
-            Err(e) => {
-                log_e!(
-                    TAG,
-                    "An error occurred while inserting join handle: {}",
-                    e.to_string()
-                );
+            None => {
+                log_e!(TAG, "Failed to lock spawned tasks for insert_join_handle");
             }
         }
 
@@ -195,33 +201,37 @@ fn remove_join_handle_with_id(
         tokio_id: *handle_id,
     };
 
-    match spawned_tasks.lock() {
-        Ok(mut lock) => {
+    match spawned_tasks.try_lock_for(Duration::from_secs(5)) {
+        Some(mut lock) => {
             lock.remove(&task_id);
         }
-        Err(e) => {
+        None => {
             log_e!(
                 TAG,
-                "An error occurred while removing join handle {}",
-                e.to_string()
+                "Failed to lock spawned tasks for remove_join_handle_with_id"
             );
         }
     }
 }
 
-fn create_runtime_if_required() -> (Option<Arc<Runtime>>, Handle) {
-    if let Ok(handle) = Handle::try_current() {
-        log_d!(TAG, "Existing tokio runtime found");
-        return (None, handle);
+fn create_runtime_if_required() {
+    if Handle::try_current().is_ok() {
+        log_d!(TAG, "External tokio runtime found");
+        return;
     }
 
-    let mut lock = OWNED_TOKIO_RUNTIME
-        .lock()
+    let global = StatsigGlobal::get();
+    let mut lock = global
+        .tokio_runtime
+        .try_lock_for(Duration::from_secs(5))
         .expect("Failed to lock owned tokio runtime");
 
-    match lock.as_ref().and_then(|rt| rt.upgrade()) {
-        Some(rt) => (Some(rt.clone()), rt.handle().clone()),
+    match lock.as_ref() {
+        Some(_) => {
+            log_d!(TAG, "Existing StatsigGlobal tokio runtime found");
+        }
         None => {
+            log_d!(TAG, "Creating new tokio runtime for StatsigGlobal");
             let rt = Arc::new(
                 Builder::new_multi_thread()
                     .worker_threads(5)
@@ -231,48 +241,48 @@ fn create_runtime_if_required() -> (Option<Arc<Runtime>>, Handle) {
                     .expect("Failed to find or create a tokio Runtime"),
             );
 
-            let handle = rt.handle().clone();
-            lock.replace(Arc::downgrade(&rt));
-            (Some(rt), handle)
+            lock.replace(rt);
         }
-    }
+    };
 }
 
 impl Drop for StatsigRuntime {
     fn drop(&mut self) {
         self.shutdown();
 
-        let opt_inner = match self.inner_runtime.lock() {
-            Ok(mut inner_runtime) => inner_runtime.take(),
-            Err(e) => {
-                log_e!(TAG, "Failed to lock inner runtime {}", e);
-                None
-            }
-        };
+        // let opt_inner = match self.inner_runtime.lock() {
+        //     Ok(mut inner_runtime) => inner_runtime.take(),
+        //     Err(e) => {
+        //         log_e!(TAG, "Failed to lock inner runtime {}", e);
+        //         None
+        //     }
+        // };
 
-        let inner = match opt_inner {
-            Some(inner) => inner,
-            None => {
-                log_d!(TAG, "Runtime owned by tokio");
-                return;
-            }
-        };
+        // let inner = match opt_inner {
+        //     Some(inner) => inner,
+        //     None => {
+        //         log_d!(TAG, "Runtime owned by tokio");
+        //         return;
+        //     }
+        // };
 
-        if Arc::strong_count(&inner) > 1 {
-            // Another instance is still using the Runtime, so we can't drop it
-            return;
-        }
+        // if Arc::strong_count(&inner) > 1 {
+        //     // Another instance is still using the Runtime, so we can't drop it
+        //     return;
+        // }
 
-        if tokio::runtime::Handle::try_current().is_err() {
-            // Not inside the Tokio runtime. Will automatically drop(inner).
-            return;
-        }
+        // if tokio::runtime::Handle::try_current().is_err() {
+        //     println!("Not inside the Tokio runtime. Will automatically drop(inner).");
+        //     // Not inside the Tokio runtime. Will automatically drop(inner).
+        //     return;
+        // }
 
-        log_w!(TAG, "Attempt to shutdown runtime from inside runtime");
-        std::thread::spawn(move || {
-            // We should not drop from inside the runtime, but in the odd case we do,
-            // moving inner to a new thread will prevent a panic
-            drop(inner);
-        });
+        // log_w!(TAG, "Attempt to shutdown runtime from inside runtime");
+        // std::thread::spawn(move || {
+        //     println!("Dropping inner runtime from outside the Tokio runtime");
+        //     // We should not drop from inside the runtime, but in the odd case we do,
+        //     // moving inner to a new thread will prevent a panic
+        //     drop(inner);
+        // });
     }
 }

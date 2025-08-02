@@ -1,0 +1,151 @@
+[project]
+name = "foldedtensor"
+description = "PyTorch extension for handling deeply nested sequences of variable length"
+authors = [
+    { name = "Perceval Wajsbürt", email = "perceval.wajsburt@aphp.fr" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+urls.homepage = "https://github.com/aphp/foldedtensor/"
+urls.repository = "https://github.com/aphp/foldedtensor/"
+dynamic = ["version"]
+requires-python = ">=3.7.1,<4.0"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "torch>1.0.0",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black==22.6.0",
+    "pre-commit>=2.18",
+    "pytest==7.1.1",
+    "pytest-cov==3.0.0",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "foldedtensor.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = false
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = true
+ignore-nested-functions = false
+ignore-nested-classes = true
+ignore-setters = false
+fail-under = 10
+exclude = ["docs", "build", "tests"]
+verbose = 0
+quiet = false
+whitelist-regex = []
+color = true
+omit-covered-files = false
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+concurrency = ["multiprocessing"]
+parallel = true
+include = ['foldedtensor/*']
+
+[tool.coverage.report]
+include = ['foldedtensor/*']
+precision = 2
+omit = [
+    "tests/*",
+]
+exclude_lines = [
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "@overload",
+    "pragma: no cover",
+    "raise .*Error",
+    "raise .*Exception",
+    "warn\\(",
+    "if __name__ == .__main__.:",
+    "if repr_id in exclude:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[build-system]
+# Numpy >=1.25 only supports Python 3.9 and above
+requires = [
+    "setuptools",
+    "pybind11>=2.10.4",
+    "oldest-supported-numpy; python_version<'3.9'",
+    "numpy>=2.0; python_version>='3.9'",
+]
+build-backend = "setuptools.build_meta"
+
+
+[tool.cibuildwheel]
+skip = [
+    "*p36-*", # Skip Python 3.6
+    "pp*", # Skip PyPy
+    "*-win32", # Skip 32-bit Windows
+    "*-manylinux_i686", # Skip 32-bit Linux
+    "*-win_arm64", # Skip experimental Windows on ARM
+    "*-musllinux*", # Skip slow Linux
+    "*-manylinux_aarch64", # Skip slow Linux
+    "*-manylinux_ppc64le", # Skip slow Linux
+    "*-manylinux_s390x", # Skip slow Linux
+]
+
+[tool.ruff]
+fix = true
+exclude = [
+    ".git",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".venv",
+    "build",
+]
+ignore = []
+line-length = 88
+select = [
+    "E",
+    "F",
+    "W",
+    "I001"
+]
+fixable = ["E", "F", "W", "I"]
+
+[tool.ruff.isort]
+    known-first-party = ["foldedtensor"]
+    known-third-party = ["build"]

@@ -1,0 +1,40 @@
+# pyproject.toml
+
+[project]
+name = "adaptive-cards-py"
+version = "0.3.1"
+description = "Python wrapper library for building beautiful adaptive cards"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["bot", "ui", "adaptivecards", "cards", "adaptivecardsio", "python"]
+dependencies = [
+    "requests",
+    "jsonschema",
+    "pydantic>=2.10.6",
+    "mypy>=1.15.0",
+    "result>=0.17.0",
+]
+requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://github.com/dennis6p/adaptive-cards-py"
+
+[tool.setuptools.package-data]
+adaptive_cards = ["schemas/*.json"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/adaptive_cards"]

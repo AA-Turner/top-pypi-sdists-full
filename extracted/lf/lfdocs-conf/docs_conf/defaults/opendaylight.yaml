@@ -1,0 +1,33 @@
+---
+project: OpenDaylight
+release: master
+version: master
+author: OpenDaylight Project
+copyright: "2016-{}, OpenDaylight Project"
+
+needs_sphinx: "1.6.5"
+extensions:
+  - sphinx.ext.autodoc
+  - sphinx.ext.doctest
+  - sphinx.ext.intersphinx
+  - sphinx.ext.graphviz
+  - sphinx.ext.todo
+  - sphinx.ext.coverage
+  - sphinx.ext.viewcode
+  - sphinx_tabs.tabs
+exclude_patterns:
+  - .DS_Store
+  - _build
+  - Thumbs.db
+  - .tox
+todo_include_todos: false
+
+html_favicon: favicon.ico
+html_logo: _static/logo.png
+html_static_path:
+  - _static
+html_theme: bootstrap
+html_theme_options:
+  bootswatch_theme: united
+  navbar_sidebarrel: false
+  source_link_position: footer

@@ -1,0 +1,6 @@
+---
+upgrade:
+  - |
+    Sphinx version is updated from ~1.7.9 to ~1.8.5 which may or may not affect
+    project docs build. Refer to upstream release note as necessary.
+    https://www.sphinx-doc.org/en/master/changes.html

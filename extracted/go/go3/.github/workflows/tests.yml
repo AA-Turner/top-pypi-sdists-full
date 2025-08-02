@@ -1,0 +1,42 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Download GOA human annotations
+        run: |
+          curl -L https://current.geneontology.org/annotations/goa_human.gaf.gz -o goa_human.gaf.gz
+          gunzip -f goa_human.gaf.gz
+          cp goa_human.gaf tests/
+
+      - name: Set up virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install maturin
+          maturin develop
+          pip install pytest
+          pytest tests/

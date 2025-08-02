@@ -1,0 +1,362 @@
+# SPDX-FileCopyrightText: Copyright DB InfraGO AG
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = [
+  "setuptools>=77",
+  "setuptools-rust",
+  "setuptools-scm[toml]>=3.4",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+
+name = "capellambse"
+description = "Provides access to Capella MBSE projects in Python"
+readme = "README.md"
+requires-python = ">=3.10, <3.14"
+license = "Apache-2.0 AND OFL-1.1"
+license-files = ["LICENSES/*.txt"]
+authors = [{ name = "DB InfraGO AG" }]
+keywords = ["arcadia", "capella", "mbse", "model-based systems engineering"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Other/Nonlisted Topic",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = [
+  "awesomeversion>=25.5.0",
+  "diskcache>=5.6.3",
+  "lxml>=6.0.0,<7",
+  "markupsafe>=3.0.2,<4.0",
+  "pillow>=11.2.1",
+  "platformdirs>=4.3.7",
+  "python-datauri>=3.0.2",
+  "pyyaml>=6.0.2",
+  "requests>=2.32.4",
+  "svgwrite>=1.4.3",
+  "typing-extensions >=4.9.0, <5",
+]
+
+[project.urls]
+Homepage = "https://github.com/DSD-DBS/py-capellambse"
+Documentation = "https://dsd-dbs.github.io/py-capellambse"
+
+[project.optional-dependencies]
+cli = ["click>=8.2.1", "jinja2>=3.1.6"]
+
+decl = []
+httpfiles = []
+
+png = ["cairosvg>=2.8.2"]
+termgraphics = ["cairosvg>=2.8.2"]
+
+[project.scripts]
+capellambse = "capellambse.__main__:main"
+
+[project.entry-points."capellambse.diagram.formats"]
+datauri_svg = "capellambse.model.diagram:SVGDataURIFormat"
+html_img = "capellambse.model.diagram:SVGInHTMLIMGFormat"
+png = "capellambse.model.diagram:PNGFormat"
+svg = "capellambse.model.diagram:SVGFormat"
+svg_confluence = "capellambse.model.diagram:ConfluenceSVGFormat"
+svgdiagram = "capellambse.model.diagram:convert_svgdiagram"
+termgraphics = "capellambse.model.diagram:TerminalGraphicsFormat"
+
+[project.entry-points."capellambse.filehandler"]
+file = "capellambse.filehandler.local:LocalFileHandler"
+git = "capellambse.filehandler.git:GitFileHandler"
+glart = "capellambse.filehandler.gitlab_artifacts:GitlabArtifactsFiles"
+http = "capellambse.filehandler.http:HTTPFileHandler"
+https = "capellambse.filehandler.http:HTTPFileHandler"
+zip = "capellambse.filehandler.zip:ZipFileHandler"
+
+[project.entry-points."capellambse.model_extensions"]
+filtering = "capellambse.extensions.filtering:init"
+pvmt = "capellambse.extensions.pvmt:init"
+reqif = "capellambse.extensions.reqif:init"
+validation = "capellambse.extensions.validation:init"
+
+[project.entry-points."capellambse.namespaces"]
+viewpoint = "capellambse.model.diagram:VIEWPOINT_NS"
+
+activity = "capellambse.metamodel.namespaces:ACTIVITY"
+behavior = "capellambse.metamodel.namespaces:BEHAVIOR"
+capellacommon = "capellambse.metamodel.namespaces:CAPELLACOMMON"
+capellacore = "capellambse.metamodel.namespaces:CAPELLACORE"
+capellamodeller = "capellambse.metamodel.namespaces:CAPELLAMODELLER"
+cs = "capellambse.metamodel.namespaces:CS"
+epbs = "capellambse.metamodel.namespaces:EPBS"
+fa = "capellambse.metamodel.namespaces:FA"
+information = "capellambse.metamodel.namespaces:INFORMATION"
+information_communication = "capellambse.metamodel.namespaces:INFORMATION_COMMUNICATION"
+information_datatype = "capellambse.metamodel.namespaces:INFORMATION_DATATYPE"
+information_datavalue = "capellambse.metamodel.namespaces:INFORMATION_DATAVALUE"
+interaction = "capellambse.metamodel.namespaces:INTERACTION"
+la = "capellambse.metamodel.namespaces:LA"
+libraries = "capellambse.metamodel.namespaces:LIBRARIES"
+metadata = "capellambse.metamodel.namespaces:METADATA"
+modellingcore = "capellambse.metamodel.namespaces:MODELLINGCORE"
+oa = "capellambse.metamodel.namespaces:OA"
+pa = "capellambse.metamodel.namespaces:PA"
+pa_deployment = "capellambse.metamodel.namespaces:PA_DEPLOYMENT"
+re = "capellambse.metamodel.namespaces:RE"
+sa = "capellambse.metamodel.namespaces:SA"
+shared_model = "capellambse.metamodel.namespaces:SHARED_MODEL"
+
+filtering = "capellambse.extensions.filtering:NS"
+pvmt = "capellambse.extensions.pvmt:NS"
+capellarequirements = "capellambse.extensions.reqif:CapellaRequirementsNS"
+requirements = "capellambse.extensions.reqif:RequirementsNS"
+
+[dependency-groups]
+test = [
+  "cairosvg>=2.8.2",
+  "click>=8.2.1",
+  "coverage>=7.9.1",
+  "jinja2>=3.1.6",
+  "pytest>=8.4.1",
+  "pytest-xdist>=3.7.0",
+  "requests-mock>=1.12.1",
+]
+
+dev = [
+  "capellambse-context-diagrams>=0.7.12",
+  "docformatter[tomli]==1.7.7",
+  "jupyterlab==4.4.4",
+  "mypy==1.15.0",
+  "pandas>=2.3.0",
+  "pre-commit==4.2.0",
+  "pylsp-mypy==0.7.0",
+  "python-lsp-server[rope]==1.12.2",
+  "reuse==5.0.2",
+  "ruff==0.12.1",
+  "xlsxwriter>=3.2.5",
+]
+
+typecheck = [
+  "awesomeversion==25.5.0",
+  "cairosvg==2.8.2",
+  "click==8.2.1",
+  "diskcache==5.6.3",
+  "jinja2==3.1.6",
+  "markupsafe==3.0.2",
+  "mypypp==0.1.1",
+  "pillow==11.2.1",
+  "platformdirs==4.3.7",
+  "requests-mock==1.12.1",
+  "sphinx==8.1.3",
+  "tomli>=2.2.1 ; python_full_version < '3.11'",
+  "types-colorama==0.4.15.20240311",
+  "types-docutils==0.21.0.20250604",
+  "types-lxml==2025.3.30",
+  "types-pygments==2.19.0.20250516",
+  "types-pytz==2025.2.0.20250516",
+  "types-pyyaml==6.0.12.20250516",
+  "types-requests==2.32.4.20250611",
+  "types-setuptools==68.0.0.1",
+  "types-six==1.17.0.20250515",
+]
+
+docs = [
+  "furo==2024.8.6",
+  "ipython==8.37.0",
+  "jinja2==3.1.6",
+  "nbsphinx==0.9.7",
+  "sphinx==8.1.3",
+  "sphinx-autodoc-typehints==3.0.1",
+  "sphinx-click==6.0.0",
+  "tomli==2.2.1 ; python_full_version < '3.11'",
+]
+
+[tool.cibuildwheel]
+enable = "pypy"
+build-frontend = "build"
+before-build = ["rustup default stable", "rustup show"]
+test-groups = ["test"]
+test-command = ["cd {project}", "pytest -n auto"]
+
+[tool.cibuildwheel.linux]
+before-build = [
+  "curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain=stable --profile=minimal -y",
+  "rustup show",
+]
+repair-wheel-command = [
+  "pipx run abi3audit {wheel}",
+  "auditwheel repair -w {dest_dir} {wheel}",
+]
+
+[tool.cibuildwheel.windows]
+test-command = ["cd /d {project}", "pytest -n auto"]
+
+[tool.coverage.run]
+branch = true
+command_line = "-m pytest"
+source = ["capellambse"]
+
+[tool.coverage.report]
+exclude_also = [
+  'if t\.TYPE_CHECKING:',
+  'class .*\bt\.Protocol\):',
+  '@abc\.abstractmethod',
+  '@t\.overload',
+]
+skip_covered = true
+
+[tool.distutils.bdist_wheel]
+py_limited_api = "cp310"
+
+[tool.docformatter]
+wrap-descriptions = 72
+wrap-summaries = 79
+
+[tool.mypy]
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_ignores = true
+plugins = ["mypypp.deprecated"]
+python_version = "3.10"
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# Untyped third party libraries
+module = [
+  "cairosvg.*",
+  "cssutils.*",
+  "diskcache.*",
+  "lxml.*",
+  "PIL.*",
+  "requests_mock.*",
+  "svgwrite.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = """
+  -W error::pytest.PytestUnraisableExceptionWarning
+  --import-mode=importlib
+  --strict-config
+  --strict-markers
+  --tb=short
+"""
+testpaths = ["tests"]
+xfail_strict = true
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+extend-select = [
+  "ARG",    # flake8-unused-arguments
+  "B",      # flake8-bugbear
+  "C4",     # flake8-comprehensions
+  "D",      # pydocstyle
+  "D212",   # "Multi-line docstring summary should start at the first line"
+  "D402",   # "First line should not be the function’s 'signature'"
+  "D417",   # "Missing argument descriptions in the docstring"
+  "DTZ",    # flake8-datetimez
+  "ERA",    # eradicate
+  "FA",     # flake8-future-annotations
+  "FIX",    # flake8-fixme
+  "FURB",   # refurb
+  "G",      # flake8-logging-format
+  "I",      # isort
+  "ICN",    # flake8-import-conventions
+  "ISC001", # "Implicitly concatenated string literals on one line"
+  "ISC003", # "Explicitly concatenated string should be implicitly concatenated"
+  "LOG",    # flake8-logging
+  "PIE",    # flake8-pie
+  "PL",     # pylint
+  "PT",     # flake8-pytest-style
+  "RET",    # flake8-return
+  "RUF",    # ruff
+  "SIM",    # flake8-simplify
+  "TC005",  # "Found empty type-checking block"
+  "T1",     # flake8-debugger
+  "UP",     # pyupgrade
+  "YTT",    # flake8-2020
+]
+extend-ignore = [
+  "D1",      # Missing docstring in _
+  "D201",    # No blank lines allowed before function docstring  # auto-formatting
+  "D202",    # No blank lines allowed after function docstring  # auto-formatting
+  "D203",    # 1 blank line required before class docstring  # auto-formatting
+  "D204",    # 1 blank line required after class docstring  # auto-formatting
+  "D211",    # No blank lines allowed before class docstring  # auto-formatting
+  "D213",    # Multi-line docstring summary should start at the second line
+  "DTZ001",  # `tzinfo=None` passed to `datetime.datetime()`
+  "DTZ005",  # `tz=None` passed to `datetime.datetime.now()`
+  "E402",    # Module level import not at top of file
+  "F403",    # `from _ import *` used; unable to detect undefined names
+  "F405",    # `_` may be undefined, or defined from star imports
+  "PLC0414", # Import alias does not rename original package # used for explicit reexports
+  "PLR0904", # Too many public methods
+  "PLR0911", # Too many return statements
+  "PLR0912", # Too many branches
+  "PLR0913", # Too many arguments in function definition
+  "PLR0914", # Too many local variables
+  "PLR0915", # Too many statements
+  "PLR0916", # Too many Boolean expressions
+  "PLR0917", # Too many positional arguments
+  "PLR2004", # Magic value used in comparison, consider replacing `_` with a constant variable
+  "PLW0603", # Using the global statement to update `_` is discouraged
+  "PLW2901", # `for` loop variable `_` overwritten by assignment target
+  "RUF005",  # Consider iterable unpacking instead of concatenation  # false-positives with NamedTuple and overridden __add__ (i.e. Vector2D)
+  "SIM108",  # Use ternary operator instead of `if`-`else`-block
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = [
+  "PLE0604", # Invalid object in `__all__`, must contain only strings  # false-positive when unpacking imported submodule __all__
+]
+"tests/test_*.py" = [
+  "F811",    # Redefinition of unused `_` from line _
+  "PLR2004", # Magic value used in comparison, consider replacing `_` with a constant variable
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["capellambse.diagram.Vector2D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+ignore-decorators = ["typing.overload"]
+
+[tool.setuptools]
+platforms = ["any"]
+zip-safe = false
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+"capellambse" = ["OpenSans-Regular.ttf"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[[tool.setuptools-rust.ext-modules]]
+target = "capellambse._compiled"
+optional = true
+
+[tool.setuptools_scm]
+# This section must exist for setuptools_scm to work
+
+[tool.uv]
+default-groups = ["dev", "test", "typecheck"]

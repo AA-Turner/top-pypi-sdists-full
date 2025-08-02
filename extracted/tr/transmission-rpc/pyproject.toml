@@ -1,0 +1,152 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transmission-rpc"
+version = "7.0.11"
+description = "Python module that implements the Transmission bittorent client JSON-RPC protocol"
+authors = [
+    { name = "trim21", email = "trim21me@gmail.com" },
+]
+readme = 'README.md'
+requires-python = "~=3.8"
+license = { text = 'MIT' }
+keywords = ['transmission', 'rpc']
+classifiers = [
+    'Intended Audience :: Developers',
+    'Development Status :: 4 - Beta',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Programming Language :: Python :: Implementation :: PyPy',
+]
+
+dependencies = [
+    'requests~=2.23',
+    'typing-extensions>=4.5.0',
+]
+
+[project.urls]
+Homepage = 'https://github.com/Trim21/transmission-rpc'
+
+[project.optional-dependencies]
+dev = [
+    # lint
+    'pre-commit==3.8.0; python_version >= "3.9"',
+    # tests
+    'yarl==1.9.4',
+    'pytest==8.3.2',
+    'pytest-github-actions-annotate-failures==0.2.0',
+    'coverage==7.6.0',
+    # types
+    'mypy==1.11.1',
+    'types-requests==2.32.0.20240712',
+    # docs
+    'sphinx>=7,<=8; python_version >= "3.9"',
+    'furo==2024.7.18; python_version >= "3.9"',
+    'sphinx-copybutton==0.5.2 ; python_version >= "3.9"',
+    'sphinx-new-tab-link==0.5.2; python_version >= "3.9"',
+    'sphinx-github-style==1.2.2 ; python_version >= "3.9"',
+    'sphinx-autobuild==2024.4.16 ; python_version >= "3.9"',
+]
+
+[tool.pytest.ini_options]
+addopts = '-rav -Werror'
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+warn_return_any = false
+warn_unused_configs = true
+show_error_codes = true
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+
+
+[tool.ruff]
+target-version = "py38"
+extend-exclude = ["docs"]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C",
+    "E",
+    "F",
+    "G",
+    "I",
+    "N",
+    "Q",
+    "S",
+    "W",
+    "BLE",
+    "EXE",
+    "ICN",
+    "INP",
+    "ISC",
+    "NPY",
+    "PD",
+    "PGH",
+    "PIE",
+    "PL",
+    "PT",
+    "PYI",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "SLF",
+    "TCH",
+    "TID",
+    "TRY",
+    "YTT",
+    "UP",
+    "FA100",
+    "FA102"
+]
+
+extend-fixable = ['UP']
+
+ignore = [
+    'PLR0911',
+    'INP001',
+    'N806',
+    'N802',
+    'N803',
+    'E501',
+    'BLE001',
+    'RUF002',
+    'S301',
+    'S314',
+    'S101',
+    'N815',
+    'S104',
+    'C901',
+    'ISC003',
+    'PLR0913',
+    'RUF001',
+    'SIM108',
+    'TCH003',
+    'RUF003',
+    'RET504',
+    'TCH001',
+    'TRY300',
+    'TRY003',
+    'TRY201',
+    'TRY301',
+    'PLR0912',
+    'PLR0915',
+    'PLR2004',
+    'PGH003',
+]

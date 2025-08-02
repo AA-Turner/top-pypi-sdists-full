@@ -61,7 +61,7 @@ def _validate_table_inputs(
     not_none_count = sum(bool(x) for x in (as_select, template, like_table, clone_table))
 
     if not_none_count > 1:
-        raise ValueError("at most one of the `as_select`, `template`, `clone_table`, " "or `like_table` can has value")
+        raise ValueError("at most one of the `as_select`, `template`, `clone_table`, or `like_table` can has value")
 
     if not_none_count == 0 and isinstance(table, str):
         raise ValueError(
@@ -230,7 +230,7 @@ class TableCollection(SchemaObjectCollectionParent["TableResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         _validate_table_inputs(table, as_select, template, like_table, clone_table)
 
         if isinstance(table, str):
@@ -330,7 +330,7 @@ class TableCollection(SchemaObjectCollectionParent["TableResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_tables(
             database=self.database.name,
             var_schema=self.schema.name,
@@ -355,8 +355,7 @@ class TableCollection(SchemaObjectCollectionParent["TableResource"]):
         copy_grants: Optional[bool],
         mode: CreateMode,
         async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
@@ -369,8 +368,7 @@ class TableCollection(SchemaObjectCollectionParent["TableResource"]):
         copy_grants: Optional[bool],
         mode: CreateMode,
         async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+    ) -> SuccessResponse: ...
 
     def _create(
         self,
@@ -413,10 +411,7 @@ class TableCollection(SchemaObjectCollectionParent["TableResource"]):
             if isinstance(clone_table, Clone) and isinstance(clone_table.point_of_time, PointOfTime):
                 pot = TablePointOfTime.from_dict(clone_table.point_of_time.to_dict())
             real_clone = Clone(source=clone_table) if isinstance(clone_table, str) else clone_table
-            req = TableClone(
-                point_of_time=pot,
-                **table.to_dict(),
-            )
+            req = TableClone(point_of_time=pot, **table.to_dict())
 
             source_table_fqn = FQN.from_string(real_clone.source)
             return self._api.clone_table(
@@ -500,10 +495,7 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
         self.create_or_alter(table=table)
 
     @api_telemetry
-    def create_or_alter(
-        self,
-        table: Table,
-    ) -> None:
+    def create_or_alter(self, table: Table) -> None:
         """Create or alter a table.
 
         Parameters
@@ -537,21 +529,20 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
         """
         table = _fix_table_kind(table)
         self.collection._api.create_or_alter_table(
-            self.database.name, self.schema.name, self.name, table, async_req=False)
+            self.database.name, self.schema.name, self.name, table, async_req=False
+        )
 
     @api_telemetry
-    def create_or_alter_async(
-        self,
-        table: Table,
-    ) -> PollingOperation[None]:
+    def create_or_alter_async(self, table: Table) -> PollingOperation[None]:
         """An asynchronous version of :func:`create_or_alter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         table = _fix_table_kind(table)
         future = self.collection._api.create_or_alter_table(
-            self.database.name, self.schema.name, self.name, table, async_req=True)
+            self.database.name, self.schema.name, self.name, table, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -570,12 +561,7 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
             Inline constraints will become Outofline constraints because Snowflake database doesn't tell whether a
             constraint is inline or out of line from Snowflake database.
         """
-        return self.collection._api.fetch_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        return self.collection._api.fetch_table(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Table]:
@@ -583,13 +569,8 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_table(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
@@ -629,9 +610,10 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_table(
-            self.database.name, self.schema.name, self.name, if_exists, async_req=True)
+            self.database.name, self.schema.name, self.name, if_exists, async_req=True
+        )
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -667,7 +649,7 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.undrop_table(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.empty(future)
 
@@ -724,7 +706,7 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.swap_with_table(
             self.database.name,
             self.schema.name,
@@ -763,7 +745,7 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_recluster_table(
             self.database.name, self.schema.name, self.name, if_exists, async_req=True
         )
@@ -795,7 +777,7 @@ class TableResource(SchemaObjectReferenceMixin[TableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_recluster_table(
             self.database.name, self.schema.name, self.name, if_exists, async_req=True
         )

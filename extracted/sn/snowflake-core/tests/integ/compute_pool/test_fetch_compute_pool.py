@@ -3,9 +3,7 @@
 #
 import pytest
 
-from snowflake.core.compute_pool import (
-    ComputePool,
-)
+from snowflake.core.compute_pool import ComputePool
 from tests.utils import random_string
 
 

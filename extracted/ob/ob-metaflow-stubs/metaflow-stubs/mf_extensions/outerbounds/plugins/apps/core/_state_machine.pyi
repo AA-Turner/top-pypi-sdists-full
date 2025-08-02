@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-31T17:05:42.562443                                                            #
+# Generated on 2025-08-01T20:12:28.715481                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -51,16 +51,16 @@ class DEPLOYMENT_READY_CONDITIONS(object, metaclass=type):
     This allows users or platform designers to configure the criteria for deployment readiness.
     
     Why do we need deployment readiness conditions?
-    - Deployments might be taking place from a CI/CD esq environment, In these setups, the downstream build triggers might be depending on a specific criteria for deployment completion. Having readiness conditions allows the CI/CD systems to get a signal of when the deployment is ready.
+        - Deployments might be taking place from a CI/CD-esque environment, In these setups, the downstream build triggers might be depending on a specific criteria for deployment completion. Having readiness conditions allows the CI/CD systems to get a signal of when the deployment is ready.
     - Users might be calling the deployment API under different conditions:
         - Some users might want a cluster of workers ready before serving traffic while others might want just one worker ready to start serving traffic.
     
     Some readiness conditions include:
-    1) [at_least_one_running] Atleast min(min_replicas, 1) workers of the current deployment instance's version have started running.
+            1) [at_least_one_running] At least min(min_replicas, 1) workers of the current deployment instance's version have started running.
         - Usecase: Some endpoints may be deployed ephemerally and are considered ready when at least one instance is running; additional instances are for load management.
-    2) [all_running] Atleast min_replicas number of workers are running for the deployment to be considered ready.
+        2) [all_running] At least min_replicas number of workers are running for the deployment to be considered ready.
         - Usecase: Operators may require that all replicas are available before traffic is routed. Needed when inference endpoints maybe under some SLA or require a larger load
-    3) [fully_finished] Atleast min_replicas number of workers are running for the deployment and there are no pending or crashlooping workers from previous versions lying around.
+        3) [fully_finished] At least min_replicas number of workers are running for the deployment and there are no pending or crashlooping workers from previous versions lying around.
         - Usecase: Ensuring endpoint is fully available and no other versions are running or endpoint has been fully scaled down.
     4) [async] The deployment will be assumed ready as soon as the server responds with a 200.
         - Usecase: Operators may only care that the URL is minted for the deployment or the deployment eventually scales down to 0.

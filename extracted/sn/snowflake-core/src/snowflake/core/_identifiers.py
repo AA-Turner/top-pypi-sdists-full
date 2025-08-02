@@ -30,13 +30,7 @@ class FQN:
     >>> fqn = FQN.from_string("my_name").set_database("db").set_schema("foo")
     """
 
-    def __init__(
-        self,
-        database: str | None,
-        schema: str | None,
-        name: str,
-        signature: str | None = None,
-    ) -> None:
+    def __init__(self, database: str | None, schema: str | None, name: str, signature: str | None = None) -> None:
         self._database = database
         self._schema = schema
         self._name = name
@@ -104,9 +98,7 @@ class FQN:
         signature = None
         if result.group("signature"):
             signature = result.group("signature")
-        return cls(
-            name=unqualified_name, schema=schema, database=database, signature=signature
-        )
+        return cls(name=unqualified_name, schema=schema, database=database, signature=signature)
 
     def set_database(self, database: str | None) -> FQN:
         if database:

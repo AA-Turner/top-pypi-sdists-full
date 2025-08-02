@@ -21,11 +21,7 @@ def inference_service(fake_root):
 
 
 def test_complete(fake_root, inference_service):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/cortex/inference:complete",
-    )
+    args = (fake_root, "POST", BASE_URL + "/cortex/inference:complete")
     kwargs = extra_params(
         body={
             "model": "my_model",
@@ -33,6 +29,8 @@ def test_complete(fake_root, inference_service):
             "top_p": 1.0,
             "max_tokens": 4096,
             "stream": True,
+            "anthropic": None,
+            "openai": None,
             "temperature": None,
             "max_output_tokens": None,
             "response_format": None,
@@ -45,7 +43,8 @@ def test_complete(fake_root, inference_service):
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         op = inference_service.complete_async(
-            CompleteRequest(model="my_model", messages=[CompleteRequestMessagesInner(content="xyz")]))
+            CompleteRequest(model="my_model", messages=[CompleteRequestMessagesInner(content="xyz")])
+        )
         assert isinstance(op, PollingOperation)
         op.result()
     mocked_request.assert_called_once_with(*args, **kwargs)

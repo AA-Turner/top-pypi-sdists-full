@@ -36,10 +36,7 @@ def test_create_managed_account(temp_customer_account_managed_accounts, sf_curso
 
             # recreate the account with the same name
             create_managed_account(
-                temp_customer_account_managed_accounts,
-                sf_cursor,
-                temp_customer_account_cursor,
-                managed_account,
+                temp_customer_account_managed_accounts, sf_cursor, temp_customer_account_cursor, managed_account
             )
 
             # managed_account deleted

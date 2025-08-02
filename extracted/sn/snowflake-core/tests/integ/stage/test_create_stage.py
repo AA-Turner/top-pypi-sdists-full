@@ -17,9 +17,7 @@ def test_create_stage(stages: StageCollection):
         assert created_stage.name == new_stage_def.name.upper()
         assert created_stage.comment == new_stage_def.comment
 
-        with pytest.raises(
-            ConflictError,
-        ):
+        with pytest.raises(ConflictError):
             stages.create(new_stage_def, mode="error_if_exists")
 
         new_stage_def_1 = copy.deepcopy(new_stage_def)

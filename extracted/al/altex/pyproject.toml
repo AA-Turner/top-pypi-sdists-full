@@ -1,0 +1,75 @@
+[project]
+name = "altex"
+version = "0.2.0"
+license = "Apache-2.0"
+description = "A simple wrapper on top of Altair to make charts with an express API"
+authors = [
+  { name = "Arnaud Miribel", email = "arnaudmiribel@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.9,<3.14"
+keywords = ["python", "altair", "charts", "visualization", "streamlit"]
+dependencies = [
+  "altair >= 4.0.0",
+  "pandas >= 1.0.0",
+  "streamlit >= 1.18.0",
+]
+
+[tool.hatchling.build.targets.wheel]
+packages = ["src/altex"]
+
+[tool.hatchling.build.targets.wheel.force-include]
+"src/altex/data" = "altex/data"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.urls]
+"Homepage" = "https://github.com/arnaudmiribel/altex"
+"Bug Tracker" = "https://github.com/arnaudmiribel/altex/issues"
+
+[tool.ruff]
+exclude = [".git", ".vscode", ".pytest_cache", ".mypy_cache", ".env"]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+  "B008",
+  "ISC001", 
+  "E501",
+  "W191",
+  "SIM102",
+  "ERA001",
+  "B018",
+]
+select = [
+  "B",
+  "E", 
+  "F",
+  "W",
+  "I",
+  "C4",
+  "EXE",
+  "ISC",
+  "ICN",
+  "PIE",
+  "RET",
+  "SIM",
+  "ERA",
+  "PLC",
+  "ARG",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest >= 7.4.4",
+    "twine>=6.1.0",
+]
+
+[tool.mypy]
+files = ["**/*.py"]
+follow_imports = "silent"
+ignore_missing_imports = true
+scripts_are_modules = true
+python_version = "3.9" 

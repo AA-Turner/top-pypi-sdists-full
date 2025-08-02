@@ -27,7 +27,9 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
     ________
     Creating a compute pool instance:
 
-    >>> compute_pool = ComputePool(name="my_compute_pool", instance_family="CPU_X64_XS", min_nodes=1, max_nodes=2)
+    >>> compute_pool = ComputePool(
+    ...     name="my_compute_pool", instance_family="CPU_X64_XS", min_nodes=1, max_nodes=2
+    ... )
     >>> compute_pool_reference = root.compute_pools.create(compute_pool)
     """
 
@@ -70,12 +72,16 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
         ________
         Creating a compute pool, replacing an existing compute pool with the same name:
 
-        >>> compute_pool = ComputePool(name='my_compute_pool', instance_family="CPU_X64_XS", min_nodes=1, max_nodes=2)
+        >>> compute_pool = ComputePool(
+        ...     name="my_compute_pool", instance_family="CPU_X64_XS", min_nodes=1, max_nodes=2
+        ... )
         >>> compute_pool_reference = compute_pools.create(compute_pool, mode=CreateMode.or_replace)
 
         Creating a compute pool that is initially suspended:
 
-        >>> compute_pool = ComputePool(name='my_compute_pool', instance_family="CPU_X64_XS", min_nodes=1, max_nodes=5)
+        >>> compute_pool = ComputePool(
+        ...     name="my_compute_pool", instance_family="CPU_X64_XS", min_nodes=1, max_nodes=5
+        ... )
         >>> compute_pool_reference = compute_pools.create(compute_pool, initially_suspended=True)
         """
         real_mode = CreateMode[mode].value
@@ -99,7 +105,7 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_compute_pool(
             compute_pool=compute_pool._to_model(),
@@ -111,11 +117,7 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
 
     @api_telemetry
     def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-        starts_with: Optional[str] = None,
-        limit: Optional[int] = None,
+        self, *, like: Optional[str] = None, starts_with: Optional[str] = None, limit: Optional[int] = None
     ) -> Iterator[ComputePool]:
         """Iterate through ``Compute Pool`` objects in Snowflake, filtering on any optional 'like' pattern.
 
@@ -161,17 +163,13 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
 
     @api_telemetry
     def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-        starts_with: Optional[str] = None,
-        limit: Optional[int] = None,
+        self, *, like: Optional[str] = None, starts_with: Optional[str] = None, limit: Optional[int] = None
     ) -> PollingOperation[Iterator[ComputePool]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_compute_pools(
             StrictStr(like) if like is not None else None,
             StrictStr(starts_with) if starts_with else None,
@@ -227,11 +225,9 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.create_or_alter_compute_pool(
-            compute_pool.name,
-            compute_pool._to_model(),
-            async_req=True
+            compute_pool.name, compute_pool._to_model(), async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -254,7 +250,7 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_compute_pool(self.name, async_req=True)
         return PollingOperation(future, lambda rest_model: ComputePool._from_model(rest_model))
 
@@ -276,7 +272,7 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_compute_pool(self.name, async_req=True)
         return PollingOperations.empty(future)
 
@@ -298,7 +294,7 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_compute_pool(self.name, async_req=True)
         return PollingOperations.empty(future)
 
@@ -320,7 +316,7 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.stop_all_services_in_compute_pool(self.name, async_req=True)
         return PollingOperations.empty(future)
 
@@ -361,6 +357,6 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_compute_pool(self.name, if_exists, async_req=True)
         return PollingOperations.empty(future)

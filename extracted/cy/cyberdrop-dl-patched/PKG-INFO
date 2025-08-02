@@ -1,0 +1,84 @@
+Metadata-Version: 2.3
+Name: cyberdrop-dl-patched
+Version: 7.3.1
+Summary: Bulk downloader for multiple file hosts
+License: GPL-3.0-only
+Author: Jacob B
+Author-email: admin@script-ware.net
+Requires-Python: >=3.11,<4
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiofiles (>=24.1.0)
+Requires-Dist: aiohttp-client-cache (>=0.13.0)
+Requires-Dist: aiohttp[speedups] (>=3.12.13)
+Requires-Dist: aiolimiter (>=1.2.1)
+Requires-Dist: aiosqlite (==0.17.0)
+Requires-Dist: apprise (>=1.9.3)
+Requires-Dist: arrow (>=1.3.0)
+Requires-Dist: asyncpraw (>=7.8.1)
+Requires-Dist: beautifulsoup4 (>=4.13.4)
+Requires-Dist: browser-cookie3 (>=0.20.1)
+Requires-Dist: certifi (>=2025.7.14)
+Requires-Dist: curl-cffi (>=0.10,<0.11) ; implementation_name == "cpython"
+Requires-Dist: dateparser (>=1.2.2)
+Requires-Dist: get-video-properties (>=0.1.1)
+Requires-Dist: inquirerpy (>=0.3.4)
+Requires-Dist: m3u8 (>=6.0.0)
+Requires-Dist: mediafire (>=0.6.1)
+Requires-Dist: myjdapi (>=1.1.10)
+Requires-Dist: packaging (>=25.0)
+Requires-Dist: pillow (>=11.3.0)
+Requires-Dist: platformdirs (>=4.3.6)
+Requires-Dist: psutil (>=7.0.0)
+Requires-Dist: pydantic (>=2.11.7)
+Requires-Dist: pywin32 (>=308) ; sys_platform == "win32"
+Requires-Dist: pyyaml (>=6.0.2)
+Requires-Dist: rich (>=14.0.0)
+Requires-Dist: send2trash (>=1.8.3)
+Requires-Dist: truststore (>=0.10.1)
+Requires-Dist: xxhash (>=3.5.0)
+Project-URL: Changelog, https://github.com/jbsparrow/CyberDropDownloader/blob/master/CHANGELOG.md
+Project-URL: Documentation, https://script-ware.gitbook.io/cyberdrop-dl/
+Project-URL: Repository, https://github.com/jbsparrow/CyberDropDownloader
+Description-Content-Type: text/markdown
+
+<div align="center">
+
+# `cyberdrop-dl-patched`
+*Bulk asynchronous downloader for multiple file hosts*
+
+[![PyPI - Version](https://img.shields.io/pypi/v/cyberdrop-dl-patched)](https://pypi.org/project/cyberdrop-dl-patched/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/cyberdrop-dl-patched)](https://pypi.org/project/cyberdrop-dl-patched/)
+[![Docs](https://img.shields.io/badge/docs-wiki-blue?link=https%3A%2F%2Fscript-ware.gitbook.io%2Fcyberdrop-dl)](https://script-ware.gitbook.io/cyberdrop-dl)
+[![GitHub License](https://img.shields.io/github/license/jbsparrow/CyberDropDownloader)](https://github.com/jbsparrow/CyberDropDownloader/blob/master/LICENSE)
+[![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/jbsparrow/CyberDropDownloader/actions/workflows/ruff.yaml)
+[![tests](https://github.com/jbsparrow/CyberDropDownloader/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/jbsparrow/CyberDropDownloader/actions/workflows/ci.yml)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/cyberdrop-dl-patched)](https://pypistats.org/packages/cyberdrop-dl-patched)
+
+[![Discord](https://discordapp.com/api/guilds/1070206871564197908/widget.png?style=banner2)](https://discord.com/invite/P5nsbKErwy)
+
+
+Brand new and improved! Cyberdrop-DL now has an updated paint job, fantastic new look. It's now easier to use than ever before!
+
+![Cyberdrop-DL TUI Preview](https://raw.githubusercontent.com/jbsparrow/CyberDropDownloader/refs/heads/master/docs/assets/cyberdrop-dl_tui_preview.png)
+
+</div>
+
+## Supported Sites
+
+See the [list of supported sites](https://script-ware.gitbook.io/cyberdrop-dl/reference/supported-websites) on the official wiki
+
+
+## Getting Started
+
+Follow the [getting-started guide](https://script-ware.gitbook.io/cyberdrop-dl/getting-started) for instructions on how to install and configure Cyberdrop-DL
+
+
+## Contributing
+If there is a feature you want, you've discovered a bug, or if you have other general feedback, please create an issue for it!
+
+See [CONTRIBUTING.md](https://github.com/jbsparrow/CyberDropDownloader/blob/master/CONTRIBUTING.md) for instructions on [opening an Issue](https://github.com/jbsparrow/CyberDropDownloader/blob/master/CONTRIBUTING.md#submitting-an-issue). If you want to submit code to the project, follow the [guidelines on how to contribute](https://github.com/jbsparrow/CyberDropDownloader/blob/master/CONTRIBUTING.md#submitting-a-pull-request-pr).
+

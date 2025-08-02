@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-31T17:05:42.561415                                                            #
+# Generated on 2025-08-01T20:12:28.714909                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
-    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
 
 from .utils import TODOException as TODOException
 from .utils import safe_requests_wrapper as safe_requests_wrapper
@@ -39,24 +39,24 @@ class CapsuleStateMachine(object, metaclass=type):
     - Happy Path:
         - First time Create :
             - wait for status.updateInProgress to be set to False
-                - (interleved) Poll the worker endpoints to check their status
+                - (interleaved) Poll the worker endpoints to check their status
                     - showcase how many workers are coming up if things are on the cli side.
                 - If the user has set some flag like `--dont-wait-to-fully-finish` then we check the `status.currentlyServedVersion` to see if even one replica is ready to
                 serve traffic.
             - once the status.updateInProgress is set to False, it means that the replicas are ready
         - Upgrade:
             - wait for status.updateInProgress to be set to False
-                - (interleved) Poll the worker endpoints to check their status and signal the user the number replicas coming up
+                - (interleaved) Poll the worker endpoints to check their status and signal the user the number replicas coming up
                 - If the user has set some flag like `--dont-wait-to-fully-finish` then we check the `status.currentlyServedVersion` to see if even one replica is ready to
                 serve traffic.
     - Unhappy Path:
         - First time Create :
             - wait for status.updateInProgress to be set to False,
-                - (interleved) Poll the workers to check their status.
+                - (interleaved) Poll the workers to check their status.
                     - If the worker pertaining the current deployment instance version is crashlooping then crash the deployment process with the error messages and logs.
         - Upgrade:
             - wait for status.updateInProgress to be set to False,
-                - (interleved) Poll the workers to check their status.
+                - (interleaved) Poll the workers to check their status.
                     - If the worker pertaining the current deployment instance version is crashlooping then crash the deployment process with the error messages and logs.
     """
     def __init__(self, capsule_id: str, current_deployment_instance_version: str):

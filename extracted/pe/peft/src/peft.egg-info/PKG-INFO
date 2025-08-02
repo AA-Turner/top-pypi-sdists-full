@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: peft
-Version: 0.16.0
+Version: 0.17.0
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team
@@ -256,7 +256,7 @@ To use 🤗 PEFT in your publication, please cite it by using the following BibT
 
 ```bibtex
 @Misc{peft,
-  title =        {PEFT: State-of-the-art Parameter-Efficient Fine-Tuning methods},
+  title =        {{PEFT}: State-of-the-art Parameter-Efficient Fine-Tuning methods},
   author =       {Sourab Mangrulkar and Sylvain Gugger and Lysandre Debut and Younes Belkada and Sayak Paul and Benjamin Bossan},
   howpublished = {\url{https://github.com/huggingface/peft}},
   year =         {2022}

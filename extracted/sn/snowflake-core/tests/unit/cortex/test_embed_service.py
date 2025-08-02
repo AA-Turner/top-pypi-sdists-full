@@ -17,17 +17,8 @@ def embed_service(fake_root):
 
 
 def test_embed(fake_root, embed_service):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/cortex/inference:embed",
-    )
-    kwargs = extra_params(
-        body={
-            "model": "my_model",
-            "text": ["xyz"],
-        }
-    )
+    args = (fake_root, "POST", BASE_URL + "/cortex/inference:embed")
+    kwargs = extra_params(body={"model": "my_model", "text": ["xyz"]})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         op = embed_service.embed_async("my_model", ["xyz"])

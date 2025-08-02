@@ -1,0 +1,166 @@
+[project]
+name = "sql-compare"
+description = "Compare SQL schemas"
+authors = [{ name = "Charly Laurent", email = "charly.laurent@mergify.com" }]
+maintainers = [{ name = "Mergify", email = "engineering@mergify.com" }]
+readme = "README.md"
+license = { text = "Apache-2.0" }
+keywords = ["sql", "database", "schema", "compare", "diff", "migration"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Database",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Unit",
+]
+requires-python = ">=3.9"
+dynamic = []
+version = "0.1.9"
+
+[project.urls]
+repository = "https://github.com/Mergifyio/sql-compare"
+"Bug Tracker" = "https://github.com/Mergifyio/sql-compare/issues"
+
+[tool.poetry]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+sqlparse = ">=0.5.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.4.8,<0.12.0"
+mypy = "^1.15.0"
+pytest = "^8.3.5"
+poethepoet = ">=0.26.1,<0.35.0"
+deptry = ">=0.16.1,<0.24.0"
+semgrep = "^1.122.0"
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+pattern = "^(?P<base>\\d+(\\.\\d+)*)"
+format = "{base}"
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poe]
+include = ["poe.toml"]
+
+[tool.pytest.ini_options]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "F",
+    "E",
+    "W",
+    "C90",
+    "I",
+    "N",
+    "D",
+    "UP",
+    "YTT",
+    "ANN",
+    "ASYNC",
+    "S",
+    "BLE",
+    "FBT",
+    "B",
+    "A",
+    "COM",
+    "CPY",
+    "C4",
+    "DTZ",
+    "EM",
+    "FA",
+    "ISC",
+    "ICN",
+    "LOG",
+    "G",
+    "INP",
+    "PIE",
+    "T20",
+    "PYI",
+    "PT",
+    "Q",
+    "RSE",
+    "RET",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "TID",
+    "TCH",
+    "INT",
+    "ARG",
+    "PTH",
+    "TD",
+    "ERA",
+    "PGH",
+    "PL",
+    "TRY",
+    "FLY",
+    "PERF",
+    "FURB",
+    "RUF",
+]
+ignore = [
+    # NOTE(charly): line-length is up to the formatter
+    "E501",
+    # NOTE(charly): `one-blank-line-before-class` (D203) and
+    # `no-blank-line-before-class` (D211) are incompatible
+    "D203",
+    # NOTE(charly): `multi-line-summary-first-line` (D212) and
+    # `multi-line-summary-second-line` (D213) are incompatible
+    "D213",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "D"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+force-sort-within-sections = true
+lines-after-imports = 2
+known-first-party = ["sql_compare"]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+exclude = [".venv"]
+files = ["sql_compare", "tests"]
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "sqlparse"
+ignore_missing_imports = true
+
+[tool.deptry]
+extend_exclude = ["tests"]

@@ -23,12 +23,15 @@ class RESTConnection:
     Lightweight alternative to a full-blown SnowflakeConnection for use in multi-tenant services like Spark Connect.
     """
 
-    def __init__(self, host: str,
-                 port: int,
-                 token_type: TokenType,
-                 token: str,
-                 external_session_id: Optional[str] = None,
-                 protocol: str = 'https') -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        token_type: TokenType,
+        token: str,
+        external_session_id: Optional[str] = None,
+        protocol: str = "https",
+    ) -> None:
         self.host = host
         self.port = port
         self._token_type = token_type

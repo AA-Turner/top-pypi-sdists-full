@@ -1,0 +1,64 @@
+Metadata-Version: 2.4
+Name: moyopy
+Version: 0.4.4
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Dist: typing-extensions
+Requires-Dist: numpy ; extra == 'interface'
+Requires-Dist: pymatgen ; extra == 'interface'
+Requires-Dist: ase>=3.23 ; extra == 'interface'
+Requires-Dist: moyopy[interface] ; extra == 'testing'
+Requires-Dist: pytest ; extra == 'testing'
+Requires-Dist: pre-commit ; extra == 'testing'
+Requires-Dist: numpy ; extra == 'testing'
+Requires-Dist: sphinx>=7.0 ; extra == 'docs'
+Requires-Dist: sphinx-autobuild ; extra == 'docs'
+Requires-Dist: sphinxcontrib-bibtex>=2.5 ; extra == 'docs'
+Requires-Dist: sphinx-book-theme ; extra == 'docs'
+Requires-Dist: sphinx-autoapi ; extra == 'docs'
+Requires-Dist: myst-parser>=2.0 ; extra == 'docs'
+Requires-Dist: linkify-it-py ; extra == 'docs'
+Requires-Dist: moyopy[testing] ; extra == 'dev'
+Requires-Dist: moyopy[docs] ; extra == 'dev'
+Requires-Dist: nbconvert ; extra == 'dev'
+Provides-Extra: interface
+Provides-Extra: testing
+Provides-Extra: docs
+Provides-Extra: dev
+Summary: Python binding of Moyo
+Author: Kohei Shinohara <kshinohara0508@gmail.com>
+Author-email: Kohei Shinohara <kshinohara0508@gmail.com>
+License: MIT OR Apache-2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/spglib/moyo
+
+# moyopy
+
+[![CI](https://github.com/spglib/moyo/actions/workflows/ci-python.yaml/badge.svg)](https://github.com/spglib/moyo/actions/workflows/ci-python.yaml)
+[![image](https://img.shields.io/pypi/l/moyopy.svg)](https://pypi.python.org/pypi/moyopy)
+[![image](https://img.shields.io/pypi/v/moyopy.svg)](https://pypi.python.org/pypi/moyopy)
+[![image](https://img.shields.io/pypi/pyversions/moyopy.svg)](https://pypi.python.org/pypi/moyopy)
+
+Python interface of [moyo](https://github.com/spglib/moyo), a fast and robust crystal symmetry finder.
+
+- Document: <https://spglib.github.io/moyo/python/>
+- PyPI: <https://pypi.org/project/moyopy/>
+
+## Installation
+
+```shell
+pip install moyopy
+# If you want to convert structures into Pymatgen or ASE objects
+pip install moyopy[interface]
+```
+

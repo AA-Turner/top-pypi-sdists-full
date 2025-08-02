@@ -14,6 +14,7 @@ def test_extracting_tokens(root):
     if root._master_token is None:
         pytest.fail("master token should not be None")
 
+
 @pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_init_root_with_user_agents(connection):
@@ -31,4 +32,3 @@ def test_init_root_with_user_agents(connection):
     new_root = Root(connection, root_config)
     assert "Snowflake/1.2.3" in new_root.root_config.get_user_agents()
     assert "custom_ui" in new_root.root_config.get_user_agents()
-

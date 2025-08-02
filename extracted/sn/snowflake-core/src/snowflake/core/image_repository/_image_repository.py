@@ -4,11 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
 from snowflake.core._operation import PollingOperations
@@ -21,9 +17,7 @@ if TYPE_CHECKING:
 from snowflake.core.image_repository._generated import ImageRepositoryApi
 from snowflake.core.image_repository._generated.api_client import StoredProcApiClient
 from snowflake.core.image_repository._generated.models.image import Image
-from snowflake.core.image_repository._generated.models.image_repository import (
-    ImageRepositoryModel as ImageRepository,
-)
+from snowflake.core.image_repository._generated.models.image_repository import ImageRepositoryModel as ImageRepository
 
 
 class ImageRepositoryCollection(SchemaObjectCollectionParent["ImageRepositoryResource"]):
@@ -49,9 +43,7 @@ class ImageRepositoryCollection(SchemaObjectCollectionParent["ImageRepositoryRes
 
     @api_telemetry
     def create(
-        self,
-        image_repository: ImageRepository,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, image_repository: ImageRepository, mode: CreateMode = CreateMode.error_if_exists
     ) -> "ImageRepositoryResource":
         """Create an image repository in Snowflake.
 
@@ -84,41 +76,27 @@ class ImageRepositoryCollection(SchemaObjectCollectionParent["ImageRepositoryRes
         """
         real_mode = CreateMode[mode].value
         self._api.create_image_repository(
-            self.database.name,
-            self.schema.name,
-            image_repository._to_model(),
-            StrictStr(real_mode),
-            async_req=False,
+            self.database.name, self.schema.name, image_repository._to_model(), StrictStr(real_mode), async_req=False
         )
         return self[image_repository.name]
 
     @api_telemetry
     def create_async(
-        self,
-        image_repository: ImageRepository,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, image_repository: ImageRepository, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["ImageRepositoryResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_image_repository(
-            self.database.name,
-            self.schema.name,
-            image_repository._to_model(),
-            StrictStr(real_mode),
-            async_req=True,
+            self.database.name, self.schema.name, image_repository._to_model(), StrictStr(real_mode), async_req=True
         )
         return PollingOperation(future, lambda _: self[image_repository.name])
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[ImageRepository]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[ImageRepository]:
         """Iterate through ``ImageRepository`` objects from Snowflake, filtering on any optional 'like' pattern.
 
         Parameters
@@ -147,31 +125,20 @@ class ImageRepositoryCollection(SchemaObjectCollectionParent["ImageRepositoryRes
         >>>     print(image_repository.name)
         """
         image_repositories = self._api.list_image_repositories(
-            self.database.name,
-            self.schema.name,
-            StrictStr(like) if like is not None else None,
-            async_req=False,
+            self.database.name, self.schema.name, StrictStr(like) if like is not None else None, async_req=False
         )
 
         return map(ImageRepository._from_model, iter(image_repositories))
 
-
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[ImageRepository]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[ImageRepository]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_image_repositories(
-            self.database.name,
-            self.schema.name,
-            StrictStr(like) if like is not None else None,
-            async_req=True,
+            self.database.name, self.schema.name, StrictStr(like) if like is not None else None, async_req=True
         )
         return PollingOperation(future, lambda rest_models: map(ImageRepository._from_model, iter(rest_models)))
 
@@ -210,12 +177,11 @@ class ImageRepositoryResource(SchemaObjectReferenceMixin[ImageRepositoryCollecti
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_image_repository(
             self.database.name, self.schema.name, self.name, async_req=True
         )
         return PollingOperation(future, lambda rest_model: ImageRepository._from_model(rest_model))
-
 
     @api_telemetry
     @deprecated("drop")
@@ -256,7 +222,7 @@ class ImageRepositoryResource(SchemaObjectReferenceMixin[ImageRepositoryCollecti
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_image_repository(
             self.database.name, self.schema.name, self.name, if_exists, async_req=True
         )
@@ -284,7 +250,7 @@ class ImageRepositoryResource(SchemaObjectReferenceMixin[ImageRepositoryCollecti
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_images_in_repository(
             self.database.name, self.schema.name, self.name, async_req=True
         )

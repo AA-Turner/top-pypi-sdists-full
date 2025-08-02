@@ -3,10 +3,10 @@ name = "izulu"
 dynamic = ["version"]
 description = "The exceptional library"
 authors = [{ name = "Dima Burmistrov", email = "pyctrl.dev@gmail.com" }]
-license = { file = "LICENSE" }
+license-files = ["LICENSE"]
 readme = "README.rst"
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
@@ -80,7 +80,7 @@ build-backend = "setuptools.build_meta"
 
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 79
 extend-exclude = [".git", ".venv", "docs"]
 
@@ -204,42 +204,42 @@ exclude = ["docs", "tests", ".venv"]
 skip_install = true
 dependency_groups = ["build"]
 commands = [
- # [
- #   "rst_include",
- #   "include",
- #   "README.tpl.rst",
- #   "README.rst",
- # ],
- [
-   "python3",
-   "-m",
-   "build",
-   { replace = "posargs", extend = true },
- ],
- [
-   "python3",
-   "-m",
-   "twine",
-   "check",
-   { replace = "posargs", extend = true },
-   "dist{/}*",
- ],
+  # [
+  #   "rst_include",
+  #   "include",
+  #   "README.tpl.rst",
+  #   "README.rst",
+  # ],
+  [
+    "python3",
+    "-m",
+    "build",
+    { replace = "posargs", extend = true },
+  ],
+  [
+    "python3",
+    "-m",
+    "twine",
+    "check",
+    { replace = "posargs", extend = true },
+    "dist{/}*",
+  ],
 ]
 
 [tool.tox.env.upload_test]
 skip_install = true
 dependency_groups = ["upload"]
 commands = [
- [
-   "python3",
-   "-m",
-   "twine",
-   "upload",
-   { replace = "posargs", extend = true },
-   "--repository",
-   "{env:PYPI_REPOSITORY:testpypi}",
-   "dist{/}*",
- ],
+  [
+    "python3",
+    "-m",
+    "twine",
+    "upload",
+    { replace = "posargs", extend = true },
+    "--repository",
+    "{env:PYPI_REPOSITORY:testpypi}",
+    "dist{/}*",
+  ],
 ]
 
 [tool.tox.env.upload_prod]
@@ -253,7 +253,6 @@ requires = ["tox>=4.23", "tox-uv>=1.13"]
 runner = "uv-venv-lock-runner"
 skip_missing_interpreters = true
 env_list = [
-  "py38",
   "py39",
   "py310",
   "py311",

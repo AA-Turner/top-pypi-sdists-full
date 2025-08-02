@@ -1,0 +1,19 @@
+kubernetes:
+  remote_identity: SERVICE_ACCOUNT
+  pod_config:
+    spec:
+      containers:
+        - env:
+          - name: NCCL_BUFFSIZE
+            value: '8388608'
+          - name: NCCL_P2P_NET_CHUNKSIZE
+            value: '524288'
+          - name: NCCL_TUNER_PLUGIN
+            value: /opt/aws-ofi-nccl/install/lib/libnccl-ofi-tuner.so
+          resources:
+            limits:
+              vpc.amazonaws.com/efa: 32
+              hugepages-2Mi: 5120Mi
+            requests:
+              vpc.amazonaws.com/efa: 32
+              hugepages-2Mi: 5120Mi

@@ -1,6 +1,7 @@
 import _io
 import asyncio.locks
 import collections.abc
+import datetime
 import enum
 import google.protobuf.message
 import modal._object
@@ -55,6 +56,27 @@ class FileEntry:
 
     def __hash__(self):
         """Return hash(self)."""
+        ...
+
+class VolumeInfo:
+    """Information about the Volume object."""
+
+    name: typing.Optional[str]
+    created_at: datetime.datetime
+    created_by: typing.Optional[str]
+
+    def __init__(
+        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
         ...
 
 class _Volume(modal._object._Object):
@@ -126,7 +148,13 @@ class _Volume(modal._object._Object):
         """
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
     async def _get_lock(self): ...
+    @property
+    def _is_v1(self) -> bool: ...
     @staticmethod
     def from_name(
         name: str,
@@ -155,10 +183,6 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
-    def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
-    @property
-    def _is_v1(self) -> bool: ...
     @classmethod
     def ephemeral(
         cls: type[_Volume],
@@ -216,6 +240,10 @@ class _Volume(modal._object._Object):
         version: typing.Optional[int] = None,
     ) -> str:
         """mdmd:hidden"""
+        ...
+
+    async def info(self) -> VolumeInfo:
+        """Return information about the Volume object."""
         ...
 
     async def _do_reload(self, lock=True): ...
@@ -424,12 +452,19 @@ class Volume(modal.object.Object):
         """
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
+
     class ___get_lock_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
     _get_lock: ___get_lock_spec[typing_extensions.Self]
 
+    @property
+    def _is_v1(self) -> bool: ...
     @staticmethod
     def from_name(
         name: str,
@@ -458,10 +493,6 @@ class Volume(modal.object.Object):
         """
         ...
 
-    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
-    def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
-    @property
-    def _is_v1(self) -> bool: ...
     @classmethod
     def ephemeral(
         cls: type[Volume],
@@ -565,6 +596,17 @@ class Volume(modal.object.Object):
             ...
 
     create_deployed: __create_deployed_spec
+
+    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /) -> VolumeInfo:
+            """Return information about the Volume object."""
+            ...
+
+        async def aio(self, /) -> VolumeInfo:
+            """Return information about the Volume object."""
+            ...
+
+    info: __info_spec[typing_extensions.Self]
 
     class ___do_reload_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, lock=True): ...

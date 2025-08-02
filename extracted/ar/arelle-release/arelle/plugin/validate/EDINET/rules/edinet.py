@@ -7,11 +7,11 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Iterable, cast
 
-import regex
-
 from arelle import XbrlConst, ValidateDuplicateFacts
+from arelle.LinkbaseType import LinkbaseType
 from arelle.ValidateDuplicateFacts import DuplicateType
 from arelle.ValidateXbrl import ValidateXbrl
+from arelle.XmlValidateConst import VALID
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
@@ -20,6 +20,34 @@ from ..DisclosureSystems import (DISCLOSURE_SYSTEM_EDINET)
 from ..PluginValidationDataExtension import PluginValidationDataExtension
 
 _: TypeGetText
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC1057E(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC1057E: The submission date on the cover page has not been filled in.
+    Ensure that there is a nonnil value disclosed for FilingDateCoverPage
+    Note: This rule is only applicable to the public documents.
+    """
+    dei = pluginData.getDocumentTypes(val.modelXbrl)
+    if len(dei) > 0:
+        jpcrpEsrFacts = val.modelXbrl.factsByQname.get(pluginData.jpcrpEsrFilingDateCoverPageQn, set())
+        jpcrpFacts = val.modelXbrl.factsByQname.get(pluginData.jpcrpFilingDateCoverPageQn, set())
+        jpspsFacts = val.modelXbrl.factsByQname.get(pluginData.jpspsFilingDateCoverPageQn, set())
+        requiredFacts = jpcrpFacts.union(jpspsFacts, jpcrpEsrFacts)
+        if not any(fact.xValid >= VALID and not fact.isNil for fact in requiredFacts):
+            yield Validation.error(
+                codes='EDINET.EC1057E',
+                msg=_("The [Submission Date] on the cover page has not been filled in."),
+            )
 
 
 @validation(
@@ -43,7 +71,7 @@ def rule_EC5002E(
     errorFacts = []
     for fact in val.modelXbrl.facts:
         concept = fact.concept
-        if not concept.isShares:
+        if concept is None or not concept.isShares:
             continue
         unit = fact.unit
         measures = unit.measures
@@ -104,58 +132,50 @@ def rule_EC8024E(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
-def rule_EC8033W(
+def rule_EC8027W(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
         *args: Any,
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    EDINET.EC8033W: The startDate of a context whose context ID starts with
-    "CurrentYear" is not set to a date earlier than the endDate of a context
-    whose context ID starts with "Prior1Year".
+    EDINET.EC8027W: For presentation links and definition links, there must be
+    only one root element.
+    File name: xxx <Extended link role = yyy>
+    Please correct the extended link role of the relevant file. Please set only one
+    root element of the extended link role in the presentation link and definition link.
     """
-    priorYearContexts = [
-        context
-        for contextId, context in val.modelXbrl.contexts.items()
-        if contextId.startswith('Prior1Year')
-           and context.endDatetime is not None
-           and context.isStartEndPeriod
+    linkbaseTypes = (LinkbaseType.PRESENTATION, LinkbaseType.DEFINITION)
+    roleTypes = [
+        roleType
+        for roleTypes in val.modelXbrl.roleTypes.values()
+        for roleType in roleTypes
     ]
-    latestPriorYearContext = None
-    for priorYearContext in priorYearContexts:
-        if latestPriorYearContext is None or \
-                priorYearContext.endDatetime > latestPriorYearContext.endDatetime:
-            latestPriorYearContext = priorYearContext
-    if latestPriorYearContext is None:
-        return
-    currentYearContexts = [
-        context
-        for contextId, context in val.modelXbrl.contexts.items()
-        if contextId.startswith('CurrentYear')
-           and context.startDatetime is not None
-           and context.isStartEndPeriod
-    ]
-    earliestCurrentYearContext = None
-    for currentYearContext in currentYearContexts:
-        if earliestCurrentYearContext is None or \
-                currentYearContext.endDatetime > earliestCurrentYearContext.startDatetime:
-            earliestCurrentYearContext = currentYearContext
-    if earliestCurrentYearContext is None:
-        return
-    if latestPriorYearContext.endDatetime > earliestCurrentYearContext.startDatetime:
-        yield Validation.warning(
-            codes='EDINET.EC8033W',
-            msg=_("The startDate element of the current year context (id=%(currentYearContextId)s) is "
-                  "set to a date that is earlier than the endDate element of the prior year context "
-                  "(id=%(priorYearContextId)s). Please check the corresponding context ID "
-                  "%(currentYearContextId)s and %(priorYearContextId)s. Set the startDate element of "
-                  "context ID %(currentYearContextId)s to a date that is later than or equal to the "
-                  "endDate element of context ID %(priorYearContextId)s."),
-            currentYearContextId=earliestCurrentYearContext.id,
-            priorYearContextId=latestPriorYearContext.id,
-            modelObject=priorYearContexts + currentYearContexts,
-        )
+    for roleType in roleTypes:
+        for linkbaseType in linkbaseTypes:
+            if linkbaseType.getLinkQn() not in roleType.usedOns:
+                continue
+            arcroles = linkbaseType.getArcroles()
+            relSet = val.modelXbrl.relationshipSet(tuple(arcroles), roleType.roleURI)
+            relSetFrom = relSet.loadModelRelationshipsFrom()
+            rootConcepts = relSet.rootConcepts
+            if len(rootConcepts) < 2:
+                continue
+            rels = [
+                rel
+                for rootConcept in rootConcepts
+                for rel in relSetFrom[rootConcept]
+            ]
+            yield Validation.warning(
+                codes='EDINET.EC8027W',
+                msg=_("For presentation links and definition links, there must be only one root element. "
+                      "File name: %(filename)s <Extended link role = %(roleUri)s> "
+                      "Please correct the extended link role of the relevant file. Please set only one "
+                      "root element of the extended link role in the presentation link and definition link."),
+                filename=rels[0].modelDocument.basename,
+                roleUri=roleType.roleURI,
+                modelObject=rels,
+            )
 
 
 @validation(
@@ -172,13 +192,12 @@ def rule_EC8062W(
     EDINET.EC8062W: The sum of all liabilities and equity must equal the sum of all assets.
     """
     deduplicatedFacts = pluginData.getDeduplicatedFacts(val.modelXbrl)
-    contextIdPattern = regex.compile(r'^(Prior[1-9]Year|CurrentYear|Prior[1-9]Interim|Interim)(Duration|Instant)$')
 
     factsByContextId = defaultdict(list)
     for fact in deduplicatedFacts:
         if fact.qname not in (pluginData.assetsIfrsQn, pluginData.liabilitiesAndEquityIfrsQn):
             continue
-        if fact.contextID is None or not contextIdPattern.match(fact.contextID):
+        if fact.contextID is None or not pluginData.contextIdPattern.fullmatch(fact.contextID):
             continue
         factsByContextId[fact.contextID].append(fact)
 

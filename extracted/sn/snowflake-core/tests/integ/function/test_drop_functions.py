@@ -18,10 +18,11 @@ def test_drop_functions(temp_service_for_function, functions):
         function_name_with_args = f"{function_name}(REAL)"
         endpoint = "ep1"
 
-        func_objects.append(create_service_function(
-            function_name, ["REAL"], "REAL", endpoint,
-            temp_service_for_function.name, functions
-        ))
+        func_objects.append(
+            create_service_function(
+                function_name, ["REAL"], "REAL", endpoint, temp_service_for_function.name, functions
+            )
+        )
 
         funcs.append(function_name_with_args)
 

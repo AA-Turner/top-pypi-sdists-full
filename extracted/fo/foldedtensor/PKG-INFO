@@ -1,0 +1,174 @@
+Metadata-Version: 2.4
+Name: foldedtensor
+Version: 0.4.0
+Summary: PyTorch extension for handling deeply nested sequences of variable length
+Author-email: Perceval Wajsbürt <perceval.wajsburt@aphp.fr>
+License: Copyright 2023 Assistance Publique - Hôpitaux de Paris
+        
+        Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: homepage, https://github.com/aphp/foldedtensor/
+Project-URL: repository, https://github.com/aphp/foldedtensor/
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: C++
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <4.0,>=3.7.1
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: torch>1.0.0
+Requires-Dist: numpy
+Provides-Extra: dev
+Requires-Dist: black==22.6.0; extra == "dev"
+Requires-Dist: pre-commit>=2.18; extra == "dev"
+Requires-Dist: pytest==7.1.1; extra == "dev"
+Requires-Dist: pytest-cov==3.0.0; extra == "dev"
+Dynamic: license-file
+
+<div align="center">
+<p align="center">
+  <img src="https://github.com/aphp/foldedtensor/raw/main/banner.png" width="70%">
+</p>
+</div>
+<br/>
+
+---
+
+![Tests](https://img.shields.io/github/actions/workflow/status/aphp/foldedtensor/tests.yml?branch=main&label=tests&style=flat-square)
+[![PyPI](https://img.shields.io/pypi/v/foldedtensor?color=blue&style=flat-square)](https://pypi.org/project/foldedtensor/)
+[![Coverage](https://raw.githubusercontent.com/aphp/foldedtensor/coverage/coverage.svg)](https://raw.githubusercontent.com/aphp/foldedtensor/coverage/coverage.txt)
+[![License](https://img.shields.io/github/license/aphp/foldedtensor?color=x&style=flat-square)](https://github.com/aphp/foldedtensor/blob/main/LICENSE)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/foldedtensor?style=flat-square&color=purple)
+
+# FoldedTensor: PyTorch extension for handling deeply nested sequences of variable length
+
+`foldedtensor` is a PyTorch extension that provides efficient handling of tensors containing deeply nested sequences variable sizes. It enables the flattening/unflattening (or unfolding/folding) of data dimensions based on a inner structure of sequence lengths. This library is particularly useful when working with data that can be split in different ways and enables you to avoid choosing a fixed representation.
+
+## Installation
+
+The library can be installed with pip:
+
+```bash
+pip install foldedtensor
+```
+
+## Features
+
+- Support for arbitrary numbers of nested dimensions
+- No computational overhead when dealing with already padded tensors
+- Dynamic re-padding (or refolding) of data based on stored inner lengths
+- Automatic mask generation and updating whenever the tensor is refolded
+- C++ optimized code for fast data loading from Python lists and refolding
+- Flexibility in data representation, making it easy to switch between different layouts when needed
+
+## Examples
+
+At its simplest, `foldedtensor` can be used to convert nested Python lists into a PyTorch tensor:
+
+```python
+from foldedtensor import as_folded_tensor
+
+ft = as_folded_tensor(
+    [
+        [0, 1, 2],
+        [3],
+    ],
+)
+# FoldedTensor([[0, 1, 2],
+#               [3, 0, 0]])
+```
+
+You can also specify names and flattened/unflattened dimensions at the time of creation:
+
+```python
+import torch
+from foldedtensor import as_folded_tensor
+
+# Creating a folded tensor from a nested list
+# There are 2 samples, the first with 5 lines, the second with 1 line.
+# Each line contain between 1 and 2 words.
+ft = as_folded_tensor(
+    [
+        [[1], [], [], [], [2, 3]],
+        [[4, 3]],
+    ],
+    data_dims=("samples", "words"),
+    full_names=("samples", "lines", "words"),
+    dtype=torch.long,
+)
+print(ft)
+# FoldedTensor([[1, 2, 3],
+#               [4, 3, 0]])
+```
+
+Once created, you can change the shape of the tensor by refolding it:
+
+```python
+# Refold on the lines and words dims (flatten the samples dim)
+print(ft.refold(("lines", "words")))
+# FoldedTensor([[1, 0],
+#               [0, 0],
+#               [0, 0],
+#               [0, 0],
+#               [2, 3],
+#               [4, 3]])
+
+# Refold on the words dim only: flatten everything
+print(ft.refold(("words",)))
+# FoldedTensor([1, 2, 3, 4, 3])
+```
+
+The tensor can be further used with standard PyTorch operations:
+
+```python
+# Working with PyTorch operations
+embedder = torch.nn.Embedding(10, 16)
+embedding = embedder(ft.refold(("words",)))
+print(embedding.shape)
+# torch.Size([5, 16]) # 5 words total, 16 dims
+
+refolded_embedding = embedding.refold(("samples", "words"))
+print(refolded_embedding.shape)
+# torch.Size([2, 5, 16]) # 2 samples, 5 words max, 16 dims
+```
+
+## Benchmarks
+
+View the comparisons of `foldedtensor` against various alternatives here: [docs/benchmarks](https://github.com/aphp/foldedtensor/blob/main/docs/benchmark.md).
+
+## Comparison with alternatives
+
+Unlike other ragged or nested tensor implementations, a FoldedTensor does not enforce a specific structure on the nested data, and does not require padding all dimensions. This provides the user with greater flexibility when working with data that can be arranged in multiple ways depending on the data transformation. Moreover, the C++ optimization ensures high performance, making it ideal for handling deeply nested tensors efficiently.
+
+Here is a comparison with other common implementations for handling nested sequences of variable length:
+
+| Feature                   | NestedTensor | MaskedTensor | FoldedTensor |
+|---------------------------|--------------|--------------|--------------|
+| Inner data structure      | Flat         | Padded       | Arbitrary    |
+| Max nesting level         | 1            | 1            | ∞            |
+| From nested python lists  | No           | No           | Yes          |
+| Layout conversion         | To padded    | No           | Any          |
+| Reduction ops w/o padding | Yes          | No           | No           |

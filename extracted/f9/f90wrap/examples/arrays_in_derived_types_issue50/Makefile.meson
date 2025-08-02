@@ -1,6 +1,0 @@
-include ../make.meson.inc
-
-NAME     := issue50
-
-test: build
-	$(PYTHON) tests.py

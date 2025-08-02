@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: ilcli
+Version: 0.3.2
+Summary: i like command-line interfaces
+Home-page: https://github.com/cloudant/ilcli
+Author: Cloudant Infrastructure
+Author-email: cloudant-infrateam@wwpdl.vnet.ibm.com
+License: Apache License 2.0
+Description: https://cloudant.github.io/ilcli
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Provides-Extra: dev

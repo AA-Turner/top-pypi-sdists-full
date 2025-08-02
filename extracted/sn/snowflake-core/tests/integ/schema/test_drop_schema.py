@@ -10,10 +10,7 @@ pytestmark = pytest.mark.usefixtures("backup_database_schema")
 
 def test_drop(schemas):
     comment = "my comment"
-    new_schema = Schema(
-        name=random_string(5, "test_schema_"),
-        comment=comment,
-    )
+    new_schema = Schema(name=random_string(5, "test_schema_"), comment=comment)
     s = schemas.create(new_schema)
     try:
         assert s.fetch().comment == comment
@@ -26,9 +23,7 @@ def test_drop(schemas):
     finally:
         s.drop()
 
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         s.fetch()
 
     # Should not error

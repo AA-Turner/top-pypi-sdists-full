@@ -231,7 +231,14 @@ class EntityFilterSparkNode(SparkExecNode):
         join_condition = reduce(
             operator.and_, [feature_df[col].eqNullSafe(entities_df[col]) for col in self.entity_cols]
         )
-        return feature_df.join(entities_df.hint("broadcast"), how="inner", on=join_condition).select(
+
+        # The size of entities_df may be larger than 8GB that causes OOM using the broadcast join
+        # Disable the broadcast hint by default, and only enable when 'spark.tecton.force.broadcast.join' is set
+        if spark.conf.get("spark.tecton.force.broadcast.join", "false") == "true":
+            logger.info("Enable broadcast join hint on EntityFilterSparkNode")
+            entities_df = entities_df.hint("broadcast")
+
+        return feature_df.join(entities_df, how="inner", on=join_condition).select(
             *(feature_df[col] for col in feature_df.columns)
         )
 

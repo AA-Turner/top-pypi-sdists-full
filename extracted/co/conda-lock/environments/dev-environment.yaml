@@ -1,0 +1,47 @@
+# Here we specify the development dependencies.
+
+# The main project dependencies are specified independently in pyproject.toml.
+
+name: conda-lock-dev
+category: dev
+channels:
+# The maresb channel has builds for mamba v1 on Python 3.13.
+# <https://github.com/conda-forge/mamba-feedstock/pull/310>
+- maresb
+- conda-forge
+- nodefaults
+dependencies:
+- check-manifest
+- docker-py
+- doctr
+- flaky
+- freezegun
+- gitpython
+- mamba
+- mkdocs
+- mkdocs-click
+- mkdocs-material
+- mkdocs-include-markdown-plugin
+- mypy
+- pip
+- pre-commit
+- pytest
+- pytest-cov
+- pytest-split
+- pytest-timeout
+- pytest-xdist
+- python-build
+- requests-mock
+- ruff
+- tomli
+- twine
+- types-click
+- types-click-default-group
+- types-filelock
+- types-requests
+- types-toml
+- types-pyyaml
+- types-freezegun
+- types-setuptools
+- wheel
+- zizmor

@@ -340,6 +340,9 @@ STEP_DECORATORS_DESC = [
     ("ollama", ".ollama.OllamaDecorator"),
     ("vllm", ".vllm.VLLMDecorator"),
     ("app_deploy", ".apps.app_deploy_decorator.AppDeployDecorator"),
+    ("s3_proxy", ".s3_proxy.s3_proxy_decorator.S3ProxyDecorator"),
+    ("nebius_s3_proxy", ".s3_proxy.s3_proxy_decorator.NebiusS3ProxyDecorator"),
+    ("coreweave_s3_proxy", ".s3_proxy.s3_proxy_decorator.CoreWeaveS3ProxyDecorator"),
 ]
 
 TOGGLE_STEP_DECORATOR = [

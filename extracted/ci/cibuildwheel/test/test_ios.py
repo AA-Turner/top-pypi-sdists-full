@@ -49,7 +49,9 @@ def skip_if_ios_testing_not_supported() -> None:
 # it's easy to overload the CI machine if there are multiple test processes
 # running multithreaded processes. Therefore, they're put in the serial group,
 # which is guaranteed to run single-process.
+# This can also fail the first time sometimes.
 @pytest.mark.serial
+@pytest.mark.flaky(reruns=2)
 @pytest.mark.parametrize(
     "build_config",
     [
@@ -169,6 +171,7 @@ def test_ios_testing_with_placeholder(tmp_path, capfd):
 
 
 @pytest.mark.serial
+@pytest.mark.flaky(reruns=2)
 def test_ios_test_command_short_circuit(tmp_path, capfd):
     skip_if_ios_testing_not_supported()
 

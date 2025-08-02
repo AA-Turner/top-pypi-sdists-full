@@ -8,13 +8,8 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 from typing_extensions import Concatenate, ParamSpec
 
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.telemetry import (
-    TelemetryClient,
-    TelemetryData,
-)
-from snowflake.connector.telemetry import (
-    TelemetryField as ConnectorTelemetryField,
-)
+from snowflake.connector.telemetry import TelemetryClient, TelemetryData
+from snowflake.connector.telemetry import TelemetryField as ConnectorTelemetryField
 from snowflake.connector.time_util import get_time_millis
 
 from .._common import ObjectCollection, ObjectReferenceMixin
@@ -38,9 +33,7 @@ _called_from_test = False
 
 class ApiTelemetryClient:
     def __init__(self, conn: SnowflakeConnection) -> None:
-        self.telemetry: Optional[TelemetryClient] = (
-            None if is_running_inside_stored_procedure() else conn._telemetry
-        )
+        self.telemetry: Optional[TelemetryClient] = None if is_running_inside_stored_procedure() else conn._telemetry
         self.source: str = "snowflake.core"
         self.version: str = VERSION
         self.python_version: str = platform.python_version()
@@ -55,19 +48,11 @@ class ApiTelemetryClient:
         telemetry_data = TelemetryData(message=msg, timestamp=timestamp)
         self.telemetry.try_add_log_to_batch(telemetry_data)
 
-    def send_api_telemetry(
-        self,
-        class_name: str,
-        func_name: str,
-        client_name: Optional[str] = None,
-    ) -> None:
+    def send_api_telemetry(self, class_name: str, func_name: str, client_name: Optional[str] = None) -> None:
         with contextlib.suppress(Exception):
             if not self.telemetry:
                 return
-            data = {
-                "class_name": class_name,
-                TelemetryField.KEY_FUNC_NAME.value: func_name,
-            }
+            data = {"class_name": class_name, TelemetryField.KEY_FUNC_NAME.value: func_name}
             if client_name is not None:
                 data["client_name"] = client_name
             message = {
@@ -76,9 +61,10 @@ class ApiTelemetryClient:
                 TelemetryField.KEY_PYTHON_VERSION.value: self.python_version,
                 TelemetryField.KEY_OS.value: self.os,
                 ConnectorTelemetryField.KEY_TYPE.value: "python_api",
-                TelemetryField.KEY_DATA.value: data
+                TelemetryField.KEY_DATA.value: data,
             }
             self.send(message)
+
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -87,8 +73,15 @@ R = TypeVar("R")
 def api_telemetry(func: Callable[Concatenate[Any, P], R]) -> Callable[Concatenate[Any, P], R]:
     @functools.wraps(func)
     def wrap(
-        self: Union[ObjectReferenceMixin[Any], ObjectCollection[Any], "DAGOperation", "CortexInferenceService",
-                    "CortexChatService", "CortexEmbedService", "CortexAgentService"],
+        self: Union[
+            ObjectReferenceMixin[Any],
+            ObjectCollection[Any],
+            "DAGOperation",
+            "CortexInferenceService",
+            "CortexChatService",
+            "CortexEmbedService",
+            "CortexAgentService",
+        ],
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> R:
@@ -97,6 +90,7 @@ def api_telemetry(func: Callable[Concatenate[Any, P], R]) -> Callable[Concatenat
         from ..cortex.inference_service import CortexInferenceService
         from ..cortex.lite_agent_service import CortexAgentService
         from ..task.dagv1 import DAGOperation
+
         if isinstance(self, (ObjectReferenceMixin, ObjectCollection)):
             telemetry_client = self.root._telemetry_client  # type: ignore[misc]
         elif isinstance(self, DAGOperation):
@@ -120,15 +114,8 @@ def api_telemetry(func: Callable[Concatenate[Any, P], R]) -> Callable[Concatenat
             api.api_client  # noqa: B018
         class_name = self.__class__.__name__
         func_name = func.__name__
-        logger.debug(
-            "calling method %s on class %s after submitting telemetry if enabled",
-            func_name,
-            class_name,
-        )
-        telemetry_client.send_api_telemetry(
-            class_name=class_name,
-            func_name=func_name,
-        )
+        logger.debug("calling method %s on class %s after submitting telemetry if enabled", func_name, class_name)
+        telemetry_client.send_api_telemetry(class_name=class_name, func_name=func_name)
         r = func(self, *args, **kwargs)
         return r
 

@@ -1,6 +1,0 @@
----
-features:
-  - |
-    The "last-updated" page context for each page is set based on the
-    git history for the source document for the page. If there is no
-    source document checked into git, the current time is used.

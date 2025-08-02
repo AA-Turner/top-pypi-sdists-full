@@ -1,4 +1,3 @@
-
 """Manages Snowflake Iceberg table."""
 
 from ..iceberg_table._generated.models import (

@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: PyPowerFlex
+Version: 1.14.1
+Summary: Python library for Dell PowerFlex
+Author: Ansible Team at Dell
+Author-email: ansible.team@dell.com
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.5
+License-File: LICENSE
+Requires-Dist: packaging>=20.4
+Requires-Dist: requests>=2.23.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

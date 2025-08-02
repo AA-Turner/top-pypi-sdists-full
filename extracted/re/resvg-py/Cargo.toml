@@ -1,0 +1,29 @@
+[package]
+name = "resvg_py"
+version = "0.2.2"
+edition = "2021"
+authors = ['baseplate-admin']
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "resvg_py"
+path = "src/rust/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+log = "0.4.27"
+pyo3 = "0.25.0"
+resvg = { version = "0.45.1", features = ["raster-images", "text"] }
+svgtypes = "0.15.3"
+
+
+[profile.release.package."*"]
+codegen-units = 1
+opt-level = 'z'
+strip = true
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = "fat"
+opt-level = 'z'
+strip = true

@@ -22,11 +22,7 @@ class MissingModule:
     This will be triggered whenever module.member is going to be called.
     """
 
-    def __init__(
-        self,
-        mod_name:str,
-        post_error_blurb: typing.Optional[str] = None,
-    ) -> None:
+    def __init__(self, mod_name: str, post_error_blurb: typing.Optional[str] = None) -> None:
         self.mod_name = mod_name
         self.post_error_blurb = post_error_blurb
 
@@ -37,9 +33,7 @@ class MissingModule:
 ModuleLikeObject = typing.Union[ModuleType, MissingModule]
 
 
-def _import_or_missing_snowpark() -> (
-    tuple[ModuleLikeObject, bool]
-):
+def _import_or_missing_snowpark() -> tuple[ModuleLikeObject, bool]:
     try:
         snowpark = importlib.import_module("snowflake.snowpark")
         return snowpark, True
@@ -49,10 +43,7 @@ def _import_or_missing_snowpark() -> (
 
 (snowpark, installed_snowpark) = _import_or_missing_snowpark()
 
-logger.info(
-    "checked whether snowflake-snowpark-python is available: %s",
-    installed_snowpark,
-)
+logger.info("checked whether snowflake-snowpark-python is available: %s", installed_snowpark)
 
 
 def require_snowpark() -> None:
@@ -61,8 +52,4 @@ def require_snowpark() -> None:
         raise MissingModuleError("snowflake.snowpark", snowpark_post_error_blurb)
 
 
-__all__ = [
-    "snowpark",
-    "installed_snowpark",
-    "require_snowpark",
-]
+__all__ = ["snowpark", "installed_snowpark", "require_snowpark"]

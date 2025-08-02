@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation, Root
-from snowflake.core.event_table import EventTable
+from snowflake.core.event_table import EventTable, EventTableResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -28,12 +28,13 @@ def test_create_event_table(fake_root, event_tables):
         BASE_URL + "/databases/my_db/schemas/my_schema/event-tables?createMode=errorIfExists&copyGrants=False",
     )
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
-        body={"name": "my_table"},
+        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)], body={"name": "my_table"}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        event_tables.create(EventTable(name="my_table"))
+        et_res = event_tables.create(EventTable(name="my_table"))
+        assert isinstance(et_res, EventTableResource)
+        assert et_res.name == "my_table"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -45,11 +46,7 @@ def test_create_event_table(fake_root, event_tables):
 
 
 def test_iter_event_table(fake_root, event_tables):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/event-tables",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/event-tables")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -70,11 +67,7 @@ def test_fetch_event_table(fake_root, event_table):
     from snowflake.core.event_table._generated.models import EventTable as EventTableModel
 
     model = EventTableModel(name="my_table")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/event-tables/my_table",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/event-tables/my_table")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -92,11 +85,7 @@ def test_fetch_event_table(fake_root, event_table):
 
 
 def test_drop_event_table(fake_root, event_table):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/event-tables/my_table",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/event-tables/my_table")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -117,6 +106,7 @@ def test_rename_event_table(fake_root, event_table, event_tables):
             "POST",
             BASE_URL + f"/databases/my_db/schemas/my_schema/event-tables/{table_name}:rename?targetName=new_table",
         )
+
     kwargs = extra_params(query_params=[("targetName", "new_table")])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

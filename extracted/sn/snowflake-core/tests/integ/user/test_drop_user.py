@@ -23,9 +23,7 @@ def test_delete_user(users: UserCollection, session: "Session"):
         assert user_ref.name == user_name
         user_ref.drop()
 
-        with pytest.raises(
-            NotFoundError,
-        ):
+        with pytest.raises(NotFoundError):
             users[user_name].drop(if_exists=False)
             users[user_name].fetch()
 

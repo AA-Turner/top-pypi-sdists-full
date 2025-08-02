@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.table import Table
+from snowflake.core.table import Table, TableResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -25,14 +25,13 @@ def test_create_table(fake_root, tables):
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
-        body={
-            "name": "my_tab",
-            "kind": "TRANSIENT",
-        },
+        body={"name": "my_tab", "kind": "TRANSIENT"},
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        tables.create(TABLE)
+        table_res = tables.create(TABLE)
+        assert isinstance(table_res, TableResource)
+        assert table_res.name == "my_tab"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -47,8 +46,9 @@ def test_create_table_clone(fake_root, tables):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/clone_table:clone?" + \
-            "createMode=errorIfExists&copyGrants=False&targetDatabase=my_db&targetSchema=my_schema",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/tables/clone_table:clone?"
+        + "createMode=errorIfExists&copyGrants=False&targetDatabase=my_db&targetSchema=my_schema",
     )
     kwargs = extra_params(
         query_params=[
@@ -57,10 +57,7 @@ def test_create_table_clone(fake_root, tables):
             ("targetDatabase", tables.database.name),
             ("targetSchema", tables.schema.name),
         ],
-        body={
-            "name": "my_tab",
-            "kind": "PERMANENT",
-        },
+        body={"name": "my_tab", "kind": "PERMANENT"},
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -79,8 +76,9 @@ def test_create_table_as_select(fake_root, tables):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables:as-select?" + \
-            "createMode=errorIfExists&copyGrants=False&query=SELECT 1",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/tables:as-select?"
+        + "createMode=errorIfExists&copyGrants=False&query=SELECT 1",
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("copyGrants", False), ("query", "SELECT 1")],
@@ -114,12 +112,12 @@ def test_create_table_like(fake_root, tables):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/temp_table:create-like?" + \
-            "createMode=errorIfExists&copyGrants=False",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/tables/temp_table:create-like?"
+        + "createMode=errorIfExists&copyGrants=False",
     )
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
-        body={"name": "my_tab"},
+        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)], body={"name": "my_tab"}
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -142,8 +140,9 @@ def test_create_table_using_template(fake_root, tables):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables:using-template?" + \
-            f"createMode=errorIfExists&copyGrants=False&query={template}",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/tables:using-template?"
+        + f"createMode=errorIfExists&copyGrants=False&query={template}",
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("copyGrants", False), ("query", template)],
@@ -163,17 +162,8 @@ def test_create_table_using_template(fake_root, tables):
 
 
 def test_create_or_alter_table(fake_root, table):
-    args = (
-        fake_root,
-        "PUT",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab",
-    )
-    kwargs = extra_params(
-        body={
-            "name": "my_tab",
-            "kind": "TRANSIENT",
-        },
-    )
+    args = (fake_root, "PUT", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab")
+    kwargs = extra_params(body={"name": "my_tab", "kind": "TRANSIENT"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         table.create_or_alter(TABLE)
@@ -187,11 +177,7 @@ def test_create_or_alter_table(fake_root, table):
 
 
 def test_iter_table(fake_root, tables):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables?history=False&deep=False",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/tables?history=False&deep=False")
     kwargs = extra_params(query_params=[("history", False), ("deep", False)])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -212,11 +198,7 @@ def test_fetch_table(fake_root, table):
     from snowflake.core.table._generated.models import Table as TableModel
 
     model = TableModel(name="my_tab", kind="TRANSIENT")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -234,11 +216,7 @@ def test_fetch_table(fake_root, table):
 
 
 def test_drop_table(fake_root, table):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -253,11 +231,7 @@ def test_drop_table(fake_root, table):
 
 
 def test_undrop_table(fake_root, table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab:undrop",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab:undrop")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -272,11 +246,7 @@ def test_undrop_table(fake_root, table):
 
 
 def test_suspend_recluster_table(fake_root, table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab:suspend-recluster",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab:suspend-recluster")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -291,11 +261,7 @@ def test_suspend_recluster_table(fake_root, table):
 
 
 def test_resume_recluster_table(fake_root, table):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab:resume-recluster",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab:resume-recluster")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

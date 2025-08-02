@@ -1,10 +1,10 @@
+use super::{batch::EventBatch, queued_event::QueuedEvent};
 use crate::{
     event_logging::statsig_event_internal::StatsigEventInternal, log_d, read_lock_or_return,
     write_lock_or_return,
 };
-use std::{collections::VecDeque, sync::RwLock};
-
-use super::{batch::EventBatch, queued_event::QueuedEvent};
+use parking_lot::RwLock;
+use std::collections::VecDeque;
 
 const TAG: &str = stringify!(EventQueue);
 
@@ -24,7 +24,7 @@ pub struct EventQueue {
     pub batch_size: usize,
     pub max_pending_batches: usize,
 
-    pending_events: RwLock<Vec<QueuedEvent>>,
+    pending_events: RwLock<VecDeque<QueuedEvent>>,
     batches: RwLock<VecDeque<EventBatch>>,
     max_pending_events: usize,
 }
@@ -35,7 +35,7 @@ impl EventQueue {
         let max_queue_size = max_queue_size as usize;
 
         Self {
-            pending_events: RwLock::new(Vec::new()),
+            pending_events: RwLock::new(VecDeque::new()),
             batches: RwLock::new(VecDeque::new()),
             batch_size,
             max_pending_batches: max_queue_size,
@@ -52,16 +52,19 @@ impl EventQueue {
     pub fn add(&self, pending_event: QueuedEvent) -> QueueAddResult {
         let mut pending_events =
             write_lock_or_return!(TAG, self.pending_events, QueueAddResult::Noop);
-        pending_events.push(pending_event);
+        pending_events.push_back(pending_event);
 
-        let len = pending_events.len();
-        if len >= self.max_pending_events {
-            let delta = len - self.max_pending_events;
-            pending_events.drain(0..delta);
-            return QueueAddResult::NeedsFlushAndDropped(delta as u64);
+        let mut dropped_events = 0;
+        while pending_events.len() > self.max_pending_events {
+            pending_events.pop_front();
+            dropped_events += 1;
         }
 
-        if len % self.batch_size == 0 {
+        if dropped_events > 0 {
+            return QueueAddResult::NeedsFlushAndDropped(dropped_events);
+        }
+
+        if pending_events.len() % self.batch_size == 0 {
             return QueueAddResult::NeedsFlush;
         }
 
@@ -89,7 +92,11 @@ impl EventQueue {
     }
 
     pub fn contains_at_least_one_full_batch(&self) -> bool {
-        let pending_events_count = self.pending_events.read().map(|e| e.len()).unwrap_or(0);
+        let pending_events_count = self
+            .pending_events
+            .try_read_for(std::time::Duration::from_secs(5))
+            .map(|e| e.len())
+            .unwrap_or(0);
         if pending_events_count >= self.batch_size {
             return true;
         }
@@ -115,7 +122,7 @@ impl EventQueue {
     }
 
     pub fn reconcile_batching(&self) -> QueueReconcileResult {
-        let mut pending_events: Vec<StatsigEventInternal> = self
+        let mut pending_events: VecDeque<StatsigEventInternal> = self
             .take_all_pending_events()
             .into_iter()
             .map(|evt| evt.into_statsig_event_internal())
@@ -150,12 +157,15 @@ impl EventQueue {
         QueueReconcileResult::Success
     }
 
-    fn take_all_pending_events(&self) -> Vec<QueuedEvent> {
-        let mut pending_events = write_lock_or_return!(TAG, self.pending_events, Vec::new());
+    fn take_all_pending_events(&self) -> VecDeque<QueuedEvent> {
+        let mut pending_events = write_lock_or_return!(TAG, self.pending_events, VecDeque::new());
         std::mem::take(&mut *pending_events)
     }
 
-    fn create_batches(&self, mut pending_events: Vec<StatsigEventInternal>) -> Vec<EventBatch> {
+    fn create_batches(
+        &self,
+        mut pending_events: VecDeque<StatsigEventInternal>,
+    ) -> Vec<EventBatch> {
         let mut batches = Vec::new();
         while !pending_events.is_empty() {
             let drain_count = self.batch_size.min(pending_events.len());
@@ -214,7 +224,14 @@ mod tests {
         let result = queue.add(queued_event);
 
         assert!(matches!(result, QueueAddResult::Noop));
-        assert_eq!(queue.pending_events.read().unwrap().len(), 1);
+        assert_eq!(
+            queue
+                .pending_events
+                .try_read_for(std::time::Duration::from_secs(5))
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]
@@ -240,7 +257,14 @@ mod tests {
             }
         }
 
-        assert_eq!(queue.pending_events.read().unwrap().len(), 4567);
+        assert_eq!(
+            queue
+                .pending_events
+                .try_read_for(std::time::Duration::from_secs(5))
+                .unwrap()
+                .len(),
+            4567
+        );
         assert_eq!(triggered_count, (4567 / 1000) as usize);
     }
 
@@ -294,7 +318,11 @@ mod tests {
         assert_eq!(batch.unwrap().events.len(), batch_size as usize);
 
         assert_eq!(
-            queue.batches.read().unwrap().len(),
+            queue
+                .batches
+                .try_read_for(std::time::Duration::from_secs(5))
+                .unwrap()
+                .len(),
             (max_pending_batches - 1) as usize
         ); // max minus the one we just took
     }

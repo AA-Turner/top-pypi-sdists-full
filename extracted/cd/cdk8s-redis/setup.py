@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk8s-redis",
-    "version": "0.1.839",
+    "version": "0.1.840",
     "description": "Basic implementation of a Redis construct for cdk8s.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdk8s-team/cdk8s-redis.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk8s_redis._jsii": [
-            "cdk8s-redis@0.1.839.jsii.tgz"
+            "cdk8s-redis@0.1.840.jsii.tgz"
         ],
         "cdk8s_redis": [
             "py.typed"
@@ -36,7 +36,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdk8s>=2.68.91, <3.0.0",
         "constructs>=10.3.0, <11.0.0",
-        "jsii>=1.112.0, <2.0.0",
+        "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

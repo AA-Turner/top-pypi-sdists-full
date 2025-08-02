@@ -10,10 +10,7 @@ pytestmark = [pytest.mark.skip_gov]
 
 
 def test_embed(root: Root):
-    resp = root.cortex_embed_service.embed(
-        "e5-base-v2",
-        ["foo", "bar"],
-    )
+    resp = root.cortex_embed_service.embed("e5-base-v2", ["foo", "bar"])
 
     assert len(resp.data) == 2
     assert resp.model == "e5-base-v2"

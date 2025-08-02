@@ -62,23 +62,20 @@ def test_url_embedding_into_url(schemas, caplog):
     with caplog.at_level(logging.INFO, logger="snowflake.core.schema._generated.api_client"):
         s = schemas.create(new_schema)
     assert "{database}" not in caplog.text
-    assert (
-        "performing a HTTP POST call to /api/v2/databases/"
-        f"{schemas.database.name}/schemas\n"
-    ) in caplog.text
+    assert (f"performing a HTTP POST call to /api/v2/databases/{schemas.database.name}/schemas\n") in caplog.text
     caplog.clear()
     with caplog.at_level(logging.INFO, logger="snowflake.core.schema._generated.api_client"):
         s.drop()
     assert "{database}" not in caplog.text
     assert (
-        "performing a HTTP DELETE call to /api/v2/databases/"
-        f"{schemas.database.name}/schemas/{new_schema.name}\n"
+        f"performing a HTTP DELETE call to /api/v2/databases/{schemas.database.name}/schemas/{new_schema.name}\n"
     ) in caplog.text
 
 
 # Since our CI and tests are very unlikely to be a version that is not supported,
 # this test should always pass -- we would never set the configuration to make it not work
 # with the most recent version.
+
 
 def test_client_info_integration(root):
     assert root._client_info.client_version == __version__

@@ -20,8 +20,7 @@ def test_iter_functions(temp_service_for_function, functions):
             endpoint = "ep1"
 
             create_service_function(
-                function_name, ["REAL"], "REAL", endpoint,
-                temp_service_for_function.name, functions
+                function_name, ["REAL"], "REAL", endpoint, temp_service_for_function.name, functions
             )
 
             funcs.append(function_name_with_args)
@@ -32,8 +31,7 @@ def test_iter_functions(temp_service_for_function, functions):
             endpoint = "end-point-2"
 
             create_service_function(
-                function_name, ["REAL"], "REAL", endpoint,
-                temp_service_for_function.name, functions
+                function_name, ["REAL"], "REAL", endpoint, temp_service_for_function.name, functions
             )
 
             funcs.append(function_name_with_args)

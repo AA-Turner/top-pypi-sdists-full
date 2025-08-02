@@ -1,0 +1,15 @@
+---
+
+# https://github.com/google/yamlfmt
+
+gitignore_excludes: true
+
+formatter:
+  type: basic
+  include_document_start: true
+  indent: 2
+  line_ending: lf
+  retain_line_breaks: true
+  max_line_length: 120
+  scan_folded_as_literal: true
+  pad_line_comments: 2

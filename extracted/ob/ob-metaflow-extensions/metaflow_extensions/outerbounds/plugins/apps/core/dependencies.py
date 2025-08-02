@@ -95,7 +95,7 @@ def bake_deployment_image(
     pinned_conda_libs = get_pinned_conda_libs(python_version, DEFAULT_DATASTORE)
     pypi_packages.update(pinned_conda_libs)
     _reference = app_config.get("name", "default")
-    # `image` cannot be None. If by change it is none, FB will fart.
+    # `image` cannot be None. If by chance it is none, FB will fart.
     fb_response = bake_image(
         cache_file_path=cache_file_path,
         pypi_packages=pypi_packages,

@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "qwak-inference"
+version = "0.1.23"
+description = "Qwak Inference is a Python library for running predictions again Qwak Models."
+authors = ["Qwak <info@qwak.com>"]
+readme = "README.md"
+keywords = ["mlops", "ml", "deployment", "serving", "model"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+license = "Apache-2.0"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+requests = "^2.0.0"
+qwak-core = {version = ">=0.4.267", optional = true}
+boto3 = { version="^1.24.89", optional=true }
+tenacity = { version = "^8.0.0", optional = true }
+numpy = [
+    { version = ">=1.21.6", python = ">=3.7.1,<3.10" },
+    { version = ">=1.24.0", python = ">=3.10" }
+]
+pandas = [
+    {version="<1.4", python=">=3.7.1,<3.8", optional=true},
+    { version = ">=1.4.0", python = ">=3.8,<3.12", optional=true }
+]
+joblib = { version="^1.1.0", optional=true }
+pyarrow = { version=">=6.0.0, <11.0.0", optional=true }
+google-cloud-storage = "^2.14.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "7.2.1"
+black = "23.1.0"
+flake8 = "5.0.0"
+bandit = {version = "^1.7.4", extras=["toml"]}
+coverage = "7.2.1"
+pytest-mock = "^3.8.1"
+requests-mock = "^1.9.3"
+pre-commit = "^2.19.0"
+changelog-cli = "^0.7.1"
+poethepoet = "^0.14.0"
+bump2version = "1.0.1"
+isort = "^5"
+
+[tool.poetry.extras]
+batch = ["boto3", "pandas", "pyarrow", "joblib", "qwak-core", "tenacity"]
+feedback = ["boto3", "pandas", "qwak-core", "joblib"]
+
+[tool.isort]
+profile = "black"
+src_paths = ["qwak_inference", "tests"]
+
+[tool.bandit]
+
+[tool.poe.tasks]
+validate = { cmd="pre-commit run  --all-files", help="Check lint on all files" }
+test = { cmd="pytest --disable-warnings tests", help="Run tests" }
+clean = { cmd="rm -rf dist ./**/__pycache__", help="Clean build artifacts" }
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

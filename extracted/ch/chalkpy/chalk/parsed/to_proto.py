@@ -1049,6 +1049,8 @@ class ToProtoConverter:
             resource_hint = pb.RESOURCE_HINT_CPU
         elif r.resource_hint == "io":
             resource_hint = pb.RESOURCE_HINT_IO
+        elif r.resource_hint == "gpu":
+            resource_hint = pb.RESOURCE_HINT_GPU
         else:
             raise ValueError(f"Unsupported resource hint: {r.resource_hint}")
 

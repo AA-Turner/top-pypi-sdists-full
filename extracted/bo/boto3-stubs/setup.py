@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs",
-    version="1.40.0",
+    version="1.40.1",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.40.0 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.40.1 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.40.0, <1.41.0"],
-        "boto3": ["boto3==1.40.0"],
+        "boto3": ["boto3==1.40.1"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.40.0, <1.41.0",
             "mypy-boto3-account>=1.40.0, <1.41.0",
@@ -83,6 +83,7 @@ setup(
             "mypy-boto3-appstream>=1.40.0, <1.41.0",
             "mypy-boto3-appsync>=1.40.0, <1.41.0",
             "mypy-boto3-apptest>=1.40.0, <1.41.0",
+            "mypy-boto3-arc-region-switch>=1.40.0, <1.41.0",
             "mypy-boto3-arc-zonal-shift>=1.40.0, <1.41.0",
             "mypy-boto3-artifact>=1.40.0, <1.41.0",
             "mypy-boto3-athena>=1.40.0, <1.41.0",
@@ -505,6 +506,7 @@ setup(
         "appstream": ["mypy-boto3-appstream>=1.40.0, <1.41.0"],
         "appsync": ["mypy-boto3-appsync>=1.40.0, <1.41.0"],
         "apptest": ["mypy-boto3-apptest>=1.40.0, <1.41.0"],
+        "arc-region-switch": ["mypy-boto3-arc-region-switch>=1.40.0, <1.41.0"],
         "arc-zonal-shift": ["mypy-boto3-arc-zonal-shift>=1.40.0, <1.41.0"],
         "artifact": ["mypy-boto3-artifact>=1.40.0, <1.41.0"],
         "athena": ["mypy-boto3-athena>=1.40.0, <1.41.0"],

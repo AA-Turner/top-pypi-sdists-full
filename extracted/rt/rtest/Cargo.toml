@@ -1,0 +1,19 @@
+
+[package]
+name = "rtest-py"
+version = "0.0.31"
+edition = "2021"
+
+[lib]
+name = "_rtest"
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rtest = { path = "rtest" }
+pyo3 = { version = "0.25", features = ["extension-module"] }
+clap = { version = "4.5.4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.0"

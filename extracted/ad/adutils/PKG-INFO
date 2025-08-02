@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: adutils
+Version: 0.6.2
+Summary: Helper and utilities for AppDaemon apps.
+Home-page: https://github.com/benleb/adutils
+License: MIT
+Keywords: ad-apps,appdaemon,app
+Author: Ben Lebherz
+Author-email: git@benleb.de
+Requires-Python: >=3.8
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Project-URL: Documentation, https://github.com/benleb/adutils
+Project-URL: Repository, https://github.com/benleb/adutils
+Description-Content-Type: text/markdown
+
+# adutils
+
+[![PyPI](https://img.shields.io/pypi/v/adutils)](https://pypi.org/project/adutils/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/adutils)](https://pypi.org/project/adutils/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/adutils)](https://pypi.org/project/adutils/)
+
+Helper functions for AppDaemon apps. Currently there is just code, no documentation. Sorry ¯\\_(ツ)_/¯
+
+## Install
+
+```bash
+pip install adutils
+```
+
+## Apps using **adutils**
+
+* [AutoMoLi](https://github.com/benleb/ad-automoli)
+* [EnCh](https://github.com/benleb/ad-ench)
+* [Notifreeze](https://github.com/benleb/ad-notifreeze)
+* [Healthcheck](https://github.com/benleb/ad-healthcheck)
+

@@ -25,6 +25,7 @@ pytestmark = [
     pytest.mark.internal_only,
 ]
 
+
 @pytest.mark.use_accountadmin
 def test_ni_creation_and_drop_notificationemail(notification_integrations, set_internal_params):
     allowed_recipients = ["test1@snowflake.com", "test2@snowflake.com"]
@@ -65,9 +66,9 @@ def test_ni_creation_and_drop_notificationemail(notification_integrations, set_i
 
 @pytest.mark.use_accountadmin
 def test_ni_creation_and_drop_webhook(notification_integrations, cursor):
-    webhook_url="https://events.pagerduty.com/v2/enqueue"
-    webhook_template='{"key": "SNOWFLAKE_WEBHOOK_SECRET", "msg": "SNOWFLAKE_WEBHOOK_MESSAGE"}'
-    webhook_headers={"content-type": "application/json", "user-content": "chrome"}
+    webhook_url = "https://events.pagerduty.com/v2/enqueue"
+    webhook_template = '{"key": "SNOWFLAKE_WEBHOOK_SECRET", "msg": "SNOWFLAKE_WEBHOOK_MESSAGE"}'
+    webhook_headers = {"content-type": "application/json", "user-content": "chrome"}
     database = cursor.execute("select current_database();").fetchone()[0]
     schema = cursor.execute("select current_schema();").fetchone()[0]
     cursor.execute("CREATE OR REPLACE SECRET mySecret TYPE=GENERIC_STRING SECRET_STRING='aaa'")
@@ -77,9 +78,7 @@ def test_ni_creation_and_drop_webhook(notification_integrations, cursor):
             enabled=False,
             notification_hook=NotificationWebhook(
                 webhook_url=webhook_url,
-                webhook_secret=WebhookSecret(
-                    name="mySecret".upper(), database_name=database, schema_name=schema
-                ),
+                webhook_secret=WebhookSecret(name="mySecret".upper(), database_name=database, schema_name=schema),
                 webhook_body_template=webhook_template,
                 webhook_headers=webhook_headers,
             ),
@@ -113,17 +112,17 @@ def test_ni_creation_and_drop_webhook(notification_integrations, cursor):
     finally:
         cursor.execute("DROP SECRET mySecret;")
 
+
 def test_ni_creation_and_drop_awsoutbound(notification_integrations, setup_credentials_fixture):
     del setup_credentials_fixture
-    aws_sns_topic_arn="arn:aws:sns:us-west-1:234567812345:sns-test-topic"
-    aws_sns_role_arn="arn:aws:iam::234567812345:role/sns-test-topic"
+    aws_sns_topic_arn = "arn:aws:sns:us-west-1:234567812345:sns-test-topic"
+    aws_sns_role_arn = "arn:aws:iam::234567812345:role/sns-test-topic"
     new_integration = NotificationIntegration(
         name=random_string(3, "test_ni_creation_and_drop_awsoutbound_"),
         enabled=False,
         notification_hook=NotificationQueueAwsSnsOutbound(
-            aws_sns_topic_arn=aws_sns_topic_arn,
-            aws_sns_role_arn=aws_sns_role_arn,
-        )
+            aws_sns_topic_arn=aws_sns_topic_arn, aws_sns_role_arn=aws_sns_role_arn
+        ),
     )
     pre_create_count = len(list(notification_integrations.iter()))
     ni = notification_integrations.create(new_integration)
@@ -149,15 +148,14 @@ def test_ni_creation_and_drop_awsoutbound(notification_integrations, setup_crede
 
 def test_ni_creation_and_drop_azureoutbound(notification_integrations, setup_credentials_fixture):
     del setup_credentials_fixture
-    azure_event_grid_topic_endpoint="https://test-snowapi-eventgrid-toopic.westus-1.eventgrid.azure.net/api/events"
-    azure_tenant_id="fake.azsnowdevoutlook.onmicrosoft.com"
+    azure_event_grid_topic_endpoint = "https://test-snowapi-eventgrid-toopic.westus-1.eventgrid.azure.net/api/events"
+    azure_tenant_id = "fake.azsnowdevoutlook.onmicrosoft.com"
     new_integration = NotificationIntegration(
         name=random_string(3, "test_ni_creation_and_drop_azureoutbound_"),
         enabled=False,
         notification_hook=NotificationQueueAzureEventGridOutbound(
-            azure_event_grid_topic_endpoint=azure_event_grid_topic_endpoint,
-            azure_tenant_id=azure_tenant_id,
-        )
+            azure_event_grid_topic_endpoint=azure_event_grid_topic_endpoint, azure_tenant_id=azure_tenant_id
+        ),
     )
     pre_create_count = len(list(notification_integrations.iter()))
     ni = notification_integrations.create(new_integration)
@@ -183,14 +181,13 @@ def test_ni_creation_and_drop_azureoutbound(notification_integrations, setup_cre
 
 def test_ni_creation_and_drop_azureinbound(notification_integrations, setup_credentials_fixture):
     del setup_credentials_fixture
-    azure_storage_queue_primary_uri="https://fake.queue.core.windows.net/snowapi_queue"
-    azure_tenant_id="fake.onmicrosoft.com"
+    azure_storage_queue_primary_uri = "https://fake.queue.core.windows.net/snowapi_queue"
+    azure_tenant_id = "fake.onmicrosoft.com"
     new_integration = NotificationIntegration(
         name=random_string(3, "test_ni_creation_and_drop_azureoutbound_"),
         enabled=False,
         notification_hook=NotificationQueueAzureEventGridInbound(
-            azure_storage_queue_primary_uri=azure_storage_queue_primary_uri,
-            azure_tenant_id=azure_tenant_id,
+            azure_storage_queue_primary_uri=azure_storage_queue_primary_uri, azure_tenant_id=azure_tenant_id
         ),
     )
     pre_create_count = len(list(notification_integrations.iter()))
@@ -217,13 +214,11 @@ def test_ni_creation_and_drop_azureinbound(notification_integrations, setup_cred
 
 def test_ni_creation_and_drop_gcpoutbound(notification_integrations, setup_credentials_fixture):
     del setup_credentials_fixture
-    gcp_pubsub_topic_name="projects/fake-project-name/topics/pythonapi-test"
+    gcp_pubsub_topic_name = "projects/fake-project-name/topics/pythonapi-test"
     new_integration = NotificationIntegration(
         name=random_string(3, "test_ni_creation_and_drop_gcpoutbound_"),
         enabled=False,
-        notification_hook=NotificationQueueGcpPubsubOutbound(
-            gcp_pubsub_topic_name=gcp_pubsub_topic_name,
-        )
+        notification_hook=NotificationQueueGcpPubsubOutbound(gcp_pubsub_topic_name=gcp_pubsub_topic_name),
     )
     pre_create_count = len(list(notification_integrations.iter()))
     ni = notification_integrations.create(new_integration)
@@ -247,13 +242,11 @@ def test_ni_creation_and_drop_gcpoutbound(notification_integrations, setup_crede
 
 def test_ni_creation_and_drop_gcpinbound(notification_integrations, setup_credentials_fixture):
     del setup_credentials_fixture
-    gcp_pubsub_subscription_name="projects/snowapi-snowfort-project/subscriptions/sub2"
+    gcp_pubsub_subscription_name = "projects/snowapi-snowfort-project/subscriptions/sub2"
     new_integration = NotificationIntegration(
         name=random_string(3, "test_ni_creation_and_drop_gcpoutbound_"),
         enabled=False,
-        notification_hook=NotificationQueueGcpPubsubInbound(
-            gcp_pubsub_subscription_name=gcp_pubsub_subscription_name,
-        )
+        notification_hook=NotificationQueueGcpPubsubInbound(gcp_pubsub_subscription_name=gcp_pubsub_subscription_name),
     )
     pre_create_count = len(list(notification_integrations.iter()))
     ni = notification_integrations.create(new_integration)

@@ -8,8 +8,11 @@ from snowflake.core.exceptions import ConflictError, NotFoundError
 from tests.integ.utils import random_string
 
 
-pytestmark = [pytest.mark.min_sf_ver("8.37.0"), pytest.mark.internal_only,
-            pytest.mark.usefixtures("setup_credentials_fixture")]
+pytestmark = [
+    pytest.mark.min_sf_ver("8.37.0"),
+    pytest.mark.internal_only,
+    pytest.mark.usefixtures("setup_credentials_fixture"),
+]
 
 
 def test_create_by_glue_and_fetch(catalog_integrations):
@@ -17,7 +20,7 @@ def test_create_by_glue_and_fetch(catalog_integrations):
 
     catalog_integration = CatalogIntegration(
         name=catalog_integration_name,
-        catalog = Glue(
+        catalog=Glue(
             catalog_namespace="abcd-ns",
             glue_aws_role_arn="arn:aws:iam::123456789012:role/sqsAccess",
             glue_catalog_id="1234567",
@@ -48,10 +51,7 @@ def test_create_by_object_store_and_fetch(catalog_integrations):
     catalog_integration_name = random_string(10, "test_catalog_integration_")
 
     catalog_integration = CatalogIntegration(
-        name=catalog_integration_name,
-        catalog = ObjectStore(),
-        table_format="ICEBERG",
-        enabled=True,
+        name=catalog_integration_name, catalog=ObjectStore(), table_format="ICEBERG", enabled=True
     )
 
     catalog_integration_handle = catalog_integrations.create(catalog_integration)
@@ -71,10 +71,10 @@ def test_create_by_object_store_and_fetch(catalog_integrations):
 def test_create_by_polaris_and_fetch(catalog_integrations, set_internal_params):
     catalog_integration_name = random_string(10, "test_catalog_integration_")
 
-    with set_internal_params({'ENABLE_FIX_1692844_ENABLE_VALIDATION_ON_CATALOG_INT_CREATION': False}):
+    with set_internal_params({"ENABLE_FIX_1692844_ENABLE_VALIDATION_ON_CATALOG_INT_CREATION": False}):
         catalog_integration = CatalogIntegration(
-            name = catalog_integration_name,
-            catalog = Polaris(
+            name=catalog_integration_name,
+            catalog=Polaris(
                 catalog_namespace="abcd-ns",
                 rest_config=RestConfig(
                     catalog_uri="https://my_account.snowflakecomputing.com/polaris/api/catalog",
@@ -88,7 +88,7 @@ def test_create_by_polaris_and_fetch(catalog_integrations, set_internal_params):
                 ),
             ),
             table_format="ICEBERG",
-            enabled=True
+            enabled=True,
         )
 
         catalog_integration_handle = catalog_integrations.create(catalog_integration)
@@ -101,11 +101,15 @@ def test_create_by_polaris_and_fetch(catalog_integrations, set_internal_params):
             assert fetch_handle.catalog.catalog_namespace == catalog_integration.catalog.catalog_namespace
             assert fetch_handle.catalog.rest_config.catalog_uri == catalog_integration.catalog.rest_config.catalog_uri
             assert fetch_handle.catalog.rest_config.warehouse == catalog_integration.catalog.rest_config.warehouse
-            assert fetch_handle.catalog.rest_authentication.oauth_client_id ==\
-                catalog_integration.catalog.rest_authentication.oauth_client_id
+            assert (
+                fetch_handle.catalog.rest_authentication.oauth_client_id
+                == catalog_integration.catalog.rest_authentication.oauth_client_id
+            )
             assert fetch_handle.catalog.rest_authentication.oauth_client_secret == ""
-            assert fetch_handle.catalog.rest_authentication.oauth_allowed_scopes ==\
-                catalog_integration.catalog.rest_authentication.oauth_allowed_scopes
+            assert (
+                fetch_handle.catalog.rest_authentication.oauth_allowed_scopes
+                == catalog_integration.catalog.rest_authentication.oauth_allowed_scopes
+            )
             assert fetch_handle.table_format == catalog_integration.table_format
             assert fetch_handle.enabled == catalog_integration.enabled
         finally:
@@ -117,10 +121,7 @@ def test_create_mode(catalog_integrations):
     catalog_integration_name = random_string(10, "test_catalog_integration_")
 
     catalog_integration = CatalogIntegration(
-        name=catalog_integration_name,
-        catalog = ObjectStore(),
-        table_format="ICEBERG",
-        enabled=True,
+        name=catalog_integration_name, catalog=ObjectStore(), table_format="ICEBERG", enabled=True
     )
 
     catalog_integrations.create(catalog_integration)
@@ -128,7 +129,4 @@ def test_create_mode(catalog_integrations):
     with pytest.raises(ConflictError):
         catalog_integrations.create(catalog_integration)
 
-    catalog_integrations.create(
-        catalog_integration,
-        mode = CreateMode.or_replace
-    )
+    catalog_integrations.create(catalog_integration, mode=CreateMode.or_replace)

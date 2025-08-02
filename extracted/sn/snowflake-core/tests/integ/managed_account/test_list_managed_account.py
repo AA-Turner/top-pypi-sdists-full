@@ -35,7 +35,7 @@ def test_list_managed_account(temp_customer_account_managed_accounts, sf_cursor,
             ]
             assert len(managed_account_names) == 2
 
-            assert ['This is my managed account@$W%*#$()%', 'This is my managed account@$W%*#$()%'] == [
+            assert ["This is my managed account@$W%*#$()%", "This is my managed account@$W%*#$()%"] == [
                 managed_account.comment for managed_account in temp_customer_account_managed_accounts.iter()
             ]
 

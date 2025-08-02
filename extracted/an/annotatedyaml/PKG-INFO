@@ -1,16 +1,15 @@
 Metadata-Version: 2.3
 Name: annotatedyaml
-Version: 0.4.5
+Version: 1.0.0
 Summary: Annotated YAML that supports secrets for Python
 License: Apache-2.0
 Author: Home Assistant Devs
 Author-email: hello@home-assistant.io
-Requires-Python: >=3.12
+Requires-Python: >=3.13
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: propcache (>0.1)

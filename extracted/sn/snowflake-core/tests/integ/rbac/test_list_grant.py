@@ -8,14 +8,7 @@ from snowflake.core.grant._securables import Securables
 
 @pytest.mark.use_accountadmin
 @pytest.mark.usefixtures("backup_warehouse_fixture")
-def test_list_grant(
-    test_role_name,
-    test_function_name,
-    test_warehouse_name,
-    grants,
-    session,
-    schema,
-):
+def test_list_grant(test_role_name, test_function_name, test_warehouse_name, grants, session, schema):
     # grant roles
 
     grants.grant(

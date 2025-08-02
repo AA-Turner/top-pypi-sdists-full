@@ -1,4 +1,3 @@
-
 from contextlib import suppress
 
 import pytest
@@ -11,7 +10,7 @@ from tests.utils import random_string
 
 @pytest.mark.min_sf_ver("8.36.0")
 def test_create_and_fetch(alerts):
-    alert_name = random_string(10, 'test_alert_')
+    alert_name = random_string(10, "test_alert_")
 
     try:
         alert = alerts.create(
@@ -20,7 +19,7 @@ def test_create_and_fetch(alerts):
                 condition="SELECT 1",
                 action="SELECT 2",
                 schedule=MinutesSchedule(minutes=1),
-                comment="asdf"
+                comment="asdf",
             )
         )
 
@@ -38,7 +37,7 @@ def test_create_and_fetch(alerts):
 
 @pytest.mark.min_sf_ver("8.36.0")
 def test_create_and_update(alerts):
-    alert_name = random_string(10, 'test_alert_')
+    alert_name = random_string(10, "test_alert_")
 
     try:
         alerts.create(
@@ -47,7 +46,7 @@ def test_create_and_update(alerts):
                 condition="SELECT 1",
                 action="SELECT 2",
                 schedule=MinutesSchedule(minutes=1),
-                comment="asdf"
+                comment="asdf",
             )
         )
 
@@ -58,7 +57,7 @@ def test_create_and_update(alerts):
                     condition="SELECT 1",
                     action="SELECT 2",
                     schedule=MinutesSchedule(minutes=1),
-                    comment="asdf"
+                    comment="asdf",
                 )
             )
 
@@ -68,9 +67,9 @@ def test_create_and_update(alerts):
                 condition="SELECT 5",
                 action="SELECT 6",
                 schedule=MinutesSchedule(minutes=7),
-                comment="fdsa"
+                comment="fdsa",
             ),
-            mode=CreateMode.or_replace
+            mode=CreateMode.or_replace,
         )
 
         alert_handle = alerts[alert_name].fetch()

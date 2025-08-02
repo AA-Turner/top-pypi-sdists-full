@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: aws-solutions-constructs.aws-iot-lambda
+Version: 2.90.2
+Summary: CDK Constructs for AWS IoT to AWS Lambda integration
+Home-page: https://github.com/awslabs/aws-solutions-constructs.git
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/awslabs/aws-solutions-constructs.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.206.0
+Requires-Dist: aws-solutions-constructs.core==2.90.2
+Requires-Dist: constructs<11.0.0,>=10.0.0
+Requires-Dist: jsii<2.0.0,>=1.111.0
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<4.3.0,>=2.13.3
+
+Documentation for this pattern can be found [here](https://github.com/awslabs/aws-solutions-constructs/blob/main/source/patterns/%40aws-solutions-constructs/aws-iot-lambda/README.adoc)

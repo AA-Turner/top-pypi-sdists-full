@@ -1,0 +1,193 @@
+[project]
+name = "empyrical-reloaded"
+description = "empyrical computes performance and risk statistics commonly used in quantitative finance"
+readme = "README.md"
+
+authors = [
+    { name = "Quantopian Inc" },
+    { email = "pm@ml4trading.io" }
+]
+maintainers = [
+    { name = "Stefan Jansen" },
+    { email = "pm@ml4trading.io" }
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: OS Independent"
+]
+
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+
+license = { file = "LICENSE" }
+
+dependencies = [
+    # following pandas
+    "numpy>=1.23.5; python_version<'3.12'",
+    "numpy>=1.26.0; python_version>='3.12'",
+    #    "numpy>=2.0; python_version>='3.12'",
+    "pandas >=1.5.0; python_version<'3.12'",
+    "pandas>=2.2.2; python_version>='3.12'",
+    "bottleneck >=1.3.0",
+    "pandas >=1.5.0",
+    "scipy >=0.15.1",
+    "peewee<3.17.4" # awwaiting bugfix in latest version: https://github.com/coleifer/peewee/issues/2891
+]
+
+[project.urls]
+homepage = 'https://ml4trading.io'
+documentation = "https://empyrical.ml4trading.io"
+repository = 'https://github.com/stefan-jansen/empyrical-reloaded'
+
+[build-system]
+requires = [
+    "setuptools>=54.0.0",
+    "setuptools_scm[toml]>=6.2",
+#    "wheel>=0.31.0",
+    #    "numpy>=2.0rc1; python_version>='3.9'",
+    #        "oldest-supported-numpy; python_version>='3.9'"
+#    "wheel>=0.31.0",
+    #    "numpy>=2.0rc1; python_version>='3.9'",
+    #        "oldest-supported-numpy; python_version>='3.9'"
+]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+test = [
+    "tox>=2.3.1",
+    "pytest>=6.2.3",
+    "pytest-cov>=2.11.1",
+    "flake8>=3.9.1",
+    "black"
+]
+
+dev = [
+    "flake8 >=3.9.1",
+    "black",
+    "pre-commit >=2.12.1"
+]
+
+doc = [
+    "Cython",
+    "Sphinx >=1.3.2",
+    "numpydoc >=0.5.0",
+    "sphinx-autobuild >=0.6.0",
+    "pydata-sphinx-theme",
+    "sphinx-markdown-tables",
+    "sphinx_copybutton",
+    "nbsphinx",
+    "m2r2"
+]
+
+yfinance = [
+    "yfinance >=0.1.63",
+]
+
+datareader = [
+    "pandas-datareader >=0.4"
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ['src']
+exclude = ['tests*']
+
+[tool.setuptools_scm]
+write_to = "src/empyrical/_version.py"
+version_scheme = 'guess-next-dev'
+local_scheme = 'dirty-tag'
+
+[tool.pytest.ini_options]
+pythonpath = 'src'
+testpaths = 'tests'
+addopts = '-v'
+
+[tool.cibuildwheel]
+test-extras = "test"
+test-command = "pytest -n 2 --reruns 5 {package}/tests"
+build-verbosity = 3
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64", "universal2"]
+test-skip = ["*universal2:arm64"]
+
+[tool.cibuildwheel.linux]
+archs = ["auto64"]
+skip = "*musllinux*"
+
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311', 'py312']
+exclude = '''
+(
+    asv_bench/env
+  | \.egg
+  | \.git
+  | \.hg
+  | _build
+  | build
+  | dist
+  | setup.py
+)
+'''
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+
+envlist =
+    py310-pandas{15,20,21,22}-numpy1
+    py311-pandas{15,20,21,22}-numpy1
+    py312-pandas{15,20,21,22}-numpy1
+    py310-pandas222-numpy2{0,1,2}
+    py311-pandas222-numpy2{0,1,2}
+    py312-pandas222-numpy2{0,1,2}
+    py313-pandas222-numpy2{1,2}
+
+isolated_build = True
+skip_missing_interpreters = True
+minversion = 3.23.0
+
+[gh-actions]
+python =
+    3.10: py310
+    3.11: py311
+    3.12: py312
+    3.13: py313
+
+[testenv]
+usedevelop = True
+setenv =
+    MPLBACKEND = Agg
+
+changedir = tmp
+extras = test
+deps =
+    pandas15: pandas>=1.5.0,<1.6
+    pandas20: pandas>=2.0,<2.1
+    pandas21: pandas>=2.1,<2.2
+    pandas22: pandas>=2.2,<2.3
+    pandas222: pandas>=2.2.2,<2.3
+    numpy1: numpy>=1.23.5,<2.0
+    numpy20: numpy>=2.0,<2.1
+    numpy21: numpy>=2.1,<2.2
+    numpy22: numpy>=2.2,<2.3
+
+
+commands =
+    pytest --cov={toxinidir}/src --cov-report term  --cov-report=xml --cov-report=html:htmlcov {toxinidir}/tests
+"""

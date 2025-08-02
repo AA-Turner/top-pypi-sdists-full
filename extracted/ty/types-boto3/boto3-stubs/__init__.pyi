@@ -38,6 +38,7 @@ from types_boto3_apprunner.client import AppRunnerClient
 from types_boto3_appstream.client import AppStreamClient
 from types_boto3_appsync.client import AppSyncClient
 from types_boto3_apptest.client import MainframeModernizationApplicationTestingClient
+from types_boto3_arc_region_switch.client import ARCRegionswitchClient
 from types_boto3_arc_zonal_shift.client import ARCZonalShiftClient
 from types_boto3_artifact.client import ArtifactClient
 from types_boto3_athena.client import AthenaClient
@@ -938,6 +939,24 @@ def client(
 ) -> MainframeModernizationApplicationTestingClient:
     """
     Create client for MainframeModernizationApplicationTesting service.
+    """
+
+@overload
+def client(
+    service_name: Literal["arc-region-switch"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> ARCRegionswitchClient:
+    """
+    Create client for ARCRegionswitch service.
     """
 
 @overload

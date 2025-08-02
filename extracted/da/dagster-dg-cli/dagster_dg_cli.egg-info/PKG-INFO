@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: dagster-dg-cli
+Version: 1.11.4
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dg-cli
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: dagster-dg-core==1.11.4
+Requires-Dist: dagster==1.11.4
+Provides-Extra: mcp
+Requires-Dist: mcp; extra == "mcp"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist

@@ -13,6 +13,9 @@ from astropy.io import fits
 from astropy.nddata import NDData
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSMixin, SlicedLowLevelWCS
+from pyavm import AVM
+
+from .utils import as_transparent_rgb
 
 try:
     from pytest_astropy_header.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
@@ -103,7 +106,12 @@ def valid_celestial_input(tmp_path, request, wcs):
 
     kwargs = {}
 
-    if "hdu" in request.param or request.param in ["filename", "path"]:
+    # AVM only supports FITS-WCS
+    if request.param in ["png", "transparent_png", "jpeg"]:
+        if not isinstance(wcs, WCS):
+            pytest.skip()
+
+    if "hdu" in request.param or request.param in ["filename", "path", "path_compressed"]:
         if not isinstance(wcs, WCS):
             pytest.skip()
 
@@ -115,12 +123,12 @@ def valid_celestial_input(tmp_path, request, wcs):
             ]
         )
 
-    if request.param in ["filename", "path"]:
+    if request.param in ["filename", "path", "path_compressed"]:
         input_value = tmp_path / "test.fits"
         if request.param == "filename":
             input_value = str(input_value)
         hdulist.writeto(input_value)
-        kwargs["hdu_in"] = 0
+        kwargs["hdu_in"] = 2 if request.param == "path_compressed" else 0
     elif request.param == "hdulist":
         input_value = hdulist
         kwargs["hdu_in"] = 1
@@ -145,6 +153,20 @@ def valid_celestial_input(tmp_path, request, wcs):
         input_value = wcs
     elif request.param == "shape_wcs_tuple":
         input_value = (array.shape, wcs)
+    elif request.param in ["png", "transparent_png", "jpeg"]:
+        extension = "jpg" if request.param == "jpeg" else "png"
+        channels = 4 if request.param == "transparent_png" else 3
+        avm = AVM.from_wcs(wcs, shape=array.shape)
+        array = np.broadcast_to(array[None], (channels,) + array.shape).copy()
+        if channels == 4:
+            array[3] = 1
+        image = as_transparent_rgb(array)
+        if "transparent" not in request.param:
+            image = image.convert("RGB")
+        original_rgb = tmp_path / f"original.{extension}"
+        image.save(original_rgb)
+        input_value = tmp_path / f"tagged.{extension}"
+        avm.embed(original_rgb, input_value)
     else:
         raise ValueError(f"Unknown mode: {request.param}")
 
@@ -154,6 +176,7 @@ def valid_celestial_input(tmp_path, request, wcs):
 COMMON_PARAMS = [
     "filename",
     "path",
+    "path_compressed",
     "hdulist",
     "primary_hdu",
     "image_hdu",
@@ -162,6 +185,9 @@ COMMON_PARAMS = [
     "dask_wcs_tuple",
     "nddata",
     "nddata_dask",
+    "png",
+    "transparent_png",
+    "jpeg",
 ]
 
 

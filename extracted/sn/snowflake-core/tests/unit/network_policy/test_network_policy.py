@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.network_policy import NetworkPolicy, NetworkPolicyCollection
+from snowflake.core.network_policy import NetworkPolicy, NetworkPolicyCollection, NetworkPolicyResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -22,18 +22,13 @@ def network_policy(network_policies):
 
 
 def test_create_network_policy(fake_root, network_policies):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/network-policies?createMode=errorIfExists",
-    )
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={"name": "my_policy"},
-    )
+    args = (fake_root, "POST", BASE_URL + "/network-policies?createMode=errorIfExists")
+    kwargs = extra_params(query_params=[("createMode", "errorIfExists")], body={"name": "my_policy"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        network_policies.create(NetworkPolicy(name="my_policy"))
+        np_res = network_policies.create(NetworkPolicy(name="my_policy"))
+        assert isinstance(np_res, NetworkPolicyResource)
+        assert np_res.name == "my_policy"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -45,11 +40,7 @@ def test_create_network_policy(fake_root, network_policies):
 
 
 def test_iter_network_policy(fake_root, network_policies):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/network-policies",
-    )
+    args = (fake_root, "GET", BASE_URL + "/network-policies")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -70,11 +61,7 @@ def test_fetch_network_policy(fake_root, network_policy):
     from snowflake.core.network_policy._generated.models import NetworkPolicy as NetworkPolicyModel
 
     model = NetworkPolicyModel(name="my_policy")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/network-policies/my_policy",
-    )
+    args = (fake_root, "GET", BASE_URL + "/network-policies/my_policy")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -91,13 +78,8 @@ def test_fetch_network_policy(fake_root, network_policy):
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-
 def test_drop_network_policy(fake_root, network_policy):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/network-policies/my_policy",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/network-policies/my_policy")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

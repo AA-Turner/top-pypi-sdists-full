@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.account import Account, AccountCollection
+from snowflake.core.account import Account, AccountCollection, AccountResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,11 +23,7 @@ def account(accounts):
 
 
 def test_create_async(fake_root, accounts):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/accounts",
-    )
+    args = (fake_root, "POST", BASE_URL + "/accounts")
     kwargs = extra_params(
         body={
             "name": "my_account",
@@ -41,11 +37,12 @@ def test_create_async(fake_root, accounts):
             "restored_on": None,
             "organization_URL_expiration_on": None,
             "moved_on": None,
-        },
+        }
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         account_res = accounts.create(ACCOUNT)
+        assert isinstance(account_res, AccountResource)
         assert account_res.name == "my_account"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -58,11 +55,7 @@ def test_create_async(fake_root, accounts):
 
 
 def test_iter_async(fake_root, accounts):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/accounts",
-    )
+    args = (fake_root, "GET", BASE_URL + "/accounts")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -81,11 +74,7 @@ def test_iter_async(fake_root, accounts):
 
 
 def test_drop_async(fake_root, account):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/accounts/my_account?gracePeriodInDays=7",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/accounts/my_account?gracePeriodInDays=7")
     kwargs = extra_params(query_params=[("gracePeriodInDays", 7)])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -100,11 +89,7 @@ def test_drop_async(fake_root, account):
 
 
 def test_undrop_async(fake_root, account):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/accounts/my_account:undrop",
-    )
+    args = (fake_root, "POST", BASE_URL + "/accounts/my_account:undrop")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

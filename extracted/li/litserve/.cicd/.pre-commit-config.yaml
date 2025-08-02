@@ -1,0 +1,78 @@
+default_language_version:
+  python: python3
+
+ci:
+  autofix_prs: true
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit suggestions"
+  autoupdate_schedule: monthly
+  # submodules: true
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-case-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-docstring-first
+      - id: detect-private-key
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        additional_dependencies: [tomli]
+        #args: ["--write-changes"] # uncomment if you want to get automatic fixing
+
+  - repo: https://github.com/PyCQA/docformatter
+    rev: v1.7.7
+    hooks:
+      - id: docformatter
+        additional_dependencies: [tomli]
+        args: ["--in-place"]
+
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-black
+          - mdformat_frontmatter
+        args: ["--number"]
+        exclude: CHANGELOG.md
+
+  - repo: https://github.com/JoC0de/pre-commit-prettier
+    rev: v3.5.3
+    hooks:
+      - id: prettier
+        files: \.(json|yml|yaml|toml)
+        # https://prettier.io/docs/en/options.html#print-width
+        args: ["--print-width=120"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+      - id: ruff
+
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v1.0.0
+    hooks:
+      - id: sphinx-lint
+
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.6.0
+    hooks:
+      - id: pyproject-fmt
+        additional_dependencies: [tox]
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject

@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: ase_db_backends
+Version: 0.10.0
+Summary: ASE-DB backends
+Author-email: Jens Jørgen Mortensen <jjmo@dtu.dk>
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: COPYING
+License-File: COPYING.LESSER
+Requires-Dist: ase
+Requires-Dist: numpy
+Requires-Dist: psycopg2-binary
+Requires-Dist: pymysql
+Requires-Dist: cryptography
+Requires-Dist: lmdb
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Dynamic: license-file
+
+===============
+ASE-DB backends
+===============
+
+...

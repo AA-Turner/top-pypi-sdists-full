@@ -1,0 +1,78 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+
+requires = [ "flit-core>=3.2,<4" ]
+
+[project]
+name = "django-esi"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [ { name = "Alliance Auth", email = "adarnof@gmail.com" } ]
+requires-python = ">=3.8"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dynamic = [ "description", "version" ]
+dependencies = [
+    "bravado>=10.6,<12",
+    "brotli",
+    "celery>=4.0.2",
+    "django>=4.2,<6",
+    "jsonschema<4",
+    "python-jose>=3.3",
+    "requests>=2.26",
+    "requests-oauthlib>=0.8",
+    "tqdm>=4.62.3",
+]
+
+optional-dependencies.docs = [
+    "myst-parser",
+    "sphinx",
+    "sphinx-copybutton",
+    "sphinx-rtd-theme>=3,<4",
+    "sphinx-tabs",
+    "sphinxcontrib-django",
+]
+optional-dependencies.test = [
+    "coverage",
+    "factory-boy",
+    "requests-mock",
+]
+urls.Documentation = "https://django-esi.readthedocs.io/en/latest/"
+urls.Homepage = "https://gitlab.com/allianceauth/django-esi"
+urls.Source = "https://gitlab.com/allianceauth/django-esi"
+urls.Tracker = "https://gitlab.com/allianceauth/django-esi/-/issues"
+
+[tool.flit.module]
+name = "esi"
+
+[tool.isort]
+profile = "django"
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DJANGO",
+    "ESI",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+known_django = [ "django" ]
+skip_gitignore = true

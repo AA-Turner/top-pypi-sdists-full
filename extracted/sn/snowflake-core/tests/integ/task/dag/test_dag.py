@@ -28,9 +28,12 @@ def test_deploy_dag(schema):
     op.deploy(dag, mode=CreateMode.or_replace)
     try:
         fetched = schema.tasks[test_dag].fetch_task_dependents()
+        fetched = sorted(fetched, key=lambda x: x.name.lower())
         assert len(fetched) == 4
         assert fetched[0].name.lower() == test_dag
         assert fetched[1].name.lower() == f"{test_dag}$task1"
+        assert fetched[2].name.lower() == f"{test_dag}$task2"
+        assert fetched[3].name.lower() == f"{test_dag}$task3"
     finally:
         op.drop(dag)
 
@@ -46,7 +49,7 @@ def test_deploy_dag_with_finalizer(schema):
     op.deploy(dag, mode=CreateMode.or_replace)
     try:
         fetched = schema.tasks[test_dag].fetch_task_dependents()
-        assert len(fetched) == 3
+        assert len(fetched) == 4
         assert fetched[0].name.lower() == test_dag
         assert fetched[1].name.lower() == f"{test_dag}$task1"
     finally:
@@ -122,10 +125,7 @@ def test_deploy_dag_5_layers(schema):
     try:
         fetched = schema.tasks[test_dag].fetch_task_dependents()
         assert len(fetched) == 6
-        assert [x.name.lower() for x in fetched] == [
-            test_dag,
-            *[f"{test_dag}$task{i + 1}" for i in range(5)],
-        ]
+        assert [x.name.lower() for x in fetched] == [test_dag, *[f"{test_dag}$task{i + 1}" for i in range(5)]]
     finally:
         op.drop(dag)
 
@@ -134,6 +134,7 @@ def test_deploy_dag_5_layers(schema):
 @pytest.mark.usefixtures("anaconda_package_available")
 def test_deploy_dag_definition_python(schema, db_parameters):
     from snowflake.snowpark import Session
+
     def foo(session: Session) -> None:
         session.sql("select 1").collect()
 
@@ -144,11 +145,7 @@ def test_deploy_dag_definition_python(schema, db_parameters):
         with DAG(test_dag, schedule=timedelta(minutes=10)) as dag:
             task1 = DAGTask(
                 "task1",
-                StoredProcedureCall(
-                    foo,
-                    stage_location=test_stage,
-                    packages=["snowflake-snowpark-python"],
-                ),
+                StoredProcedureCall(foo, stage_location=test_stage, packages=["snowflake-snowpark-python"]),
                 warehouse=db_parameters["warehouse"],
             )
             task2 = DAGTask("task2", "select 2")
@@ -168,6 +165,7 @@ def test_deploy_dag_definition_python(schema, db_parameters):
 @pytest.mark.usefixtures("anaconda_package_available")
 def test_deploy_dag_python_function_directly(schema, db_parameters):
     from snowflake.snowpark import Session
+
     def foo0(session: Session) -> None:
         session.sql("select 'foo0'").collect()
 
@@ -240,6 +238,7 @@ def test_deploy_dag_python_function_directly(schema, db_parameters):
 @pytest.mark.parametrize("reverse", [True, False])
 def test_deploy_dag_with_branch(schema, db_parameters, reverse):
     from snowflake.snowpark import Session
+
     def task_handler(session: Session) -> None:
         pass  # do nothing
 
@@ -262,11 +261,7 @@ def test_deploy_dag_with_branch(schema, db_parameters, reverse):
             packages=["snowflake-snowpark-python"],
             warehouse=db_parameters["warehouse"],
         ) as dag:
-            task1 = DAGTask(
-                "task1",
-                task_handler,
-                warehouse=db_parameters["warehouse"],
-            )
+            task1 = DAGTask("task1", task_handler, warehouse=db_parameters["warehouse"])
             task1_branch = DAGTaskBranch("task1_branch", task_branch_handler, warehouse=db_parameters["warehouse"])
             task2 = DAGTask("task2", task_handler, is_serverless=True)
             task3 = DAGTask("task3", task_handler, warehouse=db_parameters["warehouse"], condition="1=1")
@@ -312,6 +307,7 @@ def test_deploy_dag_with_branch(schema, db_parameters, reverse):
 @pytest.mark.usefixtures("anaconda_package_available")
 def test_dag_use_function_return_value(schema, db_parameters):
     from snowflake.snowpark import Session
+
     test_stage = f"{schema.database.name}.{schema.name}.{random_object_name()}"
     test_dag = random_object_name()
     schema._connection.execute_string(f"create or replace stage {test_stage}")
@@ -327,11 +323,7 @@ def test_dag_use_function_return_value(schema, db_parameters):
             packages=["snowflake-snowpark-python"],
             use_func_return_value=True,
         ) as dag:
-            task1 = DAGTask(
-                "task1",
-                task_handler,
-                warehouse=db_parameters["warehouse"],
-            )
+            task1 = DAGTask("task1", task_handler, warehouse=db_parameters["warehouse"])
         op = DAGOperation(schema)
         op.deploy(dag, mode=CreateMode.or_replace)
         try:
@@ -362,6 +354,7 @@ def test_dag_use_function_return_value(schema, db_parameters):
 
 def test__use_func_return_value(session):
     from snowflake.snowpark import Session
+
     def foo(session: Session) -> str:
         return "abc"
 
@@ -690,10 +683,7 @@ def test_create_task_in_dag_with_warehouse(schema, warehouses, db_parameters):
 def test_create_task_in_dag_with_different_warehouse(session, schema, warehouses, db_parameters):
     current_warehouse = session.get_current_warehouse()
     task_warehouse_name = f"SUB_TASK_WAREHOUSE_{random_object_name()}"
-    warehouse = Warehouse(
-        name=task_warehouse_name,
-        warehouse_size="SMALL",
-    )
+    warehouse = Warehouse(name=task_warehouse_name, warehouse_size="SMALL")
     warehouse_ref = None
     try:
         warehouse_ref = warehouses.create(warehouse, mode=CreateMode.or_replace)
@@ -748,42 +738,30 @@ def test_create_serverless_task_with_warehouse(schema, warehouses, db_parameters
     with pytest.raises(ValueError):
         with dag:
             _ = DAGTask(
-                "task",
-                "select 'task'",
-                warehouse=warehouses[db_parameters["warehouse"]].name,
-                is_serverless=True
+                "task", "select 'task'", warehouse=warehouses[db_parameters["warehouse"]].name, is_serverless=True
             )
 
 
 def test_create_task_without_warehouse_in_dag_without_warehouse(schema, warehouses, db_parameters):
     dag_name = random_object_name()
-    dag = DAG(
-        dag_name,
-        schedule=timedelta(minutes=10),
-        stage_location="fake_stage",
-    )
+    dag = DAG(dag_name, schedule=timedelta(minutes=10), stage_location="fake_stage")
     with dag:
         task = DAGTask("task", "select 'task'", is_serverless=False)
     op = DAGOperation(schema)
     try:
         op.deploy(dag, mode=CreateMode.or_replace)
         op.run(dag)
-        assert task.warehouse is None # the task is created serverless anyway, as the DAG does not have warehouse either
+        assert (
+            task.warehouse is None
+        )  # the task is created serverless anyway, as the DAG does not have warehouse either
     finally:
         op.drop(dag)
 
 
 def test_create_dag_with_config(schema, database):
     dag_name = random_object_name()
-    config = {
-        "DB_NAME": database.name,
-        "SCHEMA_NAME": schema.name,
-    }
-    dag = DAG(
-        dag_name,
-        schedule=timedelta(days=1),
-        config=config,
-    )
+    config = {"DB_NAME": database.name, "SCHEMA_NAME": schema.name}
+    dag = DAG(dag_name, schedule=timedelta(days=1), config=config)
     with dag:
         op = DAGOperation(schema)
         try:
@@ -819,9 +797,8 @@ def test_dag_with_user_task_managed_initial_warehouse_size_raises_deprecation_wa
         _ = DAG(dag_name, schedule=timedelta(days=1), user_task_managed_initial_warehouse_size="SMALL")
         assert len(w) == 1
         assert issubclass(w[-1].category, DeprecationWarning)
-        assert (
-            "Providing user_task_managed_initial_warehouse_size for a dummy root Task is deprecated"
-            in str(w[-1].message)
+        assert "Providing user_task_managed_initial_warehouse_size for a dummy root Task is deprecated" in str(
+            w[-1].message
         )
 
 
@@ -835,10 +812,7 @@ def test_child_task_with_error_integration_raises_deprecation_warning(schema):
         _ = DAGTask(task_name, "select 1", error_integration="non_existing_object", dag=dag)
         assert len(w) == 1
         assert issubclass(w[-1].category, DeprecationWarning)
-        assert (
-            "error_integration cannot be specified for a child Task."
-            in str(w[-1].message)
-        )
+        assert "error_integration cannot be specified for a child Task." in str(w[-1].message)
 
 
 @pytest.mark.skip_notebook

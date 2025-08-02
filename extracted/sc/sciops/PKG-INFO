@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: sciops
+Version: 0.1.1
+Summary: Collection of utilities for scientific operations
+License: MIT
+Author: Dylan Miracle
+Author-email: dylan.miracle@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: pytest (>=7.1.2,<8.0.0)
+Requires-Dist: rich (>=12.4.4,<13.0.0)

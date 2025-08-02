@@ -1,5 +1,0 @@
----
-other:
-  - |
-    As a result of the CSS coverage improving, a large number of the unused CSS
-    rules have been removed.

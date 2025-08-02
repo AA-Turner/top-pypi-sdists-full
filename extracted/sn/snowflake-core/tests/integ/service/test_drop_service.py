@@ -43,9 +43,7 @@ def test_drop(services, session, imagerepo, shared_compute_pool):
         )
         s = services.create(test_service)
         s.drop()
-        with pytest.raises(
-            NotFoundError,
-        ):
+        with pytest.raises(NotFoundError):
             # TODO: HTTP response body: {"description": "list index out of range", "error_details": null}
             #  Looks wrong
             s.fetch()

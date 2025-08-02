@@ -1,0 +1,115 @@
+[project]
+name = "pyisyntax"
+version = "0.1.5"
+description = "Python bindings for libisyntax"
+readme = { content-type = "text/markdown", file = "README.md" }
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Aiden Nibali", email = "dismaldenizen@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+  "cffi>=1.12",
+  "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/anibali/pyisyntax"
+Source = "https://github.com/anibali/pyisyntax"
+Download = "https://pypi.org/project/pyisyntax/#files"
+Tracker = "https://github.com/anibali/pyisyntax/issues"
+"Release notes" = "https://github.com/anibali/pyisyntax/blob/master/CHANGELOG.md"
+
+[tool.uv]
+dev-dependencies = [
+  "mypy>=1.15.0",
+  "pytest",
+  "pytest-mock",
+  "ruff==0.11.6",
+  "tox>=4.0",
+  "tox-uv",
+  "twine",
+  "types-cffi",
+  "typing_extensions",
+]
+
+[build-system]
+requires = [
+    "cffi>=1.12",
+    "setuptools>=77",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py310"
+exclude = [
+  "isyntax_build/vendor",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D1",  # undocumented-
+  "PLR0913",  # too-many-arguments
+  "TRY003",  # raise-vanilla-args
+]
+pydocstyle.convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "S101",  # assert
+  "FBT",  # flake8-boolean-trap
+]
+
+[tool.pyright]
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+addopts = "-Werror"
+
+[tool.mypy]
+disable_error_code = ["import-untyped"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+min_version = 4.0
+env_list = ruff, pyright, mypy, py{310,311,312}
+
+[testenv]
+deps =
+  pytest
+  pytest-mock
+commands = pytest --import-mode=importlib {posargs:tests}
+
+[testenv:ruff]
+skip_install = true
+deps =
+  ruff==0.11.6
+commands = ruff check {posargs:.}
+
+[testenv:ruff-format]
+skip_install = true
+deps =
+  ruff==0.11.6
+commands = ruff format --check {posargs:.}
+
+[testenv:pyright]
+deps =
+  pyright
+  typing_extensions
+commands = pyright {posargs:isyntax}
+
+[testenv:mypy]
+deps =
+  mypy==1.15.0
+  types-cffi
+  typing_extensions
+commands = mypy {posargs:isyntax}
+"""
+
+[tool.setuptools.packages.find]
+include = ["isyntax", "isyntax.*"]
+namespaces = false

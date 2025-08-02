@@ -1,0 +1,60 @@
+Metadata-Version: 2.2
+Name: tinybird
+Version: 0.0.1.dev280
+Summary: Tinybird Command Line Tool
+Home-page: https://www.tinybird.co/docs/forward/commands
+Author: Tinybird
+Author-email: support@tinybird.co
+Requires-Python: >=3.9, <3.14
+Description-Content-Type: text/x-rst
+Requires-Dist: aiofiles==24.1.0
+Requires-Dist: anthropic==0.55.0
+Requires-Dist: boto3
+Requires-Dist: click<8.2,>=8.1.6
+Requires-Dist: clickhouse-toolset==0.34.dev0
+Requires-Dist: colorama==0.4.6
+Requires-Dist: confluent-kafka==2.8.0
+Requires-Dist: cryptography~=41.0.0
+Requires-Dist: croniter==1.3.15
+Requires-Dist: docker==7.1.0
+Requires-Dist: GitPython~=3.1.32
+Requires-Dist: humanfriendly~=8.2
+Requires-Dist: plotext==5.3.2
+Requires-Dist: prompt_toolkit==3.0.48
+Requires-Dist: pydantic~=2.11.7
+Requires-Dist: pydantic-ai-slim[anthropic]~=0.4.2
+Requires-Dist: pyperclip==1.8.2
+Requires-Dist: pyyaml<6.1,>=6.0
+Requires-Dist: requests<3,>=2.28.1
+Requires-Dist: shandy-sqlfmt==0.11.1
+Requires-Dist: shandy-sqlfmt[jinjafmt]==0.11.1
+Requires-Dist: toposort==1.10
+Requires-Dist: tornado~=6.0.0
+Requires-Dist: urllib3<2,>=1.26.14
+Requires-Dist: watchdog==6.0.0
+Requires-Dist: wheel
+Requires-Dist: packaging<24,>=23.1
+Requires-Dist: llm>=0.19
+Requires-Dist: thefuzz==0.22.1
+Requires-Dist: python-dotenv==1.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Tinybird CLI
+=============
+
+The Tinybird command-line tool allows you to use all the Tinybird functionality directly from the command line. Additionally, it includes several functions to create and manage data projects easily.
+
+Changelog
+----------
+
+0.0.1dev1
+***********
+
+* Initial release of the Tinybird CLI

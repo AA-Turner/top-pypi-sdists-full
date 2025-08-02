@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cibuildwheel"
-version = "3.1.2"
+version = "3.1.3"
 description = "Build Python wheels on CI with minimal configuration."
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -88,6 +88,7 @@ test = [
     "jinja2",
     "pytest-timeout",
     "pytest-xdist",
+    "pytest-rerunfailures",
     "pytest>=6",
     "setuptools",
     "tomli_w",

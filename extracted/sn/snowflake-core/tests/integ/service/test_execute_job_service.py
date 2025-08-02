@@ -65,9 +65,7 @@ def test_execute_job_service(services: ServiceCollection, session, imagerepo, sh
     assert fetched_job.schema_name.upper() == services.schema.name.upper()
 
     # create a job with the same name and expect a conflict error
-    with pytest.raises(
-        ConflictError,
-    ):
+    with pytest.raises(ConflictError):
         services.execute_job(test_job_spec)
 
     # create a job from inline service spec
@@ -81,9 +79,7 @@ def test_execute_job_service(services: ServiceCollection, session, imagerepo, sh
     )
     job_name = random_string(5, "test_job_")
     test_job_inline_spec = JobService(
-        name=job_name,
-        compute_pool=shared_compute_pool,
-        spec=ServiceSpecInlineText(spec_text=inline_spec),
+        name=job_name, compute_pool=shared_compute_pool, spec=ServiceSpecInlineText(spec_text=inline_spec)
     )
     test_job = services.execute_job(test_job_inline_spec)
 

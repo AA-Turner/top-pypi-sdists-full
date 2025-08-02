@@ -1,0 +1,66 @@
+[project]
+name = "fastcrud"
+version = "0.15.12"
+description = "FastCRUD is a Python package for FastAPI, offering robust async CRUD operations and flexible endpoint creation utilities."
+authors = [{ name = "Igor Benav", email = "igor.magalhaes.r@gmail.com" }]
+requires-python = ">=3.9.2,<4"
+readme = "README.md"
+license = "MIT"
+keywords = ["fastapi", "crud", "async", "sqlalchemy", "pydantic"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
+]
+dependencies = [
+    "SQLAlchemy>=2.0.0,<3",
+    "pydantic>=2.0.0,<3",
+    "sqlalchemy-utils>=0.41.2,<0.42",
+    "fastapi>=0.100.0",
+]
+
+[project.urls]
+Repository = "https://github.com/igorbenav/fastcrud"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.4,<8",
+    "aiosqlite>=0.19.0,<0.20",
+    "greenlet>=3.0.3,<4",
+    "httpx>=0.26.0,<0.27",
+    "pytest-asyncio>=0.23.3,<0.24",
+    "tox>=4.12.1,<5",
+    "uvicorn>=0.25.0,<0.26",
+    "sqlmodel>=0.0.14,<0.0.15",
+    "mypy>=1.9.0,<2",
+    "ruff>=0.3.4,<0.4",
+    "coverage>=7.4.4,<8",
+    "testcontainers>=4.7.1,<5",
+    "asyncpg>=0.30.0,<0.31",
+    "psycopg2-binary>=2.9.10,<3",
+    "psycopg>=3.2.1,<4",
+    "aiomysql>=0.2.0,<0.3",
+    "cryptography>=44.0.1,<45",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["fastcrud/", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+include = ["fastcrud/", "LICENSE"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+markers = ["dialect(name): mark test to run only on specific SQL dialect"]

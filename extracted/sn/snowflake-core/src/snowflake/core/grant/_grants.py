@@ -174,13 +174,7 @@ class Grants:
         ________
         Listing the roles and privileges granted to the grantee:
 
-        >>> root.grants.to(
-        ...    Grantee(
-        ...         name="test-user",
-        ...         grantee_type="user",
-        ...     ),
-        ...     limit = 10,
-        ... )
+        >>> root.grants.to(Grantee(name="test-user", grantee_type="user"), limit=10)
         """
         grants = self._api.list_grants_to(
             grantee_type=grantee.grantee_type, grantee_name=grantee.name, show_limit=limit

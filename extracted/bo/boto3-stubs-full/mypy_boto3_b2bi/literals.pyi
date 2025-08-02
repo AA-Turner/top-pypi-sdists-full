@@ -459,6 +459,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",

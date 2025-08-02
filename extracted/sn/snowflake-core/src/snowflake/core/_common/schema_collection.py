@@ -55,7 +55,6 @@ class SchemaObjectReferenceProtocol(Protocol[T]):
     def schema(self) -> "SchemaResource": ...
 
 
-
 class SchemaObjectReferenceMixin(Generic[T], ObjectReferenceMixin[SchemaObjectCollectionParent[T]]):
     @property
     def schema(self: SchemaObjectReferenceProtocol[T]) -> "SchemaResource":
@@ -82,4 +81,3 @@ def build_resource_fqn_identifier(resource: SchemaObjectReferenceProtocol[T]) ->
     if hasattr(resource, "name_with_args"):
         return f"{prefix}.{resource.name_with_args}"
     return f"{prefix}.{resource.name}"
-

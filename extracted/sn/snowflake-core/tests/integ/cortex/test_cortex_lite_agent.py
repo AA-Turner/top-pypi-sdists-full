@@ -21,9 +21,7 @@ pytestmark = [pytest.mark.skip_gov]
 
 
 @pytest.fixture(autouse=True)
-def setup_cortex_search_service(
-    connection, warehouse, tables, backup_warehouse_fixture
-):
+def setup_cortex_search_service(connection, warehouse, tables, backup_warehouse_fixture):
     del backup_warehouse_fixture
     # Base Table
     tables.create(
@@ -48,15 +46,13 @@ def setup_cortex_search_service(
                 "('Cortex Search is a search solution for any problem', 'filter_value_2')",
             ]
         )
-        cursor.execute(
-            f"INSERT INTO {TEST_TABLE_NAME} VALUES {rows}",
-        )
+        cursor.execute(f"INSERT INTO {TEST_TABLE_NAME} VALUES {rows}")
 
         # Cortex Search Service
         cursor.execute(
             f"CREATE OR REPLACE CORTEX SEARCH SERVICE {TEST_SERVICE_NAME} "
             f"ON search_col TARGET_LAG='1 minute' WAREHOUSE={warehouse.name} "
-            f"AS SELECT search_col, filter1 FROM {TEST_TABLE_NAME}",
+            f"AS SELECT search_col, filter1 FROM {TEST_TABLE_NAME}"
         )
 
         try:
@@ -70,9 +66,7 @@ def setup_cortex_search_service(
 def precheck_cortex_search_enabled(cortex_search_services, setup_cortex_search_service):
     del setup_cortex_search_service
     try:
-        cortex_search_services[TEST_SERVICE_NAME].search(
-            "hi", ["search_col", "filter1"], limit=5
-        )
+        cortex_search_services[TEST_SERVICE_NAME].search("hi", ["search_col", "filter1"], limit=5)
     except Exception as err:
         if API_NOT_ENABLED in err.body:
             pytest.xfail(API_NOT_ENABLED)
@@ -86,19 +80,10 @@ def test_agent_run(root: Root, database, schema):
     resp = root.cortex_agent_service.Run(
         {
             "model": "mistral-7b",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [{"type": "text", "text": "I have an internet issues"}],
-                }
-            ],
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "I have an internet issues"}]}],
             "tools": [{"tool_spec": {"type": "cortex_search", "name": "search1"}}],
-            "tool_resources": {
-                "search1": {
-                    "name": f"{database.name}.{schema.name}.{TEST_SERVICE_NAME}"
-                }
-            },
-        },
+            "tool_resources": {"search1": {"name": f"{database.name}.{schema.name}.{TEST_SERVICE_NAME}"}},
+        }
     )
 
     for e in resp.events():
@@ -209,7 +194,6 @@ def test_agent_run_xp(root: Root):
             "validator": validate_error_event,
         },
     ]
-
 
     for test_case in test_cases:
         response = HTTPResponse(

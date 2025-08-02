@@ -29,7 +29,7 @@ class _Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.1.0"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.1.1"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -108,6 +108,7 @@ class _Client:
         """mdmd:hidden"""
         ...
 
+    async def get_input_plane_metadata(self, input_plane_region: str) -> list[tuple[str, str]]: ...
     async def _call_safely(self, coro, readable_method: str):
         """Runs coroutine wrapped in a task that's part of the client's task context
 
@@ -155,7 +156,7 @@ class Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.1.0"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.1.1"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -266,6 +267,12 @@ class Client:
     def set_env_client(cls, client: typing.Optional[Client]):
         """mdmd:hidden"""
         ...
+
+    class __get_input_plane_metadata_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /, input_plane_region: str) -> list[tuple[str, str]]: ...
+        async def aio(self, /, input_plane_region: str) -> list[tuple[str, str]]: ...
+
+    get_input_plane_metadata: __get_input_plane_metadata_spec[typing_extensions.Self]
 
     class ___call_safely_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, coro, readable_method: str):

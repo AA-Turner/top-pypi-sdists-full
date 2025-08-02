@@ -1,0 +1,34 @@
+---
+
+name: Publish dev-release to PyPI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  UV_PUBLISH_TOKEN: ${{ secrets.PYPI_DASCHBOT_TOKEN }}
+
+jobs:
+  publish-dev-release-to-pypi:
+    if: startsWith(github.event.head_commit.message, 'fix') || startsWith(github.event.head_commit.message, 'feat')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install just
+        uses: taiki-e/install-action@just
+      - name: bump version in pyproject.toml
+        run: uv run scripts/bump_version.py
+      - name: build wheel
+        run: uv build
+      - name: publish new version to PyPI
+        run: uv publish

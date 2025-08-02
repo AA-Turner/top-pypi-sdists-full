@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymavlink
-Version: 2.4.48
+Version: 2.4.49
 Summary: Python MAVLink code
 Home-page: https://github.com/ArduPilot/pymavlink/
 License: LGPLv3

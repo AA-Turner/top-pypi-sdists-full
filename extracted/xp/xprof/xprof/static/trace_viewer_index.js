@@ -14146,6 +14146,13 @@ var tf_component_traceviewer;
       _loadedRange: Object,
       _loadedTraceEents: Object,
       _fullBounds: Object,
+      // TODO(yinzz/rahulnayar): Refactor the use of _isLoading.
+      // It is used inconsistently across different data fetching functions.
+      // _isLoading should only be set to false after both _updateModel and
+      // _updateView (and any other related async operations) are fully completed
+      // to prevent race conditions. For example, in _searchAndAddTraceEvents,
+      // _isLoading is set to false immediately after the data fetch, before
+      // _updateModel and _updateView are finished.
       _isLoading: {type: Boolean, value: false},
       _dirty: {type: Boolean, value: false},
       _tasks: Object,
@@ -15539,7 +15546,8 @@ var tf_component_traceviewer;
       return key;
     },
 
-    // Decodes the JSON trace events, removes all events that were loaded before
+    // Decodes the JSON trace and specifically exclude counter events,
+    // removes all events that were loaded before
     // and serializes to JSON again.
     _filterKnownTraceEvents: function(traceEvents) {
       if (this._loadedTraceEvents.size == 0) {
@@ -15627,36 +15635,39 @@ var tf_component_traceviewer;
         detailsSelector.style.display = 'flex';
         delete jsonData['details'];
       }
-
-      jsonData.traceEvents = this._filterKnownTraceEvents(jsonData.traceEvents || []);
+      let otherEvents = [];
+      let counterEvents = [];
+      // Only counter events have entries.
+      const isCounterEvent = (event) => !!event.entries;
+      jsonData.traceEvents.forEach(event => {
+        if (isCounterEvent(event)) {
+          counterEvents.push(event);
+        } else {
+          otherEvents.push(event);
+        }
+      });
+      otherEvents = this._filterKnownTraceEvents(otherEvents);
+      // We intentionally bypass filtering for counter events to prevent a potential
+      // stalling of the UI ,see https://issues.chromium.org/issues/42201829.
+      // A large counter event can generate a hash key that exceeds the maximum safe
+      // value for a number, which throws a RangeError.
+      const ungroupedCounterEvents = counterEvents.flatMap(event => {
+        const argName = event.event_stats;
+        return event.entries.map(entry => ({
+            pid: event.pid,
+            name: event.name,
+            ph: event.ph,
+            ts: entry[0],
+            args: {
+              [argName]: entry[1],
+            },
+          }));
+      });
+      jsonData.traceEvents = [...otherEvents, ...ungroupedCounterEvents];
+      var opt = new tr.importer.ImportOptions();
+      opt.shiftWorldToZero = false;
       if (jsonData.traceEvents.length > 0) {
-        let eventsToAdd = [];
-        jsonData.traceEvents.forEach(event => {
-          if (event.entries) {
-            // Handle Grouped Counter Events
-            let argName = event.event_stats;
-            event.entries.forEach(entry => {
-              const newEvent = {
-                pid: event.pid,
-                name: event.name,
-                ph: event.ph,
-                ts: entry[0],
-                args: {
-                  [argName]: entry[1],
-                },
-              };
-              eventsToAdd.push(newEvent);
-            });
-          } else {
-            // Handle Regular Events
-            eventsToAdd.push(event);
-          }
-        });
-        var opt = new tr.importer.ImportOptions();
-        opt.shiftWorldToZero = false;
-        new tr.importer.Import(this._model, opt).importTraces([
-          { ...jsonData, traceEvents: eventsToAdd }
-        ]);
+        new tr.importer.Import(this._model, opt).importTraces([jsonData]);
         this._dirty = true;
       }
 
@@ -15718,6 +15729,11 @@ var tf_component_traceviewer;
 
     _addUpdateViewLatency: function(latency) {
       const node = parent.document.getElementById('update-view-latency');
+      node.value = latency;
+    },
+
+    _addProcessGroupCouterLatency: function(latency) {
+      const node = parent.document.getElementById('process-group-counter-latency');
       node.value = latency;
     },
 

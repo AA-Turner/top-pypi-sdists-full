@@ -1,0 +1,6 @@
+---
+upgrade:
+  - |
+    Updates Sphinx from ~2.3.1 to ~3.0.4 which may or may not affect
+    project docs build. Refer to upstream release note as necessary.
+    https://www.sphinx-doc.org/en/master/changes.html

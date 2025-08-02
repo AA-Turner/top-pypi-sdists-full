@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: dagster-dg-core
+Version: 1.11.4
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dg-core
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: Jinja2
+Requires-Dist: tomlkit<0.13.3
+Requires-Dist: click<8.2,>=8
+Requires-Dist: click-aliases
+Requires-Dist: typing_extensions<5,>=4.4.0
+Requires-Dist: gql[requests]
+Requires-Dist: markdown
+Requires-Dist: jsonschema
+Requires-Dist: PyYAML>=5.1
+Requires-Dist: rich
+Requires-Dist: watchdog
+Requires-Dist: yaspin
+Requires-Dist: setuptools
+Requires-Dist: packaging
+Requires-Dist: python-dotenv
+Requires-Dist: typer<0.17.0
+Requires-Dist: dagster-shared==1.11.4
+Requires-Dist: dagster-cloud-cli==1.11.4
+Provides-Extra: test
+Requires-Dist: click; extra == "test"
+Requires-Dist: dagster==1.11.4; extra == "test"
+Requires-Dist: freezegun; extra == "test"
+Requires-Dist: psutil; extra == "test"
+Requires-Dist: pydantic; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: dagster-graphql==1.11.4; extra == "test"
+Requires-Dist: create-dagster==1.11.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist

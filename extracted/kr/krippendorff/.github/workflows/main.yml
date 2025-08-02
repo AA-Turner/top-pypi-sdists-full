@@ -1,0 +1,33 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  release:
+    types: [ published ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        resolution-strategy: [ 'highest' ]
+        include:
+          - python-version: '3.9'
+            resolution-strategy: 'lowest'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # We don't enable the cache, as it'd otherwise never install a newer version of the dependencies
+          # since we aren't checking in the lock file.
+      - name: Install the project
+        run: uv sync --resolution ${{ matrix.resolution-strategy }}
+      - name: Test
+        run: uv run pytest --doctest-modules

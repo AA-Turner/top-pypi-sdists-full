@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "trainy-policy-nightly"
+version = "0.1.0.dev20250801105138"
+description = "Trainy Skypilot Policy"
+packages = [
+    {include = "trainy"}
+]
+authors = ["Andrew Aikawa <asai@berkeley.edu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+kubernetes = "^30.1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.5.1"
+mypy = "^1.10.1"
+pytest = "^8.2.2"
+pytest-xdist = "^3.6.1"
+skypilot = {git = "https://github.com/asaiacai/skypilot.git"}
+pytest-env = "^0.6"
+pytest-cov = "^5.0.0"
+
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle, isort
+select = ["F", "E", "W", "I001"]
+
+[tool.mypy]
+python_version = "3.10"
+follow_imports = "skip"
+ignore_missing_imports = true
+allow_redefinition = true
+
+[tool.pytest.ini_options]
+required_plugins = [
+    "pytest-xdist",
+    "pytest-env>=0.6"
+]
+env = [
+    "SKYPILOT_DEBUG=1",
+    "SKYPILOT_DISABLE_USAGE_COLLECTION=1"
+]
+addopts = "-s -n 16 -q --tb=short --dist loadgroup --disable-warnings"

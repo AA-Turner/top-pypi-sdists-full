@@ -71,6 +71,7 @@ def setup(tasks, connection) -> Generator[None, None, None]:
 @pytest.mark.snowpark
 def test_load_task_basic(tasks, session):
     from snowflake.snowpark._internal.utils import parse_table_name
+
     task = tasks[task_name1].fetch()
     result = session._conn._conn.cursor(DictCursor).execute(f"describe task {task_name1}")
     for res in result:
@@ -92,12 +93,7 @@ def test_load_task_basic(tasks, session):
         assert task.last_suspended_on == res["last_suspended_on"]
         # check predecessors
         parent_ids: list[str] = sorted(map(lambda name: parse_table_name(name)[-1], task.predecessors))
-        expected = sorted(
-            [
-                tasks[task_name2].fetch().name,
-                tasks[task_name3].fetch().name,
-            ]
-        )
+        expected = sorted([tasks[task_name2].fetch().name, tasks[task_name3].fetch().name])
         assert expected == parent_ids
 
 

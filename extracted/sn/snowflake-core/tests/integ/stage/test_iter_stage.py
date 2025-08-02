@@ -4,12 +4,7 @@ from snowflake.core._internal.utils import normalize_and_unquote_name
 
 
 def test_iter(stages, temp_stage, temp_stage_case_sensitive):
-    stage_names = tuple(
-        map(
-            attrgetter("name"),
-            stages.iter(),
-        )
-    )
+    stage_names = tuple(map(attrgetter("name"), stages.iter()))
     assert any(
         map(
             lambda e: e in stage_names,
@@ -22,12 +17,7 @@ def test_iter(stages, temp_stage, temp_stage_case_sensitive):
 
 
 def test_iter_like(stages, temp_stage, temp_stage_case_sensitive):
-    stage_names = tuple(
-        map(
-            attrgetter("name"),
-            stages.iter(like="test_stage%"),
-        )
-    )
+    stage_names = tuple(map(attrgetter("name"), stages.iter(like="test_stage%")))
     assert any(
         map(
             lambda e: e in stage_names,

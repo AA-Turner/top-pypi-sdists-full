@@ -43,10 +43,7 @@ class ManagedAccountCollection(AccountObjectCollectionParent["ManagedAccountReso
         )
 
     @api_telemetry
-    def create(
-        self,
-        managed_account: ManagedAccount,
-    ) -> "ManagedAccountResource":
+    def create(self, managed_account: ManagedAccount) -> "ManagedAccountResource":
         """Create a managed account in Snowflake.
 
         Parameters
@@ -71,24 +68,17 @@ class ManagedAccountCollection(AccountObjectCollectionParent["ManagedAccountReso
         return self[managed_account.name]
 
     @api_telemetry
-    def create_async(
-        self,
-        managed_account: ManagedAccount,
-    ) -> PollingOperation["ManagedAccountResource"]:
+    def create_async(self, managed_account: ManagedAccount) -> PollingOperation["ManagedAccountResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.create_managed_account(managed_account=managed_account._to_model(), async_req=True)
         return PollingOperation(future, lambda _: self[managed_account.name])
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[ManagedAccount]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[ManagedAccount]:
         """Iterate through ``ManagedAccount`` objects in Snowflake, filtering on any optional `like` pattern.
 
         Parameters
@@ -117,27 +107,19 @@ class ManagedAccountCollection(AccountObjectCollectionParent["ManagedAccountReso
         >>>     print(managed_account.name, managed_account.comment)
         """
         managed_accounts = self._api.list_managed_accounts(
-            StrictStr(like) if like is not None else None,
-            async_req=False,
+            StrictStr(like) if like is not None else None, async_req=False
         )
 
         return map(ManagedAccount._from_model, iter(managed_accounts))
 
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[ManagedAccount]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[ManagedAccount]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_managed_accounts(
-            StrictStr(like) if like is not None else None,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_managed_accounts(StrictStr(like) if like is not None else None, async_req=True)
         return PollingOperation(future, lambda rest_models: map(ManagedAccount._from_model, iter(rest_models)))
 
 
@@ -171,6 +153,6 @@ class ManagedAccountResource(ObjectReferenceMixin[ManagedAccountCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.delete_managed_account(self.name, async_req=True)
         return PollingOperations.empty(future)

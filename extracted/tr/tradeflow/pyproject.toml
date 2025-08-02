@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0, <=72.1.0", "toml"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradeflow"
+version = "1.0.0"
+dependencies = [
+    "matplotlib>=3.0.0",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "statsmodels>=0.12.2",
+    "scipy>=1.9.0"
+]
+authors = [
+    { name="Martin Gangand", email="martin.gangand@gmail.com" },
+]
+description = "A package to simulate autocorrelated time series of signs"
+readme = "README.md"
+requires-python = ">=3.8, <3.13"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://martingangand.github.io/tradeflow/"

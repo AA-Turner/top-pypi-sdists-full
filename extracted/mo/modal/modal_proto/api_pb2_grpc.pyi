@@ -374,6 +374,19 @@ class ModalClientStub:
         modal_proto.api_pb2.ImageJoinStreamingRequest,
         modal_proto.api_pb2.ImageJoinStreamingResponse,
     ]
+    MapAwait: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.MapAwaitRequest,
+        modal_proto.api_pb2.MapAwaitResponse,
+    ]
+    """Input Plane Map"""
+    MapCheckInputs: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.MapCheckInputsRequest,
+        modal_proto.api_pb2.MapCheckInputsResponse,
+    ]
+    MapStartOrContinue: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.MapStartOrContinueRequest,
+        modal_proto.api_pb2.MapStartOrContinueResponse,
+    ]
     MountGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.MountGetOrCreateRequest,
         modal_proto.api_pb2.MountGetOrCreateResponse,
@@ -494,6 +507,14 @@ class ModalClientStub:
     ]
     SandboxSnapshotFs: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxSnapshotFsRequest,
+        modal_proto.api_pb2.SandboxSnapshotFsResponse,
+    ]
+    SandboxSnapshotFsAsync: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxSnapshotFsAsyncRequest,
+        modal_proto.api_pb2.SandboxSnapshotFsAsyncResponse,
+    ]
+    SandboxSnapshotFsAsyncGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxSnapshotFsAsyncGetRequest,
         modal_proto.api_pb2.SandboxSnapshotFsResponse,
     ]
     SandboxSnapshotGet: grpc.UnaryUnaryMultiCallable[
@@ -1218,6 +1239,25 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> collections.abc.Iterator[modal_proto.api_pb2.ImageJoinStreamingResponse]: ...
     @abc.abstractmethod
+    def MapAwait(
+        self,
+        request: modal_proto.api_pb2.MapAwaitRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.MapAwaitResponse:
+        """Input Plane Map"""
+    @abc.abstractmethod
+    def MapCheckInputs(
+        self,
+        request: modal_proto.api_pb2.MapCheckInputsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.MapCheckInputsResponse: ...
+    @abc.abstractmethod
+    def MapStartOrContinue(
+        self,
+        request: modal_proto.api_pb2.MapStartOrContinueRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.MapStartOrContinueResponse: ...
+    @abc.abstractmethod
     def MountGetOrCreate(
         self,
         request: modal_proto.api_pb2.MountGetOrCreateRequest,
@@ -1395,6 +1435,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     def SandboxSnapshotFs(
         self,
         request: modal_proto.api_pb2.SandboxSnapshotFsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxSnapshotFsResponse: ...
+    @abc.abstractmethod
+    def SandboxSnapshotFsAsync(
+        self,
+        request: modal_proto.api_pb2.SandboxSnapshotFsAsyncRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxSnapshotFsAsyncResponse: ...
+    @abc.abstractmethod
+    def SandboxSnapshotFsAsyncGet(
+        self,
+        request: modal_proto.api_pb2.SandboxSnapshotFsAsyncGetRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxSnapshotFsResponse: ...
     @abc.abstractmethod

@@ -1,0 +1,117 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "dbt-score"
+dynamic = []
+description = "Linter for dbt metadata."
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "click>=7.1.1, <9.0.0",
+    "tomli>=1.1.0; python_version<'3.11'",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+version = "0.13.1"
+
+[[project.authors]]
+name = "Picnic Analyst Development Platform"
+email = "analyst-development-platform@teampicnic.com"
+
+[project.license]
+text = "MIT"
+
+[project.scripts]
+dbt-score = "dbt_score.__main__:main"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "dbt-core>=1.5",
+    "tox-pdm~=0.7.2",
+    "tox~=4.13",
+]
+lint = [
+    "ruff~=0.2.2",
+    "mypy~=1.8",
+]
+test = [
+    "pytest~=8.0",
+    "coverage[toml]~=7.4",
+]
+docs = [
+    "mkdocs-material~=9.5",
+    "mkdocstrings[python]~=0.26.0",
+]
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.scripts.dbt-score]
+call = "dbt_score.__main__:main"
+
+[tool.mypy]
+strict = true
+warn_no_return = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "C90",
+    "I",
+    "PL",
+    "Q",
+    "RUF",
+    "D",
+    "E",
+    "W",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 11
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 9
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "PLR2004",
+    "PLR0913",
+]
+
+[tool.coverage.run]
+source = [
+    "tests",
+    "src",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+exclude_also = [
+    "@overload",
+]

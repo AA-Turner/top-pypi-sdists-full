@@ -11,12 +11,15 @@ from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
+from PIL import Image
+from pyavm import AVM
 
 __all__ = [
     "parse_input_data",
     "parse_input_shape",
     "parse_input_weights",
     "parse_output_projection",
+    "as_transparent_rgb",
 ]
 
 
@@ -30,6 +33,11 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
     # so we need to check here if this is the case and call the first compute()
     if isinstance(dask_array.ravel()[0].compute(), da.Array):
         dask_array = dask_array.compute()
+
+    # Cast the dask array to regular float for two reasons - first, zarr 3.0.0
+    # and later doesn't support big-endian arrays, and also we need to anyway
+    # make a native float memory mapped array below.
+    dask_array = dask_array.astype("<f8", copy=False)
 
     # NOTE: here we use a new TemporaryDirectory context manager for the zarr
     # array because we can remove the temporary directory straight away after
@@ -53,7 +61,7 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
 
         memmapped_array = np.memmap(
             memmap_path,
-            dtype=zarr_array.dtype,
+            dtype=float,
             shape=zarr_array.shape,
             mode="w+",
         )
@@ -92,14 +100,19 @@ def hdu_to_numpy_memmap(hdu):
     )
 
 
-def parse_input_data(input_data, hdu_in=None):
+def parse_input_data(input_data, hdu_in=None, source_hdul=None):
     """
     Parse input data to return a Numpy array and WCS object.
     """
 
     if isinstance(input_data, str | Path):
-        with fits.open(input_data) as hdul:
-            return parse_input_data(hdul, hdu_in=hdu_in)
+        if is_png(input_data) or is_jpeg(input_data):
+            data = np.array(Image.open(input_data)).transpose(2, 0, 1)[:, ::-1]
+            wcs = AVM.from_image(input_data).to_wcs()
+            return data, wcs
+        else:
+            with fits.open(input_data) as hdul:
+                return parse_input_data(hdul, hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
         if hdu_in is None:
             if len(input_data) > 1:
@@ -109,9 +122,11 @@ def parse_input_data(input_data, hdu_in=None):
                 )
             else:
                 hdu_in = 0
-        return parse_input_data(input_data[hdu_in])
-    elif isinstance(input_data, PrimaryHDU | ImageHDU | CompImageHDU):
-        return hdu_to_numpy_memmap(input_data), WCS(input_data.header)
+        return parse_input_data(input_data[hdu_in], source_hdul=input_data)
+    elif isinstance(input_data, PrimaryHDU | ImageHDU) and not isinstance(input_data, CompImageHDU):
+        return (hdu_to_numpy_memmap(input_data), WCS(input_data.header, fobj=source_hdul))
+    elif isinstance(input_data, CompImageHDU):
+        return (input_data.data, WCS(input_data.header, fobj=source_hdul))
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray | da.core.Array):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])
@@ -142,7 +157,13 @@ def parse_input_shape(input_shape, hdu_in=None):
     """
 
     if isinstance(input_shape, str | Path):
-        return parse_input_shape(fits.open(input_shape), hdu_in=hdu_in)
+        if is_png(input_shape) or is_jpeg(input_shape):
+            shape = np.array(Image.open(input_shape)).transpose(2, 0, 1).shape
+            wcs = AVM.from_image(input_shape).to_wcs()
+            return shape, wcs
+        else:
+            with fits.open(input_shape) as hdulist:
+                return parse_input_shape(hdulist, hdu_in=hdu_in)
     elif isinstance(input_shape, HDUList):
         if hdu_in is None:
             if len(input_shape) > 1:
@@ -193,7 +214,7 @@ def parse_input_weights(input_weights, hdu_weights=None):
     """
 
     if isinstance(input_weights, str):
-        return parse_input_data(fits.open(input_weights), hdu_in=hdu_weights)[0]
+        return parse_input_data(fits.open(input_weights), hdu_in=hdu_weights)
     elif isinstance(input_weights, HDUList):
         if hdu_weights is None:
             if len(input_weights) > 1:
@@ -203,11 +224,16 @@ def parse_input_weights(input_weights, hdu_weights=None):
                 )
             else:
                 hdu_weights = 0
-        return parse_input_data(input_weights[hdu_weights])[0]
+        return parse_input_data(input_weights[hdu_weights])
     elif isinstance(input_weights, PrimaryHDU | ImageHDU | CompImageHDU):
-        return input_weights.data
+        if "CTYPE1" in input_weights.header:
+            # all valid WCSes have CTYPE1 specified, at least
+            ww = WCS(input_weights.header)
+        else:
+            ww = None
+        return input_weights.data, ww
     elif isinstance(input_weights, np.ndarray):
-        return input_weights
+        return input_weights, None
     else:
         raise TypeError("input_weights should either be an HDU object or a Numpy array")
 
@@ -267,3 +293,69 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
         # currently have any broadcast dims
         shape_out = (*shape_in[: -len(shape_out)], *shape_out)
     return wcs_out, tuple(shape_out)
+
+
+def is_png(filename):
+    with open(filename, "rb") as f:
+        return f.read(8) == b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"
+
+
+def is_jpeg(filename):
+    with open(filename, "rb") as f:
+        return f.read(4) == b"\xff\xd8\xff\xe0"
+
+
+def as_transparent_rgb(data, alpha=None):
+    """
+    Convert a 3D Numpy array to a PIL object.
+
+    This takes care of swapping the order of the axes, and can apply an additional
+    transparency layer. This also converts any NaNs to transparency.
+
+    Parameters
+    ----------
+    data : `numpy.ndarray`
+        Input array with shape ``(3, ny, nx)`` or ``(4, ny, nx)``
+    alpha : `numpy.ndarray`
+        Alpha layer to apply to the image in addition to any pre-existing alpha
+        layer and transparency originating from NaN values. This should have
+        a shape ``(ny, nx)``
+    """
+
+    if data.ndim != 3:
+        raise ValueError("Data needs to be three-dimensional to return RGB image")
+
+    if data.shape[0] not in (3, 4):
+        raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
+
+    array = np.zeros((4,) + data.shape[1:], dtype=np.uint8)
+
+    if alpha is None:
+
+        alpha = np.ones(data.shape[1:])
+
+    else:
+
+        if alpha.ndim != 2:
+            raise ValueError("alpha needs to be two-dimensional")
+
+        if alpha.shape != data.shape[1:]:
+            raise ValueError(
+                "alpha layer shape {alpha.shape} does not match data spatial shape {data.shape[1:]}"
+            )
+
+        alpha = alpha.copy()
+
+    alpha[np.any(np.isnan(data), axis=0)] = 0
+
+    data = np.nan_to_num(data)
+
+    if data.shape[0] == 3:
+        array[:3] = data
+        array[3] = 255
+    else:
+        array[...] = data
+
+    array[3] = array[3] * alpha
+
+    return Image.fromarray(array.transpose(1, 2, 0)[::-1])

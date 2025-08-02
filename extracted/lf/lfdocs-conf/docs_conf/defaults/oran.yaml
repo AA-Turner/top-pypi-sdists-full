@@ -1,0 +1,31 @@
+---
+project: ORAN
+release: master
+version: master
+author: O-RAN Project
+copyright: "{}, O-RAN Project"
+
+needs_sphinx: "1.6.5"
+extensions:
+  - sphinx.ext.autodoc
+  - sphinx.ext.doctest
+  - sphinx.ext.intersphinx
+  - sphinx.ext.graphviz
+  - sphinx.ext.todo
+  - sphinx.ext.coverage
+  - sphinx.ext.viewcode
+exclude_patterns:
+  - .DS_Store
+  - _build
+  - Thumbs.db
+  - .tox
+todo_include_todos: false
+
+html_favicon: favicon.ico
+html_logo: _static/logo.png
+html_static_path:
+  - _static
+html_theme: sphinx_rtd_theme
+html_theme_options:
+  style_nav_header_background: "white"
+  sticky_navigation: "False"

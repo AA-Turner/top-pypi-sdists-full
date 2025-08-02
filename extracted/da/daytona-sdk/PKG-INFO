@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: daytona_sdk
-Version: 0.25.1
+Version: 0.25.4
 Summary: Python SDK for Daytona
 License: Apache-2.0
 Keywords: daytona,sdk
@@ -16,8 +16,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: Deprecated (>=1.2.18,<2.0.0)
 Requires-Dist: aiofiles (>=24.1.0,<24.2.0)
-Requires-Dist: daytona-api-client (==0.25.1)
-Requires-Dist: daytona-api-client-async (==0.25.1)
+Requires-Dist: daytona-api-client (==0.25.4)
+Requires-Dist: daytona-api-client-async (==0.25.4)
 Requires-Dist: environs (>=10.0.0,<15.0.0)
 Requires-Dist: httpx (>=0.28.0,<0.29.0)
 Requires-Dist: obstore (>=0.7.0,<0.8.0)

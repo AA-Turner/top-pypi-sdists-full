@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: msbench-utils
+Version: 0.0.2
+Summary: Common MSBench utilities
+Author-email: Ben Steenhoek <bensteenhoek@microsoft.com>, Avi Arora <aviarora@microsoft.com>
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: POSIX :: Linux
+Classifier: License :: OSI Approved :: MIT License
+
+# msbench-utils
+
+A small collection of utilities for MSBench benchmarking workflows.
+
+## Installation
+
+```bash
+pip install msbench-utils
+

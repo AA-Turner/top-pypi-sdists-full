@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: smtp-proxy
+Version: 0.1.9
+Summary: SMTP server meant to redirect SMTP requests to a third-party email provider
+License-File: LICENSE
+Keywords: email,proxy,smtp
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3
+Requires-Dist: aiosmtpd
+Requires-Dist: click
+Requires-Dist: sendgrid
+Requires-Dist: sendgrid-async
+Provides-Extra: dev
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Description-Content-Type: text/markdown
+
+Nothing yet

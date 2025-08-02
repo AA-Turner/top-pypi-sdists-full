@@ -15,11 +15,7 @@ pytestmark = pytest.mark.usefixtures("backup_warehouse_fixture")
 
 def test_create(warehouses, session):
     warehouse_name = random_string(5, "test_create_warehouse_")
-    test_warehouse = Warehouse(
-        name=warehouse_name,
-        warehouse_size="SMALL",
-        auto_suspend=500,
-    )
+    test_warehouse = Warehouse(name=warehouse_name, warehouse_size="SMALL", auto_suspend=500)
 
     warehouse_ref = None
     try:
@@ -32,11 +28,7 @@ def test_create(warehouses, session):
     finally:
         warehouse_ref.drop()
 
-    test_warehouse = Warehouse(
-        name=warehouse_name,
-        warehouse_size="SMALL",
-        auto_suspend=300,
-    )
+    test_warehouse = Warehouse(name=warehouse_name, warehouse_size="SMALL", auto_suspend=300)
 
     try:
         # Test warehouse create.
@@ -50,11 +42,7 @@ def test_create(warehouses, session):
 
     warehouse_name = random_string(5, "test_create_warehouse_")
     warehouse_name = f'"{warehouse_name}"'
-    test_warehouse = Warehouse(
-        name=warehouse_name,
-        warehouse_size="SMALL",
-        auto_suspend=500,
-    )
+    test_warehouse = Warehouse(name=warehouse_name, warehouse_size="SMALL", auto_suspend=500)
 
     warehouse_ref = None
     try:

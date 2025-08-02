@@ -9,23 +9,11 @@ import snowflake.connector
 
 from snowflake.core import Root
 from snowflake.core.compute_pool import ComputePool
-from snowflake.core.database import (
-    Database,
-    DatabaseCollection,
-    DatabaseResource,
-)
+from snowflake.core.database import Database, DatabaseCollection, DatabaseResource
 from snowflake.core.exceptions import NotFoundError
 from snowflake.core.image_repository import ImageRepository
-from snowflake.core.schema import (
-    Schema,
-    SchemaResource,
-)
-from snowflake.core.service import (
-    Service,
-    ServiceResource,
-    ServiceSpecInlineText,
-    ServiceSpecStageFile,
-)
+from snowflake.core.schema import Schema, SchemaResource
+from snowflake.core.service import Service, ServiceResource, ServiceSpecInlineText, ServiceSpecStageFile
 from snowflake.core.stage import Stage, StageDirectoryTable, StageEncryption, StageResource
 from snowflake.core.table import Table, TableColumn, TableResource
 
@@ -43,7 +31,7 @@ def test_schema() -> str:
 def temp_ir(image_repositories) -> Iterator[ImageRepository]:
     ir_name = random_string(5, "test_ir_")
     test_ir = ImageRepository(
-        name=ir_name,
+        name=ir_name
         # TODO: comment is not supported by image repositories?
         # comment="created by temp_ir",
     )
@@ -168,10 +156,7 @@ def temp_db_case_sensitive(databases: DatabaseCollection, backup_database_schema
 def temp_schema(schemas, backup_database_schema) -> SchemaResource:
     del backup_database_schema
     schema_name = random_string(5, "test_schema_")
-    test_schema = Schema(
-        name=schema_name,
-        comment="created by temp_schema",
-    )
+    test_schema = Schema(name=schema_name, comment="created by temp_schema")
     sc = schemas.create(test_schema)
     try:
         yield sc
@@ -184,10 +169,7 @@ def temp_schema_case_sensitive(schemas, backup_database_schema) -> Iterator[Sche
     del backup_database_schema
     schema_name = random_string(5, "test_schema_case_sensitive_")
     schema_name_case_sensitive = '"' + schema_name + '"'
-    test_schema = Schema(
-        name=schema_name_case_sensitive,
-        comment="created by temp_schema_case_sensitive",
-    )
+    test_schema = Schema(name=schema_name_case_sensitive, comment="created by temp_schema_case_sensitive")
     sc = schemas.create(test_schema)
     try:
         yield sc
@@ -254,10 +236,7 @@ def temp_customer_account_cursor(temp_customer_account_root):
 @pytest.fixture
 def temp_stage(stages) -> Iterator[StageResource]:
     stage_name = random_string(5, "test_stage_")
-    test_stage = Stage(
-        name=stage_name,
-        comment="created by temp_stage",
-    )
+    test_stage = Stage(name=stage_name, comment="created by temp_stage")
     st = stages.create(test_stage)
     try:
         yield st
@@ -269,10 +248,7 @@ def temp_stage(stages) -> Iterator[StageResource]:
 def temp_stage_case_sensitive(stages) -> Iterator[StageResource]:
     stage_name = random_string(5, "test_stage_case_sensitive_")
     stage_name_case_sensitive = '"' + stage_name + '"'
-    test_stage = Stage(
-        name=stage_name_case_sensitive,
-        comment="created by temp_stage",
-    )
+    test_stage = Stage(name=stage_name_case_sensitive, comment="created by temp_stage")
     st = stages.create(test_stage)
     try:
         yield st

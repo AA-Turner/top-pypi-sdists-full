@@ -2,6 +2,7 @@ import logging
 import unittest
 
 import cantools
+from cantools.database.errors import ParseError
 
 
 class CanToolsDiagnosticsDatabaseTest(unittest.TestCase):
@@ -9,7 +10,7 @@ class CanToolsDiagnosticsDatabaseTest(unittest.TestCase):
     maxDiff = None
 
     def test_le_example_cdd(self):
-        db = cantools.db.load_file('tests/files/cdd/le-example.cdd',
+        db = cantools.database.load_file('tests/files/cdd/le-example.cdd',
                                    encoding='iso-8859-1')
         self.assertEqual(len(db.dids), 15)
         self.assertEqual([did.name for did in db.dids],
@@ -148,7 +149,7 @@ class CanToolsDiagnosticsDatabaseTest(unittest.TestCase):
         self.assertEqual(decoded, decoded_did)
 
     def test_be_example_cdd(self):
-        db = cantools.db.load_file('tests/files/cdd/example.cdd',
+        db = cantools.database.load_file('tests/files/cdd/example.cdd',
                                    encoding = 'iso-8859-1')
         self.assertEqual(len(db.dids), 15)
         self.assertEqual([did.name for did in db.dids],
@@ -287,7 +288,7 @@ class CanToolsDiagnosticsDatabaseTest(unittest.TestCase):
         self.assertEqual(decoded, decoded_did)
 
     def test_be_example_cdd_repr(self):
-        db = cantools.db.load_file('tests/files/cdd/example.cdd',
+        db = cantools.database.load_file('tests/files/cdd/example.cdd',
                                    encoding = 'iso-8859-1')
         self.assertEqual(
             repr(db),
@@ -380,7 +381,7 @@ class CanToolsDiagnosticsDatabaseTest(unittest.TestCase):
             "  data('_reserved', 7, 4, 'big_endian', 1, 0, 0, 255, 'None', None)\n")
 
     def test_le_example_cdd_repr(self):
-        db = cantools.db.load_file('tests/files/cdd/le-example.cdd',
+        db = cantools.database.load_file('tests/files/cdd/le-example.cdd',
                                    encoding = 'iso-8859-1')
         self.assertEqual(
             repr(db),
@@ -473,25 +474,25 @@ class CanToolsDiagnosticsDatabaseTest(unittest.TestCase):
             "  data('_reserved', 4, 4, 'little_endian', 1, 0, 0, 255, 'None', None)\n")
 
     def test_be_cdd_add(self):
-        db = cantools.db.diagnostics.Database()
+        db = cantools.database.diagnostics.Database()
         db.add_cdd_file('tests/files/cdd/example.cdd', encoding = 'iso-8859-1')
         self.assertEqual(len(db.dids), 15)
 
     def test_le_cdd_add(self):
-        db = cantools.db.diagnostics.Database()
+        db = cantools.database.diagnostics.Database()
         db.add_cdd_file('tests/files/cdd/le-example.cdd', encoding = 'iso-8859-1')
         self.assertEqual(len(db.dids), 15)
 
     def test_unknown_byteorder(self):
-        db = cantools.db.diagnostics.Database()
+        db = cantools.database.diagnostics.Database()
 
-        with self.assertRaises(cantools.database.ParseError) as pe:
+        with self.assertRaises(ParseError) as pe:
             db.add_cdd_file('tests/files/cdd/invalid-bo-example.cdd', encoding = 'iso-8859-1')
 
         self.assertEqual(str(pe.exception), "Unknown byte order code: 4321")
 
     def test_datarefs(self):
-        db = cantools.db.load_file('tests/files/cdd/example-diddatarefs.cdd', encoding = 'iso-8859-1')
+        db = cantools.database.load_file('tests/files/cdd/example-diddatarefs.cdd', encoding = 'iso-8859-1')
         self.assertEqual(len(db.dids[-1].datas), 2)
 
 

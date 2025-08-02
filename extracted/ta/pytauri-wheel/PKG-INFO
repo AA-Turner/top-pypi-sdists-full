@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: pytauri-wheel
+Version: 0.7.0
+Summary: Precompiled wheels for pytauri
+Author-email: Sean Wang <126865849+WSH032@users.noreply.github.com>
+License-Expression: Apache-2.0
+Project-URL: documentation, https://pytauri.github.io/pytauri/
+Project-URL: source, https://github.com/pytauri/pytauri
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: pytauri==0.7.*

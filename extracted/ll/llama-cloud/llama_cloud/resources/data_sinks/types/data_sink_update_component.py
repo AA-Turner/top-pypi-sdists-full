@@ -2,6 +2,7 @@
 
 import typing
 
+from ....types.cloud_astra_db_vector_store import CloudAstraDbVectorStore
 from ....types.cloud_azure_ai_search_vector_store import CloudAzureAiSearchVectorStore
 from ....types.cloud_milvus_vector_store import CloudMilvusVectorStore
 from ....types.cloud_mongo_db_atlas_vector_search import CloudMongoDbAtlasVectorSearch
@@ -17,4 +18,5 @@ DataSinkUpdateComponent = typing.Union[
     CloudAzureAiSearchVectorStore,
     CloudMongoDbAtlasVectorSearch,
     CloudMilvusVectorStore,
+    CloudAstraDbVectorStore,
 ]

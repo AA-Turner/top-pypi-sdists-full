@@ -9,21 +9,16 @@ pytestmark = pytest.mark.min_sf_ver("8.39.0")
 
 @pytest.mark.use_accountadmin
 def test_revoke_role(
-    database_roles_in_test_database,
-    test_database_role_name,
-    test_database_role_name_2,
-    test_database_for_grant_name,
+    database_roles_in_test_database, test_database_role_name, test_database_role_name_2, test_database_for_grant_name
 ):
     database_roles_in_test_database[test_database_role_name].grant_role(
-        role_type="DATABASE ROLE",
-        role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name),
+        role_type="DATABASE ROLE", role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name)
     )
 
     assert len(list(database_roles_in_test_database[test_database_role_name].iter_grants_to())) == 2
 
     database_roles_in_test_database[test_database_role_name].revoke_role(
-        role_type="DATABASE ROLE",
-        role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name),
+        role_type="DATABASE ROLE", role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name)
     )
 
     assert len(list(database_roles_in_test_database[test_database_role_name].iter_grants_to())) == 1
@@ -42,9 +37,7 @@ def test_revoke_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 
@@ -54,9 +47,7 @@ def test_revoke_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 
@@ -68,9 +59,7 @@ def test_revoke_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 
@@ -110,9 +99,7 @@ def test_revoke_privileges_on_all(
 
 @pytest.mark.use_accountadmin
 def test_revoke_future_privileges(
-    database_roles_in_test_database,
-    test_database_role_name,
-    test_database_for_grant_name,
+    database_roles_in_test_database, test_database_role_name, test_database_for_grant_name
 ):
     # all future schemas in a database
     database_roles_in_test_database[test_database_role_name].grant_future_privileges(
@@ -145,9 +132,7 @@ def test_revoke_grant_option_for_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
         grant_option=True,
     )
@@ -162,9 +147,7 @@ def test_revoke_grant_option_for_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 
@@ -178,9 +161,7 @@ def test_revoke_grant_option_for_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quests"
+version = "2025.06.06"
+description = "Quick Uncertainty and Entropy from STructural Similarity"
+authors = [{name = "Daniel Schwalbe-Koda", email = "dskoda@ucla.edu"}]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+keywords = ["feed", "reader", "tutorial"]
+dependencies = [
+    "numpy",
+    "pandas",
+    "numba",
+    "ase",
+    "click",
+    "pynndescent",
+    "scikit-learn",
+]
+
+[project.scripts]
+quests = "quests.cli.quests:quests"
+
+[tool.setuptools]
+packages = ["quests"]
+
+[project.optional-dependencies]
+docs = ["sphinx"]
+gpu = ["torch", "torchvision"]

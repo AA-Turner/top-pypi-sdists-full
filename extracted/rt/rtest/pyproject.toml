@@ -1,0 +1,124 @@
+[build-system]
+requires = [
+    "maturin>=1.0,<2.0",
+    "maturin[patchelf]>=1.0,<2.0; sys_platform != 'win32'"
+]
+build-backend = "maturin"
+
+[project]
+name = "rtest"
+version = "0.0.31"
+description = "Python test runner built in Rust"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+    "pytest>=6.0",
+]
+authors = [
+    {name = "Hugh Han", email = "hughhan1@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Testing",
+]
+keywords = ["testing", "pytest", "rust", "performance"]
+
+[project.urls]
+Homepage = "https://github.com/hughhan1/rtest"
+Repository = "https://github.com/hughhan1/rtest.git"
+Issues = "https://github.com/hughhan1/rtest/issues"
+
+[project.scripts]
+rtest = "rtest:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.12.1",
+    "mypy==1.16.1",
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
+    "vulture==2.14",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rtest"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_unimported = true
+disallow_any_expr = true
+disallow_any_decorated = true
+disallow_any_explicit = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "rtest._rtest"
+
+[dependency-groups]
+dev = [
+    "maturin>=1.9.0",
+    "mypy==1.16.1",
+    "ruff==0.12.1",
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
+    "vulture==2.14",
+]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version", "Cargo.toml:package.version", "rtest/Cargo.toml:package.version"]
+changelog_file = "CHANGELOG.md"
+upload_to_repository = true
+upload_to_release = true
+hvcs = "github"
+branches = { main = {}, prerelease = { name = "beta", prerelease = true } }
+allow_zero_version = true
+major_on_zero = false
+commit_parser = "conventional"
+
+[tool.semantic_release.commit_parser_options]
+major_tags = []
+minor_tags = []
+patch_tags = ["fix", "perf", "feat", "build", "chore", "ci", "docs", "style", "refactor", "test"]
+
+[tool.semantic_release.remote]
+type = "github"
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]

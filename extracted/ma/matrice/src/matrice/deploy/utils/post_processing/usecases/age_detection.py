@@ -34,25 +34,25 @@ class AgeDetectionConfig(BaseConfig):
     confidence_threshold: float = 0.5
 
     usecase_categories: List[str] = field(
-        default_factory=lambda:  ['Female-adult', 'Female-child', 'Female-senior', 'Female-teenager', 'Male-adult', 'Male-child', 'Male-senior', 'Male-teenager']
+        default_factory=lambda:  ['AGE- 0-20 FEMALE', 'AGE- 0-20 MALE', 'AGE- 20-30 FEMALE', 'AGE- 20-30 MALE', 'AGE- 30-50 FEMALE', 'AGE- 30-50 MALE', 'AGE- 50- FEMALE', 'AGE- 50- MALE']
     )
 
     target_categories: List[str] = field(
-        default_factory=lambda: ['Female-adult', 'Female-child', 'Female-senior', 'Female-teenager', 'Male-adult', 'Male-child', 'Male-senior', 'Male-teenager']
+        default_factory=lambda: ['AGE- 0-20 FEMALE', 'AGE- 0-20 MALE', 'AGE- 20-30 FEMALE', 'AGE- 20-30 MALE', 'AGE- 30-50 FEMALE', 'AGE- 30-50 MALE', 'AGE- 50- FEMALE', 'AGE- 50- MALE']
     )
 
     alert_config: Optional[AlertConfig] = None
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: 'Female-adult', 
-            1: 'Female-child', 
-            2: 'Female-senior', 
-            3: 'Female-teenager', 
-            4: 'Male-adult', 
-            5: 'Male-child', 
-            6: 'Male-senior', 
-            7: 'Male-teenager'
+            0: 'AGE- 0-20 FEMALE', 
+            1: 'AGE- 0-20 MALE', 
+            2: 'AGE- 20-30 FEMALE', 
+            3: 'AGE- 20-30 MALE', 
+            4: 'AGE- 30-50 FEMALE', 
+            5: 'AGE- 30-50 MALE', 
+            6: 'AGE- 50- FEMALE', 
+            7: 'AGE- 50- MALE'
         }
     )
 
@@ -60,14 +60,14 @@ class AgeDetectionConfig(BaseConfig):
 class AgeDetectionUseCase(BaseProcessor):
     # Human-friendly display names for categories
     CATEGORY_DISPLAY = {
-            'Female-adult': 'Female-adult', 
-            'Female-child': 'Female-child', 
-            'Female-senior': 'Female-senior', 
-            'Female-teenager': 'Female-teenager', 
-            'Male-adult': 'Male-adult', 
-            'Male-child': 'Male-child', 
-            'Male-senior': 'Male-senior', 
-            'Male-teenager': 'Male-teenager'
+            'AGE- 0-20 FEMALE': 'AGE- 0-20 FEMALE', 
+            'AGE- 0-20 MALE': 'AGE- 0-20 MALE', 
+            'AGE- 20-30 FEMALE': 'AGE- 20-30 FEMALE', 
+            'AGE- 20-30 MALE': 'AGE- 20-30 MALE', 
+            'AGE- 30-50 FEMALE': 'AGE- 30-50 FEMALE', 
+            'AGE- 30-50 MALE': 'AGE- 30-50 MALE', 
+            'AGE- 50- FEMALE': 'AGE- 50- FEMALE', 
+            'AGE- 50- MALE': 'AGE- 50- MALE'
         }
 
 
@@ -78,7 +78,7 @@ class AgeDetectionUseCase(BaseProcessor):
         self.CASE_TYPE: Optional[str] = 'age_detection'
         self.CASE_VERSION: Optional[str] = '1.2'
         # List of  categories to track
-        self.target_categories =  ['Female-adult', 'Female-child', 'Female-senior', 'Female-teenager', 'Male-adult', 'Male-child', 'Male-senior', 'Male-teenager']
+        self.target_categories =  ['AGE- 0-20 FEMALE', 'AGE- 0-20 MALE', 'AGE- 20-30 FEMALE', 'AGE- 20-30 MALE', 'AGE- 30-50 FEMALE', 'AGE- 30-50 MALE', 'AGE- 50- FEMALE', 'AGE- 50- MALE']
 
 
         # Initialize smoothing tracker
@@ -209,6 +209,7 @@ class AgeDetectionUseCase(BaseProcessor):
         general_counting_summary = calculate_counting_summary(data) 
         counting_summary = self._count_categories(processed_data, config) 
         # Add total unique  counts after tracking using only local state
+        print(counting_summary)
         total_counts = self.get_total_counts() 
         counting_summary['total_counts'] = total_counts 
         

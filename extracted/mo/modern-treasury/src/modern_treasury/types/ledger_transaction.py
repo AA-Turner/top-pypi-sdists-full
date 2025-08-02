@@ -13,6 +13,14 @@ __all__ = ["LedgerTransaction"]
 class LedgerTransaction(BaseModel):
     id: str
 
+    archived_reason: Optional[str] = None
+    """
+    System-set reason why the ledger transaction was archived; currently only
+    'balance_lock_failure' for transactions that violated balance constraints. Only
+    populated when archive_on_balance_lock_failure is true and a balance lock
+    violation occurs, otherwise null.
+    """
+
     created_at: datetime
 
     description: Optional[str] = None

@@ -80,7 +80,7 @@ class Provider:
 
     def get(
         self,
-        scope: typing.Any | None = None,
+        container: typing.Any | None = None,
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
@@ -95,7 +95,7 @@ class SingletonProvider(Provider):
     ) -> None: ...
     def get(
         self,
-        scope: typing.Any | None = None,
+        container: typing.Any | None = None,
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
@@ -109,7 +109,7 @@ class FactoryProvider(Provider):
     ) -> None: ...
     def get(
         self,
-        scope: typing.Any | None = None,
+        container: typing.Any | None = None,
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
@@ -123,7 +123,7 @@ class AsyncFactoryProvider(Provider):
     ) -> None: ...
     async def get(
         self,
-        scope: typing.Any | None = None,
+        container: typing.Any | None = None,
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
@@ -134,7 +134,7 @@ class ServiceContainer:
     def resolve(
         self,
         provide: typing.Any,
-        scope: typing.Any | None = None,
+        container: typing.Any | None = None,
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
@@ -214,50 +214,6 @@ def log_critical_with_extra(
     extra: dict[str, typing.Any],
 ) -> None: ...
 def is_enabled_for(level: str) -> bool: ...
-
-# Block for VSP service management.
-
-class HealthStatus(str, enum.Enum):
-    Healthy = 'HealthStatus.Healthy'
-    Unhealthy = 'HealthStatus.Unhealthy'
-    Unknown = 'HealthStatus.Unknown'
-
-    def __repr__(self) -> str: ...
-
-@dataclass(frozen=True)
-class ServiceInfo:
-    name: str
-    host: str
-    port: int
-    weight: int = 1
-    health_status: bool = True
-    last_health_check: float = 0.0
-
-    def mark_unhealthy(self) -> None: ...
-    def mark_healthy(self) -> None: ...
-    def is_healthy(self) -> bool: ...
-    def endpoint(self) -> str: ...
-
-class LoadBalancer:
-    """Abstract Load Balancer interface."""
-
-    def select(self, instances: list[ServiceInfo]) -> ServiceInfo:
-        """Select a service instance."""
-        ...
-
-@dataclass(frozen=True)
-class RoundRobinBalancer(LoadBalancer):
-    """Round-Robin Load Balancer."""
-
-    index: int = 0
-
-    def select(self, instances: list[ServiceInfo]) -> ServiceInfo: ...
-
-@dataclass(frozen=True)
-class WeightedBalancer(LoadBalancer):
-    """Weighted Load Balancer based on instance weight."""
-
-    def select(self, instances: list[ServiceInfo]) -> ServiceInfo: ...
 
 # Block for Background tasks management.
 @dataclass(frozen=True)
@@ -462,3 +418,23 @@ def create_template_engine(
     cache_enabled: bool | None = True,
     strict_mode: bool | None = True,
 ) -> _TemplateEngine: ...
+
+
+@dataclass(frozen=True)
+class UploadFile:
+    """Represents an uploaded file."""
+
+    filename: str
+    content_type: str
+    size: int
+    headers: dict[str, str]
+
+    def read(self) -> bytes:
+        """Read the contents of the uploaded file."""
+        ...
+    def write(self, data: bytes) -> None:
+        """Write data to the uploaded file."""
+        ...
+    def seek(self, offset: int) -> None:
+        """Seek to a specific position in the uploaded file."""
+        ...

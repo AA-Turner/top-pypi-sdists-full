@@ -18,19 +18,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_function_name_with_args(
-    function: Function | Procedure | UserDefinedFunction
-) -> str:
+def get_function_name_with_args(function: Function | Procedure | UserDefinedFunction) -> str:
     return f"{function.name}({','.join([str(argument.datatype) for argument in function.arguments])})"
 
 
 FUNCTION_WITH_ARGS_PATTERN = re.compile(r"""^(\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*)\(([A-Za-z,0-9_]*)\)$""")
 
 
-def replace_function_name_in_name_with_args(
-    name_with_args: str,
-    new_name: str
-) -> str:
+def replace_function_name_in_name_with_args(name_with_args: str, new_name: str) -> str:
     matcher = FUNCTION_WITH_ARGS_PATTERN.match(name_with_args)
     if not matcher:
         raise ValueError("Invalid function name with arguments")
@@ -53,9 +48,7 @@ def check_version_lte(version_to_check: str, reference_version: str) -> bool:
     return cur_version <= req_version
 
 
-def fix_hostname(
-    hostname: str,
-) -> str:
+def fix_hostname(hostname: str) -> str:
     """Perform automatic hostname fixes.
 
     When a legacy format hostname is used to connect to Snowflake SSL certificates might not work as expected.
@@ -63,7 +56,7 @@ def fix_hostname(
     https://docs.snowflake.com/en/user-guide/organizations-connect for more documentation) _ (underscores) should
     be replaced with - (dashes).
     """
-    first_part, _, rest = hostname.partition('.')
+    first_part, _, rest = hostname.partition(".")
     if not rest:
         raise Exception(f"provided hostname '{hostname}' is invalid")
     first_part = first_part.replace("_", "-")

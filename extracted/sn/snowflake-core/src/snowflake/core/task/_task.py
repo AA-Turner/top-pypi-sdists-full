@@ -7,25 +7,12 @@ from concurrent.futures import Future
 from datetime import datetime, timedelta
 from logging import getLogger
 from types import ModuleType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Literal,
-    NamedTuple,
-    Optional,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Optional, Union, overload
 
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
 from snowflake.core._operation import PollingOperations
@@ -39,9 +26,7 @@ from snowflake.core.task._generated import (
     TaskSchedule,
 )
 from snowflake.core.task._generated.api_client import StoredProcApiClient
-from snowflake.core.task._generated.models import (
-    Task as TaskModel,
-)
+from snowflake.core.task._generated.models import Task as TaskModel
 
 from .._options import snowpark
 
@@ -143,6 +128,7 @@ def _to_model_schedule(schedule: Optional[Union[Cron, timedelta]]) -> Optional[T
         return MinutesSchedule(minutes=int(total_seconds / 60))
     raise TypeError("schedule should be either Cron or timedelta value")
 
+
 def _to_model_target_completion_interval(target_completion_interval: Optional[timedelta]) -> Optional[MinutesSchedule]:
     if target_completion_interval is None:
         return None
@@ -154,9 +140,8 @@ def _to_model_target_completion_interval(target_completion_interval: Optional[ti
         )
     return MinutesSchedule(minutes=int(total_seconds / 60))
 
-def _from_model_schedule(
-    schedule: Optional[TaskSchedule],
-) -> Optional[Union[timedelta, Cron]]:
+
+def _from_model_schedule(schedule: Optional[TaskSchedule]) -> Optional[Union[timedelta, Cron]]:
     if schedule is None:
         return None
     if isinstance(schedule, MinutesSchedule):
@@ -165,12 +150,14 @@ def _from_model_schedule(
         return Cron(schedule.cron_expr, schedule.timezone)
     raise TypeError("schedule must be either a MinutesSchedule or CronSchedule. ")  # won't happen in reality.
 
+
 def _from_model_target_completion_interval(
     target_completion_interval: Optional[MinutesSchedule],
 ) -> Optional[timedelta]:
     if target_completion_interval is None:
         return None
     return timedelta(minutes=target_completion_interval.minutes)
+
 
 class StoredProcedureCall:
     """Represents a procedure call used as a task's ``definition``.
@@ -502,10 +489,7 @@ class Task:
         )
         return model
 
-    def to_dict(
-        self,
-        hide_readonly_properties: bool = False,
-    ) -> dict[str, Any]:
+    def to_dict(self, hide_readonly_properties: bool = False) -> dict[str, Any]:
         return self._to_rest_model().to_dict(hide_readonly_properties=hide_readonly_properties)
 
 
@@ -536,10 +520,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Examples
         ________
-        >>> task_parameters = Task(
-        ...     name="your-task-name",
-        ...     definition="select 1"
-        ... )
+        >>> task_parameters = Task(name="your-task-name", definition="select 1")
 
         # Using a ``TaskCollection`` to create a reference to task in Snowflake server:
 
@@ -553,7 +534,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._create_or_alter(task=task, async_req=True)
         return PollingOperations.empty(future)
 
@@ -564,10 +545,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
         self.drop()
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: Optional[bool] = None,
-    ) -> None:
+    def drop(self, if_exists: Optional[bool] = None) -> None:
         """Drop this task.
 
         Parameters
@@ -583,11 +561,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
         >>> task_reference.drop()
         """
         self.collection._api.delete_task(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
@@ -596,13 +570,9 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_task(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -629,7 +599,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_task(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperation(future, lambda rest_model: Task._from_rest_model(rest_model))
 
@@ -658,16 +628,14 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.execute_task(
             self.database.name, self.schema.name, self.name, retry_last=retry_last, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def resume(
-        self,
-    ) -> None:
+    def resume(self) -> None:
         """Resume the task then it will run on the schedule.
 
         Examples
@@ -676,12 +644,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         >>> task_reference.resume()
         """
-        self.collection._api.resume_task(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False
-        )
+        self.collection._api.resume_task(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def resume_async(self) -> PollingOperation[None]:
@@ -689,19 +652,12 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.resume_task(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True
-        )
+        """  # noqa: D401
+        future = self.collection._api.resume_task(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def suspend(
-        self,
-    ) -> None:
+    def suspend(self) -> None:
         """Suspend the task so it won't run again on the schedule.
 
         Examples
@@ -710,12 +666,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         >>> task_reference.suspend()
         """
-        self.collection._api.suspend_task(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        self.collection._api.suspend_task(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def suspend_async(self) -> PollingOperation[None]:
@@ -723,13 +674,8 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.suspend_task(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.suspend_task(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.empty(future)
 
     @api_telemetry
@@ -755,10 +701,10 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_task_dependents(
-                self.database.name, self.schema.name, self.name, async_req=True
-            )
+            self.database.name, self.schema.name, self.name, async_req=True
+        )
         return PollingOperation(future, lambda rest_models: [Task._from_rest_model(x) for x in rest_models])
 
     @api_telemetry
@@ -782,11 +728,7 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
         >>> completed_graphs = task_reference.get_complete_graphs()
         """
         return self.collection._api.get_complete_graphs(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            error_only=error_only,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, error_only=error_only, async_req=False
         )
 
     @api_telemetry
@@ -795,13 +737,9 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.get_complete_graphs(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            error_only=error_only,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, error_only=error_only, async_req=True
         )
         return PollingOperations.identity(future)
 
@@ -827,18 +765,17 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.get_current_graphs(
-            self.database.name, self.schema.name, self.name, async_req=True)
+            self.database.name, self.schema.name, self.name, async_req=True
+        )
         return PollingOperations.identity(future)
 
     @overload
-    def _create_or_alter(self, task: Task, async_req: Literal[True]) -> Future[SuccessResponse]:
-        ...
+    def _create_or_alter(self, task: Task, async_req: Literal[True]) -> Future[SuccessResponse]: ...
 
     @overload
-    def _create_or_alter(self, task: Task, async_req: Literal[False]) -> SuccessResponse:
-        ...
+    def _create_or_alter(self, task: Task, async_req: Literal[False]) -> SuccessResponse: ...
 
     def _create_or_alter(self, task: Task, async_req: bool) -> Union[SuccessResponse, Future[SuccessResponse]]:
         self.collection._extract_definition(task)
@@ -862,10 +799,7 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
     Examples
     ________
     >>> task_collection = root.databases["mydb"].schemas["myschema"].tasks
-    >>> task = Task(
-    ...     name="mytask",
-    ...     definition="select 1"
-    ... )
+    >>> task = Task(name="mytask", definition="select 1")
     >>> task_collection.create(task)
     """
 
@@ -876,12 +810,7 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
         )
 
     @api_telemetry
-    def create(
-        self,
-        task: Task,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
-    ) -> TaskResource:
+    def create(self, task: Task, *, mode: CreateMode = CreateMode.error_if_exists) -> TaskResource:
         """Create a task in Snowflake.
 
         Parameters
@@ -905,10 +834,7 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
         ________
         Creating a task in Snowflake and getting a reference to it:
 
-        >>> task_parameters = Task(
-        ...     name="mytask",
-        ...     definition="select 1"
-        ... )
+        >>> task_parameters = Task(name="mytask", definition="select 1")
         >>> # Use the task collection created before to create a reference to the task resource
         >>> # in Snowflake.
         >>> task_reference = task_collection.create(task_parameters)
@@ -921,16 +847,13 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
 
     @api_telemetry
     def create_async(
-        self,
-        task: Task,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, task: Task, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation[TaskResource]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         self._extract_definition(task)
         task_model = task._to_rest_model()
         real_mode = CreateMode[mode].value
@@ -1011,7 +934,7 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_tasks(
             self.database.name,
             self.schema.name,
@@ -1048,9 +971,7 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
                     is_permanent=True,
                 )
             sp_sql = snowpark._internal.udf_utils.generate_call_python_sp_sql(
-                self.root.session,
-                sproc_obj.name,
-                *definition._args,
+                self.root.session, sproc_obj.name, *definition._args
             )
             if sproc_obj._anonymous_sp_sql:
                 sp_sql = f"{sproc_obj._anonymous_sp_sql}{sp_sql}"

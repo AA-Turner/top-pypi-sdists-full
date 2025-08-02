@@ -1,0 +1,11 @@
+[workspace]
+members = ["pepecore", "pepecore-array", "pepecore-py-bindings"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+pepecore-array = { path = "pepecore-array" }
+pepecore = { path = "pepecore", features = ["encode"] }

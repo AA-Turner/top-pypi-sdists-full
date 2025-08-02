@@ -21,8 +21,7 @@ def test_iter_grant_to(
 ):
     # test grant database role becasue in this we will get the securable database name
     database_roles_in_test_database[test_database_role_name].grant_role(
-        role_type="DATABASE ROLE",
-        role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name),
+        role_type="DATABASE ROLE", role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name)
     )
     grants_list = list(database_roles_in_test_database[test_database_role_name].iter_grants_to())
     assert len(grants_list) == 2
@@ -39,8 +38,7 @@ def test_iter_grant_to(
     assert len(grants_list) == 1
 
     database_roles_in_test_database[test_database_role_name].revoke_role(
-        role_type="DATABASE ROLE",
-        role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name),
+        role_type="DATABASE ROLE", role=Securable(name=test_database_role_name_2, database=test_database_for_grant_name)
     )
 
     # grant on a schema here we will get the securable name as well as schema name
@@ -69,9 +67,7 @@ def test_iter_grant_to(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
     grants_list = list(database_roles_in_test_database[test_database_role_name].iter_grants_to())
@@ -88,9 +84,7 @@ def test_iter_grant_to(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 
@@ -125,10 +119,7 @@ def test_iter_grant_to(
 
 @pytest.mark.use_accountadmin
 def test_iter_future_grant_to(
-    database_roles_in_test_database,
-    test_database_role_name,
-    test_database_for_grant_name,
-    test_schema_for_grant_name,
+    database_roles_in_test_database, test_database_role_name, test_database_for_grant_name, test_schema_for_grant_name
 ):
     assert len(list(database_roles_in_test_database[test_database_role_name].iter_future_grants_to())) == 0
     # all future tables in a schema

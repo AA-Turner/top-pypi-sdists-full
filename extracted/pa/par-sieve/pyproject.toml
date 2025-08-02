@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "par-sieve"
+authors = [
+    { name = "Sam Foster", email = "slfotg@gmail.com" },
+]
+description = "Parallel Prime Sieve for Python"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = [
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/slfotg/par-sieve"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

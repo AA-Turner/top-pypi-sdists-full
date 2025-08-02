@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: trainy-policy-nightly
+Version: 0.1.0.dev20250801105138
+Summary: Trainy Skypilot Policy
+Author: Andrew Aikawa
+Author-email: asai@berkeley.edu
+Requires-Python: >=3.9,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: kubernetes (>=30.1.0,<31.0.0)
+Description-Content-Type: text/markdown
+
+# Trainy Skypilot Policy
+
+This is a package that defines the Skypilot policies necessary for running on Trainy clusters. The purpose of the policy is to 
+
+- mutate tasks to add the necessary labels/annotations (kueue, networking, etc.) per cloud provider
+- set the available k8s clusters to be those that are visible via tailscale in the allowed k8s cluster contexts
+
+For users, they set in `~/.sky/config.yaml`
+
+```bash
+admin_policy: trainy.policy.DynamicKubernetesContextsUpdatePolicy
+```
+
+and install
+```bash
+pip install "trainy-skypilot-nightly[kubernetes]"
+pip install trainy-policy-nightly
+```
+
+[Skypilot Admin Policies](https://skypilot.readthedocs.io/en/latest/cloud-setup/policy.html)

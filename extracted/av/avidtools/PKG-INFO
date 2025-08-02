@@ -1,0 +1,47 @@
+Metadata-Version: 2.3
+Name: avidtools
+Version: 0.2.1
+Summary: Developer tools for AVID
+License: Apache-2.0
+Keywords: ai,vulnerability,security,machine-learning,avid
+Author: Subho Majumdar
+Author-email: subho@avidml.org
+Requires-Python: >=3.12
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: nvdlib (>=0.8.1,<0.9.0)
+Requires-Dist: pydantic (>=2.11.5,<3.0.0)
+Requires-Dist: typing-extensions (>=4.13.2,<5.0.0)
+Project-URL: Bug Tracker, https://github.com/avidml/avidtools/issues
+Project-URL: Documentation, https://github.com/avidml/avidtools
+Project-URL: Homepage, https://github.com/avidml/avidtools
+Project-URL: Repository, https://github.com/avidml/avidtools
+Description-Content-Type: text/markdown
+
+# avidtools
+Developer tools for AVID.
+
+[API docs](https://avidml.org/avidtools/)
+
+## Components
+
+Currently there are two components:
+
+- **Data models**: defines the base data class for an AVID report as a Pydantic data model, with supporting enums and components.
+- **Connectors**: defines connectors to pull data from different sources (e.g. MITRE ATLAS) and structure them as AVID report.
+
+## Installation
+
+Run the following to install the latest stable version on PyPI:
+```
+pip install avidtools
+```
+
+From inside this directory, run the following to install the latest development version:
+```
+pip install -e .
+```

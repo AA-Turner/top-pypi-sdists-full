@@ -53,9 +53,7 @@ def test_grant_privileges(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
     )
 
@@ -91,9 +89,7 @@ def test_grant_privileges_with_grant_option(
         privileges=["SELECT"],
         securable_type="TABLE",
         securable=Securable(
-            database=test_database_for_grant_name,
-            schema=test_schema_for_grant_name,
-            name=test_table_for_grant_name,
+            database=test_database_for_grant_name, schema=test_schema_for_grant_name, name=test_table_for_grant_name
         ),
         grant_option=True,
     )

@@ -45,8 +45,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
 
     >>> iceberg_tables = root.databases["my_db"].schemas["my_schema"].iceberg_tables
     >>> new_iceberg_table = IcebergTable(
-    ...     name="name",
-    ...     columns=[IcebergTableColumn(name="col1", datatype="string")],
+    ...     name="name", columns=[IcebergTableColumn(name="col1", datatype="string")]
     ... )
     >>> iceberg_tables.create(new_iceberg_table)
     """
@@ -54,21 +53,18 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, IcebergTableResource)
         self._api = IcebergTableApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @overload
     @api_telemetry
     def create(
-            self,
-            iceberg_table: IcebergTable,
-            *,
-            copy_grants: Optional[bool] = False,
-            mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+        self,
+        iceberg_table: IcebergTable,
+        *,
+        copy_grants: Optional[bool] = False,
+        mode: CreateMode = CreateMode.error_if_exists,
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -79,8 +75,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         as_select: Optional[str] = None,
         copy_grants: Optional[bool] = False,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -91,8 +86,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         like: str,
         copy_grants: Optional[bool] = False,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -102,8 +96,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         *,
         from_aws_glue_catalog: Literal[True] = True,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -113,8 +106,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         *,
         from_delta: Literal[True] = True,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -124,8 +116,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         *,
         from_iceberg_files: Literal[True] = True,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -135,8 +126,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         *,
         from_iceberg_rest: Literal[True] = True,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @overload
     @api_telemetry
@@ -147,8 +137,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         clone_iceberg_table: Union[str, Clone],
         copy_grants: Optional[bool] = False,
         mode: CreateMode = CreateMode.error_if_exists,
-    ) -> "IcebergTableResource":
-        ...
+    ) -> "IcebergTableResource": ...
 
     @api_telemetry
     def create(
@@ -216,8 +205,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
 
         >>> iceberg_tables = root.databases["my_db"].schemas["my_schema"].iceberg_tables
         >>> new_iceberg_table = IcebergTable(
-        ...     name="name",
-        ...     columns=[IcebergTableColumn(name="col1", datatype="string")],
+        ...     name="name", columns=[IcebergTableColumn(name="col1", datatype="string")]
         ... )
         >>> iceberg_tables.create(new_iceberg_table, mode=CreateMode.or_replace)
 
@@ -264,7 +252,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._create(
             iceberg_table=iceberg_table,
             as_select=as_select,
@@ -349,7 +337,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_iceberg_tables(
             database=self.database.name,
             var_schema=self.schema.name,
@@ -363,14 +351,14 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
 
     @staticmethod
     def _validate_iceberg_table(
-            iceberg_table: Union[IcebergTable, str],
-            as_select: Optional[str] = None,
-            like: Optional[str] = None,
-            from_aws_glue_catalog: Optional[bool] = None,
-            from_delta: Optional[bool] = None,
-            from_iceberg_files: Optional[bool] = None,
-            from_iceberg_rest: Optional[bool] = None,
-            clone_iceberg_table: Optional[Union[str, Clone]] = None,
+        iceberg_table: Union[IcebergTable, str],
+        as_select: Optional[str] = None,
+        like: Optional[str] = None,
+        from_aws_glue_catalog: Optional[bool] = None,
+        from_delta: Optional[bool] = None,
+        from_iceberg_files: Optional[bool] = None,
+        from_iceberg_rest: Optional[bool] = None,
+        clone_iceberg_table: Optional[Union[str, Clone]] = None,
     ) -> None:
         if not isinstance(iceberg_table, IcebergTable):
             raise TypeError("iceberg_table has to be IcebergTable object")
@@ -403,8 +391,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         copy_grants: Optional[bool],
         mode: CreateMode,
         async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
@@ -420,8 +407,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
         copy_grants: Optional[bool],
         mode: CreateMode,
         async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+    ) -> SuccessResponse: ...
 
     def _create(
         self,
@@ -448,7 +434,7 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
             from_iceberg_files=from_iceberg_files,
             from_iceberg_rest=from_iceberg_rest,
             clone_iceberg_table=clone_iceberg_table,
-            )
+        )
 
         if as_select:
             return self._api.create_snowflake_managed_iceberg_table_as_select(
@@ -509,12 +495,10 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
             if isinstance(clone_iceberg_table, Clone) and isinstance(clone_iceberg_table.point_of_time, PointOfTime):
                 pot = IcebergTablePointOfTime.from_dict(clone_iceberg_table.point_of_time.to_dict())
 
-            real_clone = (Clone(source=clone_iceberg_table) if
-                          isinstance(clone_iceberg_table, str) else clone_iceberg_table)
-            req = IcebergTableClone(
-                point_of_time=pot,
-                name=iceberg_table.name,
+            real_clone = (
+                Clone(source=clone_iceberg_table) if isinstance(clone_iceberg_table, str) else clone_iceberg_table
             )
+            req = IcebergTableClone(point_of_time=pot, name=iceberg_table.name)
 
             source_iceberg_table_fqn = FQN.from_string(real_clone.source)
             return self._api.clone_snowflake_managed_iceberg_table(
@@ -546,11 +530,7 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
     about Iceberg tables, as well as perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name: StrictStr,
-        collection: IcebergTableCollection
-    ) -> None:
+    def __init__(self, name: StrictStr, collection: IcebergTableCollection) -> None:
         self.name = name
         self.collection = collection
 
@@ -567,10 +547,7 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
         >>> print(my_iceberg_table.name)
         """
         return self.collection._api.fetch_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, async_req=False
         )
 
     @api_telemetry
@@ -579,20 +556,14 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, async_req=True
         )
         return PollingOperations.identity(future)
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def drop(self, if_exists: bool = False) -> None:
         """Drop this Iceberg table.
 
         Parameters
@@ -611,29 +582,18 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
         >>> iceberg_table_reference.drop(if_exists=True)
         """
         self.collection._api.drop_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def drop_async(
-        self,
-        if_exists: bool = False,
-    ) -> PollingOperation[None]:
+    def drop_async(self, if_exists: bool = False) -> PollingOperation[None]:
         """An asynchronous version of :func:`drop`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.drop_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -671,8 +631,7 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
             self.schema.name,
             self.name,
             convert_to_managed_iceberg_table_request=ConvertToManagedIcebergTableRequest(
-                base_location=base_location,
-                storage_serialization_policy=storage_serialization_policy,
+                base_location=base_location, storage_serialization_policy=storage_serialization_policy
             ),
             if_exists=if_exists,
             async_req=False,
@@ -689,14 +648,13 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.convert_to_managed_iceberg_table(
             self.database.name,
             self.schema.name,
             self.name,
             convert_to_managed_iceberg_table_request=ConvertToManagedIcebergTableRequest(
-                base_location=base_location,
-                storage_serialization_policy=storage_serialization_policy,
+                base_location=base_location, storage_serialization_policy=storage_serialization_policy
             ),
             if_exists=if_exists,
             async_req=True,
@@ -704,11 +662,7 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def refresh(
-        self,
-        metadata_file_relative_path: Optional[StrictStr] = None,
-        if_exists: bool = False,
-    ) -> None:
+    def refresh(self, metadata_file_relative_path: Optional[StrictStr] = None, if_exists: bool = False) -> None:
         """Refresh the metadata for an Iceberg table that uses an external Iceberg catalog.
 
         Parameters
@@ -742,15 +696,13 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
 
     @api_telemetry
     def refresh_async(
-        self,
-        metadata_file_relative_path: Optional[StrictStr] = None,
-        if_exists: bool = False,
+        self, metadata_file_relative_path: Optional[StrictStr] = None, if_exists: bool = False
     ) -> PollingOperation[None]:
         """An asynchronous version of :func:`refresh`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.refresh_iceberg_table(
             self.database.name,
             self.schema.name,
@@ -764,10 +716,7 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def resume_recluster(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def resume_recluster(self, if_exists: bool = False) -> None:
         """Resume reclustering for an Iceberg table.
 
         Parameters
@@ -787,37 +736,23 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
 
         """
         self.collection._api.resume_recluster_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def resume_recluster_async(
-        self,
-        if_exists: bool = False,
-    ) -> PollingOperation[None]:
+    def resume_recluster_async(self, if_exists: bool = False) -> PollingOperation[None]:
         """An asynchronous version of :func:`resume_recluster`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.resume_recluster_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def suspend_recluster(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def suspend_recluster(self, if_exists: bool = False) -> None:
         """Suspend reclustering for an Iceberg table.
 
         Parameters
@@ -837,36 +772,23 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
 
         """
         self.collection._api.suspend_recluster_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def suspend_recluster_async(
-        self,
-        if_exists: bool = False,
-    ) -> PollingOperation[None]:
+    def suspend_recluster_async(self, if_exists: bool = False) -> PollingOperation[None]:
         """An asynchronous version of :func:`suspend_recluster`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.suspend_recluster_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def undrop(
-        self,
-    ) -> None:
+    def undrop(self) -> None:
         """Undrop an Iceberg table.
 
         Parameters
@@ -885,26 +807,16 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
         >>> iceberg_table.undrop(if_exists=True)
 
         """
-        self.collection._api.undrop_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=False,
-        )
+        self.collection._api.undrop_iceberg_table(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
-    def undrop_async(
-        self,
-    ) -> PollingOperation[None]:
+    def undrop_async(self) -> PollingOperation[None]:
         """An asynchronous version of :func:`undrop`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.undrop_iceberg_table(
-            self.database.name,
-            self.schema.name,
-            self.name,
-            async_req=True,
+            self.database.name, self.schema.name, self.name, async_req=True
         )
         return PollingOperations.empty(future)

@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: database-mysql-local
+Version: 0.1.43
+Home-page: https://github.com/circles-zone/database-mysql-local-python-package
+Author: Circles
+Author-email: info@circlez.ai
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mysql-connector-python>=9.0.0
+Requires-Dist: url-remote>=0.0.119
+Requires-Dist: logger-local>=0.0.166
+Requires-Dist: database-infrastructure-local>=0.1.4
+Requires-Dist: language-remote>=0.0.24
+Requires-Dist: sql-to-code-local>=0.0.18
+Requires-Dist: python-sdk-remote==0.0.145
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+
+Database MySQL Local

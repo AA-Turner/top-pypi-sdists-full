@@ -8624,6 +8624,129 @@ class Alpha(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndic
         ...
 
 
+class TomDemarkSequential(QuantConnect.Indicators.WindowIndicator[QuantConnect.Data.Market.IBaseDataBar]):
+    """
+    Represents the Tom Demark Sequential indicator, which is used to identify potential trend exhaustion points.
+    This implementation tracks both the setup and countdown phases, and can be extended to handle bullish and bearish setups,
+    as well as qualifiers such as Perfect Setups and Countdown completions.
+    
+    - **Setup Phase**: Detects a trend by counting 9 consecutive bars where the close is less than (Buy Setup)
+      or greater than (Sell Setup) the close 4 bars earlier.
+    - **TDST Support/Resistance**: After a valid 9-bar setup completes, the indicator records the **lowest low** (for Sell Setup)
+      or **highest high** (for Buy Setup) among the 9 bars. These are referred to as Support Price(for Buy Setup) and
+      Resistance Price (for Sell Setup), and serve as critical thresholds that validate the continuation of the countdown phase.
+    - **Countdown Phase**: Once a valid setup is completed, the indicator attempts to count 13 qualifying bars (not necessarily consecutive)
+      where the close is less than (Buy Countdown) or greater than (Sell Countdown) the low/high 2 bars earlier.
+      During this phase, the TDST Support/Resistance levels are checked — if the price breaks these levels, the countdown phase is reset,
+      as the trend reversal condition is considered invalidated.
+    """
+
+    @property
+    def resistance_price(self) -> float:
+        """
+        Gets the current resistance price calculated during a Tom Demark Sequential buy setup.
+        This is the highest high of the 9-bar setup and can act as a resistance level.
+        """
+        ...
+
+    @property
+    def support_price(self) -> float:
+        """
+        Gets the current support price calculated during a Tom Demark Sequential sell setup.
+        This is the lowest low of the 9-bar setup and can act as a support level.
+        """
+        ...
+
+    @property
+    def setup_phase_step_count(self) -> int:
+        """
+        Gets the current Setup step count in the active Tom Demark Sequential (Buy/Sell) Setup phase
+        (e.g., 1 to 9 in Setup), 0 if not in setup phase.
+        """
+        ...
+
+    @property
+    def countdown_phase_step_count(self) -> int:
+        """
+        Gets the current Countdown step count in the active TomDemark Sequential (Buy/Sell) Countdown phase
+        (e.g., 1 to 13 in Setup), 0 if bar is not in Countdown phase.
+        """
+        ...
+
+    @property
+    def is_ready(self) -> bool:
+        """
+        Gets a value indicating whether the indicator is ready and fully initialized.
+        Returns true when at least 6 bars have been received, which is the minimum required
+        for checking for pre-requisite price flips and for comparing the current close price
+        to the close price 4 bars ago (used in the setup logic).
+        """
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """
+        Gets the number of data points (bars) required before the indicator is considered ready.
+        The TomDemark Sequential setup logic requires at least 6 bars to begin evaluating valid setups.
+        """
+        ...
+
+    def __init__(self, name: str = "TomDemarkSequential") -> None:
+        """
+        Initializes a new instance of the TomDemarkSequential indicator.
+        
+        :param name: The name of the indicator.
+        """
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], current: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of the TD Sequential indicator based on the provided TradeBar.
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param current: The current input value to this indicator on this time step
+        :returns: The TomDemarkSequentialPhase state of the TD Sequential indicator for the current bar.
+        """
+        ...
+
+    def reset(self) -> None:
+        """
+        Resets the indicator to its initial state by clearing all internal counters, flags,
+        and historical bar data. This allows the indicator to be reused from a clean state.
+        """
+        ...
+
+
+class TomDemarkSequentialPhase(Enum):
+    """Represents the different phases of the TomDemark Sequential indicator."""
+
+    NONE = 0
+    """No active phase."""
+
+    BUY_SETUP = 1
+    """Buy setup phase."""
+
+    SELL_SETUP = 2
+    """Sell setup phase."""
+
+    BUY_COUNTDOWN = 3
+    """Buy countdown phase."""
+
+    SELL_COUNTDOWN = 4
+    """Sell countdown phase."""
+
+    BUY_SETUP_PERFECT = 5
+    """Perfect buy setup phase."""
+
+    SELL_SETUP_PERFECT = 6
+    """Perfect sell setup phase."""
+
+    def __int__(self) -> int:
+        ...
+
+
 class IchimokuKinkoHyo(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     This indicator computes the Ichimoku Kinko Hyo indicator. It consists of the following main indicators:

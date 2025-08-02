@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: idemlib
+Version: 0.1.6
+Summary: caching utilities
+Home-page: https://github.com/leogao2/idemlib
+Author: Leo Gao
+Author-email: leogao31@gmail.com
+Requires-Dist: blobfile

@@ -15,18 +15,10 @@ pytestmark = [pytest.mark.skip_gov]
 
 def test_drop(compute_pools, instance_family):
     cp_name = random_string(5, "test_cp_")
-    test_cp = ComputePool(
-        name=cp_name,
-        instance_family=instance_family,
-        min_nodes=1,
-        max_nodes=1,
-        auto_resume=False,
-    )
+    test_cp = ComputePool(name=cp_name, instance_family=instance_family, min_nodes=1, max_nodes=1, auto_resume=False)
     compute_pools.create(test_cp, initially_suspended=True)
     compute_pools[test_cp.name].drop()
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         compute_pools[test_cp.name].fetch()
 
     # create again the same cp and drop
@@ -34,9 +26,7 @@ def test_drop(compute_pools, instance_family):
     compute_pools[test_cp.name].drop()
 
     # drop when not exists
-    with pytest.raises(
-        NotFoundError,
-    ):
+    with pytest.raises(NotFoundError):
         compute_pools[test_cp.name].drop()
 
     # drop when not exists with if_exists

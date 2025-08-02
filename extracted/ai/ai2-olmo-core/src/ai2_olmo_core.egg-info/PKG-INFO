@@ -1,0 +1,418 @@
+Metadata-Version: 2.4
+Name: ai2-olmo-core
+Version: 2.1.0
+Summary: Core training module for the Open Language Model (OLMo)
+Author-email: Allen Institute for Artificial Intelligence <olmo@allenai.org>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                https://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "{}"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright {yyyy} {name of copyright owner}
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               https://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Homepage, https://github.com/allenai/OLMo-core
+Project-URL: Documentation, https://olmo-core.readthedocs.io/en/latest/
+Project-URL: Changelog, https://github.com/allenai/OLMo-core/blob/main/CHANGELOG.md
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy<2.0
+Requires-Dist: torch>=2.6.0
+Requires-Dist: cached-path>=1.6.6
+Requires-Dist: requests
+Requires-Dist: packaging
+Requires-Dist: rich
+Requires-Dist: omegaconf
+Requires-Dist: safetensors
+Requires-Dist: importlib_resources
+Requires-Dist: ai2-olmo-eval==0.7.1
+Provides-Extra: dev
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy<1.4,>=1.0; extra == "dev"
+Requires-Dist: black<24.0,>=23.1; extra == "dev"
+Requires-Dist: isort<5.14,>=5.12; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-memray; extra == "dev"
+Requires-Dist: pytest-sphinx; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: twine>=1.11.0; extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: google-cloud-storage; extra == "dev"
+Requires-Dist: Sphinx<9.0,>=6.0; extra == "dev"
+Requires-Dist: furo==2024.8.6; extra == "dev"
+Requires-Dist: myst-parser>=1.0; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Requires-Dist: sphinx-autobuild; extra == "dev"
+Requires-Dist: sphinx-autodoc-typehints==1.23.3; extra == "dev"
+Requires-Dist: sphinx-inline-tabs; extra == "dev"
+Provides-Extra: beaker
+Requires-Dist: beaker-py>=1.32.0; extra == "beaker"
+Requires-Dist: GitPython<4.0,>=3.0; extra == "beaker"
+Provides-Extra: wandb
+Requires-Dist: wandb; extra == "wandb"
+Provides-Extra: comet
+Requires-Dist: comet_ml; extra == "comet"
+Provides-Extra: transformers
+Requires-Dist: transformers; extra == "transformers"
+Provides-Extra: all
+Requires-Dist: ai2-olmo-core[beaker,comet,dev,transformers,wandb]; extra == "all"
+Dynamic: license-file
+
+<div align="center">
+  <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
+  <img src="https://huggingface.co/datasets/allenai/blog-images/resolve/main/olmo2/olmo.png" alt="OLMo Logo" width="280" style="margin-left:'auto' margin-right:'auto' display:'block'"/>
+  <br>
+  <h1>OLMo-core</h1>
+  <h4>Building blocks for OLMo modeling and training</h4>
+</div>
+<p align="center">
+  <a href="https://olmo-core.readthedocs.io/en/latest/">
+    <img alt="Docs" src="https://img.shields.io/badge/API-docs-red">
+  </a>
+  <a href="https://github.com/allenai/OLMo-core/tree/main/src/examples">
+    <img alt="Examples" src="https://img.shields.io/badge/API-examples-994B00">
+  </a>
+  <a href="https://github.com/allenai/OLMo-core/releases/tag/v1.9.0">
+    <img alt="Pypi" src="https://img.shields.io/pypi/v/ai2-olmo-core.svg">
+  </a>
+  <a href="https://github.com/allenai/OLMo-core/blob/main/LICENSE">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/allenai/OLMo">
+  </a>
+  <a href="https://arxiv.org/pdf/2501.00656.pdf">
+    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-orange">
+  </a>
+  <a href="https://playground.allenai.org">
+    <img alt="Playground" src="https://img.shields.io/badge/Ai2-Playground-F0529C">
+  </a>
+  <a href="https://discord.gg/sZq3jTNVNG">
+    <img alt="Discord" src="https://img.shields.io/badge/Discord%20-%20blue?style=flat&logo=discord&label=Ai2&color=%235B65E9">
+  </a>
+</p>
+
+## Installation
+
+First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system and hardware.
+
+For development, we recommend installing from source:
+
+```bash
+git clone https://github.com/allenai/OLMo-core.git
+cd OLMo-core
+pip install -e .[all]
+```
+Or you can install from PyPI with:
+
+```bash
+pip install ai2-olmo-core
+```
+
+There are a number of optional dependencies that must be installed to use certain functionality as well, including:
+- [flash-attn](https://github.com/Dao-AILab/flash-attention) and [ring-flash-attn](https://github.com/zhuzilin/ring-flash-attention) for intra-document masking and context parallelism.
+- [Liger-Kernel](https://github.com/linkedin/Liger-Kernel) for a low-memory "fused-linear" loss implementation.
+- [torchao](https://github.com/pytorch/ao) for float8 training.
+- [grouped_gemm](https://github.com/tgale96/grouped_gemm) for dropless mixture-of-experts (MoE) models. You may need to compile from source until [PR #21](https://github.com/tgale96/grouped_gemm/pull/21) is released (post v0.1.6).
+
+The published [Docker images](https://github.com/orgs/allenai/packages?repo_name=OLMo-core) contain all core and optional dependencies, and are regularly tested on our in-house H100 clusters.
+But there are several things to keep in mind if you intend to use these images:
+- They do not come with the OLMo-core package installed, only its dependencies, to accommodate for regular code changes.
+- They may not work on your own cluster if you have different hardware or driver/CUDA versions.
+
+If the published images do not work for your use-case for any of the above reasons, you could adapt our [Dockerfile](https://github.com/allenai/OLMo-core/blob/main/src/Dockerfile) to build your own images.
+
+## Official training scripts
+
+Official training scripts for released models can be found in [`src/scripts/official/`](https://github.com/allenai/OLMo-core/tree/main/src/scripts/official).
+These scripts are meant to be launched with ``torchrun``. For example:
+
+```bash
+torchrun --nproc-per-node=8 ./src/scripts/official/OLMo-2-0325-32B-train.py run01
+```
+
+You can override most configuration options from the command-line. For example, to override the learning rate you could launch the script like this:
+
+```bash
+torchrun --nproc-per-node=8 ./src/scripts/train/OLMo-2-0325-32B-train.py run01 --train_module.optim.lr=6e-3
+```
+To continue annealing from a checkpoint, we use a separate script which can be launched like this:
+
+```bash
+torchrun --nproc-per-node=8 ./src/scripts/train/OLMo-2-0325-32B-anneal.py anneal_run01 https://olmo-checkpoints.org/ai2-llm/peteish32/step721901/
+```
+
+## OLMo-2 Model Training
+
+OLMo-2 32B pretraining follows a two-stage training procedure.
+In the first stage, we train on large amounts of mostly web-based data: [OLMo-mix-1124](https://huggingface.co/datasets/allenai/olmo-mix-1124).
+In the second stage, we train on a smaller amount of high-quality, targeted data: Dolmino-mix-0324 (releasing soon).
+
+| Stage | Model Size | Training | Checkpoint | Monitoring |
+|------------|----------|------------|------------|------------|
+| stage 1 | **32B** | 6T tokens | [stage1-step721901-tokens6056B](https://huggingface.co/allenai/OLMo-2-0325-32B/tree/stage1-step721901-tokens6056B) | [comet.ml/OLMo2-32B](https://www.comet.com/ai2/olmo-2-0325-32b/reports/olmo-2-0325-32b?shareable=WhT37Wy7jqttDoy6ysDBumQzf) |
+| stage 2 | **32B** | random seed 1110, 100B tokens | [stage2-ingredient1-step11921-tokens101B](https://huggingface.co/allenai/OLMo-2-0325-32B/tree/stage2-ingredient1-step11921-tokens101B) | [comet.ml/OLMo2-32B](https://www.comet.com/ai2/olmo-2-0325-32b/reports/olmo-2-0325-32b-anneal?shareable=WhT37Wy7jqttDoy6ysDBumQzf) |
+| |  | random seed 2662, 100B tokens | [stage2-ingredient2-step11921-tokens101B](https://huggingface.co/allenai/OLMo-2-0325-32B/tree/stage2-ingredient2-step11921-tokens101B) | [comet.ml/OLMo2-32B](https://www.comet.com/ai2/olmo-2-0325-32b/reports/olmo-2-0325-32b-anneal?shareable=WhT37Wy7jqttDoy6ysDBumQzf) |
+|  |  | random seed 2662, 300B tokens | [stage2-ingredient3-step35763-tokens301B](https://huggingface.co/allenai/OLMo-2-0325-32B/tree/stage2-ingredient3-step35763-tokens301B) | [comet.ml/OLMo2-32B](https://www.comet.com/ai2/olmo-2-0325-32b/reports/olmo-2-0325-32b-anneal?shareable=WhT37Wy7jqttDoy6ysDBumQzf) |
+|  |  | **Final Souped Model** | [main](https://huggingface.co/allenai/OLMo-2-0325-32B/tree/main) | No config, weights averaged in Python | - |
+
+The table below lists the checkpoints for Stage 1 and Stage 2 of OLMo-2, along with their corresponding Hugging Face format.
+
+| Variant         | OLMo Format (Stage 1)                                                                                         | OLMo Format (Stage 2) | Hugging Face Format                                                               |
+|----------------|-----------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------|
+| **OLMo-2 32B**  | [OLMo-2 32B](https://github.com/allenai/OLMo-core/blob/main/src/scripts/official/OLMo-2-0325-32B.csv)     | [OLMo-2 32B](https://github.com/allenai/OLMo-core/blob/main/src/scripts/official/OLMo-2-0325-32B-stage2.csv)      | [Hugging Face for the 32B variant](https://huggingface.co/allenai/OLMo-2-0325-32B)  |
+
+
+> Note: OLMo-2 7B and 13B models were trained using [the old OLMo trainer](https://github.com/allenai/OLMo). All related checkpoints, configs, and scripts for these models can be found there. While you can train 7B and 13B models with this trainer, please note that the configs and script in the old training codebase are not compatible with this repo.
+
+## Inference
+
+You can use our Hugging Face integration to run inference on the OLMo transformers checkpoints:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-2-0325-32B")
+tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-2-0325-32B")
+message = ["Language modeling is "]
+inputs = tokenizer(message, return_tensors='pt', return_token_type_ids=False)
+# inputs = {k: v.to('cuda') for k,v in inputs.items()} # optional verifying cuda
+# olmo = olmo.to('cuda')
+response = olmo.generate(**inputs, max_new_tokens=100, do_sample=True, top_k=50, top_p=0.95)
+print(tokenizer.batch_decode(response, skip_special_tokens=True)[0])
+```
+
+Alternatively, with the Hugging Face pipeline abstraction:
+
+```python
+from transformers import pipeline
+olmo_pipe = pipeline("text-generation", model="allenai/OLMo-2-0325-32B")
+print(olmo_pipe("Language modeling is"))
+```
+### Quantization
+
+```python
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-2-0325-32B", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
+```
+
+## Evaluation
+
+Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) and [olmes](https://github.com/allenai/olmes) repositories.
+
+## Development
+
+The Python library source code is located in `src/olmo_core`. The corresponding tests are located in `src/test`. The library docs are located in `docs`. You can build the docs locally with `make docs`.
+
+Code checks:
+- We use `pytest` to run tests. You can run all tests with `pytest -v src/test`. You can also point `pytest` at a specific test file to run it individually.
+- We use `isort` and `black` for code formatting. Ideally you should integrate these into your editor, but you can also run them manually or configure them with a pre-commit hook. To validate that all files are formatted correctly, run `make style-check`.
+- We use `ruff` as our primary linter. You can run it with `make lint-check`.
+- We use `mypy` as our type checker. You can run it with `make type-check`.
+
+## Citing
+
+```bibtex
+@misc{olmo20242olmo2furious,
+      title={{2 OLMo 2 Furious}},
+      author={{Team OLMo} and Pete Walsh and Luca Soldaini and Dirk Groeneveld and Kyle Lo and Shane Arora and Akshita Bhagia and Yuling Gu and Shengyi Huang and Matt Jordan and Nathan Lambert and Dustin Schwenk and Oyvind Tafjord and Taira Anderson and David Atkinson and Faeze Brahman and Christopher Clark and Pradeep Dasigi and Nouha Dziri and Michal Guerquin and Hamish Ivison and Pang Wei Koh and Jiacheng Liu and Saumya Malik and William Merrill and Lester James V. Miranda and Jacob Morrison and Tyler Murray and Crystal Nam and Valentina Pyatkin and Aman Rangapur and Michael Schmitz and Sam Skjonsberg and David Wadden and Christopher Wilhelm and Michael Wilson and Luke Zettlemoyer and Ali Farhadi and Noah A. Smith and Hannaneh Hajishirzi},
+      year={2024},
+      eprint={2501.00656},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2501.00656},
+}
+```

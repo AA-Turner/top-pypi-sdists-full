@@ -1,0 +1,29 @@
+---
+project_cfg: opendaylight
+project: NetVirt
+release: 1.2.3
+version: 1.2.3
+author: OpenDaylight Project
+copyright: 2018, OpenDaylight Project a Series of LF Projects, LLC
+
+needs_sphinx: "1.6.5"
+extensions:
+  - sphinx.ext.autodoc
+  - sphinx.ext.doctest
+  - sphinx.ext.intersphinx
+  - sphinx.ext.todo
+  - sphinx.ext.coverage
+  - sphinx.ext.viewcode
+exclude_patterns:
+  - .DS_Store
+  - _build
+  - Thumbs.db
+  - .tox
+todo_include_todos: false
+
+html_logo: _static/logo.png
+html_theme: bootstrap
+html_theme_options:
+  bootswatch_theme: cerulean
+  navbar_sidebarrel: false
+  source_link_position: footer

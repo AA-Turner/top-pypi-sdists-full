@@ -10,12 +10,7 @@ Example:
 Refer to :class:`snowflake.core.Root` to create the ``root``.
 """
 
-
 from ._pipe import Pipe, PipeCollection, PipeResource
 
 
-__all__ = [
-    "Pipe",
-    "PipeCollection",
-    "PipeResource",
-]
+__all__ = ["Pipe", "PipeCollection", "PipeResource"]

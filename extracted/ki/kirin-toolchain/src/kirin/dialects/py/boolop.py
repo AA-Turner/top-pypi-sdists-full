@@ -1,0 +1,68 @@
+"""Boolean operators for Python dialect.
+
+This module contains the dialect for the Python boolean operators, including:
+
+- The `And` and `Or` statement classes.
+- The lowering pass for the boolean operators.
+- The concrete implementation of the boolean operators.
+- The Julia emitter for the boolean operators.
+
+This dialect maps `ast.BoolOp` nodes to the `And` and `Or` statements.
+"""
+
+import ast
+
+from kirin import ir, types, interp, lowering
+from kirin.decl import info, statement
+
+dialect = ir.Dialect("py.boolop")
+
+
+@statement
+class BoolOp(ir.Statement):
+    traits = frozenset({ir.Pure(), lowering.FromPythonCall()})
+    lhs: ir.SSAValue = info.argument(print=False)
+    rhs: ir.SSAValue = info.argument(print=False)
+    result: ir.ResultValue = info.result(types.Bool)
+
+
+@statement(dialect=dialect)
+class And(BoolOp):
+    name = "and"
+
+
+@statement(dialect=dialect)
+class Or(BoolOp):
+    name = "or"
+
+
+@dialect.register
+class PythonLowering(lowering.FromPythonAST):
+
+    def lower_BoolOp(self, state: lowering.State, node: ast.BoolOp) -> lowering.Result:
+        lhs = state.lower(node.values[0]).expect_one()
+        match node.op:
+            case ast.And():
+                boolop = And
+            case ast.Or():
+                boolop = Or
+            case _:
+                raise lowering.BuildError(f"unsupported boolop {node.op}")
+
+        for value in node.values[1:]:
+            lhs = state.current_frame.push(
+                boolop(lhs=lhs, rhs=state.lower(value).expect_one())
+            ).result
+        return lhs
+
+
+@dialect.register
+class BoolOpMethod(interp.MethodTable):
+
+    @interp.impl(And)
+    def and_(self, interp, frame: interp.Frame, stmt: And):
+        return (frame.get(stmt.lhs) and frame.get(stmt.rhs),)
+
+    @interp.impl(Or)
+    def or_(self, interp, frame: interp.Frame, stmt: Or):
+        return (frame.get(stmt.lhs) or frame.get(stmt.rhs),)

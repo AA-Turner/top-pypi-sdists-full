@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-socks
-Version: 2.7.1
+Version: 2.7.2
 Summary: Proxy (SOCKS4, SOCKS5, HTTP CONNECT) client for Python
 Author-email: Roman Snegirev <snegiryev@gmail.com>
 License: Apache-2.0
@@ -36,6 +36,7 @@ Provides-Extra: curio
 Requires-Dist: curio>=1.4; extra == "curio"
 Provides-Extra: anyio
 Requires-Dist: anyio<5.0.0,>=3.3.4; extra == "anyio"
+Dynamic: license-file
 
 ## python-socks
 

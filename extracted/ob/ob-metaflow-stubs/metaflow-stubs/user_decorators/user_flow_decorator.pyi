@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-31T17:05:42.474050                                                            #
+# Generated on 2025-08-01T20:12:28.657742                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.flowspec
     import metaflow.decorators
+    import metaflow.flowspec
     import metaflow.user_decorators.user_flow_decorator
     import metaflow.user_decorators.mutable_flow
 

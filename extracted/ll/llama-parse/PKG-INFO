@@ -1,19 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: llama-parse
-Version: 0.6.53
+Version: 0.6.54
 Summary: Parse files into RAG-Optimized formats.
-License: MIT
-Author: Logan Markewich
-Author-email: logan@llamaindex.ai
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: llama-cloud-services (>=0.6.53)
+Author-email: Logan Markewich <logan@llamaindex.ai>
+License-Expression: MIT
+Requires-Python: <4.0,>=3.9
+Requires-Dist: llama-cloud-services>=0.6.54
 Description-Content-Type: text/markdown
 
 # LlamaParse
@@ -164,9 +156,9 @@ Full documentation for `SimpleDirectoryReader` can be found on the [LlamaIndex D
 
 Several end-to-end indexing examples can be found in the examples folder
 
-- [Getting Started](/examples/parse/demo_basic.ipynb)
-- [Advanced RAG Example](/examples/parse/demo_advanced.ipynb)
-- [Raw API Usage](/examples/parse/demo_api.ipynb)
+- [Getting Started](/docs/examples-py/parse/demo_basic.ipynb)
+- [Advanced RAG Example](/docs/examples-py/parse/demo_advanced.ipynb)
+- [Raw API Usage](/docs/examples-py/parse/demo_api.ipynb)
 
 ## Documentation
 
@@ -181,4 +173,3 @@ See the [Terms of Service Here](./TOS.pdf).
 LlamaParse is part of LlamaCloud, our e2e enterprise RAG platform that provides out-of-the-box, production-ready connectors, indexing, and retrieval over your complex data sources. We offer SaaS and VPC options.
 
 LlamaCloud is currently available via waitlist (join by [creating an account](https://cloud.llamaindex.ai/)). If you're interested in state-of-the-art quality and in centralizing your RAG efforts, come [get in touch with us](https://www.llamaindex.ai/contact).
-

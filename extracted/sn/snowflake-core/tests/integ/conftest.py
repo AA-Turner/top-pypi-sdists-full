@@ -23,10 +23,7 @@ from snowflake.core.cortex.chat_service import CortexChatService
 from snowflake.core.cortex.embed_service import CortexEmbedService
 from snowflake.core.cortex.lite_agent_service import CortexAgentService
 from snowflake.core.cortex.search_service import CortexSearchServiceCollection
-from snowflake.core.database import (
-    DatabaseCollection,
-    DatabaseResource,
-)
+from snowflake.core.database import DatabaseCollection, DatabaseResource
 from snowflake.core.database_role import DatabaseRoleCollection
 from snowflake.core.event_table import EventTableCollection
 from snowflake.core.external_volume import ExternalVolumeCollection
@@ -40,10 +37,7 @@ from snowflake.core.notification_integration import NotificationIntegrationColle
 from snowflake.core.pipe import PipeCollection
 from snowflake.core.procedure import ProcedureCollection
 from snowflake.core.role import RoleCollection
-from snowflake.core.schema import (
-    SchemaCollection,
-    SchemaResource,
-)
+from snowflake.core.schema import SchemaCollection, SchemaResource
 from snowflake.core.service import ServiceCollection
 from snowflake.core.stage import StageCollection
 from snowflake.core.stream import StreamCollection
@@ -193,8 +187,8 @@ def db_parameters() -> dict[str, str]:
         config = {}
         session = get_active_session()
         config["account"] = session.get_current_account()
-        config["schema"] = 'TESTSCHEMA'
-        config["database"] = 'TESTDB'
+        config["schema"] = "TESTSCHEMA"
+        config["database"] = "TESTDB"
         config["warehouse"] = session.get_current_warehouse()
         #  for notebook run make sure the account you are running on is already set up for SPCS
         config["should_disable_setup_for_spcs"] = "true"
@@ -202,8 +196,8 @@ def db_parameters() -> dict[str, str]:
         return config
 
     config = connection_config(override_schema=TEST_SCHEMA, override_database=TEST_DATABASE)
-    config["schema"] = 'TESTSCHEMA'
-    config["database"] = 'TESTDB'
+    config["schema"] = "TESTSCHEMA"
+    config["database"] = "TESTDB"
     return config
 
 
@@ -472,17 +466,17 @@ def external_session_id() -> str:
 @pytest.fixture(scope="session")
 def pat(connection, db_parameters) -> str:
     pat_token_name = "SNOW_API_TEST_TOKEN_" + str(int(time.time() * 1000))
-    role = db_parameters.get('role', 'SYSADMIN')
+    role = db_parameters.get("role", "SYSADMIN")
     try:
         cursor = connection.cursor()
         token_name, pat_token = cursor.execute(
             f"ALTER USER ADD PROGRAMMATIC ACCESS TOKEN {pat_token_name} "
-            f"ROLE_RESTRICTION = {role} DAYS_TO_EXPIRY=1 COMMENT='PAT for SnowAPI tests'").fetchone()
+            f"ROLE_RESTRICTION = {role} DAYS_TO_EXPIRY=1 COMMENT='PAT for SnowAPI tests'"
+        ).fetchone()
         assert token_name == pat_token_name
         yield pat_token
     finally:
-        connection.cursor().execute(
-            f"ALTER USER REMOVE PROGRAMMATIC ACCESS TOKEN {pat_token_name}")
+        connection.cursor().execute(f"ALTER USER REMOVE PROGRAMMATIC ACCESS TOKEN {pat_token_name}")
 
 
 @pytest.fixture(scope="module")

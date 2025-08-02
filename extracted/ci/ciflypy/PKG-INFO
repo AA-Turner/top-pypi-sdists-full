@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: ciflypy
+Version: 0.1.3
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Summary: Python package for the CIfly framework for designing efficient causal inference algorithms
+Keywords: causality,graphs,algorithms
+Author: Sebastian Weichwald, Leonard Henckel
+Author-email: Marcel Wienöbst <marcel.wienoebst@gmx.de>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# ciflypy
+
+A Python package for using the CIfly framework. For more informations, see the introduction [here](https://cifly.dev/docs/ciflypy/).
+

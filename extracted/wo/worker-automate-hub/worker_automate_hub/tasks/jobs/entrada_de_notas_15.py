@@ -2,12 +2,14 @@ import asyncio
 from datetime import datetime
 import getpass
 import os
+import re
 import warnings
 import uuid
 import time
 import win32clipboard
 import difflib
-
+# import sys
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..","..","..")))
 import pyautogui
 from pywinauto.keyboard import send_keys
 from PIL import Image, ImageEnhance
@@ -139,17 +141,20 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             class_name="TDBIComboBox", found_index=1
         )
 
-        combo_box_tipo_documento.click()
-        console.print(
-            "Clique select box, Tipo de documento realizado com sucesso, selecionando o tipo de documento...\n"
-        )
+       # Conectar à aplicação
+        app = Application(backend="win32").connect(title_re=".*Nota Fiscal.*")
 
-        await worker_sleep(4)
+        # Acessar a janela
+        janela = app.window(class_name="TFrmNotaFiscalEntrada")
 
-        set_combobox("||List", "NOTA FISCAL DE ENTRADA ELETRONICA - DANFE")
-        console.print(
-            "Tipo de documento 'NOTA FISCAL DE ENTRADA ELETRONICA - DANFE', selecionado com sucesso...\n"
-        )
+        # Encontrar o combobox
+        combo = janela.child_window(class_name="TDBIComboBox", found_index=1)
+
+        # Expandir o combobox
+        combo.select("NOTA FISCAL DE ENTRADA ELETRONICA - DANFE")
+
+        print("Item selecionado com sucesso.")
+
 
         await worker_sleep(4)
 
@@ -229,10 +234,8 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         combo_box_natureza_operacao = main_window.child_window(
             class_name="TDBIComboBox", found_index=0
         )
-        combo_box_natureza_operacao.click()
-        await worker_sleep(4)
-        set_combobox("||List", "1652-COMPRA DE MERCADORIAS- 1.652")
-        await worker_sleep(3)
+        # Interage com o ComboBox
+        combo_box_natureza_operacao.select("1652-COMPRA DE MERCADORIAS- 1.652")
 
         try:
             console.print(f"Trabalhando com itens com multiplas referencias.\n")
@@ -572,11 +575,17 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             # set_combobox("||List", "BOLETO")
             panel_tab_pagamento.child_window(class_name="TDBIComboBox", found_index=0).select("BOLETO")
 
+        valor_str = nota.get("valorNota")
+        if valor_str:
+            valor_str = valor_str.replace(',', '.')
+        else:
+            valor_str = None
+
         await emsys.inserir_vencimento_e_valor(
             nota.get("nomeFornecedor"),
             nota.get("dataEmissao"),
             nota.get("dataVencimento"),
-            nota.get("valorNota"),
+            valor_str,
         )
 
         await worker_sleep(8)
@@ -643,7 +652,7 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 await worker_sleep(5)
                 i += 1
 
-        await worker_sleep(15)
+        await worker_sleep(20)
         console.print("\nVerifica se a nota ja foi lançada...")
         nf_chave_acesso = int(nota.get("nfe"))
         status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
@@ -696,4 +705,3 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
-    

@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: dagster-twilio
+Version: 0.27.4
+Summary: A Dagster integration for twilio
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-twilio
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9,<3.14
+License-File: LICENSE
+Requires-Dist: dagster==1.11.4
+Requires-Dist: twilio
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

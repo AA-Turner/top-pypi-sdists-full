@@ -1,0 +1,19 @@
+        [project]
+        name = "chromium"
+        version = "0.0.0"
+        authors = [
+        { name="chromium", email="kontakt@matematikk.as" },
+        ]
+        description = "A hobby project"
+        readme = "README.md"
+        requires-python = ">=3.8"
+        classifiers = [
+            "Programming Language :: Python :: 3",
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: OS Independent",
+        ]
+
+        [project.urls]
+        Homepage = "https://matematikk.as"
+        Issues = "https://matematikk.as"
+        

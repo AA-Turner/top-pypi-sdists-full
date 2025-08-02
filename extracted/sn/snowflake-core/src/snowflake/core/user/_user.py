@@ -71,8 +71,8 @@ class UserCollection(AccountObjectCollectionParent["UserResource"]):
         ________
         Creating a user, replacing any existing user with the same name:
 
-        >>> sample_user = User(name = "test_user")
-        >>> root.users.create(sample_user, mode = CreateMode.or_replace)
+        >>> sample_user = User(name="test_user")
+        >>> root.users.create(sample_user, mode=CreateMode.or_replace)
         """
         create_mode = CreateMode[mode].value
         self._api.create_user(user._to_model(), StrictStr(create_mode), async_req=False)
@@ -80,16 +80,13 @@ class UserCollection(AccountObjectCollectionParent["UserResource"]):
 
     @api_telemetry
     def create_async(
-        self,
-        user: User,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists
+        self, user: User, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["UserResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         create_mode = CreateMode[mode].value
         future = self._api.create_user(user._to_model(), StrictStr(create_mode), async_req=True)
         return PollingOperation(future, lambda _: self[user.name])
@@ -160,7 +157,7 @@ class UserCollection(AccountObjectCollectionParent["UserResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_users(
             StrictStr(like) if like else None,
             StrictStr(starts_with) if starts_with else None,
@@ -216,7 +213,7 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.create_or_alter_user(user.name, user._to_model(), async_req=True)
         return PollingOperations.empty(future)
 
@@ -253,7 +250,7 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_user(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)
 
@@ -277,7 +274,7 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_user(name=self.name, async_req=True)
         return PollingOperation(future, lambda rest_model: User._from_model(rest_model))
 
@@ -299,10 +296,7 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         >>> user_reference.grant_role("role", Securable(name="test_role"))
         """
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        grant = Grant(securable_type=role_type, securable=role)
         self.collection._api.grant(self.name, grant, async_req=False)
 
     @api_telemetry
@@ -311,11 +305,8 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        """  # noqa: D401
+        grant = Grant(securable_type=role_type, securable=role)
         future = self.collection._api.grant(self.name, grant, async_req=True)
         return PollingOperations.empty(future)
 
@@ -337,10 +328,7 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         >>> user_reference.revoke_role("role", Securable(name="test_role"))
         """
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        grant = Grant(securable_type=role_type, securable=role)
         self.collection._api.revoke_grants(self.name, grant, async_req=False)
 
     @api_telemetry
@@ -349,11 +337,8 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        grant = Grant(
-            securable_type=role_type,
-            securable=role,
-        )
+        """  # noqa: D401
+        grant = Grant(securable_type=role_type, securable=role)
         future = self.collection._api.revoke_grants(self.name, grant, async_req=True)
         return PollingOperations.empty(future)
 
@@ -379,6 +364,6 @@ class UserResource(ObjectReferenceMixin[UserCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.list_grants(self.name, async_req=True)
         return PollingOperations.iterator(future)

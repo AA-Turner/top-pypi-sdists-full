@@ -1,0 +1,91 @@
+[tool.black]
+line-length = 99
+target-version = ["py38", "py39", "py310", "py311"]
+exclude = '''
+/(
+    \.git|.venv
+)/
+'''
+
+[tool.isort]
+profile = "black"
+float_to_top = true
+skip_glob = ".venv"
+
+[tool.poetry]
+name = "python-incidentio-client"
+version = "0.56.3"
+description = "Python client for Incident.io"
+repository = "https://github.com/expobrain/python-incidentio-client"
+authors = ["Daniele Esposti <daniele.esposti@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "incident_io_client" }]
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4"
+httpx = ">=0.22.0"
+attrs = ">=20.1.0"
+python-dateutil = ">=2.8.0"
+
+[tool.poetry.group.dev.dependencies]
+autoflake = ">=1.7,<3.0"
+black = ">=22.10,<25.0"
+isort = "^5.10.1"
+mypy = ">=0.991,<1.15"
+flake8 = ">=5.0.4,<8.0.0"
+types-python-dateutil = "^2.8.19"
+pyupgrade = "^3.2.2"
+openapi-python-client = "^0.21.2"
+types-certifi = "^2021.10.8"
+click = "<9"
+toml = "^0.10.2"
+types-toml = "^0.10.8"
+types-click = "^7.1.8"
+flake8-bugbear = ">=22.10.27,<25.0.0"
+mkdocs-material = ">=8.2,<10.0"
+mkdocstrings-python = ">=0.8.2,<1.12.0"
+"ruamel.yaml" = ">=0.17.21,<0.19.0"
+types-setuptools = ">=68.2,<76.0"
+types-pygments = "^2.16.0.0"
+commitizen = "^3.9.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+exclude = ".venv/"
+check_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_configs = true
+warn_unused_ignores = true
+disallow_subclassing_any = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["dotenv"]
+ignore_missing_imports = true
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.56.3"
+version_files = [
+    "pyproject.toml:^version"
+]
+update_changelog_on_bump = true
+style = [
+    ["qmark", "fg:#ff9d00 bold"],
+    ["question", "bold"],
+    ["answer", "fg:#ff9d00 bold"],
+    ["pointer", "fg:#ff9d00 bold"],
+    ["highlighted", "fg:#ff9d00 bold"],
+    ["selected", "fg:#cc5454"],
+    ["separator", "fg:#cc5454"],
+    ["instruction", ""],
+    ["text", ""],
+    ["disabled", "fg:#858585 italic"]
+]

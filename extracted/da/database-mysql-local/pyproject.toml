@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "database-mysql-local"
+version = "0.0.436" # https://pypi.org/project/database-mysql-local
+description = "database-mysql-local Python Package"
+readme = "README.md"
+authors = [
+    "Circlez.ai <info@circlez.ai>",
+]
+
+# dephell deps convert --from pyproject.toml --from-format poetry --to setup.py --to-format setuppy
+[tool.dephell.main]
+from = { format = "poetry", path = "pyproject.toml" }
+to = { format = "setuppy", path = "setup.py" }

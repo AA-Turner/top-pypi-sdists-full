@@ -1,14 +1,15 @@
 changelog:
   exclude:
     authors:
-      - pre-commit-ci
+      - dependabot[bot]
+      - pre-commit-ci[bot]
   categories:
-    - title: Bug Fixes
-      labels:
-        - bug
     - title: New Features
       labels:
         - enhancement
+    - title: Bug Fixes
+      labels:
+        - bug
     - title: Documentation
       labels:
         - Documentation

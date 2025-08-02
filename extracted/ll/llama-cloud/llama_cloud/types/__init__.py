@@ -41,7 +41,12 @@ from .chat_app_response import ChatAppResponse
 from .chat_data import ChatData
 from .chunk_mode import ChunkMode
 from .classification_result import ClassificationResult
-from .classify_response import ClassifyResponse
+from .classifier_rule import ClassifierRule
+from .classify_job import ClassifyJob
+from .classify_job_results import ClassifyJobResults
+from .classify_job_with_status import ClassifyJobWithStatus
+from .classify_parsing_configuration import ClassifyParsingConfiguration
+from .cloud_astra_db_vector_store import CloudAstraDbVectorStore
 from .cloud_az_storage_blob_data_source import CloudAzStorageBlobDataSource
 from .cloud_azure_ai_search_vector_store import CloudAzureAiSearchVectorStore
 from .cloud_box_data_source import CloudBoxDataSource
@@ -139,13 +144,17 @@ from .extract_schema_validate_response_data_schema_value import ExtractSchemaVal
 from .extract_state import ExtractState
 from .extract_target import ExtractTarget
 from .fail_page_mode import FailPageMode
+from .failure_handling_config import FailureHandlingConfig
 from .file import File
+from .file_classification import FileClassification
 from .file_count_by_status_response import FileCountByStatusResponse
 from .file_data import FileData
 from .file_id_presigned_url import FileIdPresignedUrl
 from .file_parse_public import FileParsePublic
 from .file_permission_info_value import FilePermissionInfoValue
 from .file_resource_info_value import FileResourceInfoValue
+from .file_store_info_response import FileStoreInfoResponse
+from .file_store_info_response_status import FileStoreInfoResponseStatus
 from .filter_condition import FilterCondition
 from .filter_operation import FilterOperation
 from .filter_operation_eq import FilterOperationEq
@@ -418,7 +427,12 @@ __all__ = [
     "ChatData",
     "ChunkMode",
     "ClassificationResult",
-    "ClassifyResponse",
+    "ClassifierRule",
+    "ClassifyJob",
+    "ClassifyJobResults",
+    "ClassifyJobWithStatus",
+    "ClassifyParsingConfiguration",
+    "CloudAstraDbVectorStore",
     "CloudAzStorageBlobDataSource",
     "CloudAzureAiSearchVectorStore",
     "CloudBoxDataSource",
@@ -512,13 +526,17 @@ __all__ = [
     "ExtractState",
     "ExtractTarget",
     "FailPageMode",
+    "FailureHandlingConfig",
     "File",
+    "FileClassification",
     "FileCountByStatusResponse",
     "FileData",
     "FileIdPresignedUrl",
     "FileParsePublic",
     "FilePermissionInfoValue",
     "FileResourceInfoValue",
+    "FileStoreInfoResponse",
+    "FileStoreInfoResponseStatus",
     "FilterCondition",
     "FilterOperation",
     "FilterOperationEq",

@@ -47,15 +47,11 @@ def test_iter(compute_pools, temp_cp, instance_family):
 
 
 def test_iter_limit(compute_pools):
-    with pytest.raises(
-        ValidationError,
-    ):
+    with pytest.raises(ValidationError):
         assert len(compute_pools.iter(starts_with="TEST_", limit=0)) == 0
 
     compute_pools_names = [cp.name for cp in compute_pools.iter(starts_with="TEST_", limit=1)]
     assert len(compute_pools_names) <= 1
 
-    with pytest.raises(
-        ValidationError,
-    ):
+    with pytest.raises(ValidationError):
         compute_pools.iter(starts_with="TEST_", limit=10001)

@@ -22,21 +22,20 @@ def spark_connect_resource():
     return SparkConnectResource(conn)
 
 
-@pytest.mark.parametrize("method, fn", (
-    ("execute-plan", "execute_plan"),
-    ("analyze-plan", "analyze_plan"),
-    ("config", "config"),
-    ("add-artifacts", "add_artifacts"),
-    ("artifact-status", "artifact_status"),
-    ("reattach-execute", "reattach_execute"),
-    ("release-execute", "release_execute"),
-))
+@pytest.mark.parametrize(
+    "method, fn",
+    (
+        ("execute-plan", "execute_plan"),
+        ("analyze-plan", "analyze_plan"),
+        ("config", "config"),
+        ("add-artifacts", "add_artifacts"),
+        ("artifact-status", "artifact_status"),
+        ("reattach-execute", "reattach_execute"),
+        ("release-execute", "release_execute"),
+    ),
+)
 def test_spark_connect_methods(spark_connect_resource, method, fn):
-    args = (
-        spark_connect_resource.root,
-        "POST",
-        BASE_URL + f"/spark-connect/{method}",
-    )
+    args = (spark_connect_resource.root, "POST", BASE_URL + f"/spark-connect/{method}")
     kwargs = get_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -58,7 +57,7 @@ def get_params() -> dict[str, Any]:
             "Accept": "application/json",
             "User-Agent": "python_api/" + VERSION,
             "Content-Type": "application/octet-stream",
-        },
+        }
     )
 
 

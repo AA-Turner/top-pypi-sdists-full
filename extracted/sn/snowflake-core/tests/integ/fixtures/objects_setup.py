@@ -29,26 +29,18 @@ def setup_basic(connection):
         _temp_schema = None
 
         for db_name, db in objects_to_setup.items():
-            cursor.execute(
-                f"CREATE DATABASE IF NOT EXISTS /* setup_basic */ {db_name} {db['params']}",
-            )
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS /* setup_basic */ {db_name} {db['params']}")
             _temp_database = db_name
 
             cursor.execute(f"USE DATABASE /* setup_basic */ {db_name}")  # just in case it already existed
             for schema_name in db["schemas"]:
-                cursor.execute(
-                    f"CREATE SCHEMA IF NOT EXISTS /* setup_basic */ {schema_name}",
-                )
+                cursor.execute(f"CREATE SCHEMA IF NOT EXISTS /* setup_basic */ {schema_name}")
                 _temp_schema = schema_name
 
         if _temp_database is not None:
-            cursor.execute(
-                f"USE DATABASE /* setup_basic */ {_temp_database}",
-            )
+            cursor.execute(f"USE DATABASE /* setup_basic */ {_temp_database}")
         if _temp_schema is not None:
-            cursor.execute(
-                f"USE SCHEMA /* setup_basic */ {_temp_schema}",
-            )
+            cursor.execute(f"USE SCHEMA /* setup_basic */ {_temp_schema}")
 
         try:
             yield

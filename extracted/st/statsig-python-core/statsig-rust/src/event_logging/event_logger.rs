@@ -19,10 +19,8 @@ use crate::{
     statsig_metadata::StatsigMetadata,
     write_lock_or_noop, EventLoggingAdapter, StatsigErr, StatsigOptions, StatsigRuntime,
 };
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use parking_lot::RwLock;
+use std::{collections::HashMap, sync::Arc};
 use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
@@ -140,7 +138,7 @@ impl EventLogger {
         let me = self.clone();
         let rt_clone = rt.clone();
 
-        rt.spawn(BG_LOOP_TAG, |rt_shutdown_notify| async move {
+        let spawn_result = rt.spawn(BG_LOOP_TAG, |rt_shutdown_notify| async move {
             let tick_interval_ms = EventLoggerConstants::tick_interval_ms();
             let tick_interval = Duration::from_millis(tick_interval_ms);
 
@@ -165,6 +163,10 @@ impl EventLogger {
                 me.event_sampler.try_reset_all_sampling();
             }
         });
+
+        if let Err(e) = spawn_result {
+            log_e!(TAG, "Failed to spawn background task: {e}");
+        }
     }
 
     fn spawn_new_limit_flush_task(inst: &Arc<Self>, rt: &Arc<StatsigRuntime>) {
@@ -174,7 +176,7 @@ impl EventLogger {
         };
 
         let me = inst.clone();
-        rt.spawn(LIMIT_FLUSH_TAG, |_| async move {
+        let spawn_result = rt.spawn(LIMIT_FLUSH_TAG, |_| async move {
             log_d!(TAG, "Attempting limit flush");
             if !me.flush_next_batch(FlushType::Limit).await {
                 return;
@@ -196,6 +198,10 @@ impl EventLogger {
 
             drop(permit);
         });
+
+        if let Err(e) = spawn_result {
+            log_e!(TAG, "Failed to spawn limit flush task: {e}");
+        }
     }
 
     async fn try_flush_all_pending_events(&self, flush_type: FlushType) -> Result<(), StatsigErr> {

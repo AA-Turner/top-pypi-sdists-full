@@ -27,7 +27,7 @@ from ._utils.mount_utils import validate_network_file_systems, validate_volumes
 from .client import _Client
 from .config import config
 from .container_process import _ContainerProcess
-from .exception import ExecutionError, InvalidError, SandboxTerminatedError, SandboxTimeoutError
+from .exception import AlreadyExistsError, ExecutionError, InvalidError, SandboxTerminatedError, SandboxTimeoutError
 from .file_io import FileWatchEvent, FileWatchEventType, _FileIO
 from .gpu import GPU_T
 from .image import _Image
@@ -60,17 +60,31 @@ if TYPE_CHECKING:
     import modal.app
 
 
-def _validate_exec_args(entrypoint_args: Sequence[str]) -> None:
+def _validate_exec_args(args: Sequence[str]) -> None:
     # Entrypoint args must be strings.
-    if not all(isinstance(arg, str) for arg in entrypoint_args):
+    if not all(isinstance(arg, str) for arg in args):
         raise InvalidError("All entrypoint arguments must be strings")
     # Avoid "[Errno 7] Argument list too long" errors.
-    total_arg_len = sum(len(arg) for arg in entrypoint_args)
+    total_arg_len = sum(len(arg) for arg in args)
     if total_arg_len > ARG_MAX_BYTES:
         raise InvalidError(
-            f"Total length of entrypoint arguments must be less than {ARG_MAX_BYTES} bytes (ARG_MAX). "
+            f"Total length of CMD arguments must be less than {ARG_MAX_BYTES} bytes (ARG_MAX). "
             f"Got {total_arg_len} bytes."
         )
+
+
+class DefaultSandboxNameOverride(str):
+    """A singleton class that represents the default sandbox name override.
+
+    It is used to indicate that the sandbox name should not be overridden.
+    """
+
+    def __repr__(self) -> str:
+        # NOTE: this must match the instance var name below in order for type stubs to work 😬
+        return "_DEFAULT_SANDBOX_NAME_OVERRIDE"
+
+
+_DEFAULT_SANDBOX_NAME_OVERRIDE = DefaultSandboxNameOverride()
 
 
 class _Sandbox(_Object, type_prefix="sb"):
@@ -90,9 +104,10 @@ class _Sandbox(_Object, type_prefix="sb"):
 
     @staticmethod
     def _new(
-        entrypoint_args: Sequence[str],
+        args: Sequence[str],
         image: _Image,
         secrets: Sequence[_Secret],
+        name: Optional[str] = None,
         timeout: Optional[int] = None,
         workdir: Optional[str] = None,
         gpu: GPU_T = None,
@@ -110,6 +125,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         h2_ports: Sequence[int] = [],
         unencrypted_ports: Sequence[int] = [],
         proxy: Optional[_Proxy] = None,
+        experimental_options: Optional[dict[str, bool]] = None,
         _experimental_scheduler_placement: Optional[SchedulerPlacement] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -192,7 +208,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
             ephemeral_disk = None  # Ephemeral disk requests not supported on Sandboxes.
             definition = api_pb2.Sandbox(
-                entrypoint_args=entrypoint_args,
+                entrypoint_args=args,
                 image_id=image.object_id,
                 mount_ids=[mount.object_id for mount in mounts] + [mount.object_id for mount in image._mount_layers],
                 secret_ids=[secret.object_id for secret in secrets],
@@ -215,10 +231,17 @@ class _Sandbox(_Object, type_prefix="sb"):
                 proxy_id=(proxy.object_id if proxy else None),
                 enable_snapshot=enable_snapshot,
                 verbose=verbose,
+                name=name,
+                experimental_options=experimental_options,
             )
 
             create_req = api_pb2.SandboxCreateRequest(app_id=resolver.app_id, definition=definition)
-            create_resp = await retry_transient_errors(resolver.client.stub.SandboxCreate, create_req)
+            try:
+                create_resp = await retry_transient_errors(resolver.client.stub.SandboxCreate, create_req)
+            except GRPCError as exc:
+                if exc.status == Status.ALREADY_EXISTS:
+                    raise AlreadyExistsError(exc.message)
+                raise exc
 
             sandbox_id = create_resp.sandbox_id
             self._hydrate(sandbox_id, resolver.client, None)
@@ -227,8 +250,10 @@ class _Sandbox(_Object, type_prefix="sb"):
 
     @staticmethod
     async def create(
-        *entrypoint_args: str,
-        app: Optional["modal.app._App"] = None,  # Optionally associate the sandbox with an app
+        *args: str,  # Set the CMD of the Sandbox, overriding any CMD of the container image.
+        # Associate the sandbox with an app. Required unless creating from a container.
+        app: Optional["modal.app._App"] = None,
+        name: Optional[str] = None,  # Optionally give the sandbox a name. Unique within an app.
         image: Optional[_Image] = None,  # The image to run as the container for the sandbox.
         secrets: Sequence[_Secret] = (),  # Environment variables to inject into the sandbox.
         network_file_systems: dict[Union[str, os.PathLike], _NetworkFileSystem] = {},
@@ -261,6 +286,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         proxy: Optional[_Proxy] = None,
         # Enable verbose logging for sandbox operations.
         verbose: bool = False,
+        experimental_options: Optional[dict[str, bool]] = None,
         # Enable memory snapshots.
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: Optional[
@@ -290,8 +316,9 @@ class _Sandbox(_Object, type_prefix="sb"):
             )
 
         return await _Sandbox._create(
-            *entrypoint_args,
+            *args,
             app=app,
+            name=name,
             image=image,
             secrets=secrets,
             network_file_systems=network_file_systems,
@@ -310,6 +337,7 @@ class _Sandbox(_Object, type_prefix="sb"):
             h2_ports=h2_ports,
             unencrypted_ports=unencrypted_ports,
             proxy=proxy,
+            experimental_options=experimental_options,
             _experimental_enable_snapshot=_experimental_enable_snapshot,
             _experimental_scheduler_placement=_experimental_scheduler_placement,
             client=client,
@@ -318,8 +346,10 @@ class _Sandbox(_Object, type_prefix="sb"):
 
     @staticmethod
     async def _create(
-        *entrypoint_args: str,
-        app: Optional["modal.app._App"] = None,  # Optionally associate the sandbox with an app
+        *args: str,  # Set the CMD of the Sandbox, overriding any CMD of the container image.
+        # Associate the sandbox with an app. Required unless creating from a container.
+        app: Optional["modal.app._App"] = None,
+        name: Optional[str] = None,  # Optionally give the sandbox a name. Unique within an app.
         image: Optional[_Image] = None,  # The image to run as the container for the sandbox.
         secrets: Sequence[_Secret] = (),  # Environment variables to inject into the sandbox.
         mounts: Sequence[_Mount] = (),
@@ -351,6 +381,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         unencrypted_ports: Sequence[int] = [],
         # Reference to a Modal Proxy to use in front of this Sandbox.
         proxy: Optional[_Proxy] = None,
+        experimental_options: Optional[dict[str, bool]] = None,
         # Enable memory snapshots.
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: Optional[
@@ -364,13 +395,14 @@ class _Sandbox(_Object, type_prefix="sb"):
         # sandbox that runs the shell session
         from .app import _App
 
-        _validate_exec_args(entrypoint_args)
+        _validate_exec_args(args)
 
         # TODO(erikbern): Get rid of the `_new` method and create an already-hydrated object
         obj = _Sandbox._new(
-            entrypoint_args,
+            args,
             image=image or _default_image,
             secrets=secrets,
+            name=name,
             timeout=timeout,
             workdir=workdir,
             gpu=gpu,
@@ -388,6 +420,7 @@ class _Sandbox(_Object, type_prefix="sb"):
             h2_ports=h2_ports,
             unencrypted_ports=unencrypted_ports,
             proxy=proxy,
+            experimental_options=experimental_options,
             _experimental_scheduler_placement=_experimental_scheduler_placement,
             enable_snapshot=_experimental_enable_snapshot,
             verbose=verbose,
@@ -436,6 +469,27 @@ class _Sandbox(_Object, type_prefix="sb"):
         )
         self._stdin = StreamWriter(self.object_id, "sandbox", self._client)
         self._result = None
+
+    @staticmethod
+    async def from_name(
+        app_name: str,
+        name: str,
+        *,
+        environment_name: Optional[str] = None,
+        client: Optional[_Client] = None,
+    ) -> "_Sandbox":
+        """Get a running Sandbox by name from the given app.
+
+        Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
+        A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+        """
+        if client is None:
+            client = await _Client.from_env()
+        env_name = _get_environment_name(environment_name)
+
+        req = api_pb2.SandboxGetFromNameRequest(sandbox_name=name, app_name=app_name, environment_name=env_name)
+        resp = await retry_transient_errors(client.stub.SandboxGetFromName, req)
+        return _Sandbox._new_hydrated(resp.sandbox_id, client, None)
 
     @staticmethod
     async def from_id(sandbox_id: str, client: Optional[_Client] = None) -> "_Sandbox":
@@ -594,7 +648,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     @overload
     async def exec(
         self,
-        *cmds: str,
+        *args: str,
         pty_info: Optional[api_pb2.PTYInfo] = None,
         stdout: StreamType = StreamType.PIPE,
         stderr: StreamType = StreamType.PIPE,
@@ -609,7 +663,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     @overload
     async def exec(
         self,
-        *cmds: str,
+        *args: str,
         pty_info: Optional[api_pb2.PTYInfo] = None,
         stdout: StreamType = StreamType.PIPE,
         stderr: StreamType = StreamType.PIPE,
@@ -623,7 +677,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
     async def exec(
         self,
-        *cmds: str,
+        *args: str,
         pty_info: Optional[api_pb2.PTYInfo] = None,  # Deprecated: internal use only
         stdout: StreamType = StreamType.PIPE,
         stderr: StreamType = StreamType.PIPE,
@@ -659,7 +713,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         if workdir is not None and not workdir.startswith("/"):
             raise InvalidError(f"workdir must be an absolute path, got: {workdir}")
-        _validate_exec_args(cmds)
+        _validate_exec_args(args)
 
         # Force secret resolution so we can pass the secret IDs to the backend.
         secret_coros = [secret.hydrate(client=self._client) for secret in secrets]
@@ -668,7 +722,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         task_id = await self._get_task_id()
         req = api_pb2.ContainerExecRequest(
             task_id=task_id,
-            command=cmds,
+            command=args,
             pty_info=_pty_info or pty_info,
             runtime_debug=config.get("function_runtime_debug"),
             timeout_secs=timeout or 0,
@@ -713,13 +767,39 @@ class _Sandbox(_Object, type_prefix="sb"):
         return obj
 
     @staticmethod
-    async def _experimental_from_snapshot(snapshot: _SandboxSnapshot, client: Optional[_Client] = None):
+    async def _experimental_from_snapshot(
+        snapshot: _SandboxSnapshot,
+        client: Optional[_Client] = None,
+        *,
+        name: Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
+    ):
         client = client or await _Client.from_env()
 
-        restore_req = api_pb2.SandboxRestoreRequest(snapshot_id=snapshot.object_id)
-        restore_resp: api_pb2.SandboxRestoreResponse = await retry_transient_errors(
-            client.stub.SandboxRestore, restore_req
-        )
+        if name is _DEFAULT_SANDBOX_NAME_OVERRIDE:
+            restore_req = api_pb2.SandboxRestoreRequest(
+                snapshot_id=snapshot.object_id,
+                sandbox_name_override_type=api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_UNSPECIFIED,
+            )
+        elif name is None:
+            restore_req = api_pb2.SandboxRestoreRequest(
+                snapshot_id=snapshot.object_id,
+                sandbox_name_override_type=api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_NONE,
+            )
+        else:
+            restore_req = api_pb2.SandboxRestoreRequest(
+                snapshot_id=snapshot.object_id,
+                sandbox_name_override=name,
+                sandbox_name_override_type=api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_STRING,
+            )
+        try:
+            restore_resp: api_pb2.SandboxRestoreResponse = await retry_transient_errors(
+                client.stub.SandboxRestore, restore_req
+            )
+        except GRPCError as exc:
+            if exc.status == Status.ALREADY_EXISTS:
+                raise AlreadyExistsError(exc.message)
+            raise exc
+
         sandbox = await _Sandbox.from_id(restore_resp.sandbox_id, client)
 
         task_id_req = api_pb2.SandboxGetTaskIdRequest(

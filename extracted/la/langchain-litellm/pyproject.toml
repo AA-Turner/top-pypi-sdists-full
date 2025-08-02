@@ -1,0 +1,105 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry]
+name = "langchain-litellm"
+version = "0.2.2"
+description = "An integration package connecting Litellm and LangChain"
+authors = ["Akshay Dongare"]
+readme = "README.md"
+repository = "https://github.com/langchain-ai/langchain/blob/master/docs/docs/integrations/chat/litellm.ipynb"
+license = "MIT"
+
+[tool.mypy]
+disallow_untyped_defs = "True"
+
+[tool.poetry.urls]
+"Source Code" = "https://github.com/Akshay-Dongare/langchain-litellm"
+"Release Notes" = "https://github.com/langchain-ai/langchain/blob/master/docs/docs/integrations/providers/litellm.mdx"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+langchain-core = "^0.3.15"
+litellm = "^1.65.1"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "T201"]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.codespell]
+skip = "*.lock"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --durations=5"
+markers = [
+    "compile: mark placeholder test used to compile integration tests without running them",
+]
+asyncio_mode = "auto"
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.codespell]
+optional = true
+
+[tool.poetry.group.test_integration]
+optional = true
+
+[tool.poetry.group.lint]
+optional = true
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+
+[tool.poetry.group.test.dependencies]
+pytest = ">=7.4.4,<8.0.0"
+pytest-asyncio = ">=0.20.3,<1.0.0"
+pytest-socket = ">=0.6.0,<1.0.0"
+pytest-watcher = ">=0.2.6,<1.0.0"
+langchain-tests = "0.3.17"
+pytest-cov = ">=4.1.0,<5.0.0"
+pytest-dotenv = ">=0.5.2,<1.0.0"
+duckdb-engine = ">=0.13.6,<1.0.0"
+freezegun = ">=1.2.2,<2.0.0"
+responses = ">=0.22.0,<1.0.0"
+lark = ">=1.1.5,<2.0.0"
+pandas = ">=2.0.0,<3.0.0"
+pytest-mock = ">=3.10.0,<4.0.0"
+syrupy = ">=4.0.2,<5.0.0"
+requests-mock = ">=1.11.0,<2.0.0"
+pytest-xdist = ">=3.6.1,<4.0.0"
+blockbuster = ">=1.5.18,<1.6"
+cffi = {markers = "python_version >= \"3.10\"", version = "^1.17.1"}
+langchain-core = "^0.3.49"
+langchain = "^0.3.22"
+toml = ">=0.10.2"
+
+[tool.poetry.group.codespell.dependencies]
+codespell = "^2.2.6"
+
+[tool.poetry.group.test_integration.dependencies]
+
+[tool.poetry.group.lint.dependencies]
+ruff = "^0.5"
+
+[tool.poetry.group.typing.dependencies]
+mypy = ">=1.12,<2.0"
+types-pyyaml = ">=6.0.12.2,<7.0.0.0"
+types-requests = ">=2.28.11.5,<3.0.0.0"
+types-toml = ">=0.10.8.1,<1.0.0.0"
+types-pytz = ">=2023.3.0.0,<2024.0.0.0"
+types-chardet = ">=5.0.4.6,<6.0.0.0"
+types-redis = ">=4.3.21.6,<5.0.0.0"
+mypy-protobuf = ">=3.0.0,<4.0.0"
+langchain-core = "^0.3.49"
+langchain-text-splitters = "^0.3.7"
+langchain = "^0.3.22"
+
+[tool.poetry-dynamic-versioning]
+enable = false

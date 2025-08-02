@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: optutils
+Version: 0.03
+Summary: Small, composable utilities for writing great command line tools.
+Home-page: https://www.github.com/timtadh/optutils
+Author: Tim Henderson
+Author-email: tim.tadh@gmail.com
+License: GPL
+Description: UNKNOWN
+Platform: UNKNOWN

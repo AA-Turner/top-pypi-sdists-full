@@ -166,13 +166,18 @@ class TestListPlan(BaseTestCase):
             plan_list_item,
             PlanListItem(
                 plan_id="fake_commit",
-                applied_by="john.smith@tecon.ai(User Email)",
+                applied_by={
+                    "principal": "john.smith@tecon.ai",
+                    "principal_type": "USER",
+                    "display_name": "john.smith@tecon.ai (User)",
+                },
                 applied_at=datetime(year=2024, month=1, day=1, tzinfo=UTC),
-                created_by="you",
+                created_by={"principal": "you", "principal_type": "", "display_name": "you"},
                 created_at=datetime(year=2024, month=1, day=2, tzinfo=UTC),
                 workspace="here",
                 sdk_version="0.0.0",
                 integration_test_statuses=IntegrationTestSummaries({"fv1": []}),
+                success=True,
             ),
         )
 
@@ -207,15 +212,20 @@ class TestListPlan(BaseTestCase):
             plan_list_item,
             PlanListItem(
                 plan_id="fake_commit",
-                applied_by="john.smith@tecon.ai(User Email)",
+                applied_by={
+                    "principal": "john.smith@tecon.ai",
+                    "principal_type": "USER",
+                    "display_name": "john.smith@tecon.ai (User)",
+                },
                 applied_at=datetime(year=2024, month=1, day=1, tzinfo=UTC),
-                created_by="you",
+                created_by={"principal": "you", "principal_type": "", "display_name": "you"},
                 created_at=datetime(year=2024, month=1, day=2, tzinfo=UTC),
                 workspace="here",
                 sdk_version="0.0.0",
                 integration_test_statuses=IntegrationTestSummaries(
                     {"fv1": [state_update_pb2.IntegrationTestJobStatus.JOB_STATUS_FAILED]}
                 ),
+                success=True,
             ),
         )
 
@@ -231,13 +241,14 @@ class TestListPlan(BaseTestCase):
             plan_list_item,
             PlanListItem(
                 plan_id="",
-                applied_by="",
+                applied_by=None,
                 applied_at=None,
-                created_by="",
+                created_by=None,
                 created_at=None,
                 workspace="prod",
                 sdk_version="",
                 integration_test_statuses=IntegrationTestSummaries({}),
+                success=False,
             ),
         )
 
@@ -271,23 +282,25 @@ class TestListPlan(BaseTestCase):
         assert items == [
             PlanListItem(
                 plan_id="fake-commit",
-                applied_by="me",
+                applied_by={"principal": "me", "principal_type": "", "display_name": "me"},
                 applied_at=None,
-                created_by="you",
+                created_by={"principal": "you", "principal_type": "", "display_name": "you"},
                 created_at=None,
                 workspace="my_workspace",
                 sdk_version="0.0.0",
                 integration_test_statuses=IntegrationTestSummaries({}),
+                success=True,
             ),
             PlanListItem(
                 plan_id="fake-commit2",
-                applied_by="you",
+                applied_by={"principal": "you", "principal_type": "", "display_name": "you"},
                 applied_at=None,
-                created_by="you",
+                created_by={"principal": "you", "principal_type": "", "display_name": "you"},
                 created_at=None,
                 workspace="my_workspace",
                 sdk_version="0.0.1",
                 integration_test_statuses=IntegrationTestSummaries({}),
+                success=True,
             ),
         ]
 
@@ -304,18 +317,20 @@ class TestListPlan(BaseTestCase):
 
 class TestGetPlan(BaseTestCase):
     def test_plan_summary_from_proto_empty(self):
-        plan = PlanSummary.from_proto(metadata_service_pb2.QueryStateUpdateResponseV2())
+        empty_response = metadata_service_pb2.QueryStateUpdateResponseV2()
+        plan = PlanSummary.from_proto(empty_response)
         self.assertEqual(
             plan,
             PlanSummary(
                 applied=False,
-                applied_by="",
+                applied_by=None,
                 applied_at=None,
-                created_by="",
+                created_by=None,
                 created_at=None,
                 workspace="prod",
                 sdk_version="",
                 integration_test_statuses=IntegrationTestSummaries(statuses={}),
                 plan_url="",
+                original_proto=empty_response,
             ),
         )

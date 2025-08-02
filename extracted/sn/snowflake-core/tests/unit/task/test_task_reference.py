@@ -3,7 +3,6 @@
 #
 
 
-
 from snowflake.core.database import DatabaseCollection
 
 

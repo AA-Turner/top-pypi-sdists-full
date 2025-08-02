@@ -446,6 +446,26 @@ class TestHoles(PolygonTests):
         self._assert_bounds(polygon.interiors[0].bounds,
                             - 1.2e7, -1.2e7, 1.2e7, 1.2e7, 1e6)
 
+    def test_inverted_poly_multi_hole(self):
+        # Adapted from 1149
+        proj = ccrs.LambertAzimuthalEqualArea(
+            central_latitude=45, central_longitude=-100)
+        poly = sgeom.Polygon([(-180, -80), (180, -80), (180, 90), (-180, 90)],
+                             [[(-50, -50), (-50, 0), (0, 0), (0, -50)]])
+        multi_polygon = proj.project_geometry(poly)
+        # Should project to single polygon with multiple holes
+        assert len(multi_polygon.geoms) == 1
+        assert len(multi_polygon.geoms[0].interiors) >= 2
+
+    def test_inverted_poly_merged_holes(self):
+        proj = ccrs.LambertAzimuthalEqualArea(central_latitude=-90)
+        pc = ccrs.PlateCarree()
+        poly = sgeom.Polygon([(-180, -80), (180, -80), (180, 90), (-180, 90)],
+                             [[(-50, 60), (-50, 80), (0, 80), (0, 60)],
+                              [(-50, 81), (-50, 85), (0, 85), (0, 81)]])
+        # Smoke test that nearby holes do not cause side location conflict
+        proj.project_geometry(poly, pc)
+
     def test_inverted_poly_clipped_hole(self):
         proj = ccrs.NorthPolarStereo()
         poly = sgeom.Polygon([(0, 0), (-90, 0), (-180, 0), (-270, 0)],

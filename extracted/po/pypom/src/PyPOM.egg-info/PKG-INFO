@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: PyPOM
+Version: 2.2.4
+Summary: python page object model for selenium
+Home-page: https://github.com/KeshavaReddy1101/PyPOM
+Author: Keshava Reddy Kankanala
+Author-email: keshav.kankanala@gmail.com
+License: Mozilla Public License 2.0 (MPL 2.0)
+Keywords: pypom page object model selenium
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.6
+Provides-Extra: splinter
+License-File: LICENSE.txt
+
+PyPOM
+=====
+
+PyPOM is a Python Page Object Model library for Selenium and Splinter tests.
+
+.. image:: https://img.shields.io/badge/license-MPL%202.0-blue.svg
+   :target: https://github.com/KeshavaReddy1101/PyPOM/blob/master/LICENSE.txt
+   :alt: License
+.. image:: https://img.shields.io/pypi/v/PyPOM.svg
+   :target: https://pypi.python.org/pypi/PyPOM/
+   :alt: PyPI
+.. image:: https://img.shields.io/travis/mozilla/PyPOM.svg
+   :target: https://travis-ci.org/mozilla/PyPOM/
+   :alt: Travis
+.. image:: https://img.shields.io/coveralls/mozilla/PyPOM.svg
+   :target: https://coveralls.io/github/mozilla/PyPOM
+   :alt: Coverage
+.. image:: https://img.shields.io/badge/docs-latest-brightgreen.svg
+   :target: http://pypom.readthedocs.io/en/latest/
+   :alt: Read the Docs
+.. image:: https://img.shields.io/github/issues-raw/mozilla/PyPOM.svg
+   :target: https://github.com/KeshavaReddy1101/PyPOM/issues
+   :alt: Issues
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/ambv/black
+
+Resources
+---------
+
+- `Documentation <http://pypom.readthedocs.io/>`_
+- `Issue Tracker <https://github.com/KeshavaReddy1101/PyPOM/issues>`_
+- `Code <https://github.com/KeshavaReddy1101/PyPOM>`_

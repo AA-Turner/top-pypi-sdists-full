@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ntstatus"
+version = "2.0"
+authors = [
+    { name="Tamás PEREGI", email="petamas@gmail.com" },
+]
+description = "Python enum for NTSTATUS from WinAPI, supporting comparision to both signed and unsigned integers"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+"Homepage" = "https://github.com/petamas/python-ntstatus"
+"Bug Tracker" = "https://github.com/petamas/python-ntstatus/issues"

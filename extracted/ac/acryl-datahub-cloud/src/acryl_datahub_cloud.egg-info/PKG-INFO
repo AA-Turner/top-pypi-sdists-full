@@ -1,0 +1,101 @@
+Metadata-Version: 2.4
+Name: acryl-datahub-cloud
+Version: 0.3.13
+Requires-Python: >=3.10
+Requires-Dist: avro-gen3==0.7.16
+Requires-Dist: acryl-datahub
+Requires-Dist: croniter
+Requires-Dist: pytz
+Requires-Dist: types-croniter
+Requires-Dist: tzlocal
+Provides-Extra: datahub-lineage-features
+Requires-Dist: duckdb; extra == "datahub-lineage-features"
+Requires-Dist: opensearch-py==2.4.2; extra == "datahub-lineage-features"
+Requires-Dist: tenacity; extra == "datahub-lineage-features"
+Requires-Dist: pydantic<2; extra == "datahub-lineage-features"
+Requires-Dist: pandas; extra == "datahub-lineage-features"
+Requires-Dist: pyarrow; extra == "datahub-lineage-features"
+Provides-Extra: datahub-reporting-forms
+Requires-Dist: duckdb; extra == "datahub-reporting-forms"
+Requires-Dist: boto3; extra == "datahub-reporting-forms"
+Requires-Dist: termcolor==2.5.0; extra == "datahub-reporting-forms"
+Requires-Dist: pydantic<2; extra == "datahub-reporting-forms"
+Requires-Dist: pandas; extra == "datahub-reporting-forms"
+Requires-Dist: pyarrow; extra == "datahub-reporting-forms"
+Provides-Extra: datahub-reporting-extract-graph
+Requires-Dist: duckdb; extra == "datahub-reporting-extract-graph"
+Requires-Dist: boto3; extra == "datahub-reporting-extract-graph"
+Requires-Dist: opensearch-py==2.4.2; extra == "datahub-reporting-extract-graph"
+Requires-Dist: pydantic<2; extra == "datahub-reporting-extract-graph"
+Requires-Dist: pandas; extra == "datahub-reporting-extract-graph"
+Requires-Dist: pyarrow; extra == "datahub-reporting-extract-graph"
+Provides-Extra: datahub-reporting-extract-sql
+Requires-Dist: duckdb; extra == "datahub-reporting-extract-sql"
+Requires-Dist: boto3; extra == "datahub-reporting-extract-sql"
+Requires-Dist: pydantic<2; extra == "datahub-reporting-extract-sql"
+Requires-Dist: pandas; extra == "datahub-reporting-extract-sql"
+Requires-Dist: pyarrow; extra == "datahub-reporting-extract-sql"
+Provides-Extra: datahub-usage-reporting
+Requires-Dist: duckdb; extra == "datahub-usage-reporting"
+Requires-Dist: boto3; extra == "datahub-usage-reporting"
+Requires-Dist: termcolor==2.5.0; extra == "datahub-usage-reporting"
+Requires-Dist: scipy<=1.14.1; extra == "datahub-usage-reporting"
+Requires-Dist: numpy<2; extra == "datahub-usage-reporting"
+Requires-Dist: polars==1.30.0; extra == "datahub-usage-reporting"
+Requires-Dist: opensearch-py==2.4.2; extra == "datahub-usage-reporting"
+Requires-Dist: pydantic<2; extra == "datahub-usage-reporting"
+Requires-Dist: pandas; extra == "datahub-usage-reporting"
+Requires-Dist: pyarrow<=18.0.0; extra == "datahub-usage-reporting"
+Requires-Dist: pyarrow; extra == "datahub-usage-reporting"
+Requires-Dist: elasticsearch==7.13.4; extra == "datahub-usage-reporting"
+Provides-Extra: datahub-metadata-sharing
+Requires-Dist: tenacity; extra == "datahub-metadata-sharing"
+Provides-Extra: datahub-action-request-owner
+Requires-Dist: tenacity; extra == "datahub-action-request-owner"
+Provides-Extra: acryl-cs-issues
+Requires-Dist: zenpy; extra == "acryl-cs-issues"
+Requires-Dist: slack-sdk; extra == "acryl-cs-issues"
+Requires-Dist: openai; extra == "acryl-cs-issues"
+Requires-Dist: jinja2; extra == "acryl-cs-issues"
+Provides-Extra: datahub-forms-notifications
+Requires-Dist: tenacity; extra == "datahub-forms-notifications"
+Provides-Extra: all
+Requires-Dist: duckdb; extra == "all"
+Requires-Dist: boto3; extra == "all"
+Requires-Dist: scipy<=1.14.1; extra == "all"
+Requires-Dist: pydantic<2; extra == "all"
+Requires-Dist: pandas; extra == "all"
+Requires-Dist: pyarrow<=18.0.0; extra == "all"
+Requires-Dist: pyarrow; extra == "all"
+Requires-Dist: elasticsearch==7.13.4; extra == "all"
+Requires-Dist: slack-sdk; extra == "all"
+Requires-Dist: openai; extra == "all"
+Requires-Dist: termcolor==2.5.0; extra == "all"
+Requires-Dist: jinja2; extra == "all"
+Requires-Dist: numpy<2; extra == "all"
+Requires-Dist: tenacity; extra == "all"
+Requires-Dist: polars==1.30.0; extra == "all"
+Requires-Dist: zenpy; extra == "all"
+Requires-Dist: opensearch-py==2.4.2; extra == "all"
+Provides-Extra: dev
+Requires-Dist: openai; extra == "dev"
+Requires-Dist: duckdb; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: termcolor==2.5.0; extra == "dev"
+Requires-Dist: acryl-datahub[dev]; extra == "dev"
+Requires-Dist: scipy<=1.14.1; extra == "dev"
+Requires-Dist: jinja2; extra == "dev"
+Requires-Dist: numpy<2; extra == "dev"
+Requires-Dist: slack-sdk; extra == "dev"
+Requires-Dist: opensearch-py==2.4.2; extra == "dev"
+Requires-Dist: tenacity; extra == "dev"
+Requires-Dist: polars==1.30.0; extra == "dev"
+Requires-Dist: pydantic<2; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
+Requires-Dist: pyarrow<=18.0.0; extra == "dev"
+Requires-Dist: pyarrow; extra == "dev"
+Requires-Dist: zenpy; extra == "dev"
+Requires-Dist: elasticsearch==7.13.4; extra == "dev"
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python

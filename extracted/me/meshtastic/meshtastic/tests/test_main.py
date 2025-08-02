@@ -18,6 +18,7 @@ from meshtastic.__main__ import (
     onNode,
     onReceive,
     tunnelMain,
+    set_missing_flags_false,
 )
 from meshtastic import mt_config
 
@@ -454,6 +455,37 @@ def test_main_set_owner_short_to_bob(capsys):
         assert err == ""
         mo.assert_called()
 
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_set_is_unmessageable_to_true(capsys):
+    """Test --set-is-unmessageable true"""
+    sys.argv = ["", "--set-is-unmessageable", "true"]
+    mt_config.args = sys.argv
+
+    iface = MagicMock(autospec=SerialInterface)
+    with patch("meshtastic.serial_interface.SerialInterface", return_value=iface) as mo:
+        main()
+        out, err = capsys.readouterr()
+        assert re.search(r"Connected to radio", out, re.MULTILINE)
+        assert re.search(r"Setting device owner is_unmessageable to True", out, re.MULTILINE)
+        assert err == ""
+        mo.assert_called()
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_set_is_unmessagable_to_true(capsys):
+    """Test --set-is-unmessagable true"""
+    sys.argv = ["", "--set-is-unmessagable", "true"]
+    mt_config.args = sys.argv
+
+    iface = MagicMock(autospec=SerialInterface)
+    with patch("meshtastic.serial_interface.SerialInterface", return_value=iface) as mo:
+        main()
+        out, err = capsys.readouterr()
+        assert re.search(r"Connected to radio", out, re.MULTILINE)
+        assert re.search(r"Setting device owner is_unmessageable to True", out, re.MULTILINE)
+        assert err == ""
+        mo.assert_called()
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("reset_mt_config")
@@ -494,6 +526,44 @@ def test_main_get_canned_messages(capsys, caplog, iface_with_nodes):
             assert err == ""
             mo.assert_called()
 
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_set_ringtone(capsys):
+    """Test --set-ringtone"""
+    sys.argv = ["", "--set-ringtone", "foo,bar"]
+    mt_config.args = sys.argv
+
+    iface = MagicMock(autospec=SerialInterface)
+    with patch("meshtastic.serial_interface.SerialInterface", return_value=iface) as mo:
+        main()
+        out, err = capsys.readouterr()
+        assert re.search(r"Connected to radio", out, re.MULTILINE)
+        assert re.search(r"Setting ringtone to foo,bar", out, re.MULTILINE)
+        assert err == ""
+        mo.assert_called()
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_get_ringtone(capsys, caplog, iface_with_nodes):
+    """Test --get-ringtone"""
+    sys.argv = ["", "--get-ringtone"]
+    mt_config.args = sys.argv
+
+    iface = iface_with_nodes
+    iface.devPath = "bar"
+
+    mocked_node = MagicMock(autospec=Node)
+    mocked_node.get_ringtone.return_value = "foo,bar"
+    iface.localNode = mocked_node
+
+    with caplog.at_level(logging.DEBUG):
+        with patch("meshtastic.serial_interface.SerialInterface", return_value=iface) as mo:
+            main()
+            out, err = capsys.readouterr()
+            assert re.search(r"Connected to radio", out, re.MULTILINE)
+            assert re.search(r"ringtone:foo,bar", out, re.MULTILINE)
+            assert err == ""
+            mo.assert_called()
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("reset_mt_config")
@@ -1724,6 +1794,8 @@ def test_main_export_config(capsys):
         mo.getLongName.return_value = "foo"
         mo.getShortName.return_value = "oof"
         mo.localNode.getURL.return_value = "bar"
+        mo.getCannedMessage.return_value = "foo|bar"
+        mo.getRingtone.return_value = "24:d=32,o=5"
         mo.getMyNodeInfo().get.return_value = {
             "latitudeI": 1100000000,
             "longitudeI": 1200000000,
@@ -1738,7 +1810,8 @@ position_broadcast_smart: true
 fixed_position: true
 position_flags: 35"""
         export_config(mo)
-    out, err = capsys.readouterr()
+    out = export_config(mo)
+    err = ""
 
     # ensure we do not output this line
     assert not re.search(r"Connected to radio", out, re.MULTILINE)
@@ -1824,6 +1897,41 @@ position_flags: 35"""
 #        assert err == ""
 #        mo.assert_called()
 
+
+@pytest.mark.unit
+def test_set_missing_flags_false():
+    """Test set_missing_flags_false() function"""
+    config = {
+        "bluetooth": {
+            "enabled": True
+        },
+        "lora": {
+            "txEnabled": True
+        }
+    }
+
+    false_defaults = {
+        ("bluetooth", "enabled"),
+        ("lora", "sx126xRxBoostedGain"),
+        ("lora", "txEnabled"),
+        ("lora", "usePreset"),
+        ("position", "positionBroadcastSmartEnabled"),
+        ("security", "serialEnabled"),
+        ("mqtt", "encryptionEnabled"),
+    }
+
+    set_missing_flags_false(config, false_defaults)
+
+    # Preserved
+    assert config["bluetooth"]["enabled"] is True
+    assert config["lora"]["txEnabled"] is True
+
+    # Added
+    assert config["lora"]["usePreset"] is False
+    assert config["lora"]["sx126xRxBoostedGain"] is False
+    assert config["position"]["positionBroadcastSmartEnabled"] is False
+    assert config["security"]["serialEnabled"] is False
+    assert config["mqtt"]["encryptionEnabled"] is False
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("reset_mt_config")

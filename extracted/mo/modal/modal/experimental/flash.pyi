@@ -250,3 +250,22 @@ class __flash_prometheus_autoscaler_spec(typing_extensions.Protocol):
         ...
 
 flash_prometheus_autoscaler: __flash_prometheus_autoscaler_spec
+
+class __flash_get_containers_spec(typing_extensions.Protocol):
+    def __call__(self, /, app_name: str, cls_name: str) -> list[dict[str, typing.Any]]:
+        """Return a list of flash containers for a deployed Flash service.
+
+        This is a highly experimental method that can break or be removed at any time without warning.
+        Do not use this method unless explicitly instructed to do so by Modal support.
+        """
+        ...
+
+    async def aio(self, /, app_name: str, cls_name: str) -> list[dict[str, typing.Any]]:
+        """Return a list of flash containers for a deployed Flash service.
+
+        This is a highly experimental method that can break or be removed at any time without warning.
+        Do not use this method unless explicitly instructed to do so by Modal support.
+        """
+        ...
+
+flash_get_containers: __flash_get_containers_spec

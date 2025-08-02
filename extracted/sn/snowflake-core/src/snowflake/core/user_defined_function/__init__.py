@@ -15,10 +15,7 @@ from ._generated.models import (
     SQLFunction,
     UserDefinedFunction,
 )
-from ._user_defined_function import (
-    UserDefinedFunctionCollection,
-    UserDefinedFunctionResource,
-)
+from ._user_defined_function import UserDefinedFunctionCollection, UserDefinedFunctionResource
 
 
 __all__ = [

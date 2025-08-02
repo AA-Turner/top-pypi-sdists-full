@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.alert import Alert, MinutesSchedule
+from snowflake.core.alert import Alert, AlertResource, MinutesSchedule
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,11 +23,7 @@ def alert(alerts):
 
 
 def test_create_async(fake_root, alerts):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/alerts?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/alerts?createMode=errorIfExists")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists")],
         body={
@@ -40,6 +36,7 @@ def test_create_async(fake_root, alerts):
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         alert_res = alerts.create(ALERT)
+        assert isinstance(alert_res, AlertResource)
         assert alert_res.name == "my_alert"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -55,8 +52,9 @@ def test_create_async_clone(fake_root, alerts):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/alerts/clone_alert:clone?" + \
-        "createMode=errorIfExists&targetDatabase=my_db&targetSchema=my_schema",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/alerts/clone_alert:clone?"
+        + "createMode=errorIfExists&targetDatabase=my_db&targetSchema=my_schema",
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("targetDatabase", "my_db"), ("targetSchema", "my_schema")],
@@ -77,11 +75,7 @@ def test_create_async_clone(fake_root, alerts):
 
 
 def test_iter_async(fake_root, alerts):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/alerts",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/alerts")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -102,11 +96,7 @@ def test_fetch_async(fake_root, alert):
     from snowflake.core.alert._generated.models import Alert as AlertModel
     from snowflake.core.alert._generated.models import MinutesSchedule as MinutesScheduleModel
 
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/alerts/my_alert",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/alerts/my_alert")
     kwargs = extra_params()
     model = AlertModel(name="my_alert", schedule=MinutesScheduleModel(minutes=60), condition="", action="select 1")
 
@@ -125,11 +115,7 @@ def test_fetch_async(fake_root, alert):
 
 
 def test_drop_async(fake_root, alert):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/alerts/my_alert?ifExists=False",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/alerts/my_alert?ifExists=False")
     kwargs = extra_params(query_params=[("ifExists", False)])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -144,11 +130,7 @@ def test_drop_async(fake_root, alert):
 
 
 def test_execute_async(fake_root, alert):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/alerts/my_alert:execute",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/alerts/my_alert:execute")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

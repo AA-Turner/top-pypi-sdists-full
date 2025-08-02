@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools==68.2.2", "pip"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deltachat-rpc-server"
+version = "2.9.0"
+
+[project.scripts]
+deltachat-rpc-server = "deltachat_rpc_server:main"

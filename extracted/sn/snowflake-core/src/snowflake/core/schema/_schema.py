@@ -33,8 +33,8 @@ from ..task import TaskCollection
 from ..user_defined_function import UserDefinedFunctionCollection
 from ..view import ViewCollection
 from ._generated.api.schema_api import SchemaApi
-from ._generated.models.model_schema import ModelSchemaModel as Schema
 from ._generated.models.point_of_time import PointOfTime as SchemaPointOfTime
+from ._generated.models.schema import SchemaModel as Schema
 from ._generated.models.schema_clone import SchemaClone
 
 
@@ -111,8 +111,10 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
         >>> schemas = root.databases["my_db"].schemas
         >>> new_schema_ref = schemas.create(
         ...     "new_schema",
-        ...     clone = Clone(source="original_schema", point_of_time=PointOfTimeOffset(reference="at", when="-5")),
-        ...     mode = CreateMode.or_replace
+        ...     clone=Clone(
+        ...         source="original_schema", point_of_time=PointOfTimeOffset(reference="at", when="-5")
+        ...     ),
+        ...     mode=CreateMode.or_replace,
         ... )
 
         Creating a new schema called ``new_schema`` in ``my_db`` by cloning an existing schema in another database:
@@ -120,11 +122,11 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
         >>> schemas = root.databases["my_db"].schemas
         >>> new_schema_ref = schemas.create(
         ...     "new_schema",
-        ...     clone = Clone(
+        ...     clone=Clone(
         ...         source="another_database.original_schema",
-        ...         point_of_time=PointOfTimeOffset(reference="at", when="-5")
+        ...         point_of_time=PointOfTimeOffset(reference="at", when="-5"),
         ...     ),
-        ...     mode = CreateMode.or_replace
+        ...     mode=CreateMode.or_replace,
         ... )
         """
         self._create(schema=schema, clone=clone, mode=mode, async_req=False)
@@ -142,7 +144,7 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._create(schema=schema, clone=clone, mode=mode, async_req=True)
         return PollingOperation(future, lambda _: self[schema.name])
 
@@ -215,7 +217,7 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_schemas(
             self.database.name,
             StrictStr(like) if like is not None else None,
@@ -232,30 +234,16 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
 
     @overload
     def _create(
-        self,
-        schema: Schema,
-        clone: Optional[Union[str, Clone]],
-        mode: CreateMode,
-        async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+        self, schema: Schema, clone: Optional[Union[str, Clone]], mode: CreateMode, async_req: Literal[True]
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
-        self,
-        schema: Schema,
-        clone: Optional[Union[str, Clone]],
-        mode: CreateMode,
-        async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+        self, schema: Schema, clone: Optional[Union[str, Clone]], mode: CreateMode, async_req: Literal[False]
+    ) -> SuccessResponse: ...
 
     def _create(
-        self,
-        schema: Schema,
-        clone: Optional[Union[str, Clone]],
-        mode: CreateMode,
-        async_req: bool,
+        self, schema: Schema, clone: Optional[Union[str, Clone]], mode: CreateMode, async_req: bool
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
         real_mode = CreateMode[mode].value
         model = schema._to_model()
@@ -265,10 +253,7 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
             if isinstance(clone, Clone) and isinstance(clone.point_of_time, PointOfTime):
                 pot = SchemaPointOfTime.from_dict(clone.point_of_time.to_dict())
             real_clone = Clone(source=clone) if isinstance(clone, str) else clone
-            req = SchemaClone(
-                point_of_time=pot,
-                **model.to_dict(),
-            )
+            req = SchemaClone(point_of_time=pot, **model.to_dict())
 
             source_schema_path = real_clone.source.split(".")
             source_database = self.database.name
@@ -288,10 +273,7 @@ class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
             )
 
         return self._api.create_schema(
-           database=self.database.name,
-           model_schema=model,
-           create_mode=StrictStr(real_mode),
-           async_req=async_req,
+            database=self.database.name, var_schema=model, create_mode=StrictStr(real_mode), async_req=async_req
         )
 
 
@@ -343,12 +325,7 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         >>> my_db.schemas["my_new_schema"].create_or_alter(Schema("my_new_schema"))
         """
-        self._api.create_or_alter_schema(
-            self.database.name,
-            schema.name,
-            schema._to_model(),
-            async_req=False,
-        )
+        self._api.create_or_alter_schema(self.database.name, schema.name, schema._to_model(), async_req=False)
         return self
 
     @api_telemetry
@@ -357,13 +334,8 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.create_or_alter_schema(
-            self.database.name,
-            schema.name,
-            schema._to_model(),
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.create_or_alter_schema(self.database.name, schema.name, schema._to_model(), async_req=True)
         return PollingOperation(future, lambda _: self)
 
     @api_telemetry
@@ -377,13 +349,7 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         >>> my_schema = my_db.schemas["my_schema"].fetch()
         >>> print(my_schema.name, my_schema.is_current)
         """
-        return Schema._from_model(
-            self.collection._api.fetch_schema(
-                self.database.name,
-                self.name,
-                async_req=False,
-            )
-        )
+        return Schema._from_model(self.collection._api.fetch_schema(self.database.name, self.name, async_req=False))
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Schema]:
@@ -391,12 +357,8 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_schema(
-            self.database.name,
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_schema(self.database.name, self.name, async_req=True)
         return PollingOperation(future, lambda rest_model: Schema._from_model(rest_model))
 
     @api_telemetry
@@ -442,12 +404,7 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         >>> schema_reference.drop(if_exists=True)
         """
-        self.collection._api.delete_schema(
-            self.database.name,
-            name=self.name,
-            if_exists=if_exists,
-            async_req=False,
-        )
+        self.collection._api.delete_schema(self.database.name, name=self.name, if_exists=if_exists, async_req=False)
 
     @api_telemetry
     def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
@@ -455,12 +412,9 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_schema(
-            self.database.name,
-            name=self.name,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, name=self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -475,11 +429,7 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         >>> schema_reference.drop()
         >>> schema_reference.undrop()
         """
-        self.collection._api.undrop_schema(
-            self.database.name,
-            name=self.name,
-            async_req=False,
-        )
+        self.collection._api.undrop_schema(self.database.name, name=self.name, async_req=False)
 
     @api_telemetry
     def undrop_async(self) -> PollingOperation[None]:
@@ -487,12 +437,8 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.undrop_schema(
-            self.database.name,
-            name=self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.undrop_schema(self.database.name, name=self.name, async_req=True)
         return PollingOperations.empty(future)
 
     @cached_property
@@ -614,7 +560,6 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         >>> my_db.schemas["my_schema"].iceberg_tables
         """
         return IcebergTableCollection(self)
-
 
     @cached_property
     def stages(self) -> StageCollection:

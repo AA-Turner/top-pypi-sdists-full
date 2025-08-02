@@ -1,0 +1,35 @@
+version: 2
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.12"
+    rust: latest
+  apt_packages:
+    - libssl-dev
+    - pkg-config
+
+  jobs:
+    post_create_environment:
+      - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
+      - ". \"$HOME/.cargo/env\""
+      - "echo \"Rust installed: $(rustc --version)\""
+      - ". \"$READTHEDOCS_VIRTUALENV_PATH/bin/activate\""
+      - "echo \"Activated venv: $VIRTUAL_ENV\""
+      - "ln -s \"$READTHEDOCS_VIRTUALENV_PATH\" .venv"
+      - "echo \"Symlinked .venv → $READTHEDOCS_VIRTUALENV_PATH\""
+
+    pre_build:
+      - "maturin develop --release"
+      - 'python -c "import sys; print(\"Python path:\", sys.path)"'
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: true
+
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements: [docs, maturin]
+

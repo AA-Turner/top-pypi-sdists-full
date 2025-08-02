@@ -1,0 +1,120 @@
+[tool.poetry]
+name = "pygpt-net"
+version = "2.5.84"
+description = "Desktop AI Assistant powered by: OpenAI o1, o3, GPT-4o, GPT-4 Vision, DALL-E 3, Llama 3, Mistral, Gemini, Claude, Grok, DeepSeek, Bielik, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more."
+authors = ["Marcin Szczyglinski <info@pygpt.net>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://pygpt.net"
+repository = "https://github.com/szczyglis-dev/py-gpt"
+documentation = "https://pygpt.readthedocs.io/"
+keywords = ["py_gpt", "py-gpt", "pygpt", "desktop", "app", "o1", "o3", "gpt", "gpt4", "gpt-4o", "gpt-4v", "gpt3.5", "gpt-4", "gpt-4-vision", "gpt-3.5", "llama3", "mistral", "gemini", "grok", "deepseek", "bielik", "claude", "tts", "whisper", "vision", "chatgpt", "dall-e", "chat",
+    "chatbot", "assistant", "text completion", "image generation", "ai", "api", "openai", "api key", "langchain", "llama-index", "ollama", "presets", "ui", "qt", "pyside"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities",
+]
+packages = [
+    { from = "src", include = "pygpt_net" },
+]
+include = [
+	"CHANGELOG.md",
+	"icon.png",
+	"README.md",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+anthropic = "^0.54.0"
+azure-core = "^1.34.0"
+beautifulsoup4 = "^4.13.4"
+boto3 = "^1.38.41"
+chromadb = "^0.5.20"
+croniter = "^2.0.7"
+docker = "^7.1.0"
+docx2txt = "^0.8"
+google-generativeai = "^0.8.5"
+EbookLib = "^0.18"
+httpx = "^0.28.1"
+httpx-socks = "^0.10.1"
+ipykernel = "^6.29.5"
+jupyter_client = "^8.6.3"
+llama-index = "^0.12.44"
+llama-index-agent-openai = "^0.4.8"
+llama-index-core = "0.12.44"
+llama-index-embeddings-azure-openai = "^0.3.8"
+llama-index-embeddings-gemini = "^0.3.2"
+llama-index-embeddings-huggingface-api = "^0.3.1"
+llama-index-embeddings-mistralai = "^0.3.0"
+llama-index-embeddings-ollama = "^0.5.0"
+llama-index-embeddings-openai = "^0.3.1"
+llama-index-llms-anthropic = "^0.6.12"
+llama-index-llms-azure-openai = "^0.3.2"
+llama-index-llms-deepseek = "^0.1.1"
+llama-index-llms-gemini = "^0.5.0"
+llama-index-llms-google-genai = "^0.2.2"
+llama-index-llms-huggingface-api = "^0.3.1"
+llama-index-llms-mistralai = "^0.6.1"
+llama-index-llms-ollama = "^0.6.2"
+llama-index-llms-openai = "^0.4.7"
+llama-index-llms-openai-like = "^0.4.0"
+llama-index-llms-perplexity = "^0.3.7"
+llama-index-multi-modal-llms-openai = "^0.5.1"
+llama-index-vector-stores-chroma = "^0.4.2"
+llama-index-vector-stores-elasticsearch = "0.4.0"
+llama-index-vector-stores-pinecone = "^0.6.0"
+llama-index-vector-stores-redis = "^0.4.0"
+llama-index-readers-chatgpt-plugin = "^0.3.0"
+llama-index-readers-database = "^0.3.0"
+llama-index-readers-file = "^0.4.9"
+llama-index-readers-github = "^0.5.0"
+llama-index-readers-google = "^0.5.0"
+llama-index-readers-microsoft-onedrive = "^0.3.0"
+llama-index-readers-twitter = "^0.3.0"
+llama-index-readers-web = "^0.3.9"
+Markdown = "^3.8.2"
+mss = "^9.0.2"
+nbconvert = "^7.16.6"
+numpy = "^1.26.4"
+onnxruntime = "1.20.1"
+openai = "1.96.1"
+openai-agents = "^0.2.3"
+opencv-python = "^4.11.0.86"
+packaging = "^24.2"
+pandas = "^2.2.3"
+pillow = "^10.4.0"
+pinecone-client = "^3.2.2"
+PyAudio = "^0.2.14"
+PyAutoGUI = "^0.9.54"
+Pygments = "^2.19.2"
+pydub = "^0.25.1"
+pygame = "^2.6.1"
+pypdf = "^5.6.0"
+pynput = "^1.8.1"
+pyserial = "^3.5"
+PySide6 = "6.9.1"
+python-markdown-math = "^0.8"
+qasync = "^0.27.1"
+redis = "^5.3.0"
+qt-material = "^2.17"
+SpeechRecognition = "^3.14.3"
+show-in-file-manager = "^1.1.5"
+SQLAlchemy = "^2.0.41"
+tiktoken = "^0.9.0"
+transformers = "4.48.3"
+urllib3 = "^1.26.20"
+wikipedia = "^1.4.0"
+youtube-transcript-api = "^0.6.3"
+
+[tool.poetry.group.dev.dependencies]
+pyinstaller = "^6.4.0"
+pytest = "^7.4.3"
+
+[tool.poetry.scripts]
+pygpt = 'pygpt_net.app:run'
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

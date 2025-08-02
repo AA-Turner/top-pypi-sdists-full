@@ -1,0 +1,46 @@
+[project]
+name = "multimodars"
+version = "0.0.4"
+authors = [
+    { name = "Anselm W. Stark"}
+]
+description = "A Rust-powered cardiac multi-image modality fusion package"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=2.0.0,<3.0.0",
+    "numpy-stl>=3.2.0",
+]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+license = "MIT"
+
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[project.urls]
+Homepage = "https://github.com/yungselm/multimoda-rs"
+Issues = "https://github.com/yungselm/multimoda-rs/issues"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=8.0",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+    "myst-parser",
+    "maturin>=1.7,<2.0",
+    "furo",
+]
+test = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "ruff",
+    "black",
+]

@@ -43,7 +43,7 @@ from .AOT_Recon.AOT_PotentialFunctions.RelativeDifferences import *
 from .Config import config
 from .Settings import *
 
-__version__ = '2.8.8'
+__version__ = '2.9.3'
 
 if config.get_process() == 'gpu':
     __process__ = 'gpu'

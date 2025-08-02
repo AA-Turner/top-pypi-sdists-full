@@ -8,11 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
@@ -62,17 +58,12 @@ class ProcedureCollection(SchemaObjectCollectionParent["ProcedureResource"]):
     def __init__(self, schema: "SchemaResource") -> None:
         super().__init__(schema, ProcedureResource)
         self._api = ProcedureApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
     def create(
-        self,
-        procedure: Procedure,
-        mode: CreateMode = CreateMode.error_if_exists,
-        copy_grants: bool = False,
+        self, procedure: Procedure, mode: CreateMode = CreateMode.error_if_exists, copy_grants: bool = False
     ) -> "ProcedureResource":
         """Create a procedure in Snowflake.
 
@@ -108,7 +99,7 @@ class ProcedureCollection(SchemaObjectCollectionParent["ProcedureResource"]):
         ...     arguments=[],
         ...     return_type=ReturnDataType(datatype="FLOAT"),
         ...     language_config=JavaScriptFunction(),
-        ...     body="return 3.14;"
+        ...     body="return 3.14;",
         ... )
         >>> procedures = root.databases["my_db"].schemas["my_schema"].procedures
         >>> procedures.create(procedure, mode=CreateMode.or_replace)
@@ -128,16 +119,13 @@ class ProcedureCollection(SchemaObjectCollectionParent["ProcedureResource"]):
 
     @api_telemetry
     def create_async(
-        self,
-        procedure: Procedure,
-        mode: CreateMode = CreateMode.error_if_exists,
-        copy_grants: bool = False,
+        self, procedure: Procedure, mode: CreateMode = CreateMode.error_if_exists, copy_grants: bool = False
     ) -> PollingOperation["ProcedureResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
 
         future = self._api.create_procedure(
@@ -151,11 +139,7 @@ class ProcedureCollection(SchemaObjectCollectionParent["ProcedureResource"]):
         return PollingOperation(future, lambda _: ProcedureResource(get_function_name_with_args(procedure), self))
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[Procedure]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[Procedure]:
         """Iterate through ``Procedure`` objects from Snowflake, filtering on any optional 'like' pattern.
 
         Parameters
@@ -172,11 +156,15 @@ class ProcedureCollection(SchemaObjectCollectionParent["ProcedureResource"]):
 
         Showing information of the exact procedure you want to see:
 
-        >>> procedures = root.databases["my_db"].schemas["my_schema"].procedures.iter(like="your-procedure-name")
+        >>> procedures = (
+        ...     root.databases["my_db"].schemas["my_schema"].procedures.iter(like="your-procedure-name")
+        ... )
 
         Showing procedures starting with 'your-procedure-name-':
 
-        >>> procedures = root.databases["my_db"].schemas["my_schema"].procedures.iter(like="your-procedure-name-%")
+        >>> procedures = (
+        ...     root.databases["my_db"].schemas["my_schema"].procedures.iter(like="your-procedure-name-%")
+        ... )
 
         Using a for loop to retrieve information from iterator:
 
@@ -184,29 +172,19 @@ class ProcedureCollection(SchemaObjectCollectionParent["ProcedureResource"]):
         ...     print(procedure.name)
         """
         procedures = self._api.list_procedures(
-            database=self.database.name,
-            var_schema=self.schema.name,
-            like=like,
-            async_req=False,
+            database=self.database.name, var_schema=self.schema.name, like=like, async_req=False
         )
         return iter(procedures)
 
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[Procedure]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[Procedure]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.list_procedures(
-            database=self.database.name,
-            var_schema=self.schema.name,
-            like=like,
-            async_req=True,
+            database=self.database.name, var_schema=self.schema.name, like=like, async_req=True
         )
         return PollingOperations.iterator(future)
 
@@ -218,11 +196,7 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
     perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name_with_args: StrictStr,
-        collection: ProcedureCollection
-    ) -> None:
+    def __init__(self, name_with_args: StrictStr, collection: ProcedureCollection) -> None:
         self.collection = collection
         self.name_with_args = name_with_args
 
@@ -238,12 +212,8 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
         >>> print(my_procedure.name)
         """
         return self.collection._api.fetch_procedure(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            async_req=False,
+            self.database.name, self.schema.name, self.name_with_args, async_req=False
         )
-
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Procedure]:
@@ -251,21 +221,14 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.fetch_procedure(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            async_req=True,
+            self.database.name, self.schema.name, self.name_with_args, async_req=True
         )
         return PollingOperations.identity(future)
 
-
     @api_telemetry
-    def drop(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def drop(self, if_exists: bool = False) -> None:
         """Drop this procedure.
 
         Parameters
@@ -284,29 +247,18 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
         >>> procedure_reference.drop(if_exists=True)
         """
         self.collection._api.delete_procedure(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            if_exists=if_exists,
-            async_req=False,
+            self.database.name, self.schema.name, self.name_with_args, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def drop_async(
-        self,
-        if_exists: bool = False,
-    ) -> PollingOperation[None]:
+    def drop_async(self, if_exists: bool = False) -> PollingOperation[None]:
         """An asynchronous version of :func:`drop`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_procedure(
-            self.database.name,
-            self.schema.name,
-            self.name_with_args,
-            if_exists=if_exists,
-            async_req=True,
+            self.database.name, self.schema.name, self.name_with_args, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)
 
@@ -322,56 +274,47 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
 
         Calling a procedure with 2 arguments using its reference:
 
-        >>> procedure_reference.call(call_argument_list=CallArgumentList(call_arguments=[
-        ...     CallArgument(name="id", datatype="NUMBER", value=1),
-        ...     CallArgument(name="tableName", datatype="VARCHAR", value="my_table_name"),
-        ... ]))
+        >>> procedure_reference.call(
+        ...     call_argument_list=CallArgumentList(
+        ...         call_arguments=[
+        ...             CallArgument(name="id", datatype="NUMBER", value=1),
+        ...             CallArgument(name="tableName", datatype="VARCHAR", value="my_table_name"),
+        ...         ]
+        ...     )
+        ... )
         """
         return self._call(call_argument_list=call_argument_list, async_req=False, extract=extract)
 
     @api_telemetry
     def call_async(
-        self,
-        call_argument_list: Optional[CallArgumentList] = None,
-        extract: Optional[bool] = False
+        self, call_argument_list: Optional[CallArgumentList] = None, extract: Optional[bool] = False
     ) -> PollingOperation[Any]:
         """An asynchronous version of :func:`call`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         return self._call(call_argument_list=call_argument_list, async_req=True, extract=extract)
 
     @overload
     def _call(
-        self,
-        call_argument_list: Optional[CallArgumentList],
-        extract: Optional[bool],
-        async_req: Literal[True],
-    ) -> PollingOperation[Any]:
-        ...
+        self, call_argument_list: Optional[CallArgumentList], extract: Optional[bool], async_req: Literal[True]
+    ) -> PollingOperation[Any]: ...
 
     @overload
     def _call(
-        self,
-        call_argument_list: Optional[CallArgumentList],
-        extract: Optional[bool],
-        async_req: Literal[False],
-    ) -> Any:
-        ...
+        self, call_argument_list: Optional[CallArgumentList], extract: Optional[bool], async_req: Literal[False]
+    ) -> Any: ...
 
     def _call(
-        self,
-        call_argument_list: Optional[CallArgumentList],
-        async_req: bool,
-        extract: bool = False
+        self, call_argument_list: Optional[CallArgumentList], async_req: bool, extract: bool = False
     ) -> Union[Any, PollingOperation[Any]]:
         if extract is False:
             warnings.warn(
                 "Please use `extract=True` when calling procedure. This will extract "
                 "result from [{sproc_name: result}] object. This will become default behavior.",
                 DeprecationWarning,
-                stacklevel=4
+                stacklevel=4,
             )
 
         # None is not supported by self.collection._api.call_procedure
@@ -381,8 +324,10 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
         procedure = self.fetch()
         for argument in procedure.arguments:
             if argument.default_value is None:
-                assert any(argument.name.upper() == call_argument.name.upper()
-                           for call_argument in call_argument_list.call_arguments)
+                assert any(
+                    argument.name.upper() == call_argument.name.upper()
+                    for call_argument in call_argument_list.call_arguments
+                )
 
         result_or_future = self.collection._api.call_procedure(
             self.database.name,
@@ -392,7 +337,8 @@ class ProcedureResource(SchemaObjectReferenceMixin[ProcedureCollection]):
             async_req=async_req,
         )
 
-        def mapper(r): return map_result(procedure, r, extract=extract)
+        def mapper(r):
+            return map_result(procedure, r, extract=extract)
 
         if isinstance(result_or_future, Future):
             return PollingOperation(result_or_future, mapper)

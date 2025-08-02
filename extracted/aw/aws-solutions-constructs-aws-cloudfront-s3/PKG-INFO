@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-solutions-constructs.aws-cloudfront-s3
-Version: 2.90.0
+Version: 2.90.2
 Summary: CDK Constructs for AWS Cloudfront to AWS S3 integration.
 Home-page: https://github.com/awslabs/aws-solutions-constructs.git
 Author: Amazon Web Services
@@ -19,8 +19,8 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.206.0
-Requires-Dist: aws-solutions-constructs.core==2.90.0
-Requires-Dist: aws-solutions-constructs.resources==2.90.0
+Requires-Dist: aws-solutions-constructs.core==2.90.2
+Requires-Dist: aws-solutions-constructs.resources==2.90.2
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.111.0
 Requires-Dist: publication>=0.0.3

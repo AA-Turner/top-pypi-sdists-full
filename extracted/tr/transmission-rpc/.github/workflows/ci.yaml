@@ -1,0 +1,67 @@
+name: test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        transmission: ["version-3.00-r8", "4.0.5"]
+        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    services:
+      transmission:
+        image: linuxserver/transmission:${{ matrix.transmission }}
+        ports:
+          - 8080:9091
+          - 6881:6881
+        env:
+          UID: "1000"
+          TZ: Etc/UTC
+          USER: admin
+          PASS: my-secret-password
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - run: pip install -e '.[dev]'
+
+      - name: test
+        run: coverage run -m pytest
+        env:
+          TR_PORT: 8080
+          TR_USER: admin
+          TR_PASSWORD: my-secret-password
+
+      - uses: codecov/codecov-action@v4
+        with:
+          flags: "${{ matrix.python }}"
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  dist-files:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - run: pipx run flit build
+
+      - name: Check Files
+        run: pipx run twine check --strict dist/*

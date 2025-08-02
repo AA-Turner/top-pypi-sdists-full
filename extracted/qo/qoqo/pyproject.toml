@@ -1,0 +1,35 @@
+[project]
+name = "qoqo"
+version = "1.20.0"
+dependencies = ["numpy", "qoqo_calculator_pyo3>=1.5", "struqture-py"]
+license = { text = "Apache-2.0 AND Apache-2.0 with LLVM-exception AND MIT AND Unicode-DFS-2016 AND BSD-2-Clause AND BSD-3-CLause" }
+maintainers = [
+  { name = "HQS Quantum Simulations GmbH", email = "info@quantumsimulations.de" },
+]
+requires-python = ">=3.9"
+readme = "README_qoqo.md"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+bindings = "pyo3"
+compatibility = "manylinux2014"
+skip-auditwheel = false
+strip = true
+profile = "release"
+python-source = "python"
+include = [{ path = "LICENSE", format = "sdist" }]
+manifest-path = "qoqo/Cargo.toml"
+
+[project.optional-dependencies]
+docs = [
+  "sphinx >= 2.1",
+  "nbsphinx",
+  "pygments",
+  "recommonmark",
+  "myst_parser",
+  "sphinx_rtd_theme",
+  "tomli",
+]

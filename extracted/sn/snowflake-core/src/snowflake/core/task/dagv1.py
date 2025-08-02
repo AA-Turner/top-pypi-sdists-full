@@ -74,6 +74,7 @@ Example 2: Create a task graph that uses Cron, Branch, and function return value
     >>> finally:
     ...     session.close()
 """
+
 import json
 import logging
 import warnings
@@ -84,13 +85,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from functools import wraps
 from types import ModuleType, TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Optional,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from typing_extensions import Self
 
@@ -172,19 +167,20 @@ class DAG:
     A task's predecessor is the dummy task if it's added to the task graph with no other predecessors.
 
     Example:
-        >>> dag = DAG("TEST_DAG",
+        >>> dag = DAG(
+        ...     "TEST_DAG",
         ...     schedule=timedelta(minutes=10),
         ...     use_func_return_value=True,
         ...     warehouse="TESTWH_DAG",
         ...     packages=["snowflake-snowpark-python"],
-        ...     stage_location="@TESTDB_DAG.TESTSCHEMA_DAG.TEST_STAGE_DAG"
+        ...     stage_location="@TESTDB_DAG.TESTSCHEMA_DAG.TEST_STAGE_DAG",
         ... )
         >>> def task1(session: Session) -> None:
         ...     session.sql("select 'task1'").collect()
         >>> def task2(session: Session) -> None:
         ...     session.sql("select 'task2'").collect()
         >>> def cond(session: Session) -> str:
-        ...     return 'TASK1'
+        ...     return "TASK1"
         >>> with dag:
         ...     task1 = DAGTask("TASK1", definition=task1, warehouse="TESTWH_DAG")
         ...     task2 = DAGTask("TASK2", definition=task2, warehouse="TESTWH_DAG")
@@ -300,11 +296,7 @@ class DAG:
         ________
         Add a task to previously created DAG
 
-        >>> child_task = DagTask(
-        ...     "child_task",
-        ...     "select 'child_task'",
-        ...     warehouse="test_warehouse"
-        ... )
+        >>> child_task = DagTask("child_task", "select 'child_task'", warehouse="test_warehouse")
         >>> dag.add_task(child_task)
         )
         """
@@ -361,10 +353,7 @@ class DAG:
         return self
 
     def __exit__(
-        self,
-        exc_type: Optional[type[BaseException]],
-        exc: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        self, exc_type: Optional[type[BaseException]], exc: Optional[BaseException], traceback: Optional[TracebackType]
     ) -> None:
         _dag_context_stack.pop()
 
@@ -743,6 +732,7 @@ class DAGOperation:
 
         >>> dag_op.drop("your-dag-name")
         """
+
         def _drop(name: str) -> None:
             task = self.schema.tasks[name]
             with suppress(NotFoundError):
@@ -750,6 +740,7 @@ class DAGOperation:
                 task.drop()
 
         if drop_finalizer is False:
+            # TODO: remove in next major
             warnings.warn(
                 "Setting drop_finalizer to False is deprecated. This argument will be removed in the next major "
                 "version and finalizer task will always be dropped alongside the DAG.",
@@ -769,13 +760,12 @@ class DAGOperation:
             root_task.suspend()
 
         tasks = self.schema.tasks[dag_name].fetch_task_dependents()
+        finalizer = self._extract_finalizer(root_task_details)
         for t in reversed(tasks):
+            if finalizer and t.name == finalizer.name and not drop_finalizer:
+                # TODO: remove in next major together with deprecation warnings
+                continue
             _drop(t.name)
-
-        if drop_finalizer:
-            finalizer = self._extract_finalizer(root_task_details)
-            if finalizer:
-                _drop(finalizer.name)
 
     @api_telemetry
     def deploy(self, dag: DAG, mode: CreateMode = CreateMode.error_if_exists) -> None:
@@ -921,9 +911,4 @@ class DAGOperation:
         return None
 
 
-__all__ = [
-    "DAG",
-    "DAGTask",
-    "DAGRun",
-    "DAGOperation"
-]
+__all__ = ["DAG", "DAGTask", "DAGRun", "DAGOperation"]

@@ -4,6 +4,7 @@ import logging
 
 from typing import Callable, Generic, Iterable, Iterator, TypeVar, overload
 
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -29,16 +30,13 @@ class PagedIter(Iterable[T], Generic[T]):
     """
 
     @overload
-    def __init__(self, data: Iterable[T]) -> None:
-        ...
+    def __init__(self, data: Iterable[T]) -> None: ...
 
     @overload
-    def __init__(self, data: Iterable[T], map_: None) -> None:
-        ...
+    def __init__(self, data: Iterable[T], map_: None) -> None: ...
 
     @overload
-    def __init__(self, data: Iterable[S], map_: Callable[[S], T]) -> None:
-        ...
+    def __init__(self, data: Iterable[S], map_: Callable[[S], T]) -> None: ...
 
     def __init__(
         self,

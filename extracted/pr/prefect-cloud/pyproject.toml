@@ -1,0 +1,57 @@
+[project]
+name = "prefect-cloud"
+dynamic = ["version"]
+description = "Package for easily deploying to Prefect Cloud."
+readme = "README.md"
+authors = [{ name = "Prefect Technologies, Inc.", email = "help@prefect.io" }]
+
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic-settings>=2.7.1",
+    "pydantic>=2.10.6",
+    "rich>=13.9.4",
+    "typer>=0.13.1",
+    "typing-extensions>=4.12.2",
+    "uv>=0.5.26",
+    "tzlocal>=5.2",
+    "httpx>=0.28.1",
+    "pydantic-extra-types>=2.10.2",
+    "toml>=0.10.2",
+    "griffe>=1.5.6",
+    "readchar>=4.2.1",
+    "croniter>=6.0.0",
+    "websockets>=13.0",
+    "cachetools>=6.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.10",
+    "pre-commit>=4.1.0",
+    "pytest-asyncio>=0.25.3",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.1",
+    "pytest>=8.3.4",
+    "respx>=0.22.0",
+    "ruff>=0.9.4",
+    "types-toml>=0.10.8.20240310",
+    "types-tzlocal>=5.1.0.1",
+    "types-croniter>=5.0.1.20241205",
+    "pytest-env>=1.1.5",
+]
+
+[project.scripts]
+prefect-cloud = "prefect_cloud.cli.root:app"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["tests"]
+env = ["CLOUD_ENV=prd"]

@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: tmnt
+Version: 0.7.62
+Summary: Topic modeling neural toolkit
+Home-page: https://github.com/mitre/tmnt.git
+Author: The MITRE Corporation
+Author-email: wellner@mitre.org
+License: Apache
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: optuna
+Requires-Dist: datasets
+Requires-Dist: mantichora>=0.9.5
+Requires-Dist: transformers[torch]
+Requires-Dist: torcheval
+Requires-Dist: pyLDAvis==3.4.0
+Requires-Dist: MarkupSafe>=2.0
+Requires-Dist: joblib>=0.8.4
+Requires-Dist: future>=0.18.2
+Requires-Dist: funcy>=1.16
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: pyOpenSSL==18.0.0
+Requires-Dist: PySocks==1.6.8
+Requires-Dist: sacremoses>=0.0.38
+Requires-Dist: sentence-splitter==1.4
+Requires-Dist: umap-learn[plot]>=0.5.5
+Requires-Dist: numba
+Requires-Dist: scipy>=1.12.0
+Requires-Dist: tabulate>=0.8.7
+Requires-Dist: torch>=2.1.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+The Topic Modeling Neural Toolkit (TMNT) is a software library that enables training
+topic models as neural network-based variational auto-encoders.
+
+Current stable version is: 0.7.61
+
+Documentation can be found here: https://tmnt.readthedocs.io/en/stable/
+
+The latest development version documentation is here: https://tmnt.readthedocs.io/en/latest
+

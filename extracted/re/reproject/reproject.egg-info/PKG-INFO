@@ -1,12 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: reproject
-Version: 0.14.1
+Version: 0.15.0
 Summary: Reproject astronomical images
 Author: Christoph Deil, Adam Ginsburg
 Author-email: Thomas Robitaille <thomas.robitaille@gmail.com>
 License: BSD 3-Clause
 Project-URL: Homepage, https://reproject.readthedocs.io
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: numpy>=1.23
@@ -14,13 +14,16 @@ Requires-Dist: astropy>=5.0
 Requires-Dist: astropy-healpix>=1.0
 Requires-Dist: scipy>=1.9
 Requires-Dist: dask[array]>=2021.8
-Requires-Dist: cloudpickle
-Requires-Dist: zarr
-Requires-Dist: fsspec
+Requires-Dist: zarr>=2.11.0
+Requires-Dist: fsspec>=2021.8
+Requires-Dist: pillow>=10.0
+Requires-Dist: pyavm>=0.9.6
 Provides-Extra: all
 Requires-Dist: shapely; extra == "all"
 Provides-Extra: test
 Requires-Dist: pytest-astropy; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: tqdm; extra == "test"
 Provides-Extra: testall
 Requires-Dist: shapely>=2.0.2; extra == "testall"
 Requires-Dist: sunpy[map]>=6.0.1; extra == "testall"
@@ -31,6 +34,8 @@ Provides-Extra: docs
 Requires-Dist: sphinx-astropy; extra == "docs"
 Requires-Dist: pyvo; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
+Requires-Dist: tqdm; extra == "docs"
+Dynamic: license-file
 
 |Docs| |PyPI| |Build Status| |CI Status| |Coverage Status| |Powered by Astropy Badge|
 

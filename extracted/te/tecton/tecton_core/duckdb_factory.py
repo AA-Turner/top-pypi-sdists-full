@@ -3,8 +3,6 @@ import os
 import tempfile
 import time
 from dataclasses import dataclass
-from fcntl import LOCK_EX
-from fcntl import flock
 from typing import TYPE_CHECKING
 from typing import Optional
 
@@ -104,6 +102,9 @@ def _install_extn(conn, extn, force=False, is_latest_version=False):
     still likely not correct to have multiple, uncoordinated sessions managing extensions at
     the same time.
     """
+    # NOTE: `fcntl` is not supported on Windows. Scoped import to avoid blocking `tecton cli` on Windows.
+    from fcntl import LOCK_EX
+    from fcntl import flock
 
     force = "FORCE" if force else ""
 

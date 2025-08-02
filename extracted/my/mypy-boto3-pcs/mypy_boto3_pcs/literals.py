@@ -30,6 +30,7 @@ __all__ = (
     "ListClustersPaginatorName",
     "ListComputeNodeGroupsPaginatorName",
     "ListQueuesPaginatorName",
+    "NetworkTypeType",
     "PaginatorName",
     "ParallelComputingServiceServiceName",
     "PurchaseOptionType",
@@ -70,6 +71,7 @@ EndpointTypeType = Literal["SLURMCTLD", "SLURMDBD"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]
+NetworkTypeType = Literal["IPV4", "IPV6"]
 PurchaseOptionType = Literal["ONDEMAND", "SPOT"]
 QueueStatusType = Literal[
     "ACTIVE",
@@ -115,6 +117,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",

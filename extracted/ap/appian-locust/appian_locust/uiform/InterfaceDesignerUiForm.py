@@ -8,6 +8,7 @@ from ..exceptions import DisabledComponentException, ComponentNotFoundException
 from ..utilities import logger, get_in_dict
 
 from ..utilities.helper import (find_component_by_attribute_in_dict,
+                                find_component_by_attribute_and_index_in_dict,
                                 find_component_by_type_and_attribute_and_index_in_dict)
 
 log = logger.getLogger(__name__)
@@ -40,7 +41,6 @@ class InterfaceDesignerUiForm(DesignObjectUiForm):
                 locust_request_label(str): Label used to identify the request for locust statistics
             Returns: None
         """
-
         component_id, _ = self.__get_live_view_component_info(component_label, index)
         new_value = {
             "action": "DELETE",
@@ -59,7 +59,6 @@ class InterfaceDesignerUiForm(DesignObjectUiForm):
                 locust_request_label(str): Label used to identify the request for locust statistics
             Returns: None
         """
-
         component_id, _ = self.__get_live_view_component_info(component_label, index)
 
         new_value = {
@@ -347,7 +346,7 @@ class InterfaceDesignerUiForm(DesignObjectUiForm):
 
         raise Exception(f'Literal View Model with label {label} not found')
 
-    def select_designview_choice_component(self, label: str, choice_label: str, locust_request_label: str = '', 
+    def select_designview_choice_component(self, label: str, choice_label: str, locust_request_label: str = '',
                                            is_test_label: bool = True) -> None:
         try: # pre 25.3
             self.select_dropdown_item(label=label, choice_label=choice_label,
@@ -355,30 +354,30 @@ class InterfaceDesignerUiForm(DesignObjectUiForm):
         except ComponentNotFoundException: # 25.3 and after
             literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
             component = self._find_literal_view_model_by_label(literal_view_model_label)
-            
+
             client_params = get_in_dict(component, ['componentViewModel', 'additionalClientParameters'], {})
             choice_label_index = client_params.get('choiceLabels', []).index(choice_label)
             choice_value = client_params.get('choiceValues', [])[choice_label_index]
 
             self._update_client_view_model(component, choice_value, locust_request_label)
-            
-    def fill_designview_text_field(self, label: str, value: str, locust_request_label: str = '', 
+
+    def fill_designview_text_field(self, label: str, value: str, locust_request_label: str = '',
                                    is_test_label: bool = True) -> None:
         try: # pre 25.3
             self.fill_text_field(label=label, value=value, is_test_label=is_test_label, locust_request_label=locust_request_label)
         except ComponentNotFoundException: # 25.3 and after
             literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
             self.update_client_view_model_with_label(label=literal_view_model_label, value=value, locust_request_label=locust_request_label)
-    
-    def fill_designview_paragraph_field(self, label: str, value: str, locust_request_label: str = '', 
+
+    def fill_designview_paragraph_field(self, label: str, value: str, locust_request_label: str = '',
                                         is_test_label: bool = True) -> None:
         try: # pre 25.3
             self.fill_paragraph_field(label=label, value=value, is_test_label=is_test_label, locust_request_label=locust_request_label)
         except ComponentNotFoundException: # 25.3 and after
             literal_view_model_label = self._test_label_to_label(label) if is_test_label else label
             self.update_client_view_model_with_label(label=literal_view_model_label, value=value, locust_request_label=locust_request_label)
-    
-    def toggle_designview_boolean_field(self, label: str, checked: bool, locust_request_label: str = '', 
+
+    def toggle_designview_boolean_field(self, label: str, checked: bool, locust_request_label: str = '',
                                         is_test_label: bool = True) -> None:
         try: # pre 25.3
             indices = [1] if checked else [0]
@@ -419,6 +418,57 @@ class InterfaceDesignerUiForm(DesignObjectUiForm):
             }
         }
 
-        self._interactor.click_component(self.form_url, client_view_model_link, self.context, self.uuid,
-                                        label=locust_request_label, value=value_dictionary)
+        new_state = self._interactor.click_component(self.form_url, client_view_model_link, self.context, self.uuid,
+                                                     label=locust_request_label, value=value_dictionary)
+        if not new_state:
+            raise Exception(f"No response returned when trying to activate the clientViewModelUpdate link")
+        self._reconcile_state(new_state)
 
+    def click_design_view_navigation_link(self, label: str, is_test_label: bool = False, locust_request_label: str = '', index: int = 1) -> None:
+        """
+            Clicks on a navigation link within Interface Designer's Configuration Panel (also called Design View).
+
+            Args:
+                label(str): Label of the navigation link to click
+                is_test_label(bool): If you are clicking a link via a test label instead of a label, set this boolean to true
+                locust_request_label(str): Label used to identify the request for locust statistics
+                index(int): Index of the link to click if more than one match the label criteria (default: 1)
+        """
+        attribute_to_find = 'testLabel' if is_test_label else 'label'
+        component = find_component_by_attribute_and_index_in_dict(attribute_to_find, label, index, self._state)
+        if component.get('#t') == 'InterfaceDesignerManagerLink':
+            self._update_design_view_navigation(component, locust_request_label)
+        else:
+            self.click(label, is_test_label, locust_request_label)
+
+    def _update_design_view_navigation(self, component: Dict[str, Any], locust_request_label: str = '') -> None:
+        """
+            Given the InterfaceDesignerManagerLink component that's been clicked, constructs a link value and
+            activates the designViewNavigation link on the InterfaceDesignerManager instead.
+
+            Args:
+                component(Dict[str, Any]): InterfaceDesignerManagerLink component that was clicked
+                locust_request_label(str): Label used to identify the request for locust statistics
+        """
+        interface_designer_manager = find_component_by_type_and_attribute_and_index_in_dict(
+            component_tree=self._state,
+            type='InterfaceDesignerManager'
+        )
+        manager_actions = interface_designer_manager.get('actions', [])
+        design_view_navigation_link = [a for a in manager_actions if a.get('_actionName') == 'designViewNavigation'][0]
+
+        id_action_name = get_in_dict(component, ['idActionName'])
+        nav_value = get_in_dict(component, ['idActionData', 'path', '#v']) if id_action_name == 'navigation' else get_in_dict(component, ['idActionData', '#v'])
+        value_dictionary = {
+            "#t": "Dictionary",
+            "#v": {
+                'idActionName': id_action_name,
+                'value': nav_value
+            }
+        }
+
+        new_state = self._interactor.click_component(self.form_url, design_view_navigation_link, self.context, self.uuid,
+                                                     label=locust_request_label, value=value_dictionary)
+        if not new_state:
+            raise Exception(f"No response returned when trying to activate the designViewNavigation link")
+        self._reconcile_state(new_state)

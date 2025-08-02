@@ -1,3 +1,0 @@
-from kivymd_extensions.sweetalert.animation.failure_icon import FailureAnimation
-from kivymd_extensions.sweetalert.animation.others_icon import OthersAnimation
-from kivymd_extensions.sweetalert.animation.success_icon import SuccessAnimation

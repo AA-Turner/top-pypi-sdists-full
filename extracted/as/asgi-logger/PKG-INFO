@@ -1,0 +1,51 @@
+Metadata-Version: 2.1
+Name: asgi-logger
+Version: 0.1.0
+Summary: Middleware based uvicorn access logger! :tada:
+Home-page: https://github.com/Kludex/asgi-logger
+License: MIT
+Author: Marcelo Trylesinski
+Author-email: marcelotryle@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: asgiref (>=3.4.1,<4.0.0)
+Project-URL: Repository, https://github.com/Kludex/asgi-logger
+Description-Content-Type: text/markdown
+
+<h1 align="center">
+    <strong>asgi-logger</strong>
+</h1>
+<p align="center">
+    <a href="https://github.com/Kludex/asgi-logger" target="_blank">
+        <img src="https://img.shields.io/github/last-commit/Kludex/asgi-logger" alt="Latest Commit">
+    </a>
+        <img src="https://img.shields.io/github/workflow/status/Kludex/asgi-logger/Test">
+        <img src="https://img.shields.io/codecov/c/github/Kludex/asgi-logger">
+    <br />
+    <a href="https://pypi.org/project/asgi-logger" target="_blank">
+        <img src="https://img.shields.io/pypi/v/asgi-logger" alt="Package version">
+    </a>
+    <img src="https://img.shields.io/pypi/pyversions/asgi-logger">
+    <img src="https://img.shields.io/github/license/Kludex/asgi-logger">
+</p>
+
+
+## Installation
+
+``` bash
+pip install asgi-logger
+```
+
+## License
+
+This project is licensed under the terms of the MIT license.
+

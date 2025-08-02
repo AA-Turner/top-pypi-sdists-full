@@ -5,10 +5,7 @@ from snowflake.core import PollingOperation
 from snowflake.core._common import AccountObjectCollectionParent, CreateMode, ObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
-from snowflake.core.notification_integration._generated import (
-    NotificationIntegration,
-    NotificationIntegrationApi,
-)
+from snowflake.core.notification_integration._generated import NotificationIntegration, NotificationIntegrationApi
 from snowflake.core.notification_integration._generated.api_client import StoredProcApiClient
 
 
@@ -38,7 +35,7 @@ class NotificationIntegrationCollection(AccountObjectCollectionParent["Notificat
     ...         ),
     ...         webhook_body_template='{"key": "SNOWFLAKE_WEBHOOK_SECRET", "msg": "SNOWFLAKE_WEBHOOK_MESSAGE"}',
     ...         webhook_headers={"content-type": "application/json", "user-content": "chrome"},
-    ...     )
+    ...     ),
     ... )
     >>> notification_integrations.create(new_ni)
     """
@@ -46,17 +43,12 @@ class NotificationIntegrationCollection(AccountObjectCollectionParent["Notificat
     def __init__(self, root: "Root") -> None:
         super().__init__(root, ref_class=NotificationIntegrationResource)
         self._api = NotificationIntegrationApi(
-            root=root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
     def create(
-        self,
-        notification_integration: NotificationIntegration,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, notification_integration: NotificationIntegration, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> "NotificationIntegrationResource":
         """Create a notification integration in Snowflake.
 
@@ -100,38 +92,27 @@ class NotificationIntegrationCollection(AccountObjectCollectionParent["Notificat
         """
         real_mode = CreateMode[mode].value
         self._api.create_notification_integration(
-            notification_integration=notification_integration,
-            create_mode=real_mode,
-            async_req=False,
+            notification_integration=notification_integration, create_mode=real_mode, async_req=False
         )
         return self[notification_integration.name]
 
     @api_telemetry
     def create_async(
-        self,
-        notification_integration: NotificationIntegration,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, notification_integration: NotificationIntegration, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["NotificationIntegrationResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
         future = self._api.create_notification_integration(
-            notification_integration=notification_integration,
-            create_mode=real_mode,
-            async_req=True,
+            notification_integration=notification_integration, create_mode=real_mode, async_req=True
         )
         return PollingOperation(future, lambda _: self[notification_integration.name])
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> Iterator[NotificationIntegration]:
+    def iter(self, *, like: Optional[str] = None) -> Iterator[NotificationIntegration]:
         """Iterate through ``NotificationIntegration`` objects from Snowflake, filtering on any optional 'like' pattern.
 
         Parameters
@@ -148,11 +129,15 @@ class NotificationIntegrationCollection(AccountObjectCollectionParent["Notificat
 
         Showing information of the exact notification integration you want to see:
 
-        >>> notification_integrations = notification_integrations.iter(like="your-notification-integration-name")
+        >>> notification_integrations = notification_integrations.iter(
+        ...     like="your-notification-integration-name"
+        ... )
 
         Showing notification integrations starting with 'your-notification-integration-name-':
 
-        >>> notification_integrations = notification_integrations.iter(like="your-notification-integration-name-%")
+        >>> notification_integrations = notification_integrations.iter(
+        ...     like="your-notification-integration-name-%"
+        ... )
 
         Using a for-loop to retrieve information from iterator:
 
@@ -163,28 +148,16 @@ class NotificationIntegrationCollection(AccountObjectCollectionParent["Notificat
         ...         repr(notification_integration.notification_hook),
         ...     )
         """
-        return iter(
-            self._api.list_notification_integrations(
-                like,
-                async_req=False,
-            )
-        )
+        return iter(self._api.list_notification_integrations(like, async_req=False))
 
     @api_telemetry
-    def iter_async(
-        self,
-        *,
-        like: Optional[str] = None,
-    ) -> PollingOperation[Iterator[NotificationIntegration]]:
+    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[NotificationIntegration]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_notification_integrations(
-            like,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_notification_integrations(like, async_req=True)
         return PollingOperations.iterator(future)
 
 
@@ -214,10 +187,7 @@ class NotificationIntegrationResource(ObjectReferenceMixin[NotificationIntegrati
         >>> my_ni = ni_reference.fetch()
         >>> print(my_ni.name, my_ni.enabled, repr(my_ni.notification_hook))
         """
-        return self.collection._api.fetch_notification_integration(
-            self.name,
-            async_req=False,
-        )
+        return self.collection._api.fetch_notification_integration(self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[NotificationIntegration]:
@@ -225,11 +195,8 @@ class NotificationIntegrationResource(ObjectReferenceMixin[NotificationIntegrati
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_notification_integration(
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_notification_integration(self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
@@ -252,9 +219,7 @@ class NotificationIntegrationResource(ObjectReferenceMixin[NotificationIntegrati
 
         >>> ni_reference.drop(if_exists=True)
         """
-        self.collection._api.delete_notification_integration(
-            name=self.name, if_exists=if_exists, async_req=False,
-        )
+        self.collection._api.delete_notification_integration(name=self.name, if_exists=if_exists, async_req=False)
 
     @api_telemetry
     def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
@@ -262,8 +227,8 @@ class NotificationIntegrationResource(ObjectReferenceMixin[NotificationIntegrati
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_notification_integration(
-            name=self.name, if_exists=if_exists, async_req=True,
+            name=self.name, if_exists=if_exists, async_req=True
         )
         return PollingOperations.empty(future)

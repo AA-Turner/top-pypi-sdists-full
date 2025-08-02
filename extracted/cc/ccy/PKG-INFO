@@ -1,0 +1,45 @@
+Metadata-Version: 2.1
+Name: ccy
+Version: 1.7.1
+Summary: Python currencies
+License: BSD
+Author: Luca Sbardella
+Author-email: luca@quantmind.com
+Requires-Python: >=3.10
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: cli
+Provides-Extra: holidays
+Requires-Dist: click (>=8.1.7,<9.0.0) ; extra == "cli"
+Requires-Dist: holidays (>=0.63,<0.64) ; extra == "holidays"
+Requires-Dist: pandas (>=2.0.3,<3.0.0) ; extra == "cli"
+Requires-Dist: pycountry (>=24.6.1,<25.0.0)
+Requires-Dist: python-dateutil (>=2.9.0,<3.0.0)
+Requires-Dist: rich (>=13.7.1,<14.0.0) ; extra == "cli"
+Description-Content-Type: text/markdown
+
+# Python CCY
+
+[![PyPI version](https://badge.fury.io/py/ccy.svg)](https://badge.fury.io/py/ccy)
+[![Python versions](https://img.shields.io/pypi/pyversions/ccy.svg)](https://pypi.org/project/ccy)
+[![Python downloads](https://img.shields.io/pypi/dd/ccy.svg)](https://pypi.org/project/ccy)
+[![build](https://github.com/quantmind/ccy/actions/workflows/build.yml/badge.svg)](https://github.com/quantmind/ccy/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/quantmind/ccy/branch/main/graph/badge.svg?token=2L5SY0WkXv)](https://codecov.io/gh/quantmind/ccy)
+
+A python module for currencies. The module compiles a dictionary of
+currency objects containing information useful in financial analysis.
+Not all currencies in the world are supported yet. You are welcome to
+join and add more.
+
+* Documentation is available as [ccy jupyter book](https://quantmind.github.io/ccy/).
+* Install the command line tool with `pip install ccy[cli]`.
+* Show all currencies in the command line via `ccys show`
+* Trading centres are available when installing the `holidays` extra via
+  ```
+  pip install ccy[holidays]
+  ```
+

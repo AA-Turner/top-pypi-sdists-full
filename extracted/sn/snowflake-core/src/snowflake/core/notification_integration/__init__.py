@@ -1,6 +1,5 @@
 """Manages Snowflake Notification Integrations."""
 
-
 from ._generated.models import (
     NotificationEmail,
     NotificationHook,

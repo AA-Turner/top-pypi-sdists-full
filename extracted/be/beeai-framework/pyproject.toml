@@ -1,0 +1,188 @@
+[project]
+name = "beeai-framework"
+version="0.1.34"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [{ name = "IBM Corp." }]
+maintainers = [
+    { name = "Tomas Dvorak", email = "toomas2d@gmail.com" },
+    { name = "Lukáš Janeček", email = "xjacka@gmail.com" },
+    { name = "Anton Puzanov", email = "antonp@il.ibm.com" }
+]
+requires-python = ">=3.11,<4.0"
+
+[project.urls]
+homepage = "https://framework.beeai.dev/"
+repository = "https://github.com/i-am-bee/beeai-framework"
+documentation = "https://i-am-bee.github.io/beeai-framework/#/python/"
+
+[tool.poetry.dependencies]
+python = ">= 3.11,<3.14"
+a2a-sdk = {version = "^0.2.16", optional = true}
+acp-sdk = {version = "^1.0.0", optional = true}
+aiofiles = "^24.1.0"
+boto3 = {version = "^1.37.5", optional = true}
+cachetools = "^5.5.2"
+chevron = "^0.14.0"
+ddgs = { version="^9.3.1", optional = true }
+fastapi = {version = "^0.115.0", optional = true }
+json-repair = "^0.39.0"
+jsonref = "^1.1.0"
+langchain-community = {version = "^0.3.19", optional = true}
+langchain-core = {version = "^0.3.41", optional = true}
+langchain-ollama={version = "^0.3.1", optional = true}
+litellm = "^1.69.3"
+llama-index = {version = "^0.12.42", optional = true}
+markdown = {version = "^3.8.2", optional = true}
+mcp = {version = "^1.10.1", optional = true}
+pydantic = "^2.10"
+pydantic-settings = "^2.9.0"
+requests = "^2.32"
+unstructured = {version = "^0.17.2", optional = true}
+uvicorn = {version = "^0.34.2", optional = true}
+wikipedia-api = {version = "^0.8.1", optional = true}
+
+[tool.poetry.group.dev.dependencies]
+commitizen = "^4.2.1"
+deepeval = "2.9.7"
+mypy = "^1.17.0"
+nbstripout = "^0.8.1"
+pydantic-settings = "^2.7"
+pylint = "^3.3.2"
+pytest = "^8.3.4"
+pytest-asyncio = "~0.25.3"
+pytest-cov = "^6.0.0"
+pytest-xdist = "^3.6.1"
+rich = ">=13.6.0,<14.0.0"
+ruff = "^0.9.6"
+tox = "^4.20"
+types-aiofiles = "^24.1.0.20250326"
+types-cachetools = "^5.5.0.20240820"
+types-chevron = "^0.14.2.20250103"
+types-PyYAML = "^6.0.12.20250402"
+types-requests = "^2.32.0.20241016"
+
+[tool.poetry.extras]
+huggingface = ["datasets", "transformers"]
+search = ["ddgs", "wikipedia-api"]
+duckduckgo = ["ddgs"]
+wikipedia = ["wikipedia-api"]
+mcp = ["mcp"]
+llama_index = ["llama-index"]
+langchain = ["langchain-core", "langchain-community", "langchain-ollama"]
+rag = ["llama-index", "langchain-core", "langchain-community", "langchain-ollama", "markdown", "unstructured"]
+acp = ["acp-sdk", "uvicorn"]
+beeai-platform = ["acp-sdk", "uvicorn"]
+a2a = ["a2a-sdk", "uvicorn"]
+watsonx-orchestrate = ["uvicorn", "fastapi"]
+all = [
+    "langchain-core",
+    "langchain-community",
+    "langchain-ollama",
+    "datasets",
+    "transformers",
+    "ddgs",
+    "wikipedia-api",
+    "mcp",
+    "acp-sdk",
+    "uvicorn",
+    "a2a-sdk",
+    "fastapi",
+    "llama-index"
+]
+
+
+[tool.mypy]
+exclude = ["^build/$", "^examples/playground/"]
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["deepeval.*", "deepeval"]
+implicit_reexport = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.commitizen]
+name = "cz_monorepo_commits"
+tag_format = "python_v$version"
+version_scheme = "semver"
+version_provider = "pep621"
+update_changelog_on_bump = true
+major_version_zero = true
+bump_message = "chore: python release $new_version"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "beeai_framework"]
+markers = [
+    "unit",
+    "integration",
+    "e2e",
+    "extension"
+]
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = "ignore::DeprecationWarning:pydantic" # some dependencies still use the deprecated class-based config
+
+[tool.pytest-asyncio]
+asyncio_mode = "strict"
+default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+omit = ["tests/*", "eval/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover", # re-enable the standard pragma
+    "pass",             # Skip any pass lines such as may be used for @abstractmethod
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins."commitizen.plugin"]
+cz_monorepo_commits = "cz_commitizen:MonorepoCommitsCz"
+
+[tool.ruff]
+lint.select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "UP",    # pyupgrade
+    "I",     # isort
+    "B",     # bugbear
+    "ANN",   # annotations
+    "N",     # pep8-naming
+    "C4",    # Comprehensions
+    "DTZ",   # DatetimeZ
+    "Q",     # Quotes
+    "SIM",   # Simplify
+    "RUF",   # Ruff
+    "TID",   # tidy-imports
+    "ASYNC", # async
+]
+force-exclude = true
+lint.ignore = ["ANN401", "B904", "RUF001", "DTZ002", "DTZ011"]
+lint.fixable = ["ALL"]
+lint.unfixable = []
+line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["E501"]
+"examples/**/*.py" = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports, "parents" | "all"
+ban-relative-imports = "all"

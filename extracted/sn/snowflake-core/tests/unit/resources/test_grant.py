@@ -9,7 +9,7 @@ def test_to_dict():
         grant_option=False,
     )
     assert grant.to_dict() == {
-        'grant_option': False,
-        'privileges': ['ADD SEARCH OPTIMIZATION', 'READ'],
-        'securable_type': 'bar'
+        "grant_option": False,
+        "privileges": ["ADD SEARCH OPTIMIZATION", "READ"],
+        "securable_type": "bar",
     }

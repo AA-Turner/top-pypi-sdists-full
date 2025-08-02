@@ -4,11 +4,4 @@ from ..alert._generated.models import Alert, AlertClone, CronSchedule, MinutesSc
 from ._alert import AlertCollection, AlertResource
 
 
-__all__ = [
-    "Alert",
-    "AlertResource",
-    "AlertCollection",
-    "AlertClone",
-    "CronSchedule",
-    "MinutesSchedule",
-]
+__all__ = ["Alert", "AlertResource", "AlertCollection", "AlertClone", "CronSchedule", "MinutesSchedule"]

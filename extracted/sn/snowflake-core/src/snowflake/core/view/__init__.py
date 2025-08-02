@@ -4,9 +4,4 @@ from ..view._generated.models import View, ViewColumn
 from ._view import ViewCollection, ViewResource
 
 
-__all__ = [
-    "View",
-    "ViewResource",
-    "ViewCollection",
-    "ViewColumn",
-]
+__all__ = ["View", "ViewResource", "ViewCollection", "ViewColumn"]

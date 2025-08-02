@@ -151,8 +151,8 @@ class AIOpsClient(BaseClient):
         self, **kwargs: Unpack[GetInvestigationGroupPolicyRequestTypeDef]
     ) -> GetInvestigationGroupPolicyResponseTypeDef:
         """
-        Returns the IAM resource policy that is associated with the specified
-        investigation group.
+        Returns the JSON of the IAM resource policy associated with the specified
+        investigation group in a string.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/aiops/client/get_investigation_group_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_aiops/client/#get_investigation_group_policy)

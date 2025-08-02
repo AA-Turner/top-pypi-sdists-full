@@ -30,9 +30,7 @@ def test_create(services, service_spec_file_on_stage, shared_compute_pool):
         assert fetched_service.name == service_name.upper()
 
         # already existing service
-        with pytest.raises(
-            ConflictError,
-        ):
+        with pytest.raises(ConflictError):
             services.create(test_service)
 
         s = services.create(test_service, mode=CreateMode.if_not_exists)

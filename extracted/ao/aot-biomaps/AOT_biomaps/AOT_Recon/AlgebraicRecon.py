@@ -1,6 +1,9 @@
 from ._mainRecon import Recon
 from .ReconEnums import ReconType, OptimizerType, ProcessType
 from .AOT_Optimizers import MLEM
+from .ReconTools import check_gpu_memory, calculate_memory_requirement
+from AOT_biomaps.Config import config
+
 
 import os
 import sys
@@ -583,30 +586,25 @@ class AlgebraicRecon(Recon):
 
     def _MLEM(self, SMatrix, y, withTumor):
         """
-        This method implements the MLEM algorithm using either basic numpy operations or PyTorch for GPU acceleration.
-        It is called by the Algebraic reconstruction process.
+        This method implements the MLEM algorithm using either CPU or single-GPU PyTorch acceleration.
+        Multi-GPU mode is disabled due to memory fragmentation issues or lack of availability.
         """
-        if self.isGPU and self.isMultiGPU:
-            try:
-                return MLEM._MLEM_GPU_multi(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                try:
-                    warnings.warn("Multi-GPU MLEM failed. Falling back to single GPU MLEM.")
-                    return MLEM._MLEM_GPU_basic(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-                except:
-                    warnings.warn("Single GPU MLEM failed. Falling back to basic CPU MLEM.")
-                    return MLEM._MLEM_CPU_opti(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-        if self.isGPU and not self.isMultiGPU:
-            try:
-                return MLEM._MLEM_GPU_basic(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Single GPU MLEM failed. Falling back to basic CPU MLEM.")
-                return MLEM._MLEM_CPU_opti(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and self.isMultiCPU:
-            return MLEM._MLEM_CPU_multi(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-        if not self.isGPU and not self.isMultiCPU:
-            try:
-                return MLEM._MLEM_CPU_opti(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
-            except:
-                warnings.warn("Optimized MLEM failed. Falling back to basic MLEM.")
-                return MLEM._MLEM_CPU_basic(SMatrix= SMatrix, y = y, numIterations=self.numIterations, isSavingEachIteration = self.isSavingEachIteration, withTumor=withTumor)
+        result = None
+        required_memory = calculate_memory_requirement(SMatrix, y)
+
+        if self.isGPU:
+            if check_gpu_memory(config.select_best_gpu(), required_memory):
+                result = MLEM._MLEM_GPU_basic(SMatrix=SMatrix, y=y, numIterations=self.numIterations, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+            else:
+                warnings.warn("Insufficient GPU memory for single GPU MLEM. Falling back to CPU.")
+
+        if result is None and self.isMultiCPU:
+            result = MLEM._MLEM_CPU_multi(SMatrix=SMatrix, y=y, numIterations=self.numIterations, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+
+        if result is None:
+            result = MLEM._MLEM_CPU_opti(SMatrix=SMatrix, y=y, numIterations=self.numIterations, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+            if result is None:
+                warnings.warn("Optimized MLEM failed. Falling back to basic CPU MLEM.")
+                result = MLEM._MLEM_CPU_basic(SMatrix=SMatrix, y=y, numIterations=self.numIterations, isSavingEachIteration=self.isSavingEachIteration, withTumor=withTumor)
+
+        return result

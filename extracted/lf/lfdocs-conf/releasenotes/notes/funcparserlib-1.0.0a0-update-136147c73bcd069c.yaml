@@ -1,0 +1,6 @@
+---
+fixes:
+  - |
+    Update funcparserlib for better compatibility with Sphinx
+    version 4.2.0. This and other libraries are needed to generate
+    ONAP's docs.

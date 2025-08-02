@@ -1,0 +1,306 @@
+Metadata-Version: 2.1
+Name: stactools
+Version: 0.5.3
+Summary: Command line tool and Python library for working with STAC
+Author-email: Rob Emanuele <rdemanuele@gmail.com>, Pete Gadomski <pete.gadomski@gmail.com>
+Maintainer-email: Pete Gadomski <pete.gadomski@gmail.com>
+License: Apache-2.0
+Project-URL: homepage, https://github.com/stac-utils/stactools
+Project-URL: documentation, https://stactools.readthedocs.io/
+Project-URL: repository, https://github.com/stac-utils/stactools.git
+Project-URL: changelog, https://github.com/stac-utils/stactools/blob/main/CHANGELOG.md
+Project-URL: discussions, https://github.com/radiantearth/stac-spec/discussions/categories/stac-software
+Keywords: pystac,imagery,raster,catalog,STAC
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: antimeridian>=0.2.6
+Requires-Dist: click>=8.1.3
+Requires-Dist: fsspec[http]>=2021.7
+Requires-Dist: lxml>=4.9.2
+Requires-Dist: numpy>=1.23.0
+Requires-Dist: pyproj>=3.3
+Requires-Dist: pystac[validation]>=1.8.2
+Requires-Dist: rasterio>=1.3.2
+Requires-Dist: shapely>=2.0.1
+Provides-Extra: dev
+Requires-Dist: black~=23.3; extra == "dev"
+Requires-Dist: codespell~=2.2; extra == "dev"
+Requires-Dist: importlib-metadata~=6.6; extra == "dev"
+Requires-Dist: lxml-stubs~=0.4; extra == "dev"
+Requires-Dist: mypy~=1.3; extra == "dev"
+Requires-Dist: packaging~=23.1; extra == "dev"
+Requires-Dist: pre-commit~=3.3; extra == "dev"
+Requires-Dist: pylint~=2.17; extra == "dev"
+Requires-Dist: pytest-cov~=3.0; extra == "dev"
+Requires-Dist: pytest~=7.3; extra == "dev"
+Requires-Dist: requests>=2.27.1; extra == "dev"
+Requires-Dist: ruff==0.0.265; extra == "dev"
+Requires-Dist: types-certifi~=2021.10.8; extra == "dev"
+Requires-Dist: types-orjson~=3.6; extra == "dev"
+Requires-Dist: types-python-dateutil~=2.8; extra == "dev"
+Requires-Dist: types-requests~=2.30; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: ipython~=8.12; extra == "docs"
+Requires-Dist: jupyter~=1.0; extra == "docs"
+Requires-Dist: nbsphinx~=0.9; extra == "docs"
+Requires-Dist: pydata-sphinx-theme~=0.13; extra == "docs"
+Requires-Dist: sphinx~=7.0; extra == "docs"
+Requires-Dist: sphinx-autobuild==2021.3.14; extra == "docs"
+Requires-Dist: sphinx-click~=4.4; extra == "docs"
+Requires-Dist: sphinxcontrib-fulltoc~=1.2; extra == "docs"
+Provides-Extra: s3
+Requires-Dist: s3fs>=2021.7; extra == "s3"
+Provides-Extra: validate
+Requires-Dist: stac-check>=1.3.2; extra == "validate"
+Requires-Dist: stac-validator>=3.1.0; extra == "validate"
+
+# stactools
+
+![Build Status](https://github.com/stac-utils/stactools/workflows/CI/badge.svg)
+[![Documentation](https://readthedocs.org/projects/stactools/badge/?version=latest)](https://stactools.readthedocs.io/en/latest/)
+[![PyPI version](https://img.shields.io/pypi/v/stactools)](https://pypi.org/project/stactools/)
+[![Conda (channel only)](https://img.shields.io/conda/vn/conda-forge/stactools)](https://anaconda.org/conda-forge/stactools)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+`stactools` is a high-level command line tool and Python library for working with [STAC](https://stacspec.org).
+It is based on [PySTAC](https://github.com/stac-utils/pystac).
+
+This is the core `stactools` repository, which provides a basic command line interface (CLI) and API for working with STAC catalogs.
+There are a suite of packages available in other repositories for working with a variety of datasets and for doing more complicated operations on STAC data.
+See [packages](#packages) for more information.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Running](#running)
+- [Documentation](#documentation)
+- [Packages](#packages)
+- [Developing](#developing)
+
+## Installation
+
+To install the latest version via pip:
+
+```sh
+pip install stactools
+```
+
+To install the latest version with [conda](https://docs.conda.io/en/latest/):
+
+```sh
+conda install -c conda-forge stactools
+```
+
+To install the latest development version from the source repository:
+
+```sh
+git clone https://github.com/stac-utils/stactools.git
+cd stactools
+pip install .
+```
+
+**NOTE:** In order to read and write Cloud Optimized Geotiffs, GDAL version 3.1 or greater is required.
+If your system GDAL is older than version 3.1, consider using [Docker](#using-docker) or [Conda](#using-conda) to get a modern GDAL.
+
+### Optional dependencies
+
+`stactools` includes two optional dependency:
+
+- `s3`: Enables s3 hrefs via `fsspec` and `s3fs`
+- `validate`: Enables `stac validate` and `stac lint`
+
+To install optional dependencies:
+
+```sh
+pip install 'stactools[s3]'
+pip install 'stactools[validate]'
+```
+
+### Docker
+
+To download the Docker image from the registry:
+
+```sh
+docker pull ghcr.io/stac-utils/stactools:latest
+```
+
+## Running
+
+```sh
+stac --help
+```
+
+### Running from docker
+
+```sh
+docker run --rm ghcr.io/stac-utils/stactools:latest --help
+```
+
+## Documentation
+
+See the [documentation page](https://stactools.readthedocs.io/) for the latest docs.
+
+## Packages
+
+`stactools` is comprised of many other sub-packages that provide library and CLI functionality.
+Officially supported packages are hosted in the Github [`stactools-packages` organization](https://github.com/stactools-packages/stactools-packages.github.io), and other subpackages may be available from other sources.
+
+There are over 25 packages that translate specific types of data into STAC,
+including imagery sources like
+[aster](https://github.com/stactools-packages/aster),
+[landsat](https://github.com/stactools-packages/landsat),
+[modis](https://github.com/stactools-packages/modis),
+[naip](https://github.com/stactools-packages/naip),
+[planet](https://github.com/stactools-packages/planet),
+[sentinel1](https://github.com/stactools-packages/sentinel1),
+[sentinel1-grd](https://github.com/stactools-packages/sentinel1-grd),
+[sentinel2](https://github.com/stactools-packages/sentinel2),
+[sentinel3](https://github.com/stactools-packages/sentinel3), landuse/landcover
+data ([corine](https://github.com/stactools-packages/corine),
+[cgls_lc100](https://github.com/stactools-packages/cgls_lc100),
+[aafc-landuse](https://github.com/stactools-packages/aafc-landuse)), Digital
+Elevation Models (DEMs)
+([cop-dem](https://github.com/stactools-packages/cop-dem),
+[alos-dem](https://github.com/stactools-packages/alos-dem)), population data
+([gpw](https://github.com/stactools-packages/gpw),
+[worldpop](https://github.com/stactools-packages/worldpop)),
+[pointclouds](https://github.com/stactools-packages/pointcloud) and many more.
+
+There are also cool tools like [stactools-browse](https://github.com/stactools-packages/stactools-browse) which makes it super easy to deploy a
+[STAC Browser](https://github.com/radiantearth/stac-browser) from the command line to browse any local data.
+
+For the list of officially supported packages see the [list of STAC packages](https://github.com/stactools-packages/stactools-packages.github.io#list-of-stac-packages)
+on the [stactools-packages GitHub organization](https://github.com/stactools-packages).
+Each package can be installed via `pip install stactools-{package}`, e.g. `pip install stactools-landsat`.
+Third-party packages can be installed in the same way, or, if they are not on PyPI, directly from the source repository, e.g. `pip install /path/to/my/code/stactools-greatdata`.
+
+## Developing
+
+Clone the repository and install it in editable mode with the `dev` optional dependencies:
+
+```sh
+git clone https://github.com/stac-utils/stactools.git
+cd stactools
+pip install -e '.[dev]'
+```
+
+Linting and formatting are handled with [pre-commit](https://pre-commit.com/).
+You will need to install pre-commit before committing any changes:
+
+```sh
+pre-commit install
+```
+
+Tests are handled with [pytest](https://docs.pytest.org/en/7.1.x/):
+
+```sh
+pytest
+```
+
+Run a Juypter notebook:
+
+```sh
+scripts/notebook
+```
+
+### Using docker
+
+You can also develop in a Docker container.
+Build the container with:
+
+```sh
+docker/build
+```
+
+Once the container is built, you can run the `scripts/` scripts inside a docker console by running:
+
+```sh
+docker/console
+```
+
+A complete build and test can be run with:
+
+```sh
+docker/cibuild
+```
+
+In scenarios where you want to run scripts in `docker/` but don't want to run the build, images can be downloaded via the `pull` script:
+
+```sh
+docker/pull
+```
+
+Run a [Juypter](https://jupyter.org/) notebook:
+
+```sh
+docker/notebook
+```
+
+You can run the CLI through docker by running:
+
+```sh
+docker/stac --help
+```
+
+### Using conda
+
+[conda](https://docs.conda.io/en/latest/) is a useful tool for managing dependencies, both binary and Python-based.
+If you have conda installed, you can create a new environment for `stactools` development by running the following command from the top-level directory in this repo:
+
+```sh
+conda env create -f environment.yml
+```
+
+Then activate the `stactools` environment:
+
+```sh
+conda activate stactools
+```
+
+Finally, install `stactools` in editable mode and all development requirements:
+
+```sh
+pip install -e '.[dev]'
+```
+
+### Developing the docs
+
+To build and serve the docs, the development requirements must be installed with `pip install -e '.[docs]'`.
+To build the docs, you can use `make html` from inside of the docs directory, and to build the docs and start a server that watches for changes, use `make livehtml`:
+
+```sh
+cd docs
+make html
+make livehtml
+```
+
+If using `make livehtml`, once the server starts, navigate to [http://localhost:8000](http://localhost:8000/) to see the docs.
+Use 'make' without arguments to see a list of available commands.
+
+You can also run the previous commands in the docker container using:
+
+```sh
+docker/console
+```
+
+### Code owners and repository maintainer(s)
+
+This repository uses a [code owners file](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) to automatically request reviews for new pull requests.
+The current primary maintainer(s) of this repository are listed under the `*` rule in the [CODEOWNERS](./CODEOWNERS) file.
+
+### Adding a new package
+
+To create a new `stactools` package, use the [`stactools` package template](https://github.com/stactools-packages/template).
+`stactools` utilizes Python's [namespace packages](https://packaging.python.org/guides/packaging-namespace-packages/) to provide a suite of tools all under the `stactools` namespace.
+If you would like your package to be considered for inclusion as a core `stactools` package, please open an issue on this repository with a link to your package repository.
+
+### Releasing
+
+See [RELEASING.md](./RELEASING.md) for the steps to create a new release.

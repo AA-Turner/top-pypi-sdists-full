@@ -1,0 +1,125 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools >= 42", "versioningit >= 1,< 4", "wheel"]
+
+[project]
+authors = [{ name = "Jimmy-Xuan Shen", email = "jmmshn@gmail.com" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Topic :: Other/Nonlisted Topic",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "pymatgen>=2024.10.22",
+  "scikit-image>=0.19.3",
+  "numpy<2",
+  "mp-pyrho>=0.4.4",
+]
+description = "Pymatgen extension for defects analysis"
+dynamic = ["version"]
+keywords = ["high-throughput", "automated", "dft", "defects"]
+license = { text = "modified BSD" }
+name = "pymatgen-analysis-defects"
+readme = "README.md"
+requires-python = '>=3.9'
+
+[project.optional-dependencies]
+finder = ["dscribe>=2.0.0"]
+dev = ["pre-commit>=2.12.1"]
+docs = [
+  "jupyter-book>=0.13.1",
+]
+optional = ["pydefect", "dscribe>=2.0.0", "numba"]
+tests = ["pytest>=8.2.1", "pytest-cov>=5.0.0", "nbmake>=1.5.3"]
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md"] }
+
+[project.urls]
+documentation = "https://materialsproject.github.io/pymatgen-analysis-defects/"
+homepage = "https://materialsproject.github.io/pymatgen-analysis-defects/"
+repository = "https://github.com/materialsproject/pymatgen-analysis-defects"
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+where = ["./"]
+
+[tool.versioningit.vcs]
+default-tag = "0.0.1"
+method = "git"
+
+[tool.mypy]
+ignore_missing_imports = true
+no_strict_optional = true
+
+[tool.coverage.run]
+branch = true
+include = ["pymatgen/*"]
+parallel = true
+
+[tool.coverage.paths]
+source = ["pymatgen/"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    ]
+
+[tool.autoflake]
+in-place = true
+remove-unused-variables = true
+remove-all-unused-imports = true
+expand-star-imports = true
+ignore-init-module-imports = true
+
+[tool.ruff]
+src = ["pymatgen", "tests"]
+
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "E203", "E501", "N", "PLR", "SLF", "ANN101",  "ANN102",
+  "TRY", "COM812", "ISC001", "ERA001", "FBT", "C", "FIX", "TD", "ANN003"]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

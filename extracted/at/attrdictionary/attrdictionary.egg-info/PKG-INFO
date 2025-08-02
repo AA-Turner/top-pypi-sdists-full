@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: attrdictionary
+Version: 1.0.0
+Summary: A dict with attribute-style access
+Home-page: https://github.com/kiselas/AttrDictionary
+Author: Kiselev Aleksandr
+Author-email: kisel.nf97@gmail.com
+License: MIT License
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE.txt
+
+AttrDictionary is an MIT-licensed library that provides mapping objects that allow their elements to be accessed both as keys and as attributes. It originates from a fork of AttrDict which is sadly no longer maintained. AttrDictionary fully compatible with AttrDict except support for Python 2 versions. This version was tested on Python 3.11:
+

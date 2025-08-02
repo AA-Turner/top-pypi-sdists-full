@@ -1,0 +1,38 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Run pytest
+        entry: pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        
+      - id: rust-fmt
+        name: Rust format
+        entry: cargo fmt --all
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: rust-test
+        name: Rust unit tests
+        entry: cargo test --lib # --quiet
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: python-black
+        name: Black formatting
+        entry: black
+        language: system
+        types: [python]
+        require_serial: true
+        args: [--quiet]
+
+      - id: python-ruff
+        name: Ruff linting
+        entry: ruff
+        language: system
+        types: [python]
+        args: [--fix, --exit-non-zero-on-fix]

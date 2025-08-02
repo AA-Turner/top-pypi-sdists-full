@@ -17,11 +17,11 @@ class SnowAPISession:
             root=root,
             # There is no Session resource that we are exposing publicly, yet.
             resource_class=None,
-            sproc_client=StoredProcApiClient(root=self.root)
+            sproc_client=StoredProcApiClient(root=self.root),
         )
 
     def _get_api_enablement_parameters(self) -> dict[str, str]:
-        return self.get_parameters(filter_str='ENABLE_SNOW_API_FOR_%')
+        return self.get_parameters(filter_str="ENABLE_SNOW_API_FOR_%")
 
     def get_parameters(self, filter_str: Optional[StrictStr]) -> dict[str, str]:
         params = self._api.get_parameters(like=filter_str)
@@ -30,6 +30,6 @@ class SnowAPISession:
 
         for param in params:
             p = param.to_dict()
-            params_map[p['name'].lower()] = p['value'].lower()
+            params_map[p["name"].lower()] = p["value"].lower()
 
         return params_map

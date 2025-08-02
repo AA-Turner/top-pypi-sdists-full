@@ -363,6 +363,18 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def MapAwait(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.MapAwaitRequest, modal_proto.api_pb2.MapAwaitResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def MapCheckInputs(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.MapCheckInputsRequest, modal_proto.api_pb2.MapCheckInputsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def MapStartOrContinue(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.MapStartOrContinueRequest, modal_proto.api_pb2.MapStartOrContinueResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def MountGetOrCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.MountGetOrCreateRequest, modal_proto.api_pb2.MountGetOrCreateResponse]') -> None:
         pass
 
@@ -476,6 +488,14 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxSnapshotFs(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSnapshotFsRequest, modal_proto.api_pb2.SandboxSnapshotFsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxSnapshotFsAsync(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSnapshotFsAsyncRequest, modal_proto.api_pb2.SandboxSnapshotFsAsyncResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxSnapshotFsAsyncGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSnapshotFsAsyncGetRequest, modal_proto.api_pb2.SandboxSnapshotFsResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1172,6 +1192,24 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.ImageJoinStreamingRequest,
                 modal_proto.api_pb2.ImageJoinStreamingResponse,
             ),
+            '/modal.client.ModalClient/MapAwait': grpclib.const.Handler(
+                self.MapAwait,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.MapAwaitRequest,
+                modal_proto.api_pb2.MapAwaitResponse,
+            ),
+            '/modal.client.ModalClient/MapCheckInputs': grpclib.const.Handler(
+                self.MapCheckInputs,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.MapCheckInputsRequest,
+                modal_proto.api_pb2.MapCheckInputsResponse,
+            ),
+            '/modal.client.ModalClient/MapStartOrContinue': grpclib.const.Handler(
+                self.MapStartOrContinue,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.MapStartOrContinueRequest,
+                modal_proto.api_pb2.MapStartOrContinueResponse,
+            ),
             '/modal.client.ModalClient/MountGetOrCreate': grpclib.const.Handler(
                 self.MountGetOrCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1344,6 +1382,18 @@ class ModalClientBase(abc.ABC):
                 self.SandboxSnapshotFs,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxSnapshotFsRequest,
+                modal_proto.api_pb2.SandboxSnapshotFsResponse,
+            ),
+            '/modal.client.ModalClient/SandboxSnapshotFsAsync': grpclib.const.Handler(
+                self.SandboxSnapshotFsAsync,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxSnapshotFsAsyncRequest,
+                modal_proto.api_pb2.SandboxSnapshotFsAsyncResponse,
+            ),
+            '/modal.client.ModalClient/SandboxSnapshotFsAsyncGet': grpclib.const.Handler(
+                self.SandboxSnapshotFsAsyncGet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxSnapshotFsAsyncGetRequest,
                 modal_proto.api_pb2.SandboxSnapshotFsResponse,
             ),
             '/modal.client.ModalClient/SandboxSnapshotGet': grpclib.const.Handler(
@@ -2132,6 +2182,24 @@ class ModalClientStub:
             modal_proto.api_pb2.ImageJoinStreamingRequest,
             modal_proto.api_pb2.ImageJoinStreamingResponse,
         )
+        self.MapAwait = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/MapAwait',
+            modal_proto.api_pb2.MapAwaitRequest,
+            modal_proto.api_pb2.MapAwaitResponse,
+        )
+        self.MapCheckInputs = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/MapCheckInputs',
+            modal_proto.api_pb2.MapCheckInputsRequest,
+            modal_proto.api_pb2.MapCheckInputsResponse,
+        )
+        self.MapStartOrContinue = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/MapStartOrContinue',
+            modal_proto.api_pb2.MapStartOrContinueRequest,
+            modal_proto.api_pb2.MapStartOrContinueResponse,
+        )
         self.MountGetOrCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/MountGetOrCreate',
@@ -2304,6 +2372,18 @@ class ModalClientStub:
             channel,
             '/modal.client.ModalClient/SandboxSnapshotFs',
             modal_proto.api_pb2.SandboxSnapshotFsRequest,
+            modal_proto.api_pb2.SandboxSnapshotFsResponse,
+        )
+        self.SandboxSnapshotFsAsync = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxSnapshotFsAsync',
+            modal_proto.api_pb2.SandboxSnapshotFsAsyncRequest,
+            modal_proto.api_pb2.SandboxSnapshotFsAsyncResponse,
+        )
+        self.SandboxSnapshotFsAsyncGet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxSnapshotFsAsyncGet',
+            modal_proto.api_pb2.SandboxSnapshotFsAsyncGetRequest,
             modal_proto.api_pb2.SandboxSnapshotFsResponse,
         )
         self.SandboxSnapshotGet = grpclib.client.UnaryUnaryMethod(

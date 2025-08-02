@@ -1,0 +1,55 @@
+Metadata-Version: 2.3
+Name: mary-elizabeth-utils
+Version: 0.1.26
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Dist: polars
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: colorama
+Requires-Dist: pyyaml
+Requires-Dist: tqdm
+Requires-Dist: pydantic
+Requires-Dist: rich
+Requires-Dist: python-dateutil
+Requires-Dist: pyarrow
+Requires-Dist: ydata-profiling
+License-File: LICENSE
+Summary: My utilities for the different projects
+Author-email: Tobias Kragholm <tkragholm@gmail.com>
+License: MIT
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# mary-elizabeth-utils
+
+## TODO
+
+- PRINT PROGRESS BAR + NOTICE OF WHAT IS BEING DONE
+- update script to handle uddf properly (single year)
+- handle year and month in file names (BEF has the following format BEFYYYYMM)
+- handle LPR2 and LPR3
+- Combine LPR_ADM + LPR_DIAG in diag table
+- IDAN: ARBGNR, ARBNR, STILL for employment table
+- FAIK: FAMAEKVIVADISP_13, FAMDISPONIBEL_13, FAMERHVERVSINDK_13, FAMINDKOMSTIALT_13, FAMSOCIOGRUP_13
+- MFR: PNR -> CPR_BARN, %FAMILIE_ID, VAEGT -> VAEGT_BARN, LAENGDE -> LAENGDE_BARN, GESTATIONSALDER -> GESTATIONSALDER_BARN
+- CHECK_MISSING_VALUES loads RECNUM as int64, this should stay as an utf8 string
+- NICE-TO-HAVE: TEST DATA!!!
+
+My utilities for the different projects
+
+## Installation
+
+```bash
+pip install mary-elizabeth-utils
+```
+
+## Usage
+
+```python
+# Create instructions on how to use the package
+```
+

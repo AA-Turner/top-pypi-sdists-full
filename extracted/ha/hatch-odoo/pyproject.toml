@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hatch-odoo"
+description = 'A Hatch plugin for Odoo projects.'
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Stéphane Bidoul", email = "stephane.bidoul@acsone.eu" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Framework :: Hatch",
+  "Framework :: Odoo",
+]
+dependencies = [
+  "hatchling >=1.4.1, !=1.19.0",
+  "manifestoo-core[metadata] >0.8",
+  "tomli ; python_version < '3.11'",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+  # Building editable wheels with hatchling (which is what do in our tests) requires
+  # 'editables' to be installed, but it is not a direct dependency of hatchling
+  # (it is provided by the get_requires_for_build_editable hook).
+  # So we install it here as a test dependency.
+  "editables",
+  "build",
+  "packaging",
+  "pytest",
+  "pytest-cov",
+  "importlib_metadata ; python_version < '3.8'",
+]
+
+[project.entry-points.hatch]
+odoo = "hatch_odoo.hooks"
+
+[project.urls]
+Documentation = "https://github.com/acsone/hatch-odoo#readme"
+Issues = "https://github.com/acsone/hatch-odoo/issues"
+Source = "https://github.com/acsone/hatch-odoo"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build]
+exclude = [".github"]
+
+[tool.hatch.envs.test]
+dependencies = [
+  "hatch-odoo[test]",
+]
+[tool.hatch.envs.test.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/hatch_odoo --cov=tests -v"
+no-cov = "cov --no-cov"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = []
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+# ruff
+
+[tool.ruff.lint]
+extend-select = [
+  "UP",  # pyupgrade
+  "I",  # isort
+]

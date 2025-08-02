@@ -1,0 +1,113 @@
+project:
+  type: website
+  output-dir: _site
+
+execute:
+  # point quarto to the correct python environment
+  python: "/pyfixest/.pixi/envs/docs/Scripts/python.exe"
+
+metadata-files:
+  - _sidebar.yml
+
+website:
+  navbar:
+    page_navigation: true
+    favicon: "figures/pyfixest-logo.png"
+    #page-footer:
+    #  center: |
+    #    Developed by [Alexander Fischer](https://github.com/py-econometrics) and [Styfen Schär](https://github.com/styfenschaer)
+    search: true
+    right:
+      - icon: github
+        href: https://github.com/py-econometrics/pyfixest/
+    left:
+      - text: "PyFixest"
+        file: pyfixest.md
+      - text: "Quickstart"
+        file: quickstart.qmd
+      - text: "Function Reference"
+        file: reference/index.qmd
+      - text: "Changelog"
+        file: changelog.qmd
+      - text: "Contributing"
+        file: contributing.qmd
+      - text: Learn more
+        menu:
+        - text: "Regression Tables and Summary Statistics"
+          file: table-layout.qmd
+        - text: "Hypothesis Testing and Marginal Effects"
+          file: marginaleffects.qmd
+        - text: "Difference-in-Differences Estimation"
+          file: difference-in-differences.qmd
+        - file: multiple_testing.ipynb
+          text: "Multiple Testing Corrections"
+        - file: regression_decomposition.ipynb
+          text: "Regression Decomposition"
+        - file: ssc.qmd
+          text: "On Small Sample Corrections"
+        - file: quantile-regression.qmd
+          text: "Quantile Regression"
+        - text: "Compare fixest & PyFixest"
+          file: compare-fixest-pyfixest.qmd
+        - text: "Compare Stata & PyFixest"
+          file: stata-2-pyfixest.qmd
+        - text: "PyFixest on the GPU"
+          file: pyfixest_gpu.ipynb
+        - text: "Replicating 'The Effect' with PyFixest"
+          file: replicating-the-effect.qmd
+
+
+quartodoc:
+  package: pyfixest
+  title: "PyFixest Function Reference"
+  parser: numpy
+  rewrite_all_pages: False
+  sidebar: _sidebar.yml
+
+  sections:
+    - title: Estimation Functions
+      desc: |
+        User facing estimation functions
+      contents:
+        - estimation.estimation.feols
+        - estimation.estimation.fepois
+        - estimation.estimation.feglm
+        - did.estimation.did2s
+        - did.estimation.lpdid
+        - did.estimation.event_study
+        - estimation.bonferroni
+        - estimation.rwolf
+    - title: Estimation Classes
+      desc: |
+        Details on Methods and Attributes
+      contents:
+        - estimation.feols_.Feols
+        - estimation.fepois_.Fepois
+        - estimation.feiv_.Feiv
+        - estimation.feglm_.Feglm
+        - estimation.felogit_.Felogit
+        - estimation.feprobit_.Feprobit
+        - estimation.fegaussian_.Fegaussian
+        - estimation.feols_compressed_.FeolsCompressed
+        #- did.did.DID
+        #- did.did2s.DID2s
+        #- did.lpdid.LPDID
+        #- did.twfe.TWFE
+    - title: Summarize and Visualize
+      desc: |
+        Post-Processing of Estimation Results
+      contents:
+        - did.visualize.panelview
+        - report.summary
+        - report.etable
+        - report.dtable
+        - report.coefplot
+        - report.iplot
+        - did.visualize.panelview
+    - title: Misc / Utilities
+      desc: |
+        PyFixest internals and utilities
+      contents:
+        - estimation.demean
+        - estimation.detect_singletons
+        - estimation.model_matrix_fixest

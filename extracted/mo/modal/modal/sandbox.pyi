@@ -25,7 +25,18 @@ import os
 import typing
 import typing_extensions
 
-def _validate_exec_args(entrypoint_args: collections.abc.Sequence[str]) -> None: ...
+def _validate_exec_args(args: collections.abc.Sequence[str]) -> None: ...
+
+class DefaultSandboxNameOverride(str):
+    """A singleton class that represents the default sandbox name override.
+
+    It is used to indicate that the sandbox name should not be overridden.
+    """
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
+_DEFAULT_SANDBOX_NAME_OVERRIDE: DefaultSandboxNameOverride
 
 class _Sandbox(modal._object._Object):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
@@ -44,9 +55,10 @@ class _Sandbox(modal._object._Object):
 
     @staticmethod
     def _new(
-        entrypoint_args: collections.abc.Sequence[str],
+        args: collections.abc.Sequence[str],
         image: modal.image._Image,
         secrets: collections.abc.Sequence[modal.secret._Secret],
+        name: typing.Optional[str] = None,
         timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
@@ -67,6 +79,7 @@ class _Sandbox(modal._object._Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
+        experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -76,8 +89,9 @@ class _Sandbox(modal._object._Object):
 
     @staticmethod
     async def create(
-        *entrypoint_args: str,
+        *args: str,
         app: typing.Optional[modal.app._App] = None,
+        name: typing.Optional[str] = None,
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
@@ -100,6 +114,7 @@ class _Sandbox(modal._object._Object):
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         verbose: bool = False,
+        experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
@@ -121,8 +136,9 @@ class _Sandbox(modal._object._Object):
 
     @staticmethod
     async def _create(
-        *entrypoint_args: str,
+        *args: str,
         app: typing.Optional[modal.app._App] = None,
+        name: typing.Optional[str] = None,
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
@@ -145,12 +161,28 @@ class _Sandbox(modal._object._Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
+        experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
         verbose: bool = False,
     ): ...
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    @staticmethod
+    async def from_name(
+        app_name: str,
+        name: str,
+        *,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> _Sandbox:
+        """Get a running Sandbox by name from the given app.
+
+        Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
+        A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+        """
+        ...
+
     @staticmethod
     async def from_id(sandbox_id: str, client: typing.Optional[modal.client._Client] = None) -> _Sandbox:
         """Construct a Sandbox from an id and look up the Sandbox result.
@@ -212,7 +244,7 @@ class _Sandbox(modal._object._Object):
     @typing.overload
     async def exec(
         self,
-        *cmds: str,
+        *args: str,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -226,7 +258,7 @@ class _Sandbox(modal._object._Object):
     @typing.overload
     async def exec(
         self,
-        *cmds: str,
+        *args: str,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -240,7 +272,10 @@ class _Sandbox(modal._object._Object):
     async def _experimental_snapshot(self) -> modal.snapshot._SandboxSnapshot: ...
     @staticmethod
     async def _experimental_from_snapshot(
-        snapshot: modal.snapshot._SandboxSnapshot, client: typing.Optional[modal.client._Client] = None
+        snapshot: modal.snapshot._SandboxSnapshot,
+        client: typing.Optional[modal.client._Client] = None,
+        *,
+        name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
     ): ...
     @typing.overload
     async def open(self, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io._FileIO[str]: ...
@@ -329,9 +364,10 @@ class Sandbox(modal.object.Object):
 
     @staticmethod
     def _new(
-        entrypoint_args: collections.abc.Sequence[str],
+        args: collections.abc.Sequence[str],
         image: modal.image.Image,
         secrets: collections.abc.Sequence[modal.secret.Secret],
+        name: typing.Optional[str] = None,
         timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
@@ -351,6 +387,7 @@ class Sandbox(modal.object.Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy.Proxy] = None,
+        experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -362,8 +399,9 @@ class Sandbox(modal.object.Object):
         def __call__(
             self,
             /,
-            *entrypoint_args: str,
+            *args: str,
             app: typing.Optional[modal.app.App] = None,
+            name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             network_file_systems: dict[
@@ -388,6 +426,7 @@ class Sandbox(modal.object.Object):
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             verbose: bool = False,
+            experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
@@ -410,8 +449,9 @@ class Sandbox(modal.object.Object):
         async def aio(
             self,
             /,
-            *entrypoint_args: str,
+            *args: str,
             app: typing.Optional[modal.app.App] = None,
+            name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             network_file_systems: dict[
@@ -436,6 +476,7 @@ class Sandbox(modal.object.Object):
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             verbose: bool = False,
+            experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
@@ -461,8 +502,9 @@ class Sandbox(modal.object.Object):
         def __call__(
             self,
             /,
-            *entrypoint_args: str,
+            *args: str,
             app: typing.Optional[modal.app.App] = None,
+            name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
@@ -487,6 +529,7 @@ class Sandbox(modal.object.Object):
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
@@ -495,8 +538,9 @@ class Sandbox(modal.object.Object):
         async def aio(
             self,
             /,
-            *entrypoint_args: str,
+            *args: str,
             app: typing.Optional[modal.app.App] = None,
+            name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
@@ -521,6 +565,7 @@ class Sandbox(modal.object.Object):
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
@@ -530,6 +575,41 @@ class Sandbox(modal.object.Object):
     _create: ___create_spec
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+
+    class __from_name_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            app_name: str,
+            name: str,
+            *,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> Sandbox:
+            """Get a running Sandbox by name from the given app.
+
+            Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
+            A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            app_name: str,
+            name: str,
+            *,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> Sandbox:
+            """Get a running Sandbox by name from the given app.
+
+            Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
+            A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+            """
+            ...
+
+    from_name: __from_name_spec
 
     class __from_id_spec(typing_extensions.Protocol):
         def __call__(self, /, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox:
@@ -678,7 +758,7 @@ class Sandbox(modal.object.Object):
         def __call__(
             self,
             /,
-            *cmds: str,
+            *args: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -693,7 +773,7 @@ class Sandbox(modal.object.Object):
         def __call__(
             self,
             /,
-            *cmds: str,
+            *args: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -708,7 +788,7 @@ class Sandbox(modal.object.Object):
         async def aio(
             self,
             /,
-            *cmds: str,
+            *args: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -723,7 +803,7 @@ class Sandbox(modal.object.Object):
         async def aio(
             self,
             /,
-            *cmds: str,
+            *args: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -745,10 +825,20 @@ class Sandbox(modal.object.Object):
 
     class ___experimental_from_snapshot_spec(typing_extensions.Protocol):
         def __call__(
-            self, /, snapshot: modal.snapshot.SandboxSnapshot, client: typing.Optional[modal.client.Client] = None
+            self,
+            /,
+            snapshot: modal.snapshot.SandboxSnapshot,
+            client: typing.Optional[modal.client.Client] = None,
+            *,
+            name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
         ): ...
         async def aio(
-            self, /, snapshot: modal.snapshot.SandboxSnapshot, client: typing.Optional[modal.client.Client] = None
+            self,
+            /,
+            snapshot: modal.snapshot.SandboxSnapshot,
+            client: typing.Optional[modal.client.Client] = None,
+            *,
+            name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
         ): ...
 
     _experimental_from_snapshot: ___experimental_from_snapshot_spec

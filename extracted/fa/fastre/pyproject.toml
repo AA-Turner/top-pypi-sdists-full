@@ -1,0 +1,26 @@
+[project]
+name = "fastre"
+version = "0.2.9"
+description = "A Lightning Fast ⚡ Rust-based regex crate wrapper for Python3 to get faster performance. 👾"
+maintainers = [{ name = "Hugo Pendlebury", email = "hugo.pendlebury@gmail.com" }]
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+classifiers = [
+   "Programming Language :: Rust",
+   "Programming Language :: Python :: Implementation :: CPython",
+   "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/hugopendlebury/fastre"
+Repository = "https://github.com/hugopendlebury/fastre.git"
+"Bug Tracker" = "https://github.com/fastre/fastre/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[build-system]
+requires = ["maturin>=1.6,<2.0"]
+build-backend = "maturin"

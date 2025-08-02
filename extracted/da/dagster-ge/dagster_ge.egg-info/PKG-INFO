@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: dagster-ge
+Version: 0.27.4
+Summary: Package for GE-specific Dagster framework op and resource components.
+Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-ge
+Author: Dagster Labs
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10,<3.14
+License-File: LICENSE
+Requires-Dist: dagster==1.11.4
+Requires-Dist: dagster-pandas==0.27.4
+Requires-Dist: pandas
+Requires-Dist: great_expectations<1.0.0,>=0.17.15
+Provides-Extra: test
+Requires-Dist: great-expectations>=0.18.22; extra == "test"
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -29,28 +29,36 @@ def tasks(db_parameters, database) -> Iterator[TaskCollection]:
     warehouse_name = db_parameters["warehouse"]
     schema = database.schemas.create(Schema(name=(random_object_name())))
     tasks = [
-        Task(name=task_name2,
-             definition="select current_version()",
-             suspend_task_after_num_failures=10,
-             schedule=timedelta(minutes=10),
-             allow_overlapping_execution=True),
-        Task(name=task_name3,
-             definition="select current_version()",
-             user_task_managed_initial_warehouse_size="xsmall",
-             target_completion_interval=timedelta(minutes=5),
-             serverless_task_min_statement_size="xsmall",
-             serverless_task_max_statement_size="small",
-             schedule=Cron("0 9-17 * * SUN", "America/Los_Angeles")),
-        Task(name=task_name1,
-             definition="select current_version()",
-             warehouse=warehouse_name,
-             comment="test_task",
-             predecessors=[task_name2, task_name3]),
-        Task(name=task_name4,
-             definition="select current_version()",
-             warehouse=warehouse_name,
-             comment="test_task",
-             finalize=task_name2),
+        Task(
+            name=task_name2,
+            definition="select current_version()",
+            suspend_task_after_num_failures=10,
+            schedule=timedelta(minutes=10),
+            allow_overlapping_execution=True,
+        ),
+        Task(
+            name=task_name3,
+            definition="select current_version()",
+            user_task_managed_initial_warehouse_size="xsmall",
+            target_completion_interval=timedelta(minutes=5),
+            serverless_task_min_statement_size="xsmall",
+            serverless_task_max_statement_size="small",
+            schedule=Cron("0 9-17 * * SUN", "America/Los_Angeles"),
+        ),
+        Task(
+            name=task_name1,
+            definition="select current_version()",
+            warehouse=warehouse_name,
+            comment="test_task",
+            predecessors=[task_name2, task_name3],
+        ),
+        Task(
+            name=task_name4,
+            definition="select current_version()",
+            warehouse=warehouse_name,
+            comment="test_task",
+            finalize=task_name2,
+        ),
     ]
     task_collection = schema.tasks
     for task in tasks:

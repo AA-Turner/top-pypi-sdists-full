@@ -11,7 +11,7 @@ from snowflake.core import simple_file_logging
 from snowflake.core.stage import AwsCredentials, Stage
 
 
-@pytest.fixture(scope='function', autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def backup_reset_logging():
     logger = logging.getLogger("snowflake.core")
     original_level = logger.level
@@ -35,7 +35,7 @@ def test_simple_file_logging_custom_path(tmp_path):
 
 
 def test_simple_file_logging():
-    temp_log_file =  pathlib.Path(tempfile.gettempdir()) / "snowflake_core.log"
+    temp_log_file = pathlib.Path(tempfile.gettempdir()) / "snowflake_core.log"
     simple_file_logging()
     logger = logging.getLogger("snowflake.core")
     logger.info("simulated log message")
@@ -53,10 +53,8 @@ def test_secret_logging(caplog, stages):
                 Stage(
                     name="test_stage",
                     credentials=AwsCredentials(
-                        aws_key_id="key_id_pwnd",
-                        aws_token="token_pwnd",
-                        aws_secret_key="key_pwnd"
+                        aws_key_id="key_id_pwnd", aws_token="token_pwnd", aws_secret_key="key_pwnd"
                     ),
-                ),
+                )
             )
     assert "pwnd" not in caplog.text

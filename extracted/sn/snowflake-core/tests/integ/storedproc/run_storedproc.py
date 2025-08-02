@@ -93,7 +93,7 @@ def run_integration_test(session):
     put_result = session.file.put(output_file_path, f"@{stage_name}", auto_compress=False)
 $$;
 
-"""  # noqa: E501
+"""
 
 
 def run():

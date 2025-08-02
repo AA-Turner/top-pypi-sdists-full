@@ -14,10 +14,12 @@ def test_create_and_fetch(notebooks, notebook_stage_with_file, warehouse):
     notebook_name = random_string(10, "test_notebook_")
     notebook_handle = notebooks[notebook_name]
 
-    nb = Notebook(name=notebook_name,
-                  query_warehouse=warehouse.name,
-                  from_location=f"@{notebook_stage_with_file.name}",
-                  main_file=notebook_file)
+    nb = Notebook(
+        name=notebook_name,
+        query_warehouse=warehouse.name,
+        from_location=f"@{notebook_stage_with_file.name}",
+        main_file=notebook_file,
+    )
 
     notebook = notebooks.create(nb)
     notebooks.create(nb, mode=CreateMode.or_replace)

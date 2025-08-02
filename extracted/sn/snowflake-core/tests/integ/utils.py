@@ -105,7 +105,7 @@ def connection_keys():
         "role",
         "warehouse",
         "private_key_file",
-        "private_key_file_pwd"
+        "private_key_file_pwd",
     ]
 
 
@@ -162,9 +162,7 @@ def create_zip_from_paths(paths, output_filename):
 
 def create_and_use_new_database_and_schema(cursor, new_database_name, new_schema_name):
     # Database
-    cursor.execute(
-        "CREATE DATABASE IF NOT EXISTS /* setup_basic */ " f"{new_database_name} DATA_RETENTION_TIME_IN_DAYS=1",
-    )
+    cursor.execute(f"CREATE DATABASE IF NOT EXISTS /* setup_basic */ {new_database_name} DATA_RETENTION_TIME_IN_DAYS=1")
     cursor.execute(f"USE DATABASE {new_database_name}")
 
     # Schema
@@ -195,11 +193,7 @@ def execute_notebook(cursor, notebook_name, stage_full_path, warehouse_name, not
         return True
 
 
-def setup_spcs(
-    target_account_name=None,
-    executing_account_cursor=None,
-    instance_families_to_create=None,
-):
+def setup_spcs(target_account_name=None, executing_account_cursor=None, instance_families_to_create=None):
     if instance_families_to_create is None:
         instance_families_to_create = ["FAKE"]
     if target_account_name is not None:
@@ -263,10 +257,7 @@ def setup_account_for_notebook(cursor, config):
         raise Exception("Account is not snowflake or prod and sf_account connection parameters are not provided")
 
     if config["account"] == "snowflake":
-        setup_spcs(
-            executing_account_cursor=cursor,
-            instance_families_to_create=["CPU_X64_XS", "FAKE"],
-        )
+        setup_spcs(executing_account_cursor=cursor, instance_families_to_create=["CPU_X64_XS", "FAKE"])
         cursor.execute("ALTER ACCOUNT SET FEATURE_NOTEBOOKS_NON_INTERACTIVE_EXECUTION = 'ENABLED';")
         setup_credentials(cursor)
     else:

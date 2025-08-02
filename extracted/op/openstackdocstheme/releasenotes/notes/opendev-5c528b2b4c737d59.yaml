@@ -1,4 +1,0 @@
-other:
-  - |
-    The rendered git URL now uses ``https://opendev.org`` as git
-    repository URLs.

@@ -133,18 +133,12 @@ class DeflakePlugin:
             test.outcome = FAILED
             phase.longrepr = report.longreprtext
             if crash := getattr(report.longrepr, "reprcrash", None):
-                phase.crash = Crash(
-                    path=crash.path,
-                    lineno=crash.lineno,
-                    message=crash.message,
-                )
+                phase.crash = Crash(path=crash.path, lineno=crash.lineno, message=crash.message)
         elif report.outcome == FLAKY:
             test.outcome = FLAKY
 
     @pytest.hookimpl(tryfirst=True)
-    def pytest_report_teststatus(
-            self, report: TestReport
-    ) -> tuple[str, str, str] | None:
+    def pytest_report_teststatus(self, report: TestReport) -> tuple[str, str, str] | None:
         # Hook into the terminal reporting of the test status
         if getattr(report, "should_retry", False):
             # Don't log a status for this yet since it's not final
@@ -163,9 +157,7 @@ class DeflakePlugin:
 
             if self.github and self.test_type:
                 try:
-                    self.github.create_or_update_flaky_test_issue(
-                        self.test_run.root, self.test_type, test
-                    )
+                    self.github.create_or_update_flaky_test_issue(self.test_run.root, self.test_type, test)
                 except Exception as e:
                     # Catch all exceptions to be logged later, don't let this fail the test run
                     self.exceptions[nodeid] = e
@@ -175,17 +167,11 @@ class DeflakePlugin:
         lines = []
         if self.flaky_tests > 0:
             if not self.github:
-                lines.append(
-                    "Could not report flaky tests because GH_TOKEN was missing"
-                )
+                lines.append("Could not report flaky tests because GH_TOKEN was missing")
             if not self.test_type:
-                lines.append(
-                    f"Could not report flaky tests because {TEST_TYPE_OPTION} was missing"
-                )
+                lines.append(f"Could not report flaky tests because {TEST_TYPE_OPTION} was missing")
         for nodeid, e in self.exceptions.items():
-            lines.append(
-                f"Failed to create or update flaky test issue for {nodeid}: {e}"
-            )
+            lines.append(f"Failed to create or update flaky test issue for {nodeid}: {e}")
         if lines:
             terminalreporter.write_sep("=", f"{self.name} plugin warnings", yellow=True)
             for line in lines:
@@ -201,12 +187,8 @@ def pytest_configure(config: Config) -> None:
 def pytest_addoption(parser: Parser):
     # Add a flag so the user can tell us what kind of tests we're running
     # (used by the GitHub class to create issue titles)
-    group = parser.getgroup(
-        "deflake", "deflake tests by recording flakes as GitHub issues"
-    )
-    group.addoption(
-        TEST_TYPE_OPTION, type=str, help="the type of tests being run", default=""
-    )
+    group = parser.getgroup("deflake", "deflake tests by recording flakes as GitHub issues")
+    group.addoption(TEST_TYPE_OPTION, type=str, help="the type of tests being run", default="")
 
 
 @dataclass(frozen=True)
@@ -244,9 +226,7 @@ class GitHub:
         self.session.headers.update({"Authorization": f"Bearer {token}"})
         self.sha = sha
 
-    def create_or_update_flaky_test_issue(
-            self, root: Path, test_type: str, test: TestResult
-    ) -> None:
+    def create_or_update_flaky_test_issue(self, root: Path, test_type: str, test: TestResult) -> None:
         if existing_issue := self.get_issue(test_type, test):
             self.ensure_issue_open(existing_issue)
             self.update_issue_body(existing_issue, root, test)
@@ -280,22 +260,12 @@ class GitHub:
                 break
 
         number = issue["number"]
-        return cast(
-            dict, self.post(f"repos/{ISSUE_REPO}/issues/{number}/comments", body=body)
-        )
+        return cast(dict, self.post(f"repos/{ISSUE_REPO}/issues/{number}/comments", body=body))
 
     def create_issue(self, root: Path, test_type: str, test: TestResult) -> dict:
         title = self.issue_title(test_type, test)
         body = self.issue_body(root, test)
-        return cast(
-            dict,
-            self.post(
-                f"repos/{ISSUE_REPO}/issues",
-                title=title,
-                body=body,
-                labels=[FLAKY_LABEL],
-            ),
-        )
+        return cast(dict, self.post(f"repos/{ISSUE_REPO}/issues", title=title, body=body, labels=[FLAKY_LABEL]))
 
     def issue_title(self, test_type: str, test: TestResult) -> str:
         test_name = self.nodeid_function_name(test.nodeid)
@@ -304,16 +274,10 @@ class GitHub:
     def issue_body(self, root: Path, test: TestResult) -> str:
         return "\n".join(
             [f"Nodeid: `{test.nodeid}`"]
-            + [
-                line
-                for phase in PHASES
-                for line in self.phase_lines(root, phase, getattr(test, phase))
-            ]
+            + [line for phase in PHASES for line in self.phase_lines(root, phase, getattr(test, phase))]
         )
 
-    def phase_lines(
-            self, root: Path, phase: str, phase_info: TestPhase | None
-    ) -> Generator[str, None, None]:
+    def phase_lines(self, root: Path, phase: str, phase_info: TestPhase | None) -> Generator[str, None, None]:
         if phase_info is None:
             return
 

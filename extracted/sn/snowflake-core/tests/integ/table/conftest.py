@@ -43,6 +43,7 @@ test_table_template = Table(
 def table_postfix() -> str:
     return random_string(10)
 
+
 @pytest.fixture
 def table_handle(table_postfix, tables, session) -> Generator[TableResource, None, None]:
     # Use bridge to bring handles.
@@ -84,12 +85,7 @@ def table_handle_case_senstitive(table_postfix, tables, session) -> Generator[Ta
 
 
 def assert_table(
-    table: Table,
-    name: str,
-    database: DatabaseResource,
-    schema: SchemaResource,
-    deep: bool = False,
-    rows: int = 2,
+    table: Table, name: str, database: DatabaseResource, schema: SchemaResource, deep: bool = False, rows: int = 2
 ) -> None:
     # `Table` is fetched from the server and its attributes are checked.
     assert table.name == normalize_and_unquote_name(name)

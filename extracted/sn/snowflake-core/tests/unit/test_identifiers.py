@@ -79,14 +79,8 @@ def test_set_name():
         # Nested quotes
         ('"abc""this is in nested quotes"""', '"abc""this is in nested quotes"""'),
         # Callables
-        (
-            "db.schema.function(string, int, variant)",
-            "db.schema.function",
-        ),
-        (
-            'db.schema."fun tion"(string, int, variant)',
-            'db.schema."fun tion"',
-        ),
+        ("db.schema.function(string, int, variant)", "db.schema.function"),
+        ('db.schema."fun tion"(string, int, variant)', 'db.schema."fun tion"'),
     ],
 )
 def test_from_string(fqn_str, identifier):

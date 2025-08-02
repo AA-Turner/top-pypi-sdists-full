@@ -1,0 +1,65 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "landlock"
+authors = [{name = "Edward Knight", email = "edw@rdknig.ht"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Operating System Kernels :: Linux",
+]
+requires-python = ">=3.9"
+dynamic = ["version", "description"]
+
+[project.urls]
+Home = "https://github.com/Edward-Knight/landlock"
+
+[project.optional-dependencies]
+deploy = [
+    "build ~= 1.2",
+    "twine ~= 6.1",
+]
+dev = [
+    "pre-commit ~= 4.2",
+    "landlock[test]",
+]
+test = [
+    "pytest ~= 8.3",
+    "pytest-cov ~= 6.1",
+    "pytest-forked ~= 1.6 ; sys_platform != 'win32'",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["landlock"]
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+    "--cov",
+    "--cov-config=pyproject.toml",  # explicitly required to workaround bug pytest-cov#168 (or #479)
+    "--cov-report=html",
+    "--cov-report=term",
+    "--junit-xml=junit.xml",
+]
+log_file_level = "DEBUG"
+junit_family = "xunit2"
+required_plugins = [
+    "pytest-cov",
+]
+xfail_strict = true
+filterwarnings = "error"

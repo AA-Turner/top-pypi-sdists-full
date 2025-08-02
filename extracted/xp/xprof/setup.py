@@ -59,7 +59,7 @@ setuptools.setup(
     ),
     package_data={
         'xprof': ['static/**'],
-        '': ['_pywrap_profiler_plugin.so'],
+        '': ['_pywrap_profiler_plugin.so', '_pywrap_profiler_plugin.pyd'],
     },
     entry_points={
         'tensorboard_plugins': [

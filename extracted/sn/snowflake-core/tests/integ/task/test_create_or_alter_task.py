@@ -15,11 +15,11 @@ if typing.TYPE_CHECKING:
     pass
 
 
-
 @pytest.mark.snowpark
 @pytest.mark.min_sf_ver("9.4.0")
 def test_create_or_alter(tasks, db_parameters):
     from snowflake.snowpark._internal.utils import parse_table_name
+
     task_name1 = random_object_name()
     task_name2 = random_object_name()
     try:
@@ -35,7 +35,7 @@ def test_create_or_alter(tasks, db_parameters):
                 config={"a": 1},
                 # TODO: testing with error_integration requires setup of notification channel first.
                 # error_integration=,
-            ),
+            )
         )
         task1_data = task1.fetch()
         assert task1_data.name == task_name1.upper()
@@ -68,10 +68,7 @@ def test_create_or_alter(tasks, db_parameters):
                 comment="abc",
                 predecessors=[task1.name],
                 condition="1=1",
-                session_parameters={
-                    "SNOWPARK_REQUEST_TIMEOUT_IN_SECONDS": 80000,
-                    "SNOWPARK_LAZY_ANALYSIS": False,
-                },
+                session_parameters={"SNOWPARK_REQUEST_TIMEOUT_IN_SECONDS": 80000, "SNOWPARK_LAZY_ANALYSIS": False},
             )
         )
         task2_data = next((t for t in tasks.iter() if t.name == task_name2.upper()), None)
@@ -92,10 +89,7 @@ def test_create_or_alter(tasks, db_parameters):
         task2_data.definition = "select 3"
         task2_data.comment = "def"
         task2_data.condition = "2=2"
-        task2_data.session_parameters = {
-            "SNOWPARK_REQUEST_TIMEOUT_IN_SECONDS": 90000,
-            "TIMEZONE": "America/New_York",
-        }
+        task2_data.session_parameters = {"SNOWPARK_REQUEST_TIMEOUT_IN_SECONDS": 90000, "TIMEZONE": "America/New_York"}
         task2.create_or_alter(task2_data)
         task2_data_again = task2.fetch()
         assert task2_data_again.name == task_name2.upper()
@@ -125,12 +119,7 @@ def test_create_or_alter_config_and_schedule(tasks, db_parameters):
             )
         )
 
-        task1.create_or_alter(
-            Task(
-                name=task_name1,
-                definition="select current_version()",
-            )
-        )
+        task1.create_or_alter(Task(name=task_name1, definition="select current_version()"))
         fetched = task1.fetch()
         assert fetched.config == {}
         assert fetched.schedule is None
@@ -198,6 +187,7 @@ def test_create_or_alter_finalizer(database, schema, tasks):
 @pytest.mark.usefixtures("anaconda_package_available")
 def test_create_or_alter_definition_python(tasks, db_parameters):
     from snowflake.snowpark import Session
+
     def foo1(session: Session) -> None:
         session.sql("select 1").collect()
 

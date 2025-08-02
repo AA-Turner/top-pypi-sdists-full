@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: sensai-utils
+Version: 1.5.0
+Summary: Utilities from sensAI, the Python library for sensible AI
+Home-page: https://github.com/opcode81/sensAI-utils
+Author: Dominik Jain et al.
+License: MIT
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+License-File: LICENSE
+Requires-Dist: typing-extensions>=4.6
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

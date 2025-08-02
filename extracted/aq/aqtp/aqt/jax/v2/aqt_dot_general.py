@@ -111,17 +111,14 @@ def dot_general_raw_make(
   rhs_cfg = Tensor()
 
   # TODO(lew): Binary uses 0.5 right now, it should use -1 and 1.
-  if (
-      lhs_bits is not None
-      and rhs_bits is not None
-      and lhs_bits not in fp8_numerics.fp8_map.keys()
-      and rhs_bits not in fp8_numerics.fp8_map.keys()
-      and isinstance(lhs_bits, int)
+  if (isinstance(lhs_bits, int)
       and 2 <= lhs_bits <= 8
       and isinstance(rhs_bits, int)
-      and 2 <= rhs_bits <= 8
-  ):
+      and 2 <= rhs_bits <= 8):
     dg_accumulator_dtype = jnp.int32
+  elif (lhs_bits in fp8_numerics.fp8_map.keys()
+        and rhs_bits in fp8_numerics.fp8_map.keys()):
+    dg_accumulator_dtype = jnp.float32
   else:
     dg_accumulator_dtype = None
 
@@ -1137,7 +1134,8 @@ def _update_dimension_numbers_for_backward(
 
   Args:
     fwd_dimension_numbers: Dimension number used during forward pass
-    y_is_lhs: If set, the function calculates dimension numbers for dlhs.
+    y_is_lhs: If set, the function calculates dimension numbers for drhs =
+      dot_general(g, lhs).
     gradient_rank: Rank of the gradient.
     y_rank: Rank of the other side input.
 

@@ -1,0 +1,137 @@
+Metadata-Version: 2.4
+Name: translation-finder
+Version: 2.23
+Summary: A translation file finder used in Weblate.
+Home-page: https://weblate.org/
+Download-URL: https://github.com/WeblateOrg/translation-finder
+Author: Michal Čihař
+Author-email: Michal Čihař <michal@weblate.org>
+License-Expression: GPL-3.0-or-later
+Project-URL: Documentation, https://docs.weblate.org/
+Project-URL: Download, https://github.com/WeblateOrg/translation-finder
+Project-URL: Funding, https://weblate.org/donate/
+Project-URL: Homepage, https://weblate.org/
+Project-URL: Issue Tracker, https://github.com/WeblateOrg/translation-finder/issues
+Project-URL: Source Code, https://github.com/WeblateOrg/translation-finder
+Project-URL: Twitter, https://twitter.com/WeblateOrg
+Keywords: i18n,l10n,gettext,weblate,translate
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Internationalization
+Classifier: Topic :: Software Development :: Localization
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: charset-normalizer<4.0,>2.0
+Requires-Dist: ruamel.yaml
+Requires-Dist: weblate-language-data>=2024.14
+Provides-Extra: dev
+Requires-Dist: translation-finder[lint,test,types]; extra == "dev"
+Provides-Extra: lint
+Requires-Dist: pre-commit==4.2.0; extra == "lint"
+Provides-Extra: test
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: pytest-github-actions-annotate-failures==0.3.0; extra == "test"
+Provides-Extra: types
+Requires-Dist: mypy==1.17.1; extra == "types"
+Dynamic: download-url
+Dynamic: license-file
+
+.. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png
+   :alt: Weblate
+   :target: https://weblate.org/
+   :height: 80px
+
+**Weblate is libre software web-based continuous localization system,
+used by over 2500 libre projects and companies in more than 165 countries.**
+
+A translation file finder for `Weblate`_, translation tool with tight version
+control integration.
+
+.. image:: https://img.shields.io/badge/website-weblate.org-blue.svg
+    :alt: Website
+    :target: https://weblate.org/
+
+.. image:: https://hosted.weblate.org/widgets/weblate/-/svg-badge.svg
+    :alt: Translation status
+    :target: https://hosted.weblate.org/engage/weblate/?utm_source=widget
+
+.. image:: https://bestpractices.coreinfrastructure.org/projects/552/badge
+    :alt: CII Best Practices
+    :target: https://bestpractices.coreinfrastructure.org/projects/552
+
+.. image:: https://img.shields.io/pypi/v/translation-finder.svg
+    :target: https://pypi.org/project/translation-finder/
+    :alt: PyPI package
+
+.. image:: https://readthedocs.org/projects/weblate/badge/
+    :alt: Documentation
+    :target: https://docs.weblate.org/
+
+This library is used by `Weblate`_ to discover translation files in a cloned
+repository. It can operate on both file listings and actual filesystem.
+Filesystem access is needed for more accurate detection in some cases
+(detecting encoding or actual syntax of similar files).
+
+Usage
+-----
+
+In can be used from Python:
+
+.. code-block:: pycon
+
+   >>> from translation_finder import discover
+   >>> from pprint import pprint
+   >>> results = discover("translation_finder/test_data/")
+   >>> len(results)
+   30
+   >>> pprint(results[0].match)
+   {'file_format': 'aresource',
+    'filemask': 'app/src/res/main/values-*/strings.xml',
+    'name': 'android',
+    'template': 'app/src/res/main/values/strings.xml'}
+   >>> pprint(results[16].match)
+   {'file_format': 'po',
+    'filemask': 'locales/*.po',
+    'new_base': 'locales/messages.pot'}
+
+Additional information about discovery can be obtained from meta attribute:
+
+.. code-block:: pycon
+
+   >>> pprint(results[0].meta)
+   {'discovery': 'TransifexDiscovery', 'origin': 'Transifex', 'priority': 500}
+   >>> pprint(results[16].meta)
+   {'discovery': 'GettextDiscovery', 'origin': None, 'priority': 1000}
+
+
+Or command line:
+
+.. code-block:: console
+
+   $ weblate-discovery translation_finder/test_data/
+   == Match 1 (Transifex) ==
+   file_format    : aresource
+   filemask       : app/src/res/main/values-*/strings.xml
+   name           : android
+   template       : app/src/res/main/values/strings.xml
+   ...
+
+   == Match 7 ==
+   file_format    : po
+   filemask       : locales/*.po
+   new_base       : locales/messages.pot
+
+.. _Weblate: https://weblate.org/

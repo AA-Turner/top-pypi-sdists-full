@@ -2,6 +2,7 @@
 
 import typing
 
+from .cloud_astra_db_vector_store import CloudAstraDbVectorStore
 from .cloud_azure_ai_search_vector_store import CloudAzureAiSearchVectorStore
 from .cloud_milvus_vector_store import CloudMilvusVectorStore
 from .cloud_mongo_db_atlas_vector_search import CloudMongoDbAtlasVectorSearch
@@ -17,4 +18,5 @@ DataSinkComponent = typing.Union[
     CloudAzureAiSearchVectorStore,
     CloudMongoDbAtlasVectorSearch,
     CloudMilvusVectorStore,
+    CloudAstraDbVectorStore,
 ]

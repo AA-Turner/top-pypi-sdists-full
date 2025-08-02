@@ -1,7 +1,0 @@
-include ../make.meson.inc
-
-NAME     := mockdt
-WRAPFLAGS += -k kind_map
-
-test: build
-	$(PYTHON) test.py

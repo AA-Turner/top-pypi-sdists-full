@@ -45,10 +45,16 @@ class LlamaExtractClient:
         self._client_wrapper = client_wrapper
 
     def list_extraction_agents(
-        self, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+        self,
+        *,
+        include_default: typing.Optional[bool] = None,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
     ) -> typing.List[ExtractAgent]:
         """
         Parameters:
+            - include_default: typing.Optional[bool]. Whether to include default agents in the results
+
             - project_id: typing.Optional[str].
 
             - organization_id: typing.Optional[str].
@@ -63,7 +69,9 @@ class LlamaExtractClient:
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/extraction-agents"),
-            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            params=remove_none_from_dict(
+                {"include_default": include_default, "project_id": project_id, "organization_id": organization_id}
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -250,6 +258,44 @@ class LlamaExtractClient:
             "GET",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/", f"api/v1/extraction/extraction-agents/by-name/{name}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ExtractAgent, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_or_create_default_extraction_agent(
+        self, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> ExtractAgent:
+        """
+        Get or create a default extraction agent for the current project.
+        The default agent has an empty schema and default configuration.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.llama_extract.get_or_create_default_extraction_agent()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/extraction-agents/default"
             ),
             params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             headers=self._client_wrapper.get_headers(),
@@ -992,10 +1038,16 @@ class AsyncLlamaExtractClient:
         self._client_wrapper = client_wrapper
 
     async def list_extraction_agents(
-        self, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+        self,
+        *,
+        include_default: typing.Optional[bool] = None,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
     ) -> typing.List[ExtractAgent]:
         """
         Parameters:
+            - include_default: typing.Optional[bool]. Whether to include default agents in the results
+
             - project_id: typing.Optional[str].
 
             - organization_id: typing.Optional[str].
@@ -1010,7 +1062,9 @@ class AsyncLlamaExtractClient:
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/extraction-agents"),
-            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            params=remove_none_from_dict(
+                {"include_default": include_default, "project_id": project_id, "organization_id": organization_id}
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -1197,6 +1251,44 @@ class AsyncLlamaExtractClient:
             "GET",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/", f"api/v1/extraction/extraction-agents/by-name/{name}"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ExtractAgent, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_or_create_default_extraction_agent(
+        self, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> ExtractAgent:
+        """
+        Get or create a default extraction agent for the current project.
+        The default agent has an empty schema and default configuration.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.llama_extract.get_or_create_default_extraction_agent()
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/extraction-agents/default"
             ),
             params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             headers=self._client_wrapper.get_headers(),

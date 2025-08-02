@@ -5,12 +5,7 @@ from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union, overload
 from pydantic import Field, StrictStr
 
 from snowflake.core import FQN, PollingOperation
-from snowflake.core._common import (
-    Clone,
-    CreateMode,
-    SchemaObjectCollectionParent,
-    SchemaObjectReferenceMixin,
-)
+from snowflake.core._common import Clone, CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
@@ -24,6 +19,7 @@ from ._generated.models.stream_clone import StreamClone
 if TYPE_CHECKING:
     from snowflake.core.schema import SchemaResource
 
+
 class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
     """Represents the collection operations on the Snowflake Stream resource.
 
@@ -34,36 +30,31 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, StreamResource)
         self._api = StreamApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @overload
     @api_telemetry
     def create(
-        self, stream: str,
+        self,
+        stream: str,
         *,
         clone_stream: Union[str, Clone],
-        mode: CreateMode=CreateMode.error_if_exists,
+        mode: CreateMode = CreateMode.error_if_exists,
         copy_grants: Optional[bool] = False,
-    ) -> "StreamResource":
-        ...
+    ) -> "StreamResource": ...
     @overload
     @api_telemetry
     def create(
-        self, stream: Stream,
-        *,
-        mode: CreateMode=CreateMode.error_if_exists,
-        copy_grants: Optional[bool] = False,
-    ) -> "StreamResource":
-        ...
+        self, stream: Stream, *, mode: CreateMode = CreateMode.error_if_exists, copy_grants: Optional[bool] = False
+    ) -> "StreamResource": ...
     @api_telemetry
     def create(
-        self, stream: Union[str, Stream],
+        self,
+        stream: Union[str, Stream],
         *,
         clone_stream: Optional[Union[str, Clone]] = None,
-        mode: CreateMode=CreateMode.error_if_exists,
+        mode: CreateMode = CreateMode.error_if_exists,
         copy_grants: Optional[bool] = False,
     ) -> "StreamResource":
         """Create a stream in Snowflake.
@@ -104,7 +95,7 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
         ...     "new_stream_name",
         ...     clone_stream="stream_name_to_be_cloned",
         ...     mode=CreateMode.if_not_exists,
-        ...     copy_grants=True
+        ...     copy_grants=True,
         ... )
 
         Cloning a Stream instance in a different database and schema
@@ -114,7 +105,7 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
         ...     "new_stream_name",
         ...     clone_stream="stream_database_name.stream_schema_name.stream_name_to_be_cloned",
         ...     mode=CreateMode.if_not_exists,
-        ...     copy_grants=True
+        ...     copy_grants=True,
         ... )
 
         **Creating a stream from scratch**
@@ -167,63 +158,54 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
 
         >>> streams.create(
         ...     Stream(
-        ...         name = "new_stream_name",
-        ...         stream_source = StreamSourceView(
-        ...             point_of_time = PointOfTimeOffset(reference="before", offset="1"),
-        ...             name = "my_source_view_name"
-        ...         )
+        ...         name="new_stream_name",
+        ...         stream_source=StreamSourceView(
+        ...             point_of_time=PointOfTimeOffset(reference="before", offset="1"),
+        ...             name="my_source_view_name",
+        ...         ),
         ...     ),
         ...     mode=CreateMode.if_not_exists,
-        ...     copy_grants=True
+        ...     copy_grants=True,
         ... )
 
         Creating a stream instance by source directory table:
 
         >>> streams.create(
         ...     Stream(
-        ...         name = "new_stream_name",
-        ...         stream_source = StreamSourceStage(
-        ...             point_of_time = PointOfTimeOffset(reference="before", offset="1"),
-        ...             name = "my_source_directory_table_name"
-        ...         )
+        ...         name="new_stream_name",
+        ...         stream_source=StreamSourceStage(
+        ...             point_of_time=PointOfTimeOffset(reference="before", offset="1"),
+        ...             name="my_source_directory_table_name",
+        ...         ),
         ...     ),
         ...     mode=CreateMode.if_not_exists,
-        ...     copy_grants=True
+        ...     copy_grants=True,
         ... )
         """
-        self._create(
-            stream=stream,
-            clone_stream=clone_stream,
-            mode=mode,
-            copy_grants=copy_grants,
-            async_req=False,
-        )
+        self._create(stream=stream, clone_stream=clone_stream, mode=mode, copy_grants=copy_grants, async_req=False)
         return StreamResource(stream.name if isinstance(stream, Stream) else stream, self)
 
     @overload
     @api_telemetry
     def create_async(
-        self, stream: str,
+        self,
+        stream: str,
         *,
         clone_stream: Union[str, Clone],
         mode: CreateMode = CreateMode.error_if_exists,
         copy_grants: Optional[bool] = False,
-    ) -> PollingOperation["StreamResource"]:
-        ...
+    ) -> PollingOperation["StreamResource"]: ...
 
     @overload
     @api_telemetry
     def create_async(
-        self, stream: Stream,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
-        copy_grants: Optional[bool] = False,
-    ) -> PollingOperation["StreamResource"]:
-        ...
+        self, stream: Stream, *, mode: CreateMode = CreateMode.error_if_exists, copy_grants: Optional[bool] = False
+    ) -> PollingOperation["StreamResource"]: ...
 
     @api_telemetry
     def create_async(
-        self, stream: Union[str, Stream],
+        self,
+        stream: Union[str, Stream],
         *,
         clone_stream: Optional[Union[str, Clone]] = None,
         mode: CreateMode = CreateMode.error_if_exists,
@@ -233,16 +215,13 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._create(
-            stream=stream,
-            clone_stream=clone_stream,
-            mode=mode,
-            copy_grants=copy_grants,
-            async_req=True,
+            stream=stream, clone_stream=clone_stream, mode=mode, copy_grants=copy_grants, async_req=True
         )
         return PollingOperation(
-            future, lambda _: StreamResource(stream.name if isinstance(stream, Stream) else stream, self))
+            future, lambda _: StreamResource(stream.name if isinstance(stream, Stream) else stream, self)
+        )
 
     @api_telemetry
     def iter(
@@ -251,7 +230,7 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
         like: Optional[StrictStr] = None,
         starts_with: Optional[StrictStr] = None,
         show_limit: Optional[Annotated[int, Field(le=10000, strict=True, ge=1)]] = None,
-        from_name: Optional[StrictStr] = None
+        from_name: Optional[StrictStr] = None,
     ) -> Iterator[Stream]:
         """Iterate through ``Stream`` objects from Snowflake, filtering on any optional 'like' pattern.
 
@@ -289,9 +268,15 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
         >>> for stream in streams:
         ...     print(stream.name)
         """
-        streams = self._api.list_streams(database=self.database.name, var_schema=self.schema.name, like=like,
-                                     starts_with=starts_with, show_limit=show_limit, from_name=from_name,
-                                     async_req=False)
+        streams = self._api.list_streams(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            like=like,
+            starts_with=starts_with,
+            show_limit=show_limit,
+            from_name=from_name,
+            async_req=False,
+        )
         return iter(streams)
 
     @api_telemetry
@@ -301,40 +286,47 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
         like: Optional[StrictStr] = None,
         starts_with: Optional[StrictStr] = None,
         show_limit: Optional[Annotated[int, Field(le=10000, strict=True, ge=1)]] = None,
-        from_name: Optional[StrictStr] = None
+        from_name: Optional[StrictStr] = None,
     ) -> PollingOperation[Iterator[Stream]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_streams(database=self.database.name, var_schema=self.schema.name, like=like,
-                                     starts_with=starts_with, show_limit=show_limit, from_name=from_name,
-                                     async_req=True)
+        """  # noqa: D401
+        future = self._api.list_streams(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            like=like,
+            starts_with=starts_with,
+            show_limit=show_limit,
+            from_name=from_name,
+            async_req=True,
+        )
         return PollingOperations.iterator(future)
 
     @overload
     def _create(
-        self, stream: Union[str, Stream],
+        self,
+        stream: Union[str, Stream],
         clone_stream: Optional[Union[str, Clone]],
         mode: CreateMode,
         copy_grants: Optional[bool],
         async_req: Literal[True],
-    ) -> Future[SuccessResponse]:
-        ...
+    ) -> Future[SuccessResponse]: ...
 
     @overload
     def _create(
-        self, stream: Union[str, Stream],
+        self,
+        stream: Union[str, Stream],
         clone_stream: Optional[Union[str, Clone]],
         mode: CreateMode,
         copy_grants: Optional[bool],
         async_req: Literal[False],
-    ) -> SuccessResponse:
-        ...
+    ) -> SuccessResponse: ...
 
     def _create(
-        self, stream: Union[str, Stream],
+        self,
+        stream: Union[str, Stream],
         clone_stream: Optional[Union[str, Clone]],
         mode: CreateMode,
         copy_grants: Optional[bool],
@@ -349,9 +341,7 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
 
             real_clone = Clone(source=clone_stream) if isinstance(clone_stream, str) else clone_stream
 
-            req = StreamClone(
-                name=stream,
-            )
+            req = StreamClone(name=stream)
 
             source_stream_fqn = FQN.from_string(real_clone.source)
             return self._api.clone_stream(
@@ -363,15 +353,20 @@ class StreamCollection(SchemaObjectCollectionParent["StreamResource"]):
                 target_schema=self.schema.name,
                 stream_clone=req,
                 copy_grants=copy_grants,
-                async_req=async_req
+                async_req=async_req,
             )
 
         if not isinstance(stream, Stream):
             raise TypeError("Stream has to be Stream object")
         return self._api.create_stream(
-            self.database.name, self.schema.name, stream, create_mode=StrictStr(real_mode),
-            copy_grants=copy_grants, async_req=async_req
+            self.database.name,
+            self.schema.name,
+            stream,
+            create_mode=StrictStr(real_mode),
+            copy_grants=copy_grants,
+            async_req=async_req,
         )
+
 
 class StreamResource(SchemaObjectReferenceMixin[StreamCollection]):
     """Represents a reference to a Snowflake Stream resource.
@@ -380,11 +375,7 @@ class StreamResource(SchemaObjectReferenceMixin[StreamCollection]):
     as perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name: StrictStr,
-        collection: StreamCollection
-    ) -> None:
+    def __init__(self, name: StrictStr, collection: StreamCollection) -> None:
         self.name = name
         self.collection = collection
 
@@ -398,9 +389,7 @@ class StreamResource(SchemaObjectReferenceMixin[StreamCollection]):
 
         >>> print(stream_reference.fetch().created_on)
         """
-        return self.collection._api.fetch_stream(
-            self.database.name, self.schema.name, self.name, async_req=False,
-        )
+        return self.collection._api.fetch_stream(self.database.name, self.schema.name, self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[Stream]:
@@ -408,16 +397,12 @@ class StreamResource(SchemaObjectReferenceMixin[StreamCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_stream(
-            self.database.name, self.schema.name, self.name, async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_stream(self.database.name, self.schema.name, self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: Optional[bool] = None) -> None:
+    def drop(self, if_exists: Optional[bool] = None) -> None:
         """Drop this stream.
 
         Parameters
@@ -434,21 +419,19 @@ class StreamResource(SchemaObjectReferenceMixin[StreamCollection]):
 
         Deleting a stream using its reference if it exists:
 
-        >>> stream_reference.drop(if_exists = True)
+        >>> stream_reference.drop(if_exists=True)
         """
         self.collection._api.delete_stream(
             self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=False
         )
 
     @api_telemetry
-    def drop_async(
-        self,
-        if_exists: Optional[bool] = None) -> PollingOperation[None]:
+    def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
         """An asynchronous version of :func:`drop`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.delete_stream(
             self.database.name, self.schema.name, self.name, if_exists=if_exists, async_req=True
         )

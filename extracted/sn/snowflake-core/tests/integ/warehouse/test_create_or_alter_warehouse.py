@@ -33,10 +33,7 @@ def test_create_or_alter(warehouses, session):
         warehouse_ref.create_or_alter(test_warehouse)
 
         # Test introducing property which was not set before
-        test_warehouse_new_1 = Warehouse(
-            name=warehouse_name,
-            warehouse_size="SMALL",
-        )
+        test_warehouse_new_1 = Warehouse(name=warehouse_name, warehouse_size="SMALL")
         warehouse_ref.create_or_alter(test_warehouse_new_1)
         warehouse_list = warehouses.iter(like=warehouse_name)
         result = next(warehouse_list)

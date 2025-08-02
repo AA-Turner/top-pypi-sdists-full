@@ -22,15 +22,10 @@ def fake_root():
     generated Configuration class is handled as a singleton, so we treat
     the unit test root as a singleton as well.
     """
-    with patch('snowflake.core._root.Root'):
+    with patch("snowflake.core._root.Root"):
         mock_instance = MagicMock()
         mock_instance._hostname = "localhost"
-        mock_instance._connection = mock.MagicMock(
-            _rest=mock.MagicMock(
-                _protocol="http",
-                _port="80",
-            )
-        )
+        mock_instance._connection = mock.MagicMock(_rest=mock.MagicMock(_protocol="http", _port="80"))
         mock_instance.root_config = MagicMock()
         mock_instance.root_config.has_user_agents = MagicMock(return_value=False)
         mock_instance.root_config.get_user_agents = MagicMock(return_value="")
@@ -39,6 +34,7 @@ def fake_root():
         mock_instance._initialize_client_info = types.MethodType(Root._initialize_client_info, mock_instance)
 
         return mock_instance
+
 
 @pytest.fixture()
 def logger_level_info(caplog):
@@ -80,12 +76,7 @@ def stages(schema):
 
 @pytest.fixture
 def table(tables):
-    return Table(
-        name="my_table",
-        columns=[
-            TableColumn(name="c1", datatype="int"),
-        ],
-    )
+    return Table(name="my_table", columns=[TableColumn(name="c1", datatype="int")])
 
 
 @pytest.fixture()

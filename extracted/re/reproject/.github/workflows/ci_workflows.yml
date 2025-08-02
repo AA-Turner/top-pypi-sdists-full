@@ -15,19 +15,19 @@ concurrency:
 jobs:
 
   tests:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@924441154cf3053034c6513d5e06c69d262fb9a6  # v1.13.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
     with:
       envs: |
-        - macos: py310-test-oldestdeps
-        - macos: py311-test
+        - macos: py311-test-oldestdeps
         - macos: py312-test
-        - linux: py310-test-oldestdeps
-        - linux: py311-test
+        - macos: py313-test
+        - linux: py311-test-oldestdeps
         - linux: py312-test
-        - linux: py312-test-devdeps
-        - windows: py310-test-oldestdeps
-        - windows: py311-test
+          runs-on: ubuntu-24.04-arm
+        - linux: py313-test-devdeps
+        - windows: py311-test-oldestdeps
         - windows: py312-test
+        - windows: py313-test
       libraries: |
         apt:
           - libopenblas-dev
@@ -35,13 +35,14 @@ jobs:
 
   publish:
     needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@924441154cf3053034c6513d5e06c69d262fb9a6  # v1.13.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
     with:
       test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject
+      test_command: pytest -p no:warnings --pyargs reproject --log-cli-level=INFO
       targets: |
         - cp*-manylinux_x86_64
-        - cp*-manylinux_aarch64
+        - target: cp*-manylinux_aarch64
+          runs-on: ubuntu-24.04-arm
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
         - cp*-win_amd64

@@ -17,7 +17,6 @@ Usage::
 from __future__ import annotations
 
 import sys
-from datetime import datetime
 
 from .literals import EncryptionConfigurationTypeType
 
@@ -151,9 +150,9 @@ class GetInvestigationGroupPolicyResponseTypeDef(TypedDict):
 
 class GetInvestigationGroupResponseTypeDef(TypedDict):
     createdBy: str
-    createdAt: datetime
+    createdAt: int
     lastModifiedBy: str
-    lastModifiedAt: datetime
+    lastModifiedAt: int
     name: str
     arn: str
     roleArn: str

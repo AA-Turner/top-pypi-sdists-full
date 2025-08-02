@@ -320,7 +320,7 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, PriceTagUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-            elif isinstance(use_case, AgeDetectionUSeCase):
+            elif isinstance(use_case, AgeDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, GenderDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
@@ -359,6 +359,8 @@ class PostProcessor:
             elif isinstance(use_case, LeafUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, SmokerDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, BottleDefectUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             

@@ -8,16 +8,17 @@ authors = [
 license = {text = "BSD 3-Clause"}
 description = "Reproject astronomical images"
 urls = {Homepage = "https://reproject.readthedocs.io"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.23",
     "astropy>=5.0",
     "astropy-healpix>=1.0",
     "scipy>=1.9",
     "dask[array]>=2021.8",
-    "cloudpickle",
-    "zarr",
-    "fsspec",
+    "zarr>=2.11.0",
+    "fsspec>=2021.8",
+    "pillow>=10.0",
+    "pyavm>=0.9.6",
 ]
 dynamic = ["version"]
 
@@ -29,6 +30,8 @@ content-type = "text/x-rst"
 all = ["shapely"]
 test = [
     "pytest-astropy",
+    "pytest-xdist",
+    "tqdm",
 ]
 testall = [
     "shapely>=2.0.2",  # 2.0.2 fixed a bug that causes changes in test results
@@ -41,14 +44,15 @@ docs = [
     "sphinx-astropy",
     "pyvo",
     "matplotlib",
+    "tqdm",
 ]
 
 [build-system]
 requires = ["setuptools",
             "setuptools_scm",
-            "extension-helpers==1.*",
-            "numpy>=2.0.0rc1",
-            "cython>=3.0,<3.1"]
+            "extension-helpers>=1.3,<2",
+            "numpy>=2",
+            "cython>=3.1"]
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools]
@@ -185,7 +189,11 @@ lint.select = [
   "B",  # flake8-bugbear
   "I",  # isort
   "UP",  # pyupgrade
+  "F",   # pyflakes
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
 "docs/conf.py" = ["F405"]  # Sphinx injects variables into namespace
+
+[tool.distutils.bdist_wheel]
+py-limited-api = "cp311"

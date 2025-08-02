@@ -1,0 +1,149 @@
+Metadata-Version: 2.4
+Name: atopile
+Version: 0.11.1
+Summary: A toolchain bringing the best of software development to the real-world!
+Project-URL: Homepage, https://github.com/atopile/atopile
+Project-URL: Bug Tracker, https://github.com/atopile/atopile/issues
+Author-email: Matthew Wildoer <matt@atopile.io>, Ioannis Papamanoglou <ioannis@atopile.io>, Narayan Powderly <narayan@atopile.io>
+License: MIT License
+        
+        Copyright (c) 2024 atopile
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: <3.14,>=3.13
+Requires-Dist: antlr4-python3-runtime==4.13.2
+Requires-Dist: atopile-easyeda2kicad>=0.9.5
+Requires-Dist: black>=24.4.2
+Requires-Dist: case-converter>=1.2.0
+Requires-Dist: cookiecutter>=2.6.0
+Requires-Dist: dataclasses-json>=0.6.7
+Requires-Dist: deprecated~=1.2.14
+Requires-Dist: fastapi-github-oidc>=0.2.1
+Requires-Dist: freetype-py>=2.4
+Requires-Dist: gitpython>=3.1.41
+Requires-Dist: kicad-python
+Requires-Dist: kicadcliwrapper>=1.1.1
+Requires-Dist: matplotlib>=3.7.1
+Requires-Dist: mcp[cli]>=1.10.1
+Requires-Dist: more-itertools>=10.4
+Requires-Dist: nanobind>=2.6.1
+Requires-Dist: natsort>=8.4.0
+Requires-Dist: numpy>=2.2.0
+Requires-Dist: ordered-set==4.1.0
+Requires-Dist: pathvalidate>=3.2.1
+Requires-Dist: pint>=0.24.4
+Requires-Dist: platformdirs>=4.3.6
+Requires-Dist: posthog==6.0.3
+Requires-Dist: psutil>=6.0.0
+Requires-Dist: pydantic-settings>=2.7.1
+Requires-Dist: pygls>=1.3.0
+Requires-Dist: questionary>=2.0.1
+Requires-Dist: requests>=2.32.3
+Requires-Dist: rich>=13.7.1
+Requires-Dist: ruamel-yaml>=0.18.5
+Requires-Dist: ruff>=0.11.0
+Requires-Dist: semver>=3.0.2
+Requires-Dist: sexpdata>=1.0.2
+Requires-Dist: shapely>=2.0.1
+Requires-Dist: typer>=0.12
+Requires-Dist: typing-extensions>=4.6.3
+Requires-Dist: urllib3>=2.2.1
+Requires-Dist: zstd>=1.5.6.7
+Description-Content-Type: text/markdown
+
+<h1 align="center">
+    <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/atopile/atopile/assets/9785003/00f19584-18a2-4b5f-9ce4-1248798974dd">
+    <source media="(prefers-color-scheme: light)" src="https://github.com/atopile/atopile/assets/9785003/d38941c1-d7c1-42e6-9b94-a62a0996bc19">
+    <img alt="Shows a black logo in light color mode and a white one in dark color mode." src="https://github.com/atopile/atopile/assets/9785003/d38941c1-d7c1-42e6-9b94-a62a0996bc19">
+    </picture>
+</h1>
+
+
+# Welcome
+
+`atopile` is a language, compiler and toolchain to design electronics with code.
+
+Design circuit boards with the same powerful workflows that software developers use - version control, modularity, and automated validation. Instead of point-and-click schematics, use human-readable `.ato` files that can be version controlled and shared. Capture design intelligence and validation rules in code to ensure your hardware works as intended.
+
+
+## Features
+
+- 🚀 Auto-select components like resistors and capacitors, based on their attribute's values
+- 🤖 Embed calculations in your code, which are checked on every build
+- 🧱 Build you circuit from reliable configurable modules so you can focus on high level design
+- 💥 Build, release and test your circuit board from the `CLI`
+- 📦 Embedded package manager to install and manage modules from https://packages.atopile.io, or Github
+- 🔍 Version control line-by-line diffable code w/ git
+
+Jump right in with the [quickstart guide](https://docs.atopile.io/quickstart)
+
+
+## Who's atopile for?
+
+Currently atopile is young - which means we can't do everything yet and we're focussed on being incredible at a few things:
+
+
+### Custom Validation Equipment
+
+> "Rome wasn't built in a day, but your HiL should be"
+
+If you're serious about automating the validation of your production hardware, you're in the right place.
+
+[Cell-sim](https://github.com/atopile/cell-sim/) is a 16ch, 16-bit, isolated, 0-5V, 0-500mA battery-cell simulator designed from scratch in atopile, from concept to 2-revisions in under 5 days work. Oh, and that time includes the firmware. It is a relatively complex HiL design, and required many new modules that didn't yet exist on our package manager. Simpler HiL designs are frequently just a day's work.
+
+![cell-sim](assets/cell-sim.png)
+
+
+### Young companies who need to iterate on hardware
+
+`atopile` designed hardware is in satellites, humanoid robots and VTOL drones - all from startups within the last year.
+
+Not every young company NEEDs to iterate on it's hardware, but many more should than do.
+
+We're used to this in the software world, but getting the same engine running at even remotely similar speeds for hardware is a huge challenge. `atopile` let's multiple people work on different features or concepts on the same project in parallel via branches in `git`. With calculations checked and tests run automatically on every change, you can iterate as an individual - quickly trying out new ideas before committing to a design as a team and only after validating it in the real-world.
+
+
+### Huge nerds 🤓
+
+Welcome the club!
+
+If you like making dope stuff, like these [servo drives](https://github.com/atopile/spin-servo-drive) you're in the right place. Welcome!
+
+![spin-showing-off-the-very-goods](assets/spin-showing-off-the-very-goods.jpg)
+
+
+## ❓ Why Atopile?
+
+The objective of atopile is to help push forward paradigms from the software world to hardware design. Describing hardware with code might seem odd at first glance. But once you realize it introduces software development paradigms and toolchains, you'll be hooked, just like we've become.
+
+**Intelligent Design Capture**: Code can capture the intelligence you put into your work. Define hardware specifications like ratios and tolerances in code, enabling precise control and easy reuse of designs. Imagine configuring not the resistance values of a voltage divider, but its ratio and total resistance, all using physical units and tolerances. You can do this because someone before you described precisely what this module is and described the relationships between the values of the components and the function you care about. Now instead imagine what you can gain from reusing a buck design you can merely configure the target voltage and ripple of. Now imagine installing a [servo drive](https://github.com/atopile/spin-servo-drive) the same way you might numpy.
+
+**Version Control Integration**: Use git to manage design changes, facilitating collaboration and ensuring each iteration is thoroughly reviewed and validated. Version controlling your designs using git means you can deeply validate and review changes a feature at a time, isolated from impacting others' work. It means you can detangle your organisation and collaborate on an unprecedented scale. We can forgo half-baked "releases" in favor of stamping a simple git-hash on our prototypes, providing an anchor off which to associate test data and expectations.
+
+**Continuous Integration (CI)**: Implement CI to guarantee high-quality, compliant designs with every commit, represented by a green checkmark for assurance. Implementing CI to test our work ensures both high-quality and compliance, all summarised in a green check mark, emboldening teams to target excellence.
+
+
+## 🔍 Discover what people build
+
+Browse and submit your modules at [packages.atopile.io](https://packages.atopile.io)

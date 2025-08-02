@@ -1,0 +1,68 @@
+[project]
+name = "psutils"
+version = "3.3.11"
+description = "Manipulate PDF and PostScript documents"
+license = "GPL-3.0-or-later"
+authors = [
+    {name = "Reuben Thomas", email = "rrt@sc3d.org"}
+]
+readme = "README.md"
+urls = {Homepage = "https://github.com/rrthomas/psutils"}
+requires-python = ">= 3.9"
+dependencies = [
+    "puremagic >= 1.26",
+    "pypdf >= 4.3.0",
+]
+classifiers = [
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+]
+
+[project.scripts]
+epsffit = "psutils.command.epsffit:epsffit"
+extractres = "psutils.command.extractres:extractres"
+includeres = "psutils.command.includeres:includeres"
+psbook = "psutils.command.psbook:psbook"
+psjoin = "psutils.command.psjoin:psjoin"
+psnup = "psutils.command.psnup:psnup"
+psresize = "psutils.command.psresize:psresize"
+psselect = "psutils.command.psselect:psselect"
+pstops = "psutils.command.pstops:pstops"
+
+[project.optional-dependencies]
+test = [
+    "pytest-datafiles",
+    "Wand",
+]
+
+[build-system]
+requires = [
+    "argparse-manpage[setuptools] >= 4.2",
+    "setuptools >= 60; python_version >= \"3.12\"",
+    "puremagic >= 1.26",
+    "pypdf >= 4.3.0",
+]
+
+[tool.build_manpages]
+manpages = [
+    "epsffit.1:module=psutils.command.epsffit:function=get_parser:manual_title=User Command:include=epsffit-include.man",
+    "extractres.1:module=psutils.command.extractres:function=get_parser:manual_title=User Commands:include=extractres-include.man",
+    "includeres.1:module=psutils.command.includeres:function=get_parser:manual_title=User Commands:include=includeres-include.man",
+    "psbook.1:module=psutils.command.psbook:function=get_parser:manual_title=User Commands:include=psbook-include.man",
+    "psjoin.1:module=psutils.command.psjoin:function=get_parser:manual_title=User Commands",
+    "psnup.1:module=psutils.command.psnup:function=get_parser_manpages:manual_title=User Commands:include=psnup-include.man",
+    "psresize.1:module=psutils.command.psresize:function=get_parser:manual_title=User Commands:include=psresize-include.man",
+    "psselect.1:module=psutils.command.psselect:function=get_parser:manual_title=User Commands:include=psselect-include.man",
+    "pstops.1:module=psutils.command.pstops:function=get_parser_manpages:manual_title=User Commands:include=pstops-include.man",
+    "psutils.1:manfile=psutils.1",
+]
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "UP"]
+ignore = ["D1", "D401", "E741", "D415", "E501"]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

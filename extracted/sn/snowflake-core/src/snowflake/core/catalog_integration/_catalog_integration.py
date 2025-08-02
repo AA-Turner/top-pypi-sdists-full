@@ -4,11 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    AccountObjectCollectionParent,
-    CreateMode,
-    ObjectReferenceMixin,
-)
+from snowflake.core._common import AccountObjectCollectionParent, CreateMode, ObjectReferenceMixin
 
 from .._internal.telemetry import api_telemetry
 from .._operation import PollingOperations
@@ -20,6 +16,7 @@ from ._generated.models.catalog_integration import CatalogIntegration
 if TYPE_CHECKING:
     from snowflake.core._root import Root
 
+
 class CatalogIntegrationCollection(AccountObjectCollectionParent["CatalogIntegrationResource"]):
     """Represents the collection operations on the Snowflake Catalog Integration resource.
 
@@ -30,28 +27,22 @@ class CatalogIntegrationCollection(AccountObjectCollectionParent["CatalogIntegra
     ________
     Creating a catalog integration instance by object store:
 
-    >>> root.catalog_integrations.create(CatalogIntegration(
-    ...     name = 'my_catalog_integration',
-    ...     catalog = ObjectStore(),
-    ...     table_format = "ICEBERG",
-    ...     enabled = True,
-    ... ))
+    >>> root.catalog_integrations.create(
+    ...     CatalogIntegration(
+    ...         name="my_catalog_integration", catalog=ObjectStore(), table_format="ICEBERG", enabled=True
+    ...     )
+    ... )
     """
 
     def __init__(self, root: "Root"):
         super().__init__(root, ref_class=CatalogIntegrationResource)
         self._api = CatalogIntegrationApi(
-            root = self.root,
-            resource_class = self._ref_class,
-            sproc_client = StoredProcApiClient(root = self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
-
 
     @api_telemetry
     def create(
-        self,
-        catalog_integration: CatalogIntegration,
-        mode: CreateMode=CreateMode.error_if_exists,
+        self, catalog_integration: CatalogIntegration, mode: CreateMode = CreateMode.error_if_exists
     ) -> "CatalogIntegrationResource":
         """Create a catalog integration in Snowflake.
 
@@ -81,80 +72,74 @@ class CatalogIntegrationCollection(AccountObjectCollectionParent["CatalogIntegra
         ________
         Creating a catalog integration instance by glue:
 
-        >>> root.catalog_integrations.create(CatalogIntegration(
-        ...     name = 'my_catalog_integration',
-        ...     catalog = Glue(
-        ...         catalog_namespace="abcd-ns",
-        ...         glue_aws_role_arn="arn:aws:iam::123456789012:role/sqsAccess",
-        ...         glue_catalog_id="1234567",
-        ...     ),
-        ...     table_format = "ICEBERG",
-        ...     enabled = True,
-        ... ))
+        >>> root.catalog_integrations.create(
+        ...     CatalogIntegration(
+        ...         name="my_catalog_integration",
+        ...         catalog=Glue(
+        ...             catalog_namespace="abcd-ns",
+        ...             glue_aws_role_arn="arn:aws:iam::123456789012:role/sqsAccess",
+        ...             glue_catalog_id="1234567",
+        ...         ),
+        ...         table_format="ICEBERG",
+        ...         enabled=True,
+        ...     )
+        ... )
 
         Creating a catalog integration instance by object store:
 
-        >>> root.catalog_integrations.create(CatalogIntegration(
-        ...     name = 'my_catalog_integration',
-        ...     catalog = ObjectStore(),
-        ...     table_format = "ICEBERG",
-        ...     enabled = True,
-        ... ))
+        >>> root.catalog_integrations.create(
+        ...     CatalogIntegration(
+        ...         name="my_catalog_integration", catalog=ObjectStore(), table_format="ICEBERG", enabled=True
+        ...     )
+        ... )
 
         Creating a catalog integration instance by polaris:
 
-        >>> root.catalog_integrations.create(CatalogIntegration(
-        ...     name = 'my_catalog_integration',
-        ...     catalog = Polaris(
-        ...         catalog_namespace="abcd-ns",
-        ...         rest_config=RestConfig(
-        ...             catalog_uri="https://my_account.snowflakecomputing.com/polaris/api/catalog",
-        ...             warehouse_name="my_warehouse",
+        >>> root.catalog_integrations.create(
+        ...     CatalogIntegration(
+        ...         name="my_catalog_integration",
+        ...         catalog=Polaris(
+        ...             catalog_namespace="abcd-ns",
+        ...             rest_config=RestConfig(
+        ...                 catalog_uri="https://my_account.snowflakecomputing.com/polaris/api/catalog",
+        ...                 warehouse_name="my_warehouse",
+        ...             ),
+        ...             rest_authenticator=OAuth(
+        ...                 type="OAUTH",
+        ...                 oauth_client_id="my_oauth_client_id",
+        ...                 oauth_client_secret="my_oauth_client_secret",
+        ...                 oauth_allowed_scopes=["PRINCIPAL_ROLE:ALL"],
+        ...             ),
         ...         ),
-        ...         rest_authenticator=OAuth(
-        ...             type="OAUTH",
-        ...             oauth_client_id="my_oauth_client_id",
-        ...             oauth_client_secret="my_oauth_client_secret",
-        ...             oauth_allowed_scopes=["PRINCIPAL_ROLE:ALL"],
-        ...         ),
-        ...     ),
-        ...     table_format = "ICEBERG",
-        ...     enabled = True,
-        ... ))
+        ...         table_format="ICEBERG",
+        ...         enabled=True,
+        ...     )
+        ... )
         """
         real_mode = CreateMode[mode].value
 
-        self._api.create_catalog_integration(
-            catalog_integration, create_mode=StrictStr(real_mode),
-            async_req=False
-        )
+        self._api.create_catalog_integration(catalog_integration, create_mode=StrictStr(real_mode), async_req=False)
 
         return CatalogIntegrationResource(catalog_integration.name, self)
 
     @api_telemetry
     def create_async(
-        self,
-        catalog_integration: CatalogIntegration,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, catalog_integration: CatalogIntegration, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["CatalogIntegrationResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
 
         future = self._api.create_catalog_integration(
-            catalog_integration, create_mode=StrictStr(real_mode),
-            async_req=True
+            catalog_integration, create_mode=StrictStr(real_mode), async_req=True
         )
         return PollingOperation(future, lambda _: self[catalog_integration.name])
 
     @api_telemetry
-    def iter(
-        self,
-        like: Optional[str] = None
-    ) -> Iterator[CatalogIntegration]:
+    def iter(self, like: Optional[str] = None) -> Iterator[CatalogIntegration]:
         """Iterate through ``CatalogIntegration`` objects from Snowflake.
 
         Parameters
@@ -182,10 +167,7 @@ class CatalogIntegrationCollection(AccountObjectCollectionParent["CatalogIntegra
         >>> for catalog_integration in catalog_integrations:
         ...     print(catalog_integration.name)
         """
-        catalog_integrations = self._api.list_catalog_integrations(
-            like=like,
-            async_req=False
-        )
+        catalog_integrations = self._api.list_catalog_integrations(like=like, async_req=False)
         return iter(catalog_integrations)
 
     @api_telemetry
@@ -194,11 +176,8 @@ class CatalogIntegrationCollection(AccountObjectCollectionParent["CatalogIntegra
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_catalog_integrations(
-            like=like,
-            async_req=True
-        )
+        """  # noqa: D401
+        future = self._api.list_catalog_integrations(like=like, async_req=True)
         return PollingOperations.iterator(future)
 
 
@@ -209,11 +188,7 @@ class CatalogIntegrationResource(ObjectReferenceMixin[CatalogIntegrationCollecti
     as well as perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name: StrictStr,
-        collection: CatalogIntegrationCollection
-    ) -> None:
+    def __init__(self, name: StrictStr, collection: CatalogIntegrationCollection) -> None:
         self.name = name
         self.collection = collection
 
@@ -227,9 +202,7 @@ class CatalogIntegrationResource(ObjectReferenceMixin[CatalogIntegrationCollecti
 
         >>> print(catalog_integration_reference.fetch().created_on)
         """
-        return self.collection._api.fetch_catalog_integration(
-            self.name, async_req=False
-        )
+        return self.collection._api.fetch_catalog_integration(self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[CatalogIntegration]:
@@ -237,12 +210,9 @@ class CatalogIntegrationResource(ObjectReferenceMixin[CatalogIntegrationCollecti
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_catalog_integration(
-            self.name, async_req=True
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_catalog_integration(self.name, async_req=True)
         return PollingOperations.identity(future)
-
 
     @api_telemetry
     def drop(self, if_exists: Optional[bool] = None) -> None:
@@ -262,11 +232,9 @@ class CatalogIntegrationResource(ObjectReferenceMixin[CatalogIntegrationCollecti
 
         Deleting a catalog integration using its reference if it exists:
 
-        >>> catalog_integration_reference.drop(if_exists = True)
+        >>> catalog_integration_reference.drop(if_exists=True)
         """
-        self.collection._api.delete_catalog_integration(
-            self.name, if_exists=if_exists, async_req=False
-        )
+        self.collection._api.delete_catalog_integration(self.name, if_exists=if_exists, async_req=False)
 
     @api_telemetry
     def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
@@ -274,8 +242,6 @@ class CatalogIntegrationResource(ObjectReferenceMixin[CatalogIntegrationCollecti
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.delete_catalog_integration(
-            self.name, if_exists=if_exists, async_req=True
-        )
+        """  # noqa: D401
+        future = self.collection._api.delete_catalog_integration(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)

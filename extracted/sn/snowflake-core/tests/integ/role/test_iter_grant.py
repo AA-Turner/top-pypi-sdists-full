@@ -35,8 +35,7 @@ def test_iter_grant_to(
 
     # test grant database role becasue in this we will get the securable database name
     roles[test_role_name].grant_role(
-        role_type="DATABASE ROLE",
-        role=Securable(name=test_database_role_name, database=test_database_for_grant_name),
+        role_type="DATABASE ROLE", role=Securable(name=test_database_role_name, database=test_database_for_grant_name)
     )
     grants_list = list(roles[test_role_name].iter_grants_to())
     assert len(grants_list) == 1

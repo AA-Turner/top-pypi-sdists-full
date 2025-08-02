@@ -40,7 +40,7 @@ def test_create_or_alter(tables, database, schema, root):
         assert fetched2.change_tracking is False
         assert len(fetched2.columns) == 4
         assert fetched2.columns[3].name == "C4"
-        assert fetched2.columns[3].datatype.upper() in ["TEXT", 'VARCHAR(16777216)']
+        assert fetched2.columns[3].datatype.upper() in ["TEXT", "VARCHAR(16777216)"]
         assert fetched2.columns[3].nullable is True
         assert fetched2.columns[3].autoincrement_start is None
         assert fetched2.columns[3].autoincrement_increment is None
@@ -107,7 +107,7 @@ def test_create_or_update_deprecated(tables, database, schema, root):
             assert fetched2.change_tracking is False
             assert len(fetched2.columns) == 4
             assert fetched2.columns[3].name == "C4"
-            assert fetched2.columns[3].datatype.upper() in ["TEXT", 'VARCHAR(16777216)']
+            assert fetched2.columns[3].datatype.upper() in ["TEXT", "VARCHAR(16777216)"]
             assert fetched2.columns[3].nullable is True
             assert fetched2.columns[3].autoincrement_start is None
             assert fetched2.columns[3].autoincrement_increment is None

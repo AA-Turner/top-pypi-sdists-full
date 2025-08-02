@@ -8,22 +8,17 @@ from tests.utils import random_string
 
 
 @pytest.mark.min_sf_ver("8.37.0")
-def test_execute_notebook(cursor,
-                          executable_notebook,
-                          tables,
-                          table_name_for_execute_notebook_test):
+def test_execute_notebook(cursor, executable_notebook, tables, table_name_for_execute_notebook_test):
     test_table_handle = tables[table_name_for_execute_notebook_test]
 
     try:
-        assert len(list(tables.iter(
-            like=table_name_for_execute_notebook_test))) == 0
+        assert len(list(tables.iter(like=table_name_for_execute_notebook_test))) == 0
 
         # Now, execute the notebook; it should create the test table
         executable_notebook.execute()
 
         # Now, the table should be there
-        assert len(list(tables.iter(
-            like=table_name_for_execute_notebook_test))) == 1
+        assert len(list(tables.iter(like=table_name_for_execute_notebook_test))) == 1
     finally:
         with suppress(NotFoundError):
             test_table_handle.drop()

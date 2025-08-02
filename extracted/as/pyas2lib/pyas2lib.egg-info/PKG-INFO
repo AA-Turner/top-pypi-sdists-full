@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: pyas2lib
+Version: 1.4.4
+Summary: Python library for building and parsing AS2 Messages
+Home-page: https://github.com/abhishek-ram/pyas2-lib
+Author: Abhishek Ram
+Author-email: abhishek8816@gmail.com
+License: GNU GPL v2.0
+Description: Docs for this project are maintained at https://github.com/abhishek-ram/pyas2-lib/blob/master/README.md
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Security :: Cryptography
+Classifier: Topic :: Communications
+Provides-Extra: tests

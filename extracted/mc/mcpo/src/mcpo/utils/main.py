@@ -29,6 +29,11 @@ MCP_ERROR_TO_HTTP_STATUS = {
 
 logger = logging.getLogger(__name__)
 
+def normalize_server_type(server_type: str) -> str:
+    """Normalize server_type to a standard value."""
+    if server_type in ["streamable_http", "streamablehttp", "streamable-http"]:
+        return "streamable-http"
+    return server_type
 
 def process_tool_response(result: CallToolResult) -> list:
     """Universal response processor for all tool endpoints"""
@@ -52,8 +57,8 @@ def process_tool_response(result: CallToolResult) -> list:
 
 
 def name_needs_alias(name: str) -> bool:
-    """Check if a field name needs aliasing (for now if it starts with '__')."""
-    return name.startswith("__")
+    """Check if a field name needs aliasing (if it starts with '_')."""
+    return name.startswith("_")
 
 
 def generate_alias_name(original_name: str, existing_names: set) -> str:
@@ -61,7 +66,7 @@ def generate_alias_name(original_name: str, existing_names: set) -> str:
     Generate an alias field name by stripping unwanted chars, and avoiding conflicts with existing names.
 
     Args:
-        original_name: The original field name (should start with '__')
+        original_name: The original field name (should start with '_')
         existing_names: Set of existing names to avoid conflicts with
 
     Returns:
@@ -129,6 +134,7 @@ def _process_schema_property(
                 f"{model_name_prefix}_{prop_name}",
                 f"choice_{i}",
                 False,
+                schema_defs=schema_defs,
             )
             type_hints.append(type_hint)
         return Union[tuple(type_hints)], pydantic_field
@@ -142,7 +148,7 @@ def _process_schema_property(
             temp_schema = dict(prop_schema)
             temp_schema["type"] = type_option
             type_hint, _ = _process_schema_property(
-                _model_cache, temp_schema, model_name_prefix, prop_name, False
+                _model_cache, temp_schema, model_name_prefix, prop_name, False, schema_defs=schema_defs
             )
             type_hints.append(type_hint)
 

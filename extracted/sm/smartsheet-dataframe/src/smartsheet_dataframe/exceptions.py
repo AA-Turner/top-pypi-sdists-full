@@ -1,2 +1,0 @@
-class AuthenticationError(BaseException):
-    pass

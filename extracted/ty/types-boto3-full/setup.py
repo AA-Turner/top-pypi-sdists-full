@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.40.0",
+    version="1.40.1",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -40,6 +40,7 @@ setup(
         "types_boto3_appstream",
         "types_boto3_appsync",
         "types_boto3_apptest",
+        "types_boto3_arc_region_switch",
         "types_boto3_arc_zonal_shift",
         "types_boto3_artifact",
         "types_boto3_athena",
@@ -431,7 +432,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.40.0 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.40.1 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -481,6 +482,7 @@ setup(
         "types_boto3_appstream": ["py.typed", "*.pyi"],
         "types_boto3_appsync": ["py.typed", "*.pyi"],
         "types_boto3_apptest": ["py.typed", "*.pyi"],
+        "types_boto3_arc_region_switch": ["py.typed", "*.pyi"],
         "types_boto3_arc_zonal_shift": ["py.typed", "*.pyi"],
         "types_boto3_artifact": ["py.typed", "*.pyi"],
         "types_boto3_athena": ["py.typed", "*.pyi"],

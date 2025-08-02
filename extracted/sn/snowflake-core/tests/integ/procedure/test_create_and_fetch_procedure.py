@@ -1,4 +1,3 @@
-
 import pytest as pytest
 
 from snowflake.core._common import CreateMode
@@ -196,10 +195,7 @@ def test_create_sql_proc(procedures):
         name="sql_proc_table_func",
         arguments=[Argument(name="id", datatype="VARCHAR")],
         return_type=ReturnTable(
-            column_list=[
-                ColumnType(name="id", datatype="NUMBER"),
-                ColumnType(name="price", datatype="NUMBER"),
-            ]
+            column_list=[ColumnType(name="id", datatype="NUMBER"), ColumnType(name="price", datatype="NUMBER")]
         ),
         language_config=SQLFunction(),
         body="""DECLARE
@@ -223,14 +219,9 @@ def test_create_sql_proc(procedures):
         is_secure=True,
         execute_as="CALLER",
         return_type=ReturnTable(
-            column_list=[
-                ColumnType(name="id", datatype="NUMBER"),
-                ColumnType(name="price", datatype="NUMBER"),
-            ]
+            column_list=[ColumnType(name="id", datatype="NUMBER"), ColumnType(name="price", datatype="NUMBER")]
         ),
-        language_config=SQLFunction(
-            called_on_null_input=True,
-        ),
+        language_config=SQLFunction(called_on_null_input=True),
         body="""DECLARE
                     res RESULTSET DEFAULT (SELECT * FROM invoices WHERE id = :id);
                 BEGIN
@@ -254,9 +245,7 @@ def test_create_java_proc(procedures, maven_snowpark_jar_available):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=JavaFunction(
-            runtime_version="11",
-            handler="Test.testProc",
-            packages=["com.snowflake:snowpark:latest"],
+            runtime_version="11", handler="Test.testProc", packages=["com.snowflake:snowpark:latest"]
         ),
         body="""class Test {
                     public String testProc(com.snowflake.snowpark.Session session) {
@@ -283,9 +272,7 @@ def test_create_java_proc(procedures, maven_snowpark_jar_available):
         ],
         return_type=ReturnTable(column_list=[ColumnType(name="Name", datatype="VARCHAR")]),
         language_config=JavaFunction(
-            runtime_version="11",
-            handler="FilterClass.filterByRole",
-            packages=["com.snowflake:snowpark:latest"],
+            runtime_version="11", handler="FilterClass.filterByRole", packages=["com.snowflake:snowpark:latest"]
         ),
         body="""import com.snowflake.snowpark_java.*;
                 public class FilterClass {
@@ -304,11 +291,11 @@ def test_create_java_proc(procedures, maven_snowpark_jar_available):
         javafun = proc_fetch_result.language_config
         assert proc_fetch_result.name == "JAVA_PROC_TABLE_FUNC"
         assert proc_fetch_result.arguments == [
-                Argument(name="TABLENAME", datatype="VARCHAR", default="this will not work without input"),
-                Argument(name="ROLE", datatype="VARCHAR"),
-                Argument(name="INT1", datatype="NUMBER", default=1),
-                Argument(name="TS1", datatype="TIMESTAMP_LTZ"),
-            ]
+            Argument(name="TABLENAME", datatype="VARCHAR", default="this will not work without input"),
+            Argument(name="ROLE", datatype="VARCHAR"),
+            Argument(name="INT1", datatype="NUMBER", default=1),
+            Argument(name="TS1", datatype="TIMESTAMP_LTZ"),
+        ]
         assert proc_fetch_result.return_type == ReturnTable(column_list=[ColumnType(name="NAME", datatype="VARCHAR")])
         assert javafun.runtime_version == "11"
         assert javafun.handler == "FilterClass.filterByRole"
@@ -321,17 +308,11 @@ def test_create_java_proc(procedures, maven_snowpark_jar_available):
         name="java_proc_with_args",
         arguments=[
             Argument(name="bin", datatype="BINARY", default="534E4F57"),
-            Argument(
-                name="bool",
-                datatype="BOOLEAN",
-                default="FALSE",
-            ),
+            Argument(name="bool", datatype="BOOLEAN", default="FALSE"),
         ],
         return_type=ReturnDataType(name="ret", datatype="VARCHAR"),
         language_config=JavaFunction(
-            runtime_version="11",
-            handler="Test.retGeo",
-            packages=["com.snowflake:snowpark:latest"],
+            runtime_version="11", handler="Test.retGeo", packages=["com.snowflake:snowpark:latest"]
         ),
         # we're returning string since the GEOGRAPHY datatype will accept strings
         body="""class Test {
@@ -357,15 +338,8 @@ def test_create_java_proc(procedures, maven_snowpark_jar_available):
         name="java_proc_with_args",
         arguments=[
             Argument(name="geography", datatype="GEOGRAPHY"),
-            Argument(
-                name="int1",
-                datatype="NUMBER",
-                default="1",
-            ),
-            Argument(
-                name="arr1",
-                datatype="ARRAY",
-            ),
+            Argument(name="int1", datatype="NUMBER", default="1"),
+            Argument(name="arr1", datatype="ARRAY"),
         ],
         is_secure=False,
         comment="comment",
@@ -392,17 +366,10 @@ def test_create_java_proc(procedures, maven_snowpark_jar_available):
         javafn = proc_fetch_result.language_config
         assert proc_fetch_result.name == "JAVA_PROC_WITH_ARGS"
         assert proc_fetch_result.arguments == [
-                Argument(name="GEOGRAPHY", datatype="GEOGRAPHY"),
-                Argument(
-                    name="INT1",
-                    datatype="NUMBER",
-                    default="1",
-                ),
-                Argument(
-                    name="ARR1",
-                    datatype="ARRAY",
-                ),
-            ]
+            Argument(name="GEOGRAPHY", datatype="GEOGRAPHY"),
+            Argument(name="INT1", datatype="NUMBER", default="1"),
+            Argument(name="ARR1", datatype="ARRAY"),
+        ]
         assert proc_fetch_result.return_type == ReturnDataType(name="Geography", datatype="GEOGRAPHY", nullable=True)
         assert javafn.runtime_version == "11"
         assert javafn.handler == "Test.retGeo"
@@ -421,9 +388,7 @@ def test_create_python_proc(procedures, anaconda_package_available):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                                 return 'str'
@@ -444,9 +409,7 @@ def test_create_python_proc(procedures, anaconda_package_available):
         ],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session, arr, vari):
                                 print(arr)
@@ -458,9 +421,9 @@ def test_create_python_proc(procedures, anaconda_package_available):
         proc_fetch_result = proc.fetch()
         assert proc_fetch_result.name == "PYTHON_PROC_WITH_ARGS"
         assert proc_fetch_result.arguments == [
-                Argument(name="ARR", datatype="ARRAY", default=[1, 2, 3, 4]),
-                Argument(name="VARI", datatype="VARIANT", default={"str": 1, "test": 5}),
-            ]
+            Argument(name="ARR", datatype="ARRAY", default=[1, 2, 3, 4]),
+            Argument(name="VARI", datatype="VARIANT", default={"str": 1, "test": 5}),
+        ]
         assert proc_fetch_result.return_type == ReturnDataType(datatype="VARCHAR", nullable=True)
         assert proc_fetch_result.language_config == PythonFunction(
             runtime_version="3.9",
@@ -468,7 +431,7 @@ def test_create_python_proc(procedures, anaconda_package_available):
             packages=["snowflake-snowpark-python"],
             imports=[],
             external_access_integrations=[],
-            secrets={}
+            secrets={},
         )
         assert proc_fetch_result.is_builtin is True
     finally:
@@ -490,9 +453,7 @@ def test_create_python_proc(procedures, anaconda_package_available):
             ]
         ),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session, num1, varchar1, arr1, object1):
                                 print(arr1)
@@ -504,25 +465,25 @@ def test_create_python_proc(procedures, anaconda_package_available):
         proc_fetch_result = proc.fetch()
         assert proc_fetch_result.name == "PYTHON_PROC_TABLE_FUNC"
         assert proc_fetch_result.arguments == [
-                Argument(name="NUM1", datatype="NUMBER"),
-                Argument(name="VARCHAR1", datatype="VARCHAR"),
-                Argument(name="ARR1", datatype="ARRAY"),
-                Argument(name="OBJECT1", datatype="OBJECT"),
-            ]
+            Argument(name="NUM1", datatype="NUMBER"),
+            Argument(name="VARCHAR1", datatype="VARCHAR"),
+            Argument(name="ARR1", datatype="ARRAY"),
+            Argument(name="OBJECT1", datatype="OBJECT"),
+        ]
         assert proc_fetch_result.return_type == ReturnTable(
-                column_list=[
-                    ColumnType(name="COL1", datatype="GEOGRAPHY"),
-                    ColumnType(name="COL2", datatype="FLOAT"),
-                    ColumnType(name="COL4", datatype="NUMBER"),
-                ]
-            )
+            column_list=[
+                ColumnType(name="COL1", datatype="GEOGRAPHY"),
+                ColumnType(name="COL2", datatype="FLOAT"),
+                ColumnType(name="COL4", datatype="NUMBER"),
+            ]
+        )
         assert proc_fetch_result.language_config == PythonFunction(
             runtime_version="3.9",
             handler="handler",
             packages=["snowflake-snowpark-python"],
             imports=[],
             external_access_integrations=[],
-            secrets={}
+            secrets={},
         )
         assert proc_fetch_result.is_builtin is True
     finally:
@@ -532,16 +493,9 @@ def test_create_python_proc(procedures, anaconda_package_available):
         name="python_proc_table_func",
         arguments=[Argument(name="symbol", datatype="VARCHAR")],
         return_type=ReturnTable(
-            column_list=[
-                ColumnType(name="symbol", datatype="VARCHAR"),
-                ColumnType(name="price", datatype="NUMBER"),
-            ]
+            column_list=[ColumnType(name="symbol", datatype="VARCHAR"), ColumnType(name="price", datatype="NUMBER")]
         ),
-        language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="run",
-            packages=["snowflake-snowpark-python"],
-        ),
+        language_config=PythonFunction(runtime_version="3.9", handler="run", packages=["snowflake-snowpark-python"]),
         body="""from snowflake.snowpark import Session
 from snowflake.snowpark.functions import col, sum
 
@@ -568,18 +522,15 @@ def run(session: Session, symbol: str):
         assert proc_fetch_result.name == "PYTHON_PROC_TABLE_FUNC"
         assert proc_fetch_result.arguments == [Argument(name="SYMBOL", datatype="VARCHAR")]
         assert proc_fetch_result.return_type == ReturnTable(
-                column_list=[
-                    ColumnType(name="SYMBOL", datatype="VARCHAR"),
-                    ColumnType(name="PRICE", datatype="NUMBER"),
-                ]
-            )
+            column_list=[ColumnType(name="SYMBOL", datatype="VARCHAR"), ColumnType(name="PRICE", datatype="NUMBER")]
+        )
         assert proc_fetch_result.language_config == PythonFunction(
             runtime_version="3.9",
             handler="run",
             packages=["snowflake-snowpark-python"],
             imports=[],
             external_access_integrations=[],
-            secrets={}
+            secrets={},
         )
         assert proc_fetch_result.is_builtin is True
     finally:
@@ -593,9 +544,7 @@ def test_create_scala_proc(procedures, maven_snowpark_jar_available):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=ScalaFunction(
-            runtime_version="2.12",
-            handler="TestScalaSP.asyncBasic",
-            packages=["com.snowflake:snowpark:latest"],
+            runtime_version="2.12", handler="TestScalaSP.asyncBasic", packages=["com.snowflake:snowpark:latest"]
         ),
         body="""object TestScalaSP {
                   def asyncBasic(session: com.snowflake.snowpark.Session): String = {
@@ -618,14 +567,10 @@ def test_create_scala_proc(procedures, maven_snowpark_jar_available):
 
     scala_proc_with_args = Procedure(
         name="scala_proc_with_args",
-        arguments=[
-            Argument(name="fileName", datatype="VARCHAR"),
-        ],
+        arguments=[Argument(name="fileName", datatype="VARCHAR")],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=ScalaFunction(
-            runtime_version="2.12",
-            handler="FileReader.execute",
-            packages=["com.snowflake:snowpark:latest"],
+            runtime_version="2.12", handler="FileReader.execute", packages=["com.snowflake:snowpark:latest"]
         ),
         body="""import java.io.InputStream
                 import java.nio.charset.StandardCharsets
@@ -645,9 +590,7 @@ def test_create_scala_proc(procedures, maven_snowpark_jar_available):
         proc_fetch_result = proc.fetch()
         scalafun = proc_fetch_result.language_config
         assert proc_fetch_result.name == "SCALA_PROC_WITH_ARGS"
-        assert proc_fetch_result.arguments == [
-                Argument(name="FILENAME", datatype="VARCHAR"),
-            ]
+        assert proc_fetch_result.arguments == [Argument(name="FILENAME", datatype="VARCHAR")]
         assert proc_fetch_result.return_type == ReturnDataType(datatype="VARCHAR", nullable=True)
         assert scalafun.runtime_version == "2.12"
         assert scalafun.handler == "FileReader.execute"
@@ -657,10 +600,7 @@ def test_create_scala_proc(procedures, maven_snowpark_jar_available):
 
     scala_proc_table_func = Procedure(
         name="scala_proc_table_func",
-        arguments=[
-            Argument(name="tablename", datatype="VARCHAR"),
-            Argument(name="role", datatype="VARCHAR"),
-        ],
+        arguments=[Argument(name="tablename", datatype="VARCHAR"), Argument(name="role", datatype="VARCHAR")],
         comment="scala proc",
         is_secure=True,
         return_type=ReturnTable(
@@ -671,9 +611,7 @@ def test_create_scala_proc(procedures, maven_snowpark_jar_available):
             ]
         ),
         language_config=ScalaFunction(
-            runtime_version="2.12",
-            handler="Filter.filterByRole",
-            packages=["com.snowflake:snowpark:latest"],
+            runtime_version="2.12", handler="Filter.filterByRole", packages=["com.snowflake:snowpark:latest"]
         ),
         body="""import com.snowflake.snowpark.functions._
                 import com.snowflake.snowpark._
@@ -693,16 +631,16 @@ def test_create_scala_proc(procedures, maven_snowpark_jar_available):
         scalafun = proc_fetch_result.language_config
         assert proc_fetch_result.name == "SCALA_PROC_TABLE_FUNC"
         assert proc_fetch_result.arguments == [
-                Argument(name="TABLENAME", datatype="VARCHAR"),
-                Argument(name="ROLE", datatype="VARCHAR"),
-            ]
+            Argument(name="TABLENAME", datatype="VARCHAR"),
+            Argument(name="ROLE", datatype="VARCHAR"),
+        ]
         assert proc_fetch_result.return_type == ReturnTable(
-                column_list=[
-                    ColumnType(name="ID", datatype="NUMBER"),
-                    ColumnType(name="NAME", datatype="VARCHAR"),
-                    ColumnType(name="ROLE", datatype="VARCHAR"),
-                ]
-            )
+            column_list=[
+                ColumnType(name="ID", datatype="NUMBER"),
+                ColumnType(name="NAME", datatype="VARCHAR"),
+                ColumnType(name="ROLE", datatype="VARCHAR"),
+            ]
+        )
         assert scalafun.runtime_version == "2.12"
         assert scalafun.handler == "Filter.filterByRole"
         assert proc_fetch_result.comment == "scala proc"
@@ -719,9 +657,7 @@ def test_create_procedure_or_replace(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                     return 'str'
@@ -732,9 +668,7 @@ def test_create_procedure_or_replace(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="NUMBER"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                             return 'str'
@@ -761,9 +695,7 @@ def test_create_procedure_error_if_exists(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                     return 'str'
@@ -775,9 +707,7 @@ def test_create_procedure_error_if_exists(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                         return 'str'
@@ -798,9 +728,7 @@ def test_create_procedure_if_not_exists(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="VARCHAR"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                         return 'str'
@@ -812,9 +740,7 @@ def test_create_procedure_if_not_exists(procedures):
         arguments=[],
         return_type=ReturnDataType(datatype="NUMBER"),
         language_config=PythonFunction(
-            runtime_version="3.9",
-            handler="handler",
-            packages=["snowflake-snowpark-python"],
+            runtime_version="3.9", handler="handler", packages=["snowflake-snowpark-python"]
         ),
         body="""def handler(session):
                             return 'str'

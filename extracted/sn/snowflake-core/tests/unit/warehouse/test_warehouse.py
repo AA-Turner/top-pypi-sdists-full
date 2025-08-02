@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.warehouse import Warehouse, WarehouseCollection
+from snowflake.core.warehouse import Warehouse, WarehouseCollection, WarehouseResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -22,18 +22,13 @@ def warehouse(warehouses):
 
 
 def test_create_warehouse(fake_root, warehouses):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/warehouses?createMode=errorIfExists",
-    )
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
-        body={"name": "my_wh"},
-    )
+    args = (fake_root, "POST", BASE_URL + "/warehouses?createMode=errorIfExists")
+    kwargs = extra_params(query_params=[("createMode", "errorIfExists")], body={"name": "my_wh"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        warehouses.create(Warehouse(name="my_wh"))
+        warehouse_res = warehouses.create(Warehouse(name="my_wh"))
+        assert isinstance(warehouse_res, WarehouseResource)
+        assert warehouse_res.name == "my_wh"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -45,11 +40,7 @@ def test_create_warehouse(fake_root, warehouses):
 
 
 def test_iter_warehouse(fake_root, warehouses):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/warehouses",
-    )
+    args = (fake_root, "GET", BASE_URL + "/warehouses")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -67,11 +58,7 @@ def test_iter_warehouse(fake_root, warehouses):
 
 
 def test_create_or_alter_warehouse(fake_root, warehouse):
-    args = (
-        fake_root,
-        "PUT",
-        BASE_URL + "/warehouses/my_wh",
-    )
+    args = (fake_root, "PUT", BASE_URL + "/warehouses/my_wh")
     kwargs = extra_params(body={"name": "my_wh"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -85,13 +72,8 @@ def test_create_or_alter_warehouse(fake_root, warehouse):
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-
 def test_suspend_warehouse(fake_root, warehouse):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/warehouses/my_wh:suspend",
-    )
+    args = (fake_root, "POST", BASE_URL + "/warehouses/my_wh:suspend")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -106,11 +88,7 @@ def test_suspend_warehouse(fake_root, warehouse):
 
 
 def test_resume_warehouse(fake_root, warehouse):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/warehouses/my_wh:resume",
-    )
+    args = (fake_root, "POST", BASE_URL + "/warehouses/my_wh:resume")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -124,16 +102,11 @@ def test_resume_warehouse(fake_root, warehouse):
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
-
 def test_fetch_warehouse(fake_root, warehouse):
     from snowflake.core.warehouse._generated.models import Warehouse as WarehouseModel
 
     model = WarehouseModel(name="my_wh")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/warehouses/my_wh",
-    )
+    args = (fake_root, "GET", BASE_URL + "/warehouses/my_wh")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -151,11 +124,7 @@ def test_fetch_warehouse(fake_root, warehouse):
 
 
 def test_drop_warehouse(fake_root, warehouse):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/warehouses/my_wh",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/warehouses/my_wh")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -170,11 +139,7 @@ def test_drop_warehouse(fake_root, warehouse):
 
 
 def test_rename_warehouse(fake_root, warehouse):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/warehouses/my_wh:rename",
-    )
+    args = (fake_root, "POST", BASE_URL + "/warehouses/my_wh:rename")
     kwargs = extra_params(body={"name": "new_wh"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -189,11 +154,7 @@ def test_rename_warehouse(fake_root, warehouse):
 
 
 def test_abort_all_queries(fake_root, warehouse):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/warehouses/my_wh:abort",
-    )
+    args = (fake_root, "POST", BASE_URL + "/warehouses/my_wh:abort")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -208,11 +169,7 @@ def test_abort_all_queries(fake_root, warehouse):
 
 
 def test_use_warehouse(fake_root, warehouse):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/warehouses/my_wh:use",
-    )
+    args = (fake_root, "POST", BASE_URL + "/warehouses/my_wh:use")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

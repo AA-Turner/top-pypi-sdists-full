@@ -31,6 +31,7 @@ class Object:
     _client: typing.Optional[modal.client.Client]
     _is_hydrated: bool
     _is_rehydrated: bool
+    _name: typing.Optional[str]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -54,6 +55,7 @@ class Object:
             hydrate_lazily: bool = False,
             deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
             deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
+            name: typing.Optional[str] = None,
         ): ...
         def aio(
             self,
@@ -75,6 +77,7 @@ class Object:
             deduplication_key: typing.Optional[
                 collections.abc.Callable[[], collections.abc.Awaitable[collections.abc.Hashable]]
             ] = None,
+            name: typing.Optional[str] = None,
         ): ...
 
     _init: ___init_spec[typing_extensions.Self]
@@ -107,6 +110,7 @@ class Object:
         hydrate_lazily: bool = False,
         deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
         deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
+        name: typing.Optional[str] = None,
     ): ...
     @staticmethod
     def _get_type_from_id(object_id: str) -> type[Object]: ...

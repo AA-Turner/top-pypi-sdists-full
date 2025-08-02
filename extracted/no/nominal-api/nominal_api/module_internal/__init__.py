@@ -4,6 +4,7 @@ from .._impl import (
     module_internal_BatchGetResolvedModuleDefinitionsResponse as BatchGetResolvedModuleDefinitionsResponse,
     module_internal_InternalModuleService as InternalModuleService,
     module_internal_ModuleApplicationReference as ModuleApplicationReference,
+    module_internal_ModuleComputeDefinition as ModuleComputeDefinition,
     module_internal_ResolvedModuleVersionDefinition as ResolvedModuleVersionDefinition,
 )
 
@@ -11,6 +12,7 @@ __all__ = [
     'BatchGetResolvedModuleDefinitionsRequest',
     'BatchGetResolvedModuleDefinitionsResponse',
     'ModuleApplicationReference',
+    'ModuleComputeDefinition',
     'ResolvedModuleVersionDefinition',
     'InternalModuleService',
 ]

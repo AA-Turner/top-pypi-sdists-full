@@ -185,8 +185,8 @@ def safe_requests_wrapper(
         - How to handle retries for this case will be application specific.
     2. Errors when the API server may not be reachable (DNS resolution / network issues)
         - In this scenario, we know that something external to the API server is going wrong causing the issue.
-        - Failing pre-maturely in the case might not be the best course of action since critical user jobs might crash on intermittent issues.
-        - So in this case, we can just planely retry the request.
+        - Failing prematurely in the case might not be the best course of action since critical user jobs might crash on intermittent issues.
+        - So in this case, we can just plainly retry the request.
 
     This function handles the second case. It's a simple wrapper to handle the retry logic for connection errors.
     If this function is provided a `conn_error_retries` of 5, then the last retry will have waited 32 seconds.

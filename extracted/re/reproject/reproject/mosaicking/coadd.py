@@ -11,6 +11,7 @@ from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
 from ..array_utils import iterate_chunks, sample_array_edges
+from ..interpolation.core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
@@ -116,7 +117,7 @@ def reproject_and_coadd(
         specified with ``shape_out`` or derived from the output projection.
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
-        if you want the sample block size for all data sets.
+        if you want the same block size for all data sets.
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
@@ -155,6 +156,11 @@ def reproject_and_coadd(
         raise ValueError(
             "reprojection function should be specified with the reproject_function argument"
         )
+
+    if "block_size" in kwargs and kwargs["block_size"] is not None:
+        if block_sizes is not None:
+            raise ValueError("Cannot specify block_sizes= and block_size= at the same time")
+        block_sizes = kwargs.pop("block_size")
 
     if progress_bar is None:
         progress_bar = _noop
@@ -211,7 +217,18 @@ def reproject_and_coadd(
             if input_weights is None:
                 weights_in = None
             else:
-                weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
+                weights_in, weights_wcs = parse_input_weights(
+                    input_weights[idata], hdu_weights=hdu_weights
+                )
+                if weights_wcs is None:
+                    # if weights are passed as an array
+                    weights_wcs = wcs_in
+                else:
+                    try:
+                        _validate_wcs(weights_wcs, wcs_in, weights_in.shape, shape_out)
+                    except ValueError:
+                        # WCS is not valid (most likely, it is blank?)
+                        weights_wcs = wcs_in
                 if np.any(np.isnan(weights_in)):
                     weights_in = np.nan_to_num(weights_in)
 
@@ -226,7 +243,9 @@ def reproject_and_coadd(
             # convex in the output projection), and transforming every edge pixel,
             # which provides a lot of redundant information.
 
-            edges = sample_array_edges(array_in.shape, n_samples=11)[::-1]
+            edges = sample_array_edges(
+                array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
+            )[::-1]
             edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
 
             # Determine the cutout parameters
@@ -237,16 +256,24 @@ def reproject_and_coadd(
 
             ndim_out = len(shape_out)
 
+            # Determine how many extra broadcasted dimensions are present
+            n_broadcasted = len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim
+
             skip_data = False
             if np.any(np.isnan(edges_out)):
                 bounds = list(zip([0] * ndim_out, shape_out, strict=False))
             else:
                 bounds = []
-                for idim in range(ndim_out):
+                if n_broadcasted > 0:
+                    for idim in range(n_broadcasted):
+                        bounds.append((0, shape_out[idim]))
+                for idim in range(len(edges_out)):
                     imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
-                    imax = min(shape_out[idim], int(np.ceil(edges_out[idim].max() + 0.5)))
+                    imax = min(
+                        shape_out[n_broadcasted + idim], int(np.ceil(edges_out[idim].max() + 0.5))
+                    )
                     bounds.append((imin, imax))
-                    if imax < imin:
+                    if imax <= imin:
                         skip_data = True
                         break
 
@@ -256,7 +283,7 @@ def reproject_and_coadd(
                 )
                 continue
 
-            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds])
+            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds[n_broadcasted:]])
 
             if isinstance(wcs_out, WCS):
                 wcs_out_indiv = wcs_out[slice_out]
@@ -269,9 +296,23 @@ def reproject_and_coadd(
                 if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(
                     shape_out
                 ):
-                    kwargs["block_size"] = block_sizes[idata]
+                    global_block_size = block_sizes[idata]
                 else:
-                    kwargs["block_size"] = block_sizes
+                    global_block_size = block_sizes
+            else:
+                global_block_size = None
+
+            # If the block size matches the non-broadcasted shape of the final
+            # cube, we need to update the non-broadcasted shape to then match
+            # the subset size.
+            if (
+                global_block_size
+                and global_block_size[-wcs_in.low_level_wcs.pixel_n_dim]
+                == shape_out[-wcs_in.low_level_wcs.pixel_n_dim]
+            ):
+                block_size = global_block_size[:n_broadcasted] + shape_out_indiv[n_broadcasted:]
+            else:
+                block_size = global_block_size
 
             # TODO: optimize handling of weights by making reprojection functions
             # able to handle weights, and make the footprint become the combined
@@ -318,6 +359,7 @@ def reproject_and_coadd(
                 hdu_in=hdu_in,
                 output_array=array,
                 output_footprint=footprint,
+                block_size=block_size,
                 **kwargs,
             )
 
@@ -347,7 +389,7 @@ def reproject_and_coadd(
                 )
 
                 weights = reproject_function(
-                    (weights_in, wcs_in),
+                    (weights_in, weights_wcs),
                     output_projection=wcs_out_indiv,
                     shape_out=shape_out_indiv,
                     hdu_in=hdu_in,
@@ -355,10 +397,12 @@ def reproject_and_coadd(
                     return_footprint=False,
                     **kwargs,
                 )
+                reset = np.isnan(array) | np.isnan(weights)
+            else:
+                reset = np.isnan(array)
 
             # For the purposes of mosaicking, we mask out NaN values from the array
             # and set the footprint to 0 at these locations.
-            reset = np.isnan(array)
             array[reset] = 0.0
             footprint[reset] = 0.0
 
@@ -369,7 +413,7 @@ def reproject_and_coadd(
 
                 if intermediate_memmap:
                     # Remove the reference to the memmap before trying to remove the file itself
-                    logger.info(f"Removing memory-mapped weight array")
+                    logger.info("Removing memory-mapped weight array")
                     weights = None
                     try:
                         os.remove(weights_path)
@@ -382,7 +426,7 @@ def reproject_and_coadd(
             # output image is empty (due e.g. to no overlap).
 
             if on_the_fly:
-                logger.info(f"Adding reprojected array to final array")
+                logger.info("Adding reprojected array to final array")
                 # By default, values outside of the footprint are set to NaN
                 # but we set these to 0 here to avoid getting NaNs in the
                 # means/sums.
@@ -398,7 +442,7 @@ def reproject_and_coadd(
                 if intermediate_memmap:
                     # Remove the references to the memmaps themesleves before
                     # trying to remove the files thermselves.
-                    logger.info(f"Removing memory-mapped array and footprint arrays")
+                    logger.info("Removing memory-mapped array and footprint arrays")
                     array = None
                     footprint = None
                     try:
@@ -408,12 +452,12 @@ def reproject_and_coadd(
                         pass
 
             else:
-                logger.info(f"Adding reprojected array to list to combine later")
+                logger.info("Adding reprojected array to list to combine later")
                 arrays.append(array)
 
         # If requested, try and match the backgrounds.
         if match_background and len(arrays) > 1:
-            logger.info(f"Match backgrounds")
+            logger.info("Match backgrounds")
             offset_matrix = determine_offset_matrix(arrays)
             corrections = solve_corrections_sgd(offset_matrix)
             if background_reference:
@@ -434,7 +478,7 @@ def reproject_and_coadd(
                     output_footprint[array.view_in_original_array] += array.footprint
 
             if combine_function == "mean":
-                logger.info(f"Handle normalization of output array")
+                logger.info("Handle normalization of output array")
                 with np.errstate(invalid="ignore"):
                     output_array /= output_footprint
 

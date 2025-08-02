@@ -41,9 +41,7 @@ def test_apply_grant(
         Grant(
             grantee=Grantees.role(name=test_role_name),
             securable=Securables.schema(schema.name),
-            privileges=[
-                Privileges.create_task,
-            ],
+            privileges=[Privileges.create_task],
         )
     )
 
@@ -52,9 +50,7 @@ def test_apply_grant(
         Grant(
             grantee=Grantees.role(name=test_role_name),
             securable=Securables.all_schemas(Securables.database(database.name)),
-            privileges=[
-                Privileges.usage,
-            ],
+            privileges=[Privileges.usage],
         )
     )
 
@@ -63,9 +59,7 @@ def test_apply_grant(
         Grant(
             grantee=Grantees.role(name=test_role_name),
             securable=Securables.future_schemas(Securables.database(database.name)),
-            privileges=[
-                Privileges.create_table,
-            ],
+            privileges=[Privileges.create_table],
         )
     )
 
@@ -74,11 +68,7 @@ def test_apply_grant(
         Grant(
             grantee=Grantees.role(name=test_role_name),
             securable=Securables.table(test_table_name),
-            privileges=[
-                Privileges.select,
-                Privileges.insert,
-                Privileges.delete,
-            ],
+            privileges=[Privileges.select, Privileges.insert, Privileges.delete],
         )
     )
 
@@ -208,12 +198,7 @@ def test_apply_grant(
         )
     )
 
-    grants.grant(
-        Grant(
-            grantee=Grantees.user(name=test_user_name),
-            securable=Securables.role(test_role_name),
-        )
-    )
+    grants.grant(Grant(grantee=Grantees.user(name=test_user_name), securable=Securables.role(test_role_name)))
 
     grants.grant(
         Grant(

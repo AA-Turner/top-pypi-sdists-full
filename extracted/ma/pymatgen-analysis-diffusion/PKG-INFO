@@ -1,0 +1,115 @@
+Metadata-Version: 2.1
+Name: pymatgen-analysis-diffusion
+Version: 2024.7.15
+Summary: Pymatgen add-on for diffusion analysis.
+Author-email: Materials Virtual Lab <ongsp@ucsd.edu>
+Maintainer-email: Shyue Ping Ong <ongsp@ucsd.edu>
+License: BSD
+Project-URL: Homepage, http://materialsvirtuallab.github.io/pymatgen-analysis-diffusion/
+Project-URL: Documentation, http://materialsvirtuallab.github.io/pymatgen-analysis-diffusion/
+Project-URL: Repository, https://github.com/materialsvirtuallab/pymatgen-analysis-diffusion
+Project-URL: Issues, https://github.com/materialsvirtuallab/pymatgen-analysis-diffusion/issues
+Project-URL: Pypi, https://pypi.org/project/pymatgen-analysis-diffusion
+Keywords: ABINIT,analysis,crystal,diagrams,electronic,gaussian,materials,nwchem,phase,project,qchem,science,structure,VASP,diffusion,molecular dynamics,MD
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: numpy<2.0,>=1.25.0
+Requires-Dist: pymatgen>=2024.6.10
+Requires-Dist: joblib
+Requires-Dist: ase
+Requires-Dist: seaborn
+Provides-Extra: ci
+Requires-Dist: pytest>=8; extra == "ci"
+Requires-Dist: pytest-cov>=4; extra == "ci"
+Requires-Dist: pytest-split>=0.8; extra == "ci"
+Requires-Dist: maggma; extra == "ci"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+
+.. image:: https://github.com/materialsvirtuallab/pymatgen-analysis-diffusion/actions/workflows/testing.yml/badge.svg
+      :alt: CI Status
+      :target: https://github.com/materialsvirtuallab/pymatgen-diffusion/actions/workflows/testing.yml
+
+.. image:: https://codecov.io/gh/materialsvirtuallab/pymatgen-analysis-diffusion/graph/badge.svg?token=4lH4UZcXye
+      :target: https://codecov.io/gh/materialsvirtuallab/pymatgen-analysis-diffusion
+
+pymatgen-analysis-diffusion
+===========================
+
+Formerly pymatgen-diffusion, this is an add-on to pymatgen for diffusion
+analysis that is developed by the Materials Virtual Lab. Note that it relies on
+pymatgen for structural manipulations, file io, and preliminary analyses. This is
+and will always be, a scientific work in progress. Pls check back regularly for
+more details.
+
+Documentation available via `Github Pages <https://github.com/materialsvirtuallab/pymatgen-analysis-diffusion>`_.
+
+Major Update (v2021.3.5)
+========================
+
+pymatgen-analysis-diffusion is now released as a namespace package `pymatgen-analysis-diffusion` on PyPI. It should be
+imported via `pymatgen.analysis.diffusion` instead `pymatgen_diffusion`. To install this package via pip::
+
+    pip install pymatgen-analysis-diffusion
+
+Features (non-exhaustive!)
+==========================
+
+1. Van-Hove analysis
+2. Probability density
+3. Clustering (e.g., k-means with periodic boundary conditions).
+4. Migration path finding and IDPP.
+
+Citing
+======
+
+If you use pymatgen-diffusion in your research, please cite the following
+work::
+
+    Deng, Z.; Zhu, Z.; Chu, I.H.; Ong, S. P. Data-Driven First-Principles
+    Methods for the Study and Design of Alkali Superionic Conductors,
+    Chem. Mater., 2016, acs.chemmater.6b02648, doi:10.1021/acs.chemmater.6b02648.
+
+You should also include the following citation for the pymatgen core package
+given that it forms the basis for most of the analyses::
+
+    Shyue Ping Ong, William Davidson Richards, Anubhav Jain, Geoffroy Hautier,
+    Michael Kocher, Shreyas Cholia, Dan Gunter, Vincent Chevrier, Kristin A.
+    Persson, Gerbrand Ceder. *Python Materials Genomics (pymatgen) : A Robust,
+    Open-Source Python Library for Materials Analysis.* Computational
+    Materials Science, 2013, 68, 314-319. doi:10.1016/j.commatsci.2012.10.028.
+
+In addition, some of the analyses may also have relevant publications that
+you should cite. Please consult the documentation of each module.
+
+Contributing
+============
+
+We welcome contributions in all forms. If you'd like to contribute, please
+fork this repository, make changes and send us a pull request!
+
+Acknowledgments
+===============
+
+We gratefully acknowledge funding from the following agencies for the
+development of this code:
+
+1. US National Science Foundation’s Designing Materials to Revolutionize and
+   Engineer our Future (DMREF) program under Grant No. 1436976 for the AIMD
+   analysis package.
+2. US Department of Energy, Oﬃce of Science, Basic Energy Sciences under
+   Award No. DE-SC0012118 for the NEB analysis package.

@@ -25,6 +25,7 @@ from tecton_core import offline_store
 from tecton_core.arrow import PARQUET_WRITE_OPTIONS
 from tecton_core.compute_mode import ComputeMode
 from tecton_core.data_processing_utils import pyarrow_split_spine
+from tecton_core.data_processing_utils import validate_spine_input
 from tecton_core.duckdb_factory import DuckDBConfig
 from tecton_core.offline_store import DATASET_PARTITION_SIZE
 from tecton_core.query.dialect import Dialect
@@ -168,6 +169,7 @@ def run_dataset_generation_with_enforced_spine_splitting(
         if isinstance(params, GetFeaturesForEventsParams):
             time_column = params.timestamp_key
             spine_data = _load_user_provided_data(params.events)
+            validate_spine_input(spine_data, params.join_keys, time_column)
             spine_split_tables = pyarrow_split_spine(
                 spine_data,
                 params.join_keys,
@@ -368,7 +370,7 @@ def run_dataset_generation_with_qt_parallelization(
         if isinstance(params, GetFeaturesForEventsParams):
             time_column = params.timestamp_key
             spine_data = _load_user_provided_data(params.events)
-
+            validate_spine_input(spine_data, params.join_keys, time_column)
             qt = get_features_from_params(params, spine=PyarrowDataframeWrapper(spine_data))
         elif isinstance(params, GetFeaturesInRangeParams):
             time_column = valid_to()

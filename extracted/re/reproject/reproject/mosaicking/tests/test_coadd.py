@@ -304,7 +304,7 @@ class TestReprojectAndCoAdd:
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
-    @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus"])
+    @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus", "hdulist"])
     def test_coadd_with_weights(self, tmpdir, reproject_function, mode, intermediate_memmap):
         # Make sure that things work properly when specifying weights
 
@@ -328,6 +328,10 @@ class TestReprojectAndCoAdd:
             hdu1 = fits.ImageHDU(weight1)
             hdu2 = fits.ImageHDU(weight2)
             input_weights = [hdu1, hdu2]
+        elif mode == "hdulist":
+            hdu1 = fits.HDUList([fits.ImageHDU(weight1, header=self.wcs.to_header())])
+            hdu2 = fits.HDUList([fits.ImageHDU(weight2, header=self.wcs.to_header())])
+            input_weights = [hdu1, hdu2]
 
         array, footprint = reproject_and_coadd(
             input_data,
@@ -342,6 +346,88 @@ class TestReprojectAndCoAdd:
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
 
         assert_allclose(array, expected, atol=ATOL)
+
+    @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
+    def test_coadd_with_weights_with_wcs(self, tmpdir, reproject_function, intermediate_memmap):
+        # Make sure that things work properly when specifying weights that have offset WCS
+
+        array1 = self.array + 1
+        array2 = self.array - 1
+
+        weight1 = np.cumsum(np.ones_like(self.array), axis=1) - 1
+        weight2 = weight1[:, ::-1]
+
+        input_data = [(array1, self.wcs), (array2, self.wcs)]
+
+        # make weight WCS pixel scale bigger so that weights encompass data
+        weightwcs = self.wcs.copy()
+        weightwcs.wcs.cdelt *= 1.1
+
+        hdu1 = fits.ImageHDU(weight1, header=weightwcs.to_header())
+        hdu2 = fits.ImageHDU(weight2, header=weightwcs.to_header())
+        input_weights = [hdu1, hdu2]
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            input_weights=input_weights,
+            reproject_function=reproject_function,
+            match_background=False,
+        )
+
+        weights1_reprojected = reproject_function(
+            hdu1, self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        weights2_reprojected = reproject_function(
+            hdu2, self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        array1_reprojected = reproject_function(
+            input_data[0], self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        array2_reprojected = reproject_function(
+            input_data[1], self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        expected = (
+            array1_reprojected * weights1_reprojected + array2_reprojected * weights2_reprojected
+        ) / (weights1_reprojected + weights2_reprojected)
+
+        assert_allclose(array, expected, atol=ATOL)
+
+    @pytest.mark.parametrize("block_size_mode", (None, "block_size", "block_sizes"))
+    def test_coadd_with_broadcasting(
+        self, reproject_function, intermediate_memmap, block_size_mode
+    ):
+
+        # Coadding should work with broadcasting, i.e. the fact the
+        # input/output WCS might have fewer dimensions than the data.
+
+        input_data = self._get_tiles(self._overlapping_views)
+
+        input_data = [
+            (np.broadcast_to(array.reshape((1,) + array.shape), (3,) + array.shape), wcs)
+            for array, wcs in input_data
+        ]
+
+        if block_size_mode == "block_size":
+            kwargs = {"block_size": (1,) + self.array.shape}
+        elif block_size_mode == "block_size":
+            kwargs = {"block_sizes": (1,) + self.array.shape}
+        else:
+            kwargs = {}
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=(3,) + self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            **kwargs,
+        )
+
+        for index in range(3):
+            assert_allclose(array[index], self.array, atol=ATOL)
 
 
 HEADER_SOLAR_OUT = """

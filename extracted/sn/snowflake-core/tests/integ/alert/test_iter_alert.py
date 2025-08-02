@@ -15,20 +15,22 @@ def alerts_extended(alerts, snowflake_version):
 
     name_list = []
     for _ in range(5):
-        name_list.append(random_string(10, 'test_alert_iter_a_'))
+        name_list.append(random_string(10, "test_alert_iter_a_"))
     for _ in range(7):
-        name_list.append(random_string(10, 'test_alert_iter_b_'))
+        name_list.append(random_string(10, "test_alert_iter_b_"))
     for _ in range(3):
-        name_list.append(random_string(10, 'test_alert_iter_c_'))
+        name_list.append(random_string(10, "test_alert_iter_c_"))
 
     for alert_name in name_list:
-        alerts.create(Alert(
-            name=alert_name,
-            condition="SELECT 1",
-            action="SELECT 2",
-            schedule=MinutesSchedule(minutes=1),
-            comment="ThIs iS a ComMeNT"
-        ))
+        alerts.create(
+            Alert(
+                name=alert_name,
+                condition="SELECT 1",
+                action="SELECT 2",
+                schedule=MinutesSchedule(minutes=1),
+                comment="ThIs iS a ComMeNT",
+            )
+        )
 
     try:
         yield alerts
@@ -36,6 +38,7 @@ def alerts_extended(alerts, snowflake_version):
         for alert_name in name_list:
             with suppress(NotFoundError):
                 alerts[alert_name].drop()
+
 
 def test_iter_raw(alerts_extended):
     assert len(list(alerts_extended.iter())) >= 15
@@ -59,4 +62,4 @@ def test_iter_starts_with(alerts_extended):
 
 
 def test_iter_from_name(alerts_extended):
-    assert len(list(alerts_extended.iter(from_name='test_alert_iter_b_'))) >= 10
+    assert len(list(alerts_extended.iter(from_name="test_alert_iter_b_"))) >= 10

@@ -1,0 +1,49 @@
+[build-system]
+requires = [
+    "Cython",
+    "numpy>=2; python_version>='3.9'",
+    "scipy",
+    "setuptools",
+    "setuptools_scm[toml]>=6.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "solver: mark for tests that verify the correctness of the solver",
+]
+norecursedirs = ["pycalphad/_dev"]
+filterwarnings = [
+    "error",
+    "ignore:The type definition character*:UserWarning",
+]
+
+[tool.coverage.paths]
+# The first path is the path to the modules to report coverage against.
+# All following paths are patterns to match against the collected data.
+# Any matches will be combined with the first path for coverage.
+source = [
+    "./pycalphad",
+    "*/lib/*/site-packages/pycalphad",  # allows testing against site-packages for a local virtual environment
+]
+
+[tool.coverage.run]
+plugins = [
+    "Cython.Coverage",
+]
+# Only consider coverage for these packages:
+source_pkgs = [
+    "pycalphad"
+]
+omit = [
+    "pycalphad/core/*.pxd", # workaround for https://github.com/nedbat/coveragepy/issues/972
+    "stringsource",
+]
+
+[tool.coverage.report]
+ignore_errors = true # workaround for https://github.com/cython/cython/issues/5581
+
+# '[tool.setuptools.scm]\n' needs to be the last line because
+# we do an append operation in the deploy.yaml GitHub Actions workflow
+[tool.setuptools_scm]

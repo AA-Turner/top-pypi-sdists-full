@@ -1,0 +1,128 @@
+Metadata-Version: 2.4
+Name: synapse
+Version: 2.218.1
+Summary: Synapse Intelligence Analysis Framework
+Author-email: The Vertex Project LLC <root@vertex.link>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://vertex.link
+Project-URL: Documentation, https://synapse.docs.vertex.link
+Project-URL: Repository, https://github.com/vertexproject/synapse
+Project-URL: Changelog, https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: System :: Clustering
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: System :: Software Distribution
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: pyOpenSSL<24.3.0,>=24.0.0
+Requires-Dist: cryptography<44.0.0,>=43.0.1
+Requires-Dist: msgpack<1.2.0,>=1.0.5
+Requires-Dist: xxhash<3.6.0,>=1.4.4
+Requires-Dist: lmdb<1.8.0,>=1.7.0
+Requires-Dist: tornado<7.0.0,>=6.2.0
+Requires-Dist: regex>=2022.9.11
+Requires-Dist: PyYAML<6.1.0,>=5.4
+Requires-Dist: aiohttp<4.0,>=3.10.0
+Requires-Dist: aiohttp-socks<0.11.0,>=0.9.0
+Requires-Dist: aioimaplib<1.2.0,>=1.1.0
+Requires-Dist: aiosmtplib<3.1.0,>=3.0.0
+Requires-Dist: prompt_toolkit<3.1.0,>=3.0.29
+Requires-Dist: lark==1.2.2
+Requires-Dist: Pygments<2.20.0,>=2.7.4
+Requires-Dist: packaging<25.0,>=20.0
+Requires-Dist: fastjsonschema<2.22.0,>=2.20.0
+Requires-Dist: stix2-validator<4.0.0,>=3.2.0
+Requires-Dist: vcrpy<5.2.0,>=4.3.1
+Requires-Dist: base58<2.2.0,>=2.1.0
+Requires-Dist: python-bitcoinlib<0.13.0,>=0.11.0
+Requires-Dist: pycryptodome<3.23.0,>=3.11.0
+Requires-Dist: typing-extensions<5.0.0,>=3.7.4
+Requires-Dist: scalecodec<1.3.0,>=1.0.2
+Requires-Dist: cbor2<5.7.0,>=5.4.1
+Requires-Dist: bech32==1.2.0
+Requires-Dist: oauthlib<4.0.0,>=3.2.1
+Requires-Dist: idna<3.11,>=3.6
+Requires-Dist: python-dateutil<3.0,>=2.8
+Requires-Dist: pytz<2025.3,>=2023.3
+Requires-Dist: beautifulsoup4[html5lib]<5.0,>=4.11.1
+Requires-Dist: vtx-yyjson<5.0.0,>=4.3.0
+Provides-Extra: dev
+Requires-Dist: pytest<8.0.0,>=7.2.0; extra == "dev"
+Requires-Dist: autopep8<3.0.0,>=2.0.4; extra == "dev"
+Requires-Dist: pytest-cov<5.0.0,>=4.0.0; extra == "dev"
+Requires-Dist: pycodestyle<3.0.0,>=2.10.0; extra == "dev"
+Requires-Dist: bump2version<1.1.0,>=1.0.1; extra == "dev"
+Requires-Dist: pytest-xdist<4.0.0,>=3.0.2; extra == "dev"
+Requires-Dist: coverage<8.0.0,>=7.0.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx<9.0.0,>=8.0.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme<4.0.0,>=3.0.0; extra == "docs"
+Requires-Dist: sphinx-notfound-page<2.0.0,>=1.0.4; extra == "docs"
+Requires-Dist: jinja2<4.0.0,>=3.1.4; extra == "docs"
+Dynamic: license-file
+
+Synapse
+=======
+
+Synapse is a versatile central intelligence system created to support analyst teams in every stage of the intelligence life cycle.
+
+|codecov|_ |circleci|_ |rtd|_
+
+Learn More About Synapse
+------------------------
+
+* Visit our website_ to learn more about Synapse. 
+* Watch the `Synapse Guided Tour`_!
+
+
+Installation & Documentation
+----------------------------
+
+* Synapse is available as a Python Package on pypi_ and as a Docker image on dockerhub_.
+
+  * The Getting Started guide_ will help get you up and running!
+
+* You can also use synapse_quickstart_ to get up and running quickly on Windows, Mac, or Linux and start using Synapse!
+* User Guides and API Documentation can be found here_.
+
+Connect With Us
+---------------
+
+* Join the Synapse user community on Slack_
+* Follow us on Twitter_.
+* Follow us on LinkedIn_.
+
+.. |circleci| image:: https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg
+..  _circleci: https://v.vtx.lk/synapse-circleci
+
+.. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master
+.. _codecov: https://v.vtx.lk/synapse-codecov
+
+.. |rtd| image:: https://readthedocs.com/projects/vertex-synapse/badge/?version=latest
+.. _rtd: https://v.vtx.lk/synapse-docs
+
+.. _website: https://v.vtx.lk/vertex
+
+.. _Synapse Guided Tour: https://v.vtx.lk/synapse-tour
+
+.. _pypi: https://v.vtx.lk/synapse-pypi
+
+.. _dockerhub: https://v.vtx.lk/synapse-dockerhub
+
+.. _guide: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html
+
+.. _synapse_quickstart: https://github.com/vertexproject/synapse-quickstart
+
+.. _here: https://v.vtx.lk/synapse-docs
+
+.. _slack: https://v.vtx.lk/join-slack
+
+.. _Twitter: https://v.vtx.lk/twitter
+
+.. _LinkedIn: https://www.linkedin.com/company/vertexproject
+
+

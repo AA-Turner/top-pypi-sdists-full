@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.compute_pool import ComputePool, ComputePoolCollection
+from snowflake.core.compute_pool import ComputePool, ComputePoolCollection, ComputePoolResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -23,23 +23,15 @@ def compute_pool(compute_pools):
 
 
 def test_create_async(fake_root, compute_pools):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/compute-pools?createMode=errorIfExists&initiallySuspended=False",
-    )
+    args = (fake_root, "POST", BASE_URL + "/compute-pools?createMode=errorIfExists&initiallySuspended=False")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("initiallySuspended", False)],
-        body={
-            "name": "my_compute_pool",
-            "min_nodes": 1,
-            "max_nodes": 1,
-            "instance_family": "",
-        },
+        body={"name": "my_compute_pool", "min_nodes": 1, "max_nodes": 1, "instance_family": ""},
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         compute_pool_res = compute_pools.create(COMPUTE_POOL)
+        assert isinstance(compute_pool_res, ComputePoolResource)
         assert compute_pool_res.name == "my_compute_pool"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -52,11 +44,7 @@ def test_create_async(fake_root, compute_pools):
 
 
 def test_iter_async(fake_root, compute_pools):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/compute-pools",
-    )
+    args = (fake_root, "GET", BASE_URL + "/compute-pools")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -75,19 +63,8 @@ def test_iter_async(fake_root, compute_pools):
 
 
 def test_create_or_alter_async(fake_root, compute_pool):
-    args = (
-        fake_root,
-        "PUT",
-        BASE_URL + "/compute-pools/my_compute_pool",
-    )
-    kwargs = extra_params(
-        body={
-            "name": "my_compute_pool",
-            "min_nodes": 1,
-            "max_nodes": 1,
-            "instance_family": "",
-        },
-    )
+    args = (fake_root, "PUT", BASE_URL + "/compute-pools/my_compute_pool")
+    kwargs = extra_params(body={"name": "my_compute_pool", "min_nodes": 1, "max_nodes": 1, "instance_family": ""})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         compute_pool.create_or_alter(COMPUTE_POOL)
@@ -104,11 +81,7 @@ def test_fetch_async(fake_root, compute_pool):
     from snowflake.core.compute_pool._generated.models import ComputePool as ComputePoolModel
 
     model = ComputePoolModel(name="my_compute_pool", min_nodes=1, max_nodes=1, instance_family="")
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/compute-pools/my_compute_pool",
-    )
+    args = (fake_root, "GET", BASE_URL + "/compute-pools/my_compute_pool")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -127,11 +100,7 @@ def test_fetch_async(fake_root, compute_pool):
 
 
 def test_suspend_async(fake_root, compute_pool):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/compute-pools/my_compute_pool:suspend",
-    )
+    args = (fake_root, "POST", BASE_URL + "/compute-pools/my_compute_pool:suspend")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -146,11 +115,7 @@ def test_suspend_async(fake_root, compute_pool):
 
 
 def test_resume_async(fake_root, compute_pool):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/compute-pools/my_compute_pool:resume",
-    )
+    args = (fake_root, "POST", BASE_URL + "/compute-pools/my_compute_pool:resume")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -165,11 +130,7 @@ def test_resume_async(fake_root, compute_pool):
 
 
 def test_stop_all_services_async(fake_root, compute_pool):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/compute-pools/my_compute_pool:stop-all-services",
-    )
+    args = (fake_root, "POST", BASE_URL + "/compute-pools/my_compute_pool:stop-all-services")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -184,11 +145,7 @@ def test_stop_all_services_async(fake_root, compute_pool):
 
 
 def test_drop_async(fake_root, compute_pool):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/compute-pools/my_compute_pool",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/compute-pools/my_compute_pool")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

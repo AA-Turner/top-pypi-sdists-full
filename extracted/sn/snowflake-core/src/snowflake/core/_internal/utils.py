@@ -9,10 +9,7 @@ from typing import TYPE_CHECKING, Callable, Optional, TypeVar, Union
 from typing_extensions import ParamSpec
 
 from snowflake.connector import ProgrammingError
-from snowflake.connector.description import (
-    OPERATING_SYSTEM,
-    PLATFORM,
-)
+from snowflake.connector.description import OPERATING_SYSTEM, PLATFORM
 from snowflake.core.exceptions import FileGetError, FilePutError
 
 
@@ -57,8 +54,12 @@ def normalize_datatype(datatype: str) -> str:
         return "VARCHAR(1)"
     if datatype in ("VARBINARY"):
         return "BINARY"
-    datatype = datatype.replace("DECIMAL", "NUMBER").replace("NUMERIC", "NUMBER")\
-        .replace("STRING", "VARCHAR").replace("TEXT", "VARCHAR")
+    datatype = (
+        datatype.replace("DECIMAL", "NUMBER")
+        .replace("NUMERIC", "NUMBER")
+        .replace("STRING", "VARCHAR")
+        .replace("TEXT", "VARCHAR")
+    )
     return datatype
 
 
@@ -109,13 +110,12 @@ def unquote_name(name: str) -> str:
         return name[1:-1]
     return name
 
+
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def deprecated(
-    alternative: Optional[str] = None
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def deprecated(alternative: Optional[str] = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         """Mark methods as deprecated with a warning message."""
         deprecation_message = f"The :func:`{func.__name__}` method is deprecated;"
@@ -123,9 +123,7 @@ def deprecated(
             deprecation_message += f" use :func:`{alternative}` instead."
 
         @functools.wraps(func)
-        def deprecate_wrapper(
-                *args: P.args,
-                **kwargs: P.kwargs) -> R:
+        def deprecate_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             warnings.warn(deprecation_message, category=DeprecationWarning, stacklevel=2)
             return func(*args, **kwargs)
 
@@ -135,7 +133,9 @@ def deprecated(
             deprecate_wrapper.__doc__ = deprecation_message + "\n\n" + deprecate_wrapper.__doc__
 
         return deprecate_wrapper
+
     return decorator
+
 
 @enum.unique
 class TelemetryField(enum.Enum):
@@ -152,9 +152,7 @@ class TelemetryField(enum.Enum):
     TYPE_SQL_SIMPLIFIER_ENABLED = "snowpark_sql_simplifier_enabled"
     TYPE_CTE_OPTIMIZATION_ENABLED = "snowpark_cte_optimization_enabled"
     # telemetry for optimization that eliminates the extra cast expression generated for expressions
-    TYPE_ELIMINATE_NUMERIC_SQL_VALUE_CAST_ENABLED = (
-        "snowpark_eliminate_numeric_sql_value_cast_enabled"
-    )
+    TYPE_ELIMINATE_NUMERIC_SQL_VALUE_CAST_ENABLED = "snowpark_eliminate_numeric_sql_value_cast_enabled"
     TYPE_AUTO_CLEAN_UP_TEMP_TABLE_ENABLED = "snowpark_auto_clean_up_temp_table_enabled"
     TYPE_ERROR = "snowpark_error"
     # Message keys for telemetry
@@ -190,15 +188,15 @@ class TelemetryField(enum.Enum):
     QUERY_PLAN_NUM_DUPLICATE_NODES = "query_plan_num_duplicate_nodes"
     QUERY_PLAN_COMPLEXITY = "query_plan_complexity"
 
+
 STAGE_PREFIX = "@"
 SNOWURL_PREFIX = "snow://"
-SNOWFLAKE_PATH_PREFIXES = [
-    STAGE_PREFIX,
-    SNOWURL_PREFIX,
-]
+SNOWFLAKE_PATH_PREFIXES = [STAGE_PREFIX, SNOWURL_PREFIX]
+
 
 def is_single_quoted(name: str) -> bool:
     return name.startswith("'") and name.endswith("'") and len(name) >= 2
+
 
 def normalize_path(path: str, is_local: bool) -> str:
     """Get a normalized path of a local file or remote stage location for PUT/GET commands.
@@ -218,6 +216,7 @@ def normalize_path(path: str, is_local: bool) -> str:
         path = f"{prefixes[0]}{path}"
     return f"'{path}'"
 
+
 def get_local_file_path(file: str) -> str:
     trim_file = file.strip()
     if is_single_quoted(trim_file):
@@ -226,13 +225,9 @@ def get_local_file_path(file: str) -> str:
         return trim_file[7:]  # remove "file://"
     return trim_file
 
+
 def get_file(
-    root: "Root",
-    stage_location: str,
-    target_directory: str,
-    *,
-    parallel: int = 10,
-    pattern: Optional[str] = None,
+    root: "Root", stage_location: str, target_directory: str, *, parallel: int = 10, pattern: Optional[str] = None
 ) -> None:
     options: dict[str, Union[int, str]] = {"parallel": parallel}
     if pattern is not None:
@@ -247,20 +242,21 @@ def get_file(
             cur._download(stage_location, target_directory, options)
             cur.fetchall()  # Make sure no errors were raised
         except ProgrammingError as pe:
-            raise FileGetError(
-                pe.msg,
-            ) from None
+            raise FileGetError(pe.msg) from None
     else:
         os.makedirs(get_local_file_path(target_directory), exist_ok=True)
         with root.connection.cursor() as cur:
             cur.execute(
                 "GET /* snowflake.core.stage.StageResource.get */ "
-                + normalize_path(stage_location, is_local=False) + " "
-                + normalize_path(target_directory, is_local=True) + " "
+                + normalize_path(stage_location, is_local=False)
+                + " "
+                + normalize_path(target_directory, is_local=True)
+                + " "
                 + f"PARALLEL = {parallel}"
                 + (f" PATTERN = {pattern};" if pattern is not None else ";")
             )
             cur.fetchall()  # Make sure no errors were raised
+
 
 def put_file(
     root: "Root",
@@ -287,15 +283,15 @@ def put_file(
             )
             cur.fetchall()  # Make sure no errors were raised
         except ProgrammingError as pe:
-            raise FilePutError(
-                pe.msg,
-            ) from None
+            raise FilePutError(pe.msg) from None
     else:
         with root.connection.cursor() as cur:
             cur.execute(
                 "PUT /* snowflake.core.stage.StageResource.put */ "
-                + normalize_path(local_file_name, is_local=True) + " "
-                + normalize_path(stage_location, is_local=False) + " "
+                + normalize_path(local_file_name, is_local=True)
+                + " "
+                + normalize_path(stage_location, is_local=False)
+                + " "
                 + f"PARALLEL = {parallel} "
                 + f"AUTO_COMPRESS = {auto_compress} "
                 + f"SOURCE_COMPRESSION = {source_compression} "

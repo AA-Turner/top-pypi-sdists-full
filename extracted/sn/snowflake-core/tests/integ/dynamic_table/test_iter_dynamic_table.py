@@ -33,9 +33,7 @@ def test_iter_starts_with(dynamic_tables, dynamic_table_handle, table_handle, da
 def test_iter_limit(dynamic_tables, dynamic_table_handle):
     data = list(dynamic_tables.iter(limit=10))
     assert 0 < len(data) <= 10
-    assert len(list(dynamic_tables.iter(limit=10, from_name='zzzzzzzzzzzz'))) == 0
+    assert len(list(dynamic_tables.iter(limit=10, from_name="zzzzzzzzzzzz"))) == 0
 
-    with pytest.raises(
-        ValidationError,
-    ):
+    with pytest.raises(ValidationError):
         data = list(dynamic_tables.iter(limit=10001))

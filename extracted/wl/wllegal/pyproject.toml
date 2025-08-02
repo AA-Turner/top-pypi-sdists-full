@@ -1,0 +1,168 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=78.0.2",
+  "translate-toolkit"
+]
+
+[project]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Internationalization",
+  "Topic :: Software Development :: Localization",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content"
+]
+dependencies = [
+  "Django>=5.2,<5.3",
+  "weblate-language-data>=2024.14"
+]
+description = "Hosted Weblate legal stuff"
+keywords = [
+  "i18n",
+  "l10n",
+  "gettext",
+  "git",
+  "mercurial",
+  "translate"
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+name = "wllegal"
+requires-python = ">=3.11"
+version = "2025.5"
+
+[[project.authors]]
+email = "michal@weblate.org"
+name = "Michal Čihař"
+
+[project.optional-dependencies]
+dev = [
+  "wllegal[lint,test]"
+]
+lint = [
+  "pre-commit==4.2.0"
+]
+test = [
+  "wllegal[weblate]",
+  "coverage==7.9.1",
+  "translate-toolkit"
+]
+weblate = [
+  "Weblate[postgres]>=5.0"
+]
+
+[project.readme]
+content-type = "text/x-rst"
+file = "README.rst"
+
+[project.urls]
+Documentation = "https://docs.weblate.org/"
+Download = "https://github.com/WeblateOrg/wllegal"
+Funding = "https://weblate.org/donate/"
+Homepage = "https://weblate.org/"
+"Issue Tracker" = "https://github.com/WeblateOrg/wllegal/issues"
+"Source Code" = "https://github.com/WeblateOrg/wllegal"
+Twitter = "https://twitter.com/WeblateOrg"
+
+[tool.check-manifest]
+ignore = [
+  "LICENSES/*",
+  "json/*",
+  ".reuse/dep5",
+  "scripts/*",
+  "*.toml",
+  "*.yml",
+  "*.yaml",
+  "*.json",
+  ".editorconfig",
+  ".weblate"
+]
+
+[tool.coverage.paths]
+source = [
+  "."
+]
+
+[tool.coverage.report]
+exclude_also = [
+  "@(abc\\.)?abstractmethod",
+  # Have to re-enable the standard pragma
+  "pragma: no cover",
+  # Don't complain about missing debug-only code:
+  "def __repr__",
+  "if self\\.debug",
+  # Don't complain if tests don't hit defensive assertion code:
+  "raise AssertionError",
+  "raise NotImplementedError",
+  # Don't complain if non-runnable code isn't run:
+  "if 0:",
+  "if __name__ == .__main__.:",
+  # Type checking
+  "if TYPE_CHECKING:"
+]
+
+[tool.coverage.run]
+branch = true
+concurrency = ["thread", "multiprocessing"]
+omit = [
+  ".venv*/*"
+]
+
+[tool.djlint]
+blank_line_after_tag = "load,extends,endblock"
+# H014 - Found extra blank lines.
+ignore = "H014"
+indent = 2
+max_attribute_length = 80
+max_blank_lines = 2
+preserve_blank_lines = true
+profile = "django"
+
+[tool.djlint.per-file-ignores]
+"wllegal/templates/weblate_503.html" = "H031"
+"wllegal/templates/weblate_50x.html" = "H031"
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = [
+  "D10",  # TODO: we are missing many docstrings
+  "D203",  # CONFIG: incompatible with D211
+  "D212",  # CONFIG: incompatible with D213
+  "E501",  # WONTFIX: we accept long strings (rest is formatted by black)
+  "RUF001",  # WONTFIX: String contains ambiguous unicode character, we are using Unicode
+  "PTH",  # TODO: Not using pathlib
+  "COM"  # CONFIG: No trailing commas
+]
+select = ["ALL"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 16
+
+[tool.setuptools]
+include-package-data = true
+platforms = [
+  "any"
+]
+
+[tool.setuptools.package-dir]
+wllegal = "wllegal"
+
+[tool.setuptools.packages.find]
+namespaces = true

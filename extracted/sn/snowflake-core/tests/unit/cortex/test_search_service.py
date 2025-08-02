@@ -22,17 +22,8 @@ def search_service(search_services):
 
 
 def test_search_collection(fake_root, search_services):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/cortex-search-services/my_service:query",
-    )
-    kwargs = extra_params(
-        body={
-            "columns": ["col1"],
-            "limit": 10,
-        },
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/cortex-search-services/my_service:query")
+    kwargs = extra_params(body={"columns": ["col1"], "limit": 10})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         op = search_services.search_async("my_service", QueryRequest(columns=["col1"]))
@@ -42,18 +33,8 @@ def test_search_collection(fake_root, search_services):
 
 
 def test_search(fake_root, search_service):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/cortex-search-services/my_service:query",
-    )
-    kwargs = extra_params(
-        body={
-            "query": "hi",
-            "columns": ["col1"],
-            "limit": 10,
-        },
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/cortex-search-services/my_service:query")
+    kwargs = extra_params(body={"query": "hi", "columns": ["col1"], "limit": 10})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         op = search_service.search_async("hi", ["col1"])

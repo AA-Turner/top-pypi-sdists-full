@@ -1,4 +1,0 @@
-/**
- * Foo.
- */
-function foo() {}

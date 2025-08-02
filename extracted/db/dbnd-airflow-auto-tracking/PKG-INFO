@@ -1,0 +1,52 @@
+Metadata-Version: 2.1
+Name: dbnd-airflow-auto-tracking
+Version: 1.0.28.1
+Summary: Machine Learning Orchestration
+Home-page: https://github.com/databand-ai/dbnd
+Author: Evgeny Shulman
+Author-email: evgeny.shulman@databand.ai
+Maintainer: Evgeny Shulman
+Maintainer-email: evgeny.shulman@databand.ai
+Project-URL: Documentation, https://dbnd.readme.io/
+Project-URL: Bug-Tracker, https://github.com/databand-ai/dbnd/issues
+Project-URL: Source-Code, https://github.com/databand-ai/dbnd
+Keywords: orchestration,data,machinelearning
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: dbnd==1.0.28.1
+Requires-Dist: dbnd-airflow==1.0.28.1
+Requires-Dist: dbnd-airflow-monitor==1.0.28.1
+
+# DBND Airflow Auto Tracking
+
+## The plugin
+
+`dbnd-airflow-auto-tracking` is a plugin for Airflow, enabling dbnd tracking to all DAGs and tasks without any code changes.
+
+### What does it do?
+
+The plugin will go over tasks and modify them if needed.
+It uses Airflow's policy mechanism by adding dbnd tracking to policy function.
+If the user had already defined its own policy function it will be executed in addition to dbnd tracking.
+
+### Installation
+
+```bash
+pip install dbnd-airflow-auto-tracking
+```

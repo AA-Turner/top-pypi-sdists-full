@@ -9,7 +9,7 @@ class RootConfiguration:
 
     def __init__(self) -> None:
         """Store the metadata about the root configuration."""
-        self._user_agents : list[list[str]] = []
+        self._user_agents: list[list[str]] = []
 
     def append_user_agent(self, name: str, value: Optional[str] = None) -> None:
         """Append a user agent to the list of user agents.
@@ -35,12 +35,10 @@ class RootConfiguration:
 
         >>> append_user_agent("custom_ui")
         """
-        if name == 'python_api':
+        if name == "python_api":
             raise ValueError("The user agent name 'python_api' is reserved for internal use.")
         if not self.UA_NAME_REGEX.fullmatch(name):
-            raise ValueError(
-                "The name of the user agent must only contain alphanumeric characters or underscores."
-            )
+            raise ValueError("The name of the user agent must only contain alphanumeric characters or underscores.")
         if value is not None and not self.UA_VALUE_REGEX.fullmatch(value):
             raise ValueError(
                 "The value of the user agent must only contain alphanumeric characters, underscores, or periods."
@@ -62,9 +60,7 @@ class RootConfiguration:
 
         >>> get_user_agents()
         """
-        return " ".join(
-            [f"{ua[0]}/{ua[1]}" if len(ua) == 2 else ua[0] for ua in self._user_agents]
-        )
+        return " ".join([f"{ua[0]}/{ua[1]}" if len(ua) == 2 else ua[0] for ua in self._user_agents])
 
     def has_user_agents(self) -> bool:
         """Check if user agents exist.

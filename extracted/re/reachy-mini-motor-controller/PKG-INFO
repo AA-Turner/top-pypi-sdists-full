@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: reachy_mini_motor_controller
+Version: 0.5.1
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: pytest ; extra == 'tests'
+Provides-Extra: tests
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# Reachy mini motor controller
+
+Handles communication with the stewart platform (6x XL330), the base rotation (Feetech) and the antennas (feetech).
+Also provides a python binding available via pip.
+
+## To install locally 
+```bash
+pip install maturin
+```
+
+## To build the wheel
+```bash
+pip install -e . --verbose
+```
+
+

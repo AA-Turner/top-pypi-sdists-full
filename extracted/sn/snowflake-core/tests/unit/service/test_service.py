@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.service import JobService, Service, ServiceSpecInlineText
+from snowflake.core.service import JobService, Service, ServiceResource, ServiceSpecInlineText
 from snowflake.core.service._generated import FetchServiceLogs200Response, FetchServiceStatus200Response
 
 from ...utils import BASE_URL, extra_params, mock_http_response
@@ -25,11 +25,7 @@ def service(services):
 
 
 def test_create_service(fake_root, services):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/services?createMode=errorIfExists")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists")],
         body={
@@ -40,7 +36,9 @@ def test_create_service(fake_root, services):
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        services.create(SERVICE)
+        service_res = services.create(SERVICE)
+        assert isinstance(service_res, ServiceResource)
+        assert service_res.name == "my_service"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -52,11 +50,7 @@ def test_create_service(fake_root, services):
 
 
 def test_iter_service(fake_root, services):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/services")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -74,17 +68,13 @@ def test_iter_service(fake_root, services):
 
 
 def test_execute_job_service(fake_root, services):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services:execute-job",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/services:execute-job")
     kwargs = extra_params(
         body={
             "name": "my_service",
             "compute_pool": "my_compute_pool",
             "spec": {"spec_text": "", "spec_type": "from_inline"},
-        },
+        }
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -99,17 +89,13 @@ def test_execute_job_service(fake_root, services):
 
 
 def test_create_or_alter_service(fake_root, service):
-    args = (
-        fake_root,
-        "PUT",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service",
-    )
+    args = (fake_root, "PUT", BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service")
     kwargs = extra_params(
         body={
             "name": "my_service",
             "compute_pool": "my_compute_pool",
             "spec": {"spec_text": "", "spec_type": "from_inline"},
-        },
+        }
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -128,12 +114,9 @@ def test_fetch_service(fake_root, service):
     from snowflake.core.service._generated.models import ServiceSpecInlineText as ServiceSpecInlineTextModel
 
     model = ServiceModel(
-        name="my_service", compute_pool="my_compute_pool", spec=ServiceSpecInlineTextModel(spec_text=""))
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service",
+        name="my_service", compute_pool="my_compute_pool", spec=ServiceSpecInlineTextModel(spec_text="")
     )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -151,11 +134,7 @@ def test_fetch_service(fake_root, service):
 
 
 def test_drop_service(fake_root, service):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -170,11 +149,7 @@ def test_drop_service(fake_root, service):
 
 
 def test_suspend_service(fake_root, service):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service:suspend",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service:suspend")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -189,11 +164,7 @@ def test_suspend_service(fake_root, service):
 
 
 def test_resume_service(fake_root, service):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service:resume",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service:resume")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -219,11 +190,7 @@ CUSTOM_METHODS = [
 
 @pytest.mark.parametrize("method, fn, fn_args", CUSTOM_METHODS)
 def test_custom_methods(fake_root, service, method, fn, fn_args):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + f"/databases/my_db/schemas/my_schema/services/my_service/{method}",
-    )
+    args = (fake_root, "GET", BASE_URL + f"/databases/my_db/schemas/my_schema/services/my_service/{method}")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -242,11 +209,7 @@ def test_custom_methods(fake_root, service, method, fn, fn_args):
 
 
 def test_get_service_status(fake_root, service):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service/status?timeout=0",
-    )
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service/status?timeout=0")
     kwargs = extra_params(query_params=[("timeout", 0)])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -266,8 +229,9 @@ def test_get_service_logs(fake_root, service):
     args = (
         fake_root,
         "GET",
-        BASE_URL + "/databases/my_db/schemas/my_schema/services/my_service/logs?" + \
-            "instanceId=1&containerName=my_container",
+        BASE_URL
+        + "/databases/my_db/schemas/my_schema/services/my_service/logs?"
+        + "instanceId=1&containerName=my_container",
     )
     kwargs = extra_params(query_params=[("instanceId", 1), ("containerName", "my_container")])
 

@@ -70,6 +70,23 @@ def _map_invocation(
     count_update_callback: typing.Optional[collections.abc.Callable[[int, int], None]],
     function_call_invocation_type: int,
 ): ...
+def _map_invocation_inputplane(
+    function: modal._functions._Function,
+    raw_input_queue: _SynchronizedQueue,
+    client: modal.client._Client,
+    order_outputs: bool,
+    return_exceptions: bool,
+    wrap_returned_exceptions: bool,
+    count_update_callback: typing.Optional[collections.abc.Callable[[int, int], None]],
+) -> typing.AsyncGenerator[typing.Any, None]:
+    """Input-plane implementation of a function map invocation.
+
+    This is analogous to `_map_invocation`, but instead of the control-plane
+    `FunctionMap` / `FunctionPutInputs` / `FunctionGetOutputs` RPCs it speaks
+    the input-plane protocol consisting of `MapStartOrContinue`, `MapAwait`, and `MapCheckInputs`.
+    """
+    ...
+
 def _map_helper(
     self: modal.functions.Function,
     async_input_gen: typing.AsyncGenerator[typing.Any, None],
@@ -260,10 +277,12 @@ class _MapItemContext:
         input: modal_proto.api_pb2.FunctionInput,
         retry_manager: modal.retries.RetryManager,
         sync_client_retries_enabled: bool,
+        is_input_plane_instance: bool = False,
     ):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
+    def handle_map_start_or_continue_response(self, attempt_token: str): ...
     def handle_put_inputs_response(self, item: modal_proto.api_pb2.FunctionPutInputsResponseItem): ...
     async def handle_get_outputs_response(
         self,
@@ -280,6 +299,7 @@ class _MapItemContext:
 
     async def prepare_item_for_retry(self) -> modal_proto.api_pb2.FunctionRetryInputsItem: ...
     def handle_retry_response(self, input_jwt: str): ...
+    async def create_map_start_or_continue_item(self, idx: int) -> modal_proto.api_pb2.MapStartOrContinueItem: ...
 
 class _MapItemsManager:
     def __init__(
@@ -289,11 +309,13 @@ class _MapItemsManager:
         retry_queue: modal._utils.async_utils.TimestampPriorityQueue,
         sync_client_retries_enabled: bool,
         max_inputs_outstanding: int,
+        is_input_plane_instance: bool = False,
     ):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
     async def add_items(self, items: list[modal_proto.api_pb2.FunctionPutInputsItem]): ...
+    async def add_items_inputplane(self, items: list[modal_proto.api_pb2.MapStartOrContinueItem]): ...
     async def prepare_items_for_retry(
         self, retriable_idxs: list[int]
     ) -> list[modal_proto.api_pb2.FunctionRetryInputsItem]: ...
@@ -301,10 +323,16 @@ class _MapItemsManager:
         """Returns a list of input_jwts for inputs that are waiting for output."""
         ...
 
+    def get_input_idxs_waiting_for_output(self) -> list[tuple[int, str]]:
+        """Returns a list of input_idxs for inputs that are waiting for output."""
+        ...
+
     def _remove_item(self, item_idx: int): ...
     def get_item_context(self, item_idx: int) -> _MapItemContext: ...
+    def handle_put_continue_response(self, items: list[tuple[int, str]]): ...
     def handle_put_inputs_response(self, items: list[modal_proto.api_pb2.FunctionPutInputsResponseItem]): ...
     def handle_retry_response(self, input_jwts: list[str]): ...
+    async def handle_check_inputs_response(self, response: list[tuple[int, bool]]): ...
     async def handle_get_outputs_response(
         self, item: modal_proto.api_pb2.FunctionGetOutputsItem, now_seconds: int
     ) -> _OutputType: ...

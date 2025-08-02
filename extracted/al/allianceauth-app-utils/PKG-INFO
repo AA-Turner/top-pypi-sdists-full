@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: allianceauth-app-utils
+Version: 1.26.1
+Summary: Commonly used utilities and helpers for rapid development of Alliance Auth apps.
+Author-email: Erik Kalkoken <kalkoken87@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.2
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+License-File: LICENSE
+Requires-Dist: allianceauth>=3,<5
+Requires-Dist: requests
+Project-URL: Changelog, https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/blob/master/CHANGELOG.md
+Project-URL: Documentation, https://allianceauth-app-utils.readthedocs.io/en/latest/
+Project-URL: Homepage, https://gitlab.com/ErikKalkoken/allianceauth-app-utils
+Project-URL: Source, https://gitlab.com/ErikKalkoken/allianceauth-app-utils
+Project-URL: Tracker, https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/issues
+
+# allianceauth-app-utils
+
+[![release](https://img.shields.io/pypi/v/allianceauth-app-utils?label=release)](https://pypi.org/project/allianceauth-app-utils/)
+[![python](https://img.shields.io/pypi/pyversions/allianceauth-app-utils)](https://pypi.org/project/allianceauth-app-utils/)
+[![django](https://img.shields.io/pypi/djversions/allianceauth-app-utils?label=django)](https://pypi.org/project/allianceauth-app-utils/)
+[![pipeline](https://gitlab.com/ErikKalkoken/allianceauth-app-utils/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/pipelines)
+[![codecov](https://codecov.io/gl/ErikKalkoken/allianceauth-app-utils/branch/master/graph/badge.svg?token=S6AUWTRHC4)](https://codecov.io/gl/ErikKalkoken/allianceauth-app-utils)
+[![Documentation Status](https://readthedocs.org/projects/allianceauth-app-utils/badge/?version=latest)](https://allianceauth-app-utils.readthedocs.io/en/latest/?badge=latest)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/blob/master/LICENSE)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)
+
+Commonly used utility functions and classes for rapid development of Alliance Auth apps.
+
+## Description
+
+This package contains a variety of commonly used utility functions and classes that help speed up development of Alliance Auth apps and reduce code duplication across apps.
+
+## Documentation
+
+For a full description of the API please see the [documentation](https://allianceauth-app-utils.readthedocs.io/en/latest/index.html).
+

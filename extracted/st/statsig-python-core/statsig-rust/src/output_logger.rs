@@ -1,7 +1,8 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
-
 use log::{debug, error, info, warn, Level};
+use parking_lot::RwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 const MAX_CHARS: usize = 400;
 const TRUNCATED_SUFFIX: &str = "...[TRUNCATED]";
@@ -94,13 +95,16 @@ pub fn initialize_output_logger(
 ) {
     let was_initialized = INITIALIZED.swap(true, Ordering::SeqCst);
     if was_initialized {
+        println!("Logger already initialized");
         return;
     }
 
-    let mut state = match LOGGER_STATE.write() {
-        Ok(state) => state,
-        Err(e) => {
-            eprintln!("[Statsig] Failed to acquire write lock for logger: {e}");
+    let mut state = match LOGGER_STATE.try_write_for(Duration::from_secs(5)) {
+        Some(state) => state,
+        None => {
+            eprintln!(
+                "[Statsig] Failed to acquire write lock for logger: Failed to lock LOGGER_STATE"
+            );
             return;
         }
     };
@@ -131,10 +135,12 @@ pub fn initialize_output_logger(
 }
 
 pub fn shutdown_output_logger() {
-    let mut state = match LOGGER_STATE.write() {
-        Ok(state) => state,
-        Err(e) => {
-            eprintln!("[Statsig] Failed to acquire write lock for logger: {e}");
+    let mut state = match LOGGER_STATE.try_write_for(Duration::from_secs(5)) {
+        Some(state) => state,
+        None => {
+            eprintln!(
+                "[Statsig] Failed to acquire write lock for logger: Failed to lock LOGGER_STATE"
+            );
             return;
         }
     };
@@ -160,7 +166,7 @@ pub fn log_message(tag: &str, level: LogLevel, msg: String) {
 
     let sanitized_msg = sanitize(&truncated_msg);
 
-    if let Ok(state) = LOGGER_STATE.read() {
+    if let Some(state) = LOGGER_STATE.try_read_for(Duration::from_secs(5)) {
         if let Some(provider) = &state.provider {
             match level {
                 LogLevel::Debug => provider.debug(tag, sanitized_msg),
@@ -171,6 +177,8 @@ pub fn log_message(tag: &str, level: LogLevel, msg: String) {
             }
             return;
         }
+    } else {
+        eprintln!("[Statsig] Failed to acquire read lock for logger: Failed to lock LOGGER_STATE");
     }
 
     if let Some(level) = level.to_third_party_level() {
@@ -209,10 +217,12 @@ fn sanitize(input: &str) -> String {
 }
 
 pub fn has_valid_log_level(level: &LogLevel) -> bool {
-    let state = match LOGGER_STATE.read() {
-        Ok(state) => state,
-        Err(e) => {
-            eprintln!("[Statsig] Failed to acquire read lock for logger: {e}");
+    let state = match LOGGER_STATE.try_read_for(Duration::from_secs(5)) {
+        Some(state) => state,
+        None => {
+            eprintln!(
+                "[Statsig] Failed to acquire read lock for logger: Failed to lock LOGGER_STATE"
+            );
             return false;
         }
     };

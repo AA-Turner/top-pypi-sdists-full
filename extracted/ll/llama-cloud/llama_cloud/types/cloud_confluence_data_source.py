@@ -4,6 +4,7 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
+from .failure_handling_config import FailureHandlingConfig
 
 try:
     import pydantic
@@ -28,6 +29,20 @@ class CloudConfluenceDataSource(pydantic.BaseModel):
     label: typing.Optional[str]
     index_restricted_pages: typing.Optional[bool] = pydantic.Field(description="Whether to index restricted pages.")
     keep_markdown_format: typing.Optional[bool] = pydantic.Field(description="Whether to keep the markdown format.")
+    failure_handling: typing.Optional[FailureHandlingConfig] = pydantic.Field(
+        description=(
+            "Configuration for handling failures during processing. Key-value object controlling failure handling behaviors.\n"
+            "\n"
+            "Example:\n"
+            "{\n"
+            '"skip_list_failures": true\n'
+            "}\n"
+            "\n"
+            "Currently supports:\n"
+            "\n"
+            "- skip_list_failures: Skip failed batches/lists and continue processing\n"
+        )
+    )
     class_name: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:

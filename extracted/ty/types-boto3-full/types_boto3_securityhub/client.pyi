@@ -922,7 +922,7 @@ class SecurityHubClient(BaseClient):
         self, **kwargs: Unpack[GetFindingHistoryRequestTypeDef]
     ) -> GetFindingHistoryResponseTypeDef:
         """
-        Returns the history of a Security Hub finding for the past 90 days.
+        Returns the history of a Security Hub finding.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_finding_history.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_finding_history)

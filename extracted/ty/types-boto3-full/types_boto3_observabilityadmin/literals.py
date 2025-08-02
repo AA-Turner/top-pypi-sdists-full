@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_observabilityadmin.literals import ListResourceTelemetryForOrganizationPaginatorName
+    from types_boto3_observabilityadmin.literals import DestinationTypeType
 
-    data: ListResourceTelemetryForOrganizationPaginatorName = "list_resource_telemetry_for_organization"
+    data: DestinationTypeType = "cloud-watch-logs"
     ```
 """
 
@@ -24,8 +24,11 @@ else:
 
 __all__ = (
     "CloudWatchObservabilityAdminServiceServiceName",
+    "DestinationTypeType",
     "ListResourceTelemetryForOrganizationPaginatorName",
     "ListResourceTelemetryPaginatorName",
+    "ListTelemetryRulesForOrganizationPaginatorName",
+    "ListTelemetryRulesPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ResourceTypeType",
@@ -36,10 +39,13 @@ __all__ = (
 )
 
 
+DestinationTypeType = Literal["cloud-watch-logs"]
 ListResourceTelemetryForOrganizationPaginatorName = Literal[
     "list_resource_telemetry_for_organization"
 ]
 ListResourceTelemetryPaginatorName = Literal["list_resource_telemetry"]
+ListTelemetryRulesForOrganizationPaginatorName = Literal["list_telemetry_rules_for_organization"]
+ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
 ResourceTypeType = Literal["AWS::EC2::Instance", "AWS::EC2::VPC", "AWS::Lambda::Function"]
 StatusType = Literal[
     "FAILED_START", "FAILED_STOP", "NOT_STARTED", "RUNNING", "STARTING", "STOPPED", "STOPPING"
@@ -74,6 +80,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -473,4 +480,9 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["list_resource_telemetry", "list_resource_telemetry_for_organization"]
+PaginatorName = Literal[
+    "list_resource_telemetry",
+    "list_resource_telemetry_for_organization",
+    "list_telemetry_rules",
+    "list_telemetry_rules_for_organization",
+]

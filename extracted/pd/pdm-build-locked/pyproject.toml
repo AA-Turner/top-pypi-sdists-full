@@ -1,0 +1,125 @@
+[project]
+name = "pdm-build-locked"
+dynamic = []
+description = "    pdm-build-locked is a pdm plugin to add locked packages as additional optional dependency groups to the distribution metadata"
+readme = "README.rst"
+keywords = [
+    "pdm",
+    "plugin",
+]
+classifiers = [
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+authors = [
+    { name = "sigma67", email = "sigma67.github@gmail.com" },
+    { name = "Frost Ming", email = "me@frostming.com" },
+]
+dependencies = [
+    "tomli; python_version < \"3.11\"",
+]
+requires-python = ">=3.9"
+version = "0.3.5"
+
+[project.entry-points.pdm]
+build-locked = "pdm_build_locked.plugin:main"
+
+[project.entry-points."pdm.build.hook"]
+build-locked = "pdm_build_locked.backend:BuildLockedHook"
+
+[project.entry-points.hatch]
+build-locked = "pdm_build_locked.hatchling"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.build]
+package-dir = "src"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pdm[pytest]>=2.20.0",
+    "pytest>=7.4.0",
+    "pkginfo>=1.9.6",
+    "pytest-cov>=4.1.0",
+    "pre-commit>=3.5.0",
+    "pdm-backend>=2.1.7",
+    "hatchling>=1.20.0",
+    "build>=1.0.3",
+    "ruff>=0.4.8",
+    "mypy>=1.10.0",
+]
+doc = [
+    "sphinx>=7.1.2",
+    "sphinx-rtd-theme>=2.0.0",
+    "tomli>=2.0.1",
+    "sphinx-design>=0.5.0",
+]
+
+[tool.ruff]
+line-length = 120
+src = [
+    "src",
+]
+target-version = "py38"
+
+[tool.ruff.lint]
+extend-select = [
+    "I",
+    "B",
+    "C4",
+    "PGH",
+    "RUF",
+    "W",
+    "YTT",
+]
+extend-ignore = [
+    "B018",
+    "B019",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+files = [
+    "src/",
+    "tests/",
+]
+mypy_path = "src"
+show_error_codes = true
+exclude = [
+    "tests/data",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+addopts = "--verbose --cov --cov-report=term --cov-report=html --cov-report=xml --cov-config=pyproject.toml"
+
+[tool.coverage.run]
+branch = true
+source = [
+    "src",
+]
+omit = [
+    "backend.py",
+    "hatchling.py",
+    "/tmp",
+]
+
+[tool.coverage.report]
+show_missing = true

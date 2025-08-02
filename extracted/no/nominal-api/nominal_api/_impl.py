@@ -46,6 +46,26 @@ api_ArchivedStatus.__qualname__ = "ArchivedStatus"
 api_ArchivedStatus.__module__ = "nominal_api.api"
 
 
+class api_DataSourceType(ConjureEnumType):
+
+    DATASET = 'DATASET'
+    '''DATASET'''
+    CONNECTION = 'CONNECTION'
+    '''CONNECTION'''
+    VIDEO = 'VIDEO'
+    '''VIDEO'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+api_DataSourceType.__name__ = "DataSourceType"
+api_DataSourceType.__qualname__ = "DataSourceType"
+api_DataSourceType.__module__ = "nominal_api.api"
+
+
 class api_Empty(ConjureBeanType):
 
     @builtins.classmethod
@@ -435,6 +455,35 @@ class api_Range(ConjureBeanType):
 api_Range.__name__ = "Range"
 api_Range.__qualname__ = "Range"
 api_Range.__module__ = "nominal_api.api"
+
+
+class api_RefNameAndType(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', api_DataSourceRefName),
+            'type': ConjureFieldDefinition('type', api_DataSourceType)
+        }
+
+    __slots__: List[str] = ['_name', '_type']
+
+    def __init__(self, name: str, type: "api_DataSourceType") -> None:
+        self._name = name
+        self._type = type
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def type(self) -> "api_DataSourceType":
+        return self._type
+
+
+api_RefNameAndType.__name__ = "RefNameAndType"
+api_RefNameAndType.__qualname__ = "RefNameAndType"
+api_RefNameAndType.__module__ = "nominal_api.api"
 
 
 class api_SerializableError(ConjureBeanType):
@@ -14751,6 +14800,24 @@ module_GetModuleRequest.__qualname__ = "GetModuleRequest"
 module_GetModuleRequest.__module__ = "nominal_api.module"
 
 
+class module_LatestVersionStrategy(ConjureBeanType):
+    """This strategy refers to the latest version of the module.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+module_LatestVersionStrategy.__name__ = "LatestVersionStrategy"
+module_LatestVersionStrategy.__qualname__ = "LatestVersionStrategy"
+module_LatestVersionStrategy.__module__ = "nominal_api.module"
+
+
 class module_Module(ConjureBeanType):
 
     @builtins.classmethod
@@ -15443,6 +15510,120 @@ module_ModuleVersionMetadata.__qualname__ = "ModuleVersionMetadata"
 module_ModuleVersionMetadata.__module__ = "nominal_api.module"
 
 
+class module_PinnedVersionStrategy(ConjureBeanType):
+    """This strategy refers to a specific version of the module.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'version': ConjureFieldDefinition('version', module_ModuleVersion)
+        }
+
+    __slots__: List[str] = ['_version']
+
+    def __init__(self, version: str) -> None:
+        self._version = version
+
+    @builtins.property
+    def version(self) -> str:
+        return self._version
+
+
+module_PinnedVersionStrategy.__name__ = "PinnedVersionStrategy"
+module_PinnedVersionStrategy.__qualname__ = "PinnedVersionStrategy"
+module_PinnedVersionStrategy.__module__ = "nominal_api.module"
+
+
+class module_RequestModuleNameRef(ConjureBeanType):
+    """This is used to refer to modules in requests by name.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'version_strategy': ConjureFieldDefinition('versionStrategy', module_VersionStrategy)
+        }
+
+    __slots__: List[str] = ['_name', '_version_strategy']
+
+    def __init__(self, name: str, version_strategy: "module_VersionStrategy") -> None:
+        self._name = name
+        self._version_strategy = version_strategy
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def version_strategy(self) -> "module_VersionStrategy":
+        return self._version_strategy
+
+
+module_RequestModuleNameRef.__name__ = "RequestModuleNameRef"
+module_RequestModuleNameRef.__qualname__ = "RequestModuleNameRef"
+module_RequestModuleNameRef.__module__ = "nominal_api.module"
+
+
+class module_RequestModuleRef(ConjureUnionType):
+    """Request reference to a module. This is used to refer to modules in requests.
+    """
+    _name: Optional["module_RequestModuleNameRef"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', module_RequestModuleNameRef)
+        }
+
+    def __init__(
+            self,
+            name: Optional["module_RequestModuleNameRef"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (name is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if name is not None:
+                self._name = name
+                self._type = 'name'
+
+        elif type_of_union == 'name':
+            if name is None:
+                raise ValueError('a union value must not be None')
+            self._name = name
+            self._type = 'name'
+
+    @builtins.property
+    def name(self) -> Optional["module_RequestModuleNameRef"]:
+        return self._name
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, module_RequestModuleRefVisitor):
+            raise ValueError('{} is not an instance of module_RequestModuleRefVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'name' and self.name is not None:
+            return visitor._name(self.name)
+
+
+module_RequestModuleRef.__name__ = "RequestModuleRef"
+module_RequestModuleRef.__qualname__ = "RequestModuleRef"
+module_RequestModuleRef.__module__ = "nominal_api.module"
+
+
+class module_RequestModuleRefVisitor:
+
+    @abstractmethod
+    def _name(self, name: "module_RequestModuleNameRef") -> Any:
+        pass
+
+
+module_RequestModuleRefVisitor.__name__ = "RequestModuleRefVisitor"
+module_RequestModuleRefVisitor.__qualname__ = "RequestModuleRefVisitor"
+module_RequestModuleRefVisitor.__module__ = "nominal_api.module"
+
+
 class module_SearchModuleApplicationsQuery(ConjureUnionType):
     _module_rid: Optional[str] = None
     _asset_rid: Optional[str] = None
@@ -15979,41 +16160,6 @@ module_SearchModulesSortOptions.__qualname__ = "SearchModulesSortOptions"
 module_SearchModulesSortOptions.__module__ = "nominal_api.module"
 
 
-class module_SemanticVersion(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'major': ConjureFieldDefinition('major', int),
-            'minor': ConjureFieldDefinition('minor', int),
-            'patch': ConjureFieldDefinition('patch', int)
-        }
-
-    __slots__: List[str] = ['_major', '_minor', '_patch']
-
-    def __init__(self, major: int, minor: int, patch: int) -> None:
-        self._major = major
-        self._minor = minor
-        self._patch = patch
-
-    @builtins.property
-    def major(self) -> int:
-        return self._major
-
-    @builtins.property
-    def minor(self) -> int:
-        return self._minor
-
-    @builtins.property
-    def patch(self) -> int:
-        return self._patch
-
-
-module_SemanticVersion.__name__ = "SemanticVersion"
-module_SemanticVersion.__qualname__ = "SemanticVersion"
-module_SemanticVersion.__module__ = "nominal_api.module"
-
-
 class module_UpdateModuleApplicationRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -16139,6 +16285,83 @@ module_ValueType.__qualname__ = "ValueType"
 module_ValueType.__module__ = "nominal_api.module"
 
 
+class module_VersionStrategy(ConjureUnionType):
+    _pinned: Optional["module_PinnedVersionStrategy"] = None
+    _latest: Optional["module_LatestVersionStrategy"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'pinned': ConjureFieldDefinition('pinned', module_PinnedVersionStrategy),
+            'latest': ConjureFieldDefinition('latest', module_LatestVersionStrategy)
+        }
+
+    def __init__(
+            self,
+            pinned: Optional["module_PinnedVersionStrategy"] = None,
+            latest: Optional["module_LatestVersionStrategy"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (pinned is not None) + (latest is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if pinned is not None:
+                self._pinned = pinned
+                self._type = 'pinned'
+            if latest is not None:
+                self._latest = latest
+                self._type = 'latest'
+
+        elif type_of_union == 'pinned':
+            if pinned is None:
+                raise ValueError('a union value must not be None')
+            self._pinned = pinned
+            self._type = 'pinned'
+        elif type_of_union == 'latest':
+            if latest is None:
+                raise ValueError('a union value must not be None')
+            self._latest = latest
+            self._type = 'latest'
+
+    @builtins.property
+    def pinned(self) -> Optional["module_PinnedVersionStrategy"]:
+        return self._pinned
+
+    @builtins.property
+    def latest(self) -> Optional["module_LatestVersionStrategy"]:
+        return self._latest
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, module_VersionStrategyVisitor):
+            raise ValueError('{} is not an instance of module_VersionStrategyVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'pinned' and self.pinned is not None:
+            return visitor._pinned(self.pinned)
+        if self._type == 'latest' and self.latest is not None:
+            return visitor._latest(self.latest)
+
+
+module_VersionStrategy.__name__ = "VersionStrategy"
+module_VersionStrategy.__qualname__ = "VersionStrategy"
+module_VersionStrategy.__module__ = "nominal_api.module"
+
+
+class module_VersionStrategyVisitor:
+
+    @abstractmethod
+    def _pinned(self, pinned: "module_PinnedVersionStrategy") -> Any:
+        pass
+
+    @abstractmethod
+    def _latest(self, latest: "module_LatestVersionStrategy") -> Any:
+        pass
+
+
+module_VersionStrategyVisitor.__name__ = "VersionStrategyVisitor"
+module_VersionStrategyVisitor.__qualname__ = "VersionStrategyVisitor"
+module_VersionStrategyVisitor.__module__ = "nominal_api.module"
+
+
 class module_internal_BatchGetResolvedModuleDefinitionsRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -16190,8 +16413,7 @@ class module_internal_InternalModuleService(Service):
     """
 
     def batch_get_resolved_module_definitions(self, auth_header: str, request: "module_internal_BatchGetResolvedModuleDefinitionsRequest") -> "module_internal_BatchGetResolvedModuleDefinitionsResponse":
-        """Returns the resolved module definitions for the given module-asset pairs. If any of modules have not been
-applied to their corresponding asset, this will throw.
+        """Returns the resolved module definitions for the requested ModuleApplication.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -16222,6 +16444,38 @@ applied to their corresponding asset, this will throw.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_internal_BatchGetResolvedModuleDefinitionsResponse, self._return_none_for_unknown_union_types)
 
+    def get_unresolved_module_definition(self, auth_header: str, module_ref: "module_RequestModuleNameRef") -> "module_internal_ModuleComputeDefinition":
+        """Returns the module definition for the given module reference.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(module_ref)
+
+        _path = '/internal/scout/v2/module/module/get'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), module_internal_ModuleComputeDefinition, self._return_none_for_unknown_union_types)
+
 
 module_internal_InternalModuleService.__name__ = "InternalModuleService"
 module_internal_InternalModuleService.__qualname__ = "InternalModuleService"
@@ -16251,6 +16505,53 @@ module_internal_ModuleApplicationReference.__qualname__ = "ModuleApplicationRefe
 module_internal_ModuleApplicationReference.__module__ = "nominal_api.module_internal"
 
 
+class module_internal_ModuleComputeDefinition(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_name': ConjureFieldDefinition('moduleName', str),
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'version': ConjureFieldDefinition('version', module_ModuleVersion),
+            'default_variables': ConjureFieldDefinition('defaultVariables', List[module_ModuleVariable]),
+            'functions': ConjureFieldDefinition('functions', List[module_Function])
+        }
+
+    __slots__: List[str] = ['_module_name', '_module_rid', '_version', '_default_variables', '_functions']
+
+    def __init__(self, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_name: str, module_rid: str, version: str) -> None:
+        self._module_name = module_name
+        self._module_rid = module_rid
+        self._version = version
+        self._default_variables = default_variables
+        self._functions = functions
+
+    @builtins.property
+    def module_name(self) -> str:
+        return self._module_name
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+    @builtins.property
+    def version(self) -> str:
+        return self._version
+
+    @builtins.property
+    def default_variables(self) -> List["module_ModuleVariable"]:
+        return self._default_variables
+
+    @builtins.property
+    def functions(self) -> List["module_Function"]:
+        return self._functions
+
+
+module_internal_ModuleComputeDefinition.__name__ = "ModuleComputeDefinition"
+module_internal_ModuleComputeDefinition.__qualname__ = "ModuleComputeDefinition"
+module_internal_ModuleComputeDefinition.__module__ = "nominal_api.module_internal"
+
+
 class module_internal_ResolvedModuleVersionDefinition(ConjureBeanType):
 
     @builtins.classmethod
@@ -16258,17 +16559,15 @@ class module_internal_ResolvedModuleVersionDefinition(ConjureBeanType):
         return {
             'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid),
             'resolved_parameters': ConjureFieldDefinition('resolvedParameters', List[module_ModuleVariable]),
-            'default_variables': ConjureFieldDefinition('defaultVariables', List[module_ModuleVariable]),
-            'functions': ConjureFieldDefinition('functions', List[module_Function])
+            'module_definition': ConjureFieldDefinition('moduleDefinition', module_internal_ModuleComputeDefinition)
         }
 
-    __slots__: List[str] = ['_module_application_rid', '_resolved_parameters', '_default_variables', '_functions']
+    __slots__: List[str] = ['_module_application_rid', '_resolved_parameters', '_module_definition']
 
-    def __init__(self, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_application_rid: str, resolved_parameters: List["module_ModuleVariable"]) -> None:
+    def __init__(self, module_application_rid: str, module_definition: "module_internal_ModuleComputeDefinition", resolved_parameters: List["module_ModuleVariable"]) -> None:
         self._module_application_rid = module_application_rid
         self._resolved_parameters = resolved_parameters
-        self._default_variables = default_variables
-        self._functions = functions
+        self._module_definition = module_definition
 
     @builtins.property
     def module_application_rid(self) -> str:
@@ -16279,12 +16578,8 @@ class module_internal_ResolvedModuleVersionDefinition(ConjureBeanType):
         return self._resolved_parameters
 
     @builtins.property
-    def default_variables(self) -> List["module_ModuleVariable"]:
-        return self._default_variables
-
-    @builtins.property
-    def functions(self) -> List["module_Function"]:
-        return self._functions
+    def module_definition(self) -> "module_internal_ModuleComputeDefinition":
+        return self._module_definition
 
 
 module_internal_ResolvedModuleVersionDefinition.__name__ = "ResolvedModuleVersionDefinition"
@@ -23123,6 +23418,36 @@ a file, primarily CSV.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_catalog_DatasetFilesPage, self._return_none_for_unknown_union_types)
 
+    def search_dataset_files(self, auth_header: str, request: "scout_catalog_SearchDatasetFilesRequest") -> "scout_catalog_SearchDatasetFilesResponse":
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/catalog/v1/search-dataset-files'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_catalog_SearchDatasetFilesResponse, self._return_none_for_unknown_union_types)
+
     def get_dataset_file_uri(self, auth_header: str, dataset_rid: str, file_id: str) -> "scout_catalog_DatasetFileUri":
         _conjure_encoder = ConjureEncoder()
 
@@ -23878,6 +24203,51 @@ scout_catalog_DatasetFile.__qualname__ = "DatasetFile"
 scout_catalog_DatasetFile.__module__ = "nominal_api.scout_catalog"
 
 
+class scout_catalog_DatasetFileSortField(ConjureEnumType):
+
+    UPLOADED_AT = 'UPLOADED_AT'
+    '''UPLOADED_AT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_catalog_DatasetFileSortField.__name__ = "DatasetFileSortField"
+scout_catalog_DatasetFileSortField.__qualname__ = "DatasetFileSortField"
+scout_catalog_DatasetFileSortField.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_DatasetFileSortOptions(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'is_descending': ConjureFieldDefinition('isDescending', bool),
+            'field': ConjureFieldDefinition('field', scout_catalog_DatasetFileSortField)
+        }
+
+    __slots__: List[str] = ['_is_descending', '_field']
+
+    def __init__(self, field: "scout_catalog_DatasetFileSortField", is_descending: bool) -> None:
+        self._is_descending = is_descending
+        self._field = field
+
+    @builtins.property
+    def is_descending(self) -> bool:
+        return self._is_descending
+
+    @builtins.property
+    def field(self) -> "scout_catalog_DatasetFileSortField":
+        return self._field
+
+
+scout_catalog_DatasetFileSortOptions.__name__ = "DatasetFileSortOptions"
+scout_catalog_DatasetFileSortOptions.__qualname__ = "DatasetFileSortOptions"
+scout_catalog_DatasetFileSortOptions.__module__ = "nominal_api.scout_catalog"
+
+
 class scout_catalog_DatasetFileUri(ConjureBeanType):
     """Pre-signed URI that can be used to download the original file directly. Expires if the download has
 not been initiated within 1 minute.
@@ -24617,6 +24987,203 @@ scout_catalog_S3Handle.__qualname__ = "S3Handle"
 scout_catalog_S3Handle.__module__ = "nominal_api.scout_catalog"
 
 
+class scout_catalog_SearchDatasetFilesQuery(ConjureUnionType):
+    _time_range: Optional["scout_catalog_TimeRangeFilter"] = None
+    _file_tags: Optional[Dict[str, str]] = None
+    _and_: Optional[List["scout_catalog_SearchDatasetFilesQuery"]] = None
+    _or_: Optional[List["scout_catalog_SearchDatasetFilesQuery"]] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'time_range': ConjureFieldDefinition('timeRange', scout_catalog_TimeRangeFilter),
+            'file_tags': ConjureFieldDefinition('fileTags', Dict[api_TagName, api_TagValue]),
+            'and_': ConjureFieldDefinition('and', List[scout_catalog_SearchDatasetFilesQuery]),
+            'or_': ConjureFieldDefinition('or', List[scout_catalog_SearchDatasetFilesQuery])
+        }
+
+    def __init__(
+            self,
+            time_range: Optional["scout_catalog_TimeRangeFilter"] = None,
+            file_tags: Optional[Dict[str, str]] = None,
+            and_: Optional[List["scout_catalog_SearchDatasetFilesQuery"]] = None,
+            or_: Optional[List["scout_catalog_SearchDatasetFilesQuery"]] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (time_range is not None) + (file_tags is not None) + (and_ is not None) + (or_ is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if time_range is not None:
+                self._time_range = time_range
+                self._type = 'timeRange'
+            if file_tags is not None:
+                self._file_tags = file_tags
+                self._type = 'fileTags'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
+
+        elif type_of_union == 'timeRange':
+            if time_range is None:
+                raise ValueError('a union value must not be None')
+            self._time_range = time_range
+            self._type = 'timeRange'
+        elif type_of_union == 'fileTags':
+            if file_tags is None:
+                raise ValueError('a union value must not be None')
+            self._file_tags = file_tags
+            self._type = 'fileTags'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
+
+    @builtins.property
+    def time_range(self) -> Optional["scout_catalog_TimeRangeFilter"]:
+        return self._time_range
+
+    @builtins.property
+    def file_tags(self) -> Optional[Dict[str, str]]:
+        return self._file_tags
+
+    @builtins.property
+    def and_(self) -> Optional[List["scout_catalog_SearchDatasetFilesQuery"]]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional[List["scout_catalog_SearchDatasetFilesQuery"]]:
+        return self._or_
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_catalog_SearchDatasetFilesQueryVisitor):
+            raise ValueError('{} is not an instance of scout_catalog_SearchDatasetFilesQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'timeRange' and self.time_range is not None:
+            return visitor._time_range(self.time_range)
+        if self._type == 'fileTags' and self.file_tags is not None:
+            return visitor._file_tags(self.file_tags)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
+
+
+scout_catalog_SearchDatasetFilesQuery.__name__ = "SearchDatasetFilesQuery"
+scout_catalog_SearchDatasetFilesQuery.__qualname__ = "SearchDatasetFilesQuery"
+scout_catalog_SearchDatasetFilesQuery.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_SearchDatasetFilesQueryVisitor:
+
+    @abstractmethod
+    def _time_range(self, time_range: "scout_catalog_TimeRangeFilter") -> Any:
+        pass
+
+    @abstractmethod
+    def _file_tags(self, file_tags: Dict[str, str]) -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: List["scout_catalog_SearchDatasetFilesQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: List["scout_catalog_SearchDatasetFilesQuery"]) -> Any:
+        pass
+
+
+scout_catalog_SearchDatasetFilesQueryVisitor.__name__ = "SearchDatasetFilesQueryVisitor"
+scout_catalog_SearchDatasetFilesQueryVisitor.__qualname__ = "SearchDatasetFilesQueryVisitor"
+scout_catalog_SearchDatasetFilesQueryVisitor.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_SearchDatasetFilesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
+            'query': ConjureFieldDefinition('query', scout_catalog_SearchDatasetFilesQuery),
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
+            'token': ConjureFieldDefinition('token', OptionalTypeWrapper[api_Token]),
+            'sort_options': ConjureFieldDefinition('sortOptions', scout_catalog_DatasetFileSortOptions)
+        }
+
+    __slots__: List[str] = ['_dataset_rid', '_query', '_page_size', '_token', '_sort_options']
+
+    def __init__(self, dataset_rid: str, query: "scout_catalog_SearchDatasetFilesQuery", sort_options: "scout_catalog_DatasetFileSortOptions", page_size: Optional[int] = None, token: Optional[str] = None) -> None:
+        self._dataset_rid = dataset_rid
+        self._query = query
+        self._page_size = page_size
+        self._token = token
+        self._sort_options = sort_options
+
+    @builtins.property
+    def dataset_rid(self) -> str:
+        return self._dataset_rid
+
+    @builtins.property
+    def query(self) -> "scout_catalog_SearchDatasetFilesQuery":
+        return self._query
+
+    @builtins.property
+    def page_size(self) -> Optional[int]:
+        """Defaults to 100. Will throw if larger than 1000.
+        """
+        return self._page_size
+
+    @builtins.property
+    def token(self) -> Optional[str]:
+        return self._token
+
+    @builtins.property
+    def sort_options(self) -> "scout_catalog_DatasetFileSortOptions":
+        return self._sort_options
+
+
+scout_catalog_SearchDatasetFilesRequest.__name__ = "SearchDatasetFilesRequest"
+scout_catalog_SearchDatasetFilesRequest.__qualname__ = "SearchDatasetFilesRequest"
+scout_catalog_SearchDatasetFilesRequest.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_SearchDatasetFilesResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[scout_catalog_DatasetFile]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_results', '_next_page_token']
+
+    def __init__(self, results: List["scout_catalog_DatasetFile"], next_page_token: Optional[str] = None) -> None:
+        self._results = results
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def results(self) -> List["scout_catalog_DatasetFile"]:
+        return self._results
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+scout_catalog_SearchDatasetFilesResponse.__name__ = "SearchDatasetFilesResponse"
+scout_catalog_SearchDatasetFilesResponse.__qualname__ = "SearchDatasetFilesResponse"
+scout_catalog_SearchDatasetFilesResponse.__module__ = "nominal_api.scout_catalog"
+
+
 class scout_catalog_SearchDatasetsQuery(ConjureUnionType):
     _search_text: Optional[str] = None
     _exact_match: Optional[str] = None
@@ -25031,6 +25598,37 @@ scout_catalog_SortOptions.__qualname__ = "SortOptions"
 scout_catalog_SortOptions.__module__ = "nominal_api.scout_catalog"
 
 
+class scout_catalog_TimeRangeFilter(ConjureBeanType):
+    """searches for files that intersect with the specified range.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'start': ConjureFieldDefinition('start', OptionalTypeWrapper[scout_catalog_UtcTimestamp]),
+            'end': ConjureFieldDefinition('end', OptionalTypeWrapper[scout_catalog_UtcTimestamp])
+        }
+
+    __slots__: List[str] = ['_start', '_end']
+
+    def __init__(self, end: Optional["scout_catalog_UtcTimestamp"] = None, start: Optional["scout_catalog_UtcTimestamp"] = None) -> None:
+        self._start = start
+        self._end = end
+
+    @builtins.property
+    def start(self) -> Optional["scout_catalog_UtcTimestamp"]:
+        return self._start
+
+    @builtins.property
+    def end(self) -> Optional["scout_catalog_UtcTimestamp"]:
+        return self._end
+
+
+scout_catalog_TimeRangeFilter.__name__ = "TimeRangeFilter"
+scout_catalog_TimeRangeFilter.__qualname__ = "TimeRangeFilter"
+scout_catalog_TimeRangeFilter.__module__ = "nominal_api.scout_catalog"
+
+
 class scout_catalog_TimestampMetadata(ConjureBeanType):
 
     @builtins.classmethod
@@ -25282,6 +25880,29 @@ class scout_catalog_UpdateIngestStatusV2(ConjureBeanType):
 scout_catalog_UpdateIngestStatusV2.__name__ = "UpdateIngestStatusV2"
 scout_catalog_UpdateIngestStatusV2.__qualname__ = "UpdateIngestStatusV2"
 scout_catalog_UpdateIngestStatusV2.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_UtcTimestamp(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'seconds_since_epoch': ConjureFieldDefinition('secondsSinceEpoch', int)
+        }
+
+    __slots__: List[str] = ['_seconds_since_epoch']
+
+    def __init__(self, seconds_since_epoch: int) -> None:
+        self._seconds_since_epoch = seconds_since_epoch
+
+    @builtins.property
+    def seconds_since_epoch(self) -> int:
+        return self._seconds_since_epoch
+
+
+scout_catalog_UtcTimestamp.__name__ = "UtcTimestamp"
+scout_catalog_UtcTimestamp.__qualname__ = "UtcTimestamp"
+scout_catalog_UtcTimestamp.__module__ = "nominal_api.scout_catalog"
 
 
 class scout_catalog_WeakTimestampType(ConjureEnumType):
@@ -81319,6 +81940,62 @@ secrets_api_UpdateSecretRequest.__qualname__ = "UpdateSecretRequest"
 secrets_api_UpdateSecretRequest.__module__ = "nominal_api.secrets_api"
 
 
+class security_api_workspace_PreferredRefNameConfiguration(ConjureUnionType):
+    _v1: Optional[List["api_RefNameAndType"]] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', List[api_RefNameAndType])
+        }
+
+    def __init__(
+            self,
+            v1: Optional[List["api_RefNameAndType"]] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional[List["api_RefNameAndType"]]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, security_api_workspace_PreferredRefNameConfigurationVisitor):
+            raise ValueError('{} is not an instance of security_api_workspace_PreferredRefNameConfigurationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+security_api_workspace_PreferredRefNameConfiguration.__name__ = "PreferredRefNameConfiguration"
+security_api_workspace_PreferredRefNameConfiguration.__qualname__ = "PreferredRefNameConfiguration"
+security_api_workspace_PreferredRefNameConfiguration.__module__ = "nominal_api.security_api_workspace"
+
+
+class security_api_workspace_PreferredRefNameConfigurationVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: List["api_RefNameAndType"]) -> Any:
+        pass
+
+
+security_api_workspace_PreferredRefNameConfigurationVisitor.__name__ = "PreferredRefNameConfigurationVisitor"
+security_api_workspace_PreferredRefNameConfigurationVisitor.__qualname__ = "PreferredRefNameConfigurationVisitor"
+security_api_workspace_PreferredRefNameConfigurationVisitor.__module__ = "nominal_api.security_api_workspace"
+
+
 class security_api_workspace_RemoveType(ConjureBeanType):
     """The request to remove a field from a workspace.
     """
@@ -81505,14 +82182,16 @@ class security_api_workspace_UpdateWorkspaceRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'display_name': ConjureFieldDefinition('displayName', OptionalTypeWrapper[security_api_workspace_UpdateOrRemoveWorkspaceDisplayName]),
-            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[security_api_workspace_UpdateOrRemoveWorkspaceSymbol])
+            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[security_api_workspace_UpdateOrRemoveWorkspaceSymbol]),
+            'settings': ConjureFieldDefinition('settings', OptionalTypeWrapper[security_api_workspace_WorkspaceSettings])
         }
 
-    __slots__: List[str] = ['_display_name', '_symbol']
+    __slots__: List[str] = ['_display_name', '_symbol', '_settings']
 
-    def __init__(self, display_name: Optional["security_api_workspace_UpdateOrRemoveWorkspaceDisplayName"] = None, symbol: Optional["security_api_workspace_UpdateOrRemoveWorkspaceSymbol"] = None) -> None:
+    def __init__(self, display_name: Optional["security_api_workspace_UpdateOrRemoveWorkspaceDisplayName"] = None, settings: Optional["security_api_workspace_WorkspaceSettings"] = None, symbol: Optional["security_api_workspace_UpdateOrRemoveWorkspaceSymbol"] = None) -> None:
         self._display_name = display_name
         self._symbol = symbol
+        self._settings = settings
 
     @builtins.property
     def display_name(self) -> Optional["security_api_workspace_UpdateOrRemoveWorkspaceDisplayName"]:
@@ -81521,6 +82200,10 @@ class security_api_workspace_UpdateWorkspaceRequest(ConjureBeanType):
     @builtins.property
     def symbol(self) -> Optional["security_api_workspace_UpdateOrRemoveWorkspaceSymbol"]:
         return self._symbol
+
+    @builtins.property
+    def settings(self) -> Optional["security_api_workspace_WorkspaceSettings"]:
+        return self._settings
 
 
 security_api_workspace_UpdateWorkspaceRequest.__name__ = "UpdateWorkspaceRequest"
@@ -81537,17 +82220,19 @@ class security_api_workspace_Workspace(ConjureBeanType):
             'rid': ConjureFieldDefinition('rid', api_rids_WorkspaceRid),
             'org': ConjureFieldDefinition('org', authentication_api_OrgRid),
             'display_name': ConjureFieldDefinition('displayName', OptionalTypeWrapper[str]),
-            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[security_api_workspace_WorkspaceSymbol])
+            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[security_api_workspace_WorkspaceSymbol]),
+            'settings': ConjureFieldDefinition('settings', security_api_workspace_WorkspaceSettings)
         }
 
-    __slots__: List[str] = ['_id', '_rid', '_org', '_display_name', '_symbol']
+    __slots__: List[str] = ['_id', '_rid', '_org', '_display_name', '_symbol', '_settings']
 
-    def __init__(self, id: str, org: str, rid: str, display_name: Optional[str] = None, symbol: Optional["security_api_workspace_WorkspaceSymbol"] = None) -> None:
+    def __init__(self, id: str, org: str, rid: str, settings: "security_api_workspace_WorkspaceSettings", display_name: Optional[str] = None, symbol: Optional["security_api_workspace_WorkspaceSymbol"] = None) -> None:
         self._id = id
         self._rid = rid
         self._org = org
         self._display_name = display_name
         self._symbol = symbol
+        self._settings = settings
 
     @builtins.property
     def id(self) -> str:
@@ -81570,6 +82255,10 @@ class security_api_workspace_Workspace(ConjureBeanType):
     @builtins.property
     def symbol(self) -> Optional["security_api_workspace_WorkspaceSymbol"]:
         return self._symbol
+
+    @builtins.property
+    def settings(self) -> "security_api_workspace_WorkspaceSettings":
+        return self._settings
 
 
 security_api_workspace_Workspace.__name__ = "Workspace"
@@ -81715,6 +82404,29 @@ the user belongs to it, that will be returned.
 security_api_workspace_WorkspaceService.__name__ = "WorkspaceService"
 security_api_workspace_WorkspaceService.__qualname__ = "WorkspaceService"
 security_api_workspace_WorkspaceService.__module__ = "nominal_api.security_api_workspace"
+
+
+class security_api_workspace_WorkspaceSettings(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'ref_names': ConjureFieldDefinition('refNames', OptionalTypeWrapper[security_api_workspace_PreferredRefNameConfiguration])
+        }
+
+    __slots__: List[str] = ['_ref_names']
+
+    def __init__(self, ref_names: Optional["security_api_workspace_PreferredRefNameConfiguration"] = None) -> None:
+        self._ref_names = ref_names
+
+    @builtins.property
+    def ref_names(self) -> Optional["security_api_workspace_PreferredRefNameConfiguration"]:
+        return self._ref_names
+
+
+security_api_workspace_WorkspaceSettings.__name__ = "WorkspaceSettings"
+security_api_workspace_WorkspaceSettings.__qualname__ = "WorkspaceSettings"
+security_api_workspace_WorkspaceSettings.__module__ = "nominal_api.security_api_workspace"
 
 
 class security_api_workspace_WorkspaceSymbol(ConjureUnionType):
@@ -88380,6 +89092,8 @@ api_rids_DataSourceRid = str
 
 scout_rids_api_CheckLineageRid = str
 
+api_DataSourceRefName = str
+
 scout_rids_api_VizId = str
 
 scout_comparisonnotebook_api_ComparisonVizDefinitionMap = Dict[scout_rids_api_VizId, scout_comparisonnotebook_api_VizDefinition]
@@ -88423,6 +89137,8 @@ storage_writer_api_MeasurementName = str
 storage_datasource_api_NominalDataSourceId = str
 
 api_rids_EventRid = str
+
+module_ModuleVersion = str
 
 persistent_compute_api_Milliseconds = int
 

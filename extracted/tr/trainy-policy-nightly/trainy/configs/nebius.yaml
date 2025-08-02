@@ -1,0 +1,16 @@
+kubernetes:
+  remote_identity: SERVICE_ACCOUNT
+  pod_config:
+    spec:
+      hostIPC: true
+      initContainers:
+        - name: init-limit
+          image: busybox:1.27.2
+          command: ["sh", "-c", "ulimit -Hl unlimited && ulimit -Sl unlimited"]
+          securityContext:
+            privileged: true
+      containers:
+        - securityContext:
+            privileged: true
+          capabilities:
+            add: [ "IPC_LOCK", "NET_RAW" ]

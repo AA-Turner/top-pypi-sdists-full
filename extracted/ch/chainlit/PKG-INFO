@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: chainlit
-Version: 2.6.3
+Version: 2.6.4
 Summary: Build Conversational AI.
 License: Apache-2.0
 Keywords: LLM,Agents,MCP,gen ai,chat ui,chatbot ui,openai,copilot,langchain,conversational ai
@@ -21,14 +21,15 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
 Requires-Dist: aiofiles (>=23.1.0,<25.0.0)
 Requires-Dist: asyncer (>=0.0.8,<0.0.9)
+Requires-Dist: audioop-lts (==0.2.1) ; python_version >= "3.13" and python_version < "4.0"
 Requires-Dist: click (>=8.1.3,<9.0.0)
 Requires-Dist: dataclasses_json (>=0.6.7,<0.7.0)
-Requires-Dist: fastapi (>=0.115.3,<0.116)
+Requires-Dist: fastapi (>=0.116.1,<0.117)
 Requires-Dist: filetype (>=1.2.0,<2.0.0)
 Requires-Dist: httpx (>=0.23.0)
 Requires-Dist: lazify (>=0.4.0,<0.5.0)
 Requires-Dist: literalai (==0.1.201)
-Requires-Dist: mcp (>=1.3.0,<2.0.0)
+Requires-Dist: mcp (>=1.11.0,<2.0.0)
 Requires-Dist: nest-asyncio (>=1.6.0,<2.0.0)
 Requires-Dist: packaging (>=23.1)
 Requires-Dist: pydantic (>=2.7.2,<3)
@@ -36,10 +37,10 @@ Requires-Dist: pyjwt (>=2.8.0,<3.0.0)
 Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
 Requires-Dist: python-multipart (>=0.0.18,<0.0.19)
 Requires-Dist: python-socketio (>=5.11.0,<6.0.0)
-Requires-Dist: starlette (>=0.41.2)
+Requires-Dist: starlette (>=0.47.2)
 Requires-Dist: syncer (>=2.0.3,<3.0.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0)
-Requires-Dist: uvicorn (>=0.25.0)
+Requires-Dist: uvicorn (>=0.35.0)
 Requires-Dist: watchfiles (>=0.20.0,<0.21.0)
 Project-URL: Documentation, https://docs.chainlit.io/
 Project-URL: Homepage, https://chainlit.io/

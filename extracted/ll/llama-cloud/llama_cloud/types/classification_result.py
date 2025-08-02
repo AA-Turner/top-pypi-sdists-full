@@ -17,14 +17,13 @@ except ImportError:
 class ClassificationResult(pydantic.BaseModel):
     """
     Result of classifying a single file.
-
-    Contains the classification outcome with confidence score and matched rule info.
     """
 
-    file_id: str = pydantic.Field(description="The ID of the classified file")
-    type: str = pydantic.Field(description="The assigned document type ('unknown' if no rules matched)")
+    reasoning: str = pydantic.Field(
+        description="Step-by-step explanation of why this classification was chosen and the confidence score assigned"
+    )
     confidence: float = pydantic.Field(description="Confidence score of the classification (0.0-1.0)")
-    matched_rule: typing.Optional[str]
+    type: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

@@ -40,7 +40,7 @@ from ...providers.response import FinishReason, AudioResponse, MediaResponse, Re
 from ...client.helper import filter_markdown
 from ...tools.files import supports_filename, get_streaming, get_bucket_dir, get_tempfile
 from ...tools.run_tools import iter_run_tools
-from ...errors import ProviderNotFoundError
+from ...errors import ProviderNotFoundError, MissingAuthError
 from ...image import is_allowed_extension, process_image, MEDIA_TYPE_MAP
 from ...cookies import get_cookies_dir
 from ...image.copy_images import secure_filename, get_source_url, get_media_dir, copy_media
@@ -120,7 +120,12 @@ class Backend_Api(Api):
 
         @app.route('/backend-api/v2/models/<provider>', methods=['GET'])
         def jsonify_provider_models(**kwargs):
-            response = self.get_provider_models(**kwargs)
+            try:
+                response = self.get_provider_models(**kwargs)
+            except MissingAuthError as e:
+                return jsonify({"error": {"message": f"{type(e).__name__}: {e}"}}), 401
+            except Exception as e:
+                return jsonify({"error": {"message": f"{type(e).__name__}: {e}"}}), 500
             return jsonify(response)
 
         @app.route('/backend-api/v2/providers', methods=['GET'])
@@ -208,8 +213,9 @@ class Backend_Api(Api):
             cache_dir = Path(get_cookies_dir()) / ".usage"
             cache_file = cache_dir / f"{datetime.date.today()}.jsonl"
             cache_dir.mkdir(parents=True, exist_ok=True)
+            data = {**request.json, "user": request.headers.get("x-user", "unknown")}
             with cache_file.open("a" if cache_file.exists() else "w") as f:
-                f.write(f"{json.dumps(request.json)}\n")
+                f.write(f"{json.dumps(data)}\n")
             return {}
     
         @app.route('/backend-api/v2/usage/<date>', methods=['GET'])

@@ -1,0 +1,70 @@
+[tool.poetry]
+name = "asgi-ratelimit"
+version = "0.10.0"
+description = ""
+authors = ["abersheeran <me@abersheeran.com>"]
+readme = "README.md"
+license = "Apache-2.0"
+
+homepage = "https://github.com/abersheeran/asgi-ratelimit"
+repository = "https://github.com/abersheeran/asgi-ratelimit"
+
+classifiers=[
+    "Programming Language :: Python :: 3",
+]
+
+packages = [
+    { include = "ratelimit" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+dataclasses = {version = "^0.6", python = "~3.6"}
+pyjwt = {version = "^1.7.1", optional = true}
+redis = {version = ">=4.2.0rc2", optional = true}
+
+[tool.poetry.extras]
+redis = ["redis",]
+jwt = ["pyjwt",]
+full = ["redis", "pyjwt"]
+
+[tool.poetry.dev-dependencies]
+flake8 = "*"
+mypy = "*"
+black = {version = "*", allow-prereleases = true}
+pytest = "^6.2.5"
+pytest-asyncio = "^0.12.0"
+httpx = {version = "^0.15.0", allow-prereleases = true}
+coverage = "^5.5"
+isort = "^5.8.0"
+
+[tool.coverage.run]
+omit = ["*/.venv/*", "*/tests/*"]
+branch = true
+command_line = "-m pytest"
+source = ["."]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if False:",
+  "assert False",
+]
+show_missing = true
+skip_covered = true
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
+known_first_party = "asgi-ratelimit"
+verbose = false
+
+[tool.black]
+target-version = ['py37']
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

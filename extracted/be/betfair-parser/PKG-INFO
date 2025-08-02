@@ -1,0 +1,129 @@
+Metadata-Version: 2.3
+Name: betfair_parser
+Version: 0.16.1
+Summary: A betfair parser
+License: Copyright 2023, betfair_parser developers
+         
+         Redistribution and use in source and binary forms, with or without
+         modification, are permitted provided that the following conditions are met:
+         
+         1. Redistributions of source code must retain the above copyright notice, this
+            list of conditions and the following disclaimer.
+         2. Redistributions in binary form must reproduce the above copyright notice,
+            this list of conditions and the following disclaimer in the documentation
+            and/or other materials provided with the distribution.
+         
+         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+         ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+         WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+         DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+         ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+         (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+         LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+         ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+         (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+         SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Keywords: parser,betfair,api,json,streaming
+Author: Bradley McElroy
+Author-email: bradley.mcelroy@live.com
+Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: File Formats :: JSON
+Classifier: Development Status :: 4 - Beta
+Provides-Extra: dev
+Requires-Dist: msgspec (>=0.19.0)
+Requires-Dist: pytest (>=7.1) ; extra == "dev"
+Requires-Dist: pytest-asyncio (>=0.21.0) ; extra == "dev"
+Requires-Dist: pytest-benchmark (>=4.0) ; extra == "dev"
+Requires-Dist: requests (>=2.20.0) ; extra == "dev"
+Requires-Dist: twine (>=4.0.2) ; extra == "dev"
+Project-URL: Bug Tracker, https://github.com/limx0/betfair_parser/issues
+Project-URL: Documentation, https://limx0.github.io/betfair_parser/
+Project-URL: Homepage, https://github.com/limx0/betfair_parser
+Description-Content-Type: text/markdown
+
+![betfair_parser logo](https://github.com/limx0/betfair_parser/assets/2386612/10d602a6-627c-48f1-8145-2f14232a8320)
+
+[![GitHub Build Status](https://img.shields.io/github/actions/workflow/status/limx0/betfair_parser/build.yml?branch=main&logo=github)](https://github.com/limx0/betfair_parser/actions)
+[![PyPI](https://img.shields.io/pypi/v/betfair_parser.svg?style=flat)](https://pypi.org/project/betfair_parser/)
+![Python Version](https://img.shields.io/pypi/pyversions/betfair_parser)
+![License](https://img.shields.io/github/license/limx0/betfair_parser)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+# betfair_parser
+
+A simple and fast betfair parser. Why you might like this library:
+
+- Complete: All betfair (non-vendor) client API included
+- Conventions: The API strictly follows pythonic naming conventions
+- Consistency: All data is type checked, API requests as well as responses
+- Comfort: All betfair enums and type definitions are included, to support IDE syntax completion
+- Clear errors: API errors don't just throw cryptic codes, but contain documentation about that error
+- Compatible: Use it with any HTTP library you like, including async libraries
+- Cheetah fast: Thanks to the magic of [msgspec](https://github.com/jcrist/msgspec), megabytes of input
+parse in milliseconds
+
+
+## Usage
+
+`betfair_parser` is built out of API building blocks, that can be used with any HTTP client
+you like. All API operations provide `.headers()`, `.body()` and a `.parse_response()` method.
+
+The [`client`](https://github.com/limx0/betfair_parser/blob/main/betfair_parser/client.py) module
+contains a sample, minimalistic client implementation. It may be used as is with any `requests`-compatible
+HTTP client or serve as an example, how to integrate `betfair_parser` with other HTTP clients.
+
+```python
+import requests
+from betfair_parser import client
+from betfair_parser.spec import accounts, betting
+
+session = requests.Session()  # or anything similar like httpx.Client()
+client.login(session, "username", "password", "app_key")
+client.request(session, accounts.GetAccountFunds.with_params())
+# AccountFundsResponse(available_to_bet_balance=10000.0, exposure=0.0,
+# retained_commission=0.0, exposure_limit=-10000.0, discount_rate=0.0,
+# points_balance=10, wallet=<Wallet.UK: 'UK'>)
+
+# Request with an invalid wallet parameter:
+client.request(session, accounts.GetAccountFunds.with_params(wallet="AUS"))
+# >>> AccountAPINGException: INVALID_PARAMETERS: Problem parsing the parameters,
+#     or a mandatory parameter was not found
+
+client.request(session, betting.ListCurrentOrders.with_params())
+# CurrentOrderSummaryReport(current_orders=[], more_available=False)
+
+# Support for other countries
+from betfair_parser.endpoints import endpoint
+endpoint_cfg = endpoint("ITA")  # alpha-3 code
+client.login(session, "username", "password", "app_key", endpoints=endpoint_cfg)
+```
+
+See [`test_live.py`](https://github.com/limx0/betfair_parser/blob/main/tests/integration/test_live.py)
+for more API call examples.
+
+
+## Releasing
+
+Releases are published automatically when a tag is pushed to GitHub.
+
+```bash
+# Set next version number
+export RELEASE=x.x.x
+
+# Create tags
+git commit --allow-empty -m "Release $RELEASE"
+git tag -a $RELEASE -m "Version $RELEASE"
+
+# Push
+git push --tags
+git push
+```
+

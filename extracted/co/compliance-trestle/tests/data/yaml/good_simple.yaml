@@ -1,0 +1,10 @@
+control-origination:
+- Service Provider Corporate
+- Service Provider System Specific
+responsible-roles:
+- Customer
+x-trestle-set-params:
+  ac-1_prm_5:
+    label: meetings cancelled from cli yaml
+    profile-values: no meetings from cli yaml
+    values: new values from cli yaml

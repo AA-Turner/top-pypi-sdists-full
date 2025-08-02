@@ -2,11 +2,13 @@
 import logging
 import math
 import os
+import pickle
 import re
 import shutil
 import timeit
 import unittest.mock
 from collections import namedtuple
+from io import StringIO
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -14,17 +16,18 @@ import textparser
 from parameterized import parameterized
 
 import cantools.autosar
-from cantools.database.can.formats.dbc import LongNamesConverter
-from cantools.database.utils import sort_choices_by_value, sort_signals_by_name
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
-
-import cantools
-from cantools.database import Message, Signal, UnsupportedDatabaseFormatError
+import cantools.database
+from cantools.database import Message, Signal
 from cantools.database.can.formats import dbc
+from cantools.database.can.formats.dbc import LongNamesConverter
+from cantools.database.errors import (
+    DecodeError,
+    EncodeError,
+    Error,
+    ParseError,
+    UnsupportedDatabaseFormatError,
+)
+from cantools.database.utils import sort_choices_by_value, sort_signals_by_name
 
 
 class CanToolsDatabaseTest(unittest.TestCase):
@@ -155,9 +158,9 @@ class CanToolsDatabaseTest(unittest.TestCase):
     def test_dbc_gensigstartval_from_raw_initial(self):
         sig = Signal(name='s', start=0, length=8, raw_initial=47)
         msg = Message(frame_id=0x42, name='m', length=8, signals=[sig])
-        expected_db = cantools.db.Database(messages=[msg])
+        expected_db = cantools.database.Database(messages=[msg])
 
-        actual_db = cantools.db.Database()
+        actual_db = cantools.database.Database()
         actual_db.add_dbc_string(expected_db.as_dbc_string())
 
         self.assertEqual(
@@ -168,7 +171,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         filename = 'tests/files/dbc/motohawk.dbc'
 
         with open(filename) as fin:
-            db = cantools.db.load(fin)
+            db = cantools.database.load(fin)
 
         self.assertEqual(db.buses, [])
         self.assertEqual(len(db.nodes), 2)
@@ -184,7 +187,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assert_dbc_dump(db, filename)
 
     def test_emc32(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
 
         with open('tests/files/dbc/emc32.dbc') as fin:
             db.add_dbc(fin)
@@ -243,7 +246,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             " 'DUMMY_NODE_VECTOR0', 'Vector__XXX', 'Elevation Head')")
 
     def test_foobar(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/foobar.dbc')
 
         self.assertEqual(len(db.nodes), 4)
@@ -311,7 +314,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(message.signals[0].length, 64)
 
     def test_foobar_encode_decode(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/foobar.dbc')
 
         messages = [
@@ -351,7 +354,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             self.assertEqual(decoded, decoded_message)
 
     def test_foobar_encode_decode_frame_ids(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/foobar.dbc')
 
         messages = [
@@ -391,7 +394,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             self.assertEqual(decoded, decoded_message)
 
     def test_foobar_decode_masked_frame_id(self):
-        db = cantools.db.Database(frame_id_mask=0xff)
+        db = cantools.database.Database(frame_id_mask=0xff)
         db.add_dbc_file('tests/files/dbc/foobar.dbc')
 
         frame_ids = [
@@ -476,7 +479,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/padding_bit_order.dbc')
 
         # Message 0.
@@ -557,7 +560,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/motohawk.dbc')
 
         example_message_name = 'ExampleMessage'
@@ -660,7 +663,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/motohawk.dbc')
 
         msgname = 'ExampleMessage'
@@ -714,7 +717,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/motohawk.dbc')
 
         decoded_message = {
@@ -734,7 +737,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/socialledge.dbc')
 
         decoded_message = {
@@ -760,7 +763,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/motohawk.dbc')
 
         decoded_message = {
@@ -891,7 +894,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
     def test_encode_signal_strict_negative_scaling(self, value, scaling, expected_result):
         """Test encoding of a signal with negative scaling (=-0.01),
         a value range from 4070-4100 and a value table."""
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/issue_636_negative_scaling.dbc')
         msg = db.get_message_by_name("ExampleMessage")
 
@@ -910,7 +913,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/motohawk.dbc')
 
         decoded_message = {
@@ -932,7 +935,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(decoded, decoded_message)
 
     def test_socialledge(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/socialledge.dbc')
 
         # Verify nodes.
@@ -1019,7 +1022,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/socialledge.dbc')
 
         frame_id = 200
@@ -1044,7 +1047,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/socialledge.dbc')
 
         frame_id = 200
@@ -1069,7 +1072,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.load_file('tests/files/arxml/system-4.2.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
 
         db_msg = db.get_message_by_name('OneToContainThemAll')
 
@@ -1167,7 +1170,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
                          b'\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8')
 
     def test_gather_signals(self):
-        db = cantools.db.load_file('tests/files/arxml/system-4.2.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
 
         db_msg = db.get_message_by_name('MultiplexedMessage')
 
@@ -1288,7 +1291,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_get_message_by_frame_id_and_name(self):
         with open('tests/files/dbc/motohawk.dbc') as fin:
-            db = cantools.db.load(fin)
+            db = cantools.database.load(fin)
 
         message = db.get_message_by_name('ExampleMessage')
         self.assertEqual(message.name, 'ExampleMessage')
@@ -1297,7 +1300,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(message.frame_id, 496)
 
     def test_get_signal_by_name(self):
-        db = cantools.db.load_file('tests/files/dbc/foobar.dbc')
+        db = cantools.database.load_file('tests/files/dbc/foobar.dbc')
 
         message = db.get_message_by_name('Foo')
 
@@ -1323,7 +1326,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             ])[32:].decode('cp1252'))
 
     def test_the_homer(self):
-        db = cantools.db.load_file('tests/files/kcd/the_homer.kcd')
+        db = cantools.database.load_file('tests/files/kcd/the_homer.kcd')
 
         self.assertEqual(db.version, '1.23')
         self.assertEqual(len(db.nodes), 18)
@@ -1596,7 +1599,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(message.length, 1)
 
     def test_the_homer_encode_length(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_kcd_file('tests/files/kcd/the_homer.kcd')
 
         frame_id = 0x400
@@ -1612,7 +1615,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(encoded, encoded_message)
 
     def test_the_homer_float(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_kcd_file('tests/files/kcd/the_homer.kcd')
 
         # Message 1 (binary64).
@@ -1640,7 +1643,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(decoded, decoded_message)
 
     def test_the_homer_encode_decode_choices(self):
-        db = cantools.db.load_file('tests/files/kcd/the_homer.kcd')
+        db = cantools.database.load_file('tests/files/kcd/the_homer.kcd')
 
         messages = [
             ({'EngagedGear': 'disengaged'}, b'\x00\x00'),
@@ -1692,7 +1695,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             self.assertEqual(decoded, decoded_message)
 
     def test_the_homer_encode_decode_big_endian(self):
-        db = cantools.db.load_file('tests/files/kcd/the_homer.kcd')
+        db = cantools.database.load_file('tests/files/kcd/the_homer.kcd')
 
         decoded_message = {
             'A': 0x140fa,
@@ -1707,7 +1710,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(decoded, decoded_message)
 
     def test_the_homer_encode_decode_signed(self):
-        db = cantools.db.load_file('tests/files/kcd/the_homer.kcd')
+        db = cantools.database.load_file('tests/files/kcd/the_homer.kcd')
 
         datas = [
             (
@@ -1735,14 +1738,14 @@ class CanToolsDatabaseTest(unittest.TestCase):
             self.assertEqual(decoded, decoded_message)
 
     def test_empty_kcd(self):
-        db = cantools.db.load_file('tests/files/kcd/empty.kcd')
+        db = cantools.database.load_file('tests/files/kcd/empty.kcd')
 
         self.assertEqual(db.version, None)
         self.assertEqual(db.nodes, [])
 
     def test_invalid_kcd(self):
-        with self.assertRaises(cantools.db.UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_string('<WrongRootElement/>',
+        with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
+            cantools.database.load_string('<WrongRootElement/>',
                                     database_format='kcd')
 
         self.assertEqual(
@@ -1752,18 +1755,18 @@ class CanToolsDatabaseTest(unittest.TestCase):
             'got WrongRootElement."')
 
     def test_jopp_5_0_sym(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
 
-        with self.assertRaises(cantools.db.ParseError) as cm:
+        with self.assertRaises(ParseError) as cm:
             db.add_sym_file('tests/files/sym/jopp-5.0.sym')
 
         self.assertEqual(str(cm.exception), 'Only SYM version 6.0 is supported.')
 
     def internal_test_jopp_6_0_sym(self, test_sym_string):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_sym_file('tests/files/sym/jopp-6.0.sym')
         if test_sym_string:
-            db = cantools.db.load_string(db.as_sym_string())
+            db = cantools.database.load_string(db.as_sym_string())
 
         self.assertEqual(len(db.messages), 7)
         self.assertEqual(len(db.messages[0].signals), 0)
@@ -2343,7 +2346,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(signal_5.multiplexer_ids, None)
 
     def test_add_bad_sym_string(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
 
         with self.assertRaises(textparser.ParseError) as cm:
             db.add_sym_string('FormatVersion=6.0\n'
@@ -2354,7 +2357,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             'Invalid syntax at line 2, column 1: ">>!<<Foo="Jopp""')
 
     def test_multiplexed_variables_sym(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_sym_file('tests/files/sym/multiplexed_variables.sym')
         message = db.get_message_by_name('TestAlert')
         self.assertEqual(message.signal_tree,
@@ -2372,7 +2375,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
                          ])
 
     def test_type_parameter_overrides_is_extended_sym(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
         db.add_sym_file('tests/files/sym/type-extended-cycle-dash-p.sym')
         message = db.get_message_by_name('CAN-Tx Query')
         self.assertTrue(message.is_extended_frame)
@@ -2596,11 +2599,11 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
 
     def test_load_bad_format(self):
-        with self.assertRaises(cantools.db.UnsupportedDatabaseFormatError):
-            cantools.db.load(StringIO(''))
+        with self.assertRaises(UnsupportedDatabaseFormatError):
+            cantools.database.load(StringIO(''))
 
     def test_add_bad_kcd_string(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
 
         with self.assertRaises(ElementTree.ParseError) as cm:
             db.add_kcd_string('not xml')
@@ -2608,10 +2611,10 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'syntax error: line 1, column 0')
 
     def test_bus(self):
-        bus = cantools.db.bus.Bus('foo')
+        bus = cantools.database.Bus('foo')
         self.assertEqual(repr(bus), "bus('foo', None)")
 
-        bus = cantools.db.bus.Bus('foo', 'bar')
+        bus = cantools.database.Bus('foo', 'bar')
         self.assertEqual(repr(bus), "bus('foo', 'bar')")
 
     def test_num(self):
@@ -2623,7 +2626,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_timing(self):
         filename = 'tests/files/dbc/timing.dbc'
-        db = cantools.db.load_file(filename)
+        db = cantools.database.load_file(filename)
 
         # Message cycle time is 200, as given by BA_.
         message = db.get_message_by_frame_id(1)
@@ -2639,7 +2642,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assert_dbc_dump(db, filename)
 
     def test_multiplex(self):
-        db = cantools.db.load_file('tests/files/dbc/multiplex.dbc')
+        db = cantools.database.load_file('tests/files/dbc/multiplex.dbc')
 
         message_1 = db.messages[0]
         self.assertTrue(message_1.is_multiplexed())
@@ -2710,7 +2713,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assert_dbc_dump(db, 'tests/files/dbc/multiplex_dumped.dbc')
 
     def test_multiplex_choices(self):
-        db = cantools.db.load_file('tests/files/dbc/multiplex_choices.dbc',
+        db = cantools.database.load_file('tests/files/dbc/multiplex_choices.dbc',
                                    prune_choices=False)
 
         # With Multiplexor and BIT_L as strings.
@@ -2777,7 +2780,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assert_dbc_dump(db, 'tests/files/dbc/multiplex_choices_dumped.dbc')
 
     def test_multiplex_2(self):
-        db = cantools.db.load_file('tests/files/dbc/multiplex_2.dbc')
+        db = cantools.database.load_file('tests/files/dbc/multiplex_2.dbc')
 
         # Shared.
         message = db.messages[0]
@@ -2876,53 +2879,53 @@ class CanToolsDatabaseTest(unittest.TestCase):
         #            +-- S8            | 40..48
         #
         signals = [
-            cantools.db.Signal(name='S0',
+            cantools.database.Signal(name='S0',
                                start=0,
                                length=4,
                                is_multiplexer=True),
-            cantools.db.Signal(name='S1',
+            cantools.database.Signal(name='S1',
                                start=4,
                                length=4,
                                is_multiplexer=True,
                                multiplexer_ids=[0],
                                multiplexer_signal='S0'),
-            cantools.db.Signal(name='S2',
+            cantools.database.Signal(name='S2',
                                start=8,
                                length=8,
                                multiplexer_ids=[0],
                                multiplexer_signal='S1'),
-            cantools.db.Signal(name='S3',
+            cantools.database.Signal(name='S3',
                                start=16,
                                length=16,
                                multiplexer_ids=[0],
                                multiplexer_signal='S1'),
-            cantools.db.Signal(name='S4',
+            cantools.database.Signal(name='S4',
                                start=8,
                                length=24,
                                multiplexer_ids=[2],
                                multiplexer_signal='S1'),
-            cantools.db.Signal(name='S5',
+            cantools.database.Signal(name='S5',
                                start=4,
                                length=28,
                                multiplexer_ids=[1],
                                multiplexer_signal='S0'),
-            cantools.db.Signal(name='S6',
+            cantools.database.Signal(name='S6',
                                start=32,
                                length=8,
                                is_multiplexer=True),
-            cantools.db.Signal(name='S7',
+            cantools.database.Signal(name='S7',
                                start=40,
                                length=24,
                                multiplexer_ids=[1],
                                multiplexer_signal='S6'),
-            cantools.db.Signal(name='S8',
+            cantools.database.Signal(name='S8',
                                start=40,
                                length=8,
                                multiplexer_ids=[2],
                                multiplexer_signal='S6')
         ]
 
-        message = cantools.db.Message(frame_id=1,
+        message = cantools.database.Message(frame_id=1,
                                       name='M0',
                                       length=8,
                                       signals=signals)
@@ -3033,8 +3036,8 @@ class CanToolsDatabaseTest(unittest.TestCase):
             'Invalid syntax at line 1, column 9: "CM_ BO_ >>!<<"Foo.";"')
 
         # Missing frame id in message comment, using load_string().
-        with self.assertRaises(cantools.db.UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_string('CM_ BO_ "Foo.";')
+        with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
+            cantools.database.load_string('CM_ BO_ "Foo.";')
 
         self.assertEqual(
             str(cm.exception),
@@ -3044,7 +3047,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             "supported.\", CDD: \"syntax error: line 1, column 0\"")
 
     def test_get_node_by_name(self):
-        db = cantools.db.load_file('tests/files/kcd/the_homer.kcd')
+        db = cantools.database.load_file('tests/files/kcd/the_homer.kcd')
 
         self.assertIs(db.get_node_by_name('Motor alternative supplier'),
                       db.nodes[1])
@@ -3055,7 +3058,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(str(cm.exception), "'Missing'")
 
     def test_get_bus_by_name(self):
-        db = cantools.db.load_file('tests/files/kcd/the_homer.kcd')
+        db = cantools.database.load_file('tests/files/kcd/the_homer.kcd')
 
         self.assertIs(db.get_bus_by_name('Comfort'), db.buses[2])
 
@@ -3070,30 +3073,30 @@ class CanToolsDatabaseTest(unittest.TestCase):
         filename_sym = 'tests/files/sym/jopp-6.0.sym'
 
         # Matching file contents and database format.
-        cantools.db.load_file(filename_dbc, database_format=None)
-        cantools.db.load_file(filename_dbc, database_format='dbc')
-        cantools.db.load_file(filename_kcd, database_format='kcd')
-        cantools.db.load_file(filename_sym, database_format='sym')
+        cantools.database.load_file(filename_dbc, database_format=None)
+        cantools.database.load_file(filename_dbc, database_format='dbc')
+        cantools.database.load_file(filename_kcd, database_format='kcd')
+        cantools.database.load_file(filename_sym, database_format='sym')
 
         # KCD database format, but file is DBC.
-        with self.assertRaises(cantools.db.UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(filename_dbc, database_format='kcd')
+        with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
+            cantools.database.load_file(filename_dbc, database_format='kcd')
 
         self.assertEqual(
             str(cm.exception),
             "KCD: \"not well-formed (invalid token): line 1, column 0\"")
 
         # DBC database format, but file is KCD.
-        with self.assertRaises(cantools.db.UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(filename_kcd, database_format='dbc')
+        with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
+            cantools.database.load_file(filename_kcd, database_format='dbc')
 
         self.assertEqual(
             str(cm.exception),
             "DBC: \"Invalid syntax at line 1, column 1: \">>!<<<!--\"\"")
 
         # SYM database format, but file is KCD.
-        with self.assertRaises(cantools.db.UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(filename_kcd, database_format='sym')
+        with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
+            cantools.database.load_file(filename_kcd, database_format='sym')
 
         self.assertEqual(
             str(cm.exception),
@@ -3101,7 +3104,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         # Unsupported database format.
         with self.assertRaises(ValueError) as cm:
-            cantools.db.load_file(filename_kcd, database_format='bad')
+            cantools.database.load_file(filename_kcd, database_format='bad')
 
         self.assertEqual(
             str(cm.exception),
@@ -3132,16 +3135,16 @@ class CanToolsDatabaseTest(unittest.TestCase):
         iterations = 10000
 
         signals = [
-            cantools.db.Signal('S0',  7, 4,  'big_endian'),
-            cantools.db.Signal('S1',  3, 4,  'big_endian'),
-            cantools.db.Signal('S2', 15, 4,  'big_endian'),
-            cantools.db.Signal('S3', 11, 8,  'big_endian'),
-            cantools.db.Signal('S4', 19, 1,  'big_endian'),
-            cantools.db.Signal('S5', 17, 17, 'big_endian'),
-            cantools.db.Signal('S6', 47, 15, 'big_endian')
+            cantools.database.Signal('S0',  7, 4,  'big_endian'),
+            cantools.database.Signal('S1',  3, 4,  'big_endian'),
+            cantools.database.Signal('S2', 15, 4,  'big_endian'),
+            cantools.database.Signal('S3', 11, 8,  'big_endian'),
+            cantools.database.Signal('S4', 19, 1,  'big_endian'),
+            cantools.database.Signal('S5', 17, 17, 'big_endian'),
+            cantools.database.Signal('S6', 47, 15, 'big_endian')
         ]
 
-        message = cantools.db.Message(frame_id=1,
+        message = cantools.database.Message(frame_id=1,
                                       name='M0',
                                       length=8,
                                       signals=signals)
@@ -3177,15 +3180,15 @@ class CanToolsDatabaseTest(unittest.TestCase):
         """
 
         signals = [
-            cantools.db.Signal('S1',  3, 4,  'big_endian'),
-            cantools.db.Signal('S2', 15, 4,  'big_endian'),
-            cantools.db.Signal('S3', 11, 8,  'big_endian'),
-            cantools.db.Signal('S4', 19, 1,  'big_endian'),
-            cantools.db.Signal('S5', 17, 17, 'big_endian'),
-            cantools.db.Signal('S6', 47, 15, 'big_endian')
+            cantools.database.Signal('S1',  3, 4,  'big_endian'),
+            cantools.database.Signal('S2', 15, 4,  'big_endian'),
+            cantools.database.Signal('S3', 11, 8,  'big_endian'),
+            cantools.database.Signal('S4', 19, 1,  'big_endian'),
+            cantools.database.Signal('S5', 17, 17, 'big_endian'),
+            cantools.database.Signal('S6', 47, 15, 'big_endian')
         ]
 
-        message = cantools.db.Message(frame_id=1,
+        message = cantools.database.Message(frame_id=1,
                                       name='M0',
                                       length=8,
                                       signals=signals,
@@ -3211,7 +3214,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.load_file('tests/files/dbc/multiplex_choices.dbc',
+        db = cantools.database.load_file('tests/files/dbc/multiplex_choices.dbc',
                                    prune_choices=True)
 
         decoded_message = {
@@ -3237,13 +3240,13 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         """
 
-        db = cantools.db.load_file('tests/files/dbc/multiplex_choices.dbc',
+        db = cantools.database.load_file('tests/files/dbc/multiplex_choices.dbc',
                                    prune_choices=False)
 
         message_1 = db.messages[0]
 
         # Encode.
-        with self.assertRaises(cantools.db.EncodeError) as cm:
+        with self.assertRaises(cantools.database.EncodeError) as cm:
             message_1.encode({'Multiplexor': 7})
 
         self.assertEqual(str(cm.exception),
@@ -3252,7 +3255,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
                          '{8, 16 or 24}, but got 7')
 
         # Decode.
-        with self.assertRaises(cantools.db.DecodeError) as cm:
+        with self.assertRaises(cantools.database.DecodeError) as cm:
             message_1.decode(b'\x1f\xff\x73\xfe\xff\xff\xff\xff')
 
         self.assertEqual(str(cm.exception),
@@ -3261,7 +3264,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         message_3 = db.messages[2]
 
         # Encode with single multiplexer id 8.
-        with self.assertRaises(cantools.db.EncodeError) as cm:
+        with self.assertRaises(cantools.database.EncodeError) as cm:
             message_3.encode({'Multiplexor': 7})
 
         self.assertEqual(str(cm.exception),
@@ -3270,15 +3273,15 @@ class CanToolsDatabaseTest(unittest.TestCase):
                          'one of {8}, but got 7')
 
         # Decode with single multiplexer id 8.
-        with self.assertRaises(cantools.db.DecodeError) as cm:
+        with self.assertRaises(cantools.database.DecodeError) as cm:
             message_3.decode(b'\x1f\xff\x73\xfe\xff\xff\xff\xff')
 
         self.assertEqual(str(cm.exception),
                          'expected multiplexer id 8, but got 7')
 
     def test_multiplex_dump(self):
-        db = cantools.db.load_file('tests/files/dbc/test_multiplex_dump.dbc')
-        dumped_db = cantools.db.load_string(db.as_dbc_string())
+        db = cantools.database.load_file('tests/files/dbc/test_multiplex_dump.dbc')
+        dumped_db = cantools.database.load_string(db.as_dbc_string())
         dumped_msg = dumped_db.get_message_by_frame_id(0x100)
 
         self.assertEqual(dumped_msg.signals[0].name, "MultiplexorSig")
@@ -3292,8 +3295,8 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(dumped_msg.signals[2].is_multiplexer, False)
 
     def test_multiplex_sym_dump(self):
-        db = cantools.db.load_file('tests/files/sym/test_multiplex_dump.sym')
-        dumped_db = cantools.db.load_string(db.as_sym_string())
+        db = cantools.database.load_file('tests/files/sym/test_multiplex_dump.sym')
+        dumped_db = cantools.database.load_string(db.as_sym_string())
 
         dumped_msg = dumped_db.get_message_by_frame_id(0x100)
         self.assertEqual(dumped_msg.signals[0].name, "MultiplexorSig")
@@ -3304,24 +3307,24 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(dumped_msg.signals[1].multiplexer_ids[0], 0x2a)
 
     def test_multiplex_sym_with_empty_signal_name_dump(self):
-        db = cantools.db.load_file('tests/files/sym/test_multiplex_dump.sym')
+        db = cantools.database.load_file('tests/files/sym/test_multiplex_dump.sym')
         # change the name of the multiplexer signal to empty to trigger the condition in function _dump_message
         db.messages[0].signals[0].name = ''
         with self.assertRaises(ValueError) as context:
-            cantools.db.load_string(db.as_sym_string())
+            cantools.database.load_string(db.as_sym_string())
 
         self.assertTrue(str(context.exception).endswith("The database is corrupt."))
 
     def test_string_attribute_definition_dump(self):
-        db = cantools.db.load_file('tests/files/dbc/test_multiplex_dump.dbc')
-        dumped_db = cantools.db.load_string(db.as_dbc_string())
+        db = cantools.database.load_file('tests/files/dbc/test_multiplex_dump.dbc')
+        dumped_db = cantools.database.load_string(db.as_dbc_string())
         attribute = dumped_db.dbc.attribute_definitions
 
         self.assertEqual(attribute['BusType'].type_name, "STRING")
 
     def test_extended_id_dump(self):
-        db = cantools.db.load_file('tests/files/dbc/test_extended_id_dump.dbc')
-        dumped_db = cantools.db.load_string(db.as_dbc_string())
+        db = cantools.database.load_file('tests/files/dbc/test_extended_id_dump.dbc')
+        dumped_db = cantools.database.load_string(db.as_dbc_string())
         reg_id_msg = dumped_db.get_message_by_frame_id(0x100)
         ext_id_msg = dumped_db.get_message_by_frame_id(0x1c2a2a2a)
 
@@ -3329,8 +3332,8 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(ext_id_msg.is_extended_frame, True)
 
     def test_extended_id_sym_dump(self):
-        db = cantools.db.load_file('tests/files/sym/test_extended_id_dump.sym')
-        dumped_db = cantools.db.load_string(db.as_sym_string())
+        db = cantools.database.load_file('tests/files/sym/test_extended_id_dump.sym')
+        dumped_db = cantools.database.load_string(db.as_sym_string())
         reg_id_msg = dumped_db.get_message_by_frame_id(0x100)
         ext_id_msg = dumped_db.get_message_by_frame_id(0x1c2a2a2a)
 
@@ -3338,7 +3341,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(ext_id_msg.is_extended_frame, True)
 
     def test_event_attributes(self):
-        db = cantools.db.load_file('tests/files/dbc/attribute_Event.dbc')
+        db = cantools.database.load_file('tests/files/dbc/attribute_Event.dbc')
 
         self.assertEqual(db.messages[0].send_type, 'Event')
         self.assertEqual(db.messages[0].frame_id, 1234)
@@ -3348,7 +3351,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         filename = 'tests/files/dbc/attributes.dbc'
 
         with open(filename) as fin:
-            db = cantools.db.load(fin)
+            db = cantools.database.load(fin)
 
         # Signal attributes.
         attributes = db.messages[0].signals[0].dbc.attributes
@@ -3476,7 +3479,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         filename = 'tests/files/dbc/big_numbers.dbc'
 
         with open(filename) as fin:
-            db = cantools.db.load(fin)
+            db = cantools.database.load(fin)
 
         # Node attributes.
         node = db.nodes[0]
@@ -3494,7 +3497,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_setters(self):
         with open('tests/files/dbc/attributes.dbc') as fin:
-            db = cantools.db.load(fin)
+            db = cantools.database.load(fin)
 
         # Calling the setters for coverage. Assertions are not
         # necessary here since functionality is trivial.
@@ -3526,7 +3529,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_refresh(self):
         with open('tests/files/dbc/attributes.dbc') as fin:
-            db = cantools.db.load(fin)
+            db = cantools.database.load(fin)
 
         message = db.get_message_by_frame_id(0x39, force_extended_id=True)
         self.assertEqual(message.name, 'TheMessage')
@@ -3553,13 +3556,13 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(cm.exception.args[0], 0x80000000 | 0x41)
 
     def test_missing_dbc_specifics(self):
-        db = cantools.db.Database()
+        db = cantools.database.Database()
 
-        node = cantools.db.Node('FakeNode', 'Comment')
+        node = cantools.database.Node('FakeNode', 'Comment')
         db.nodes.append(node)
 
-        signals = [cantools.db.Signal('C', 0, 8)]
-        message = cantools.db.Message(0x20, 'D', 8, signals)
+        signals = [cantools.database.Signal('C', 0, 8)]
+        message = cantools.database.Message(0x20, 'D', 8, signals)
         db.messages.append(message)
 
         # Test that dump executes without raising.
@@ -3593,15 +3596,15 @@ class CanToolsDatabaseTest(unittest.TestCase):
         ]
 
         for data0, data1 in datas:
-            signal_0 = cantools.db.Signal('S0',
+            signal_0 = cantools.database.Signal('S0',
                                           data0.start,
                                           data0.length,
                                           data0.byte_order)
-            signal_1 = cantools.db.Signal('S1',
+            signal_1 = cantools.database.Signal('S1',
                                           data1.start,
                                           data1.length,
                                           data1.byte_order)
-            cantools.db.Message(1,
+            cantools.database.Message(1,
                                 'M',
                                 7,
                                 [signal_0, signal_1],
@@ -3624,17 +3627,17 @@ class CanToolsDatabaseTest(unittest.TestCase):
         ]
 
         for data0, data1 in datas:
-            signal_0 = cantools.db.Signal('S0',
+            signal_0 = cantools.database.Signal('S0',
                                           data0.start,
                                           data0.length,
                                           data0.byte_order)
-            signal_1 = cantools.db.Signal('S1',
+            signal_1 = cantools.database.Signal('S1',
                                           data1.start,
                                           data1.length,
                                           data1.byte_order)
 
-            with self.assertRaises(cantools.db.Error) as cm:
-                cantools.db.Message(1,
+            with self.assertRaises(cantools.database.Error) as cm:
+                cantools.database.Message(1,
                                     'M',
                                     7,
                                     [signal_0, signal_1],
@@ -3654,13 +3657,13 @@ class CanToolsDatabaseTest(unittest.TestCase):
         ]
 
         for data in datas:
-            signal = cantools.db.Signal('S',
+            signal = cantools.database.Signal('S',
                                         data.start,
                                         data.length,
                                         data.byte_order)
 
-            with self.assertRaises(cantools.db.Error) as cm:
-                cantools.db.Message(1,
+            with self.assertRaises(cantools.database.Error) as cm:
+                cantools.database.Message(1,
                                     'M',
                                     8,
                                     [signal],
@@ -3672,46 +3675,46 @@ class CanToolsDatabaseTest(unittest.TestCase):
     def test_strict_multiplexer(self):
         # Signals not overlapping.
         signals = [
-            cantools.db.Signal('S0',
+            cantools.database.Signal('S0',
                                7,
                                2,
                                'big_endian',
                                is_multiplexer=True),
-            cantools.db.Signal('S1',
+            cantools.database.Signal('S1',
                                5,
                                2,
                                'big_endian',
                                multiplexer_ids=[0],
                                multiplexer_signal='S0'),
-            cantools.db.Signal('S2',
+            cantools.database.Signal('S2',
                                5,
                                1,
                                'big_endian',
                                multiplexer_ids=[1],
                                multiplexer_signal='S0'),
-            cantools.db.Signal('S3',
+            cantools.database.Signal('S3',
                                3,
                                1,
                                'big_endian'),
-            cantools.db.Signal('S4',
+            cantools.database.Signal('S4',
                                2,
                                2,
                                'big_endian',
                                is_multiplexer=True),
-            cantools.db.Signal('S5',
+            cantools.database.Signal('S5',
                                0,
                                2,
                                'big_endian',
                                multiplexer_ids=[0],
                                multiplexer_signal='S4'),
-            cantools.db.Signal('S6',
+            cantools.database.Signal('S6',
                                0,
                                2,
                                'big_endian',
                                is_multiplexer=True,
                                multiplexer_ids=[1],
                                multiplexer_signal='S4'),
-            cantools.db.Signal('S7',
+            cantools.database.Signal('S7',
                                14,
                                1,
                                'big_endian',
@@ -3719,7 +3722,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
                                multiplexer_signal='S6')
         ]
 
-        cantools.db.Message(1,
+        cantools.database.Message(1,
                             'M',
                             7,
                             signals,
@@ -3729,28 +3732,28 @@ class CanToolsDatabaseTest(unittest.TestCase):
         datas = [
             (
                 [
-                    cantools.db.Signal('S0',
+                    cantools.database.Signal('S0',
                                        7,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True,
                                        multiplexer_ids=None,
                                        multiplexer_signal=None),
-                    cantools.db.Signal('S1',
+                    cantools.database.Signal('S1',
                                        5,
                                        2,
                                        'big_endian',
                                        is_multiplexer=False,
                                        multiplexer_ids=[0],
                                        multiplexer_signal='S0'),
-                    cantools.db.Signal('S2',
+                    cantools.database.Signal('S2',
                                        5,
                                        1,
                                        'big_endian',
                                        is_multiplexer=False,
                                        multiplexer_ids=[1],
                                        multiplexer_signal='S0'),
-                    cantools.db.Signal('S3',
+                    cantools.database.Signal('S3',
                                        4,
                                        1,
                                        'big_endian',
@@ -3762,46 +3765,46 @@ class CanToolsDatabaseTest(unittest.TestCase):
             ),
             (
                 [
-                    cantools.db.Signal('S0',
+                    cantools.database.Signal('S0',
                                        7,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True),
-                    cantools.db.Signal('S1',
+                    cantools.database.Signal('S1',
                                        5,
                                        2,
                                        'big_endian',
                                        multiplexer_ids=[0],
                                        multiplexer_signal='S0'),
-                    cantools.db.Signal('S2',
+                    cantools.database.Signal('S2',
                                        5,
                                        1,
                                        'big_endian',
                                        multiplexer_ids=[1],
                                        multiplexer_signal='S0'),
-                    cantools.db.Signal('S3',
+                    cantools.database.Signal('S3',
                                        3,
                                        1,
                                        'big_endian'),
-                    cantools.db.Signal('S4',
+                    cantools.database.Signal('S4',
                                        2,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True),
-                    cantools.db.Signal('S5',
+                    cantools.database.Signal('S5',
                                        0,
                                        2,
                                        'big_endian',
                                        multiplexer_ids=[0],
                                        multiplexer_signal='S4'),
-                    cantools.db.Signal('S6',
+                    cantools.database.Signal('S6',
                                        0,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True,
                                        multiplexer_ids=[1],
                                        multiplexer_signal='S4'),
-                    cantools.db.Signal('S7',
+                    cantools.database.Signal('S7',
                                        7,
                                        1,
                                        'big_endian',
@@ -3812,46 +3815,46 @@ class CanToolsDatabaseTest(unittest.TestCase):
             ),
             (
                 [
-                    cantools.db.Signal('S0',
+                    cantools.database.Signal('S0',
                                        7,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True),
-                    cantools.db.Signal('S1',
+                    cantools.database.Signal('S1',
                                        5,
                                        2,
                                        'big_endian',
                                        multiplexer_ids=[0],
                                        multiplexer_signal='S0'),
-                    cantools.db.Signal('S2',
+                    cantools.database.Signal('S2',
                                        5,
                                        1,
                                        'big_endian',
                                        multiplexer_ids=[1],
                                        multiplexer_signal='S0'),
-                    cantools.db.Signal('S3',
+                    cantools.database.Signal('S3',
                                        3,
                                        1,
                                        'big_endian'),
-                    cantools.db.Signal('S4',
+                    cantools.database.Signal('S4',
                                        2,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True),
-                    cantools.db.Signal('S5',
+                    cantools.database.Signal('S5',
                                        0,
                                        2,
                                        'big_endian',
                                        multiplexer_ids=[0],
                                        multiplexer_signal='S4'),
-                    cantools.db.Signal('S6',
+                    cantools.database.Signal('S6',
                                        1,
                                        2,
                                        'big_endian',
                                        is_multiplexer=True,
                                        multiplexer_ids=[1],
                                        multiplexer_signal='S4'),
-                    cantools.db.Signal('S7',
+                    cantools.database.Signal('S7',
                                        14,
                                        1,
                                        'big_endian',
@@ -3863,8 +3866,8 @@ class CanToolsDatabaseTest(unittest.TestCase):
         ]
 
         for signals, expected_overlpping in datas:
-            with self.assertRaises(cantools.db.Error) as cm:
-                cantools.db.Message(1, 'M', 7, signals, strict=True)
+            with self.assertRaises(cantools.database.Error) as cm:
+                cantools.database.Message(1, 'M', 7, signals, strict=True)
 
             self.assertEqual(str(cm.exception), expected_overlpping)
 
@@ -3904,7 +3907,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
                                                 [signal],
                                                 strict=False)
 
-        with self.assertRaises(cantools.database.errors.Error) as cm:
+        with self.assertRaises(Error) as cm:
             cantools.database.can.Database([message])
 
         self.assertEqual(str(cm.exception),
@@ -3963,7 +3966,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         filename = 'tests/files/dbc/issue_63.dbc'
 
-        with self.assertRaises(cantools.database.errors.Error) as cm:
+        with self.assertRaises(Error) as cm:
             cantools.database.load_file(filename)
 
         self.assertEqual(
@@ -4360,7 +4363,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_illegal_namespace(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file('tests/files/arxml/system-illegal-namespace-4.2.arxml')
+            cantools.database.load_file('tests/files/arxml/system-illegal-namespace-4.2.arxml')
 
         self.assertEqual(
             str(cm.exception),
@@ -4368,7 +4371,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         root = ElementTree.parse('tests/files/arxml/system-illegal-namespace-4.2.arxml').getroot()
         with self.assertRaises(ValueError) as cm:
-            cantools.db.can.formats.arxml.SystemLoader(root, strict=False)
+            cantools.database.can.formats.arxml.SystemLoader(root, strict=False)
 
         self.assertEqual(
             str(cm.exception),
@@ -4376,7 +4379,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_illegal_root(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file('tests/files/arxml/system-illegal-root-4.2.arxml')
+            cantools.database.load_file('tests/files/arxml/system-illegal-root-4.2.arxml')
 
         self.assertEqual(
             str(cm.exception),
@@ -4384,7 +4387,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         root = ElementTree.parse('tests/files/arxml/system-illegal-root-4.2.arxml').getroot()
         with self.assertRaises(ValueError) as cm:
-            cantools.db.can.formats.arxml.SystemLoader(root, strict=False)
+            cantools.database.can.formats.arxml.SystemLoader(root, strict=False)
 
         self.assertEqual(
             str(cm.exception),
@@ -4392,7 +4395,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_illegal_version(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file('tests/files/arxml/system-illegal-version-4.2.2.1.0.arxml')
+            cantools.database.load_file('tests/files/arxml/system-illegal-version-4.2.2.1.0.arxml')
 
         self.assertEqual(
             str(cm.exception),
@@ -4400,7 +4403,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_arxml_version(self):
         root = ElementTree.parse('tests/files/arxml/system-4.2.arxml').getroot()
-        loader = cantools.db.can.formats.arxml.SystemLoader(root, strict=False)
+        loader = cantools.database.can.formats.arxml.SystemLoader(root, strict=False)
 
         self.assertEqual(loader.autosar_version_newer(3), True)
         self.assertEqual(loader.autosar_version_newer(4), True)
@@ -4413,10 +4416,10 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(loader.autosar_version_newer(4, 3), False)
 
     def test_DAI_namespace(self):
-        cantools.db.load_file('tests/files/arxml/system-DAI-3.1.2.arxml')
+        cantools.database.load_file('tests/files/arxml/system-DAI-3.1.2.arxml')
 
     def test_system_3_arxml(self):
-        db = cantools.db.load_file('tests/files/arxml/system-3.2.3.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-3.2.3.arxml')
 
         self.assertEqual(len(db.buses), 1)
         bus = db.buses[0]
@@ -4698,7 +4701,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(signal_6.multiplexer_ids, None)
 
     def test_system_4_arxml(self):
-        db = cantools.db.load_file('tests/files/arxml/system-4.2.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
 
         self.assertEqual(len(db.buses), 1)
         bus = db.buses[0]
@@ -5229,14 +5232,14 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_system_arxml_traversal(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(
+            cantools.database.load_file(
                 'tests/files/arxml/system-dangling-reference-4.2.arxml')
         self.assertEqual(str(cm.exception),
                          'ARXML: \"Encountered dangling reference FRAME-REF ' \
                          'of type "CAN-FRAME": /PackageDoesNotExist/Message1"')
 
         root = ElementTree.parse('tests/files/arxml/system-4.2.arxml').getroot()
-        loader = cantools.db.can.formats.arxml.SystemLoader(root, strict=True)
+        loader = cantools.database.can.formats.arxml.SystemLoader(root, strict=True)
 
         # a base node must always be specified
         with self.assertRaises(ValueError) as cm:
@@ -5288,7 +5291,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(str(cm.exception), "['AR-PACKAGES', '*AR-PACKAGE'] does not resolve into a unique node")
 
     def test_no_compu_method_category_arxml(self):
-        db = cantools.db.load_file('tests/files/arxml/compu_method_no_category.arxml')
+        db = cantools.database.load_file('tests/files/arxml/compu_method_no_category.arxml')
 
         self.assertEqual(len(db.buses), 1)
         bus = db.buses[0]
@@ -5338,7 +5341,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(signal_1.multiplexer_ids, None)
 
     def test_unused_bit_pattern(self):
-        db = cantools.db.load_file('tests/files/arxml/system-4.2.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
 
         message4 = db.get_message_by_name('Message4')
         input_dict = {
@@ -5374,7 +5377,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(encoded, encoded_ref)
 
     def test_system_arxml_float_values(self):
-        db = cantools.db.load_file('tests/files/arxml/system-float-values.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-float-values.arxml')
 
         self.assertEqual(len(db.buses), 1)
         bus = db.buses[0]
@@ -5445,7 +5448,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_system_missing_factor_arxml(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(
+            cantools.database.load_file(
                 'tests/files/arxml/system-missing-factor-4.2.arxml')
 
         self.assertEqual(
@@ -5454,7 +5457,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_system_missing_denominator_arxml(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(
+            cantools.database.load_file(
                 'tests/files/arxml/system-missing-denominator-4.2.arxml')
 
         self.assertEqual(
@@ -5462,7 +5465,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
             'ARXML: "Expected 1 denominator value for linear scaling, but got 0."')
 
     def test_system_missing_rational_arxml(self):
-        db = cantools.db.load_file(
+        db = cantools.database.load_file(
             'tests/files/arxml/system-missing-rational-4.2.arxml')
 
         signal_1 = db.messages[0].signals[0]
@@ -5473,7 +5476,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_system_bad_root_tag(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
-            cantools.db.load_file(
+            cantools.database.load_file(
                 'tests/files/arxml/system-bad-root-tag-4.2.arxml')
 
         self.assertEqual(
@@ -5624,7 +5627,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_encode_mixed_signal(self):
         # cf issue #373
-        db = cantools.db.load_file('tests/files/arxml/system-4.2.arxml')
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
 
         decoded_message = {
             'message1_SeqCounter': 123,
@@ -5650,7 +5653,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         filename = 'tests/files/sym/issue_138.sym'
 
-        with self.assertRaises(cantools.database.errors.Error) as cm:
+        with self.assertRaises(Error) as cm:
             cantools.database.load_file(filename)
 
         self.assertEqual(
@@ -5666,7 +5669,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_issue_168_upper_case_file_extension(self):
         filename = 'tests/files/dbc/issue_168.DBC'
-        db = cantools.db.load_file(filename)
+        db = cantools.database.load_file(filename)
 
         message = db.get_message_by_name('Foo')
         self.assertEqual(message.name, 'Foo')
@@ -5847,7 +5850,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
     def test_dbc_issue_199_more_than_11_bits_standard_frame_id(self):
         filename = 'tests/files/dbc/issue_199.dbc'
 
-        with self.assertRaises(cantools.database.errors.Error) as cm:
+        with self.assertRaises(Error) as cm:
             cantools.database.load_file(filename)
 
         self.assertEqual(
@@ -5858,7 +5861,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
     def test_dbc_issue_199_more_than_29_bits_extended_frame_id(self):
         filename = 'tests/files/dbc/issue_199_extended.dbc'
 
-        with self.assertRaises(cantools.database.errors.Error) as cm:
+        with self.assertRaises(Error) as cm:
             cantools.database.load_file(filename)
 
         self.assertEqual(
@@ -6189,7 +6192,7 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def test_fd_detection(self):
         filename = "tests/files/dbc/fd_test.dbc"
-        db = cantools.db.load_file(filename)
+        db = cantools.database.load_file(filename)
 
         msgfdex = db.get_message_by_name('TestMsg_FDEx')
         self.assertEqual(True, msgfdex.is_fd)
@@ -6207,6 +6210,70 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(False, msgex.is_fd)
         self.assertEqual(True, msgex.is_extended_frame)
 
+
+    def test_exceptions_picklable(self):
+        # Error
+        err_msg = "This is an Error()"
+        try:
+            raise Error(err_msg)
+        except Error as exc:
+            pickled = pickle.dumps(exc)
+            unpickled = pickle.loads(pickled)
+            self.assertEqual(err_msg, str(unpickled))
+            self.assertEqual(repr(exc), repr(unpickled))
+
+        # ParseError
+        err_msg = "This is a ParseError()"
+        try:
+            raise ParseError(err_msg)
+        except ParseError as exc:
+            pickled = pickle.dumps(exc)
+            unpickled = pickle.loads(pickled)
+            self.assertEqual(err_msg, str(unpickled))
+            self.assertEqual(repr(exc), repr(unpickled))
+
+        # EncodeError
+        err_msg = "This is an EncodeError()"
+        try:
+            raise EncodeError(err_msg)
+        except EncodeError as exc:
+            pickled = pickle.dumps(exc)
+            unpickled = pickle.loads(pickled)
+            self.assertEqual(err_msg, str(unpickled))
+            self.assertEqual(repr(exc), repr(unpickled))
+
+        # DecodeError
+        err_msg = "This is a DecodeError()"
+        try:
+            raise DecodeError(err_msg)
+        except DecodeError as exc:
+            pickled = pickle.dumps(exc)
+            unpickled = pickle.loads(pickled)
+            self.assertEqual(err_msg, str(unpickled))
+            self.assertEqual(repr(exc), repr(unpickled))
+
+        # UnsupportedDatabaseFormatError
+        e_arxml_msg = "Exception in arxml"
+        e_arxml = Exception(e_arxml_msg)
+        e_dbc_msg = "Exception in dbc"
+        e_dbc = Exception(e_dbc_msg)
+        e_kcd_msg = "Exception in kcd"
+        e_kcd = Exception(e_kcd_msg)
+        e_sym_msg = "Exception in sym"
+        e_sym = Exception(e_sym_msg)
+        e_cdd_msg = "Exception in cdd"
+        e_cdd = Exception(e_cdd_msg)
+        try:
+            raise UnsupportedDatabaseFormatError(e_arxml, e_dbc, e_kcd, e_sym, e_cdd)
+        except UnsupportedDatabaseFormatError as exc:
+            pickled = pickle.dumps(exc)
+            unpickled = pickle.loads(pickled)
+            self.assertEqual(e_arxml_msg, str(unpickled.e_arxml))
+            self.assertEqual(e_dbc_msg, str(unpickled.e_dbc))
+            self.assertEqual(e_kcd_msg, str(unpickled.e_kcd))
+            self.assertEqual(e_sym_msg, str(unpickled.e_sym))
+            self.assertEqual(e_cdd_msg, str(unpickled.e_cdd))
+            self.assertEqual(repr(exc), repr(unpickled))
 
 # This file is not '__main__' when executed via 'python setup.py3
 # test'.

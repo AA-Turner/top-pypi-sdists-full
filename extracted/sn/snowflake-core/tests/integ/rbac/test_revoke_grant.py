@@ -10,13 +10,7 @@ from snowflake.core.grant._securables import Securables
 @pytest.mark.use_accountadmin
 @pytest.mark.usefixtures("backup_warehouse_fixture")
 def test_revoke_grant(
-    grants,
-    session,
-    schema,
-    test_role_name,
-    test_database_role_name,
-    test_warehouse_name,
-    test_function_name,
+    grants, session, schema, test_role_name, test_database_role_name, test_warehouse_name, test_function_name
 ):
     # grant roles
 
@@ -138,13 +132,7 @@ def test_revoke_grant(
 @pytest.mark.use_accountadmin
 @pytest.mark.usefixtures("backup_warehouse_fixture")
 def test_revoke_grant_with_grant_option(
-    grants,
-    session,
-    schema,
-    test_role_name,
-    test_database_role_name,
-    test_warehouse_name,
-    test_function_name,
+    grants, session, schema, test_role_name, test_database_role_name, test_warehouse_name, test_function_name
 ):
     # grant roles
 

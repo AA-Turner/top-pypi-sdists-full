@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dep-logic
-Version: 0.5.1
+Version: 0.5.2
 Summary: Python dependency specifications supporting logical operations
 Keywords: dependency,specification,logic,packaging
 Author-Email: Frost Ming <me@frostming.com>

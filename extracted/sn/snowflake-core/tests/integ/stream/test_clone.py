@@ -1,4 +1,3 @@
-
 import pytest
 
 from snowflake.core import Clone
@@ -13,14 +12,10 @@ from ...utils import ensure_snowflake_version
 def temp_stream(streams, src_temp_table, snowflake_version):
     ensure_snowflake_version(snowflake_version, "8.37.0")
 
-    stream_name = random_string(10, 'test_stream_')
-    stream_handle = streams.create(Stream(
-        name=stream_name,
-        stream_source=StreamSourceTable(
-            name = src_temp_table.name,
-        ),
-        comment="ThIs iS a ComMeNT"
-    ))
+    stream_name = random_string(10, "test_stream_")
+    stream_handle = streams.create(
+        Stream(name=stream_name, stream_source=StreamSourceTable(name=src_temp_table.name), comment="ThIs iS a ComMeNT")
+    )
 
     try:
         yield stream_handle
@@ -29,11 +24,9 @@ def temp_stream(streams, src_temp_table, snowflake_version):
 
 
 def test_clone(streams, temp_stream):
-    stream_name = random_string(10, 'test_stream_clone_')
+    stream_name = random_string(10, "test_stream_clone_")
 
-    cloned_stream = streams.create(stream_name,
-        clone_stream=temp_stream.name
-    )
+    cloned_stream = streams.create(stream_name, clone_stream=temp_stream.name)
 
     try:
         cloned_handle = cloned_stream.fetch()
@@ -43,13 +36,10 @@ def test_clone(streams, temp_stream):
     finally:
         streams[stream_name].drop()
 
+
 def test_clone_with_point_of_time(streams, temp_stream):
-    stream_name = random_string(10, 'test_stream_clone_pot_')
-    cloned_stream = streams.create(stream_name,
-        clone_stream=Clone(
-            source=temp_stream.name
-        )
-    )
+    stream_name = random_string(10, "test_stream_clone_pot_")
+    cloned_stream = streams.create(stream_name, clone_stream=Clone(source=temp_stream.name))
 
     try:
         cloned_handle = cloned_stream.fetch()
@@ -64,8 +54,7 @@ def test_clone_across_schema(temp_stream, temp_schema):
     stream_name = random_string(10, "test_clone_stream_across_schema_")
 
     created_handle = temp_schema.streams.create(
-        stream_name,
-        clone_stream = f"{temp_stream.schema.name}.{temp_stream.name}"
+        stream_name, clone_stream=f"{temp_stream.schema.name}.{temp_stream.name}"
     )
 
     try:
@@ -80,15 +69,12 @@ def test_clone_across_schema(temp_stream, temp_schema):
 
 def test_clone_across_database(temp_stream, temp_db):
     schema_name = random_string(10, "test_create_clone_across_schema_")
-    created_schema = temp_db.schemas.create(
-        Schema(name=schema_name)
-    )
+    created_schema = temp_db.schemas.create(Schema(name=schema_name))
     stream_name = random_string(10, "test_stream_clone_across_database_")
 
     try:
         created_handle = created_schema.streams.create(
-            stream_name,
-            clone_stream = f"{temp_stream.database.name}.{temp_stream.schema.name}.{temp_stream.name}"
+            stream_name, clone_stream=f"{temp_stream.database.name}.{temp_stream.schema.name}.{temp_stream.name}"
         )
 
         assert isinstance(temp_stream.fetch().stream_source, type(created_handle.fetch().stream_source))

@@ -3,14 +3,20 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.catalog_integration import CatalogIntegration, CatalogIntegrationCollection, ObjectStore
+from snowflake.core.catalog_integration import (
+    CatalogIntegration,
+    CatalogIntegrationCollection,
+    CatalogIntegrationResource,
+    ObjectStore,
+)
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
 API_CLIENT_REQUEST = "snowflake.core.catalog_integration._generated.api_client.ApiClient.request"
 CATALOG_INTEGRATION = CatalogIntegration(
-    name="my_catalog_integration", catalog=ObjectStore(), table_format="", enabled=False)
+    name="my_catalog_integration", catalog=ObjectStore(), table_format="", enabled=False
+)
 
 
 @pytest.fixture()
@@ -24,11 +30,7 @@ def catalog_integration(catalog_integrations):
 
 
 def test_create_async(fake_root, catalog_integrations):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL + "/catalog-integrations?createMode=errorIfExists",
-    )
+    args = (fake_root, "POST", BASE_URL + "/catalog-integrations?createMode=errorIfExists")
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists")],
         body={
@@ -41,6 +43,7 @@ def test_create_async(fake_root, catalog_integrations):
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         catalog_integration_res = catalog_integrations.create(CATALOG_INTEGRATION)
+        assert isinstance(catalog_integration_res, CatalogIntegrationResource)
         assert catalog_integration_res.name == "my_catalog_integration"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -53,11 +56,7 @@ def test_create_async(fake_root, catalog_integrations):
 
 
 def test_iter_async(fake_root, catalog_integrations):
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/catalog-integrations",
-    )
+    args = (fake_root, "GET", BASE_URL + "/catalog-integrations")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -79,14 +78,10 @@ def test_fetch_async(fake_root, catalog_integration):
     from snowflake.core.catalog_integration._generated.models import CatalogIntegration as CatalogIntegrationModel
     from snowflake.core.catalog_integration._generated.models import ObjectStore as ObjectStoreModel
 
-
-    model = CatalogIntegrationModel(name="my_catalog_integration", catalog=ObjectStoreModel(), table_format="",
-                                    enabled=False)
-    args = (
-        fake_root,
-        "GET",
-        BASE_URL + "/catalog-integrations/my_catalog_integration",
+    model = CatalogIntegrationModel(
+        name="my_catalog_integration", catalog=ObjectStoreModel(), table_format="", enabled=False
     )
+    args = (fake_root, "GET", BASE_URL + "/catalog-integrations/my_catalog_integration")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -105,11 +100,7 @@ def test_fetch_async(fake_root, catalog_integration):
 
 
 def test_drop_async(fake_root, catalog_integration):
-    args = (
-        fake_root,
-        "DELETE",
-        BASE_URL + "/catalog-integrations/my_catalog_integration",
-    )
+    args = (fake_root, "DELETE", BASE_URL + "/catalog-integrations/my_catalog_integration")
     kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

@@ -6,6 +6,7 @@ import typing
 
 tempdir = pathlib.Path(tempfile.gettempdir())
 
+
 def simple_file_logging(
     path: typing.Union[str, pathlib.Path, None] = None,
     *,

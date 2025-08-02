@@ -1,43 +1,47 @@
 Metadata-Version: 2.4
 Name: django-rq
-Version: 3.0.1
+Version: 3.1
 Summary: An app that provides django integration for RQ (Redis Queue)
-Home-page: https://github.com/rq/django-rq
-Author: Selwin Ong
-Author-email: selwin.ong@gmail.com
-License: MIT
-Classifier: Development Status :: 4 - Beta
+Project-URL: changelog, https://github.com/rq/django-rq/blob/master/CHANGELOG.md
+Project-URL: homepage, https://python-rq.org/patterns/django/
+Project-URL: repository, https://github.com/rq/django-rq
+Author-email: Selwin Ong <selwin.ong@gmail.com>
+License-Expression: MIT
+License-File: LICENSE.txt
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-License-File: LICENSE.txt
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Systems Administration
+Requires-Python: >=3.8
 Requires-Dist: django>=3.2
-Requires-Dist: rq>=2
 Requires-Dist: redis>=3.5
+Requires-Dist: rq>=2
+Provides-Extra: prometheus
+Requires-Dist: prometheus-client>=0.4.0; extra == 'prometheus'
 Provides-Extra: sentry
-Requires-Dist: sentry-sdk>=1.0.0; extra == "sentry"
+Requires-Dist: sentry-sdk>=1.0.0; extra == 'sentry'
 Provides-Extra: testing
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+Description-Content-Type: text/x-rst
 
 =========
 Django-RQ
@@ -241,7 +245,7 @@ via ``DEFAULT_RESULT_TTL`` setting:
     }
 
 With this setting, job decorator will set ``result_ttl`` to 5000 unless it's
-specified explicitly.
+specified explicitly or included in the queue config.
 
 
 Running workers
@@ -390,8 +394,10 @@ modifies the default admin template.
 These statistics are also available in JSON format via
 ``/django-rq/stats.json``, which is accessible to staff members.
 If you need to access this view via other
-HTTP clients (for monitoring purposes), you can define ``RQ_API_TOKEN`` and access it via
-``/django-rq/stats.json/<API_TOKEN>``.
+HTTP clients (for monitoring purposes), you can define ``RQ_API_TOKEN``.
+Then, include the token in the Authorization header as a Bearer token:
+``Authorization: Bearer <token>``
+and access it via ``/django-rq/stats.json``.
 
 .. image::  demo-django-rq-json-dashboard.png
 
@@ -408,6 +414,39 @@ Additionally, these statistics are also accessible from  the command line.
     python manage.py rqstats --yaml  # Output as YAML
 
 .. image:: demo-django-rq-cli-dashboard.gif
+
+Configuring Prometheus
+----------------------
+
+``django_rq`` also provides a Prometheus compatible view, which can be enabled
+by installing ``prometheus_client`` or installing the extra "prometheus-metrics"
+(``pip install django-rq[prometheus]``). The metrics are exposed at
+``/django-rq/metrics/`` and the following is an example of the metrics that
+are exported::
+
+    # HELP rq_workers RQ workers
+    # TYPE rq_workers gauge
+    # HELP rq_job_successful_total RQ successful job count
+    # TYPE rq_job_successful_total counter
+    # HELP rq_job_failed_total RQ failed job count
+    # TYPE rq_job_failed_total counter
+    # HELP rq_working_seconds_total RQ total working time
+    # TYPE rq_working_seconds_total counter
+    # HELP rq_jobs RQ jobs by status
+    # TYPE rq_jobs gauge
+    rq_jobs{queue="default",status="queued"} 0.0
+    rq_jobs{queue="default",status="started"} 0.0
+    rq_jobs{queue="default",status="finished"} 0.0
+    rq_jobs{queue="default",status="failed"} 0.0
+    rq_jobs{queue="default",status="deferred"} 0.0
+    rq_jobs{queue="default",status="scheduled"} 0.0
+
+If you need to access this view via other
+HTTP clients (for monitoring purposes), you can define ``RQ_API_TOKEN``.
+Then, include the token in the Authorization header as a Bearer token:
+``Authorization: Bearer <token>``
+and access it via ``/django-rq/metrics``.
+
 
 Configuring Sentry
 -------------------
@@ -625,3 +664,6 @@ See `CHANGELOG.md <https://github.com/rq/django-rq/blob/master/CHANGELOG.md>`__.
 
 .. |Build Status| image:: https://github.com/rq/django-rq/actions/workflows/test.yml/badge.svg
    :target: https://github.com/rq/django-rq/actions/workflows/test.yml
+
+
+Django-RQ is maintained by `Stamps <https://stamps.id>`_, an Indonesian based company that provides enterprise grade CRM and order management systems.

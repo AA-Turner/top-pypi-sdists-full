@@ -47,10 +47,7 @@ class AccountCollection(AccountObjectCollectionParent["AccountResource"]):
         )
 
     @api_telemetry
-    def create(
-        self,
-        account: Account,
-    ) -> "AccountResource":
+    def create(self, account: Account) -> "AccountResource":
         """Create an account in Snowflake.
 
         Parameters
@@ -82,25 +79,18 @@ class AccountCollection(AccountObjectCollectionParent["AccountResource"]):
         return self[account.name]
 
     @api_telemetry
-    def create_async(
-        self,
-        account: Account,
-    ) -> PollingOperation["AccountResource"]:
+    def create_async(self, account: Account) -> PollingOperation["AccountResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.create_account(account=account._to_model(), async_req=True)
         return PollingOperation(future, lambda _: self[account.name])
 
     @api_telemetry
     def iter(
-        self,
-        *,
-        like: Optional[str] = None,
-        limit: Optional[int] = None,
-        history: Optional[bool] = None,
+        self, *, like: Optional[str] = None, limit: Optional[int] = None, history: Optional[bool] = None
     ) -> Iterator[Account]:
         """Iterate through ``Account`` objects in Snowflake, filtering on any optional ``like`` pattern.
 
@@ -137,33 +127,21 @@ class AccountCollection(AccountObjectCollectionParent["AccountResource"]):
         >>>     print(account.name, account.comment)
         """
         accounts = self._api.list_accounts(
-            StrictStr(like) if like is not None else None,
-            limit,
-            history,
-            async_req=False,
+            StrictStr(like) if like is not None else None, limit, history, async_req=False
         )
 
         return map(Account._from_model, iter(accounts))
 
     @api_telemetry
     def iter_async(
-            self,
-            *,
-            like: Optional[str] = None,
-            limit: Optional[int] = None,
-            history: Optional[bool] = None,
+        self, *, like: Optional[str] = None, limit: Optional[int] = None, history: Optional[bool] = None
     ) -> PollingOperation[Iterator[Account]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_accounts(
-            StrictStr(like) if like is not None else None,
-            limit,
-            history,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_accounts(StrictStr(like) if like is not None else None, limit, history, async_req=True)
         return PollingOperation(future, lambda accounts: map(Account._from_model, iter(accounts)))
 
 
@@ -215,7 +193,7 @@ class AccountResource(ObjectReferenceMixin[AccountCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.delete_account(
             self.name, grace_period_in_days=grace_period_in_days, if_exists=if_exists, async_req=True
         )
@@ -239,6 +217,6 @@ class AccountResource(ObjectReferenceMixin[AccountCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self._api.undrop_account(self.name, async_req=True)
         return PollingOperations.empty(future)

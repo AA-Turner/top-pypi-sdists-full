@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cqc-quam-state"
+version = "2025.8.2"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "JUNIQ Software Team", email = "info-juniq@fz-juelich.de" },
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "click>=8.0.0"  # Add click dependency
+]
+
+[project.urls]
+Homepage = "https://gitlab.jsc.fz-juelich.de/qip/cqc/cqc-quam-state"
+Repository = "https://gitlab.jsc.fz-juelich.de/qip/cqc/cqc-quam-state"
+
+[project.scripts]
+cqc-quam-state = "cqc_quam_state.cli:cli" # Update script entry point
+
+
+# Explicitly define where the package can be found
+# [tool.setuptools]
+# packages = ["cqc_quam_state"]
+# include-package-data = true
+
+# [tool.setuptools.package-data]
+# cqc_quam_state = ["quam_state/*.json"]
+
+
+# ## As on the docs
+# [tool.setuptools.packages.find]
+# where = ["cqc_quam_state"]
+
+# [tool.setuptools.package-data]
+# "cqc_quam_state" = ["*.txt"]
+# "cqc_quam_state.quam_state" = ["*.json"]
+
+# # From scratch
+# [tool.setuptools]
+# packages = ["cqc_quam_state"] # Only list the actual package
+# include-package-data = true
+
+# [tool.setuptools.package-data]
+# "cqc_quam_state" = ["*.txt", "quam_state/*.json"]
+
+
+[tool.setuptools]
+packages = ["cqc_quam_state","quam_state"]
+include-package-data = true
+script-files = ["load-cqc-quam"]
+
+[tool.setuptools.package-data]
+"quam_state" = ["*.json"]

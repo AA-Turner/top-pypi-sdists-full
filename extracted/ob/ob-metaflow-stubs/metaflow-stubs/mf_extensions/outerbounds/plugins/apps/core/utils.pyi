@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-31T17:05:42.568845                                                            #
+# Generated on 2025-08-01T20:12:28.720132                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import logging
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.utils
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._vendor.spinner.spinners
     import logging
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._vendor.spinner.spinners
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.utils
 
 from ......_vendor import click as click
 from ._vendor.spinner.spinners import Spinners as Spinners
@@ -79,8 +79,8 @@ def safe_requests_wrapper(requests_module_fn, *args, conn_error_retries = 2, ret
         - How to handle retries for this case will be application specific.
     2. Errors when the API server may not be reachable (DNS resolution / network issues)
         - In this scenario, we know that something external to the API server is going wrong causing the issue.
-        - Failing pre-maturely in the case might not be the best course of action since critical user jobs might crash on intermittent issues.
-        - So in this case, we can just planely retry the request.
+        - Failing prematurely in the case might not be the best course of action since critical user jobs might crash on intermittent issues.
+        - So in this case, we can just plainly retry the request.
     
     This function handles the second case. It's a simple wrapper to handle the retry logic for connection errors.
     If this function is provided a `conn_error_retries` of 5, then the last retry will have waited 32 seconds.

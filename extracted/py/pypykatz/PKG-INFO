@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: pypykatz
+Version: 0.6.11
+Summary: Python implementation of Mimikatz
+Home-page: https://github.com/skelsec/pypykatz
+Author: Tamas Jos
+Author-email: info@skelsecprojects.com
+Classifier: Programming Language :: Python :: 3.6
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+License-File: LICENSE
+Requires-Dist: unicrypto<=0.1.0,>=0.0.10
+Requires-Dist: minidump<=0.1.0,>=0.0.21
+Requires-Dist: minikerberos<=0.5.0,>=0.4.1
+Requires-Dist: aiowinreg<=0.1.0,>=0.0.11
+Requires-Dist: msldap<=0.6.0,>=0.5.7
+Requires-Dist: winacl<=0.2.0,>=0.1.9
+Requires-Dist: aiosmb<=0.5.0,>=0.4.8
+Requires-Dist: aesedb<=0.2.0,>=0.1.4
+Requires-Dist: tqdm

@@ -44,24 +44,24 @@ class CapsuleStateMachine:
     - Happy Path:
         - First time Create :
             - wait for status.updateInProgress to be set to False
-                - (interleved) Poll the worker endpoints to check their status
+                - (interleaved) Poll the worker endpoints to check their status
                     - showcase how many workers are coming up if things are on the cli side.
                 - If the user has set some flag like `--dont-wait-to-fully-finish` then we check the `status.currentlyServedVersion` to see if even one replica is ready to
                 serve traffic.
             - once the status.updateInProgress is set to False, it means that the replicas are ready
         - Upgrade:
             - wait for status.updateInProgress to be set to False
-                - (interleved) Poll the worker endpoints to check their status and signal the user the number replicas coming up
+                - (interleaved) Poll the worker endpoints to check their status and signal the user the number replicas coming up
                 - If the user has set some flag like `--dont-wait-to-fully-finish` then we check the `status.currentlyServedVersion` to see if even one replica is ready to
                 serve traffic.
     - Unhappy Path:
         - First time Create :
             - wait for status.updateInProgress to be set to False,
-                - (interleved) Poll the workers to check their status.
+                - (interleaved) Poll the workers to check their status.
                     - If the worker pertaining the current deployment instance version is crashlooping then crash the deployment process with the error messages and logs.
         - Upgrade:
             - wait for status.updateInProgress to be set to False,
-                - (interleved) Poll the workers to check their status.
+                - (interleaved) Poll the workers to check their status.
                     - If the worker pertaining the current deployment instance version is crashlooping then crash the deployment process with the error messages and logs.
 
     """
@@ -210,9 +210,9 @@ class CapsuleInput:
     def construct_exec_command(cls, commands: List[str]):
         commands = ["set -eEuo pipefail"] + commands
         command_string = "\n".join(commands)
-        # First constuct a base64 encoded string of the quoted command
+        # First construct a base64 encoded string of the quoted command
         # One of the reasons we don't directly pass the command string to the backend with a `\n` join
-        # is because the backend controller doesnt play nice when the command can be a multi-line string.
+        # is because the backend controller doesn't play nice when the command can be a multi-line string.
         # So we encode it to a base64 string and then decode it back to a command string at runtime to provide to
         # `bash -c`. The ideal thing to have done is to run "bash -c {shlex.quote(command_string)}" and call it a day
         # but the backend controller yields the following error:
@@ -682,7 +682,7 @@ class CapsuleDeployer:
         """
         - `capsule_response.version` contains the version of the object present in the database
         - `current_deployment_instance_version` contains the version of the object that was deployed by this instance of the deployer.
-        In the situtation that the versions of the objects become a mismatch then it means that current deployment process is not giving the user the
+        In the situation that the versions of the objects become a mismatch then it means that current deployment process is not giving the user the
         output that they desire.
         """
         if capsule_response.get("version", None) != current_deployment_instance_version:
@@ -783,24 +783,22 @@ class CapsuleDeployer:
             )
             if capsule_ready or failure_condition_satisfied:
                 logger(
-                    "💊 %s deployment status: %s | worker states: [success :%s | failure :%s ] "
+                    "💊 %s deployment status: %s "
                     % (
                         self.capsule_type.title(),
                         "in progress"
                         if state_machine.update_in_progress
                         else "completed",
-                        capsule_ready,
-                        failure_condition_satisfied,
                     )
                 )
                 _further_readiness_check_failed = False
                 if further_check_worker_readiness:
                     # HACK : monitor the workers for N seconds to make sure they are healthy
-                    # this is a hack. Ideally we should implment a healtcheck as a first class citizen
+                    # this is a hack. Ideally we should implement a healthcheck as a first class citizen
                     # but it will take some time to do that so in the meanwhile a timeout set on the cli
                     # side will be really helpful.
                     logger(
-                        "💊 running last minute readiness check for %s..."
+                        "💊 Running last minute readiness check for %s..."
                         % self.identifier
                     )
                     _further_readiness_check_failed = self._monitor_worker_readiness(

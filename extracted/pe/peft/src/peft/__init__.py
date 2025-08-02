@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.16.0"
+__version__ = "0.17.0"
 
 from .auto import (
     MODEL_TYPE_TO_PEFT_MODEL_MAPPING,
@@ -75,6 +75,8 @@ from .tuners import (
     LoraConfig,
     LoraModel,
     LoraRuntimeConfig,
+    MissConfig,
+    MissModel,
     MultitaskPromptTuningConfig,
     MultitaskPromptTuningInit,
     OFTConfig,
@@ -91,6 +93,8 @@ from .tuners import (
     PromptTuningInit,
     RandLoraConfig,
     RandLoraModel,
+    ShiraConfig,
+    ShiraModel,
     TrainableTokensConfig,
     TrainableTokensModel,
     VBLoRAConfig,
@@ -159,6 +163,8 @@ __all__ = [
     "LoraConfig",
     "LoraModel",
     "LoraRuntimeConfig",
+    "MissConfig",
+    "MissModel",
     "MultitaskPromptTuningConfig",
     "MultitaskPromptTuningInit",
     "OFTConfig",
@@ -186,6 +192,8 @@ __all__ = [
     "PromptTuningInit",
     "RandLoraConfig",
     "RandLoraModel",
+    "ShiraConfig",
+    "ShiraModel",
     "TaskType",
     "TrainableTokensConfig",
     "TrainableTokensModel",

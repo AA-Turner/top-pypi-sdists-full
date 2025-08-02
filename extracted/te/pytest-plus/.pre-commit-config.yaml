@@ -1,0 +1,96 @@
+---
+ci:
+  exclude:
+    - pip-tools
+repos:
+  - repo: meta
+    hooks:
+      - id: check-useless-excludes
+  - repo: https://github.com/rbubley/mirrors-prettier
+    # keep it before yamllint
+    rev: v3.4.2
+    hooks:
+      - id: prettier
+        always_run: true
+        additional_dependencies:
+          - prettier
+          - prettier-plugin-sort-json
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: debug-statements
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: fix-byte-order-marker
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: debug-statements
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+  - repo: https://github.com/pappasam/toml-sort
+    rev: v0.24.2
+    hooks:
+      - id: toml-sort-fix
+        alias: toml
+
+  - repo: https://github.com/tox-dev/tox-ini-fmt
+    rev: 1.5.0
+    hooks:
+      - id: tox-ini-fmt
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.4
+    hooks:
+      - id: ruff
+        args:
+          - --fix
+          - --exit-non-zero-on-fix
+        types_or: [python, pyi]
+      - id: ruff-format # must be after ruff
+        types_or: [python, pyi]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        # empty args needed in order to match mypy cli behavior
+        args: [--strict]
+        additional_dependencies:
+          - pytest
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        files: \.(yaml|yml)$
+        types: [file, yaml]
+        entry: yamllint --strict
+
+  - # keep at bottom as these are slower
+    repo: local
+    hooks:
+      - id: deps
+        name: Upgrade constraints files and requirements
+        files: ^(pyproject\.toml|.config/.*)$
+        always_run: true
+        language: python
+        language_version: "3.10" # minimal we support officially
+        entry: python3 -m uv pip compile -q --all-extras --output-file=.config/constraints.txt pyproject.toml --upgrade
+        pass_filenames: false
+        stages:
+          - manual
+        additional_dependencies:
+          - uv>=0.5.21
+      - id: pip-compile
+        name: Check constraints files and requirements
+        files: ^(pyproject\.toml|\.config/.*)$
+        language: python
+        language_version: "3.10" # minimal we support officially
+        entry: python3 -m uv pip compile -q --all-extras --output-file=.config/constraints.txt pyproject.toml
+        pass_filenames: false
+        additional_dependencies:
+          - uv>=0.5.21

@@ -7,8 +7,9 @@ Example:
     ...         name="abcd-my-s3-us-west-2",
     ...         storage_base_url="s3://MY_EXAMPLE_BUCKET/",
     ...         storage_aws_role_arn="arn:aws:iam::123456789022:role/myrole",
-    ...         encryption=Encryption(type="AWS_SSE_KMS",
-    ...                                kms_key_id="1234abcd-12ab-34cd-56ef-1234567890ab")
+    ...         encryption=Encryption(
+    ...             type="AWS_SSE_KMS", kms_key_id="1234abcd-12ab-34cd-56ef-1234567890ab"
+    ...         ),
     ...     ),
     ...     comment="This is my external volume",
     ... )
@@ -19,7 +20,6 @@ Example:
 
 Refer to :class:`snowflake.core.Root` to create the ``root``.
 """
-
 
 from ..external_volume._generated.models import (
     Encryption,

@@ -1,0 +1,61 @@
+name: Publish SDK
+
+on:
+  release:
+    types: [ published ]
+
+env:
+  PYTHON_VERSION: 3.8
+  PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+concurrency:
+  group: cord-client-${{ github.ref }}-publish
+  cancel-in-progress: true
+
+jobs:
+  publish-sdk:
+    name: Publish SDK
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv-environment
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          with-dev-dependencies: false
+
+      - name: uv Version Bump
+        run: uv version ${{ github.ref_name }}
+
+      - name: Build SDK
+        run: uv build --sdist --wheel
+
+      - name: Publish SDK
+        run: |
+          uv pip install twine
+          uv publish --token ${{ env.PYPI_TOKEN }}
+        shell: bash
+
+  send-slack-notification:
+    name: Send notification
+    runs-on: ubuntu-24.04
+    needs: [ publish-sdk ]
+    if: always()
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get workflow status
+        uses: technote-space/workflow-conclusion-action@v2
+
+      - name: Send Slack notification
+        uses: ./.github/actions/send-slack-notification
+        with:
+          success-parameter: ${{ env.WORKFLOW_CONCLUSION }}
+          success-channel: ${{ secrets.SLACK_DEPLOYMENT_PROD_CHANNEL_ID }}
+          failure-channel: ${{ secrets.SLACK_FAILURE_CHANNEL_ID }}
+          success-message: Deployed to https://pypi.org/project/encord/

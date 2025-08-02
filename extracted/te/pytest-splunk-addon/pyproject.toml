@@ -1,0 +1,67 @@
+#
+# Copyright 2025 Splunk Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+[tool.poetry]
+name = "pytest-splunk-addon"
+version = "6.0.0"
+description = "A Dynamic test tool for Splunk Apps and Add-ons"
+authors = ["Splunk <addonfactory@splunk.com>"]
+license = "APACHE-2.0"
+classifiers = [
+        "Framework :: Pytest",
+        "Intended Audience :: Developers",
+        "Topic :: Software Development :: Testing",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.7",
+        "Operating System :: OS Independent",
+        "License :: OSI Approved :: Apache Software License",
+]
+include = ["pytest_splunk_addon/**/*.json", "pytest_splunk_addon/**/*.txt"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pytest = ">5.4.0,<8"
+splunk-sdk = ">=1.6"
+requests = "^2.31.0"
+jsonschema = "^v4.17.3"
+pytest-xdist = "^3.5.0"
+filelock = "^3.0"
+pytest-ordering = "~0.6"
+junitparser = "^2.2.0"
+addonfactory-splunk-conf-parser-lib = "*"
+defusedxml = "^0.7.1"
+Faker = "^18.0.0"
+xmltodict = "^0.13.0"
+xmlschema = "^2.5.1"
+splunksplwrapper = "^1.1.1"
+urllib3 = "<2"
+
+[tool.poetry.group.dev.dependencies]
+pytest-cov = "^4"
+requests-mock = "^1.8.0"
+freezegun = "^1.5.1"
+pytz = "^2024.1"
+
+[tool.poetry.plugins]
+pytest11 = { plugin = "pytest_splunk_addon.plugin", "splunk" = "pytest_splunk_addon.splunk" }
+
+[tool.poetry.scripts]
+cim-report = 'pytest_splunk_addon.utilities.junit_parser:main'
+sample_splitter = 'pytest_splunk_addon.utilities.sample_splitter:main'
+
+[build-system]
+requires = ["poetry>=1.0.2"]
+build-backend = "poetry.masonry.api"

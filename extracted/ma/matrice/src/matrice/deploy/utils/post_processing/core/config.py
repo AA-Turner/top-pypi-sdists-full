@@ -755,7 +755,7 @@ class ConfigManager:
         except ImportError:
             return None
     
-    def bottle_defect_detection_config_class(self):
+    def defect_detection_products_config_class(self):
         """Register a configuration class for a use case."""
         try:
             from ..usecases.defect_detection_products import BottleDefectConfig

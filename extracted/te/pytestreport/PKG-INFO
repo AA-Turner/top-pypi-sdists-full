@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: PyTestReport
+Version: 0.2.1
+Summary: The HTML Report for Python unit testing Base on HTMLTestRunner
+Home-page: https://github.com/five3/PyTestReport
+Author: Xiaowu Chen
+Author-email: five3@163.com
+License: GPL V3
+Description: The HTML Report for Python unit testing Base on HTMLTestRunner
+Keywords: test report,python unit testing
+Platform: any
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Framework :: Pytest

@@ -71,10 +71,7 @@ def test_create_and_fetch_gc(api_integrations):
     ai_name = random_string(10, "test_api_integration_create_")
     ai_def = ApiIntegration(
         name=ai_name,
-        api_hook=GoogleCloudHook(
-            api_provider="GOOGLE_API_GATEWAY",
-            google_audience="dummy_aud",
-        ),
+        api_hook=GoogleCloudHook(api_provider="GOOGLE_API_GATEWAY", google_audience="dummy_aud"),
         api_allowed_prefixes=["https://fake.uc.gateway.dev"],
         enabled=True,
         comment="created by test_create_and_fetch_gc",

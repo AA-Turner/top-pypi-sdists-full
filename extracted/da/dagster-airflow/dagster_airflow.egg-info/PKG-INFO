@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: dagster-airflow
+Version: 1.11.4
+Summary: Airflow plugin for Dagster
+Home-page: https://github.com/dagster-io/dagster
+Author: Dagster Labs
+Author-email: hello@dagsterlabs.com
+License: Apache-2.0
+Project-URL: project-url/documentation, https://docs.dagster.io
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9,<3.14
+License-File: LICENSE
+Requires-Dist: dagster==1.11.4
+Requires-Dist: lazy_object_proxy
+Requires-Dist: setuptools<71.0.0
+Requires-Dist: pendulum
+Provides-Extra: kubernetes
+Requires-Dist: kubernetes>=3.0.0; extra == "kubernetes"
+Requires-Dist: cryptography>=2.0.0; extra == "kubernetes"
+Provides-Extra: test-airflow-2
+Requires-Dist: apache-airflow<2.8,>=2.0.0; extra == "test-airflow-2"
+Requires-Dist: pendulum<3.0.0; extra == "test-airflow-2"
+Requires-Dist: boto3>=1.26.7; extra == "test-airflow-2"
+Requires-Dist: flask-session<0.6.0; extra == "test-airflow-2"
+Requires-Dist: kubernetes>=10.0.1; extra == "test-airflow-2"
+Requires-Dist: apache-airflow-providers-docker<4,>=3.2.0; extra == "test-airflow-2"
+Requires-Dist: apache-airflow-providers-apache-spark; extra == "test-airflow-2"
+Requires-Dist: apache-airflow-providers-http<4.1.1; extra == "test-airflow-2"
+Requires-Dist: connexion<3.0.0; extra == "test-airflow-2"
+Provides-Extra: test-airflow-1
+Requires-Dist: apache-airflow<2.0.0,>=1.0.0; extra == "test-airflow-1"
+Requires-Dist: boto3>=1.26.7; extra == "test-airflow-1"
+Requires-Dist: kubernetes>=10.0.1; extra == "test-airflow-1"
+Requires-Dist: markupsafe<=2.0.1; extra == "test-airflow-1"
+Requires-Dist: WTForms<3.0.0; extra == "test-airflow-1"
+Requires-Dist: sqlalchemy<1.4.0,>=1.0; extra == "test-airflow-1"
+Requires-Dist: marshmallow-sqlalchemy<0.26.0; extra == "test-airflow-1"
+Requires-Dist: connexion<3.0.0; extra == "test-airflow-1"
+Provides-Extra: test
+Requires-Dist: connexion<3.0.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -31,6 +31,7 @@ APP_NAME_TO_USECASE = {
     "shelf_inventory" :"shelf_inventory",
     "smoker_detection": "smoker_detection",
     "age_detection": "age_detection",
+    "defect_detection_products": "defect_detection_products"
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -65,7 +66,8 @@ APP_NAME_TO_CATEGORY = {
     "lane_detection" : "traffic",
     "shelf_inventory" : "retail",
     "smoker_detection": "general",
-    "age_detection": "general"
+    "age_detection": "general",
+    "defect_detection_products": "retail"
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

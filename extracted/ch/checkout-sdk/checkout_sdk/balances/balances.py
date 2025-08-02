@@ -1,2 +1,0 @@
-class BalancesQuery:
-    query: str

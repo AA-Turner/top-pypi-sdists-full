@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: cryptography_vectors
+Version: 45.0.5
+Summary: Test vectors for the cryptography package.
+Author-email: The Python Cryptographic Authority and individual contributors <cryptography-dev@python.org>
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: LICENSE.APACHE
+License-File: LICENSE.BSD
+Project-URL: homepage, https://github.com/pyca/cryptography
+
+pyca/cryptography vectors
+=========================
+
+This package contains test vectors which are used in ``pyca/cryptography``'s
+tests.
+

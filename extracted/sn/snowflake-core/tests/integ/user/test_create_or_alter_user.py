@@ -13,15 +13,13 @@ if typing.TYPE_CHECKING:
 # TODO: SNOW-1542604 Grant accountadmin to Jenkins account
 # pytestmark = pytest.mark.jenkins
 
+
 @pytest.mark.snowpark
 @pytest.mark.use_accountadmin
 @pytest.mark.min_sf_ver("8.32.0")
 def test_create_or_alter_user(users: UserCollection, session: "Session"):
     user_name = random_string(5, "test_create_user_1")
-    test_user_basic = User(
-        name=user_name,
-        password="test",
-    )
+    test_user_basic = User(name=user_name, password="test")
     test_user_props = User(
         name=user_name,
         display_name="test_name",

@@ -1,0 +1,98 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mary-elizabeth-utils"
+description = "My utilities for the different projects"
+authors = [{ name = "Tobias Kragholm", email = "tkragholm@gmail.com" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "polars",
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "numpy",
+    "colorama",
+    "pyyaml",
+    "tqdm",
+    "pydantic",
+    "rich",
+    "python-dateutil",
+    "pyarrow",
+    "ydata-profiling",
+]
+
+[project.scripts]
+get_42 = "pyo3_mixed:get_42"
+print_cli_args = "pyo3_mixed:print_cli_args"
+
+[tool.maturin]
+module-name = "mary_elizabeth_utils.mary_elizabeth_utils"
+python-source = "python"
+#features = ["pyo3/extension-module"]
+#include = ["python/mary_elizabeth_utils/bin/*"]
+
+[tool.pytype]
+inputs = ['mary-elizabeth-utils']
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+ignore_missing_imports = true
+implicit_reexport = true
+
+exclude = ['generate_data.py', 'test_pipeline.py', 'profile_data.py', 'mwx.py']
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--cov=mary_elizabeth_utils --cov-report term-missing --no-cov-on-fail"
+
+[tool.coverage.report]
+exclude_lines = ["if __name__ == .__main__.:", "pragma: no cover"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+fix = true
+
+exclude = ['generate_data.py', 'mwx.py']
+
+[tool.ruff.lint]
+select = ["E", "B", "F", "UP", "I001", "T203", "I", "N", "UP", "PL", "RUF"]
+ignore = [
+    "E501",
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+    "T201",
+]

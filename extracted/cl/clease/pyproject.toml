@@ -1,0 +1,19 @@
+[build-system]
+# setuptools 61.0 broke, see !488
+requires = ["setuptools >=58, !=61.0", "wheel", "Cython", "numpy<2"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ["py37"]
+
+[tool.ruff]
+select = ["E", "F", "NPY", "RUF", "I"]
+exclude = ["tests", "__init__.py"]
+ignore = ["NPY002", "RUF012"]
+# Same as Black.
+line-length = 100
+target-version = "py37"
+
+[tool.ruff.isort]
+force-sort-within-sections = true

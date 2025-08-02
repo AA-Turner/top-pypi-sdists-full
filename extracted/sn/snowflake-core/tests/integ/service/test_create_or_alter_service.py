@@ -23,7 +23,7 @@ def test_create_or_alter(services, service_spec_file_on_stage, shared_compute_po
         spec=service_spec_file_on_stage,
         min_instances=1,
         max_instances=1,
-        comment="test_service_comment"
+        comment="test_service_comment",
     )
 
     service_ref = None
@@ -45,13 +45,15 @@ def test_create_or_alter(services, service_spec_file_on_stage, shared_compute_po
         service_ref.create_or_alter(test_service)
 
         # Test introducing property which was not set before
-        test_service_new_1 = Service(name=service_name,
-                                     spec=service_spec_file_on_stage,
-                                     compute_pool=shared_compute_pool,
-                                     min_instances=1,
-                                     max_instances=1,
-                                     auto_resume=False,
-                                     comment="test_service_comment")
+        test_service_new_1 = Service(
+            name=service_name,
+            spec=service_spec_file_on_stage,
+            compute_pool=shared_compute_pool,
+            min_instances=1,
+            max_instances=1,
+            auto_resume=False,
+            comment="test_service_comment",
+        )
         service_ref.create_or_alter(test_service_new_1)
         service_list = services.iter(like=service_name)
         result = next(service_list)
@@ -63,13 +65,15 @@ def test_create_or_alter(services, service_spec_file_on_stage, shared_compute_po
         assert result.auto_resume == test_service_new_1.auto_resume
 
         # Test altering the property which we set before
-        test_service_new_2 = Service(name=service_name,
-                                     spec=service_spec_file_on_stage,
-                                     compute_pool=shared_compute_pool,
-                                     min_instances=1,
-                                     max_instances=1,
-                                     auto_resume=False,
-                                     comment="comment")
+        test_service_new_2 = Service(
+            name=service_name,
+            spec=service_spec_file_on_stage,
+            compute_pool=shared_compute_pool,
+            min_instances=1,
+            max_instances=1,
+            auto_resume=False,
+            comment="comment",
+        )
         service_ref.create_or_alter(test_service_new_2)
         service_list = services.iter(like=service_name)
         result = next(service_list)
@@ -81,13 +85,15 @@ def test_create_or_alter(services, service_spec_file_on_stage, shared_compute_po
         assert result.auto_resume == test_service_new_2.auto_resume
 
         # Test not providing the property and checking that it is unset now and adding a new property at the same time
-        test_service_new_3 = Service(name=service_name,
-                                     spec=service_spec_file_on_stage,
-                                     compute_pool=shared_compute_pool,
-                                     min_instances=1,
-                                     max_instances=1,
-                                     query_warehouse=warehouse.name,
-                                     comment="comment")
+        test_service_new_3 = Service(
+            name=service_name,
+            spec=service_spec_file_on_stage,
+            compute_pool=shared_compute_pool,
+            min_instances=1,
+            max_instances=1,
+            query_warehouse=warehouse.name,
+            comment="comment",
+        )
         service_ref.create_or_alter(test_service_new_3)
         service_list = services.iter(like=service_name)
         result = next(service_list)

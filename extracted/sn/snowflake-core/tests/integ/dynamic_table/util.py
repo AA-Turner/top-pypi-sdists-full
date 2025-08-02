@@ -22,22 +22,22 @@ def assert_dynamic_table(
 
     if deep:
         assert len(dynamic_table.columns) == 2
-        assert dynamic_table.columns[0].name == 'A'
-        assert dynamic_table.columns[0].datatype == normalize_datatype('int')
+        assert dynamic_table.columns[0].name == "A"
+        assert dynamic_table.columns[0].datatype == normalize_datatype("int")
         assert dynamic_table.columns[0].comment is None
-        assert dynamic_table.columns[1].name == 'B'
-        assert dynamic_table.columns[1].datatype == normalize_datatype('varchar')
-        assert dynamic_table.columns[1].comment == 'comment'
+        assert dynamic_table.columns[1].name == "B"
+        assert dynamic_table.columns[1].datatype == normalize_datatype("varchar")
+        assert dynamic_table.columns[1].comment == "comment"
     else:
         assert dynamic_table.columns is None
 
     assert dynamic_table.query == f"SELECT * FROM {table.name}"
-    assert dynamic_table.initialize == 'ON_SCHEDULE'
-    assert dynamic_table.scheduling_state == 'RUNNING'
+    assert dynamic_table.initialize == "ON_SCHEDULE"
+    assert dynamic_table.scheduling_state == "RUNNING"
     assert dynamic_table.data_retention_time_in_days == 1
     assert dynamic_table.max_data_extension_time_in_days == 2
     assert dynamic_table.automatic_clustering is True
-    assert dynamic_table.cluster_by == ['B']
+    assert dynamic_table.cluster_by == ["B"]
     assert dynamic_table.comment == "test table", dynamic_table.comment
 
     assert dynamic_table.owner_role_type is not None

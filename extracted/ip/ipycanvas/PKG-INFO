@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ipycanvas
-Version: 0.13.3
+Version: 0.14.1
 Summary: Interactive widgets library exposing the browser's Canvas API
 Project-URL: Homepage, https://github.com/jupyter-widgets-contrib/ipycanvas
 Author-email: Martin Renou <martin.renou@gmail.com>

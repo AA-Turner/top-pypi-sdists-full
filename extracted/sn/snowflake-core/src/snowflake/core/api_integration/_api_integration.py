@@ -4,11 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
-from snowflake.core._common import (
-    AccountObjectCollectionParent,
-    CreateMode,
-    ObjectReferenceMixin,
-)
+from snowflake.core._common import AccountObjectCollectionParent, CreateMode, ObjectReferenceMixin
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
@@ -48,17 +44,12 @@ class ApiIntegrationCollection(AccountObjectCollectionParent["ApiIntegrationReso
     def __init__(self, root: "Root"):
         super().__init__(root, ApiIntegrationResource)
         self._api = ApiIntegrationApi(
-            root=self.root,
-            resource_class=self._ref_class,
-            sproc_client=StoredProcApiClient(root=self.root)
+            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
         )
 
     @api_telemetry
     def create(
-        self,
-        api_integration: ApiIntegration,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, api_integration: ApiIntegration, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> "ApiIntegrationResource":
         """Create an API integration in Snowflake.
 
@@ -103,45 +94,30 @@ class ApiIntegrationCollection(AccountObjectCollectionParent["ApiIntegrationReso
         if not isinstance(api_integration, ApiIntegration):
             raise TypeError("api_integration has to be ApiIntegration object")
 
-        self._api.create_api_integration(
-            api_integration,
-            create_mode=StrictStr(real_mode),
-            async_req=False,
-        )
+        self._api.create_api_integration(api_integration, create_mode=StrictStr(real_mode), async_req=False)
 
         return ApiIntegrationResource(api_integration.name, self)
 
     @api_telemetry
     def create_async(
-        self,
-        api_integration: ApiIntegration,
-        *,
-        mode: CreateMode = CreateMode.error_if_exists,
+        self, api_integration: ApiIntegration, *, mode: CreateMode = CreateMode.error_if_exists
     ) -> PollingOperation["ApiIntegrationResource"]:
         """An asynchronous version of :func:`create`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         real_mode = CreateMode[mode].value
 
         if not isinstance(api_integration, ApiIntegration):
             raise TypeError("api_integration has to be ApiIntegration object")
 
-        future = self._api.create_api_integration(
-            api_integration,
-            create_mode=StrictStr(real_mode),
-            async_req=True,
-        )
+        future = self._api.create_api_integration(api_integration, create_mode=StrictStr(real_mode), async_req=True)
 
         return PollingOperation(future, lambda _: self[api_integration.name])
 
     @api_telemetry
-    def iter(
-        self,
-        *,
-        like: Optional[StrictStr] = None,
-    ) -> Iterator[ApiIntegration]:
+    def iter(self, *, like: Optional[StrictStr] = None) -> Iterator[ApiIntegration]:
         """Iterate through ``ApiIntegration`` objects from Snowflake, filtering on any optional 'like' pattern.
 
         Parameters
@@ -169,26 +145,17 @@ class ApiIntegrationCollection(AccountObjectCollectionParent["ApiIntegrationReso
         >>> for api_integration in api_integrations:
         ...     print(api_integration.name)
         """
-        api_integrations = self._api.list_api_integrations(
-            like=like,
-            async_req=False,
-        )
+        api_integrations = self._api.list_api_integrations(like=like, async_req=False)
         return iter(api_integrations)
 
     @api_telemetry
-    def iter_async(
-        self,
-        like: Optional[StrictStr] = None,
-    ) -> PollingOperation[Iterator[ApiIntegration]]:
+    def iter_async(self, like: Optional[StrictStr] = None) -> PollingOperation[Iterator[ApiIntegration]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self._api.list_api_integrations(
-            like=like,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self._api.list_api_integrations(like=like, async_req=True)
         return PollingOperations.iterator(future)
 
 
@@ -199,11 +166,7 @@ class ApiIntegrationResource(ObjectReferenceMixin[ApiIntegrationCollection]):
     api integrations, as well as perform certain actions on them.
     """
 
-    def __init__(
-        self,
-        name: StrictStr,
-        collection: ApiIntegrationCollection
-    ) -> None:
+    def __init__(self, name: StrictStr, collection: ApiIntegrationCollection) -> None:
         self.name = name
         self.collection = collection
 
@@ -219,10 +182,7 @@ class ApiIntegrationResource(ObjectReferenceMixin[ApiIntegrationCollection]):
         >>> my_api_integration = api_integration_reference.fetch()
         >>> print(my_api_integration.name)
         """
-        return self.collection._api.fetch_api_integration(
-            self.name,
-            async_req=False,
-        )
+        return self.collection._api.fetch_api_integration(self.name, async_req=False)
 
     @api_telemetry
     def fetch_async(self) -> PollingOperation[ApiIntegration]:
@@ -230,18 +190,12 @@ class ApiIntegrationResource(ObjectReferenceMixin[ApiIntegrationCollection]):
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.fetch_api_integration(
-            self.name,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.fetch_api_integration(self.name, async_req=True)
         return PollingOperations.identity(future)
 
     @api_telemetry
-    def create_or_alter(
-        self,
-        api_integration: ApiIntegration,
-    ) -> None:
+    def create_or_alter(self, api_integration: ApiIntegration) -> None:
         """Create or alter an API integration.
 
         The operation is limited by the fact that api_key will not be updated
@@ -261,34 +215,23 @@ class ApiIntegrationResource(ObjectReferenceMixin[ApiIntegrationCollection]):
         See ``ApiIntegrationCollection.create`` for more examples.
         """
         self.collection._api.create_or_alter_api_integration(
-            name=api_integration.name,
-            api_integration=api_integration,
-            async_req=False
-
+            name=api_integration.name, api_integration=api_integration, async_req=False
         )
 
     @api_telemetry
-    def create_or_alter_async(
-        self,
-        api_integration: ApiIntegration,
-    ) -> PollingOperation[None]:
+    def create_or_alter_async(self, api_integration: ApiIntegration) -> PollingOperation[None]:
         """An asynchronous version of :func:`create_or_alter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
+        """  # noqa: D401
         future = self.collection._api.create_or_alter_api_integration(
-            name=api_integration.name,
-            api_integration=api_integration,
-            async_req=True
+            name=api_integration.name, api_integration=api_integration, async_req=True
         )
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def drop(
-        self,
-        if_exists: bool = False,
-    ) -> None:
+    def drop(self, if_exists: bool = False) -> None:
         """Drop this api integration.
 
         Parameters
@@ -306,25 +249,14 @@ class ApiIntegrationResource(ObjectReferenceMixin[ApiIntegrationCollection]):
 
         >>> api_integration_reference.drop(if_exists=True)
         """
-        self.collection._api.delete_api_integration(
-            self.name,
-            if_exists=if_exists,
-            async_req=False,
-        )
+        self.collection._api.delete_api_integration(self.name, if_exists=if_exists, async_req=False)
 
     @api_telemetry
-    def drop_async(
-        self,
-        if_exists: bool = False,
-    ) -> PollingOperation[None]:
+    def drop_async(self, if_exists: bool = False) -> PollingOperation[None]:
         """An asynchronous version of :func:`drop`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
-        """ # noqa: D401
-        future = self.collection._api.delete_api_integration(
-            self.name,
-            if_exists=if_exists,
-            async_req=True,
-        )
+        """  # noqa: D401
+        future = self.collection._api.delete_api_integration(self.name, if_exists=if_exists, async_req=True)
         return PollingOperations.empty(future)

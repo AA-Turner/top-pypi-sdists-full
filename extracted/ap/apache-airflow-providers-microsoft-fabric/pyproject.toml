@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apache-airflow-providers-microsoft-fabric"
+description = "A plugin for Apache Airflow to interact with Microsoft Fabric items"
+readme = "README.md"
+authors = [
+  { name="Vinicius Fontes", email="vfontes@microsot.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Plugins",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+version = "0.0.4"
+requires-python = ">=3.8"
+dependencies = [
+    "requests",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-mock",
+    "pytest-asyncio",
+    "apache-airflow==2.10.5"
+]
+
+[project.urls]
+Homepage = "https://github.com/microsoft/apache-airflow-microsoft-fabric-plugin.git"
+
+[project.entry-points."apache_airflow_provider"]
+provider_info = "airflow.providers.microsoft.fabric.get_provider_info:get_provider_info"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["airflow.providers.*"]
+namespaces = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*test.py", "run_item.py"]
+python_functions = ["test_*"]
+addopts = "-v"
+asyncio_mode = "auto"
+

@@ -1,7 +1,7 @@
 """Manages Snowpark Container Services.
 
 Example:
-    >>> new_service_def  = Service(
+    >>> new_service_def = Service(
     ...     name="MYSERVICE",
     ...     compute_pool="MYCOMPUTEPOOL",
     ...     spec="@~/myservice_spec.yml",
@@ -22,7 +22,6 @@ Example:
 
 Refer to :class:`snowflake.core.Root` to create the ``root``.
 """
-
 
 from snowflake.core.service._generated.models import ServiceSpec as ServiceSpecification
 

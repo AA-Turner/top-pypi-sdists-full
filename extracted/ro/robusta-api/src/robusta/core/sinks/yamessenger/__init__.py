@@ -1,2 +1,0 @@
-from robusta.core.sinks.yamessenger.yamessenger_sink import YaMessengerSink
-from robusta.core.sinks.yamessenger.yamessenger_sink_params import YaMessengerSinkConfigWrapper, YaMessengerSinkParams

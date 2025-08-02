@@ -1,0 +1,63 @@
+[project]
+name = "pepeline"
+dynamic = ["version"]
+description = "A high-speed framework for image processing."
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Typing :: Typed"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2",
+]
+
+[project.urls]
+homepage = "https://github.com/rewaifu/pepecore/tree/main/pepecore-py-bindings"
+repository = "https://github.com/rewaifu/pepecore/tree/main/pepecore-py-bindings"
+documentation = "https://github.com/rewaifu/pepecore/tree/main/pepecore-py-bindings#readme"
+
+[tool.maturin]
+profile = "release"
+strip = true
+manifest-path = "pepecore-py-bindings/Cargo.toml"
+
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[tool.ruff]
+line-length = 150
+indent-width = 4
+preview = true
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+quote-style = "single"
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+select = ['ALL']
+fixable = ["ALL"]
+ignore = ['COM812', 'D203', 'D211', 'D213', 'Q000', 'Q003']
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false

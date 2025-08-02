@@ -6,6 +6,7 @@ It provides the core RSGI application interface and server configuration.
 
 import asyncio
 import logging
+import typing
 from collections.abc import Awaitable, Callable, Sequence
 from typing import (
     Annotated,
@@ -26,20 +27,19 @@ from velithon.datastructures import FunctionInfo, Protocol, Scope
 from velithon.di import ServiceContainer
 from velithon.logging import configure_logger
 from velithon.middleware import Middleware
-from velithon.middleware.di import DIMiddleware
+from velithon.middleware.context import RequestContextMiddleware
 from velithon.middleware.logging import LoggingMiddleware
 from velithon.middleware.wrapped import WrappedRSGITypeMiddleware
 from velithon.openapi.ui import get_swagger_ui_html
 from velithon.requests import Request
 from velithon.responses import HTMLResponse, JSONResponse, Response
 from velithon.routing import BaseRoute, Router
-from velithon.types import RSGIApp
-from velithon.vsp import VSPManager
 
 _middleware_optimizer = get_middleware_optimizer()
 
 logger = logging.getLogger(__name__)
 
+RSGIApp = typing.Callable[[Scope, Protocol], typing.Awaitable[None]]
 
 class Velithon:
     """Core Velithon application class.
@@ -292,7 +292,7 @@ class Velithon:
             ),
         ] = None,
         request_id_generator: Annotated[
-            Callable[[Any], str] | None,
+            Callable[[Request], str] | None,
             Doc(
                 """
                 Custom function to generate request IDs.
@@ -394,15 +394,6 @@ class Velithon:
         """
         self.container = container
 
-    def register_vps(self, vsp_manager: VSPManager) -> None:
-        """Register a VSPManager for managing VSP services.
-
-        Args:
-            vsp_manager: The VSPManager instance to be used by the application.
-
-        """
-        self.vsp_manager = vsp_manager
-
     def build_middleware_stack(self) -> RSGIApp:
         """Build the middleware stack for the application.
 
@@ -412,22 +403,9 @@ class Velithon:
         """
         middleware = [
             Middleware(WrappedRSGITypeMiddleware),
+            Middleware(RequestContextMiddleware, self),
+            Middleware(LoggingMiddleware),
         ]
-
-        # Add request context middleware if custom request ID generator is configured
-        if self.request_id_generator:
-            from velithon.middleware.context import RequestContextMiddleware
-
-            middleware.append(Middleware(RequestContextMiddleware, self))
-
-        middleware.extend(
-            [
-                Middleware(LoggingMiddleware),
-            ]
-        )
-
-        if self.container:
-            middleware.append(Middleware(DIMiddleware, self))
 
         # Add security middleware if requested
         if self.include_security_middleware:
@@ -973,18 +951,6 @@ class Velithon:
         """
         # configure the logger
         self.config_logger()
-
-        # internal server startup
-        if hasattr(self, 'vsp_manager'):
-            loop.create_task(
-                self.vsp_manager.start_server(
-                    self.vsp_host,
-                    self.vsp_port,
-                    loop=loop,
-                    reuse_port=True,  # Enable port reuse for multi-worker support
-                )
-            )
-
         # run all the startup functions from user setup
         for function_info in self.startup_functions:
             loop.run_until_complete(function_info())
@@ -1048,8 +1014,6 @@ class Velithon:
         ssl_keyfile,
         ssl_keyfile_password,
         backpressure,
-        vsp_host,
-        vsp_port,
     ) -> None:
         # Set up logging configuration
         self.log_file = log_file
@@ -1059,9 +1023,6 @@ class Velithon:
         self.max_bytes = max_bytes
         self.backup_count = backup_count
         self.config_logger()
-
-        self.vsp_host = vsp_host
-        self.vsp_port = vsp_port
 
         # Configure Granian server
         server = granian.Granian(

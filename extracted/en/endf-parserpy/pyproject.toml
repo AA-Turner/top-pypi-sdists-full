@@ -1,0 +1,42 @@
+[build-system]
+requires = [
+    "setuptools>=64,<77",
+    "pybind11>=2.10.0",
+    "lark>=1.0.0",
+    "platformdirs>=4.3.6",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endf-parserpy"
+description = "A Python package for reading, writing, verifying and translating ENDF-6 files"
+authors = [{ name = "Georg Schnabel" }]
+dynamic = ["version", "dependencies"]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Repository = "https://github.com/iaea-nds/endf-parserpy"
+Documentation = "https://endf-parserpy.readthedocs.io/en/stable/"
+Issues = "https://github.com/iaea-nds/endf-parserpy/issues"
+
+[project.scripts]
+endf-cli = "endf_parserpy.cli.cmd:cli_interface"

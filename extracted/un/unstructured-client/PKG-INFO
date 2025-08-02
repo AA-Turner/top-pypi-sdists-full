@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: unstructured-client
-Version: 0.41.0
+Version: 0.42.0
 Summary: Python Client SDK for Unstructured API
 License: MIT
 Author: Unstructured
@@ -15,7 +15,6 @@ Requires-Dist: aiofiles (>=24.1.0)
 Requires-Dist: cryptography (>=3.1)
 Requires-Dist: httpcore (>=1.0.9)
 Requires-Dist: httpx (>=0.27.0)
-Requires-Dist: nest-asyncio (>=1.6.0)
 Requires-Dist: pydantic (>=2.11.2)
 Requires-Dist: pypdf (>=4.0)
 Requires-Dist: requests-toolbelt (>=1.0.0)
@@ -237,7 +236,7 @@ with UnstructuredClient() as uc_client:
 
 
 **Inherit from [`UnstructuredClientError`](https://github.com/Unstructured-IO/unstructured-python-client/blob/master/./src/unstructured_client/models/errors/unstructuredclienterror.py)**:
-* [`ServerError`](https://github.com/Unstructured-IO/unstructured-python-client/blob/master/./src/unstructured_client/models/errors/servererror.py): Server Error. Status code `5XX`. Applicable to 1 of 29 methods.*
+* [`ServerError`](https://github.com/Unstructured-IO/unstructured-python-client/blob/master/./src/unstructured_client/models/errors/servererror.py): Server Error. Status code `5XX`. Applicable to 1 of 27 methods.*
 * [`ResponseValidationError`](https://github.com/Unstructured-IO/unstructured-python-client/blob/master/./src/unstructured_client/models/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

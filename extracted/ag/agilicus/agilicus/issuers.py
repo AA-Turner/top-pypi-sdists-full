@@ -1,5 +1,7 @@
 import agilicus
 import operator
+import sys
+import json
 
 from typing import List
 
@@ -106,8 +108,28 @@ def add(ctx, issuer, org_id, parent_issuer=None, upstream_redirect_uri=None, **k
         issuer_model.parent_issuer = parent_issuer
     if upstream_redirect_uri is not None:
         issuer_model.upstream_redirect_uri = upstream_redirect_uri
+    try:
+        return apiclient.issuers_api.create_issuer(issuer_model).to_dict()
+    except agilicus.ApiException as e:
+        if e.status == 409:
+            print(f"error creating issuer reason: {e.reason}", file=sys.stderr)
+            iss = _get_issuer_helper(apiclient, org_id, issuer)
+            if not iss:
+                # If there's a conflict
+                return json.loads(e.body)
+            return iss
+        else:
+            raise
 
-    return apiclient.issuers_api.create_issuer(issuer_model).to_dict()
+
+def _get_issuer_helper(apiclient, org_id, issuer):
+    params = {}
+    params["org_id"] = org_id
+    issuers = apiclient.issuers_api.list_issuers(**params)["issuer_extensions"]
+    for iss in issuers:
+        if iss.issuer == issuer:
+            return {"id": iss.id}
+    return {}
 
 
 def _update_issuer(ctx, issuer_id, updater, **kwargs):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: channels
-Version: 4.3.0
+Version: 4.3.1
 Summary: Brings async, event-driven capabilities to Django.
 Home-page: http://github.com/django/channels
 Author: Django Software Foundation

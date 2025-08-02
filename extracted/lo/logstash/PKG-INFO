@@ -1,0 +1,25 @@
+Metadata-Version: 1.0
+Name: logstash
+Version: 0.1dev
+Summary: Python library for Logstash
+Home-page: UNKNOWN
+Author: Matt McClean
+Author-email: matt.mcclean@gmail.com
+License: LICENSE.txt
+Description: ===========
+        Logstash
+        ===========
+        
+        Logstash  provides library for creating logstash messages from Python.
+        The most useful class is the Event class that formats a JSON object into
+        a Python class. 
+        
+            #!/usr/bin/env python
+        
+            import logstash
+        
+            event = logstash.Event(json_data)
+            
+        For more information on logstash goto the website `here <http://www.logstash.net/>`_
+        
+Platform: UNKNOWN

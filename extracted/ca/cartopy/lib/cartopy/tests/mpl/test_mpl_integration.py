@@ -8,12 +8,16 @@ import re
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+from packaging.version import parse as parse_version
+import pyproj
 import pytest
 
 import cartopy.crs as ccrs
 from cartopy.mpl import _MPL_38
 from cartopy.tests.conftest import requires_scipy
 
+
+proj_version = parse_version(pyproj.proj_version_str)
 
 @pytest.mark.natural_earth
 @pytest.mark.mpl_image_compare(filename='global_contour_wrap.png',
@@ -22,7 +26,7 @@ def test_global_contour_wrap_new_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines()
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))
+    data = np.sin(np.hypot(x, y))
     ax.contour(x, y, data, transform=ccrs.PlateCarree())
     return ax.figure
 
@@ -34,7 +38,7 @@ def test_global_contour_wrap_no_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines()
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))
+    data = np.sin(np.hypot(x, y))
     ax.contour(x, y, data)
     return ax.figure
 
@@ -45,7 +49,7 @@ def test_global_contourf_wrap_new_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines()
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))
+    data = np.sin(np.hypot(x, y))
     ax.contourf(x, y, data, transform=ccrs.PlateCarree())
     return ax.figure
 
@@ -56,7 +60,7 @@ def test_global_contourf_wrap_no_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines()
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))
+    data = np.sin(np.hypot(x, y))
     ax.contourf(x, y, data)
     return ax.figure
 
@@ -67,7 +71,7 @@ def test_global_pcolor_wrap_new_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines()
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))[:-1, :-1]
+    data = np.sin(np.hypot(x, y))[:-1, :-1]
     ax.pcolor(x, y, data, transform=ccrs.PlateCarree())
     return ax.figure
 
@@ -78,7 +82,7 @@ def test_global_pcolor_wrap_no_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines()
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))[:-1, :-1]
+    data = np.sin(np.hypot(x, y))[:-1, :-1]
     ax.pcolor(x, y, data)
     return ax.figure
 
@@ -92,7 +96,7 @@ def test_global_scatter_wrap_new_transform():
     # after the coastlines.
     ax.coastlines(zorder=0)
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))
+    data = np.sin(np.hypot(x, y))
     ax.scatter(x, y, c=data, transform=ccrs.PlateCarree())
     return ax.figure
 
@@ -103,7 +107,7 @@ def test_global_scatter_wrap_no_transform():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines(zorder=0)
     x, y = np.meshgrid(np.linspace(0, 360), np.linspace(-90, 90))
-    data = np.sin(np.sqrt(x ** 2 + y ** 2))
+    data = np.sin(np.hypot(x, y))
     ax.scatter(x, y, c=data)
     return ax.figure
 
@@ -114,7 +118,7 @@ def test_global_hexbin_wrap():
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines(zorder=2)
     x, y = np.meshgrid(np.arange(-179, 181), np.arange(-90, 91))
-    data = np.sin(np.sqrt(x**2 + y**2))
+    data = np.sin(np.hypot(x, y))
     ax.hexbin(
         x.flatten(),
         y.flatten(),
@@ -135,7 +139,7 @@ def test_global_hexbin_wrap_transform():
     x, y = np.meshgrid(np.arange(0, 360), np.arange(-90, 91))
     # wrap values so to match x values from test_global_hexbin_wrap
     x_wrap = np.where(x >= 180, x - 360, x)
-    data = np.sin(np.sqrt(x_wrap**2 + y**2))
+    data = np.sin(np.hypot(x_wrap, y))
     ax.hexbin(
         x.flatten(),
         y.flatten(),
@@ -173,6 +177,10 @@ def test_simple_global():
                  id='InterruptedGoodeHomolosine'),
     ccrs.LambertCylindrical,
     ccrs.LambertZoneII,
+    pytest.param(ccrs.Spilhaus,marks=pytest.mark.skipif(
+            (proj_version < parse_version("9.6.0")),
+            reason="Requires PROJ >= 9.6.0"
+        )),
     pytest.param((ccrs.Mercator, dict(min_latitude=-85, max_latitude=85)),
                  id='Mercator'),
     ccrs.Miller,
@@ -802,7 +810,7 @@ def test_quiver_plate_carree():
     x2d, y2d = np.meshgrid(x, y)
     u = np.cos(np.deg2rad(y2d))
     v = np.cos(2. * np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     plot_extent = [-60, 40, 30, 70]
     fig = plt.figure(figsize=(6, 6))
     # plot on native projection
@@ -827,7 +835,7 @@ def test_quiver_rotated_pole():
     x2d, y2d = np.meshgrid(x, y)
     u = np.cos(np.deg2rad(y2d))
     v = -2. * np.cos(2. * np.deg2rad(y2d)) * np.sin(np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     rp = ccrs.RotatedPole(pole_longitude=177.5, pole_latitude=37.5)
     plot_extent = [x[0], x[-1], y[0], y[-1]]
     # plot on native projection
@@ -853,7 +861,7 @@ def test_quiver_regrid():
     x2d, y2d = np.meshgrid(x, y)
     u = np.cos(np.deg2rad(y2d))
     v = np.cos(2. * np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     plot_extent = [-60, 40, 30, 70]
     fig = plt.figure(figsize=(6, 3))
     ax = fig.add_subplot(projection=ccrs.NorthPolarStereo())
@@ -874,7 +882,7 @@ def test_quiver_regrid_with_extent():
     x2d, y2d = np.meshgrid(x, y)
     u = np.cos(np.deg2rad(y2d))
     v = np.cos(2. * np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     plot_extent = [-60, 40, 30, 70]
     target_extent = [-3e6, 2e6, -6e6, -2.5e6]
     fig = plt.figure(figsize=(6, 3))
@@ -919,7 +927,7 @@ def test_barbs_regrid():
     x2d, y2d = np.meshgrid(x, y)
     u = 40 * np.cos(np.deg2rad(y2d))
     v = 40 * np.cos(2. * np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     plot_extent = [-60, 40, 30, 70]
     fig = plt.figure(figsize=(6, 3))
     ax = fig.add_subplot(projection=ccrs.NorthPolarStereo())
@@ -940,7 +948,7 @@ def test_barbs_regrid_with_extent():
     x2d, y2d = np.meshgrid(x, y)
     u = 40 * np.cos(np.deg2rad(y2d))
     v = 40 * np.cos(2. * np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     plot_extent = [-60, 40, 30, 70]
     target_extent = [-3e6, 2e6, -6e6, -2.5e6]
     fig = plt.figure(figsize=(6, 3))
@@ -996,7 +1004,7 @@ def test_streamplot():
     x2d, y2d = np.meshgrid(x, y)
     u = np.cos(np.deg2rad(y2d))
     v = np.cos(2. * np.deg2rad(x2d))
-    mag = (u**2 + v**2)**.5
+    mag = np.hypot(u, v)
     plot_extent = [-60, 40, 30, 70]
     fig = plt.figure(figsize=(6, 3))
     ax = fig.add_subplot(projection=ccrs.NorthPolarStereo())

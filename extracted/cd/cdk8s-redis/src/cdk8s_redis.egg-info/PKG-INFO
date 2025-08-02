@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk8s-redis
-Version: 0.1.839
+Version: 0.1.840
 Summary: Basic implementation of a Redis construct for cdk8s.
 Home-page: https://github.com/cdk8s-team/cdk8s-redis.git
 Author: Amazon Web Services
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cdk8s<3.0.0,>=2.68.91
 Requires-Dist: constructs<11.0.0,>=10.3.0
-Requires-Dist: jsii<2.0.0,>=1.112.0
+Requires-Dist: jsii<2.0.0,>=1.113.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 

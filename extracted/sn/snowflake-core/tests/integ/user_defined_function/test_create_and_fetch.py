@@ -1,4 +1,3 @@
-
 from contextlib import suppress
 
 import pytest
@@ -20,6 +19,7 @@ from tests.utils import random_string
 
 
 pytestmark = [pytest.mark.min_sf_ver("8.38.0"), pytest.mark.usefixtures("anaconda_package_available")]
+
 
 def test_create_and_fetch_python(user_defined_functions):
     user_defined_function_name = random_string(10, "test_create_user_defined_function_py_")
@@ -44,10 +44,13 @@ def udf():
         assert user_defined_function_handle.language_config.runtime_version == "3.9"
         assert user_defined_function_handle.language_config.packages == []
         assert user_defined_function_handle.language_config.handler == "udf"
-        assert user_defined_function_handle.body == """
+        assert (
+            user_defined_function_handle.body
+            == """
 def udf():
     return {"key": "value"}
             """
+        )
 
     finally:
         user_defined_function_created.drop()
@@ -174,7 +177,6 @@ def test_create_and_fetch_scala(user_defined_functions, cursor):
 
     finally:
         user_defined_function_created.drop()
-
 
     user_defined_function_name = random_string(10, "test_create_user_defined_function_scala_staged_")
     user_defined_function_created = user_defined_functions.create(
@@ -404,4 +406,3 @@ def test_create_and_fetch_sql_query_as_body(user_defined_functions, cursor):
     finally:
         cursor.execute(f"DROP TABLE IF EXISTS {test_countries_table_name}").fetchone()
         cursor.execute(f"DROP TABLE IF EXISTS {test_user_addresses_table_name}").fetchone()
-
