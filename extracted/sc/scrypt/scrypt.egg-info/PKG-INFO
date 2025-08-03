@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: scrypt
-Version: 0.8.27
+Version: 0.8.29
 Summary: Bindings for the scrypt key derivation function library
 Home-page: https://github.com/holgern/py-scrypt
 Author: Magnus Hallin
@@ -20,6 +20,16 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: summary
 
 =========================
  Python scrypt_ bindings
@@ -113,6 +123,14 @@ PyPy as well.
 
 Changelog
 =========
+0.8.29
+------
+* Fix build for OSX using openssl 3.0
+* Build Wheel for Python 3.13
+* switch to ruff
+  
+
+
 0.8.24
 ------
 * Building of all wheels works with github actions

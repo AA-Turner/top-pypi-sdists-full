@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mammoth
-Version: 1.9.1
+Version: 1.10.0
 Summary: Convert Word documents from docx to simple and clean HTML and Markdown
 Home-page: https://github.com/mwilliamson/python-mammoth
 Author: Michael Williamson
@@ -122,6 +122,10 @@ fragment, opening the output file in a web browser may cause Unicode
 characters to be rendered incorrectly if the browser doesn’t default to
 UTF-8.
 
+**Mammoth performs no sanitisation of the source document, and should
+therefore be used extremely carefully with untrusted user input.** See
+the `Security <#security>`__ section for more information.
+
 Images
 ^^^^^^
 
@@ -171,6 +175,10 @@ For instance:
 
 Library
 ~~~~~~~
+
+**Mammoth performs no sanitisation of the source document, and should
+therefore be used extremely carefully with untrusted user input.** See
+the `Security <#security>`__ section for more information.
 
 Basic conversion
 ^^^^^^^^^^^^^^^^
@@ -468,6 +476,25 @@ WMF images are not handled by default by Mammoth. The recipes directory
 contains `an example of how they can be converted using
 LibreOffice <https://github.com/mwilliamson/python-mammoth/blob/master/recipes/wmf_images.py>`__,
 although the fidelity of the conversion depends entirely on LibreOffice.
+
+Security
+~~~~~~~~
+
+Mammoth performs no sanitisation of the source document, and should
+therefore be used extremely carefully with untrusted user input. For
+instance:
+
+-  Source documents can contain links with ``javascript:`` targets. If,
+   for instance, you allow users to upload source documents,
+   automatically convert the document into HTML, and embed the HTML into
+   your website without sanitisation, this may create links that can
+   execute arbitrary JavaScript when clicked.
+
+-  Source documents may reference files outside of the source document.
+   If, for instance, you allow users to upload source documents to a
+   server, automatically convert the document into HTML on the server,
+   and embed the HTML into your website, this may allow arbitrary files
+   on the server to be read and exfiltrated.
 
 Document transforms
 ~~~~~~~~~~~~~~~~~~~

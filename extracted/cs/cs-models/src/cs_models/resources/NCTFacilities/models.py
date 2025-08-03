@@ -20,6 +20,7 @@ class NCTFacilityModel(Base):
     )
     facility_name = Column(String(256))
     facility_city = Column(String(50))
+    facility_state = Column(String(50))
     facility_country = Column(String(50))
     facility_zip_code = Column(String(20))
     updated_at = Column(

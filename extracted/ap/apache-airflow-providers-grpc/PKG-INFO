@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-grpc
-Version: 3.8.1
+Version: 3.8.2
 Summary: Provider package apache-airflow-providers-grpc for Apache Airflow
 Keywords: airflow-provider,grpc,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -18,14 +18,15 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
 Requires-Dist: google-auth>=1.0.0, <3.0.0
 Requires-Dist: google-auth-httplib2>=0.0.1
 Requires-Dist: grpcio>=1.59.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -56,8 +57,9 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-grpc``
 
-Release: ``3.8.1``
+Release: ``3.8.2``
 
+Release Date: ``|PypiReleaseDate|``
 
 `gRPC <https://grpc.io/>`__
 
@@ -69,7 +71,7 @@ This is a provider package for ``grpc`` provider. All classes for this provider 
 are in ``airflow.providers.grpc`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.2/>`_.
 
 Installation
 ------------
@@ -78,7 +80,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-grpc``
 
-The package supports the following python versions: 3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12,3.13
 
 Requirements
 ------------
@@ -93,5 +95,5 @@ PIP package               Version required
 ========================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-grpc/3.8.2/changelog.html>`_.
 

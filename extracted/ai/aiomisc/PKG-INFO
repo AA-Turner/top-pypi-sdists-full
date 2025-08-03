@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aiomisc
-Version: 17.9.1
+Version: 17.9.4
 Summary: aiomisc - miscellaneous utils for asyncio
 License: MIT
 Author: Dmitry Orlov
@@ -62,6 +62,7 @@ Requires-Dist: logging-journald ; sys_platform == "linux"
 Requires-Dist: raven ; extra == "raven"
 Requires-Dist: rich ; extra == "rich"
 Requires-Dist: setuptools ; python_version < "3.8"
+Requires-Dist: typing_extensions ; python_version < "3.12"
 Requires-Dist: uvicorn (>=0.27,<0.28) ; extra == "uvicorn"
 Requires-Dist: uvloop (>=0.21,<1) ; extra == "uvloop"
 Project-URL: Changelog, https://github.com/aiokitchen/aiomisc/blob/master/CHANGELOG.md
@@ -78,8 +79,8 @@ aiomisc - miscellaneous utils for asyncio
    :target: https://coveralls.io/github/aiokitchen/aiomisc
    :alt: Coveralls
 
-.. image:: https://github.com/aiokitchen/aiomisc/workflows/tox/badge.svg
-   :target: https://github.com/aiokitchen/aiomisc/actions?query=workflow%3Atox
+.. image:: https://github.com/aiokitchen/aiomisc/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/aiokitchen/aiomisc/actions/workflows/tests.yml
    :alt: Actions
 
 .. image:: https://img.shields.io/pypi/v/aiomisc.svg

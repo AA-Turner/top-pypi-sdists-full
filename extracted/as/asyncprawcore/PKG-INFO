@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asyncprawcore
-Version: 2.4.0
+Version: 3.0.1
 Summary: Low-level asynchronous communication layer for Async PRAW 7+.
 Keywords: praw,reddit,api,async,asynchronous,asyncpraw
 Author-email: Joel Payne <lilspazjoekp@gmail.com>
 Maintainer-email: Joel Payne <lilspazjoekp@gmail.com>
-Requires-Python: ~=3.8
+Requires-Python: ~=3.9
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -14,10 +14,12 @@ Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+License-File: LICENSE.txt
 Requires-Dist: aiohttp <4
 Requires-Dist: yarl
 Requires-Dist: coveralls ; extra == "ci"
@@ -25,8 +27,7 @@ Requires-Dist: packaging ; extra == "dev"
 Requires-Dist: asyncprawcore[lint] ; extra == "dev"
 Requires-Dist: asyncprawcore[test] ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "lint"
-Requires-Dist: ruff ==0.1.* ; extra == "lint"
-Requires-Dist: mock ==4.* ; extra == "test"
+Requires-Dist: ruff ==0.9.* ; extra == "lint"
 Requires-Dist: pytest ==7.* ; extra == "test"
 Requires-Dist: pytest-asyncio ==0.18.* ; extra == "test"
 Requires-Dist: pytest-vcr ==1.* ; extra == "test"
@@ -75,10 +76,6 @@ asyncprawcore
 .. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
     :alt: pre-commit
     :target: https://github.com/pre-commit/pre-commit
-
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :alt: Black code style
-    :target: https://github.com/psf/black
 
 asyncprawcore is a low-level communication layer used by Async PRAW 7+.
 

@@ -44,11 +44,7 @@ from airflow.providers.cncf.kubernetes.utils.pod_manager import (
     container_is_completed,
     container_is_running,
 )
-
-try:
-    from airflow.sdk import BaseHook
-except ImportError:
-    from airflow.hooks.base import BaseHook  # type: ignore[attr-defined,no-redef]
+from airflow.providers.cncf.kubernetes.version_compat import BaseHook
 from airflow.utils import yaml
 
 if TYPE_CHECKING:
@@ -775,7 +771,7 @@ class AsyncKubernetesHook(KubernetesHook):
         if self.config_dict:
             self.log.debug(LOADING_KUBE_CONFIG_FILE_RESOURCE.format("config dictionary"))
             self._is_in_cluster = False
-            await async_config.load_kube_config_from_dict(self.config_dict)
+            await async_config.load_kube_config_from_dict(self.config_dict, context=cluster_context)
             return async_client.ApiClient()
 
         if kubeconfig_path is not None:

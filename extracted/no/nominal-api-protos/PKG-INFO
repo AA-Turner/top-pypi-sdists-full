@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nominal-api-protos
-Version: 0.803.1
+Version: 0.803.2
 Requires-Python: >=3.8
 Requires-Dist: protobuf>=5.25.0
 Dynamic: requires-dist

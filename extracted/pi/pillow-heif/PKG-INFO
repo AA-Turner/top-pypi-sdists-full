@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow_heif
-Version: 1.0.0
+Version: 1.1.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -204,7 +204,7 @@ if im.info["depth_images"]:
 | CPython 3.11       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.12       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.13       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
-| PyPy 3.9 v7.3      |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
 | PyPy 3.10 v7.3     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
+| PyPy 3.11 v7.3     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
 
 &ast; **x86_64**, **aarch64** wheels.

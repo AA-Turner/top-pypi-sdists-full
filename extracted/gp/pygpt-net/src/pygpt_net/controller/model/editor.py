@@ -31,6 +31,7 @@ class Editor:
         self.width = 800
         self.height = 500
         self.selected = []
+        self.locked = False
         self.options = {
             "id": {
                 "type": "text",
@@ -150,7 +151,7 @@ class Editor:
         :param args: args
         :param kwargs: kwargs
         """
-        if self.window.controller.reloading:
+        if self.window.controller.reloading or self.locked:
             return  # ignore hooks during reloading process
         if key in ["id", "name", "mode"]:
             self.save(persist=False)
@@ -177,8 +178,9 @@ class Editor:
             self.setup()
             self.config_initialized = True
         if not self.dialog or force:
+            self.current = None
             self.init()
-            self.previous =  copy.deepcopy(self.window.core.models.items)
+            self.previous = copy.deepcopy(self.window.core.models.items)
             self.window.ui.dialogs.open(
                 "models.editor",
                 width=self.width,
@@ -189,10 +191,12 @@ class Editor:
     def undo(self):
         """Undo last changes in models editor"""
         if self.previous is not None:
+            self.locked = True
             self.window.core.models.items = copy.deepcopy(self.previous)
             self.window.core.models.save()
             self.reload_items()
             self.init()
+            self.locked = False
 
     def close(self):
         """Close models editor dialog"""
@@ -210,7 +214,7 @@ class Editor:
             if len(self.window.core.models.items) > 0:
                 self.current = list(self.window.core.models.items.keys())[0]
 
-        # assign plugins options to config dialog fields
+        # assign model options to config dialog fields
         options = copy.deepcopy(self.get_options())  # copy options
         if self.current in self.window.core.models.items:
             model = self.window.core.models.items[self.current]
@@ -273,21 +277,28 @@ class Editor:
 
     def select(self, idx: int):
         """Select model"""
+        self.locked = True
         self.save(persist=False)
         self.current = self.get_model_by_tab_idx(idx)
         self.init()
+        self.locked = False
 
     def new(self):
         """Create new model"""
+        self.locked = True
+        self.save(persist=False)
         model = self.window.core.models.create_empty()
+        self.window.core.models.sort_items()
         self.window.core.models.save()
         self.reload_items()
 
         # switch to created model
         self.current = model.id
+        # sort here
         idx = self.get_tab_by_id(self.current)
         self.set_by_tab(idx)
         self.init()
+        self.locked = False
 
     def delete_by_idx(
             self,
@@ -300,6 +311,7 @@ class Editor:
         :param idx: model idx
         :param force: force delete
         """
+        self.locked = True
         model = self.get_model_by_tab_idx(idx)
         if not force:
             self.window.ui.dialogs.confirm(
@@ -314,6 +326,7 @@ class Editor:
         if self.current == model:
             self.current = None
         self.init()
+        self.locked = False
 
     def load_defaults_user(self, force: bool = False):
         """
@@ -345,6 +358,7 @@ class Editor:
             )
             return
 
+        self.locked = True
         # restore default models (from app base models)
         self.window.core.models.restore_default()  # all models restore
         self.window.core.models.save()
@@ -358,6 +372,7 @@ class Editor:
             trans('dialog.models.editor.defaults.app.result')
         )
         self.previous = copy.deepcopy(self.window.core.models.items)
+        self.locked = False
 
     def set_by_tab(self, idx: int):
         """
@@ -366,6 +381,7 @@ class Editor:
         :param idx: tab index
         """
         model_idx = 0
+        self.window.core.models.sort_items()
         for id in self.window.core.models.get_ids():
             if model_idx == idx:
                 self.current = id
@@ -393,6 +409,7 @@ class Editor:
         """
         model_idx = None
         i = 0
+        self.window.core.models.sort_items()
         for id in self.window.core.models.get_ids():
             if id == model_id:
                 model_idx = i
@@ -409,6 +426,7 @@ class Editor:
         """
         model_idx = None
         i = 0
+        self.window.core.models.sort_items()
         for id in self.window.core.models.get_ids():
             if id == model_id:
                 model_idx = i
@@ -424,6 +442,7 @@ class Editor:
         :return: model key
         """
         model_idx = 0
+        self.window.core.models.sort_items()
         for id in self.window.core.models.get_ids():
             if model_idx == idx:
                 return id

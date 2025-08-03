@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chainlit"
-version = "2.6.4"
+version = "2.6.5"
 keywords = [
     'LLM',
     'Agents',
@@ -75,7 +75,7 @@ pytest-asyncio = "^0.23.8"
 pytest-cov = "^5.0.0"
 openai = "^1.11.1"
 langchain = "^0.2.4"
-llama-index = "^0.10.45"
+llama-index = "^0.13.0"
 semantic-kernel = "^1.24.0"
 tenacity = "^8.4.1"
 transformers = "^4.38"

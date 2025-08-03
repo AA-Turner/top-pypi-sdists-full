@@ -2554,6 +2554,7 @@ class Option(Parameter):
         if help:
             help = inspect.cleandoc(help)
 
+        default_is_missing = "default" not in attrs
         super().__init__(
             param_decls, type=type, multiple=multiple, deprecated=deprecated, **attrs
         )
@@ -2587,15 +2588,15 @@ class Option(Parameter):
         self._flag_needs_value = self.prompt is not None and not self.prompt_required
 
         if is_flag is None:
-            # Implicitly a flag because flag_value was set.
             if flag_value is not None:
+                # Implicitly a flag because flag_value was set.
                 is_flag = True
-            # Not a flag, but when used as a flag it shows a prompt.
             elif self._flag_needs_value:
+                # Not a flag, but when used as a flag it shows a prompt.
                 is_flag = False
-            # Implicitly a flag because flag options were given.
-            elif self.secondary_opts:
-                is_flag = True
+            else:
+                # Implicitly a flag because flag options were given.
+                is_flag = bool(self.secondary_opts)
         elif is_flag is False and not self._flag_needs_value:
             # Not a flag, and prompt is not enabled, can be used as a
             # flag if flag_value is set.
@@ -2603,19 +2604,14 @@ class Option(Parameter):
 
         self.default: t.Any | t.Callable[[], t.Any]
 
-        if is_flag:
-            # Set missing default for flags if not explicitly required or prompted.
-            if self.default is None and not self.required and not self.prompt:
-                if multiple:
-                    self.default = ()
-                else:
-                    self.default = False
+        if is_flag and default_is_missing and not self.required:
+            if multiple:
+                self.default = ()
+            else:
+                self.default = False
 
-            if flag_value is None:
-                # A boolean flag presence in the command line is enough to set
-                # the value: to the default if it is not blank, or to True
-                # otherwise.
-                flag_value = self.default if self.default else True
+        if is_flag and flag_value is None:
+            flag_value = not self.default
 
         self.type: types.ParamType
         if is_flag and type is None:
@@ -2623,10 +2619,8 @@ class Option(Parameter):
             # default.
             self.type = types.convert_type(None, flag_value)
 
-        self.is_flag: bool = bool(is_flag)
-        self.is_bool_flag: bool = bool(
-            is_flag and isinstance(self.type, types.BoolParamType)
-        )
+        self.is_flag: bool = is_flag
+        self.is_bool_flag: bool = is_flag and isinstance(self.type, types.BoolParamType)
         self.flag_value: t.Any = flag_value
 
         # Counting
@@ -2634,7 +2628,7 @@ class Option(Parameter):
         if count:
             if type is None:
                 self.type = types.IntRange(min=0)
-            if self.default is None:
+            if default_is_missing:
                 self.default = 0
 
         self.allow_from_autoenv = allow_from_autoenv
@@ -2682,7 +2676,7 @@ class Option(Parameter):
 
     def get_error_hint(self, ctx: Context) -> str:
         result = super().get_error_hint(ctx)
-        if self.show_envvar and self.envvar is not None:
+        if self.show_envvar:
             result += f" (env var: '{self.envvar}')"
         return result
 
@@ -2872,8 +2866,6 @@ class Option(Parameter):
                 default_string = f"({self.show_default})"
             elif isinstance(default_value, (list, tuple)):
                 default_string = ", ".join(str(d) for d in default_value)
-            elif isinstance(default_value, enum.Enum):
-                default_string = default_value.name
             elif inspect.isfunction(default_value):
                 default_string = _("(dynamic)")
             elif self.is_bool_flag and self.secondary_opts:
@@ -2926,8 +2918,8 @@ class Option(Parameter):
         # value as default.
         if self.is_flag and not self.is_bool_flag:
             for param in ctx.command.params:
-                if param.name == self.name and param.default is not None:
-                    return t.cast(Option, param).default
+                if param.name == self.name and param.default:
+                    return t.cast(Option, param).flag_value
 
             return None
 
@@ -2967,21 +2959,11 @@ class Option(Parameter):
         )
 
     def resolve_envvar_value(self, ctx: Context) -> str | None:
-        """Find which environment variable to read for this option and return
-        its value.
-
-        Returns the value of the environment variable if it exists, or ``None``
-        if it does not.
-
-        .. caution::
-
-            The raw value extracted from the environment is not normalized and
-            is returned as-is. Any normalization or reconciation with the
-            option's type should happen later.
-        """
         rv = super().resolve_envvar_value(ctx)
 
         if rv is not None:
+            if self.is_flag and self.flag_value:
+                return str(self.flag_value)
             return rv
 
         if (
@@ -2998,32 +2980,18 @@ class Option(Parameter):
         return None
 
     def value_from_envvar(self, ctx: Context) -> t.Any | None:
-        """Normalize the value from the environment variable, if it exists."""
-        rv: str | None = self.resolve_envvar_value(ctx)
+        rv: t.Any | None = self.resolve_envvar_value(ctx)
 
         if rv is None:
             return None
 
-        # Non-boolean flags are more liberal in what they accept. But a flag being a
-        # flag, its envvar value still needs to analyzed to determine if the flag is
-        # activated or not.
-        if self.is_flag and not self.is_bool_flag:
-            # If the flag_value is set and match the envvar value, return it
-            # directly.
-            if self.flag_value is not None and rv == self.flag_value:
-                return self.flag_value
-            # Analyze the envvar value as a boolean to know if the flag is
-            # activated or not.
-            return types.BoolParamType.str_to_bool(rv)
-
-        # Split the envvar value if it is allowed to be repeated.
         value_depth = (self.nargs != 1) + bool(self.multiple)
-        if value_depth > 0:
-            multi_rv = self.type.split_envvar_value(rv)
-            if self.multiple and self.nargs != 1:
-                multi_rv = batch(multi_rv, self.nargs)  # type: ignore[assignment]
 
-            return multi_rv
+        if value_depth > 0:
+            rv = self.type.split_envvar_value(rv)
+
+            if self.multiple and self.nargs != 1:
+                rv = batch(rv, self.nargs)
 
         return rv
 
@@ -3042,17 +3010,6 @@ class Option(Parameter):
             else:
                 value = self.flag_value
                 source = ParameterSource.COMMANDLINE
-
-        # A flag which is activated and has a flag_value set, should returns
-        # the latter, unless the value comes from the explicitly sets default.
-        elif (
-            self.is_flag
-            and value is True
-            and not self.is_bool_flag
-            and self.flag_value is not None
-            and source is not ParameterSource.DEFAULT
-        ):
-            value = self.flag_value
 
         elif (
             self.multiple

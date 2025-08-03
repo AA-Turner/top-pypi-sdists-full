@@ -89,15 +89,57 @@ class Block(google.protobuf.message.Message):
         VERTICAL: Block.FlexContainer.Direction.ValueType  # 1
         HORIZONTAL: Block.FlexContainer.Direction.ValueType  # 2
 
+        class _Justify:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _JustifyEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Block.FlexContainer._Justify.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            JUSTIFY_UNDEFINED: Block.FlexContainer._Justify.ValueType  # 0
+            JUSTIFY_START: Block.FlexContainer._Justify.ValueType  # 1
+            JUSTIFY_END: Block.FlexContainer._Justify.ValueType  # 2
+            JUSTIFY_CENTER: Block.FlexContainer._Justify.ValueType  # 3
+            SPACE_BETWEEN: Block.FlexContainer._Justify.ValueType  # 4
+
+        class Justify(_Justify, metaclass=_JustifyEnumTypeWrapper): ...
+        JUSTIFY_UNDEFINED: Block.FlexContainer.Justify.ValueType  # 0
+        JUSTIFY_START: Block.FlexContainer.Justify.ValueType  # 1
+        JUSTIFY_END: Block.FlexContainer.Justify.ValueType  # 2
+        JUSTIFY_CENTER: Block.FlexContainer.Justify.ValueType  # 3
+        SPACE_BETWEEN: Block.FlexContainer.Justify.ValueType  # 4
+
+        class _Align:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _AlignEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Block.FlexContainer._Align.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            ALIGN_UNDEFINED: Block.FlexContainer._Align.ValueType  # 0
+            ALIGN_START: Block.FlexContainer._Align.ValueType  # 1
+            ALIGN_END: Block.FlexContainer._Align.ValueType  # 2
+            ALIGN_CENTER: Block.FlexContainer._Align.ValueType  # 3
+            STRETCH: Block.FlexContainer._Align.ValueType  # 4
+
+        class Align(_Align, metaclass=_AlignEnumTypeWrapper): ...
+        ALIGN_UNDEFINED: Block.FlexContainer.Align.ValueType  # 0
+        ALIGN_START: Block.FlexContainer.Align.ValueType  # 1
+        ALIGN_END: Block.FlexContainer.Align.ValueType  # 2
+        ALIGN_CENTER: Block.FlexContainer.Align.ValueType  # 3
+        STRETCH: Block.FlexContainer.Align.ValueType  # 4
+
         BORDER_FIELD_NUMBER: builtins.int
         GAP_CONFIG_FIELD_NUMBER: builtins.int
         SCALE_FIELD_NUMBER: builtins.int
         DIRECTION_FIELD_NUMBER: builtins.int
         WRAP_FIELD_NUMBER: builtins.int
+        JUSTIFY_FIELD_NUMBER: builtins.int
+        ALIGN_FIELD_NUMBER: builtins.int
         border: builtins.bool
         scale: builtins.float
         direction: global___Block.FlexContainer.Direction.ValueType
         wrap: builtins.bool
+        justify: global___Block.FlexContainer.Justify.ValueType
+        align: global___Block.FlexContainer.Align.ValueType
         @property
         def gap_config(self) -> streamlit.proto.GapSize_pb2.GapConfig: ...
         def __init__(
@@ -108,9 +150,11 @@ class Block(google.protobuf.message.Message):
             scale: builtins.float = ...,
             direction: global___Block.FlexContainer.Direction.ValueType = ...,
             wrap: builtins.bool = ...,
+            justify: global___Block.FlexContainer.Justify.ValueType = ...,
+            align: global___Block.FlexContainer.Align.ValueType = ...,
         ) -> None: ...
         def HasField(self, field_name: typing.Literal["gap_config", b"gap_config"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["border", b"border", "direction", b"direction", "gap_config", b"gap_config", "scale", b"scale", "wrap", b"wrap"]) -> None: ...
+        def ClearField(self, field_name: typing.Literal["align", b"align", "border", b"border", "direction", b"direction", "gap_config", b"gap_config", "justify", b"justify", "scale", b"scale", "wrap", b"wrap"]) -> None: ...
 
     @typing.final
     class Column(google.protobuf.message.Message):

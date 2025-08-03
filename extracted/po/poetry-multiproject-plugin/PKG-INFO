@@ -1,8 +1,7 @@
 Metadata-Version: 2.3
 Name: poetry-multiproject-plugin
-Version: 1.8.3
+Version: 1.8.4
 Summary: A Poetry plugin that makes it possible to use relative package includes.
-Home-page: https://github.com/davidvujic/poetry-multiproject-plugin
 License: MIT
 Author: David Vujic
 Requires-Python: >=3.8,<4.0
@@ -17,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: mypy (==1.*)
 Requires-Dist: poetry
 Requires-Dist: tomlkit (==0.*)
+Project-URL: Homepage, https://github.com/davidvujic/poetry-multiproject-plugin
 Project-URL: Repository, https://github.com/davidvujic/poetry-multiproject-plugin
 Description-Content-Type: text/markdown
 

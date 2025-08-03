@@ -19,6 +19,7 @@ class CreateTableRequest(BaseModel):
     name: str
     fields: Optional[List[NewTableField]] = None
     data: Optional[str] = None
+    primary_key_field: Optional[str] = None
     if_exists: IfExists = IfExists.ERROR
     autoconnect: bool = False
 

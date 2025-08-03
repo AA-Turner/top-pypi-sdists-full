@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pyzmq
-Version: 27.0.0
+Version: 27.0.1
 Summary: Python bindings for 0MQ
 Author: Brian E. Granger, Min Ragan-Kelley
 Author-Email: PyZMQ Contributors <zeromq-dev@lists.zeromq.org>

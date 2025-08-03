@@ -53,7 +53,7 @@ try:
     from GameSentenceMiner.util.text_log import GameLine, get_text_event, get_mined_line, get_all_lines, game_log
     from GameSentenceMiner.util import *
     from GameSentenceMiner.web import texthooking_page
-    from GameSentenceMiner.web.service import handle_texthooker_button
+    from GameSentenceMiner.web.service import handle_texthooker_button, set_get_audio_from_video_callback
     from GameSentenceMiner.web.texthooking_page import run_text_hooker_page
 except Exception as e:
     from GameSentenceMiner.util.configuration import logger, is_linux, is_windows
@@ -91,10 +91,8 @@ class VideoToAudioHandler(FileSystemEventHandler):
         selected_lines = []
         anki_card_creation_time = None
         mined_line = None
-        gsm_state.previous_replay = video_path
         if gsm_state.line_for_audio or gsm_state.line_for_screenshot:
-            handle_texthooker_button(
-                video_path, get_audio_from_video=VideoToAudioHandler.get_audio)
+            handle_texthooker_button(video_path)
             return
         try:
             if anki.card_queue and len(anki.card_queue) > 0:
@@ -151,7 +149,7 @@ class VideoToAudioHandler(FileSystemEventHandler):
 
             if get_config().anki.sentence_audio_field and get_config().audio.enabled:
                 logger.debug("Attempting to get audio from video")
-                final_audio_output, vad_result, vad_trimmed_audio = VideoToAudioHandler.get_audio(
+                final_audio_output, vad_result, vad_trimmed_audio, start_time, end_time = VideoToAudioHandler.get_audio(
                     start_line,
                     line_cutoff,
                     video_path,
@@ -186,7 +184,9 @@ class VideoToAudioHandler(FileSystemEventHandler):
                     should_update_audio=vad_result.output_audio,
                     ss_time=ss_timing,
                     game_line=mined_line,
-                    selected_lines=selected_lines
+                    selected_lines=selected_lines,
+                    start_time=start_time,
+                    end_time=end_time
                 )
             elif get_config().features.notify_on_update and vad_result.success:
                 notification.send_audio_generated_notification(
@@ -199,24 +199,24 @@ class VideoToAudioHandler(FileSystemEventHandler):
             logger.debug(
                 f"Some error was hit catching to allow further work to be done: {e}", exc_info=True)
             notification.send_error_no_anki_update()
-        finally:
-            if not skip_delete:
-                if video_path and get_config().paths.remove_video and os.path.exists(video_path):
+        if get_config().paths.remove_video and video_path and not skip_delete:
+            try:
+                if os.path.exists(video_path):
+                    logger.debug(f"Removing video: {video_path}")
                     os.remove(video_path)
-                if vad_trimmed_audio and get_config().paths.remove_audio and os.path.exists(vad_trimmed_audio):
-                    os.remove(vad_trimmed_audio)
-                if final_audio_output and get_config().paths.remove_audio and os.path.exists(final_audio_output):
-                    os.remove(final_audio_output)
+            except Exception as e:
+                logger.error(
+                    f"Error removing video file {video_path}: {e}", exc_info=True)
 
     @staticmethod
     def get_audio(game_line, next_line_time, video_path, anki_card_creation_time=None, temporary=False, timing_only=False, mined_line=None):
-        trimmed_audio = get_audio_and_trim(
+        trimmed_audio, start_time, end_time = get_audio_and_trim(
             video_path, game_line, next_line_time, anki_card_creation_time)
         if temporary:
             return ffmpeg.convert_audio_to_wav_lossless(trimmed_audio)
         vad_trimmed_audio = make_unique_file_name(
             f"{os.path.abspath(configuration.get_temporary_directory())}/{obs.get_current_game(sanitize=True)}.{get_config().audio.extension}")
-        final_audio_output = make_unique_file_name(os.path.join(get_config().paths.audio_destination,
+        final_audio_output = make_unique_file_name(os.path.join(get_temporary_directory(),
                                                                 f"{obs.get_current_game(sanitize=True)}.{get_config().audio.extension}"))
 
         vad_result = vad_processor.trim_audio_with_vad(
@@ -230,7 +230,7 @@ class VideoToAudioHandler(FileSystemEventHandler):
                                                   get_config().audio.ffmpeg_reencode_options_to_use)
         elif os.path.exists(vad_trimmed_audio):
             shutil.move(vad_trimmed_audio, final_audio_output)
-        return final_audio_output, vad_result, vad_trimmed_audio
+        return final_audio_output, vad_result, vad_trimmed_audio, start_time, end_time
 
 
 def initial_checks():
@@ -459,41 +459,52 @@ def restart_obs():
 
 
 def cleanup():
-    logger.info("Performing cleanup...")
-    gsm_state.keep_running = False
+    try:
+        logger.info("Performing cleanup...")
+        gsm_state.keep_running = False
 
-    if get_config().obs.enabled:
+        if obs.obs_connection_manager and obs.obs_connection_manager.is_alive():
+            obs.obs_connection_manager.stop()
         obs.stop_replay_buffer()
         obs.disconnect_from_obs()
-    if get_config().obs.close_obs:
-        close_obs()
+        if get_config().obs.close_obs:
+            close_obs()
+            
+        if texthooking_page.websocket_server_threads:
+            for thread in texthooking_page.websocket_server_threads:
+                if thread and isinstance(thread, threading.Thread) and thread.is_alive():
+                    thread.stop_server()
+                    thread.join()
+        
+        proc: Popen
+        for proc in procs_to_close:
+            try:
+                logger.info(f"Terminating process {proc.args[0]}")
+                proc.terminate()
+                proc.wait()
+                logger.info(f"Process {proc.args[0]} terminated.")
+            except psutil.NoSuchProcess:
+                logger.info("PID already closed.")
+            except Exception as e:
+                proc.kill()
+                logger.error(f"Error terminating process {proc}: {e}")
 
-    proc: Popen
-    for proc in procs_to_close:
-        try:
-            logger.info(f"Terminating process {proc.args[0]}")
-            proc.terminate()
-            proc.wait()  # Wait for OBS to fully close
-            logger.info(f"Process {proc.args[0]} terminated.")
-        except psutil.NoSuchProcess:
-            logger.info("PID already closed.")
-        except Exception as e:
-            proc.kill()
-            logger.error(f"Error terminating process {proc}: {e}")
+        if icon:
+            icon.stop()
 
-    if icon:
-        icon.stop()
+        for video in gsm_state.videos_to_remove:
+            try:
+                if os.path.exists(video):
+                    os.remove(video)
+            except Exception as e:
+                logger.error(f"Error removing temporary video file {video}: {e}")
 
-    for video in gsm_state.videos_to_remove:
-        try:
-            if os.path.exists(video):
-                os.remove(video)
-        except Exception as e:
-            logger.error(f"Error removing temporary video file {video}: {e}")
-
-    settings_window.window.destroy()
-    time.sleep(5)
-    logger.info("Cleanup complete.")
+        settings_window.window.destroy()
+        # time.sleep(5)
+        logger.info("Cleanup complete.")
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}", exc_info=True)
+        sys.exit(1)
 
 
 def handle_exit():
@@ -510,21 +521,21 @@ def handle_exit():
 def initialize(reloading=False):
     global obs_process
     if not reloading:
+        get_temporary_directory(delete=True)
         if is_windows():
             download_obs_if_needed()
             download_ffmpeg_if_needed()
             if shutil.which("ffmpeg") is None:
                 os.environ["PATH"] += os.pathsep + \
                     os.path.dirname(get_ffmpeg_path())
-        if get_config().obs.enabled:
-            if get_config().obs.open_obs:
-                obs_process = obs.start_obs()
+        if get_config().obs.open_obs:
+            obs_process = obs.start_obs()
             # obs.connect_to_obs(start_replay=True)
             # anki.start_monitoring_anki()
         # gametext.start_text_monitor()
         os.makedirs(get_config().paths.folder_to_watch, exist_ok=True)
-        os.makedirs(get_config().paths.screenshot_destination, exist_ok=True)
-        os.makedirs(get_config().paths.audio_destination, exist_ok=True)
+        os.makedirs(get_config().paths.output_folder, exist_ok=True)
+        set_get_audio_from_video_callback(VideoToAudioHandler.get_audio)
     initial_checks()
     register_websocket_message_handler(handle_websocket_message)
     # if get_config().vad.do_vad_postprocessing:
@@ -576,9 +587,8 @@ def post_init2():
 def async_loop():
     async def loop():
         await obs.connect_to_obs()
-        if get_config().obs.enabled:
-            await register_scene_switcher_callback()
-            await check_obs_folder_is_correct()
+        await register_scene_switcher_callback()
+        await check_obs_folder_is_correct()
         logger.info("Post-Initialization started.")
         vad_processor.init()
         # if is_beangate:

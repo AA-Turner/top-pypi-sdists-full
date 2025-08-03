@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 2.3.0
+Version: 2.3.1
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
 Keywords: airflow-provider,fab,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.10
+Requires-Python: >=3.10,!=3.13
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -23,20 +23,20 @@ License-File: 3rd-party-licenses/LICENSES-ui.txt
 License-File: NOTICE
 Requires-Dist: apache-airflow>=3.0.2
 Requires-Dist: apache-airflow-providers-common-compat>=1.2.1
-Requires-Dist: blinker>=1.6.2
-Requires-Dist: flask>=2.2.1,<2.3
-Requires-Dist: flask-appbuilder==4.6.3
-Requires-Dist: flask-login>=0.6.2
-Requires-Dist: flask-session>=0.4.0,<0.6
-Requires-Dist: flask-wtf>=1.1.0
-Requires-Dist: connexion[flask]>=2.14.2,<3.0
-Requires-Dist: jmespath>=0.7.0
-Requires-Dist: werkzeug>=2.2,<4
-Requires-Dist: wtforms>=3.0,<4
-Requires-Dist: kerberos>=1.3.0 ; extra == "kerberos"
+Requires-Dist: blinker>=1.6.2; python_version < '3.13'
+Requires-Dist: flask>=2.2.1,<2.3; python_version < '3.13'
+Requires-Dist: flask-appbuilder==4.6.3; python_version < '3.13'
+Requires-Dist: flask-login>=0.6.2; python_version < '3.13'
+Requires-Dist: flask-session>=0.4.0,<0.6; python_version < '3.13'
+Requires-Dist: flask-wtf>=1.1.0; python_version < '3.13'
+Requires-Dist: connexion[flask]>=2.14.2,<3.0; python_version < '3.13'
+Requires-Dist: jmespath>=0.7.0; python_version < '3.13'
+Requires-Dist: werkzeug>=2.2,<4; python_version < '3.13'
+Requires-Dist: wtforms>=3.0,<4; python_version < '3.13'
+Requires-Dist: kerberos>=1.3.0 ; extra == "kerberos" and ( python_version < '3.13')
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -68,8 +68,9 @@ Provides-Extra: kerberos
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``2.3.0``
+Release: ``2.3.1``
 
+Release Date: ``|PypiReleaseDate|``
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
 
@@ -81,7 +82,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.1/>`_.
 
 Installation
 ------------
@@ -95,22 +96,22 @@ The package supports the following python versions: 3.10,3.11,3.12
 Requirements
 ------------
 
-==========================================  ==================
+==========================================  ==========================================
 PIP package                                 Version required
-==========================================  ==================
+==========================================  ==========================================
 ``apache-airflow``                          ``>=3.0.2``
 ``apache-airflow-providers-common-compat``  ``>=1.2.1``
-``blinker``                                 ``>=1.6.2``
-``flask``                                   ``>=2.2.1,<2.3``
-``flask-appbuilder``                        ``==4.6.3``
-``flask-login``                             ``>=0.6.2``
-``flask-session``                           ``>=0.4.0,<0.6``
-``flask-wtf``                               ``>=1.1.0``
-``connexion[flask]``                        ``>=2.14.2,<3.0``
-``jmespath``                                ``>=0.7.0``
-``werkzeug``                                ``>=2.2,<4``
-``wtforms``                                 ``>=3.0,<4``
-==========================================  ==================
+``blinker``                                 ``>=1.6.2; python_version < "3.13"``
+``flask``                                   ``>=2.2.1,<2.3; python_version < "3.13"``
+``flask-appbuilder``                        ``==4.6.3; python_version < "3.13"``
+``flask-login``                             ``>=0.6.2; python_version < "3.13"``
+``flask-session``                           ``>=0.4.0,<0.6; python_version < "3.13"``
+``flask-wtf``                               ``>=1.1.0; python_version < "3.13"``
+``connexion[flask]``                        ``>=2.14.2,<3.0; python_version < "3.13"``
+``jmespath``                                ``>=0.7.0; python_version < "3.13"``
+``werkzeug``                                ``>=2.2,<4; python_version < "3.13"``
+``wtforms``                                 ``>=3.0,<4; python_version < "3.13"``
+==========================================  ==========================================
 
 Cross provider package dependencies
 -----------------------------------
@@ -132,5 +133,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/2.3.1/changelog.html>`_.
 

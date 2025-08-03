@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-smtp
-Version: 2.1.1
+Version: 2.1.2
 Summary: Provider package apache-airflow-providers-smtp for Apache Airflow
 Keywords: airflow-provider,smtp,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -18,12 +18,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.6.1
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -54,8 +55,9 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-smtp``
 
-Release: ``2.1.1``
+Release: ``2.1.2``
 
+Release Date: ``|PypiReleaseDate|``
 
 `Simple Mail Transfer Protocol (SMTP) <https://tools.ietf.org/html/rfc5321>`__
 
@@ -67,7 +69,7 @@ This is a provider package for ``smtp`` provider. All classes for this provider 
 are in ``airflow.providers.smtp`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.2/>`_.
 
 Installation
 ------------
@@ -76,7 +78,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-smtp``
 
-The package supports the following python versions: 3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12,3.13
 
 Requirements
 ------------
@@ -108,5 +110,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-smtp/2.1.2/changelog.html>`_.
 

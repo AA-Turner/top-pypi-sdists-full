@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import datetime
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -37,10 +37,11 @@ pytestmark = pytest.mark.db_test
 
 if AIRFLOW_V_3_0_PLUS:
     from airflow.exceptions import DownstreamTasksSkipped
+    from airflow.models.dag_version import DagVersion
     from airflow.providers.standard.utils.skipmixin import SkipMixin
     from airflow.sdk import task, task_group
 else:
-    from airflow.decorators import task, task_group
+    from airflow.decorators import task, task_group  # type: ignore[attr-defined,no-redef]
     from airflow.models.skipmixin import SkipMixin
 
 DEFAULT_DATE = timezone.datetime(2016, 1, 1)
@@ -59,10 +60,9 @@ class TestSkipMixin:
     def teardown_method(self):
         self.clean_db()
 
-    @patch("airflow.utils.timezone.utcnow")
-    def test_skip(self, mock_now, dag_maker, session):
+    def test_skip(self, dag_maker, session, time_machine):
         now = datetime.datetime.now(tz=datetime.timezone.utc)
-        mock_now.return_value = now
+        time_machine.move_to(now, tick=False)
         with dag_maker("dag"):
             tasks = [EmptyOperator(task_id="task")]
 
@@ -140,15 +140,18 @@ class TestSkipMixin:
         with dag_maker(
             "dag_test_skip_all_except",
             serialized=True,
-        ):
+        ) as dag:
             task1 = EmptyOperator(task_id="task1")
             task2 = EmptyOperator(task_id="task2")
             task3 = EmptyOperator(task_id="task3")
 
             task1 >> [task2, task3]
         dag_maker.create_dagrun(run_id=DEFAULT_DAG_RUN_ID)
-
-        ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID)
+        if AIRFLOW_V_3_0_PLUS:
+            dag_version = DagVersion.get_latest_version(dag.dag_id)
+            ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID, dag_version_id=dag_version.id)
+        else:
+            ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID)
 
         if AIRFLOW_V_3_0_PLUS:
             with pytest.raises(DownstreamTasksSkipped) as exc_info:
@@ -191,8 +194,11 @@ class TestSkipMixin:
 
             task1 >> [task2, task3]
         dag_maker.create_dagrun(run_id=DEFAULT_DAG_RUN_ID)
-
-        ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID)
+        if AIRFLOW_V_3_0_PLUS:
+            dag_version = DagVersion.get_latest_version(task1.dag_id)
+            ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID, dag_version_id=dag_version.id)
+        else:
+            ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID)
 
         if AIRFLOW_V_3_0_PLUS:
             with pytest.raises(DownstreamTasksSkipped) as exc_info:
@@ -234,12 +240,55 @@ class TestSkipMixin:
             task_group_op.expand(k=[0, 1])
 
         dag_maker.create_dagrun(run_id=DEFAULT_DAG_RUN_ID)
-        branch_op_ti_0 = TI(dag.get_task("task_group_op.branch_op"), run_id=DEFAULT_DAG_RUN_ID, map_index=0)
-        branch_op_ti_1 = TI(dag.get_task("task_group_op.branch_op"), run_id=DEFAULT_DAG_RUN_ID, map_index=1)
-        branch_a_ti_0 = TI(dag.get_task("task_group_op.branch_a"), run_id=DEFAULT_DAG_RUN_ID, map_index=0)
-        branch_a_ti_1 = TI(dag.get_task("task_group_op.branch_a"), run_id=DEFAULT_DAG_RUN_ID, map_index=1)
-        branch_b_ti_0 = TI(dag.get_task("task_group_op.branch_b"), run_id=DEFAULT_DAG_RUN_ID, map_index=0)
-        branch_b_ti_1 = TI(dag.get_task("task_group_op.branch_b"), run_id=DEFAULT_DAG_RUN_ID, map_index=1)
+        if AIRFLOW_V_3_0_PLUS:
+            dag_version = DagVersion.get_latest_version(dag.dag_id)
+            branch_op_ti_0 = TI(
+                dag.get_task("task_group_op.branch_op"),
+                run_id=DEFAULT_DAG_RUN_ID,
+                map_index=0,
+                dag_version_id=dag_version.id,
+            )
+            branch_op_ti_1 = TI(
+                dag.get_task("task_group_op.branch_op"),
+                run_id=DEFAULT_DAG_RUN_ID,
+                map_index=1,
+                dag_version_id=dag_version.id,
+            )
+            branch_a_ti_0 = TI(
+                dag.get_task("task_group_op.branch_a"),
+                run_id=DEFAULT_DAG_RUN_ID,
+                map_index=0,
+                dag_version_id=dag_version.id,
+            )
+            branch_a_ti_1 = TI(
+                dag.get_task("task_group_op.branch_a"),
+                run_id=DEFAULT_DAG_RUN_ID,
+                map_index=1,
+                dag_version_id=dag_version.id,
+            )
+            branch_b_ti_0 = TI(
+                dag.get_task("task_group_op.branch_b"),
+                run_id=DEFAULT_DAG_RUN_ID,
+                map_index=0,
+                dag_version_id=dag_version.id,
+            )
+            branch_b_ti_1 = TI(
+                dag.get_task("task_group_op.branch_b"),
+                run_id=DEFAULT_DAG_RUN_ID,
+                map_index=1,
+                dag_version_id=dag_version.id,
+            )
+        else:
+            branch_op_ti_0 = TI(
+                dag.get_task("task_group_op.branch_op"), run_id=DEFAULT_DAG_RUN_ID, map_index=0
+            )
+            branch_op_ti_1 = TI(
+                dag.get_task("task_group_op.branch_op"), run_id=DEFAULT_DAG_RUN_ID, map_index=1
+            )
+            branch_a_ti_0 = TI(dag.get_task("task_group_op.branch_a"), run_id=DEFAULT_DAG_RUN_ID, map_index=0)
+            branch_a_ti_1 = TI(dag.get_task("task_group_op.branch_a"), run_id=DEFAULT_DAG_RUN_ID, map_index=1)
+            branch_b_ti_0 = TI(dag.get_task("task_group_op.branch_b"), run_id=DEFAULT_DAG_RUN_ID, map_index=0)
+            branch_b_ti_1 = TI(dag.get_task("task_group_op.branch_b"), run_id=DEFAULT_DAG_RUN_ID, map_index=1)
 
         SkipMixin().skip_all_except(ti=branch_op_ti_0, branch_task_ids="task_group_op.branch_a")
         SkipMixin().skip_all_except(ti=branch_op_ti_1, branch_task_ids="task_group_op.branch_b")
@@ -257,7 +306,11 @@ class TestSkipMixin:
         with dag_maker("dag_test_skip_all_except_wrong_type"):
             task = EmptyOperator(task_id="task")
         dag_maker.create_dagrun(run_id=DEFAULT_DAG_RUN_ID)
-        ti1 = TI(task, run_id=DEFAULT_DAG_RUN_ID)
+        if AIRFLOW_V_3_0_PLUS:
+            dag_version = DagVersion.get_latest_version(task.dag_id)
+            ti1 = TI(task, run_id=DEFAULT_DAG_RUN_ID, dag_version_id=dag_version.id)
+        else:
+            ti1 = TI(task, run_id=DEFAULT_DAG_RUN_ID)
         error_message = (
             r"'branch_task_ids' must be either None, a task ID, or an Iterable of IDs, but got 'int'\."
         )
@@ -268,7 +321,11 @@ class TestSkipMixin:
         with dag_maker("dag_test_skip_all_except_wrong_type"):
             task = EmptyOperator(task_id="task")
         dag_maker.create_dagrun(run_id=DEFAULT_DAG_RUN_ID)
-        ti1 = TI(task, run_id=DEFAULT_DAG_RUN_ID)
+        if AIRFLOW_V_3_0_PLUS:
+            dag_version = DagVersion.get_latest_version(task.dag_id)
+            ti1 = TI(task, run_id=DEFAULT_DAG_RUN_ID, dag_version_id=dag_version.id)
+        else:
+            ti1 = TI(task, run_id=DEFAULT_DAG_RUN_ID)
         error_message = (
             r"'branch_task_ids' expected all task IDs are strings. "
             r"Invalid tasks found: \{\(42, 'int'\)\}\."
@@ -292,8 +349,11 @@ class TestSkipMixin:
 
             task1 >> [task2, task3]
         dag_maker.create_dagrun(run_id=DEFAULT_DAG_RUN_ID)
-
-        ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID)
+        if AIRFLOW_V_3_0_PLUS:
+            dag_version = DagVersion.get_latest_version(task1.dag_id)
+            ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID, dag_version_id=dag_version.id)
+        else:
+            ti1 = TI(task1, run_id=DEFAULT_DAG_RUN_ID)
 
         error_message = r"'branch_task_ids' must contain only valid task_ids. Invalid tasks found: .*"
         with pytest.raises(AirflowException, match=error_message):

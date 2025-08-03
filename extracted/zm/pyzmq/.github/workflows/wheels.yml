@@ -67,6 +67,7 @@ jobs:
       CIBW_SKIP: "${{ matrix.cibw.skip || '' }}"
       CIBW_ARCHS: "${{ matrix.cibw.arch || 'auto' }}"
       CIBW_MANYLINUX_X86_64_IMAGE: "${{ matrix.cibw.manylinux_x86_64_image || '' }}"
+      CIBW_PLATFORM: "${{ matrix.cibw.platform || 'auto' }}"
 
     strategy:
       fail-fast: false
@@ -116,6 +117,12 @@ jobs:
             cibw:
               build: "*musllinux*"
 
+          - name: android
+            os: ubuntu-24.04
+            cibw:
+              platform: android
+              arch: all
+
           - name: win32
             os: windows-2022
             architecture: x86
@@ -134,16 +141,10 @@ jobs:
             cibw:
               build: "cp*win_amd64"
 
-          - os: windows-2022
+          - os: windows-11-arm
             name: win_arm64
-            architecture: x64
             cibw:
               arch: ARM64
-              # FIXME:
-              # 313t fails with:
-              # Could NOT find Python (missing: Interpreter Development.Module) (found version "3.13.4")
-              # unclear why
-              skip: "cp313t*"
 
     steps:
       - uses: actions/checkout@v4

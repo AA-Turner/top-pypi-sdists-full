@@ -28,6 +28,11 @@ from kfactory import (
 from kfactory.exceptions import LockedError
 from kfactory.kcell import BaseKCell, ProtoKCell
 from kfactory.port import ProtoPort
+from kfactory.utils.fill import fill_tiled
+from kfactory.utils.violations import (
+    fix_spacing_tiled,
+    fix_width_minkowski_tiled,
+)
 from matplotlib.figure import Figure
 from pydantic import Field
 from trimesh.scene.scene import Scene
@@ -887,8 +892,62 @@ class Component(ComponentBase, kf.DKCell):
         if remove_old_layer:
             self.remove_layers([layer])
         self.kdb_cell.shapes(layer_index).insert(region)
-
         self.kcl.layout.end_changes()
+
+    def fix_spacing(self, layer: "LayerSpec", min_space: float = 0.2) -> None:
+        """Fixes layer spacing in the Component.
+
+        Args:
+            layer: layer to fix spacing on.
+            min_space: minimum space in um.
+        """
+        import gdsfactory as gf
+        from gdsfactory.pdk import get_layer
+
+        layer = get_layer(layer)
+        layer_info = gf.kcl.get_info(layer)
+        fix = fix_spacing_tiled(
+            self.to_itype(), min_space=self.kcl.to_dbu(min_space), layer=layer_info
+        )
+        self.shapes(layer).insert(fix)
+
+    def fix_width(
+        self,
+        layer: "LayerSpec",
+        min_width: float = 0.2,
+        n_threads: int | None = None,
+        tile_size: tuple[float, float] | None = None,
+        overlap: int = 1,
+        smooth: int | None = None,
+    ) -> None:
+        """Fixes layer min width in the Component.
+
+        Args:
+            layer: layer to fix width on.
+            min_width: minimum width in um.
+            n_threads: number of threads to use for processing.
+            tile_size: size of the tiles to use for processing.
+            overlap: overlap between tiles.
+            smooth: smooth the polygons by this amount in um.
+        """
+        import gdsfactory as gf
+        from gdsfactory.pdk import get_layer
+
+        self.flatten()
+        layer = get_layer(layer)
+        layer_info = gf.kcl.get_info(layer)
+
+        fix = fix_width_minkowski_tiled(
+            self.to_itype(),
+            min_width=self.kcl.to_dbu(min_width),
+            ref=layer_info,
+            n_threads=n_threads,
+            tile_size=tile_size,
+            overlap=overlap,
+            smooth=smooth,
+        )
+        self.shapes(layer).clear()
+        self.shapes(layer).insert(fix)
 
     def offset(self, layer: "LayerSpec", distance: float) -> None:
         """Offsets a Component layer by a distance in um.
@@ -1132,6 +1191,75 @@ class Component(ComponentBase, kf.DKCell):
             nets=netlist["nets"],
         )
 
+    def fill(
+        self,
+        fill_cell: ComponentSpec,
+        fill_layers: Iterable[tuple[LayerSpec, float]] = [],
+        fill_regions: Iterable[tuple[kdb.Region, float]] = [],
+        exclude_layers: Iterable[tuple[LayerSpec, float]] = [],
+        exclude_regions: Iterable[tuple[kdb.Region, float]] = [],
+        n_threads: int | None = None,
+        tile_size: tuple[float, float] | None = None,
+        row_step: kdb.DVector | None = None,
+        col_step: kdb.DVector | None = None,
+        x_space: float = 0.0,
+        y_space: float = 0.0,
+        tile_border: tuple[float, float] = (20, 20),
+        multi: bool = False,
+    ) -> None:
+        """Fill a [KCell][kfactory.kcell.KCell].
+
+        Args:
+            fill_cell: The cell used as a cell to fill the regions.
+            fill_layers: Tuples of layer and keepout in um.
+            fill_regions: Specific regions to fill. Also tuples like the layers.
+            exclude_layers: Layers to ignore. Tuples like the fill layers
+            exclude_regions: Specific regions to ignore. Tuples like the fill layers.
+            n_threads: Max number of threads used. Defaults to number of cores of the
+                machine.
+            tile_size: Size of the tiles in um.
+            row_step: DVector for steping to the next instance position in the row.
+                x-coordinate must be >= 0.
+            col_step: DVector for steping to the next instance position in the column.
+                y-coordinate must be >= 0.
+            x_space: Spacing between the fill cell bounding boxes in x-direction.
+            y_space: Spacing between the fill cell bounding boxes in y-direction.
+            tile_border: The tile border to consider for excludes
+            multi: Use the region_fill_multi strategy instead of single fill.
+        """
+        from gdsfactory.pdk import get_component, get_layer_info
+
+        fill_cell = get_component(fill_cell)
+        fill_layers_converted = [
+            (get_layer_info(layer), int(spacing)) for layer, spacing in fill_layers
+        ]
+        fill_regions_converted = [
+            (region, int(spacing)) for region, spacing in fill_regions
+        ]
+        exclude_layers_converted = [
+            (get_layer_info(layer), int(spacing)) for layer, spacing in exclude_layers
+        ]
+        exclude_regions_converted = [
+            (region, int(spacing)) for region, spacing in exclude_regions
+        ]
+
+        fill_tiled(
+            self,
+            fill_cell=fill_cell,
+            fill_layers=fill_layers_converted,
+            fill_regions=fill_regions_converted,
+            exclude_layers=exclude_layers_converted,
+            exclude_regions=exclude_regions_converted,
+            n_threads=n_threads,
+            tile_size=tile_size,
+            row_step=row_step,
+            col_step=col_step,
+            x_space=x_space,
+            y_space=y_space,
+            tile_border=tile_border,
+            multi=multi,
+        )
+
 
 class ComponentAllAngle(ComponentBase, kf.VKCell):
     def plot(self, **kwargs: Any) -> None:
@@ -1213,14 +1341,24 @@ if __name__ == "__main__":
     import gdsfactory as gf
     from gdsfactory.generic_tech import LAYER
 
-    c = gf.components.circle()
-    c2 = gf.Component()
-    region = c.get_region(layer=LAYER.WG, smooth=1)
-    region2 = region.sized(100)
-    region3 = region2 - region
+    c = gf.Component()
+    c << gf.components.die_with_pads()
+    fill = gf.c.rectangle()
+    c.fill(
+        fill_cell=fill,
+        fill_layers=[(LAYER.FLOORPLAN, -100)],
+        exclude_layers=[((1, 0), 100), ("M3", 100)],
+        x_space=1,
+        y_space=1,
+    )
+    c.show()
+    # c2 = gf.Component()
+    # region = c.get_region(layer=LAYER.WG, smooth=1)
+    # region2 = region.sized(100)
+    # region3 = region2 - region
 
-    c2.add_polygon(region3, layer=LAYER.WG)
-    c2.show()
+    # c2.add_polygon(region3, layer=LAYER.WG)
+    # c2.show()
 
     # polygons = c.get_polygons(smooth=1)[LAYER.WG]
     # c2.add_polygon(region, layer=LAYER.WG)

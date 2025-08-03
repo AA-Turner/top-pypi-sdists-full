@@ -4,7 +4,7 @@ __all__ = (
 
     # core
     'Aw_or_Task', 'start', 'Task', 'TaskState',
-    'dummy_task', 'current_task', '_current_task', 'sleep_forever', '_sleep_forever',
+    'dummy_task', 'current_task', 'sleep_forever',
 
     # structured concurrency
     'wait_all', 'wait_any', 'wait_all_cm', 'wait_any_cm', 'move_on_when',
@@ -32,12 +32,11 @@ from contextlib import asynccontextmanager, contextmanager, AbstractAsyncContext
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 else:
-    BaseExceptionGroup = BaseExceptionGroup  #: :meta private:
-    ExceptionGroup = ExceptionGroup  #: :meta private:
+    from builtins import BaseExceptionGroup, ExceptionGroup
 
 potential_bug_msg = \
-    r"You might found a bug in the library. Please make a minimal code that reproduces it, " \
-    r"and open an issue at the GitHub repository, then post the code there. (https://github.com/asyncgui/asyncgui)."
+    r"You might have just found a bug in the library. Please create a minimal reproducible " \
+    r"example and report it on the GitHub repository: https://github.com/asyncgui/asyncgui."
 
 
 class InvalidStateError(Exception):
@@ -352,6 +351,16 @@ def sleep_forever(_f=_sleep_forever):
     yield _f
 
 
+@types.coroutine
+def _wait_args(_f=_sleep_forever):
+    return (yield _f)[0]
+
+
+@types.coroutine
+def _wait_args_0(_f=_sleep_forever):
+    return (yield _f)[0][0]
+
+
 dummy_task = Task(sleep_forever())
 '''
 An already closed task.
@@ -402,26 +411,26 @@ class ExclusiveEvent:
     Similar to :class:`Event`, but this version does not allow multiple tasks to :meth:`wait` simultaneously.
     As a result, it operates faster.
     '''
-    __slots__ = ('_callback', )
+    __slots__ = ('_waiting_task', )
 
     def __init__(self):
-        self._callback = None
+        self._waiting_task = None
 
     def fire(self, *args, **kwargs):
-        if (f := self._callback) is not None:
-            f(*args, **kwargs)
+        if (t := self._waiting_task) is not None:
+            t._step(*args, **kwargs)
 
     @types.coroutine
     def wait(self) -> Generator[YieldType, SendType, SendType]:
-        if self._callback is not None:
-            raise InvalidStateError("There's already a task waiting for the event to fire.")
         try:
             return (yield self._attach_task)
         finally:
-            self._callback = None
+            self._waiting_task = None
 
     def _attach_task(self, task):
-        self._callback = task._step
+        if self._waiting_task is not None:
+            raise InvalidStateError("There's already a task waiting for the event to fire.")
+        self._waiting_task = task
 
     @types.coroutine
     def wait_args(self) -> Generator[YieldType, SendType, tuple]:
@@ -432,12 +441,10 @@ class ExclusiveEvent:
 
         :meta private:
         '''
-        if self._callback is not None:
-            raise InvalidStateError("There's already a task waiting for the event to fire.")
         try:
             return (yield self._attach_task)[0]
         finally:
-            self._callback = None
+            self._waiting_task = None
 
     @types.coroutine
     def wait_args_0(self) -> Generator[YieldType, SendType, Any]:
@@ -448,12 +455,10 @@ class ExclusiveEvent:
 
         :meta private:
         '''
-        if self._callback is not None:
-            raise InvalidStateError("There's already a task waiting for the event to fire.")
         try:
             return (yield self._attach_task)[0][0]
         finally:
-            self._callback = None
+            self._waiting_task = None
 
 
 class Event:
@@ -478,8 +483,8 @@ class Event:
 
     .. warning::
 
-        This differs significantly from :class:`asyncio.Event`, as this one does not have a "set" state.
-        When a Task calls its :meth:`wait` method, it will always be blocked until :meth:`fire` is called *after* that.
+        This differs from :class:`asyncio.Event`, as it does not have a "set" state. ``await e.wait()`` will
+        always block the caller until someone else calls :meth:`fire` *after* the wait has started.
         Use :class:`StatefulEvent` if you want something closer to :class:`asyncio.Event`.
 
     .. versionchanged:: 0.7.0
@@ -494,6 +499,8 @@ class Event:
 
     def fire(self, *args, **kwargs):
         tasks = self._waiting_tasks
+        if not tasks:
+            return
         self._waiting_tasks = []
         for t in tasks:
             if t is not None:
@@ -568,6 +575,8 @@ class StatefulEvent:
             return
         self._params = (args, kwargs, )
         tasks = self._waiting_tasks
+        if not tasks:
+            return
         self._waiting_tasks = []
         for t in tasks:
             if t is not None:
@@ -620,48 +629,58 @@ class StatefulEvent:
 # -----------------------------------------------------------------------------
 
 
-class TaskCounter:
+class Counter:
     '''
     (internal)
-    数値が零になった事を通知する仕組みを持つカウンター。
-    親taskが自分の子task達の終了を待つのに用いる。
+    A numeric counter that notifies when it reaches zero.
+    Used by a parent task to wait for the completion or cancellation of its children.
+
+    .. warning::
+        Only one task can wait for zero at a time, but unlike :class:`ExclusiveEvent`, there is no
+        check for this--if multiple tasks try to wait for zero, the program would silently break.
     '''
 
-    __slots__ = ('_parent', '_n_children', )
+    __slots__ = ('_waiting_task', '_value', )
 
-    def __init__(self, initial=0, /):
-        self._n_children = initial
-        self._parent = None
+    def __init__(self, initial_value=0, /):
+        self._value = initial_value
+        self._waiting_task = None
 
     def increase(self):
-        self._n_children += 1
+        self._value += 1
 
-    def decrease(self, potential_bug_msg=potential_bug_msg):
-        n = self._n_children - 1
+    def decrease(self):
+        n = self._value - 1
         assert n >= 0, potential_bug_msg
-        self._n_children = n
-        if (parent := self._parent) is not None and (not n):
-            parent._step()
+        self._value = n
+        if (not n) and (t := self._waiting_task) is not None:
+            t._step()
 
     @types.coroutine
-    def to_be_zero(self, _current_task=_current_task, _sleep_forever=_sleep_forever):
-        if not self._n_children:
+    def wait_for_zero(self):
+        if not self._value:
             return
-        self._parent = (yield _current_task)[0][0]
         try:
-            yield _sleep_forever
+            yield self._attach_task
         finally:
-            self._parent = None
+            self._waiting_task = None
+
+    def _attach_task(self, task):
+        self._waiting_task = task
+
+    @property
+    def is_not_zero(self, bool=bool):
+        return bool(self._value)
 
     def __bool__(self):
-        return not not self._n_children  # 'not not' is not a typo
+        raise NotImplementedError("'Counter' can no longer be converted to a boolean value.")
 
 
 async def _wait_xxx(debug_msg, on_child_end, *aws: Iterable[Aw_or_Task]) -> Awaitable[Sequence[Task]]:
     children = [v if isinstance(v, Task) else Task(v) for v in aws]
     if not children:
         return children
-    counter = TaskCounter(len(children))
+    counter = Counter(len(children))
     parent = await current_task()
 
     try:
@@ -671,21 +690,21 @@ async def _wait_xxx(debug_msg, on_child_end, *aws: Iterable[Aw_or_Task]) -> Awai
                 c._suppresses_exc = True
                 c._on_end = on_child_end
                 start(c)
-            await counter.to_be_zero()
+            await counter.wait_for_zero()
     finally:
-        if counter:
+        if counter.is_not_zero:
             for c in children:
                 c.cancel()
-            if counter:
+            if counter.is_not_zero:
                 try:
                     parent._cancel_disabled = True
-                    await counter.to_be_zero()
+                    await counter.wait_for_zero()
                 finally:
                     parent._cancel_disabled = False
         exceptions = [e for c in children if (e := c._exc_caught) is not None]
         if exceptions:
             raise ExceptionGroup(debug_msg, exceptions)
-        if (parent._requested_cancel_level is not None) and (not parent._cancel_disabled):
+        if parent._requested_cancel_level is not None:
             await sleep_forever()
             assert False, potential_bug_msg
     return children
@@ -736,7 +755,7 @@ As soon as one completes, the others will be cancelled.
 
 @asynccontextmanager
 async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
-    counter = TaskCounter(1)
+    counter = Counter(1)
     fg_task = await current_task()
     bg_task = aw if isinstance(aw, Task) else Task(aw)
     exc = None
@@ -747,15 +766,15 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
             bg_task._suppresses_exc = True
             yield start(bg_task)
             if wait_bg:
-                await counter.to_be_zero()
+                await counter.wait_for_zero()
     except Exception as e:
         exc = e
     finally:
         bg_task.cancel()
-        if counter:
+        if counter.is_not_zero:
             try:
                 fg_task._cancel_disabled = True
-                await counter.to_be_zero()
+                await counter.wait_for_zero()
             finally:
                 fg_task._cancel_disabled = False
         excs = [
@@ -764,7 +783,7 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
         ]
         if excs:
             raise ExceptionGroup(debug_msg, excs)
-        if (fg_task._requested_cancel_level is not None) and (not fg_task._cancel_disabled):
+        if fg_task._requested_cancel_level is not None:
             await sleep_forever()
             assert False, potential_bug_msg
 
@@ -772,7 +791,7 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
 _wait_xxx_cm_type = Callable[[Aw_or_Task], AbstractAsyncContextManager[Task]]
 wait_all_cm: _wait_xxx_cm_type = partial(_wait_xxx_cm, "wait_all_cm()", _on_child_end__ver_all, True)
 '''
-Runs the given task and the code inside the with-block concurrently,
+Returns an async context manager that runs the given task and the code inside the with-block concurrently,
 and waits for the with-block to complete and for the task to either complete or be cancelled.
 
 .. code-block::
@@ -787,9 +806,8 @@ and waits for the with-block to complete and for the task to either complete or 
 
 wait_any_cm: _wait_xxx_cm_type = partial(_wait_xxx_cm, "wait_any_cm()", _on_child_end__ver_any, False)
 '''
-Runs the given task and the code inside the with-block concurrently,
-and waits for either one to complete.
-As soon as that happens, the other will be cancelled if it is still running.
+Returns an async context manager that runs the given task and the code inside the with-block concurrently,
+and waits for either one to complete. As soon as that happens, the other will be cancelled if it is still running.
 
 This is equivalent to :func:`trio_util.move_on_when`.
 
@@ -805,9 +823,9 @@ This is equivalent to :func:`trio_util.move_on_when`.
 
 run_as_main: _wait_xxx_cm_type = partial(_wait_xxx_cm, "run_as_main()", _on_child_end__ver_any, True)
 '''
-Runs the given task and the code inside the with-block concurrently,
-and waits for the task to either complete or be cancelled.
-As soon as that happens, the with-block will be cancelled if it is still running.
+Returns an async context manager that runs the given task and the code inside the with-block concurrently,
+and waits for the task to either complete or be cancelled. As soon as that happens, the with-block will be
+cancelled if it is still running.
 
 .. code-block::
 
@@ -821,9 +839,8 @@ As soon as that happens, the with-block will be cancelled if it is still running
 
 run_as_daemon: _wait_xxx_cm_type = partial(_wait_xxx_cm, "run_as_daemon()", _on_child_end__ver_all, False)
 '''
-Runs the given task and the code inside the with-block concurrently,
-and waits for the with-block to complete.
-As soon as that happens, the task will be cancelled if it is still running.
+Returns an async context manager that runs the given task and the code inside the with-block concurrently,
+and waits for the with-block to complete. As soon as that happens, the task will be cancelled if it is still running.
 
 This is equivalent to :func:`trio_util.run_and_cancelling`.
 
@@ -860,9 +877,6 @@ class Nursery:
     def start(self, aw: Aw_or_Task, /, *, daemon=False) -> Task:
         '''
         *Immediately* start a Task under the supervision of the nursery.
-
-        If the argument is a :class:`Task`, itself will be returned. If it's an :class:`~collections.abc.Awaitable`,
-        it will be wrapped in a Task, and that Task will be returned.
 
         The ``daemon`` parameter acts like the one in the :mod:`threading` module.
         When only daemon tasks are left, they get cancelled, and the nursery closes.
@@ -909,14 +923,14 @@ async def open_nursery(*, _gc_in_every=1000) -> AsyncIterator[Nursery]:
     '''
     exc = None
     parent = await current_task()
-    counter = TaskCounter()
-    daemon_counter = TaskCounter()
+    counter = Counter()
+    daemon_counter = Counter()
 
     try:
         with parent._open_cancel_scope() as scope:
             nursery = Nursery(scope, counter, daemon_counter, _gc_in_every)
             yield nursery
-            await counter.to_be_zero()
+            await counter.wait_for_zero()
     except Exception as e:
         exc = e
     finally:
@@ -926,8 +940,8 @@ async def open_nursery(*, _gc_in_every=1000) -> AsyncIterator[Nursery]:
             c.cancel()
         try:
             parent._cancel_disabled = True
-            await daemon_counter.to_be_zero()
-            await counter.to_be_zero()
+            await daemon_counter.wait_for_zero()
+            await counter.wait_for_zero()
         finally:
             parent._cancel_disabled = False
         excs = [e for c in children if (e := c._exc_caught) is not None]
@@ -935,7 +949,7 @@ async def open_nursery(*, _gc_in_every=1000) -> AsyncIterator[Nursery]:
             excs.append(exc)
         if excs:
             raise ExceptionGroup("Nursery", excs)
-        if (parent._requested_cancel_level is not None) and (not parent._cancel_disabled):
+        if parent._requested_cancel_level is not None:
             await sleep_forever()
             assert False, potential_bug_msg
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asusrouter
-Version: 1.15.1
+Version: 1.16.0
 Summary: API wrapper for communication with ASUSWRT-powered routers using HTTP protocol
 Home-page: https://github.com/Vaskivskyi/asusrouter
 Author-email: Yevhenii Vaskivskyi <yevhenii@vaskivskyi.com>
@@ -14,13 +14,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aiohttp>=3.8.1
-Requires-Dist: python-dateutil==2.9.0.post0
 Requires-Dist: urllib3>=1.26.14
 Requires-Dist: xmltodict>=0.12.0
 Dynamic: license-file

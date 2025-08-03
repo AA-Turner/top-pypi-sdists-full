@@ -161,7 +161,8 @@ class Kubevirt():
                         continue
         labels = {'kubevirt.io/provider': 'kcli', 'kubevirt.io/domain': name, 'kubevirt.io/os': 'linux'}
         labels.update(final_tags)
-        vm = {'kind': 'VirtualMachine', 'spec': {'running': start, 'template':
+        run_strategy = 'Always' if start else 'Halted'
+        vm = {'kind': 'VirtualMachine', 'spec': {'runStrategy': run_strategy, 'template':
                                                  {'metadata': {'labels': labels},
                                                   'spec': {'domain': {'resources':
                                                                       {'requests': {'memory': f'{memory}M'},
@@ -577,7 +578,7 @@ class Kubevirt():
         vm = _get_resource(kubectl, 'vm', name, namespace, debug=self.debug)
         if vm is None:
             return {'result': 'failure', 'reason': f"VM {name} not found"}
-        vm['spec']['running'] = True
+        vm['spec']['runStrategy'] = 'Always'
         _replace_resource(kubectl, vm, namespace, debug=self.debug)
         return {'result': 'success'}
 
@@ -587,7 +588,7 @@ class Kubevirt():
         vm = _get_resource(kubectl, 'vm', name, namespace, debug=self.debug)
         if vm is None:
             return {'result': 'failure', 'reason': f"VM {name} not found"}
-        vm["spec"]['running'] = False
+        vm["spec"]['runStrategy'] = 'Halted'
         _replace_resource(kubectl, vm, namespace, debug=self.debug)
         return {'result': 'success'}
 
@@ -741,7 +742,7 @@ class Kubevirt():
             listinfo = True
         metadata = vm.get("metadata")
         spec = vm.get("spec")
-        running = spec.get("running", True)
+        running = spec.get("runStrategy", 'Always')
         annotations = metadata.get("annotations")
         spectemplate = vm['spec'].get('template')
         volumes = spectemplate['spec']['volumes']
@@ -767,7 +768,7 @@ class Kubevirt():
         state = 'down'
         foundmacs = {}
         ips = []
-        if running:
+        if running == 'Always':
             try:
                 runvm = _get_resource(kubectl, 'vmi', name, namespace, debug=self.debug)
                 status = runvm.get('status')
@@ -1268,7 +1269,10 @@ class Kubevirt():
             size = _base_image_size(url)
             warning(f"Setting size of image to {size}G. This will be the size of primary disks using this")
         pool = self.check_pool(pool)
-        volume_mode, volume_access = self.get_volume_details(pool, self.volume_mode, self.volume_access)
+        if name is not None and 'sno' in name and name.endswith('iso'):
+            volume_mode, volume_access = 'Filesystem', 'ReadWriteOnce'
+        else:
+            volume_mode, volume_access = self.get_volume_details(pool, self.volume_mode, self.volume_access)
         if volume_mode is None:
             return {'result': 'failure', 'reason': "Incorrect volume_mode"}
         if volume_access is None:

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-ydb
-Version: 2.2.1
+Version: 2.2.2
 Summary: Provider package apache-airflow-providers-ydb for Apache Airflow
 Keywords: airflow-provider,ydb,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.10
+Requires-Python: >=3.10,!=3.13
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -20,12 +20,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
-Requires-Dist: apache-airflow-providers-common-sql>=1.20.0
-Requires-Dist: ydb>=3.18.8
-Requires-Dist: ydb-dbapi>=0.1.0
+Requires-Dist: apache-airflow-providers-common-sql>=1.20.0; python_version < '3.13'
+Requires-Dist: ydb>=3.18.8; python_version < '3.13'
+Requires-Dist: ydb-dbapi>=0.1.0; python_version < '3.13'
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -56,8 +56,9 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-ydb``
 
-Release: ``2.2.1``
+Release: ``2.2.2``
 
+Release Date: ``|PypiReleaseDate|``
 
 `YDB <https://ydb.tech/>`__
 
@@ -69,7 +70,7 @@ This is a provider package for ``ydb`` provider. All classes for this provider p
 are in ``airflow.providers.ydb`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.2/>`_.
 
 Installation
 ------------
@@ -83,14 +84,14 @@ The package supports the following python versions: 3.10,3.11,3.12
 Requirements
 ------------
 
-=======================================  ==================
+=======================================  =====================================
 PIP package                              Version required
-=======================================  ==================
+=======================================  =====================================
 ``apache-airflow``                       ``>=2.10.0``
-``apache-airflow-providers-common-sql``  ``>=1.20.0``
-``ydb``                                  ``>=3.18.8``
-``ydb-dbapi``                            ``>=0.1.0``
-=======================================  ==================
+``apache-airflow-providers-common-sql``  ``>=1.20.0; python_version < "3.13"``
+``ydb``                                  ``>=3.18.8; python_version < "3.13"``
+``ydb-dbapi``                            ``>=0.1.0; python_version < "3.13"``
+=======================================  =====================================
 
 Cross provider package dependencies
 -----------------------------------
@@ -112,5 +113,5 @@ Dependent package                                                               
 ============================================================================================================  ==============
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-ydb/2.2.2/changelog.html>`_.
 

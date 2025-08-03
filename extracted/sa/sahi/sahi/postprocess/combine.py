@@ -1,22 +1,21 @@
 # OBSS SAHI Tool
 # Code written by Fatih C Akyon, 2021.
 
-import logging
 from typing import List
 
 import torch
 
+from sahi.logger import logger
 from sahi.postprocess.utils import ObjectPredictionList, has_match, merge_object_prediction_pair
 from sahi.prediction import ObjectPrediction
 from sahi.utils.import_utils import check_requirements
-
-logger = logging.getLogger(__name__)
 
 
 def batched_nms(predictions: torch.tensor, match_metric: str = "IOU", match_threshold: float = 0.5):
     """
     Apply non-maximum suppression to avoid detecting too many
     overlapping bounding boxes for a given object.
+
     Args:
         predictions: (tensor) The location preds for the image
             along with the class predscores, Shape: [num_boxes,5].
@@ -48,6 +47,7 @@ def nms(
     """
     Apply non-maximum suppression to avoid detecting too many
     overlapping bounding boxes for a given object.
+
     Args:
         predictions: (tensor) The location preds for the image
             along with the class predscores, Shape: [num_boxes,5].
@@ -155,6 +155,7 @@ def batched_greedy_nmm(
     """
     Apply greedy version of non-maximum merging per category to avoid detecting
     too many overlapping bounding boxes for a given object.
+
     Args:
         object_predictions_as_tensor: (tensor) The location preds for the image
             along with the class predscores, Shape: [num_boxes,5].
@@ -186,6 +187,7 @@ def greedy_nmm(
     """
     Apply greedy version of non-maximum merging to avoid detecting too many
     overlapping bounding boxes for a given object.
+
     Args:
         object_predictions_as_tensor: (tensor) The location preds for the image
             along with the class predscores, Shape: [num_boxes,5].
@@ -299,6 +301,7 @@ def batched_nmm(
     """
     Apply non-maximum merging per category to avoid detecting too many
     overlapping bounding boxes for a given object.
+
     Args:
         object_predictions_as_tensor: (tensor) The location preds for the image
             along with the class predscores, Shape: [num_boxes,5].
@@ -330,6 +333,7 @@ def nmm(
     """
     Apply non-maximum merging to avoid detecting too many
     overlapping bounding boxes for a given object.
+
     Args:
         object_predictions_as_tensor: (tensor) The location preds for the image
             along with the class predscores, Shape: [num_boxes,5].

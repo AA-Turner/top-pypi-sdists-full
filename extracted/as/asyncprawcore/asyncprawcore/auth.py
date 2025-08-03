@@ -1,10 +1,12 @@
 """Provides Authentication and Authorization classes."""
+
 from __future__ import annotations
 
 import inspect
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import TYPE_CHECKING, Any, Callable
 
 from aiohttp import ClientRequest
 from aiohttp.helpers import BasicAuth
@@ -15,6 +17,8 @@ from .codes import codes
 from .exceptions import InvalidInvocation, OAuthException, ResponseException
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     from aiohttp import ClientResponse
 
     from asyncprawcore.requestor import Requestor
@@ -48,19 +52,20 @@ class BaseAuthenticator(ABC):
         self.client_id = client_id
         self.redirect_uri = redirect_uri
 
+    @asynccontextmanager
     async def _post(
         self, url: str, success_status: int = codes["ok"], **data: Any
-    ) -> ClientResponse:
-        response = await self._requestor.request(
+    ) -> Callable[..., AbstractAsyncContextManager[ClientResponse]]:
+        async with self._requestor.request(
             "POST",
             url,
             auth=self._auth(),
             data=sorted(data.items()),
             headers={"Connection": "close"},
-        )
-        if response.status != success_status:
-            raise ResponseException(response)
-        return response
+        ) as response:
+            if response.status != success_status:
+                raise ResponseException(response)
+            yield response
 
     def authorize_url(
         self, duration: str, scopes: list[str], state: str, implicit: bool = False
@@ -125,10 +130,11 @@ class BaseAuthenticator(ABC):
         if token_type is not None:
             data["token_type_hint"] = token_type
         url = self._requestor.reddit_url + const.REVOKE_TOKEN_PATH
-        await self._post(url, **data)
+        async with self._post(url, **data) as _:
+            pass  # The response is not used.
 
 
-class BaseAuthorizer(ABC):
+class BaseAuthorizer:
     """Superclass for OAuth2 authorization tokens and scopes."""
 
     AUTHENTICATOR_CLASS: tuple | type = BaseAuthenticator
@@ -144,21 +150,23 @@ class BaseAuthorizer(ABC):
         self._validate_authenticator()
 
     def _clear_access_token(self):
-        self._expiration_timestamp: float
+        self._expiration_timestamp_ns: int
         self.access_token: str | None = None
         self.scopes: set[str] | None = None
 
     async def _request_token(self, **data: Any):
         url = self._authenticator._requestor.reddit_url + const.ACCESS_TOKEN_PATH
-        pre_request_time = time.time()
-        response = await self._authenticator._post(url=url, **data)
-        payload = await response.json()
+        pre_request_timestamp_ns = time.monotonic_ns()
+        async with self._authenticator._post(url=url, **data) as response:
+            payload = await response.json()
         if "error" in payload:  # Why are these OKAY responses?
             raise OAuthException(
                 response, payload["error"], payload.get("error_description")
             )
 
-        self._expiration_timestamp = pre_request_time - 10 + payload["expires_in"]
+        self._expiration_timestamp_ns = (
+            pre_request_timestamp_ns + (payload["expires_in"] + 10) * const.NANOSECONDS
+        )
         self.access_token = payload["access_token"]
         if "refresh_token" in payload:
             self.refresh_token = payload["refresh_token"]
@@ -183,7 +191,8 @@ class BaseAuthorizer(ABC):
 
         """
         return (
-            self.access_token is not None and time.time() < self._expiration_timestamp
+            self.access_token is not None
+            and time.monotonic_ns() < self._expiration_timestamp_ns
         )
 
     async def revoke(self):
@@ -241,12 +250,16 @@ class Authorizer(BaseAuthorizer):
         self,
         authenticator: BaseAuthenticator,
         *,
-        post_refresh_callback: Callable[[Authorizer], Awaitable[None]]
-        | Callable[[Authorizer], None]
-        | None = None,
-        pre_refresh_callback: Callable[[Authorizer], Awaitable[None]]
-        | Callable[[Authorizer], None]
-        | None = None,
+        post_refresh_callback: (
+            Callable[[Authorizer], Awaitable[None]]
+            | Callable[[Authorizer], None]
+            | None
+        ) = None,
+        pre_refresh_callback: (
+            Callable[[Authorizer], Awaitable[None]]
+            | Callable[[Authorizer], None]
+            | None
+        ) = None,
         refresh_token: str | None = None,
     ):
         """Represent a single authorization to Reddit's API.
@@ -350,7 +363,9 @@ class ImplicitAuthorizer(BaseAuthorizer):
 
         """
         super().__init__(authenticator)
-        self._expiration_timestamp = time.time() + expires_in
+        self._expiration_timestamp_ns = (
+            time.monotonic_ns() + expires_in * const.NANOSECONDS
+        )
         self.access_token = access_token
         self.scopes = set(scope.split(" "))
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyogrio
-Version: 0.11.0
+Version: 0.11.1
 Summary: Vectorized spatial vector file format I/O using GDAL/OGR
 Author: pyogrio contributors
 Author-email: "Brendan C. Ward" <bcward@astutespruce.com>

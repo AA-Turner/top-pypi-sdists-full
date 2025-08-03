@@ -1,6 +1,6 @@
 [package]
 name = "rustmodels"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,4 +9,9 @@ name = "rustmodels"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.25.0"
+pyo3 = "0.25.1"
+# polars = { version = "0.50.0", features = ["lazy"] }
+# pyo3-polars = "0.23.0"
+ndarray = "0.16.1"
+ndarray-linalg = "0.17.0"
+indexmap = "2.10.0"

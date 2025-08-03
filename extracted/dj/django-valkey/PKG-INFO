@@ -1,42 +1,45 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: django-valkey
-Version: 0.2.1
+Version: 0.3.0
 Summary: a valkey backend for django
-License: BSD-3-Caluse
-Author: amirreza
-Author-email: amir.rsf1380@gmail.com
-Requires-Python: >=3.10
-Classifier: Programming Language :: Python
-Classifier: Environment :: Web Environment
+Project-URL: Homepage, https://github.com/django-utils/django-valkey
+Project-URL: Source, https://github.com/django-utils/django-valkey
+Project-URL: Issues, https://github.com/django-utils/django-valkey/issues
+Project-URL: Documentation, https://django-valkey.readthedocs.io/en/latest/
+Maintainer-email: amirreza <amir.rsf1380@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: AUTHORS.rst
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
-Classifier: Topic :: Utilities
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+Requires-Dist: django>=4.2
+Requires-Dist: valkey>=6.0.2
 Provides-Extra: brotli
+Requires-Dist: brotli>=1.1.0; extra == 'brotli'
 Provides-Extra: libvalkey
+Requires-Dist: libvalkey>=4.0.1; extra == 'libvalkey'
 Provides-Extra: lz4
+Requires-Dist: lz4>=4.3.3; extra == 'lz4'
 Provides-Extra: msgpack
+Requires-Dist: msgpack>=1.1.0; extra == 'msgpack'
 Provides-Extra: pyzstd
-Requires-Dist: brotli (>=1.1.0,<2.0.0) ; extra == "brotli"
-Requires-Dist: django (>=4.2.20)
-Requires-Dist: libvalkey (>=4.0.1,<5.0.0) ; extra == "libvalkey"
-Requires-Dist: lz4 (>=4.3.3,<5.0.0) ; extra == "lz4"
-Requires-Dist: msgpack (>=1.1.0,<2.0.0) ; extra == "msgpack"
-Requires-Dist: pyzstd (>=0.16.2,<0.17.0) ; extra == "pyzstd"
-Requires-Dist: valkey (>=6.0.2)
-Project-URL: Documentation, https://django-valkey.readthedocs.io/en/latest/
-Project-URL: Homepage, https://github.com/django-utils/django-valkey
-Project-URL: Issues, https://github.com/django-utils/django-valkey/issues
-Project-URL: Source, https://github.com/django-utils/django-valkey
+Requires-Dist: pyzstd>=0.16.2; extra == 'pyzstd'
 Description-Content-Type: text/x-rst
 
 ===============================
@@ -77,6 +80,7 @@ Why use django-valkey?
 
 - Valkey is a free licenced and well maintained key/value database
 - Uses native valkey-py url notation connection strings
+- async support
 - Pluggable clients
 - Pluggable parsers
 - Pluggable serializers
@@ -91,10 +95,10 @@ Why use django-valkey?
 Requirements
 ~~~~~~~~~~~~
 
-- `Python`_ 3.10+  (if you use with libvalkey, they don't support 3.13 yet)
+- `Python`_ 3.10+
 - `Django`_ 4.2.20+
-- `valkey-py`_ 6.0.2+ (probably works on older versions too)
-- `Valkey server`_ 7.2.6+ (probably works with older versions too)
+- `valkey-py`_ 6.0.2+
+- `Valkey server`_ 7.2.6+
 
 .. _Python: https://www.python.org/downloads/
 .. _Django: https://www.djangoproject.com/download/
@@ -152,7 +156,6 @@ Todo
 
 1. Fix the CI in cluster branch.
 2. Add cluster to documentations.
-3. Refactor cluster branch.
 
 License
 -------
@@ -186,4 +189,3 @@ License
     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
     THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-

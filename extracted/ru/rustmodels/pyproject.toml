@@ -5,11 +5,22 @@ build-backend = "maturin"
 [project]
 name = "rustmodels"
 requires-python = ">=3.8"
+description = "A brief description of what your package does"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Samuel Brown", email = "brownasamuel1@gmail.com"},
+]
+maintainers = [
+    {name = "Samuel Brown", email = "brownasamuel1@gmail.com"},
+]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+keywords = ["rust", "python", "machine-learning", "statistical-modeling"]
 dynamic = ["version"]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]

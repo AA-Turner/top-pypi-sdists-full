@@ -485,24 +485,24 @@ class BottleDefectUseCase(BaseProcessor):
         detections = []
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
-            bbox['ymin'] = bbox['ymin']+100
-            bbox['ymax'] = bbox['ymax']+100
+            bbox['ymin'] = bbox['ymin']+150
+            bbox['ymax'] = bbox['ymax']+150
             category = detection.get("category", "person")
             # Include segmentation if available (like in eg.json)
             # print(bbox)
             if detection.get("masks"):
                 segmentation = detection.get("masks", [])
-                segmentation = [[seg+100 for seg in segmentation[0]]] # Ensure valid segmentation
+                # segmentation = [[seg+100 for seg in segmentation[0]]] # Ensure valid segmentation
                 # print(segmentation)
                 detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
             elif detection.get("segmentation"):
                 segmentation = detection.get("segmentation")
-                segmentation = [[seg+100 for seg in segmentation[0]]]
+                # segmentation = [[seg+100 for seg in segmentation[0]]]
                 # print(segmentation)
                 detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
             elif detection.get("mask"):
                 segmentation = detection.get("mask")
-                segmentation = [[seg+100 for seg in segmentation[0]]]
+                # segmentation = [[seg+100 for seg in segmentation[0]]]
                 # print(segmentation)
                 detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
             else:

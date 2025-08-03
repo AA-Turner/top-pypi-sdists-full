@@ -10,7 +10,7 @@ import pandas as pd
 from canonmap.connectors.mysql_connector.managers.database_manager.validators.responses import CreateDDLResponse
 from canonmap.connectors.mysql_connector.managers.table_manager.utils._clean_field_names import clean_field_names
 
-def create_mysql_ddl(table_name: str, data: Union[str, pd.DataFrame, list, Path], save_dir=None):
+def create_mysql_ddl(table_name: str, data: Union[str, pd.DataFrame, list, Path], save_dir=None, primary_key_field: str = None):
     """
     Generate a MySQL CREATE TABLE DDL statement from various data sources.
     
@@ -18,9 +18,10 @@ def create_mysql_ddl(table_name: str, data: Union[str, pd.DataFrame, list, Path]
         table_name (str): Desired table name (will be cleaned for MySQL).
         data: Path to a CSV file, a file-like object, a pandas DataFrame, a list of dicts, or a JSON string representing records.
         save_dir (str or Path, optional): File path to save the DDL statement.
+        primary_key_field (str, optional): Name of the field to use as primary key.
     
     Returns:
-        str: The CREATE TABLE statement corresponding to the data’s schema.
+        str: The CREATE TABLE statement corresponding to the data's schema.
     """
     import json
     from pathlib import Path
@@ -230,8 +231,11 @@ def create_mysql_ddl(table_name: str, data: Union[str, pd.DataFrame, list, Path]
                         col_type = "MEDIUMTEXT"
                     else:
                         col_type = "LONGTEXT"
-        # Append the column definition
-        column_defs.append(f"  `{clean_name}` {col_type}")
+        # Append the column definition with primary key constraint if specified
+        if primary_key_field and col == primary_key_field:
+            column_defs.append(f"  `{clean_name}` {col_type} NOT NULL PRIMARY KEY")
+        else:
+            column_defs.append(f"  `{clean_name}` {col_type}")
     
     # Construct the CREATE TABLE statement
     ddl = "CREATE TABLE `{}` (\n".format(table)

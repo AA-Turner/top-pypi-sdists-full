@@ -513,8 +513,9 @@ class Pdk(BaseModel):
         elif isinstance(layer, kf.kdb.LayerInfo):
             return layer.layer
         else:
-            if not hasattr(self.layers, layer):
-                raise ValueError(f"{layer!r} not in {self.layers}")
+            if self.layers is None or not hasattr(self.layers, layer):
+                layer_members = self.layers.__members__ if self.layers else {}
+                raise ValueError(f"{layer!r} not in PDK {self.name!r} {layer_members}")
             return cast(LayerEnum, getattr(self.layers, layer))
 
     def get_layer_name(self, layer: LayerSpec) -> str:
@@ -706,6 +707,19 @@ def get_layer_tuple(layer: LayerSpec) -> tuple[int, int]:
     layer_index = get_layer(layer)
     info = kf.kcl.get_info(layer_index)
     return info.layer, info.datatype
+
+
+def get_layer_info(layer: LayerSpec) -> kf.kdb.LayerInfo:
+    """Returns layer info from a layer spec."""
+    layer_index = get_layer(layer)
+    if isinstance(layer_index, LayerEnum):
+        return kf.kcl.get_info(layer_index.value)  # type: ignore[no-any-return]
+    elif isinstance(layer_index, int):
+        return kf.kcl.get_info(layer_index)  # type: ignore[no-any-return]
+    else:
+        raise ValueError(
+            f"Invalid layer spec {layer!r} for PDK {get_active_pdk().name!r}"
+        )
 
 
 def get_layer_views() -> LayerViews:

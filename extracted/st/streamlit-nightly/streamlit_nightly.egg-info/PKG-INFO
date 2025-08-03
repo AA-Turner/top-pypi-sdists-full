@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-nightly
-Version: 1.47.2.dev20250730
+Version: 1.47.2.dev20250801
 Summary: A faster way to build and share data apps
 Home-page: https://streamlit.io
 Author: Snowflake Inc
@@ -31,7 +31,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.9, !=3.9.7
 Description-Content-Type: text/markdown
-Requires-Dist: altair<6,>=4.0
+Requires-Dist: altair!=5.4.0,!=5.4.1,<6,>=4.0
 Requires-Dist: blinker<2,>=1.5.0
 Requires-Dist: cachetools<7,>=4.0
 Requires-Dist: click<9,>=7.0

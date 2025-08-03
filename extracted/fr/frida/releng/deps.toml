@@ -1,6 +1,6 @@
 [dependencies]
-version = "20250718"
-bootstrap_version = "20250512"
+version = "20250801"
+bootstrap_version = "20250718"
 
 [ninja]
 scope = "toolchain"
@@ -73,7 +73,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "86b3f5fe2ebaa2f1c1954e7c28fdffb6db7c6e35"
+version = "f8e0cd4e9e671a15a69a7323f421f1e8df5c7a10"
 url = "https://github.com/frida/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -218,7 +218,7 @@ url = "https://github.com/frida/libusb.git"
 [lwip]
 when = "machine.os != 'none'"
 name = "lwIP"
-version = "13fb5e0f519cc46dc4cd938808430f60a73f03d4"
+version = "c5e2835a213436eaf0c40d0a95a35e7cf0dad2d3"
 url = "https://github.com/frida/lwip.git"
 options = [
     "-Dipv4=disabled",
@@ -261,7 +261,7 @@ dependencies = [
 
 [json-glib]
 name = "JSON-GLib"
-version = "ae19eff63b9c141112e8f1e2524852dda0010404"
+version = "1a39cbe151b02c4192987c8fcc98997a59db2154"
 url = "https://github.com/frida/json-glib.git"
 options = [
     "-Dintrospection=disabled",
@@ -367,7 +367,7 @@ when = """ \
        } \
        """
 name = "TinyCC"
-version = "517aa684db053997a9a5b4b57a8a210007e2b1c4"
+version = "86c2ba69e97af8f311dff04fcf517b760b3e4491"
 url = "https://github.com/frida/tinycc.git"
 
 [openssl]

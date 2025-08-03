@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neoteroi-mkdocs
-Version: 1.1.2
+Version: 1.1.3
 Summary: Plugins for MkDocs and Python Markdown
 Project-URL: Homepage, https://github.com/Neoteroi/mkdocs-plugins
 Project-URL: Bug Tracker, https://github.com/Neoteroi/mkdocs-plugins/issues
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.7
 Requires-Dist: click
-Requires-Dist: essentials-openapi
+Requires-Dist: essentials-openapi>=1.2.1
 Requires-Dist: httpx
 Requires-Dist: jinja2
 Requires-Dist: mkdocs

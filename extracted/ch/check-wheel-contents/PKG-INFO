@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: check-wheel-contents
-Version: 0.6.2
+Version: 0.6.3
 Summary: Check your wheels have the right contents
 Project-URL: Source Code, https://github.com/jwodder/check-wheel-contents
 Project-URL: Bug Tracker, https://github.com/jwodder/check-wheel-contents/issues
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.10
 Requires-Dist: attrs>=18.1
 Requires-Dist: backports-cached-property; python_version < '3.8'
-Requires-Dist: click~=8.2
+Requires-Dist: click!=8.2.2,~=8.2
 Requires-Dist: packaging
 Requires-Dist: pydantic~=2.0
 Requires-Dist: tomli<3.0,>=1.2; python_version < '3.11'

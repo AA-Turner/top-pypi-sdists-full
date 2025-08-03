@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-datadog
-Version: 3.9.1
+Version: 3.9.2
 Summary: Provider package apache-airflow-providers-datadog for Apache Airflow
 Keywords: airflow-provider,datadog,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -18,12 +18,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
-Requires-Dist: datadog>=0.14.0
+Requires-Dist: datadog>=0.50.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -54,8 +55,9 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-datadog``
 
-Release: ``3.9.1``
+Release: ``3.9.2``
 
+Release Date: ``|PypiReleaseDate|``
 
 `Datadog <https://www.datadoghq.com/>`__
 
@@ -67,7 +69,7 @@ This is a provider package for ``datadog`` provider. All classes for this provid
 are in ``airflow.providers.datadog`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.2/>`_.
 
 Installation
 ------------
@@ -76,7 +78,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-datadog``
 
-The package supports the following python versions: 3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12,3.13
 
 Requirements
 ------------
@@ -85,9 +87,9 @@ Requirements
 PIP package         Version required
 ==================  ==================
 ``apache-airflow``  ``>=2.10.0``
-``datadog``         ``>=0.14.0``
+``datadog``         ``>=0.50.0``
 ==================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-datadog/3.9.2/changelog.html>`_.
 

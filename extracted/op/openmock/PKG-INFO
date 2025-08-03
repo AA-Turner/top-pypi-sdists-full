@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openmock
-Version: 3.1.3
+Version: 3.1.4
 Summary: Python OpenSearch Mock for test purposes
 License: MIT
 Keywords: opensearch,mocking,testing
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: aiohttp

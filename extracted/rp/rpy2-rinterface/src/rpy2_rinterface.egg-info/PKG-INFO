@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: rpy2-rinterface
-Version: 3.6.1
+Version: 3.6.2
 Summary: Low-level interface from Python to the R.
 Author-email: Laurent Gautier <lgautier@gmail.com>
-License: GPLv2+
+License: GPL-2.0-or-later
 Project-URL: Homepage, https://rpy2.github.io
 Project-URL: Documentation, https://rpy2.github.io/doc.html
 Project-URL: Source, https://github.com/rpy2/rpy2
@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Requires-Python: >=3.8

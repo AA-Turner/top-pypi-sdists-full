@@ -93,7 +93,7 @@ jobs:
           # Activate virtual environment
           source .venv/bin/activate
           # Install dev and mmdet dependencies
-          uv sync --extra dev --extra mmdet
+          uv sync --group dev --extra mmdet
           # Install specific torch version for MMDet compatibility AFTER uv sync
           uv pip install torch==2.1.2+cpu torchvision==0.16.2+cpu --index-url https://download.pytorch.org/whl/cpu
       - name: Verify .venv Activation
@@ -106,7 +106,7 @@ jobs:
       - name: Run MMDet tests
         run: |
           source .venv/bin/activate
-          pytest tests/test_mmdetectionmodel.py -n auto
+          pytest tests/test_mmdetection_model.py -n auto
           # Run MMDet-related tests from test_predict.py
           pytest tests/test_predict.py::test_get_prediction_mmdet -n auto
           pytest tests/test_predict.py::test_get_sliced_prediction_mmdet -n auto

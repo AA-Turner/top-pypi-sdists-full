@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.40.6
+Version: 4.40.7
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -61,7 +61,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pip>=25.0.1; python_version < "3.9"
-Requires-Dist: pip>=25.1.1; python_version >= "3.9"
+Requires-Dist: pip>=25.2; python_version >= "3.9"
 Requires-Dist: packaging>=25.0
 Requires-Dist: setuptools~=70.2; python_version < "3.10"
 Requires-Dist: setuptools>=80.9.0; python_version >= "3.10"
@@ -133,14 +133,14 @@ Requires-Dist: pyotp==2.9.0
 Requires-Dist: python-xlib==0.33; platform_system == "Linux"
 Requires-Dist: markdown-it-py==3.0.0
 Requires-Dist: mdurl==0.1.2
-Requires-Dist: rich<15,>=14.0.0
+Requires-Dist: rich<15,>=14.1.0
 Provides-Extra: allure
 Requires-Dist: allure-pytest>=2.13.5; extra == "allure"
 Requires-Dist: allure-python-commons>=2.13.5; extra == "allure"
 Requires-Dist: allure-behave>=2.13.5; extra == "allure"
 Provides-Extra: coverage
 Requires-Dist: coverage>=7.6.1; python_version < "3.9" and extra == "coverage"
-Requires-Dist: coverage>=7.9.2; python_version >= "3.9" and extra == "coverage"
+Requires-Dist: coverage>=7.10.1; python_version >= "3.9" and extra == "coverage"
 Requires-Dist: pytest-cov>=5.0.0; python_version < "3.9" and extra == "coverage"
 Requires-Dist: pytest-cov>=6.2.1; python_version >= "3.9" and extra == "coverage"
 Provides-Extra: flake8
@@ -297,6 +297,7 @@ from seleniumbase import SB
 with SB(uc=True, test=True, locale="en") as sb:
     url = "https://gitlab.com/users/sign_in"
     sb.activate_cdp_mode(url)
+    sb.sleep(1)
     sb.uc_gui_click_captcha()
     sb.sleep(2)
 ```

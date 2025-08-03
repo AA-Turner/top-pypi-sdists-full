@@ -1,29 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: inquirer
-Version: 3.4.0
+Version: 3.4.1
 Summary: Collection of common interactive command line user interfaces, based on Inquirer.js
-Home-page: https://github.com/magmax/python-inquirer
 License: MIT
 Author: Miguel Ángel García
 Author-email: miguelangel.garcia@gmail.com
-Requires-Python: >=3.8.1
+Requires-Python: >=3.9.2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: User Interfaces
 Requires-Dist: blessed (>=1.19.0)
 Requires-Dist: editor (>=1.6.0)
 Requires-Dist: readchar (>=4.2.0)
 Project-URL: Documentation, https://python-inquirer.readthedocs.io
+Project-URL: Homepage, https://github.com/magmax/python-inquirer
 Project-URL: Repository, https://github.com/magmax/python-inquirer
 Description-Content-Type: text/markdown
 

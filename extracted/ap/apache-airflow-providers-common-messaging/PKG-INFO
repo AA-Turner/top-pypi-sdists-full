@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-common-messaging
-Version: 1.0.4
+Version: 1.0.5
 Summary: Provider package apache-airflow-providers-common-messaging for Apache Airflow
 Keywords: airflow-provider,common.messaging,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -18,13 +18,14 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=3.0.1
 Requires-Dist: apache-airflow-providers-amazon>=9.7.0 ; extra == "amazon"
 Requires-Dist: apache-airflow-providers-apache-kafka>=1.9.0 ; extra == "apache-kafka"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.5/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.5
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -57,8 +58,9 @@ Provides-Extra: apache-kafka
 
 Package ``apache-airflow-providers-common-messaging``
 
-Release: ``1.0.4``
+Release: ``1.0.5``
 
+Release Date: ``|PypiReleaseDate|``
 
 ``Common Messaging Provider``
 
@@ -70,7 +72,7 @@ This is a provider package for ``common.messaging`` provider. All classes for th
 are in ``airflow.providers.common.messaging`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.5/>`_.
 
 Installation
 ------------
@@ -79,7 +81,7 @@ You can install this package on top of an existing Airflow 2 installation (see `
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-common-messaging``
 
-The package supports the following python versions: 3.10,3.11,3.12
+The package supports the following python versions: 3.10,3.11,3.12,3.13
 
 Requirements
 ------------
@@ -91,5 +93,5 @@ PIP package         Version required
 ==================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-common-messaging/1.0.5/changelog.html>`_.
 

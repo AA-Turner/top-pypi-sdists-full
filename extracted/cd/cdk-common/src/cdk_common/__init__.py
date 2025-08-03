@@ -5612,6 +5612,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSOBSERVABILITY_ADMIN_TELEMETRY_ENABLEMENT_SERVICE_ROLE_POLICY = "AWSOBSERVABILITY_ADMIN_TELEMETRY_ENABLEMENT_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

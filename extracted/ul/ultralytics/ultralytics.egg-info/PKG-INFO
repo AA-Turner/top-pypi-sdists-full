@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.3.172
+Version: 8.3.173
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation and image classification.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -55,8 +55,9 @@ Requires-Dist: coverage[toml]; extra == "dev"
 Requires-Dist: mkdocs>=1.6.0; extra == "dev"
 Requires-Dist: mkdocs-material>=9.5.9; extra == "dev"
 Requires-Dist: mkdocstrings[python]; extra == "dev"
-Requires-Dist: mkdocs-ultralytics-plugin>=0.1.19; extra == "dev"
+Requires-Dist: mkdocs-ultralytics-plugin>=0.1.26; extra == "dev"
 Requires-Dist: mkdocs-macros-plugin>=1.0.5; extra == "dev"
+Requires-Dist: click==8.2.1; extra == "dev"
 Provides-Extra: export
 Requires-Dist: onnx<1.18.0,>=1.12.0; extra == "export"
 Requires-Dist: coremltools>=8.0; (platform_system != "Windows" and python_version <= "3.13") and extra == "export"
