@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2006-2014 Ludovic Rousseau (ludovic.rousseau@free.fr)
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,12 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
+
+import getopt
+import platform
+import sys
 
 import PyKCS11
-import binascii
-import getopt
-import sys
-import platform
 
 # from http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/142812
 # Title: Hex dumper
@@ -30,23 +32,26 @@ import platform
 
 
 def dump(src, length=16):
+    """dump a binary buffer"""
+
     def to_ascii(x):
-        if x >= 32 and x <= 127:
+        if 32 <= x <= 127:
             return chr(x)
-        else:
-            return '.'
+        return "."
+
     N = 0
     result = ""
     while src:
-        s, src = src[:length], src[length:]
-        text_hexa = " ".join(["%02X" % x for x in s])
-        text_ascii = "".join(map(to_ascii , s))
-        result += "%04X   %-*s   %s\n" % (N, length * 3, text_hexa, text_ascii)
+        h, src = src[:length], src[length:]
+        text_hexa = " ".join([f"{x:02X}" for x in h])
+        text_ascii = "".join(map(to_ascii, h))
+        result += f"{N:04X}   {text_hexa:{length * 3}}   {text_ascii}\n"
         N += length
     return result
 
 
 def usage():
+    """usage"""
     print("Usage:", sys.argv[0], end=" ")
     print("[-a][--all]", end=" ")
     print("[-p pin][--pin=pin] (use --pin=NULL for pinpad)", end=" ")
@@ -121,7 +126,7 @@ for s in slots:
         print(format_normal % ("firmwareVersion", i.firmwareVersion))
         print(format_normal % ("flags          ", ", ".join(i.flags2text())))
 
-        if not (i.flags & PyKCS11.CKF_TOKEN_PRESENT):
+        if not i.flags & PyKCS11.CKF_TOKEN_PRESENT:
             print("  Token not present")
             continue
 
@@ -132,13 +137,13 @@ for s in slots:
         print(format_normal % ("model", t.model.strip()))
 
         session = pkcs11.openSession(s)
-        print("Opened session 0x%08X" % session.session.value())
+        print(f"Opened session 0x{session.session.value():08X}")
         if pin_available:
             try:
                 if (pin is None) and (
                     PyKCS11.CKF_PROTECTED_AUTHENTICATION_PATH & t.flags
                 ):
-                    print("\nEnter your PIN for %s on the pinpad" % t.label.strip())
+                    print(f"\nEnter your PIN for {t.label.strip()} on the pinpad")
                 session.login(pin=pin)
             except PyKCS11.PyKCS11Error as e:
                 print("login failed, exception:", e)
@@ -146,7 +151,7 @@ for s in slots:
 
         objects = session.findObjects()
         print()
-        print("Found %d objects: %s" % (len(objects), [x.value() for x in objects]))
+        print(f"Found {len(objects)} objects: {[x.value() for x in objects]}")
 
         all_attributes = list(PyKCS11.CKA.keys())
         # remove the CKR_ATTRIBUTE_SENSITIVE attributes since we can't get

@@ -32,7 +32,7 @@
 
 
 import json
-from mock import patch
+from unittest.mock import patch
 from testscenarios.scenarios import multiply_scenarios
 
 import jenkins

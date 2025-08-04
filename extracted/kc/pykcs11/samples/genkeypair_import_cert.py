@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   contributed by Alex Railean, a dot railean at dekart.com
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,10 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from PyKCS11 import *
+import PyKCS11
 
-pkcs11 = PyKCS11Lib()
+# pylint: disable=duplicate-code
+
+pkcs11 = PyKCS11.PyKCS11Lib()
 pkcs11.load()  # define environment variable PYKCS11LIB=YourPKCS11Lib
 
 slot = pkcs11.getSlotList(tokenPresent=True)[0]
@@ -76,8 +80,10 @@ session.generateKeyPair(public_template, private_template)
 # it with the key.
 # It can be done with OpenSSL by typing the commands below in a terminal
 # 1. openssl
-# 2. engine dynamic -pre SO_PATH:/usr/lib/engines/engine_pkcs11.so -pre ID:pkcs11 -pre LIST_ADD:1 -pre LOAD -pre MODULE_PATH:libacospkcs11.so
-# 3. req -engine pkcs11 -keyform engine -key 0:1 -new -text -out /tmp/newcert.csr -subj "/O=users/CN=Test User"
+# 2. engine dynamic -pre SO_PATH:/usr/lib/engines/engine_pkcs11.so -pre
+#    ID:pkcs11 -pre LIST_ADD:1 -pre LOAD -pre MODULE_PATH:libacospkcs11.so
+# 3. req -engine pkcs11 -keyform engine -key 0:1 -new -text -out
+#    /tmp/newcert.csr -subj "/O=users/CN=Test User"
 # Note that `-key 0:1` means "use slot 0, with key id 1"
 # The CSR will be printed to stdout and saved to /tmp/newcert.csr
 

@@ -63,9 +63,9 @@ extern "C" {
    version of this file, please consider deleting the revision macro
    (you may use a macro with a different name to keep track of your
    versions).  */
-#define CRYPTOKI_VERSION_MAJOR		2
-#define CRYPTOKI_VERSION_MINOR		20
-#define CRYPTOKI_VERSION_REVISION	6
+#define CRYPTOKI_VERSION_MAJOR		3
+#define CRYPTOKI_VERSION_MINOR		0
+#define CRYPTOKI_VERSION_REVISION	0
 
 
 /* Compatibility interface is default, unless CRYPTOKI_GNU is
@@ -95,7 +95,7 @@ extern "C" {
 
 #endif
 
-
+
 #ifdef CRYPTOKI_COMPAT
   /* If we are in compatibility mode, switch all exposed names to the
      PKCS #11 variant.  There are corresponding #undefs below.  */
@@ -163,8 +163,6 @@ extern "C" {
 #define max_key_size ulMaxKeySize
 
 #define ck_rsa_pkcs_oaep_params _CK_RSA_PCKS_OAEP_PARAMS
-#define source_data pSourceData
-#define source_data_len ulSourceDataLen
 
 #define ck_rv_t CK_RV
 #define ck_notify_t CK_NOTIFY
@@ -185,7 +183,7 @@ extern "C" {
 
 #endif	/* CRYPTOKI_COMPAT */
 
-
+
 
 typedef unsigned long ck_flags_t;
 
@@ -665,6 +663,7 @@ typedef unsigned long ck_mechanism_type_t;
 #define CKM_ECDH1_DERIVE		(0x1050)
 #define CKM_ECDH1_COFACTOR_DERIVE	(0x1051)
 #define CKM_ECMQV_DERIVE		(0x1052)
+#define CKM_EDDSA			(0x1057)
 #define CKM_JUNIPER_KEY_GEN		(0x1060)
 #define CKM_JUNIPER_ECB128		(0x1061)
 #define CKM_JUNIPER_CBC128		(0x1062)
@@ -736,9 +735,9 @@ struct ck_mechanism_info
 struct ck_rsa_pkcs_oaep_params {
   unsigned long hashAlg;
   unsigned long mgf;
-  unsigned long src;
-  void *source_data;
-  unsigned long source_data_len;
+  unsigned long source;
+  void *pSourceData;
+  unsigned long ulSourceDataLen;
 } ;
 
 struct ck_rsa_pkcs_pss_params {
@@ -764,14 +763,22 @@ struct ck_aes_ctr_params {
 struct ck_ecdh1_derive_params {
   unsigned long kdf;
   unsigned long ulSharedDataLen;
-  void * pSharedData;
+  unsigned char * pSharedData;
   unsigned long ulPublicDataLen;
-  void * pPublicData;
+  unsigned char * pPublicData;
 } ;
 
 struct ck_key_derivation_string_data {
   unsigned char * pData;
   unsigned long ulLen;
+} ;
+
+typedef unsigned long ck_extract_params;
+
+struct ck_eddsa_params {
+  unsigned char phFlag;
+  unsigned long ulContextDataLen;
+  unsigned char * pContextData;
 } ;
 
 #define CKF_HW			(1 << 0)
@@ -1266,7 +1273,7 @@ struct ck_c_initialize_args
 #define CKR_VENDOR_DEFINED			((unsigned long) (1 << 31))
 
 
-
+
 /* Compatibility layer.  */
 
 #ifdef CRYPTOKI_COMPAT
@@ -1354,6 +1361,12 @@ typedef struct ck_ecdh1_derive_params *CK_ECDH1_DERIVE_PARAMS_PTR;
 typedef struct ck_key_derivation_string_data CK_KEY_DERIVATION_STRING_DATA;
 typedef struct ck_key_derivation_string_data *CK_KEY_DERIVATION_STRING_DATA_PTR;
 
+typedef ck_extract_params CK_EXTRACT_PARAMS;
+typedef ck_extract_params *CK_EXTRACT_PARAMS_PTR;
+
+typedef struct ck_eddsa_params CK_EDDSA_PARAMS;
+typedef struct ck_eddsa_params *CK_EDDSA_PARAMS_PTR;
+
 typedef struct ck_function_list CK_FUNCTION_LIST;
 typedef struct ck_function_list *CK_FUNCTION_LIST_PTR;
 typedef struct ck_function_list **CK_FUNCTION_LIST_PTR_PTR;
@@ -1432,6 +1445,8 @@ typedef struct ck_c_initialize_args *CK_C_INITIALIZE_ARGS_PTR;
 
 #undef ck_rsa_pkcs_pss_params
 
+#undef ck_extract_params
+
 #undef ck_rv_t
 #undef ck_notify_t
 
@@ -1451,7 +1466,7 @@ typedef struct ck_c_initialize_args *CK_C_INITIALIZE_ARGS_PTR;
 
 #endif	/* CRYPTOKI_COMPAT */
 
-
+
 /* System dependencies.  */
 #if defined(_WIN32) || defined(CRYPTOKI_FORCE_WIN32)
 #pragma pack(pop, cryptoki)

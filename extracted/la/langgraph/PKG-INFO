@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph
-Version: 0.6.2
+Version: 0.6.3
 Summary: Building stateful, multi-actor applications with LLMs
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT

@@ -1,4 +1,5 @@
 //   Copyright (C) 2004 Midori (midori -- a-t -- paipai dot net)
+//   Copyright (C) 2017-2025 Ludovic Rousseau (ludovic.rousseau@free.fr)
 //
 // This file is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -24,4 +25,3 @@ void DestroyTemplate(CK_ATTRIBUTE_PTR &pTemplate, CK_ULONG Len);
 void Buffer2Vector(unsigned char* pBuf, CK_ULONG Len, vector<unsigned char> &Buf, bool bAllocIfNull);
 
 #endif //_UTILITY_H__DEFINED_
-

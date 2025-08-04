@@ -1465,6 +1465,10 @@ class PyRepository:
         max_compressed_manifest_mem_bytes: int = 512 * 1024 * 1024,
         max_concurrent_manifest_fetches: int = 500,
     ) -> int: ...
+    def inspect_snapshot(self, snapshot_id: str, *, pretty: bool = True) -> str: ...
+    async def inspect_snapshot_async(
+        self, snapshot_id: str, *, pretty: bool = True
+    ) -> str: ...
 
 class PySession:
     @classmethod
@@ -1730,9 +1734,6 @@ class GcsBearerCredential:
     This is a bearer token that has an expiration time.
     """
 
-    bearer: str
-    expires_after: datetime.datetime | None
-
     def __init__(
         self, bearer: str, *, expires_after: datetime.datetime | None = None
     ) -> None:
@@ -1745,6 +1746,11 @@ class GcsBearerCredential:
         expires_after: datetime.datetime | None
             The expiration time of the bearer token.
         """
+
+    @property
+    def bearer(self) -> str: ...
+    @property
+    def expires_after(self) -> datetime.datetime | None: ...
 
 class GcsStaticCredentials:
     """Credentials for a google cloud storage backend"""

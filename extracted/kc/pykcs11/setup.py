@@ -1,11 +1,11 @@
-from setuptools import setup, Extension
-from setuptools.command.build_py import build_py
-import shutil
-from sys import version_info as pyver
-from os import path
 import platform
+import shutil
+from os import path
 from shutil import which
+from sys import version_info as pyver
 
+from setuptools import Extension, setup
+from setuptools.command.build_py import build_py
 
 description = """A complete PKCS#11 wrapper for Python.
 You can use any PKCS#11 (aka CryptoKi) module such as the PSM which
@@ -48,7 +48,7 @@ extra_link_args = []
 if platform.system().lower() == "windows":
     source_files.append("src/dyn_win32.c")
     libraries_val = ["python%d%d" % pyver[:2]]
-    extra_compile_args = ["/Fdvc70.pdb", "/Zi", "/GR", "/EHsc"]
+    extra_compile_args = ["/Fdvc70.pdb", "/Zi", "/GR", "/EHsc", "/std:c++20"]
     extra_link_args = [
         "/DEBUG",
         "/PDB:_LowLevel.pdb",
@@ -74,7 +74,7 @@ class MyBuild(build_py):
 
 setup(
     name="PyKCS11",
-    version="1.5.17",
+    version="1.5.18",
     description="A Full PKCS#11 wrapper for Python",
     keywords="crypto,pki,pkcs11,c++",
     classifiers=classifiers,
@@ -101,5 +101,5 @@ setup(
             extra_link_args=extra_link_args,
         )
     ],
-    py_modules=["PyKCS11.__init__", "PyKCS11.LowLevel"],
+    py_modules=["PyKCS11.__init__", "PyKCS11.LowLevel", "PyKCS11.constants"],
 )

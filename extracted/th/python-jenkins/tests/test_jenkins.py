@@ -1,7 +1,6 @@
 import json
-
-from mock import patch
-import six
+import io
+from unittest.mock import patch
 
 from tests.base import JenkinsTestBase
 from tests.helper import build_response_mock
@@ -12,7 +11,7 @@ import jenkins
 def get_mock_urlopen_return_value(a_dict=None):
     if a_dict is None:
         a_dict = {}
-    return six.BytesIO(json.dumps(a_dict).encode('utf-8'))
+    return io.BytesIO(json.dumps(a_dict).encode('utf-8'))
 
 
 class JenkinsConstructorTest(JenkinsTestBase):
@@ -45,8 +44,8 @@ class JenkinsConstructorTest(JenkinsTestBase):
 
     def test_unicode_password(self):
         j = jenkins.Jenkins('{0}'.format(self.base_url),
-                            six.u('nonascii'),
-                            six.u('\xe9\u20ac'))
+                            'nonascii',
+                            '\xe9\u20ac')
         j._maybe_add_auth()
         self.assertEqual(j.server, self.make_url(''))
         self.assertEqual(j.auth(self.req).headers['Authorization'],

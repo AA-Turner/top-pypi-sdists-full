@@ -14,11 +14,12 @@
 # limitations under that license.
 
 __all__ = [
-    'MonkeyPatch',
+    "MonkeyPatch",
 ]
 
 import functools
 import types
+from typing import Any
 
 from fixtures import Fixture
 
@@ -26,7 +27,9 @@ from fixtures import Fixture
 _class_types = (type,)
 
 
-def _coerce_values(obj, name, new_value, sentinel):
+def _coerce_values(
+    obj: Any, name: str, new_value: Any, sentinel: Any
+) -> tuple[Any, Any]:
     """Return an adapted (new_value, old_value) for patching obj.name.
 
     setattr transforms a function into an instancemethod when set on a class.
@@ -74,7 +77,7 @@ def _coerce_values(obj, name, new_value, sentinel):
     elif isinstance(old_value, classmethod):
         new_value = classmethod(new_value)
     elif isinstance(old_value, types.FunctionType):
-        if hasattr(new_value, '__get__'):
+        if hasattr(new_value, "__get__"):
             # new_value is a descriptor, and that would result in it being
             # rebound if we assign it to a class - we want to preserve the
             # bound state rather than having it bound to the new object
@@ -82,7 +85,7 @@ def _coerce_values(obj, name, new_value, sentinel):
             captured_method = new_value
 
             @functools.wraps(old_value)
-            def avoid_get(*args, **kwargs):
+            def avoid_get(*args: Any, **kwargs: Any) -> Any:
                 return captured_method(*args, **kwargs)
 
             new_value = avoid_get
@@ -95,7 +98,7 @@ class MonkeyPatch(Fixture):
 
     delete = object()
 
-    def __init__(self, name, new_value=None):
+    def __init__(self, name: str, new_value: Any = None) -> None:
         """Create a MonkeyPatch.
 
         :param name: The fully qualified object name to override.
@@ -129,8 +132,8 @@ class MonkeyPatch(Fixture):
         self.name = name
         self.new_value = new_value
 
-    def _setUp(self):
-        location, attribute = self.name.rsplit('.', 1)
+    def _setUp(self) -> None:
+        location, attribute = self.name.rsplit(".", 1)
         # Import, swallowing all errors as any element of location may be
         # a class or some such thing.
         try:
@@ -138,7 +141,7 @@ class MonkeyPatch(Fixture):
         except ImportError:
             pass
 
-        components = location.split('.')
+        components = location.split(".")
         current = __import__(components[0], {}, {})
         for component in components[1:]:
             current = getattr(current, component)
@@ -158,7 +161,7 @@ class MonkeyPatch(Fixture):
         else:
             self.addCleanup(setattr, current, attribute, old_value)
 
-    def _safe_delete(self, obj, attribute):
+    def _safe_delete(self, obj: Any, attribute: str) -> Any:
         """Delete obj.attribute handling the case where its missing."""
         sentinel = object()
         if getattr(obj, attribute, sentinel) is not sentinel:

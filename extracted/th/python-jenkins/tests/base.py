@@ -1,14 +1,9 @@
-import sys
+import unittest
+from unittest import mock
 
-import mock
 from testscenarios import TestWithScenarios
 
 import jenkins
-
-if sys.version_info < (2, 7):
-    import unittest2 as unittest
-else:
-    import unittest
 
 
 class JenkinsTestBase(TestWithScenarios, unittest.TestCase):

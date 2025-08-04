@@ -3,6 +3,8 @@
  *
  * Copyright (C) 1999
  *  David Corcoran <corcoran@linuxnet.com>
+ * Copyright (C) 2017-2025
+ *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
  * $Id: dyn_win32.c 1957 2006-03-21 13:59:18Z rousseau $
  */
@@ -106,4 +108,3 @@ int SYS_dyn_GetAddress(void *pvLHandle, function_ptr *pvFHandle,
 }
 
 #endif	/* WIN32 */
-

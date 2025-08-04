@@ -1,4 +1,9 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+
 import unittest
+
 from PyKCS11 import PyKCS11
 
 
@@ -242,8 +247,9 @@ class TestUtil(unittest.TestCase):
         if self.SoftHSMversion < 2:
             self.skipTest("generateKey() only supported by SoftHSM >= 2")
 
-        self.pubKey, self.privKey = self.session.generateKeyPair(pubTemplate,
-                privTemplate)
+        self.pubKey, self.privKey = self.session.generateKeyPair(
+            pubTemplate, privTemplate
+        )
         self.assertIsNotNone(self.pubKey)
         self.assertIsNotNone(self.privKey)
 
@@ -310,7 +316,9 @@ class TestUtil(unittest.TestCase):
         # check we can decrypt with the unwrapped AES key
         self.assertSequenceEqual(DataIn, DataCheck)
 
-        attributes = self.session.getAttributeValue(unwrapped, [PyKCS11.CKA_EXTRACTABLE])
+        attributes = self.session.getAttributeValue(
+            unwrapped, [PyKCS11.CKA_EXTRACTABLE]
+        )
         self.assertSequenceEqual(attributes, [False])
 
         # cleanup

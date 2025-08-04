@@ -1,5 +1,5 @@
 import json
-from mock import patch
+from unittest.mock import patch
 
 import jenkins
 from tests.helper import build_response_mock

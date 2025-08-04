@@ -14,11 +14,12 @@
 # limitations under that license.
 
 __all__ = [
-    'EnvironmentVariable',
-    'EnvironmentVariableFixture',
+    "EnvironmentVariable",
+    "EnvironmentVariableFixture",
 ]
 
 import os
+from typing import Optional
 
 from fixtures import Fixture
 
@@ -26,7 +27,10 @@ from fixtures import Fixture
 class EnvironmentVariable(Fixture):
     """Isolate a specific environment variable."""
 
-    def __init__(self, varname, newvalue=None):
+    varname: str
+    newvalue: Optional[str]
+
+    def __init__(self, varname: str, newvalue: Optional[str] = None) -> None:
         """Create an EnvironmentVariable fixture.
 
         :param varname: the name of the variable to isolate.
@@ -40,18 +44,18 @@ class EnvironmentVariable(Fixture):
         self.varname = varname
         self.newvalue = newvalue
 
-    def _setUp(self):
+    def _setUp(self) -> None:
         varname = self.varname
         orig_value = os.environ.get(varname)
         if orig_value is not None:
             self.addCleanup(os.environ.__setitem__, varname, orig_value)
             del os.environ[varname]
         else:
-            self.addCleanup(os.environ.pop, varname, '')
+            self.addCleanup(os.environ.pop, varname, "")
         if self.newvalue is not None:
             os.environ[varname] = self.newvalue
         else:
-            os.environ.pop(varname, '')
+            os.environ.pop(varname, "")
 
 
 EnvironmentVariableFixture = EnvironmentVariable

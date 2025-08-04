@@ -932,7 +932,11 @@ def kafka_setup_execute(self: ActionInstance):
         "KAFKA_MESSAGE_MAX_BYTES": 25000000,
         "KAFKA_HEAP_OPTS": "-Xms2G -Xmx8G",
         "KAFKA_NUM_NETWORK_THREADS": 6,
-        "KAFKA_NUM_IO_THREADS": 8
+        "KAFKA_NUM_IO_THREADS": 8,
+        "KAFKA_REPLICA_FETCH_MAX_BYTES": 25000000,
+        "KAFKA_FETCH_MESSAGE_MAX_BYTES": 25000000,
+        "KAFKA_REPLICA_FETCH_RESPONSE_MAX_BYTES": 25000000,
+        "KAFKA_REPLICA_FETCH_RESPONSE_MAX_BYTES": 25000000,
         }
     
     # Build environment variable command parts

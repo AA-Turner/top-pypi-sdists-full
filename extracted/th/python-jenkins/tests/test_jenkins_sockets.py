@@ -1,4 +1,5 @@
-from six.moves import StringIO
+from io import StringIO
+
 import testtools
 from testtools.content import text_content
 

@@ -1659,6 +1659,19 @@ class DecryptionServiceUpdateTypeEnum(sgqlc.types.Enum):
     __choices__ = ("KMS",)
 
 
+class DenialReason(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AI_FEATURES_OFF`None
+    * `ENTITLEMENTS`None
+    * `INVALID_USER`None
+    * `TSA_FEATURE_FLAG_OFF`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AI_FEATURES_OFF", "ENTITLEMENTS", "INVALID_USER", "TSA_FEATURE_FLAG_OFF")
+
+
 class DetectorStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -42314,6 +42327,7 @@ class Query(sgqlc.types.Type):
         "get_lineage_node_types",
         "get_common_fields",
         "get_common_fields_v2",
+        "get_tsa_availability",
         "get_user_settings",
         "get_user",
         "get_user_by_id",
@@ -54782,6 +54796,9 @@ class Query(sgqlc.types.Type):
       belong to the same warehouse.
     """
 
+    get_tsa_availability = sgqlc.types.Field("TSAAvailability", graphql_name="getTsaAvailability")
+    """(experimental) Get Troubleshooting Agent availability"""
+
     get_user_settings = sgqlc.types.Field(
         sgqlc.types.list_of("UserSettings"),
         graphql_name="getUserSettings",
@@ -60241,6 +60258,18 @@ class SyncMonitorsToCollibra(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("job_id",)
     job_id = sgqlc.types.Field(UUID, graphql_name="jobId")
+
+
+class TSAAvailability(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("enabled", "reasons")
+    enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
+    """If true, the Troubleshooting Agent is available to the
+    user/account
+    """
+
+    reasons = sgqlc.types.Field(sgqlc.types.list_of(DenialReason), graphql_name="reasons")
+    """Reasons if Troubleshooting Agent not available"""
 
 
 class TableAnomalyConnection(sgqlc.types.relay.Connection):

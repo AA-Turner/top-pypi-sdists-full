@@ -19,6 +19,11 @@ def get_tag_content(tags, tag_type, kind='property', prefix='og'):
     return get_tag(tags, tag_type, kind, prefix).get('content', '')
 
 
+def get_tag_content_text(tags, tag_type, kind='property', prefix='og'):
+    # Gets the content of a specific ogp tag
+    return get_tag(tags, tag_type, kind, prefix).get_text('content', '')
+
+
 def get_meta_description(tags):
     tag = next(tag for tag in tags if tag.get('name') == 'description')
     return tag.get('content', '')
@@ -43,6 +48,15 @@ def test_meta_name_description(meta_tags):
     description = get_meta_description(meta_tags)
 
     assert description == og_description
+
+
+@pytest.mark.sphinx('html', testroot='meta-name-description-escape')
+def test_meta_name_description_escape(meta_tags):
+    og_description = get_tag_content(meta_tags, 'description')
+    og_description_text = get_tag_content_text(meta_tags, 'description')
+
+    assert '<' in og_description
+    assert '<' not in og_description_text
 
 
 @pytest.mark.sphinx('html', testroot='meta-name-description-manual-description')
@@ -305,7 +319,7 @@ def test_rtd_override(app: Sphinx, monkeypatch):
 @pytest.mark.sphinx('html', testroot='rtd-default')
 def test_rtd_valid(app: Sphinx, monkeypatch):
     monkeypatch.setenv('READTHEDOCS', 'True')
-    app.config.html_baseurl = 'https://failure.com/en/latest/'
+    monkeypatch.setenv('READTHEDOCS_CANONICAL_URL', 'https://failure.com/en/latest/')
 
     app.build()
     tags = conftest._og_meta_tags(app)

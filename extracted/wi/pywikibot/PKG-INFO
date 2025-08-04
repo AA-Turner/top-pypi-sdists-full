@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 10.2.0
+Version: 10.3.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -278,83 +278,130 @@ Roadmap
 Current Release Changes
 =======================
 
-* Use Lock object in comms.http.PywikibotCookieJarfor thread-safe saving (T396309)
-* Raise TypeError instead of ValueError in i18n.translateif *parameter* is not a mapping
-* Recognise wildcard in config.usernameswhen running
-  loginscript (T110411)
-* Search for http and https by default in Site.exturlusage()
-  (T396280)
-* Add login methods overview to loginmodule (T396204)
-* Enable EmailAuth with login.ClientLoginManager(T395703)
-* Move tools.threading.RLockto backportsmodule (T395182)
-* Only show the description passed to specialbots.UploadRobotif it is to be verified (T394895)
-* Add support for Python 3.15 (T395177)
+* Site.articlepathmay raise a ValueError
+  instead of AttributeError if ``$1`` placeholder is missing from API
+* Refactor the throttle.Throttleclass (T289318)
+* L10N-Updates: add language aliases for ``gsw``, ``sgs``, ``vro``, ``rup`` and ``lzh``
+  to family.WikimediaFamilyfamily class
+  (T399411, T399438, T399444, T399693, T399697)
+* Refactor HTML removal logic in textlib.removeHTMLPartsusing textlib.GetDataHTML
+  parser; *removetags* parameter was introduced to remove specified tag blocks (T399378)
+* Refactor echo.Notificationand fix mark_as_read()
+  method (T398770)
+* Update beta domains in family files from beta.wmflabs.org to beta.wmcloud.org (T289318)
+* ``textlib.to_latin_digits()`` was renamed to textlib.to_ascii_digits(T398146#10958283),
+  ``NON_LATIN_DIGITS`` of userinterfaces.transliterationwas renamed to ``NON_ASCII_DIGITS``
+* Add -cookies option to the loginscript to log in with cookies
+  files only
+* Create a Site using the pywikibot.Siteconstructor with a given url even if the URL, even
+  if it ends with a slash (T396592)
+* Remove hard-coded error messages from login.LoginManager.loginand use API response instead
+* Add additional information to Site.login()
+  error message (T395670)
+* i18n updates
 
+Deprecations
+============
 
-Current Deprecations
-====================
+Pending removal in Pywikibot 13
+-------------------------------
 
+* 10.3.0: throttle.Trottle.getDelayand throttle.Trottle.setDelayswere renamed; the
+  old methods will be removed (T289318)
+* 10.3.0: throttle.Trottle.next_multiplicityattribute is unused and will be removed
+  (T289318)
+* 10.3.0: *requestsize* parameter of throttle.Trottlecall is deprecated and will be
+  dropped (T289318)
+* 10.3.0: textlib.to_latin_digitswill be removed in favour of
+  textlib.to_ascii_digits, ``NON_LATIN_DIGITS`` of userinterfaces.transliteration
+  will be removed in favour of ``NON_ASCII_DIGITS`` (T398146#10958283)
+* 10.2.0: tools.threading.RLockis deprecated and moved to backports
+  module. The backports.RLock.countmethod is also deprecated. For Python 3.14+ use ``RLock``
+  from Python library ``threading`` instead. (T395182)
+* 10.1.0: *revid* and *date* parameters of Page.authorship()
+  were dropped
+* 10.0.0: *last_id* of comms.eventstreams.EventStreamswas renamed to *last_event_id*
+  (T309380)
 * 10.0.0: 'millenia' argument for *precision* parameter of pywikibot.WbTimeis deprecated;
-  'millennium' must be used instead.
+  'millennium' must be used instead
 * 10.0.0: *includeredirects* parameter of pagegenerators.AllpagesPageGeneratorand
   pagegenerators.PrefixingPageGeneratoris deprecated and should be replaced by *filterredir*
-* 9.6.0: BaseSite.languages()will be removed in favour of
-  BaseSite.codes
+
+
+Pending removal in Pywikibot 12
+-------------------------------
+
+* 9.6.0: BaseSite.languages()will be removed in
+  favour of BaseSite.codes
 * 9.5.0: DataSite.getPropertyType()will be removed
   in favour of DataSite.get_property_type()
 * 9.3.0: page.BasePage.userNameand page.BasePage.isIpEditare deprecated in favour of
   ``user`` or ``anon`` attributes of page.BasePage.latest_revisionproperty
-* 9.2.0: Imports of loggingfunctions from botmodule is deprecated and will be desupported
+* 9.3.0: *botflag* parameter of Page.save(), Page.put()
+  and
+  Page.set_redirect_target()was renamed to *bot*
+* 9.2.0: All parameters of Page.templatesand
+  Page.itertemplates()must be given as keyworded arguments
+* 9.2.0: Imports of loggingfunctions from the botmodule are deprecated and will be desupported
 * 9.2.0: *total* argument in ``-logevents`` pagegenerators option is deprecated;
   use ``-limit`` instead (T128981)
-* 9.0.0: The *content* parameter of proofreadpage.IndexPage.page_genis deprecated and will be ignored
-  (T358635)
-* 9.0.0: ``userinterfaces.transliteration.transliterator`` was renamed to Transliterator
+* 9.0.0: The *content* parameter of proofreadpage.IndexPage.page_genis deprecated and will be
+  ignored (T358635)
+* 9.0.0: ``next`` parameter of userinterfaces.transliteration.Transliterator.transliteratewas
+  renamed to ``succ``
+* 9.0.0: ``userinterfaces.transliteration.transliterator`` object was renamed to Transliterator
   
-* 9.0.0: ``next`` parameter of userinterfaces.transliteration.transliterator.transliteratewas renamed to
-  ``succ``
-* 9.0.0: ``type`` parameter of site.APISite.protectedpages()
+* 9.0.0: The ``type`` parameter of site.APISite.protectedpages()
   was renamed to ``protect_type``
-* 9.0.0: ``all`` parameter of site.APISite.namespace()was renamed to
-  ``all_ns``
+* 9.0.0: The ``all`` parameter of site.APISite.namespace()
+  was renamed to ``all_ns``
 * 9.0.0: ``filter`` parameter of date.dhwas renamed to ``filter_func``
 * 9.0.0: ``dict`` parameter of data.api.OptionSetwas renamed to ``data``
-* 9.0.0: ``pywikibot.version.get_toolforge_hostname()`` is deprecated without replacement
+* 9.0.0: pywikibot.version.get_toolforge_hostnameis deprecated with no replacement
 * 9.0.0: ``allrevisions`` parameter of xmlreader.XmpDumpis deprecated, use ``revisions`` instead
   (T340804)
 * 9.0.0: ``iteritems`` method of data.api.Requestwill be removed in favour of ``items``
-* 9.0.0: ``SequenceOutputter.output()`` is deprecated in favour of tools.formatter.SequenceOutputter.out
-  property
+* 9.0.0: ``SequenceOutputter.output()`` is deprecated in favour of the
+  tools.formatter.SequenceOutputter.outproperty
 
 
 Pending removal in Pywikibot 11
 -------------------------------
 
-* 8.4.0: *modules_only_mode* parameter of data.api.ParamInfo, its *paraminfo_keys* class attribute
-  and its preloaded_modules property will be removed
-* 8.4.0: *dropdelay* and *releasepid* attributes of throttle.Throttlewill be removed
-  in favour of *expiry* class attribute
-* 8.2.0: tools.itertools.itergroupwill be removed in favour of backports.batched
-* 8.2.0: *normalize* parameter of WbTime.toTimestrand WbTime.toWikibasewill be removed
-* 8.1.0: Dependency of exceptions.NoSiteLinkErrorfrom exceptions.NoPageErrorwill be removed
-* 8.1.0: ``exceptions.Server414Error`` is deprecated in favour of exceptions.Client414Error
-* 8.0.0: Timestamp.clone()method is deprecated
-  in favour of ``Timestamp.replace()`` method.
-* 8.0.0: family.Family.maximum_GET_lengthmethod is deprecated in favour of
-  config.maximum_GET_length(T325957)
-* 8.0.0: ``addOnly`` parameter of textlib.replaceLanguageLinksand
-  textlib.replaceCategoryLinksare deprecated in favour of ``add_only``
-* 8.0.0: textlib.TimeStripperregex attributes ``ptimeR``, ``ptimeznR``, ``pyearR``, ``pmonthR``,
-  ``pdayR`` are deprecated in favour of ``patterns`` attribute which is a
-  textlib.TimeStripperPatterns.
-* 8.0.0: textlib.TimeStripper``groups`` attribute is deprecated in favour of ``textlib.TIMEGROUPS``
-* 8.0.0: LoginManager.get_login_tokenwas
-  replaced by ``login.ClientLoginManager.site.tokens['login']``
-* 8.0.0: ``data.api.LoginManager()`` is deprecated in favour of login.ClientLoginManager
-* 8.0.0: APISite.messages()method is deprecated in favour of
-  userinfo['messages']
-* 8.0.0: Page.editTime()method is deprecated and should be replaced by
-  Page.latest_revision.timestamp
+* 8.4.0: data.api.QueryGenerator.continuekeywill be removed in favour of
+  data.api.QueryGenerator.modules
+* 8.4.0: The *modules_only_mode* parameter in the data.api.ParamInfoclass, its
+  *paraminfo_keys* class attribute, and its ``preloaded_modules`` property will be removed
+* 8.4.0: The *dropdelay* and *releasepid* attributes of the throttle.Throttleclass will be
+  removed in favour of the *expiry* class attribute
+* 8.2.0: The tools.itertools.itergroupfunction will be removed in favour of the
+  backports.batchedfunction
+* 8.2.0: The *normalize* parameter in the pywikibot.WbTime.toTimestrand
+  pywikibot.WbTime.toWikibasemethods will be removed
+* 8.1.0: The inheritance of the exceptions.NoSiteLinkErrorexception from
+  exceptions.NoPageErrorwill be removed
+* 8.1.0: The ``exceptions.Server414Error`` exception is deprecated in favour of the
+  exceptions.Client414Errorexception
+* 8.0.0: The Timestamp.clone()method is deprecated in
+  favour of the ``Timestamp.replace()`` method
+* 8.0.0: The family.Family.maximum_GET_lengthmethod is deprecated in favour of the
+  config.maximum_GET_lengthconfiguration option (T325957)
+* 8.0.0: The ``addOnly`` parameter in the textlib.replaceLanguageLinksand
+  textlib.replaceCategoryLinksfunctions is deprecated in favour of ``add_only``
+* 8.0.0: The regex attributes ``ptimeR``, ``ptimeznR``, ``pyearR``, ``pmonthR``, and ``pdayR`` of
+  the textlib.TimeStripperclass are deprecated in favour of the ``patterns`` attribute,
+  which is a textlib.TimeStripperPatternsobject
+* 8.0.0: The ``groups`` attribute of the textlib.TimeStripperclass is deprecated in favour
+  of the textlib.TIMEGROUPSconstant
+* 8.0.0: The LoginManager.get_login_tokenmethod
+  has been replaced by ``login.ClientLoginManager.site.tokens['login']``
+* 8.0.0: The ``data.api.LoginManager()`` constructor is deprecated in favour of the
+  login.ClientLoginManagerclass
+* 8.0.0: The APISite.messages()method is
+  deprecated in favour of the userinfo['messages']
+  attribute
+* 8.0.0: The Page.editTime()method is deprecated and should be
+  replaced by the Page.latest_revision.timestampattribute
 
 Release history
 ===============

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2006-2014 Ludovic Rousseau (ludovic.rousseau@free.fr)
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,15 +16,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from __future__ import print_function
 
-import PyKCS11
+import getopt
 import platform
 import sys
 
+import PyKCS11
 
-class getInfo(object):
+
+# pylint: disable=duplicate-code
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+class getInfo:
     red = blue = magenta = normal = ""
 
     def colorize(self, text, arg):
@@ -32,12 +38,13 @@ class getInfo(object):
     def display(self, obj, indent=""):
         dico = obj.to_dict()
         for key in sorted(dico.keys()):
-            type = obj.fields[key]
+            ck_type = obj.fields[key]
             left = indent + key + ":"
-            if type == "flags":
+            if ck_type == "flags":
                 self.colorize(left, ", ".join(dico[key]))
-            elif type == "pair":
-                self.colorize(left, "%d.%d" % dico[key])
+            elif ck_type == "pair":
+                p1, p2 = dico[key]
+                self.colorize(left, f"{p1}.{p2}")
             else:
                 self.colorize(left, dico[key])
 
@@ -53,11 +60,7 @@ class getInfo(object):
 
     def getSlotInfo(self, slot, slot_index, nb_slots):
         print()
-        print(
-            self.red
-            + "Slot %d/%d (number %d):" % (slot_index, nb_slots, slot)
-            + self.normal
-        )
+        print(self.red + f"Slot {slot_index}/{nb_slots} (number {slot}):" + self.normal)
         self.display(self.pkcs11.getSlotInfo(slot), " ")
 
     def getTokenInfo(self, slot):
@@ -88,7 +91,7 @@ class getInfo(object):
             if pin is None:
                 print("(using pinpad)")
             else:
-                print("(using pin: %s)" % pin)
+                print(f"(using pin: {pin})")
             session.login(pin)
         else:
             print()
@@ -109,20 +112,8 @@ def usage():
     print("[-h][--help]")
 
 
-if __name__ == "__main__":
-    import getopt
-
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            "p:s:c:ham",
-            ["pin=", "slot=", "lib=", "help", "all", "mechanisms"],
-        )
-    except getopt.GetoptError:
-        # print help information and exit:
-        usage()
-        sys.exit(2)
-
+def main(opts):
+    # pylint: disable=too-many-branches
     slot = None
     lib = None
     pin = ""
@@ -170,3 +161,18 @@ if __name__ == "__main__":
                 gi.getMechanismInfo(slot)
         except PyKCS11.PyKCS11Error as e:
             print("Error:", e)
+
+
+if __name__ == "__main__":
+    try:
+        options, args = getopt.getopt(
+            sys.argv[1:],
+            "p:s:c:ham",
+            ["pin=", "slot=", "lib=", "help", "all", "mechanisms"],
+        )
+    except getopt.GetoptError:
+        # print help information and exit:
+        usage()
+        sys.exit(2)
+
+    main(options)

@@ -1,0 +1,110 @@
+name: Actions
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout the repository
+        uses: actions/checkout@v4.2.2
+
+      - name: 🛠 Set up Python 3
+        uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: 3.x
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.7.19"
+
+      - name: 📦 Install dependencies
+        run: script/bootstrap
+
+      - name: 🖤 Lint with Black
+        run: uv run --dev black --check --fast awesomeversion tests benchmarks
+
+      - name: 🐍 Lint with mypy
+        run: uv run --dev mypy --strict awesomeversion tests benchmarks
+
+      - name: ✨ Lint with pylint
+        run: uv run --dev pylint awesomeversion tests benchmarks
+
+      - name: 🔤 Lint with isort
+        run: uv run --dev isort awesomeversion tests benchmarks --check-only
+
+  test:
+    name: Test with Python ${{ matrix.entry.version }}
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: 
+          - version: "3.9"
+          - version: "3.10"
+          - version: "3.11"
+          - version: "3.12"
+          - version: "3.13"
+    steps:
+      - name: 📥 Checkout the repository
+        uses: actions/checkout@v4.2.2
+
+      - name: 🛠️ Set up Python ${{ matrix.entry.version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.entry.version }}
+          allow-prereleases: ${{ matrix.entry.prereleases || false }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.7.19"
+
+      - name: 📦 Install dependencies
+        run: script/bootstrap
+
+      - name: 🏃 Run tests
+        run: script/test
+
+      - name: 🛠 Build
+        run: script/build
+
+  coverage:
+    name: Upload coverage to Codecov
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout the repository
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: 🛠️ Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.7.19"
+
+      - name: 📦 Install dependencies
+        run: script/bootstrap
+
+      - name: 📤 Upload coverage to Codecov
+        run: |
+          script/coverage
+          curl -sfSL https://codecov.io/bash | bash -

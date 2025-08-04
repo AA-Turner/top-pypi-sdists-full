@@ -95,3 +95,20 @@ VERSION_STRATEGIES: Tuple[AwesomeVersionStrategyDescription, ...] = (
 VERSION_STRATEGIES_DICT: dict[
     AwesomeVersionStrategy, AwesomeVersionStrategyDescription
 ] = {description.strategy: description for description in VERSION_STRATEGIES}
+
+
+VERSIONED_STRATEGIES = frozenset(
+    {
+        AwesomeVersionStrategy.SEMVER,
+        AwesomeVersionStrategy.CALVER,
+        AwesomeVersionStrategy.SIMPLEVER,
+        AwesomeVersionStrategy.PEP440,
+    }
+)
+
+MAJOR_STRATEGIES = frozenset(
+    {
+        *VERSIONED_STRATEGIES,
+        AwesomeVersionStrategy.BUILDVER,
+    }
+)

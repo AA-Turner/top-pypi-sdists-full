@@ -1,5 +1,5 @@
 //   Copyright (C) 2004 Midori (midori -- a-t -- paipai dot net)
-//   Copyright (C) 2008-2014 Ludovic Rousseau <ludovic.rousseau@free.fr>
+//   Copyright (C) 2008-2025 Ludovic Rousseau <ludovic.rousseau@free.fr>
 //
 // This file is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ CK_RV CPKCS11Lib::Load(const char* szLib)
 		return rv;
 	}
 
-	rv = m_pFunc->C_Initialize(NULL);
+	rv = C_Initialize();
 	if (CKR_OK != rv  && CKR_CRYPTOKI_ALREADY_INITIALIZED != rv)
 		return rv;
 
@@ -65,7 +65,7 @@ bool CPKCS11Lib::Unload()
 {
 	bool bRes = false;
 	if (m_hLib && m_pFunc)
-		m_pFunc->C_Finalize(NULL);
+		C_Finalize();
 	if (m_hLib)
 	{
 		bRes = true;
@@ -86,7 +86,16 @@ void CPKCS11Lib::Duplicate(CPKCS11Lib *ref)
 CK_RV CPKCS11Lib::C_Initialize()
 {
 	CK_RV rv;
-	rv = m_pFunc->C_Initialize(NULL);
+    CK_C_INITIALIZE_ARGS args = {
+        .CreateMutex = NULL,
+        .DestroyMutex = NULL,
+        .LockMutex = NULL,
+        .UnlockMutex = NULL,
+        .flags = CKF_OS_LOCKING_OK,
+        .pReserved = NULL,
+    };
+
+	rv = m_pFunc->C_Initialize(&args);
 	return rv;
 }
 
@@ -110,7 +119,7 @@ CK_RV CPKCS11Lib::C_GetInfo(CK_INFO* pInfo)
 
 CK_RV CPKCS11Lib::C_GetSlotList(
 	unsigned char tokenPresent,
-	vector<long>& slotList)
+	vector<unsigned long>& slotList)
 {
 	CK_RV rv;
 
@@ -340,7 +349,7 @@ CK_RV CPKCS11Lib::C_FindObjectsInit(
 
 CK_RV CPKCS11Lib::C_FindObjects(
 	CK_SESSION_HANDLE hSession,
-	vector<CK_OBJECT_HANDLE>& objectList)
+	vector<unsigned long>& objectList)
 {
 	CK_RV rv;
 	CK_ULONG i;
@@ -354,7 +363,7 @@ CK_RV CPKCS11Lib::C_FindObjects(
 	if (CKR_OK == rv && ulObjects)
 	{
 		for (i=0; i<ulObjects; i++)
-			objectList.push_back(static_cast<CK_OBJECT_HANDLE>(pList[i]));
+			objectList.push_back(static_cast<unsigned long>(pList[i]));
 	}
 	if (pList)
 		delete [] pList;
@@ -412,23 +421,28 @@ CK_RV CPKCS11Lib::C_EncryptUpdate(
 	vector<unsigned char> &outEncryptedData)
 {
 	CK_RV rv;
+
 	if (!inData.size())
 		return CKR_ARGUMENTS_BAD;
 
-	CK_ULONG ulInDataLen = 0;
-	CK_BYTE* pInData = Vector2Buffer(inData, ulInDataLen);
-	CK_ULONG ulOutDataLen = 0;
-	CK_BYTE* pOutData = Vector2Buffer(outEncryptedData, ulOutDataLen);
+	CK_ULONG ulInDataLen = static_cast<CK_ULONG>( inData.size() );
+	CK_BYTE* pInData = inData.data();
 
-	rv = m_pFunc->C_EncryptUpdate(hSession, pInData, ulInDataLen, pOutData,
+	CK_ULONG ulOutDataLen = 0;
+	// the # first call get the encrypted size
+	rv = m_pFunc->C_EncryptUpdate(hSession, pInData, ulInDataLen, nullptr,
 		&ulOutDataLen);
 
 	if (CKR_OK == rv)
-		Buffer2Vector(pOutData, ulOutDataLen, outEncryptedData, true);
-	if (pOutData)
-		delete []pOutData;
-	if (pInData)
-		delete []pInData;
+	{
+		// The second call get the actual encrypted data
+		outEncryptedData.resize(ulOutDataLen);
+		rv = m_pFunc->C_EncryptUpdate(hSession, pInData, ulInDataLen,
+			outEncryptedData.data(), &ulOutDataLen);
+		outEncryptedData.erase(outEncryptedData.begin() + ulOutDataLen,
+			outEncryptedData.end());
+	}
+
 	return rv;
 }
 
@@ -437,16 +451,22 @@ CK_RV CPKCS11Lib::C_EncryptFinal(
 	vector<unsigned char> &outEncryptedData)
 {
 	CK_RV rv;
-
 	CK_ULONG ulOutDataLen = 0;
-	CK_BYTE* pOutData = Vector2Buffer(outEncryptedData, ulOutDataLen);
 
-	rv = m_pFunc->C_EncryptFinal(hSession, pOutData, &ulOutDataLen);
+	// The first call to get the encrypted size
+	rv = m_pFunc->C_EncryptFinal(hSession, nullptr, &ulOutDataLen);
 
 	if (CKR_OK == rv)
-		Buffer2Vector(pOutData, ulOutDataLen, outEncryptedData, true);
-	if (pOutData)
-		delete []pOutData;
+	{
+		// The second call to get the actual encrypted data
+		// Always use a buffer with an extra byte, since C_EncryptFinal may return zero data,
+		// in which case one still have to make the second call with a non-null output buffer
+		// in order to terminate the encryption operation
+		outEncryptedData.resize(ulOutDataLen + 1);
+		rv = m_pFunc->C_EncryptFinal(hSession, outEncryptedData.data(), &ulOutDataLen);
+		outEncryptedData.erase(outEncryptedData.begin() + ulOutDataLen, outEncryptedData.end());
+	}
+
 	return rv;
 }
 
@@ -496,20 +516,23 @@ CK_RV CPKCS11Lib::C_DecryptUpdate(
 	if (!inEncryptedData.size())
 		return CKR_ARGUMENTS_BAD;
 
-	CK_ULONG ulInDataLen = 0;
-	CK_BYTE* pInData = Vector2Buffer(inEncryptedData, ulInDataLen);
-	CK_ULONG ulOutDataLen = 0;
-	CK_BYTE* pOutData = Vector2Buffer(outData, ulOutDataLen);
+	CK_ULONG ulInDataLen = static_cast<CK_ULONG>( inEncryptedData.size() );
+	CK_BYTE* pInData = inEncryptedData.data();
 
-	rv = m_pFunc->C_DecryptUpdate(hSession, pInData, ulInDataLen, pOutData,
+	CK_ULONG ulOutDataLen = 0;
+	// The first call to get the decrypted size
+	rv = m_pFunc->C_DecryptUpdate(hSession, pInData, ulInDataLen, nullptr,
 		&ulOutDataLen);
 
 	if (CKR_OK == rv)
-		Buffer2Vector(pOutData, ulOutDataLen, outData, true);
-	if (pOutData)
-		delete []pOutData;
-	if (pInData)
-		delete []pInData;
+	{
+		// The second call to get the actual decrypted data
+		outData.resize(ulOutDataLen);
+		rv = m_pFunc->C_DecryptUpdate(hSession, pInData, ulInDataLen, outData.data(),
+			&ulOutDataLen);
+		outData.erase(outData.begin() + ulOutDataLen, outData.end());
+	}
+
 	return rv;
 }
 
@@ -519,14 +542,18 @@ CK_RV CPKCS11Lib::C_DecryptFinal(
 {
 	CK_RV rv;
 	CK_ULONG ulOutDataLen = 0;
-	CK_BYTE* pOutData = Vector2Buffer(outData, ulOutDataLen);
 
-	rv = m_pFunc->C_DecryptFinal(hSession, pOutData, &ulOutDataLen);
+	// The first call to get the decrypted size
+	rv = m_pFunc->C_DecryptFinal(hSession, nullptr, &ulOutDataLen);
 
 	if (CKR_OK == rv)
-		Buffer2Vector(pOutData, ulOutDataLen, outData, true);
-	if (pOutData)
-		delete []pOutData;
+	{
+		// The second call to get the actual decrypted data
+		outData.resize(ulOutDataLen + 1);
+		rv = m_pFunc->C_DecryptFinal(hSession, outData.data(), &ulOutDataLen);
+		outData.erase(outData.begin() + ulOutDataLen, outData.end());
+	}
+
 	return rv;
 }
 
@@ -922,7 +949,7 @@ CK_RV CPKCS11Lib::C_WaitForSlotEvent(
 
 CK_RV CPKCS11Lib::C_GetMechanismList(
 	unsigned long slotID,
-	vector<long> &mechanismList)
+	vector<unsigned long> &mechanismList)
 {
 	CK_RV rv;
 
@@ -951,4 +978,3 @@ CK_RV CPKCS11Lib::C_GetMechanismInfo(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-

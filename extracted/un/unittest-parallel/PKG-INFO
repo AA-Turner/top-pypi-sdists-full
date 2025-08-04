@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unittest-parallel
-Version: 1.7.4
+Version: 1.7.5
 Summary: Parallel unit test runner with coverage support
 Home-page: https://github.com/craigahobbs/unittest-parallel
 Author: Craig A. Hobbs

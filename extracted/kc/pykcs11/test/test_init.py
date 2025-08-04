@@ -1,6 +1,9 @@
-# -*- coding: utf-8 -*-
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 
 import unittest
+
 from PyKCS11 import PyKCS11
 
 

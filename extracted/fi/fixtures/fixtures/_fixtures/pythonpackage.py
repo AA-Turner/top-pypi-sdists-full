@@ -14,10 +14,11 @@
 # limitations under that license.
 
 __all__ = [
-    'PythonPackage',
+    "PythonPackage",
 ]
 
 import os.path
+from typing import List, Tuple
 
 from fixtures import Fixture
 from fixtures._fixtures.tempdir import TempDir
@@ -31,7 +32,9 @@ class PythonPackage(Fixture):
         for the module.
     """
 
-    def __init__(self, packagename, modulelist, init=True):
+    def __init__(
+        self, packagename: str, modulelist: List[Tuple[str, bytes]], init: bool = True
+    ) -> None:
         """Create a PythonPackage.
 
         :param packagename: The name of the package to create - e.g.
@@ -47,19 +50,19 @@ class PythonPackage(Fixture):
         self.modulelist = modulelist
         self.init = init
 
-    def _setUp(self):
+    def _setUp(self) -> None:
         self.base = self.useFixture(TempDir()).path
         base = self.base
         root = os.path.join(base, self.packagename)
         os.mkdir(root)
         init_seen = not self.init
         for modulename, contents in self.modulelist:
-            stream = open(os.path.join(root, modulename), 'wb')
+            stream = open(os.path.join(root, modulename), "wb")
             try:
                 stream.write(contents)
             finally:
                 stream.close()
-            if modulename == '__init__.py':
+            if modulename == "__init__.py":
                 init_seen = True
         if not init_seen:
-            open(os.path.join(root, '__init__.py'), 'wb').close()
+            open(os.path.join(root, "__init__.py"), "wb").close()

@@ -5,6 +5,8 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Type, Union, c
 from pydash import snake_case
 
 from vellum import ChatMessage, PromptBlock
+from vellum.client.types.array_chat_message_content import ArrayChatMessageContent
+from vellum.client.types.array_chat_message_content_item import ArrayChatMessageContentItem
 from vellum.client.types.function_call_chat_message_content import FunctionCallChatMessageContent
 from vellum.client.types.function_call_chat_message_content_value import FunctionCallChatMessageContentValue
 from vellum.client.types.function_definition import FunctionDefinition
@@ -59,6 +61,9 @@ class FunctionCallNodeMixin:
                 content=StringChatMessageContent(value=json.dumps(result, cls=DefaultStateEncoder)),
             )
         )
+        with state.__quiet__():
+            state.current_function_calls_processed += 1
+            state.current_prompt_output_index += 1
 
 
 class ToolRouterNode(InlinePromptNode[ToolCallingState]):
@@ -73,29 +78,37 @@ class ToolRouterNode(InlinePromptNode[ToolCallingState]):
             raise NodeException(message=max_iterations_message, code=WorkflowErrorCode.NODE_EXECUTION)
 
         generator = super().run()
+        with self.state.__quiet__():
+            self.state.current_prompt_output_index = 0
+            self.state.current_function_calls_processed = 0
+            self.state.prompt_iterations += 1
         for output in generator:
-            if output.name == "results" and output.value:
-                values = cast(List[Any], output.value)
-                if values and len(values) > 0:
-                    if values[0].type == "STRING":
-                        self.state.chat_history.append(ChatMessage(role="ASSISTANT", text=values[0].value))
-                    elif values[0].type == "FUNCTION_CALL":
-                        self.state.prompt_iterations += 1
-
-                        function_call = values[0].value
-                        if function_call is not None:
-                            self.state.chat_history.append(
-                                ChatMessage(
-                                    role="ASSISTANT",
-                                    content=FunctionCallChatMessageContent(
-                                        value=FunctionCallChatMessageContentValue(
-                                            name=function_call.name,
-                                            arguments=function_call.arguments,
-                                            id=function_call.id,
-                                        ),
-                                    ),
-                                )
+            if output.name == InlinePromptNode.Outputs.results.name and output.value:
+                prompt_outputs = cast(List[PromptOutput], output.value)
+                chat_contents: List[ArrayChatMessageContentItem] = []
+                for prompt_output in prompt_outputs:
+                    if prompt_output.type == "STRING":
+                        chat_contents.append(StringChatMessageContent(value=prompt_output.value))
+                    elif prompt_output.type == "FUNCTION_CALL" and prompt_output.value:
+                        raw_function_call = prompt_output.value.model_dump()
+                        if "state" in raw_function_call:
+                            del raw_function_call["state"]
+                        chat_contents.append(
+                            FunctionCallChatMessageContent(
+                                value=FunctionCallChatMessageContentValue.model_validate(raw_function_call)
                             )
+                        )
+
+                if len(chat_contents) == 1:
+                    if chat_contents[0].type == "STRING":
+                        self.state.chat_history.append(ChatMessage(role="ASSISTANT", text=chat_contents[0].value))
+                    else:
+                        self.state.chat_history.append(ChatMessage(role="ASSISTANT", content=chat_contents[0]))
+                else:
+                    self.state.chat_history.append(
+                        ChatMessage(role="ASSISTANT", content=ArrayChatMessageContent(value=chat_contents))
+                    )
+
             yield output
 
 
@@ -225,42 +238,51 @@ class MCPNode(BaseNode[ToolCallingState], FunctionCallNodeMixin):
         yield from []
 
 
-def _hydrate_composio_tool_definition(tool_def: ComposioToolDefinition) -> ComposioToolDefinition:
+class ElseNode(BaseNode[ToolCallingState]):
+    """Node that executes when no function conditions match."""
+
+    class Ports(BaseNode.Ports):
+        # Redefined in the create_else_node function, but defined here to resolve mypy errors
+        loop = Port.on_if(
+            ToolCallingState.current_prompt_output_index.less_than(1)
+            | ToolCallingState.current_function_calls_processed.greater_than(0)
+        )
+        end = Port.on_else()
+
+    def run(self) -> BaseNode.Outputs:
+        with self.state.__quiet__():
+            self.state.current_prompt_output_index += 1
+        return self.Outputs()
+
+
+def _hydrate_composio_tool_definition(tool_def: ComposioToolDefinition) -> FunctionDefinition:
     """Hydrate a ComposioToolDefinition with detailed information from the Composio API.
 
     Args:
         tool_def: The basic ComposioToolDefinition to enhance
 
     Returns:
-        ComposioToolDefinition with detailed parameters and description
+        FunctionDefinition with detailed parameters and description
     """
     try:
         composio_service = ComposioService()
         tool_details = composio_service.get_tool_by_slug(tool_def.action)
 
-        # Extract toolkit information from API response
-        toolkit_info = tool_details.get("toolkit", {})
-        toolkit_slug = (
-            toolkit_info.get("slug", tool_def.toolkit) if isinstance(toolkit_info, dict) else tool_def.toolkit
-        )
-
-        # Create a version of the tool definition with proper field extraction
-        return ComposioToolDefinition(
-            type=tool_def.type,
-            toolkit=toolkit_slug.upper() if toolkit_slug else tool_def.toolkit,
-            action=tool_details.get("slug", tool_def.action),
+        # Create a FunctionDefinition directly with proper field extraction
+        return FunctionDefinition(
+            name=tool_def.name,
             description=tool_details.get("description", tool_def.description),
-            display_name=tool_details.get("name", tool_def.display_name),
-            parameters=tool_details.get("input_parameters", tool_def.parameters),
-            version=tool_details.get("version", tool_def.version),
-            tags=tool_details.get("tags", tool_def.tags),
-            user_id=tool_def.user_id,
+            parameters=tool_details.get("input_parameters", {}),
         )
 
     except Exception as e:
-        # If hydration fails (including no API key), log and return original
+        # If hydration fails (including no API key), log and return basic function definition
         logger.warning(f"Failed to enhance Composio tool '{tool_def.action}': {e}")
-        return tool_def
+        return FunctionDefinition(
+            name=tool_def.name,
+            description=tool_def.description,
+            parameters={},
+        )
 
 
 def hydrate_mcp_tool_definitions(server_def: MCPServer) -> List[MCPToolDefinition]:
@@ -303,8 +325,13 @@ def create_tool_router_node(
             return Port.on_if(
                 LazyReference(
                     lambda: (
-                        node.Outputs.results[0]["type"].equals("FUNCTION_CALL")
-                        & node.Outputs.results[0]["value"]["name"].equals(fn_name)
+                        ToolCallingState.current_prompt_output_index.less_than(node.Outputs.results.length())
+                        & node.Outputs.results[ToolCallingState.current_prompt_output_index]["type"].equals(
+                            "FUNCTION_CALL"
+                        )
+                        & node.Outputs.results[ToolCallingState.current_prompt_output_index]["value"]["name"].equals(
+                            fn_name
+                        )
                     )
                 )
             )
@@ -313,13 +340,7 @@ def create_tool_router_node(
             if isinstance(function, ComposioToolDefinition):
                 # Get Composio tool details and hydrate the function definition
                 enhanced_function = _hydrate_composio_tool_definition(function)
-                prompt_functions.append(
-                    FunctionDefinition(
-                        name=enhanced_function.name,
-                        description=enhanced_function.description,
-                        parameters=enhanced_function.parameters,
-                    )
-                )
+                prompt_functions.append(enhanced_function)
                 # Create port for this function (using original function for get_function_name)
                 function_name = get_function_name(function)
                 port = create_port_condition(function_name)
@@ -479,6 +500,27 @@ def create_mcp_tool_node(
         {
             "mcp_tool": tool_def,
             "function_call_output": tool_router_node.Outputs.results,
+            "__module__": __name__,
+        },
+    )
+    return node
+
+
+def create_else_node(
+    tool_router_node: Type[ToolRouterNode],
+) -> Type[ElseNode]:
+    class Ports(ElseNode.Ports):
+        loop = Port.on_if(
+            ToolCallingState.current_prompt_output_index.less_than(tool_router_node.Outputs.results.length())
+            | ToolCallingState.current_function_calls_processed.greater_than(0)
+        )
+        end = Port.on_else()
+
+    node = type(
+        f"{tool_router_node.__name__}_ElseNode",
+        (ElseNode,),
+        {
+            "Ports": Ports,
             "__module__": __name__,
         },
     )

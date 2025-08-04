@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyKCS11
-Version: 1.5.17
+Version: 1.5.18
 Summary: A Full PKCS#11 wrapper for Python
 Home-page: https://github.com/LudovicRousseau/PyKCS11
 Download-URL: http://sourceforge.net/projects/pkcs11wrap/files/pykcs11/
@@ -24,6 +24,19 @@ Classifier: Programming Language :: Python
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: COPYING
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: summary
 
 A complete PKCS#11 wrapper for Python.
 You can use any PKCS#11 (aka CryptoKi) module such as the PSM which

@@ -1,4 +1,9 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+
 import unittest
+
 from PyKCS11 import PyKCS11
 
 # use OpenSC PKCS#11 Spy to check what PIN value is sent to the PKCS#11

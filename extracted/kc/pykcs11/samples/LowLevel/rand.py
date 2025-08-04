@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2010-2014 Ludovic Rousseau <ludovic.rousseau@free.fr>
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,18 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 # USA.
+"""
+
+import os
 
 import PyKCS11.LowLevel
-import os
+
+# pylint: disable=duplicate-code
 
 a = PyKCS11.LowLevel.CPKCS11Lib()
 info = PyKCS11.LowLevel.CK_INFO()
 slotInfo = PyKCS11.LowLevel.CK_SLOT_INFO()
 lib = os.getenv("PYKCS11LIB")
 if lib is None:
-    raise (Exception("Define PYKCS11LIB"))
+    # pylint: disable=broad-exception-raised
+    raise ValueError("Define PYKCS11LIB")
 session = PyKCS11.LowLevel.CK_SESSION_HANDLE()
-slotList = PyKCS11.LowLevel.ckintlist()
+slotList = PyKCS11.LowLevel.ckulonglist()
 rand = PyKCS11.LowLevel.ckbytelist(20)
 seed = PyKCS11.LowLevel.ckbytelist(5)
 
@@ -35,7 +41,10 @@ print("C_GetInfo: " + hex(a.C_GetInfo(info)))
 print("Library manufacturerID: " + info.GetManufacturerID())
 del info
 
-print("C_GetSlotList(NULL): " + hex(a.C_GetSlotList(0, slotList)))
+print(
+    "C_GetSlotList(CK_TRUE): "
+    + hex(a.C_GetSlotList(PyKCS11.LowLevel.CK_TRUE, slotList))
+)
 print("\tAvailable Slots: " + str(len(slotList)))
 
 print(
@@ -49,11 +58,11 @@ print(
     )
 )
 
-print(" ".join("%02X" % i for i in seed))
+print(" ".join(f"{i:02X}" for i in seed))
 print("C_SeedRandom(): " + hex(a.C_SeedRandom(session, seed)))
 
 print("C_GenerateRandom(): " + hex(a.C_GenerateRandom(session, rand)))
-print(" ".join("%02X" % i for i in rand))
+print(" ".join(f"{i:02X}" for i in rand))
 
 print("C_CloseSession(): " + hex(a.C_CloseSession(session)))
 print("C_Finalize(): " + hex(a.C_Finalize()))

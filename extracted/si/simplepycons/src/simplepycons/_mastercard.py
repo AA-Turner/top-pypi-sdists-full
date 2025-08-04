@@ -62,14 +62,14 @@ class MastercardIcon(Icon):
 
     @property
     def guidelines_url(self) -> "str | None":
-        _value: "str" = '''https://brand.mastercard.com/brandcenter/mast'''
+        _value: "str" = '''https://www.mastercard.com/brandcenter/us/en/'''
         if len(_value) > 0:
             return _value
         return None
 
     @property
     def source(self) -> "str":
-        return '''https://brand.mastercard.com/brandcenter/mast'''
+        return '''https://www.mastercard.com/brandcenter/us/en/'''
 
     @property
     def license(self) -> "tuple[str | None, str | None]":

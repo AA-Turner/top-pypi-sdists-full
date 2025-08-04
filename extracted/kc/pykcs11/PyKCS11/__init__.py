@@ -1,68 +1,31 @@
-#   Copyright (C) 2006-2015 Ludovic Rousseau (ludovic.rousseau@free.fr)
-#   Copyright (C) 2010 Giuseppe Amato (additions to original interface)
-#
-# This file is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
+  Copyright (C) 2006-2025 Ludovic Rousseau (ludovic.rousseau@free.fr)
+  Copyright (C) 2010 Giuseppe Amato (additions to original interface)
 
-from __future__ import print_function
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-import PyKCS11.LowLevel
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
+
+# pylint: disable=too-many-lines
+
 import os
 import sys
+import threading
 
+import PyKCS11.LowLevel
 
-# redefine PKCS#11 constants
-CK_TRUE = PyKCS11.LowLevel.CK_TRUE
-CK_FALSE = PyKCS11.LowLevel.CK_FALSE
-CK_UNAVAILABLE_INFORMATION = PyKCS11.LowLevel.CK_UNAVAILABLE_INFORMATION
-CK_EFFECTIVELY_INFINITE = PyKCS11.LowLevel.CK_EFFECTIVELY_INFINITE
-CK_INVALID_HANDLE = PyKCS11.LowLevel.CK_INVALID_HANDLE
-
-CKA = {}
-CKC = {}
-CKD = {}
-CKF = {}
-CKG = {}
-CKH = {}
-CKK = {}
-CKM = {}
-CKO = {}
-CKR = {}
-CKS = {}
-CKU = {}
-CKZ = {}
-
-# redefine PKCS#11 constants using well known prefixes
-for x in PyKCS11.LowLevel.__dict__.keys():
-    if x[:4] == 'CKA_' \
-      or x[:4] == 'CKC_' \
-      or x[:4] == 'CKD_' \
-      or x[:4] == 'CKF_' \
-      or x[:4] == 'CKG_' \
-      or x[:4] == 'CKH_' \
-      or x[:4] == 'CKK_' \
-      or x[:4] == 'CKM_' \
-      or x[:4] == 'CKO_' \
-      or x[:4] == 'CKR_' \
-      or x[:4] == 'CKS_' \
-      or x[:4] == 'CKU_' \
-      or x[:4] == 'CKZ_':
-        a = "{}=PyKCS11.LowLevel.{}".format(x, x)
-        exec(a)
-        if x[3:] != "_VENDOR_DEFINED":
-            eval(x[:3])[eval(x)] = x  # => CKM[CKM_RSA_PKCS] = 'CKM_RSA_PKCS'
-            eval(x[:3])[x] = eval(x)  # => CKM['CKM_RSA_PKCS'] = CKM_RSA_PKCS
+from .constants import *
 
 # special CKR[] values
 CKR[-4] = "C_GetFunctionList() not found"
@@ -85,8 +48,7 @@ class ckbytelist(PyKCS11.LowLevel.ckbytelist):
             data = bytes(data)
         else:
             raise PyKCS11.PyKCS11Error(-3, text=str(type(data)))
-        super(ckbytelist, self).__init__(data)
-
+        super().__init__(data)
 
     def __repr__(self):
         """
@@ -95,6 +57,9 @@ class ckbytelist(PyKCS11.LowLevel.ckbytelist):
         """
         rep = [int(elt) for elt in self]
         return repr(rep)
+
+    def __add__(self, b):
+        return ckbytelist(bytes(self) + bytes(b))
 
 
 class CK_OBJECT_HANDLE(PyKCS11.LowLevel.CK_OBJECT_HANDLE):
@@ -105,7 +70,6 @@ class CK_OBJECT_HANDLE(PyKCS11.LowLevel.CK_OBJECT_HANDLE):
     def __init__(self, session):
         PyKCS11.LowLevel.CK_OBJECT_HANDLE.__init__(self)
         self.session = session
-        pass
 
     def to_dict(self):
         """
@@ -115,13 +79,12 @@ class CK_OBJECT_HANDLE(PyKCS11.LowLevel.CK_OBJECT_HANDLE):
         all_attributes = PyKCS11.CKA.keys()
 
         # only use the integer values and not the strings like 'CKM_RSA_PKCS'
-        all_attributes = [attr for attr in all_attributes if
-                          isinstance(attr, int)]
+        all_attributes = [attr for attr in all_attributes if isinstance(attr, int)]
 
         # all the attributes of the object
         attributes = self.session.getAttributeValue(self, all_attributes)
 
-        dico = dict()
+        dico = {}
         for key, attr in zip(all_attributes, attributes):
             if attr is None:
                 continue
@@ -140,23 +103,23 @@ class CK_OBJECT_HANDLE(PyKCS11.LowLevel.CK_OBJECT_HANDLE):
         text representation of the object
         """
         dico = self.to_dict()
-        lines = list()
+        lines = []
         for key in sorted(dico.keys()):
-            lines.append("{}: {}".format(key, dico[key]))
+            lines.append(f"{key}: {dico[key]}")
         return "\n".join(lines)
 
 
-class CkClass(object):
+class CkClass:
     """
     Base class for CK_* classes
     """
 
     # dictionnary of integer_value: text_value for the flags bits
-    flags_dict = dict()
+    flags_dict = {}
 
     # dictionnary of fields names and types
     # type can be "pair", "flags" or "text"
-    fields = dict()
+    fields = {}
 
     flags = 0
 
@@ -169,23 +132,29 @@ class CkClass(object):
         :rtype: list
         """
         r = []
-        for v in self.flags_dict.keys():
-            if self.flags & v:
-                r.append(self.flags_dict[v])
+        for k, v in self.flags_dict.items():
+            if self.flags & k:
+                r.append(v)
         return r
+
+    def state2text(self):
+        """
+        Dummy method. Will be overwriden if necessary
+        """
+        return ""
 
     def to_dict(self):
         """
         convert the fields of the object into a dictionnary
         """
-        dico = dict()
-        for field in self.fields.keys():
+        dico = {}
+        for field in self.fields:
             if field == "flags":
                 dico[field] = self.flags2text()
             elif field == "state":
                 dico[field] = self.state2text()
             else:
-                dico[field] = eval("self." + field)
+                dico[field] = self.__dict__[field]
         return dico
 
     def __str__(self):
@@ -193,15 +162,17 @@ class CkClass(object):
         text representation of the object
         """
         dico = self.to_dict()
-        lines = list()
+        lines = []
         for key in sorted(dico.keys()):
-            type = self.fields[key]
-            if type == "flags":
-                lines.append("{}: {}".format(key, ", ".join(dico[key])))
-            elif type == "pair":
-                lines.append("%s: " % key + "%d.%d" % dico[key])
+            ck_type = self.fields[key]
+            if ck_type == "flags":
+                flags = ", ".join(dico[key])
+                lines.append(f"{key}: {flags}")
+            elif ck_type == "pair":
+                p1, p2 = dico[key]
+                lines.append(f"{key}: {p1}.{p2}")
             else:
-                lines.append("{}: {}".format(key, dico[key]))
+                lines.append(f"{key}: {dico[key]}")
         return "\n".join(lines)
 
 
@@ -224,13 +195,23 @@ class CK_SLOT_INFO(CkClass):
     flags_dict = {
         CKF_TOKEN_PRESENT: "CKF_TOKEN_PRESENT",
         CKF_REMOVABLE_DEVICE: "CKF_REMOVABLE_DEVICE",
-        CKF_HW_SLOT: "CKF_HW_SLOT"}
+        CKF_HW_SLOT: "CKF_HW_SLOT",
+    }
 
-    fields = {"slotDescription": "text",
-              "manufacturerID": "text",
-              "flags": "flags",
-              "hardwareVersion": "text",
-              "firmwareVersion": "text"}
+    fields = {
+        "slotDescription": "text",
+        "manufacturerID": "text",
+        "flags": "flags",
+        "hardwareVersion": "text",
+        "firmwareVersion": "text",
+    }
+
+    def __init__(self):
+        self.slotDescription = None
+        self.manufacturerID = None
+        self.flags = None
+        self.hardwareVersion = None
+        self.firmwareVersion = None
 
 
 class CK_INFO(CkClass):
@@ -249,11 +230,20 @@ class CK_INFO(CkClass):
     :type libraryVersion: list
     """
 
-    fields = {"cryptokiVersion": "pair",
-              "manufacturerID": "text",
-              "flags": "flags",
-              "libraryDescription": "text",
-              "libraryVersion": "pair"}
+    fields = {
+        "cryptokiVersion": "pair",
+        "manufacturerID": "text",
+        "flags": "flags",
+        "libraryDescription": "text",
+        "libraryVersion": "pair",
+    }
+
+    def __init__(self):
+        self.cryptokiVersion = None
+        self.manufacturerID = None
+        self.flags = None
+        self.libraryDescription = None
+        self.libraryVersion = None
 
 
 class CK_SESSION_INFO(CkClass):
@@ -275,6 +265,12 @@ class CK_SESSION_INFO(CkClass):
         CKF_SERIAL_SESSION: "CKF_SERIAL_SESSION",
     }
 
+    def __init__(self):
+        self.slotID = None
+        self.state = None
+        self.flags = None
+        self.ulDeviceError = None
+
     def state2text(self):
         """
         parse the `self.state` field and return a `CKS_*` string
@@ -285,10 +281,12 @@ class CK_SESSION_INFO(CkClass):
         """
         return CKS[self.state]
 
-    fields = {"slotID": "text",
-              "state": "text",
-              "flags": "flags",
-              "ulDeviceError": "text"}
+    fields = {
+        "slotID": "text",
+        "state": "text",
+        "flags": "flags",
+        "ulDeviceError": "text",
+    }
 
 
 class CK_TOKEN_INFO(CkClass):
@@ -333,6 +331,8 @@ class CK_TOKEN_INFO(CkClass):
     :type utcTime: string
     """
 
+    # pylint: disable=too-many-instance-attributes
+
     flags_dict = {
         CKF_RNG: "CKF_RNG",
         CKF_WRITE_PROTECTED: "CKF_WRITE_PROTECTED",
@@ -354,24 +354,46 @@ class CK_TOKEN_INFO(CkClass):
         CKF_SO_PIN_TO_BE_CHANGED: "CKF_SO_PIN_TO_BE_CHANGED",
     }
 
-    fields = {"label": "text",
-              "manufacturerID": "text",
-              "model": "text",
-              "serialNumber": "text",
-              "flags": "flags",
-              "ulMaxSessionCount": "text",
-              "ulSessionCount": "text",
-              "ulMaxRwSessionCount": "text",
-              "ulRwSessionCount": "text",
-              "ulMaxPinLen": "text",
-              "ulMinPinLen": "text",
-              "ulTotalPublicMemory": "text",
-              "ulFreePublicMemory": "text",
-              "ulTotalPrivateMemory": "text",
-              "ulFreePrivateMemory": "text",
-              "hardwareVersion": "pair",
-              "firmwareVersion": "pair",
-              "utcTime": "text"}
+    fields = {
+        "label": "text",
+        "manufacturerID": "text",
+        "model": "text",
+        "serialNumber": "text",
+        "flags": "flags",
+        "ulMaxSessionCount": "text",
+        "ulSessionCount": "text",
+        "ulMaxRwSessionCount": "text",
+        "ulRwSessionCount": "text",
+        "ulMaxPinLen": "text",
+        "ulMinPinLen": "text",
+        "ulTotalPublicMemory": "text",
+        "ulFreePublicMemory": "text",
+        "ulTotalPrivateMemory": "text",
+        "ulFreePrivateMemory": "text",
+        "hardwareVersion": "pair",
+        "firmwareVersion": "pair",
+        "utcTime": "text",
+    }
+
+    def __init__(self):
+        self.label = None
+        self.manufacturerID = None
+        self.model = None
+        self.serialNumber = None
+        self.flags = None
+        self.ulMaxSessionCount = None
+        self.ulSessionCount = None
+        self.ulMaxRwSessionCount = None
+        self.ulRwSessionCount = None
+        self.ulMaxPinLen = None
+        self.ulMinPinLen = None
+        self.ulTotalPublicMemory = None
+        self.ulFreePublicMemory = None
+        self.ulTotalPrivateMemory = None
+        self.ulFreePrivateMemory = None
+        self.hardwareVersion = None
+        self.firmwareVersion = None
+        self.utcTime = None
 
 
 class CK_MECHANISM_INFO(CkClass):
@@ -403,13 +425,16 @@ class CK_MECHANISM_INFO(CkClass):
         CKF_EXTENSION: "CKF_EXTENSION",
     }
 
-    fields = {"ulMinKeySize": "text",
-              "ulMaxKeySize": "text",
-              "flags": "flags"}
+    fields = {"ulMinKeySize": "text", "ulMaxKeySize": "text", "flags": "flags"}
+
+    def __init__(self):
+        self.ulMinKeySize = None
+        self.ulMaxKeySize = None
+        self.flags = None
 
 
 class PyKCS11Error(Exception):
-    """ define the possible PyKCS11 exceptions """
+    """define the possible PyKCS11 exceptions"""
 
     def __init__(self, value, text=""):
         self.value = value
@@ -422,34 +447,40 @@ class PyKCS11Error(Exception):
         """
         if self.value in CKR:
             if self.value < 0:
-                return CKR[self.value] + " (%s)" % self.text
-            else:
-                return CKR[self.value] + " (0x%08X)" % self.value
-        elif self.value & CKR_VENDOR_DEFINED:
-            return "Vendor error (0x%08X)" % (self.value & 0xffffffff & ~CKR_VENDOR_DEFINED)
-        else:
-            return "Unknown error (0x%08X)" % self.value
+                return CKR[self.value] + f" ({self.text})"
+            return CKR[self.value] + f" (0x{self.value:08X})"
+        if self.value & CKR_VENDOR_DEFINED:
+            v = self.value & 0xFFFFFFFF & ~CKR_VENDOR_DEFINED
+            return f"Vendor error (0x{v:08X})"
+        return f"Unknown error (0x{self.value:08X})"
 
 
-class PyKCS11Lib(object):
-    """ high level PKCS#11 binding """
+class PyKCS11Lib:
+    """high level PKCS#11 binding"""
 
     # shared by all instances
-    _loaded_libs = dict()
+    _loaded_libs = {}
+    _lock = threading.Lock()
 
     def __init__(self):
         self.lib = PyKCS11.LowLevel.CPKCS11Lib()
+        self.pkcs11dll_filename = None
 
     def __del__(self):
-        if PyKCS11 and PyKCS11.__name__ and \
-                PyKCS11.LowLevel and PyKCS11.LowLevel.__name__ and \
-                PyKCS11.LowLevel._LowLevel and \
-                PyKCS11.LowLevel._LowLevel.__name__:
+        # pylint: disable=too-many-boolean-expressions
+        if (
+            PyKCS11
+            and PyKCS11.__name__
+            and PyKCS11.LowLevel
+            and PyKCS11.LowLevel.__name__
+            and PyKCS11.LowLevel._LowLevel
+            and PyKCS11.LowLevel._LowLevel.__name__
+        ):
 
             # unload the library
             self.unload()
 
-    def load(self, pkcs11dll_filename=None, *init_string):
+    def load(self, pkcs11dll_filename=None):
         """
         load a PKCS#11 library
 
@@ -463,32 +494,35 @@ class PyKCS11Lib(object):
         if pkcs11dll_filename is None:
             pkcs11dll_filename = os.getenv("PYKCS11LIB")
             if pkcs11dll_filename is None:
-                raise PyKCS11Error(-1, "No PKCS11 library specified (set PYKCS11LIB env variable)")
+                raise PyKCS11Error(
+                    -1, "No PKCS11 library specified (set PYKCS11LIB env variable)"
+                )
 
-        if hasattr(self, "pkcs11dll_filename"):
-            self.unload() # unload the previous library
-            # if the instance was previously initialized,
-            # create a new low level library object for it
-            self.lib = PyKCS11.LowLevel.CPKCS11Lib()
+        with PyKCS11Lib._lock:
+            if self.pkcs11dll_filename is not None:
+                self._unload_locked()  # unload the previous library
+                # if the instance was previously initialized,
+                # create a new low level library object for it
+                self.lib = PyKCS11.LowLevel.CPKCS11Lib()
 
-        # if the lib is already in use: reuse it
-        if pkcs11dll_filename in PyKCS11Lib._loaded_libs:
-            self.lib.Duplicate(PyKCS11Lib._loaded_libs[pkcs11dll_filename]["ref"])
-        else:
-            # else load it
-            rv = self.lib.Load(pkcs11dll_filename)
-            if rv != CKR_OK:
-                raise PyKCS11Error(rv, pkcs11dll_filename)
-            PyKCS11Lib._loaded_libs[pkcs11dll_filename] = {
+            # if the lib is already in use: reuse it
+            if pkcs11dll_filename in PyKCS11Lib._loaded_libs:
+                self.lib.Duplicate(PyKCS11Lib._loaded_libs[pkcs11dll_filename]["ref"])
+            else:
+                # else load it
+                rv = self.lib.Load(pkcs11dll_filename)
+                if rv != CKR_OK:
+                    raise PyKCS11Error(rv, pkcs11dll_filename)
+                PyKCS11Lib._loaded_libs[pkcs11dll_filename] = {
                     "ref": self.lib,
-                    "nb_users": 0
-                    }
+                    "nb_users": 0,
+                }
 
-        # remember the lib file name
-        self.pkcs11dll_filename = pkcs11dll_filename
+            # remember the lib file name
+            self.pkcs11dll_filename = pkcs11dll_filename
 
-        # increase user number
-        PyKCS11Lib._loaded_libs[pkcs11dll_filename]["nb_users"] += 1
+            # increase user number
+            PyKCS11Lib._loaded_libs[pkcs11dll_filename]["nb_users"] += 1
 
         return self
 
@@ -496,14 +530,25 @@ class PyKCS11Lib(object):
         """
         unload the current instance of a PKCS#11 library
         """
+        with PyKCS11Lib._lock:
+            self._unload_locked()
+
+    def _unload_locked(self):
+        """
+        unload the current instance of a PKCS#11 library
+        The lock is already held
+        """
 
         # in case NO library was found and used
-        if not hasattr(self, "pkcs11dll_filename"):
+        if self.pkcs11dll_filename is None:
             return
 
         if self.pkcs11dll_filename not in PyKCS11Lib._loaded_libs:
-            raise PyKCS11Error(PyKCS11.LowLevel.CKR_GENERAL_ERROR,
-                               "invalid PyKCS11Lib state")
+            raise PyKCS11Error(
+                -1,
+                f"invalid PyKCS11Lib state: {self.pkcs11dll_filename} "
+                + f"not in {PyKCS11Lib._loaded_libs}",
+            )
 
         # decrease user number
         PyKCS11Lib._loaded_libs[self.pkcs11dll_filename]["nb_users"] -= 1
@@ -517,7 +562,7 @@ class PyKCS11Lib(object):
         if PyKCS11Lib._loaded_libs[self.pkcs11dll_filename]["nb_users"] <= 0:
             del PyKCS11Lib._loaded_libs[self.pkcs11dll_filename]
 
-        delattr(self, "pkcs11dll_filename")
+        self.pkcs11dll_filename = None
 
     def initToken(self, slot, pin, label):
         """
@@ -545,13 +590,11 @@ class PyKCS11Lib(object):
             raise PyKCS11Error(rv)
 
         i = CK_INFO()
-        i.cryptokiVersion = (info.cryptokiVersion.major,
-                             info.cryptokiVersion.minor)
+        i.cryptokiVersion = (info.cryptokiVersion.major, info.cryptokiVersion.minor)
         i.manufacturerID = info.GetManufacturerID()
         i.flags = info.flags
         i.libraryDescription = info.GetLibraryDescription()
-        i.libraryVersion = (info.libraryVersion.major,
-                            info.libraryVersion.minor)
+        i.libraryVersion = (info.libraryVersion.major, info.libraryVersion.minor)
         return i
 
     def getSlotList(self, tokenPresent=False):
@@ -564,15 +607,14 @@ class PyKCS11Lib(object):
         :return: a list of available slots
         :rtype: list
         """
-        slotList = PyKCS11.LowLevel.ckintlist()
-        rv = self.lib.C_GetSlotList(CK_TRUE if tokenPresent else CK_FALSE,
-                                    slotList)
+        slotList = PyKCS11.LowLevel.ckulonglist()
+        rv = self.lib.C_GetSlotList(CK_TRUE if tokenPresent else CK_FALSE, slotList)
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
 
         s = []
-        for x in range(len(slotList)):
-            s.append(slotList[x])
+        for x in slotList:
+            s.append(x)
         return s
 
     def getSlotInfo(self, slot):
@@ -643,11 +685,15 @@ class PyKCS11Lib(object):
         t.ulFreePrivateMemory = tokeninfo.ulFreePrivateMemory
         if t.ulFreePrivateMemory == CK_UNAVAILABLE_INFORMATION:
             t.ulFreePrivateMemory = -1
-        t.hardwareVersion = (tokeninfo.hardwareVersion.major,
-                             tokeninfo.hardwareVersion.minor)
-        t.firmwareVersion = (tokeninfo.firmwareVersion.major,
-                             tokeninfo.firmwareVersion.minor)
-        t.utcTime = tokeninfo.GetUtcTime().replace('\000', ' ')
+        t.hardwareVersion = (
+            tokeninfo.hardwareVersion.major,
+            tokeninfo.hardwareVersion.minor,
+        )
+        t.firmwareVersion = (
+            tokeninfo.firmwareVersion.major,
+            tokeninfo.firmwareVersion.minor,
+        )
+        t.utcTime = tokeninfo.GetUtcTime().replace("\000", " ")
 
         return t
 
@@ -689,34 +735,34 @@ class PyKCS11Lib(object):
         :return: the list of available mechanisms for a slot
         :rtype: list
         """
-        mechanismList = PyKCS11.LowLevel.ckintlist()
+        mechanismList = PyKCS11.LowLevel.ckulonglist()
         rv = self.lib.C_GetMechanismList(slot, mechanismList)
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
 
         m = []
-        for x in range(len(mechanismList)):
-            mechanism = mechanismList[x]
+        for mechanism in mechanismList:
             if mechanism >= CKM_VENDOR_DEFINED:
-                k = 'CKM_VENDOR_DEFINED_0x%X' % (mechanism - CKM_VENDOR_DEFINED)
+                mecha = mechanism - CKM_VENDOR_DEFINED
+                k = f"CKM_VENDOR_DEFINED_0x{mecha:X}"
                 CKM[k] = mechanism
                 CKM[mechanism] = k
             m.append(CKM[mechanism])
         return m
 
-    def getMechanismInfo(self, slot, type):
+    def getMechanismInfo(self, slot, ckm_type):
         """
         C_GetMechanismInfo
 
         :param slot: slot number returned by :func:`getSlotList`
         :type slot: integer
-        :param type: a `CKM_*` type
-        :type type: integer
+        :param ckm_type: a `CKM_*` type
+        :type ckm_type: integer
         :return: information about a mechanism
         :rtype: a :class:`CK_MECHANISM_INFO` object
         """
         info = PyKCS11.LowLevel.CK_MECHANISM_INFO()
-        rv = self.lib.C_GetMechanismInfo(slot, CKM[type], info)
+        rv = self.lib.C_GetMechanismInfo(slot, CKM[ckm_type], info)
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
 
@@ -744,8 +790,10 @@ class PyKCS11Lib(object):
         return slot
 
 
-class Mechanism(object):
+class Mechanism:
     """Wraps CK_MECHANISM"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, mechanism, param=None):
         """
@@ -766,6 +814,7 @@ class Mechanism(object):
             self._mech.ulParameterLen = len(param)
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
@@ -776,8 +825,10 @@ MechanismECGENERATEKEYPAIR = Mechanism(CKM_EC_KEY_PAIR_GEN, None)
 MechanismAESGENERATEKEY = Mechanism(CKM_AES_KEY_GEN, None)
 
 
-class AES_GCM_Mechanism(object):
+class AES_GCM_Mechanism:
     """CKM_AES_GCM warpping mechanism"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, iv, aad, tagBits):
         """
@@ -803,11 +854,14 @@ class AES_GCM_Mechanism(object):
         self._mech.ulParameterLen = PyKCS11.LowLevel.CK_GCM_PARAMS_LENGTH
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
-class AES_CTR_Mechanism(object):
+class AES_CTR_Mechanism:
     """CKM_AES_CTR encryption mechanism"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, counterBits, counterBlock):
         """
@@ -826,11 +880,14 @@ class AES_CTR_Mechanism(object):
         self._mech.ulParameterLen = PyKCS11.LowLevel.CK_AES_CTR_PARAMS_LENGTH
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
-class RSAOAEPMechanism(object):
+class RSAOAEPMechanism:
     """RSA OAEP Wrapping mechanism"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, hashAlg, mgf, label=None):
         """
@@ -843,7 +900,7 @@ class RSAOAEPMechanism(object):
         self._param.hashAlg = hashAlg
         self._param.mgf = mgf
         self._source = None
-        self._param.src = CKZ_DATA_SPECIFIED
+        self._param.source = CKZ_DATA_SPECIFIED
         if label:
             self._source = ckbytelist(label)
             self._param.ulSourceDataLen = len(self._source)
@@ -856,11 +913,14 @@ class RSAOAEPMechanism(object):
         self._mech.ulParameterLen = PyKCS11.LowLevel.CK_RSA_PKCS_OAEP_PARAMS_LENGTH
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
-class RSA_PSS_Mechanism(object):
+class RSA_PSS_Mechanism:
     """RSA PSS Wrapping mechanism"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, mecha, hashAlg, mgf, sLen):
         """
@@ -882,12 +942,16 @@ class RSA_PSS_Mechanism(object):
         self._mech.ulParameterLen = PyKCS11.LowLevel.CK_RSA_PKCS_PSS_PARAMS_LENGTH
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
-class ECDH1_DERIVE_Mechanism(object):
+
+class ECDH1_DERIVE_Mechanism:
     """CKM_ECDH1_DERIVE key derivation mechanism"""
 
-    def __init__(self, publicData, kdf = CKD_NULL, sharedData = None):
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, publicData, kdf=CKD_NULL, sharedData=None):
         """
         :param publicData: Other party public key which is EC Point [PC || coord-x || coord-y].
         :param kdf: Key derivation function. OPTIONAL. Defaults to CKD_NULL
@@ -915,27 +979,35 @@ class ECDH1_DERIVE_Mechanism(object):
         self._mech.ulParameterLen = PyKCS11.LowLevel.CK_ECDH1_DERIVE_PARAMS_LENGTH
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
-class CONCATENATE_BASE_AND_KEY_Mechanism(object):
+class CONCATENATE_BASE_AND_KEY_Mechanism:
     """CKM_CONCATENATE_BASE_AND_KEY key derivation mechanism"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, encKey):
         """
         :param encKey: a handle of encryption key
         """
+        self._encKey = encKey
+
         self._mech = PyKCS11.LowLevel.CK_MECHANISM()
         self._mech.mechanism = CKM_CONCATENATE_BASE_AND_KEY
-        self._mech.pParameter = encKey
+        self._mech.pParameter = self._encKey
         self._mech.ulParameterLen = PyKCS11.LowLevel.CK_OBJECT_HANDLE_LENGTH
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
-class KEY_DERIVATION_STRING_DATA_MechanismBase(object):
+class KEY_DERIVATION_STRING_DATA_MechanismBase:
     """Base class for mechanisms using derivation string data"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, data, mechType):
         """
@@ -951,14 +1023,19 @@ class KEY_DERIVATION_STRING_DATA_MechanismBase(object):
         self._mech = PyKCS11.LowLevel.CK_MECHANISM()
         self._mech.mechanism = mechType
         self._mech.pParameter = self._param
-        self._mech.ulParameterLen = PyKCS11.LowLevel.CK_KEY_DERIVATION_STRING_DATA_LENGTH
+        self._mech.ulParameterLen = (
+            PyKCS11.LowLevel.CK_KEY_DERIVATION_STRING_DATA_LENGTH
+        )
 
     def to_native(self):
+        """convert mechanism to native format"""
         return self._mech
 
 
 class CONCATENATE_BASE_AND_DATA_Mechanism(KEY_DERIVATION_STRING_DATA_MechanismBase):
     """CKM_CONCATENATE_BASE_AND_DATA key derivation mechanism"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, data):
         """
@@ -970,6 +1047,8 @@ class CONCATENATE_BASE_AND_DATA_Mechanism(KEY_DERIVATION_STRING_DATA_MechanismBa
 class CONCATENATE_DATA_AND_BASE_Mechanism(KEY_DERIVATION_STRING_DATA_MechanismBase):
     """CKM_CONCATENATE_DATA_AND_BASE key derivation mechanism"""
 
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, data):
         """
         :param data: a byte array to concatenate the key with
@@ -980,6 +1059,8 @@ class CONCATENATE_DATA_AND_BASE_Mechanism(KEY_DERIVATION_STRING_DATA_MechanismBa
 class XOR_BASE_AND_DATA_Mechanism(KEY_DERIVATION_STRING_DATA_MechanismBase):
     """CKM_XOR_BASE_AND_DATA key derivation mechanism"""
 
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, data):
         """
         :param data: a byte array to xor the key with
@@ -987,7 +1068,65 @@ class XOR_BASE_AND_DATA_Mechanism(KEY_DERIVATION_STRING_DATA_MechanismBase):
         super().__init__(data, CKM_XOR_BASE_AND_DATA)
 
 
-class DigestSession(object):
+class EXTRACT_KEY_FROM_KEY_Mechanism:
+    """CKM_EXTRACT_KEY_FROM_KEY key derivation mechanism"""
+
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, extractParams):
+        """
+        :param extractParams: the index of the first bit of the original
+        key to be used in the newly-derived key.  For example if
+        extractParams=5 then the 5 first bits are skipped and not used.
+        """
+        self._param = PyKCS11.LowLevel.CK_EXTRACT_PARAMS()
+        self._param.assign(extractParams)
+
+        self._mech = PyKCS11.LowLevel.CK_MECHANISM()
+        self._mech.mechanism = CKM_EXTRACT_KEY_FROM_KEY
+        self._mech.pParameter = self._param
+        self._mech.ulParameterLen = PyKCS11.LowLevel.CK_EXTRACT_PARAMS_LENGTH
+
+    def to_native(self):
+        """convert mechanism to native format"""
+        return self._mech
+
+
+class EDDSA_Mechanism:
+    """CKM_EDDSA signature mechanism"""
+
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, phFlag=None, contextData=None):
+        """
+        :param phFlag: prehash flag [True|False]. If this parameter is not set,
+        Ed25519 in pure mode without context is assumed.
+        :param context: context data (optional)
+        """
+        self._param = PyKCS11.LowLevel.CK_EDDSA_PARAMS()
+        self._mech = PyKCS11.LowLevel.CK_MECHANISM()
+        self._mech.mechanism = CKM_EDDSA
+
+        if not phFlag is None:
+            self._phFlag = phFlag
+            self._param.phFlag = self._phFlag
+
+            if contextData:
+                self._contextData = ckbytelist(contextData)
+                self._param.pContextData = self._contextData
+                self._param.ulContextDataLen = len(self._contextData)
+
+            self._mech.pParameter = self._param
+            self._mech.ulParameterLen = PyKCS11.LowLevel.CK_EDDSA_PARAMS_LENGTH
+
+    def to_native(self):
+        """convert mechanism to native format"""
+        return self._mech
+
+
+class DigestSession:
+    """Digest session"""
+
     def __init__(self, lib, session, mecha):
         self._lib = lib
         self._session = session
@@ -1040,8 +1179,10 @@ class DigestSession(object):
         return digest
 
 
-class Session(object):
-    """ Manage :func:`PyKCS11Lib.openSession` objects """
+class Session:
+    """Manage :func:`PyKCS11Lib.openSession` objects"""
+
+    # pylint: disable=too-many-public-methods
 
     def __init__(self, pykcs11, session):
         """
@@ -1052,7 +1193,7 @@ class Session(object):
         """
         if not isinstance(pykcs11, PyKCS11Lib):
             raise TypeError("pykcs11 must be a PyKCS11Lib")
-        if not isinstance(session, LowLevel.CK_SESSION_HANDLE):
+        if not isinstance(session, PyKCS11.LowLevel.CK_SESSION_HANDLE):
             raise TypeError("session must be a CK_SESSION_HANDLE")
 
         # hold the PyKCS11Lib reference, so that it's not Garbage Collection'd
@@ -1186,7 +1327,7 @@ class Session(object):
           (use `MechanismSHA1` for `CKM_SHA_1`)
         :type mecha: :class:`Mechanism`
         :return: the computed digest
-        :rtype: list of bytes
+        :rtype: ckbytelist
 
         :note: the returned value is an istance of :class:`ckbytelist`.
           You can easly convert it to a binary string with:
@@ -1216,14 +1357,14 @@ class Session(object):
         C_SignInit/C_Sign
 
         :param key: a key handle, obtained calling :func:`findObjects`.
-        :type key: integer
+        :type key: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param data: the data to be signed
         :type data:  (binary) string or list/tuple of bytes
         :param mecha: the signing mechanism to be used
           (use `MechanismRSAPKCS1` for `CKM_RSA_PKCS`)
         :type mecha: :class:`Mechanism`
         :return: the computed signature
-        :rtype: list of bytes
+        :rtype: ckbytelist
 
         :note: the returned value is an instance of :class:`ckbytelist`.
           You can easly convert it to a binary string with:
@@ -1253,7 +1394,7 @@ class Session(object):
         C_VerifyInit/C_Verify
 
         :param key: a key handle, obtained calling :func:`findObjects`.
-        :type key: integer
+        :type key: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param data: the data that was signed
         :type data:  (binary) string or list/tuple of bytes
         :param signature: the signature to be verified
@@ -1273,24 +1414,23 @@ class Session(object):
         rv = self.lib.C_Verify(self.session, data1, signature)
         if rv == CKR_OK:
             return True
-        elif rv == CKR_SIGNATURE_INVALID:
+        if rv == CKR_SIGNATURE_INVALID:
             return False
-        else:
-            raise PyKCS11Error(rv)
+        raise PyKCS11Error(rv)
 
     def encrypt(self, key, data, mecha=MechanismRSAPKCS1):
         """
         C_EncryptInit/C_Encrypt
 
         :param key: a key handle, obtained calling :func:`findObjects`.
-        :type key: integer
+        :type key: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param data: the data to be encrypted
         :type data:  (binary) string or list/tuple of bytes
         :param mecha: the encryption mechanism to be used
           (use `MechanismRSAPKCS1` for `CKM_RSA_PKCS`)
         :type mecha: :class:`Mechanism`
         :return: the encrypted data
-        :rtype: list of bytes
+        :rtype: ckbytelist
 
         :note: the returned value is an instance of :class:`ckbytelist`.
           You can easly convert it to a binary string with:
@@ -1315,19 +1455,60 @@ class Session(object):
             raise PyKCS11Error(rv)
         return encrypted
 
+    def encryptInit(self, mech, key):
+        """
+        C_EncryptInit
+
+        :param mech: the encryption mechanism to be used
+        :type mech: instance of :class:`Mechanism`
+        :param key: a key handle
+        :type key: integer
+        """
+        m = mech.to_native()
+        rv = self.lib.C_EncryptInit(self.session, m, key)
+        if rv != CKR_OK:
+            raise PyKCS11Error(rv)
+
+    def encryptUpdate(self, data):
+        """
+        C_EncryptUpdate
+
+        :param data: the data to be encrypted
+        :type data: (binary) string or list/tuple of bytes
+        """
+        encrypted = ckbytelist()
+        data1 = ckbytelist(data)
+        rv = self.lib.C_EncryptUpdate(self.session, data1, encrypted)
+        if rv != CKR_OK:
+            raise PyKCS11Error(rv)
+        return encrypted
+
+    def encryptFinal(self):
+        """
+        C_EncryptFinal
+
+        :return: the last part of data to be encrypted
+        :rtype: (binary) string or list/tuple of bytes
+        """
+        encrypted = ckbytelist()
+        rv = self.lib.C_EncryptFinal(self.session, encrypted)
+        if rv != CKR_OK:
+            raise PyKCS11Error(rv)
+        return encrypted
+
     def decrypt(self, key, data, mecha=MechanismRSAPKCS1):
         """
         C_DecryptInit/C_Decrypt
 
         :param key: a key handle, obtained calling :func:`findObjects`.
-        :type key: integer
+        :type key: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param data: the data to be decrypted
         :type data:  (binary) string or list/tuple of bytes
         :param mecha: the decrypt mechanism to be used
         :type mecha: :class:`Mechanism` instance or :class:`MechanismRSAPKCS1`
           for CKM_RSA_PKCS
         :return: the decrypted data
-        :rtype: list of bytes
+        :rtype: ckbytelist
 
         :note: the returned value is an instance of :class:`ckbytelist`.
           You can easly convert it to a binary string with:
@@ -1352,19 +1533,60 @@ class Session(object):
             raise PyKCS11Error(rv)
         return decrypted
 
+    def decryptInit(self, mech, key):
+        """
+        C_DecryptInit
+
+        :param mech: the decrypt mechanism to be used
+        :type mech: instance of :class:`Mechanism`
+        :param key: a key handle
+        :type key: integer
+        """
+        m = mech.to_native()
+        rv = self.lib.C_DecryptInit(self.session, m, key)
+        if rv != CKR_OK:
+            raise PyKCS11Error(rv)
+
+    def decryptUpdate(self, data):
+        """
+        C_DecryptUpdate
+
+        :param data: the data to be decrypted
+        :type data: (binary) string or list/tuple of bytes
+        """
+        decrypted = ckbytelist()
+        encrypted = ckbytelist(data)
+        rv = self.lib.C_DecryptUpdate(self.session, encrypted, decrypted)
+        if rv != CKR_OK:
+            raise PyKCS11Error(rv)
+        return decrypted
+
+    def decryptFinal(self):
+        """
+        C_DecryptFinal
+
+        :return: the last part of the decrypted data
+        :rtype: (binary) string or list/tuple of bytes
+        """
+        decrypted = ckbytelist()
+        rv = self.lib.C_DecryptFinal(self.session, decrypted)
+        if rv != CKR_OK:
+            raise PyKCS11Error(rv)
+        return decrypted
+
     def wrapKey(self, wrappingKey, key, mecha=MechanismRSAPKCS1):
         """
         C_WrapKey
 
         :param wrappingKey: a wrapping key handle
-        :type wrappingKey: integer
+        :type wrappingKey: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param key: a handle of the key to be wrapped
-        :type key: integer
+        :type key: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param mecha: the encrypt mechanism to be used
           (use `MechanismRSAPKCS1` for `CKM_RSA_PKCS`)
         :type mecha: :class:`Mechanism`
         :return: the wrapped key bytes
-        :rtype: list of bytes
+        :rtype: ckbytelist
 
         :note: the returned value is an instance of :class:`ckbytelist`.
           You can easily convert it to a binary string with:
@@ -1376,24 +1598,21 @@ class Session(object):
         wrapped = ckbytelist()
         native = mecha.to_native()
         # first call get wrapped size
-        rv = self.lib.C_WrapKey(self.session, native, wrappingKey, key,
-                                wrapped)
+        rv = self.lib.C_WrapKey(self.session, native, wrappingKey, key, wrapped)
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
         # second call get actual wrapped key data
-        rv = self.lib.C_WrapKey(self.session, native, wrappingKey, key,
-                                wrapped)
+        rv = self.lib.C_WrapKey(self.session, native, wrappingKey, key, wrapped)
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
         return wrapped
 
-    def unwrapKey(self, unwrappingKey, wrappedKey, template,
-                  mecha=MechanismRSAPKCS1):
+    def unwrapKey(self, unwrappingKey, wrappedKey, template, mecha=MechanismRSAPKCS1):
         """
         C_UnwrapKey
 
         :param unwrappingKey: the unwrapping key handle
-        :type unwrappingKey: integer
+        :type unwrappingKey: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param wrappedKey: the bytes of the wrapped key
         :type wrappedKey:  (binary) string or list/tuple of bytes
         :param template: template for the unwrapped key
@@ -1401,15 +1620,14 @@ class Session(object):
           `MechanismRSAPKCS1` for `CKM_RSA_PKCS`)
         :type mecha: :class:`Mechanism`
         :return: the unwrapped key object
-        :rtype: integer
+        :rtype: PyKCS11.LowLevel.CK_OBJECT_HANDLE
 
         """
         m = mecha.to_native()
         data1 = ckbytelist(wrappedKey)
         handle = PyKCS11.LowLevel.CK_OBJECT_HANDLE()
         attrs = self._template2ckattrlist(template)
-        rv = self.lib.C_UnwrapKey(self.session, m, unwrappingKey,
-                                  data1, attrs, handle)
+        rv = self.lib.C_UnwrapKey(self.session, m, unwrappingKey, data1, attrs, handle)
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
         return handle
@@ -1419,13 +1637,13 @@ class Session(object):
         C_DeriveKey
 
         :param baseKey: the base key handle
-        :type baseKey: integer
+        :type baseKey: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param template: template for the unwrapped key
         :param mecha: the decrypt mechanism to be used (use
           `ECDH1_DERIVE_Mechanism(...)` for `CKM_ECDH1_DERIVE`)
         :type mecha: :class:`Mechanism`
         :return: the unwrapped key object
-        :rtype: integer
+        :rtype: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         """
         m = mecha.to_native()
         handle = PyKCS11.LowLevel.CK_OBJECT_HANDLE()
@@ -1435,98 +1653,101 @@ class Session(object):
             raise PyKCS11Error(rv)
         return handle
 
-    def isNum(self, type):
+    def isNum(self, p11_type):
         """
         is the type a numerical value?
 
-        :param type: PKCS#11 type like `CKA_CERTIFICATE_TYPE`
+        :param p11_type: PKCS#11 type like `CKA_CERTIFICATE_TYPE`
         :rtype: bool
         """
-        if type in (CKA_CERTIFICATE_TYPE,
-                    CKA_CLASS,
-                    CKA_HW_FEATURE_TYPE,
-                    CKA_KEY_GEN_MECHANISM,
-                    CKA_KEY_TYPE,
-                    CKA_MODULUS_BITS,
-                    CKA_VALUE_BITS,
-                    CKA_VALUE_LEN):
+        if p11_type in (
+            CKA_CERTIFICATE_TYPE,
+            CKA_CLASS,
+            CKA_HW_FEATURE_TYPE,
+            CKA_KEY_GEN_MECHANISM,
+            CKA_KEY_TYPE,
+            CKA_MODULUS_BITS,
+            CKA_VALUE_BITS,
+            CKA_VALUE_LEN,
+        ):
             return True
         return False
 
-    def isString(self, type):
+    def isString(self, p11_type):
         """
         is the type a string value?
 
-        :param type: PKCS#11 type like `CKA_LABEL`
+        :param p11_type: PKCS#11 type like `CKA_LABEL`
         :rtype: bool
         """
-        if type in (CKA_LABEL,
-                    CKA_APPLICATION):
+        if p11_type in (CKA_LABEL, CKA_APPLICATION):
             return True
         return False
 
-    def isBool(self, type):
+    def isBool(self, p11_type):
         """
         is the type a boolean value?
 
-        :param type: PKCS#11 type like `CKA_ALWAYS_SENSITIVE`
+        :param p11_type: PKCS#11 type like `CKA_ALWAYS_SENSITIVE`
         :rtype: bool
         """
-        if type in (CKA_ALWAYS_AUTHENTICATE,
-                    CKA_ALWAYS_SENSITIVE,
-                    CKA_DECRYPT,
-                    CKA_DERIVE,
-                    CKA_ENCRYPT,
-                    CKA_EXTRACTABLE,
-                    CKA_HAS_RESET,
-                    CKA_LOCAL,
-                    CKA_MODIFIABLE,
-                    CKA_COPYABLE,
-                    CKA_DESTROYABLE,
-                    CKA_NEVER_EXTRACTABLE,
-                    CKA_PRIVATE,
-                    CKA_RESET_ON_INIT,
-                    CKA_SECONDARY_AUTH,
-                    CKA_SENSITIVE,
-                    CKA_SIGN,
-                    CKA_SIGN_RECOVER,
-                    CKA_TOKEN,
-                    CKA_TRUSTED,
-                    CKA_UNWRAP,
-                    CKA_VERIFY,
-                    CKA_VERIFY_RECOVER,
-                    CKA_WRAP,
-                    CKA_WRAP_WITH_TRUSTED):
+        if p11_type in (
+            CKA_ALWAYS_AUTHENTICATE,
+            CKA_ALWAYS_SENSITIVE,
+            CKA_DECRYPT,
+            CKA_DERIVE,
+            CKA_ENCRYPT,
+            CKA_EXTRACTABLE,
+            CKA_HAS_RESET,
+            CKA_LOCAL,
+            CKA_MODIFIABLE,
+            CKA_COPYABLE,
+            CKA_DESTROYABLE,
+            CKA_NEVER_EXTRACTABLE,
+            CKA_PRIVATE,
+            CKA_RESET_ON_INIT,
+            CKA_SECONDARY_AUTH,
+            CKA_SENSITIVE,
+            CKA_SIGN,
+            CKA_SIGN_RECOVER,
+            CKA_TOKEN,
+            CKA_TRUSTED,
+            CKA_UNWRAP,
+            CKA_VERIFY,
+            CKA_VERIFY_RECOVER,
+            CKA_WRAP,
+            CKA_WRAP_WITH_TRUSTED,
+        ):
             return True
         return False
 
-    def isBin(self, type):
+    def isBin(self, p11_type):
         """
         is the type a byte array value?
 
-        :param type: PKCS#11 type like `CKA_MODULUS`
+        :param p11_type: PKCS#11 type like `CKA_MODULUS`
         :rtype: bool
         """
-        return (not self.isBool(type)) \
-            and (not self.isString(type)) \
-            and (not self.isNum(type))
+        return (
+            (not self.isBool(p11_type))
+            and (not self.isString(p11_type))
+            and (not self.isNum(p11_type))
+        )
 
-    def isAttributeList(self, type):
+    def isAttributeList(self, p11_type):
         """
         is the type a attribute list value?
 
-        :param type: PKCS#11 type like `CKA_WRAP_TEMPLATE`
+        :param p11_type: PKCS#11 type like `CKA_WRAP_TEMPLATE`
         :rtype: bool
         """
-        if type in (CKA_WRAP_TEMPLATE,
-                    CKA_UNWRAP_TEMPLATE):
+        if p11_type in (CKA_WRAP_TEMPLATE, CKA_UNWRAP_TEMPLATE):
             return True
         return False
 
     def _template2ckattrlist(self, template):
         t = PyKCS11.LowLevel.ckattrlist(len(template))
-        for x in range(len(template)):
-            attr = template[x]
+        for x, attr in enumerate(template):
             if self.isNum(attr[0]):
                 t[x].SetNum(attr[0], int(attr[1]))
             elif self.isString(attr[0]):
@@ -1534,8 +1755,7 @@ class Session(object):
             elif self.isBool(attr[0]):
                 t[x].SetBool(attr[0], attr[1] == CK_TRUE)
             elif self.isAttributeList(attr[0]):
-                t[x].SetList(attr[0],
-                        self._template2ckattrlist(attr[1]))
+                t[x].SetList(attr[0], self._template2ckattrlist(attr[1]))
             elif self.isBin(attr[0]):
                 attrBin = attr[1]
                 attrStr = attr[1]
@@ -1545,7 +1765,7 @@ class Session(object):
                     attrBin = ckbytelist(attrStr)
                 t[x].SetBin(attr[0], attrBin)
             else:
-                raise PyKCS11Error(-2)
+                raise PyKCS11Error(-2, f"attr: {attr[0]:08X}")
         return t
 
     def generateKey(self, template, mecha=MechanismAESGENERATEKEY):
@@ -1565,8 +1785,9 @@ class Session(object):
             raise PyKCS11Error(rv)
         return ck_handle
 
-    def generateKeyPair(self, templatePub, templatePriv,
-                        mecha=MechanismRSAGENERATEKEYPAIR):
+    def generateKeyPair(
+        self, templatePub, templatePriv, mecha=MechanismRSAGENERATEKEYPAIR
+    ):
         """
         generate a key pair
 
@@ -1581,8 +1802,9 @@ class Session(object):
         ck_pub_handle = PyKCS11.LowLevel.CK_OBJECT_HANDLE()
         ck_prv_handle = PyKCS11.LowLevel.CK_OBJECT_HANDLE()
         m = mecha.to_native()
-        rv = self.lib.C_GenerateKeyPair(self.session, m, tPub, tPriv,
-                                        ck_pub_handle, ck_prv_handle)
+        rv = self.lib.C_GenerateKeyPair(
+            self.session, m, tPub, tPriv, ck_pub_handle, ck_prv_handle
+        )
 
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
@@ -1601,7 +1823,7 @@ class Session(object):
         t = self._template2ckattrlist(template)
 
         # we search for 10 objects by default. speed/memory tradeoff
-        result = PyKCS11.LowLevel.ckobjlist(10)
+        result = PyKCS11.LowLevel.ckulonglist(10)
 
         rv = self.lib.C_FindObjectsInit(self.session, t)
         if rv != CKR_OK:
@@ -1616,7 +1838,7 @@ class Session(object):
                 # make a copy of the handle: the original value get
                 # corrupted (!!)
                 a = CK_OBJECT_HANDLE(self)
-                a.assign(x.value())
+                a.assign(x)
                 res.append(a)
             if len(result) == 0:
                 break
@@ -1631,7 +1853,7 @@ class Session(object):
         C_GetAttributeValue
 
         :param obj_id: object ID returned by :func:`findObjects`
-        :type obj_id: integer
+        :type obj_id: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param attr: list of attributes
         :type attr: list
         :param allAsBinary: return all values as binary data; default is False.
@@ -1653,12 +1875,15 @@ class Session(object):
 
         """
         valTemplate = PyKCS11.LowLevel.ckattrlist(len(attr))
-        for x in range(len(attr)):
-            valTemplate[x].SetType(attr[x])
+        for index, value in enumerate(attr):
+            valTemplate[index].SetType(value)
         # first call to get the attribute size and reserve the memory
         rv = self.lib.C_GetAttributeValue(self.session, obj_id, valTemplate)
-        if rv in (CKR_ATTRIBUTE_TYPE_INVALID, CKR_ATTRIBUTE_SENSITIVE,
-                  CKR_ARGUMENTS_BAD):
+        if rv in (
+            CKR_ATTRIBUTE_TYPE_INVALID,
+            CKR_ATTRIBUTE_SENSITIVE,
+            CKR_ARGUMENTS_BAD,
+        ):
             return self.getAttributeValue_fragmented(obj_id, attr, allAsBinary)
 
         if rv != CKR_OK:
@@ -1681,7 +1906,7 @@ class Session(object):
             elif valTemplate[x].IsBin():
                 res.append(valTemplate[x].GetBin())
             else:
-                raise PyKCS11Error(-2)
+                raise PyKCS11Error(-2, f"valTemplate: {valTemplate[x]:08X}")
 
         return res
 
@@ -1698,14 +1923,16 @@ class Session(object):
         # but we don't know which ones. So try one by one
         valTemplate = PyKCS11.LowLevel.ckattrlist(1)
         res = []
-        for x in range(len(attr)):
+        for elt in attr:
             valTemplate[0].Reset()
-            valTemplate[0].SetType(attr[x])
+            valTemplate[0].SetType(elt)
             # first call to get the attribute size and reserve the memory
-            rv = self.lib.C_GetAttributeValue(self.session, obj_id,
-                                              valTemplate)
-            if rv in (CKR_ATTRIBUTE_TYPE_INVALID,
-                      CKR_ATTRIBUTE_SENSITIVE, CKR_ARGUMENTS_BAD):
+            rv = self.lib.C_GetAttributeValue(self.session, obj_id, valTemplate)
+            if rv in (
+                CKR_ATTRIBUTE_TYPE_INVALID,
+                CKR_ATTRIBUTE_SENSITIVE,
+                CKR_ARGUMENTS_BAD,
+            ):
                 # append an empty value
                 res.append(None)
                 continue
@@ -1713,8 +1940,7 @@ class Session(object):
             if rv != CKR_OK:
                 raise PyKCS11Error(rv)
             # second call to get the attribute value
-            rv = self.lib.C_GetAttributeValue(self.session, obj_id,
-                                              valTemplate)
+            rv = self.lib.C_GetAttributeValue(self.session, obj_id, valTemplate)
             if rv != CKR_OK:
                 raise PyKCS11Error(rv)
 
@@ -1740,7 +1966,7 @@ class Session(object):
         C_SetAttributeValue
 
         :param obj_id: object ID returned by :func:`findObjects`
-        :type obj_id: integer
+        :type obj_id: PyKCS11.LowLevel.CK_OBJECT_HANDLE
         :param template: list of (attribute, value) pairs
         :type template: list
         :return: Nothing
@@ -1752,8 +1978,6 @@ class Session(object):
 
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
-
-        return None
 
     def seedRandom(self, seed):
         """
@@ -1785,72 +2009,3 @@ class Session(object):
         if rv != CKR_OK:
             raise PyKCS11Error(rv)
         return low_rand
-
-
-if __name__ == "__main__":
-    # sample test/debug code
-    p = PyKCS11Lib()
-    p.load()
-
-    print("getInfo")
-    print(p.getInfo())
-
-    print()
-    print("getSlotList")
-    s = p.getSlotList()
-    print("slots:", s)
-    slot = s[0]
-    print("using slot:", slot)
-
-    print()
-    print("getSlotInfo")
-    print(p.getSlotInfo(slot))
-
-    print()
-    print("getTokenInfo")
-    print(p.getTokenInfo(slot))
-
-    print()
-    print("openSession")
-    se = p.openSession(slot)
-
-    print()
-    print("sessionInfo")
-    print(se.getSessionInfo())
-
-    print()
-    print("seedRandom")
-    try:
-        se.seedRandom([1, 2, 3, 4])
-    except PyKCS11Error as e:
-        print(e)
-    print("generateRandom")
-    print(se.generateRandom())
-
-    print()
-    print("login")
-    se.login(pin="0000")
-
-    print()
-    print("sessionInfo")
-    print(se.getSessionInfo())
-
-    print()
-    print("findObjects")
-    objs = se.findObjects([(CKA_CLASS, CKO_CERTIFICATE)])
-    print("Nb objetcs:", len(objs))
-    print(objs)
-
-    print()
-    print("getAttributeValue")
-    for o in objs:
-        attr = se.getAttributeValue(o, [CKA_LABEL, CKA_CLASS])
-        print(attr)
-
-    print()
-    print("logout")
-    se.logout()
-
-    print()
-    print("closeSession")
-    se.closeSession()

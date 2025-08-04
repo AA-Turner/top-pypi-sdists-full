@@ -1,10 +1,9 @@
 import json
-from mock import patch
+from unittest.mock import patch
+from urllib.error import HTTPError
 
 import jenkins
 from tests.base import JenkinsTestBase
-
-from six.moves.urllib.error import HTTPError
 
 
 class JenkinsPromotionsTestBase(JenkinsTestBase):

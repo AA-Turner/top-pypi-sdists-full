@@ -1,4 +1,5 @@
 //   Copyright (C) 2004 Midori (midori -- a-t -- paipai dot net)
+//   Copyright (C) 2017-2025 Ludovic Rousseau (ludovic.rousseau@free.fr)
 //
 // This file is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -29,4 +30,3 @@ typedef struct PyKCS11String
 	PyKCS11String(vector<unsigned char> bin_str);
 	basic_string<char> m_str;
 }PyKCS11String;
-

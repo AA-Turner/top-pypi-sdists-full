@@ -17,11 +17,13 @@ from types import CodeType
 from textwrap import dedent, indent
 import operator
 
+from PyInstaller import compat
 from PyInstaller.depend.bytecode import (
     function_calls,
     recursive_function_calls,
     any_alias,
     finditer,
+    _cleanup_bytecode_string,  # used for sanity check in test_finditer()
 )
 
 
@@ -29,11 +31,20 @@ def compile_(x):
     return compile(dedent(x), "<no file>", "exec")
 
 
-def many_constants():
+def many_int_constants():
     """
-    Generate Python code that includes >256 constants.
+    Generate Python code that includes >256 integer constants.
     """
-    return "".join(f'a = {i}\n' for i in range(300))
+    # NOTE: in python >= 3.14.0a2, integer arguments smaller than 256 are pushed directly to stack, without using a
+    # co_consts. Therefore, to effectively use >256 constants, we need to generate >512 integer arguments.
+    return "".join(f'a = {i}\n' for i in range(600))
+
+
+def many_str_constants():
+    """
+    Generate Python code that includes >256 string constants.
+    """
+    return "".join(f'a = "val_{i}"\n' for i in range(300))
 
 
 def many_globals():
@@ -61,12 +72,34 @@ def in_a_function(body):
 # removed as redundant by the compiler.
 
 
-def test_many_constants():
-    code: CodeType = compile_(many_constants())
+def test_many_int_constants():
+    code: CodeType = compile_(many_int_constants())
     # Only the variable name 'a'.
     assert code.co_names == ('a',)
 
-    # 1000 integers plus a 'None' return.
+    # In python >= 3.14.0a2, LOAD_SMALL_INT instruction is used to push integers smaller than 256 on the stack, and
+    # co_consts is used for larger values (in combination with LOAD_CONST / LOAD_CONST_IMMORTAL).
+    # In earlier python versions, co_consts is used for all constants.
+    if compat.is_py314:
+        # In 3.14.0a7 the behavior was changed (by 55815a6); it seems that the value of very first LOAD_SMALL_INT is
+        # added to co_consts for some reason. This does not happen if there is preceding LOAD_CONST (e.g., if there
+        # is a docstring present before the code). In case this behavior change was unintended or is changed further,
+        # check if co_consts contains 0 at first index and adjust expected length accordingly...
+        expected_length = 601 - 256  # (600 - 256) integers plus a `None` return.
+        if code.co_consts[0] == 0:
+            expected_length += 1
+        assert len(code.co_consts) == expected_length
+    else:
+        # 600 integers plus a 'None' return.
+        assert len(code.co_consts) == 601
+
+
+def test_many_str_constants():
+    code: CodeType = compile_(many_str_constants())
+    # Only the variable name 'a'.
+    assert code.co_names == ('a',)
+
+    # 300 string constants plus a 'None' return.
     assert len(code.co_consts) == 301
 
 
@@ -91,16 +124,28 @@ def test_global_functions():
 
     # Having >256 constants will take us into extended arg territory where multiple byte-pair instructions are needed
     # to reference the constant. If everything works, we should not notice the difference.
-    code = compile_(many_constants() + "foo(.123)")
+    code = compile_(many_int_constants() + "foo(.123)")
     assert function_calls(code) == [('foo', [.123])]
+
+    code = compile_(many_str_constants() + "foo(.321)")
+    assert function_calls(code) == [('foo', [.321])]
 
     # Similarly, >256 global names also requires special handling.
     code = compile_(many_globals() + "foo(.456)")
     assert function_calls(code) == [('foo', [.456])]
 
     # And the unlikely case of >256 arguments to one function call.
-    code = compile_(many_arguments())
-    assert function_calls(code) == [('foo', list(range(300)))]
+    #
+    # NOTE: with python >= 3.14.0a5, this creates a list with a sequence
+    # of BUILD_LIST, LOAD*, LIST_APPEND opcodes, followed by a
+    # CALL_INTRINSIC_1 opcode with INTRINSIC_LIST_TO_TUPLE argument,
+    # and CALL_FUNCTION_EX opcode.
+    #
+    # Since we have no real use case for such lists, perform the
+    # test only on earlier python versions.
+    if not compat.is_py314:
+        code = compile_(many_arguments())
+        assert function_calls(code) == [('foo', list(range(300)))]
 
     # For loops, if statements should work. The iterable in a comprehension loop works but the statement to be executed
     # repeatedly gets its own code object and therefore requires recursion (tested later).
@@ -217,6 +262,17 @@ def test_finditer():
         # test below - it'll be the next character) which overlaps with this one so we must override regex's
         behaviour of ignoring overlapping matches to prevent these from getting lost.
     """
-    matches = list(finditer(re.compile(rb"\d+"), b"0123 4567 890 12 3 4"))
+
+    # separator: 0xFF
+    sample_string = b"0123\xFF4567\xFF890\xFF12\xFF3\xFF4"
+
+    # Sanity check - ensure that none of the characters in the sample string coincide with the opcodes that `finditer()`
+    # filters out via call to `_cleanup_bytecode_string()` (e.g., CACHE, PUSH_NULL), If that is the case, we need to
+    # pick up new separator to avoid disturbing the test. For example, original separator was space character, but its
+    # ordinal code (32) coincides with PUSH_NULL opcode in python 3.14.0a7.
+    assert sample_string == _cleanup_bytecode_string(sample_string), \
+        "One of characters in input string coincides with filtered-out opcode!"
+
+    matches = list(finditer(re.compile(rb"\d+"), sample_string))
     aligned = [i.group() for i in matches]
     assert aligned == [b"0123", b"567", b"890", b"12"]

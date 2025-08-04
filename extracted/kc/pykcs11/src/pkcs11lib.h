@@ -1,5 +1,5 @@
 //   Copyright (C) 2004 Midori (midori -- a-t -- paipai dot net)
-//   Copyright (C) 2008-2010 Ludovic Rousseau <ludovic.rousseau@free.fr>
+//   Copyright (C) 2008-2025 Ludovic Rousseau <ludovic.rousseau@free.fr>
 //
 // This file is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -18,12 +18,7 @@
 
 #pragma once
 
-#ifdef SWIG
-
-//#define CK_OBJECT_HANDLE unsigned long
-//#define CK_SESSION_HANDLE unsigned long
-
-#else
+#ifndef SWIG
 
 	typedef CK_ATTRIBUTE CK_ATTRIBUTE_INTERNAL;
 #ifdef WIN32
@@ -55,7 +50,7 @@ public:
 	CK_RV C_Initialize();
 	CK_RV C_Finalize();
 	CK_RV C_GetInfo(CK_INFO* pInfo);
-	CK_RV C_GetSlotList(unsigned char tokenPresent, vector<long>& slotList);
+	CK_RV C_GetSlotList(unsigned char tokenPresent, vector<unsigned long>& slotList);
 
 	CK_RV C_GetSlotInfo(unsigned long slotID,CK_SLOT_INFO* pInfo);
 
@@ -137,7 +132,7 @@ public:
 
 	CK_RV C_FindObjects(
 		CK_SESSION_HANDLE hSession,
-		vector<CK_OBJECT_HANDLE> &objectsList);
+		vector<unsigned long> &objectsList);
 
 	CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession);
 
@@ -286,7 +281,7 @@ public:
 
 	CK_RV C_GetMechanismList(
 		unsigned long slotID,
-		vector<long> &mechanismList);
+		vector<unsigned long> &mechanismList);
 
 	CK_RV C_GetMechanismInfo(
 		unsigned long slotID,
@@ -294,4 +289,3 @@ public:
 		CK_MECHANISM_INFO* pInfo);
 
 };
-

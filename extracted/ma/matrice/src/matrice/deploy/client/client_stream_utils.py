@@ -96,13 +96,16 @@ class ClientStreamUtils:
             logging.error(f"Failed to open video source: {input}")
             raise RuntimeError(f"Failed to open video source: {input}")
 
-        # Set properties for cameras
+        # Set properties for cameras and RTSP streams
         if isinstance(input, int) or (isinstance(input, str) and input.isdigit()):
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffering for real-time
             if width is not None:
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             if height is not None:
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        elif isinstance(input, str) and input.startswith("rtsp"):
+            # For RTSP streams, set minimal buffer to prevent frame accumulation
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         return cap, stream_type
 
@@ -215,6 +218,14 @@ class ClientStreamUtils:
             return "." + input.split("?")[0].split(".")[-1].lower()
         return ".mp4"
 
+    def _calculate_frame_skip(self, original_fps: float, target_fps: int) -> int:
+        """Calculate how many frames to skip for RTSP streams to achieve target FPS."""
+        if original_fps <= 0 or target_fps <= 0:
+            return 1
+        
+        frame_skip = max(1, int(original_fps / target_fps))
+        logging.info(f"Original FPS: {original_fps}, Target FPS: {target_fps}, Frame skip: {frame_skip}")
+        return frame_skip
 
     def _build_stream_metadata(
         self,
@@ -377,12 +388,18 @@ class ClientStreamUtils:
             if height is not None:
                 actual_height = height
 
+            # Calculate frame skip for RTSP streams to handle high FPS sources
+            frame_skip = 1
+            is_rtsp_stream = isinstance(input, str) and input.startswith("rtsp")
+            if is_rtsp_stream and video_props["original_fps"] > fps:
+                frame_skip = self._calculate_frame_skip(video_props["original_fps"], fps)
+
             retry_count = 0
             max_retries = 3
             consecutive_failures = 0
             max_consecutive_failures = 10
-            frame_interval = 1.0 / fps
             frame_counter = 0
+            processed_frame_counter = 0
 
             while not self._stop_streaming:
                 start_time = time.time()
@@ -411,6 +428,15 @@ class ClientStreamUtils:
                 retry_count = 0
                 consecutive_failures = 0
                 frame_counter += 1
+
+                # For RTSP streams, use frame skipping instead of time delays
+                if is_rtsp_stream:
+                    # Process only every Nth frame to achieve target FPS
+                    if frame_counter % frame_skip != 0:
+                        continue
+                    processed_frame_counter += 1
+                else:
+                    processed_frame_counter = frame_counter
 
                 # Resize frame if needed
                 frame = self._resize_frame_if_needed(frame, width, height)
@@ -441,7 +467,7 @@ class ClientStreamUtils:
                     actual_width=actual_width,
                     actual_height=actual_height,
                     stream_type=stream_type,
-                    frame_counter=frame_counter,
+                    frame_counter=processed_frame_counter,
                     is_video_chunk=False,
                 )
 
@@ -453,11 +479,13 @@ class ClientStreamUtils:
                 ):
                     logging.warning("Failed to produce frame to Kafka stream")
 
-                # Maintain desired FPS
-                processing_time = time.time() - start_time
-                sleep_time = max(0, frame_interval - processing_time)
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # For non-RTSP streams, maintain desired FPS with time delays
+                if not is_rtsp_stream:
+                    frame_interval = 1.0 / fps
+                    processing_time = time.time() - start_time
+                    sleep_time = max(0, frame_interval - processing_time)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
 
         except Exception as exc:
             logging.error(f"Error in streaming thread: {str(exc)}")
@@ -752,6 +780,12 @@ class ClientStreamUtils:
                 chunk_frames = int(fps * default_duration)
                 chunk_duration_seconds = default_duration
 
+            # Calculate frame skip for RTSP streams
+            frame_skip = 1
+            is_rtsp_stream = isinstance(input, str) and input.startswith("rtsp")
+            if is_rtsp_stream and video_props["original_fps"] > fps:
+                frame_skip = self._calculate_frame_skip(video_props["original_fps"], fps)
+
             retry_count = 0
             max_retries = 3
             chunk_count = 0
@@ -787,6 +821,7 @@ class ClientStreamUtils:
                     consecutive_failures = 0
                     frames_in_chunk = 0
                     chunk_start_frame = global_frame_counter + 1
+                    read_frame_count = 0
 
                     # Collect frames for this chunk
                     while frames_in_chunk < chunk_frames and not self._stop_streaming:
@@ -809,16 +844,24 @@ class ClientStreamUtils:
 
                         retry_count = 0
                         global_frame_counter += 1
+                        read_frame_count += 1
+
+                        # For RTSP streams, use frame skipping
+                        if is_rtsp_stream:
+                            if read_frame_count % frame_skip != 0:
+                                continue
+
                         frame = self._resize_frame_if_needed(frame, width, height)
                         out.write(frame)
                         frames_in_chunk += 1
 
-                        # Maintain frame rate
-                        frame_interval = 1.0 / fps
-                        processing_time = time.time() - frame_start_time
-                        sleep_time = max(0, frame_interval - processing_time)
-                        if sleep_time > 0:
-                            time.sleep(sleep_time)
+                        # For non-RTSP streams, maintain frame rate
+                        if not is_rtsp_stream:
+                            frame_interval = 1.0 / fps
+                            processing_time = time.time() - frame_start_time
+                            sleep_time = max(0, frame_interval - processing_time)
+                            if sleep_time > 0:
+                                time.sleep(sleep_time)
 
                     # Finalize video chunk
                     if out is not None:

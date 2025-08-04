@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2019 Atte Pellikka <atte.pellikka@gmail.com>
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,23 +16,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from PyKCS11 import *
 from asn1crypto.keys import ECDomainParameters, NamedCurve
+
+import PyKCS11
 
 pkcs11 = PyKCS11.PyKCS11Lib()
 pkcs11.load()
 
 slot = pkcs11.getSlotList(tokenPresent=True)[0]
 
-session = pkcs11.openSession(slot, CKF_SERIAL_SESSION | CKF_RW_SESSION)
+session = pkcs11.openSession(slot, PyKCS11.CKF_SERIAL_SESSION | PyKCS11.CKF_RW_SESSION)
 session.login("1234")
 
 key_id = (0x22,)
 label = "test"
 
 # Select the curve to be used for the keys
-curve = u"secp256r1"
+curve = "secp256r1"
 
 # Setup the domain parameters, unicode conversion needed for the curve string
 domain_params = ECDomainParameters(name="named", value=NamedCurve(curve))

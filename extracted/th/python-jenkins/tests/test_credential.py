@@ -1,5 +1,5 @@
 import json
-from mock import patch
+from unittest.mock import patch
 
 import jenkins
 from tests.base import JenkinsTestBase
@@ -84,11 +84,11 @@ class JenkinsAssertCredentialTest(JenkinsCredentialTestBase):
         ]
 
         with self.assertRaises(jenkins.JenkinsException) as context_manager:
-            self.j.assert_credential_exists('NonExistent', 'TestFoler')
+            self.j.assert_credential_exists('NonExistent', 'TestFolder')
         self.assertEqual(
             str(context_manager.exception),
             'credential[NonExistent] does not exist'
-            ' in the domain[_] of [TestFoler]')
+            ' in the domain[_] of [TestFolder]')
         self._check_requests(jenkins_mock.call_args_list)
 
     @patch.object(jenkins.Jenkins, 'jenkins_open')
@@ -97,7 +97,7 @@ class JenkinsAssertCredentialTest(JenkinsCredentialTestBase):
             json.dumps({'_class': 'com.cloudbees.hudson.plugins.folder.Folder'}),
             json.dumps({'id': 'ExistingCredential'})
         ]
-        self.j.assert_credential_exists('ExistingCredential', 'TestFoler')
+        self.j.assert_credential_exists('ExistingCredential', 'TestFolder')
         self._check_requests(jenkins_mock.call_args_list)
 
 

@@ -1,7 +1,7 @@
 import json
 
 import collections
-from mock import patch, Mock
+from unittest.mock import patch, Mock
 
 import jenkins
 from tests.base import JenkinsTestBase
@@ -810,6 +810,17 @@ class JenkinsBuildArtifactUrlTest(JenkinsTestBase):
         self.assertEqual(
             str(context_manager.exception),
             'Error in request. Possibly authentication failed [401]: Not Authorised')
+
+    @patch.object(jenkins.Jenkins, 'jenkins_open')
+    def test_tree_param(self, jenkins_mock):
+        jenkins_mock.return_value = '{}'
+        ret = self.j.get_build_test_report(u'Test Job', number='52', tree='suites[name]{0}')
+        self.assertEqual(ret, json.loads(jenkins_mock.return_value))
+        self.assertEqual(
+            jenkins_mock.call_args[0][0].params,
+            {'tree': 'suites[name]{0}'}
+        )
+        self._check_requests(jenkins_mock.call_args_list)
 
 
 class JenkinsBuildArtifactAsBytesUrlTest(JenkinsTestBase):

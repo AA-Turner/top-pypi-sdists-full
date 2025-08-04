@@ -14,15 +14,10 @@
 /*
  * Functions to load, initialize and launch Python interpreter.
  */
-#ifdef _WIN32
-    #include <windows.h> /* HMODULE */
-#else
-    #include <dlfcn.h>  /* dlerror */
-    #include <stdlib.h>  /* mbstowcs */
-#endif /* ifdef _WIN32 */
-#include <stddef.h>  /* ptrdiff_t */
+
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h> /* free() */
 
 /* PyInstaller headers. */
 #include "pyi_python.h"
@@ -43,8 +38,8 @@ pyi_python_start_interpreter(const struct PYI_CONTEXT *pyi_ctx)
 {
     const struct DYLIB_PYTHON *dylib_python = pyi_ctx->dylib_python;
     struct PyiRuntimeOptions *runtime_options = NULL;
-    PyConfig *config = NULL;
-    PyStatus status;
+    PyConfig *config_pep587 = NULL; /* Config structure used in PEP 587 codepath */
+    PyInitConfig *config_pep741 = NULL; /* Config structure used in PEP 741 codepath */
     int ret = -1;
 
     /* Read run-time options */
@@ -62,52 +57,105 @@ pyi_python_start_interpreter(const struct PYI_CONTEXT *pyi_ctx)
         goto end;
     }
 
-    /* Allocate the config structure. Since underlying layout is specific to
-     * python version, this also verifies that python version is supported. */
-    PYI_DEBUG("LOADER: creating PyConfig structure...\n");
-    config = pyi_pyconfig_create(pyi_ctx);
-    if (config == NULL) {
-        PYI_ERROR("Failed to allocate PyConfig structure! Unsupported python version?\n");
-        goto end;
-    }
+    /* Set up python configuration. */
+    if (dylib_python->has_pep741) {
+        /* PEP 741 codepath */
+        PYI_DEBUG("LOADER: using PEP-741 API...\n");
 
-    /* Initialize isolated configuration */
-    PYI_DEBUG("LOADER: initializing interpreter configuration...\n");
-    dylib_python->PyConfig_InitIsolatedConfig(config);
+        /* Allocate the config structure and initialize it using default values
+         * of the Isolated Configuration. */
+        PYI_DEBUG("LOADER: creating PyInitConfig structure...\n");
+        config_pep741 = dylib_python->PyInitConfig_Create();
+        if (config_pep741 == NULL) {
+            PYI_ERROR("Failed to allocate PyInitConfig structure!\n");
+            goto end;
+        }
 
-    /* Set program name */
-    PYI_DEBUG("LOADER: setting program name...\n");
-    if (pyi_pyconfig_set_program_name(config, pyi_ctx) < 0) {
-        PYI_ERROR("Failed to set program name!\n");
-        goto end;
-    }
+        /* Set program name */
+        PYI_DEBUG("LOADER: setting program name...\n");
+        if (pyi_pyconfig_pep741_set_program_name(config_pep741, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set program name!\n");
+            goto end;
+        }
 
-    /* Set python home */
-    PYI_DEBUG("LOADER: setting python home path...\n");
-    if (pyi_pyconfig_set_python_home(config, pyi_ctx) < 0) {
-        PYI_ERROR("Failed to set python home path!\n");
-        goto end;
-    }
+        /* Set python home */
+        PYI_DEBUG("LOADER: setting python home path...\n");
+        if (pyi_pyconfig_pep741_set_python_home(config_pep741, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set python home path!\n");
+            goto end;
+        }
 
-    /* Set module search paths */
-    PYI_DEBUG("LOADER: setting module search paths...\n");
-    if (pyi_pyconfig_set_module_search_paths(config, pyi_ctx) < 0) {
-        PYI_ERROR("Failed to set module search paths!\n");
-        goto end;
-    }
+        /* Set module search paths */
+        PYI_DEBUG("LOADER: setting module search paths...\n");
+        if (pyi_pyconfig_pep741_set_module_search_paths(config_pep741, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set module search paths!\n");
+            goto end;
+        }
 
-    /* Set arguments (sys.argv) */
-    PYI_DEBUG("LOADER: setting sys.argv...\n");
-    if (pyi_pyconfig_set_argv(config, pyi_ctx) < 0) {
-        PYI_ERROR("Failed to set sys.argv!\n");
-        goto end;
-    }
+        /* Set arguments (sys.argv) */
+        PYI_DEBUG("LOADER: setting sys.argv...\n");
+        if (pyi_pyconfig_pep741_set_argv(config_pep741, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set sys.argv!\n");
+            goto end;
+        }
 
-    /* Apply run-time options */
-    PYI_DEBUG("LOADER: applying run-time options...\n");
-    if (pyi_pyconfig_set_runtime_options(config, pyi_ctx, runtime_options) < 0) {
-        PYI_ERROR("Failed to set run-time options!\n");
-        goto end;
+        /* Apply run-time options */
+        PYI_DEBUG("LOADER: applying run-time options...\n");
+        if (pyi_pyconfig_pep741_set_runtime_options(config_pep741, pyi_ctx, runtime_options) < 0) {
+            PYI_ERROR("Failed to set run-time options!\n");
+            goto end;
+        }
+    } else {
+        /* PEP 587 codepath */
+        PYI_DEBUG("LOADER: using PEP-587 API...\n");
+
+        /* Allocate the config structure. Since underlying layout is specific to
+         * python version, this also verifies that python version is supported. */
+        PYI_DEBUG("LOADER: creating PyConfig structure...\n");
+        config_pep587 = pyi_pyconfig_pep587_create(pyi_ctx);
+        if (config_pep587 == NULL) {
+            PYI_ERROR("Failed to allocate PyConfig structure! Unsupported python version?\n");
+            goto end;
+        }
+
+        /* Initialize isolated configuration */
+        PYI_DEBUG("LOADER: initializing interpreter configuration...\n");
+        dylib_python->PyConfig_InitIsolatedConfig(config_pep587);
+
+        /* Set program name */
+        PYI_DEBUG("LOADER: setting program name...\n");
+        if (pyi_pyconfig_pep587_set_program_name(config_pep587, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set program name!\n");
+            goto end;
+        }
+
+        /* Set python home */
+        PYI_DEBUG("LOADER: setting python home path...\n");
+        if (pyi_pyconfig_pep587_set_python_home(config_pep587, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set python home path!\n");
+            goto end;
+        }
+
+        /* Set module search paths */
+        PYI_DEBUG("LOADER: setting module search paths...\n");
+        if (pyi_pyconfig_pep587_set_module_search_paths(config_pep587, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set module search paths!\n");
+            goto end;
+        }
+
+        /* Set arguments (sys.argv) */
+        PYI_DEBUG("LOADER: setting sys.argv...\n");
+        if (pyi_pyconfig_pep587_set_argv(config_pep587, pyi_ctx) < 0) {
+            PYI_ERROR("Failed to set sys.argv!\n");
+            goto end;
+        }
+
+        /* Apply run-time options */
+        PYI_DEBUG("LOADER: applying run-time options...\n");
+        if (pyi_pyconfig_pep587_set_runtime_options(config_pep587, pyi_ctx, runtime_options) < 0) {
+            PYI_ERROR("Failed to set run-time options!\n");
+            goto end;
+        }
     }
 
     /* Start the interpreter */
@@ -121,36 +169,49 @@ pyi_python_start_interpreter(const struct PYI_CONTEXT *pyi_ctx)
         fflush(stderr);
     }
 
-    /*
-     * Py_Initialize() may rudely call abort(), and on Windows this triggers the error
-     * reporting service, which results in a dialog box that says "Close program", "Check
-     * for a solution", and also "Debug" if Visual Studio is installed. The dialog box
-     * makes it frustrating to run the test suite.
-     *
-     * For debug builds of the bootloader, disable the error reporting before calling
-     * Py_Initialize and enable it afterward.
-     */
-
-#if defined(_WIN32) && defined(LAUNCH_DEBUG)
-    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
-#endif
-
-    status = dylib_python->Py_InitializeFromConfig(config);
-
-#if defined(_WIN32) && defined(LAUNCH_DEBUG)
-    SetErrorMode(0);
-#endif
-
-    if (dylib_python->PyStatus_Exception(status)) {
-        PYI_ERROR("Failed to start embedded python interpreter!\n");
-        /* Dump exception information to stderr and exit the process with error code. */
-        dylib_python->Py_ExitStatusException(status);
+    if (dylib_python->has_pep741) {
+        /* PEP 741 codepath */
+        ret = dylib_python->Py_InitializeFromInitConfig(config_pep741);
+        if (ret < 0) {
+            const char *error_message = NULL;
+            dylib_python->PyInitConfig_GetError(config_pep741, &error_message);
+            PYI_ERROR("Failed to start embedded python interpreter: %s\n", error_message);
+            ret = -1;
+        }
     } else {
-        ret = 0; /* Succeeded */
+        /* PEP 587 codepath */
+        PyStatus status;
+
+        status = dylib_python->Py_InitializeFromConfig(config_pep587);
+
+        if (dylib_python->PyStatus_Exception(status)) {
+            PYI_ERROR("Failed to start embedded python interpreter!\n");
+            /* Dump exception information to stderr and exit the process with error code.
+             *
+             * Depending on the error type, Py_ExitStatusException() either
+             * ends up calling exit() or abort(). On Windows, the latter case
+             * triggers the error reporting service and pops up a dialog with
+             * "Close program", "Check for a solution", and "Debug" (if Visual
+             * Studio is installed). Disable this behavior via SetErrorMode() */
+#if defined(_WIN32)
+            SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif
+            dylib_python->Py_ExitStatusException(status);
+            /* Not reachable; Py_ExitStatusException() either calls exit() or
+             * abort(). */
+        } else {
+            ret = 0; /* Succeeded */
+        }
     }
 
 end:
-    pyi_pyconfig_free(config, pyi_ctx);
+    if (dylib_python->has_pep741) {
+        /* PEP 741 codepath */
+        dylib_python->PyInitConfig_Free(config_pep741);
+    } else {
+        /* PEP 587 codepath */
+        pyi_pyconfig_pep587_free(config_pep587, pyi_ctx);
+    }
     pyi_runtime_options_free(runtime_options);
     return ret;
 }

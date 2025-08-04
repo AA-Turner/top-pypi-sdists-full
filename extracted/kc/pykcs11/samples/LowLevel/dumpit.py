@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2004 Midori (midori -- a-t -- paipai dot net)
 #   Copyright (C) 2006-2018 Ludovic Rousseau (ludovic.rousseau@free.fr)
 #
@@ -16,22 +17,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from PyKCS11.LowLevel import *
-from PyKCS11 import ckbytelist
 import os
+
+# pylint: disable=duplicate-code
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
+from PyKCS11.LowLevel import *
 
 a = CPKCS11Lib()
 info = CK_INFO()
 slotInfo = CK_SLOT_INFO()
 lib = os.getenv("PYKCS11LIB")
 if lib is None:
-    raise (Exception("Define PYKCS11LIB"))
+    raise ValueError("Define PYKCS11LIB")
 session = CK_SESSION_HANDLE()
 sessionInfo = CK_SESSION_INFO()
 tokenInfo = CK_TOKEN_INFO()
-slotList = ckintlist()
-pin = ckbytelist("1234")
+slotList = ckulonglist()
+pin = ckbytelist(b"1234")
 
 print("Load of " + lib + ": " + str(a.Load(lib)))
 print("C_GetInfo:", hex(a.C_GetInfo(info)))
@@ -41,22 +46,20 @@ del info
 print("C_GetSlotList(NULL): " + hex(a.C_GetSlotList(0, slotList)))
 print("\tAvailable Slots: " + str(len(slotList)))
 
-for x in range(len(slotList)):
-    print("\tC_SlotInfo(): " + hex(a.C_GetSlotInfo(slotList[x], slotInfo)))
+for index, slot in enumerate(slotList):
+    print("\tC_SlotInfo(): " + hex(a.C_GetSlotInfo(slot, slotInfo)))
     print(
         "\t\tSlot N."
-        + str(x)
+        + str(index)
         + ": ID="
-        + str(slotList[x])
+        + str(slot)
         + ", name='"
         + slotInfo.GetSlotDescription()
         + "'"
     )
     print(
         "\tC_OpenSession(): "
-        + hex(
-            a.C_OpenSession(slotList[x], CKF_SERIAL_SESSION | CKF_RW_SESSION, session)
-        )
+        + hex(a.C_OpenSession(slot, CKF_SERIAL_SESSION | CKF_RW_SESSION, session))
     )
     print("\t\tSession:" + str(session))
     print("\tC_GetSessionInfo(): " + hex(a.C_GetSessionInfo(session, sessionInfo)))
@@ -67,7 +70,7 @@ for x in range(len(slotList)):
         + hex(sessionInfo.flags)
     )
 
-    print("\tC_GetTokenInfo(): " + hex(a.C_GetTokenInfo(slotList[x], tokenInfo)))
+    print("\tC_GetTokenInfo(): " + hex(a.C_GetTokenInfo(slot, tokenInfo)))
     print(
         "\t\tTokenInfo: Label="
         + tokenInfo.GetLabel()
@@ -90,7 +93,7 @@ print(
 )
 print("C_Login(): " + hex(a.C_Login(session, CKU_USER, pin)))
 
-SearchResult = ckobjlist(10)
+SearchResult = ckulonglist(10)
 SearchTemplate = ckattrlist(0)
 # SearchTemplate[0].SetNum(CKA_CLASS, CKO_CERTIFICATE)
 # SearchTemplate[1].SetBool(CKA_TOKEN, True)

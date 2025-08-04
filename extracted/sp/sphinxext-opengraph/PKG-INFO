@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxext-opengraph
-Version: 0.10.0
+Version: 0.11.0
 Summary: Sphinx Extension to enable OGP support
 Author-email: Itay Ziv <itay220204@gmail.com>
 Requires-Python: >=3.9

@@ -8,9 +8,9 @@ from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 from docutils import nodes
 
-from sphinxext.opengraph.descriptionparser import get_description
-from sphinxext.opengraph.metaparser import get_meta_description
-from sphinxext.opengraph.titleparser import get_title
+from sphinxext.opengraph._description_parser import get_description
+from sphinxext.opengraph._meta_parser import get_meta_description
+from sphinxext.opengraph._title_parser import get_title
 
 if TYPE_CHECKING:
     from typing import Any
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from sphinx.util.typing import ExtensionMetadata
 
 try:
-    from sphinxext.opengraph.socialcards import (
+    from sphinxext.opengraph._social_cards import (
         DEFAULT_SOCIAL_CONFIG,
         create_social_card,
     )
@@ -31,8 +31,8 @@ except ImportError:
     create_social_card = None
     DEFAULT_SOCIAL_CONFIG = {}
 
-__version__ = '0.10.0'
-version_info = (0, 10, 0)
+__version__ = '0.11.0'
+version_info = (0, 11, 0)
 
 DEFAULT_DESCRIPTION_LENGTH = 200
 DEFAULT_DESCRIPTION_LENGTH_SOCIAL_CARDS = 160
@@ -53,10 +53,23 @@ IMAGE_MIME_TYPES = {
 }
 
 
-def make_tag(property: str, content: str, type_: str = 'property') -> str:
-    # Parse quotation, so they won't break html tags if smart quotes are disabled
-    content = content.replace('"', '&quot;')
-    return f'<meta {type_}="{property}" content="{content}" />'
+def html_page_context(
+    app: Sphinx,
+    pagename: str,
+    templatename: str,
+    context: dict[str, Any],
+    doctree: nodes.document,
+) -> None:
+    if doctree:
+        context['metatags'] += get_tags(
+            context,
+            doctree,
+            srcdir=app.srcdir,
+            outdir=app.outdir,
+            config=app.config,
+            builder=app.builder,
+            env=app.env,
+        )
 
 
 def get_tags(
@@ -101,7 +114,7 @@ def get_tags(
     tags['og:type'] = config.ogp_type
 
     if not config.ogp_site_url and os.getenv('READTHEDOCS'):
-        ogp_site_url = read_the_docs_site_url(config.html_baseurl)
+        ogp_site_url = ambient_site_url()
     else:
         ogp_site_url = config.ogp_site_url
 
@@ -230,19 +243,16 @@ def get_tags(
         '\n'.join(
             [make_tag(p, c) for p, c in tags.items()]
             + [make_tag(p, c, 'name') for p, c in meta_tags.items()]
-            + config.ogp_custom_meta_tags
+            + list(config.ogp_custom_meta_tags)
         )
         + '\n'
     )
 
 
-def read_the_docs_site_url(html_baseurl: str | None) -> str:
-    # readthedocs addons sets the READTHEDOCS_CANONICAL_URL variable,
-    # or defines the ``html_baseurl`` variable in conf.py
+def ambient_site_url() -> str:
+    # readthedocs addons sets the READTHEDOCS_CANONICAL_URL variable
     if rtd_canonical_url := os.getenv('READTHEDOCS_CANONICAL_URL'):
         parse_result = urlsplit(rtd_canonical_url)
-    elif html_baseurl is not None:
-        parse_result = urlsplit(html_baseurl)
     else:
         msg = 'ReadTheDocs did not provide a valid canonical URL!'
         raise RuntimeError(msg)
@@ -304,23 +314,10 @@ def social_card_for_page(
     return posixpath.join(ogp_site_url, image_path.as_posix())
 
 
-def html_page_context(
-    app: Sphinx,
-    pagename: str,
-    templatename: str,
-    context: dict[str, Any],
-    doctree: nodes.document,
-) -> None:
-    if doctree:
-        context['metatags'] += get_tags(
-            context,
-            doctree,
-            srcdir=app.srcdir,
-            outdir=app.outdir,
-            config=app.config,
-            builder=app.builder,
-            env=app.env,
-        )
+def make_tag(property: str, content: str, type_: str = 'property') -> str:
+    # Parse quotation, so they won't break html tags if smart quotes are disabled
+    content = content.replace('"', '&quot;')
+    return f'<meta {type_}="{property}" content="{content}" />'
 
 
 def setup(app: Sphinx) -> ExtensionMetadata:
@@ -335,7 +332,7 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_config_value('ogp_type', 'website', 'html')
     app.add_config_value('ogp_site_name', None, 'html')
     app.add_config_value('ogp_social_cards', None, 'html')
-    app.add_config_value('ogp_custom_meta_tags', [], 'html')
+    app.add_config_value('ogp_custom_meta_tags', (), 'html')
     app.add_config_value('ogp_enable_meta_description', True, 'html')
 
     # Main Sphinx OpenGraph linking

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fixtures
-Version: 4.2.5
+Version: 4.2.6
 Summary: Fixtures, reusable state for writing clean tests and more.
 Project-URL: Homepage, https://github.com/testing-cabal/fixtures
 Project-URL: Bug Tracker, https://github.com/testing-cabal/fixtures/issues
@@ -16,7 +16,6 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -26,7 +25,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Provides-Extra: docs
 Requires-Dist: docutils; extra == 'docs'
 Provides-Extra: streams
@@ -48,7 +47,7 @@ provided that makes using fixtures that meet the ``Fixtures`` contract in
 Dependencies
 ============
 
-* Python 3.8+
+* Python 3.9+
   This is the base language fixtures is written in and for.
 
 The ``fixtures[streams]`` extra adds:

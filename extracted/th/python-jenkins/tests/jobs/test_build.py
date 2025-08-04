@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from mock import patch
+from unittest.mock import patch
+from urllib.parse import quote
 
 import jenkins
-from six.moves.urllib.parse import quote
 from tests.helper import build_response_mock
 from tests.jobs.base import JenkinsJobsTestBase
 
@@ -34,7 +34,7 @@ class JenkinsBuildJobTest(JenkinsJobsTestBase):
 
     @patch.object(jenkins.Jenkins, 'maybe_add_crumb')
     @patch('jenkins.requests.Session.send', autospec=True)
-    def test_simple_no_content_lenght(self, session_send_mock,
+    def test_simple_no_content_length(self, session_send_mock,
                                       maybe_add_crumb_mock):
         maybe_add_crumb_mock.return_value = None
         session_send_mock.return_value = build_response_mock(
@@ -49,7 +49,7 @@ class JenkinsBuildJobTest(JenkinsJobsTestBase):
 
     @patch.object(jenkins.Jenkins, 'maybe_add_crumb')
     @patch('jenkins.requests.Session.send', autospec=True)
-    def test_assert_no_content_lenght_no_location(self, session_send_mock,
+    def test_assert_no_content_length_no_location(self, session_send_mock,
                                                   maybe_add_crumb_mock):
         maybe_add_crumb_mock.return_value = None
         session_send_mock.return_value = build_response_mock(

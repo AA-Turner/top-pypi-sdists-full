@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 import threading
 import weakref
 
@@ -17,7 +17,7 @@ class Observer(Protocol):
         """Receive a notification."""
 
 
-Callback: TypeAlias = Callable[["Observable", str, Any], None]
+Callback = Callable[["Observable", str, Any], None]
 T = TypeVar("T", bound="Observable")
 
 

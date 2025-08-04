@@ -1,13 +1,18 @@
-import unittest
-from PyKCS11 import PyKCS11
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+
 import gc
+import unittest
+
+from PyKCS11 import PyKCS11
 
 
 class TestUtil(unittest.TestCase):
     def test_gc(self):
-        res = list()
+        res = []
         # we must use at least 2 sessions
-        for n in range(2):
+        for _ in range(2):
             p11, session = self.createSession()
             res.append([p11, session])
 

@@ -12,8 +12,10 @@ from .comparehandlers.sections import compare_handler_sections
 from .comparehandlers.simple import compare_handler_simple
 from .exceptions import AwesomeVersionCompareException, AwesomeVersionStrategyException
 from .strategy import (
+    MAJOR_STRATEGIES,
     VERSION_STRATEGIES,
     VERSION_STRATEGIES_DICT,
+    VERSIONED_STRATEGIES,
     AwesomeVersionStrategy,
     AwesomeVersionStrategyDescription,
 )
@@ -23,6 +25,7 @@ from .utils.regex import (
     RE_SIMPLE,
     compile_regex,
     generate_full_string_regex,
+    match_compound_modifier,
 )
 
 if TYPE_CHECKING:
@@ -69,12 +72,11 @@ class AwesomeVersion(str):
             AwesomeVersionStrategyException If it is not found
             for any of the given strategies.
         """
-        self._version = (
-            version._version if isinstance(version, AwesomeVersion) else str(version)
-        )
-
-        if isinstance(self._version, str):
-            self._version = self._version.strip()
+        if isinstance(version, AwesomeVersion):
+            self._version = version._version
+        else:
+            version_str = str(version)
+            self._version = version_str.strip() if version_str else ""
 
         if find_first_match and not ensure_strategy:
             warn(
@@ -138,42 +140,28 @@ class AwesomeVersion(str):
 
     def __eq__(self, compareto: VersionType) -> bool:
         """Check if equals to."""
-        if isinstance(compareto, (str, float, int)):
-            compareto = AwesomeVersion(compareto)
-        if not isinstance(compareto, AwesomeVersion):
-            raise AwesomeVersionCompareException("Not a valid AwesomeVersion object")
+        compareto = self._ensure_awesome_version(compareto)
         return self.string == compareto.string
 
     def __lt__(self, compareto: VersionType) -> bool:
         """Check if less than."""
-        if isinstance(compareto, (str, float, int)):
-            compareto = AwesomeVersion(compareto)
-        if not isinstance(compareto, AwesomeVersion):
-            raise AwesomeVersionCompareException("Not a valid AwesomeVersion object")
+        compareto = self._ensure_awesome_version(compareto)
+
         if self.string == compareto.string:
             return False
 
-        if AwesomeVersionStrategy.UNKNOWN in (self.strategy, compareto.strategy):
-            raise AwesomeVersionCompareException(
-                f"Can't compare <{self.strategy.value} {self._version}> and "
-                f"<{compareto.strategy.value} {compareto._version}>"
-            )
+        self._validate_comparison_strategy(compareto)
         return self._compare_versions(compareto, self)
 
     def __gt__(self, compareto: VersionType) -> bool:
         """Check if greater than."""
-        if isinstance(compareto, (str, float, int)):
-            compareto = AwesomeVersion(compareto)
-        if not isinstance(compareto, AwesomeVersion):
-            raise AwesomeVersionCompareException("Not a valid AwesomeVersion object")
+        compareto = self._ensure_awesome_version(compareto)
+
         if self.string == compareto.string:
             return False
 
-        if AwesomeVersionStrategy.UNKNOWN in (self.strategy, compareto.strategy):
-            raise AwesomeVersionCompareException(
-                f"Can't compare <{self.strategy.value} {self._version}> and "
-                f"<{compareto.strategy.value} {compareto._version}>"
-            )
+        self._validate_comparison_strategy(compareto)
+
         return self._compare_versions(self, compareto)
 
     def __ne__(self, compareto: object) -> bool:
@@ -193,10 +181,7 @@ class AwesomeVersion(str):
 
     def diff(self, compareto: VersionType) -> AwesomeVersionDiff:
         """Return a dictionary with differences between 2 AwesomeVersion objects."""
-        if isinstance(compareto, (str, float, int)):
-            compareto = AwesomeVersion(compareto)
-        if not isinstance(compareto, AwesomeVersion):
-            raise AwesomeVersionCompareException("Not a valid AwesomeVersion object")
+        compareto = self._ensure_awesome_version(compareto)
         return AwesomeVersionDiff(
             {
                 "major": str(self.major) != str(compareto.major),
@@ -209,24 +194,31 @@ class AwesomeVersion(str):
 
     def in_range(self, lowest: VersionType, highest: VersionType) -> bool:
         """Check if version is in range."""
-        if isinstance(lowest, (str, float, int)):
-            lowest = AwesomeVersion(lowest)
-        if isinstance(highest, (str, float, int)):
-            highest = AwesomeVersion(highest)
-        if not isinstance(lowest, AwesomeVersion):
-            raise AwesomeVersionCompareException("Lowest version is not valid")
-        if not isinstance(highest, AwesomeVersion):
-            raise AwesomeVersionCompareException("Highest version is not valid")
+        lowest = self._ensure_awesome_version(lowest, "Lowest version is not valid")
+        highest = self._ensure_awesome_version(highest, "Highest version is not valid")
         return lowest <= self <= highest
 
     def section(self, idx: int) -> int:
         """Return the value of the specified section of the version."""
-        if self.strategy == AwesomeVersionStrategy.HEXVER:
+        strategy = self.strategy
+        if strategy == AwesomeVersionStrategy.HEXVER:
             return int(self.string, 16) if idx == 0 else 0
+
+        if strategy == AwesomeVersionStrategy.BUILDVER:
+            if idx == 0:
+                try:
+                    return int(self.string)
+                except ValueError:
+                    return 0
+            return 0
+
         if self.sections >= (idx + 1):
-            match = RE_DIGIT.match(self.string.split(".")[idx] or "")
-            if match and match.groups():
-                return int(match.group(1) or 0)
+            version_parts = self.string.split(".")
+            if idx < len(version_parts):
+                section_str = version_parts[idx]
+                match = RE_DIGIT.match(section_str or "")
+                if match and match.groups():
+                    return int(match.group(1) or 0)
         return 0
 
     @staticmethod
@@ -292,14 +284,24 @@ class AwesomeVersion(str):
         if self._sections is not None:
             return self._sections
 
-        if self.strategy == AwesomeVersionStrategy.SEMVER:
+        strategy = self.strategy
+        if strategy == AwesomeVersionStrategy.SEMVER:
             self._sections = 3
+        elif strategy in {
+            AwesomeVersionStrategy.HEXVER,
+            AwesomeVersionStrategy.SPECIALCONTAINER,
+            AwesomeVersionStrategy.BUILDVER,
+        }:
+            self._sections = 1
         else:
+            version_parts = self.string.split(".")
             modifier = self.modifier
+            modifier_type = self.modifier_type
+
             self._sections = len(
                 [
-                    section.split(self.modifier_type)[-1]
-                    for section in self.string.split(".")
+                    section.split(modifier_type)[-1] if modifier_type else section
+                    for section in version_parts
                     if section and (modifier is None or section != modifier)
                 ]
             )
@@ -312,15 +314,7 @@ class AwesomeVersion(str):
 
         Will return None if the versions is not semver/buildver/calver/simplever/pep440.
         """
-        if self.strategy not in (
-            AwesomeVersionStrategy.SEMVER,
-            AwesomeVersionStrategy.BUILDVER,
-            AwesomeVersionStrategy.CALVER,
-            AwesomeVersionStrategy.SIMPLEVER,
-            AwesomeVersionStrategy.PEP440,
-        ):
-            return None
-        return AwesomeVersion(self.section(0))
+        return self._get_version_section(0, MAJOR_STRATEGIES)
 
     @cached_property
     def minor(self) -> AwesomeVersion | None:
@@ -330,19 +324,7 @@ class AwesomeVersion(str):
         Will return None if the versions is not semver/simplever/calver/pep440
         Will return None if the version does not have at least 2 sections.
         """
-        if (
-            self.strategy
-            not in (
-                AwesomeVersionStrategy.SEMVER,
-                AwesomeVersionStrategy.CALVER,
-                AwesomeVersionStrategy.SIMPLEVER,
-                AwesomeVersionStrategy.PEP440,
-            )
-            or self.sections < 2
-        ):
-            return None
-
-        return AwesomeVersion(self.section(1))
+        return self._get_version_section(1, VERSIONED_STRATEGIES)
 
     @cached_property
     def patch(self) -> AwesomeVersion | None:
@@ -352,18 +334,7 @@ class AwesomeVersion(str):
         Will return None if the versions is not semver/simplever/calver/pep440
         Will return None if the version does not have at least 3 sections.
         """
-        if (
-            self.strategy
-            not in (
-                AwesomeVersionStrategy.SEMVER,
-                AwesomeVersionStrategy.CALVER,
-                AwesomeVersionStrategy.SIMPLEVER,
-                AwesomeVersionStrategy.PEP440,
-            )
-            or self.sections < 3
-        ):
-            return None
-        return AwesomeVersion(self.section(2))
+        return self._get_version_section(2, VERSIONED_STRATEGIES)
 
     @property
     def micro(self) -> AwesomeVersion | None:
@@ -420,9 +391,15 @@ class AwesomeVersion(str):
             return self._modifier_type
         if self.strategy == AwesomeVersionStrategy.HEXVER:
             return None
-        match = RE_MODIFIER.match(self.modifier or "")
+
+        modifier = self.modifier or ""
+        match = RE_MODIFIER.match(modifier)
         if match and len(match.groups()) >= 3:
             self._modifier_type = match.group(3)
+        else:
+            compound_match = match_compound_modifier(modifier)
+            if compound_match:
+                self._modifier_type = compound_match.group(1)
 
         return self._modifier_type
 
@@ -436,6 +413,28 @@ class AwesomeVersion(str):
     @cached_property
     def strategy(self) -> AwesomeVersionStrategy:
         """Return the version strategy."""
+        version_str = self.string
+        if version_str:
+            fast_path_strategy = None
+
+            if version_str in ("latest", "dev", "stable", "beta"):
+                fast_path_strategy = AwesomeVersionStrategy.SPECIALCONTAINER
+
+            elif version_str.startswith("0x") and len(version_str) > 2:
+                hex_part = version_str[2:]
+                if all(c in "0123456789ABCDEFabcdef" for c in hex_part):
+                    fast_path_strategy = AwesomeVersionStrategy.HEXVER
+
+            elif version_str.isdigit():
+                fast_path_strategy = AwesomeVersionStrategy.BUILDVER
+
+            if fast_path_strategy is not None:
+                if (
+                    not self._ensure_strategy
+                    or fast_path_strategy in self._ensure_strategy
+                ):
+                    return fast_path_strategy
+
         version_strategies: dict[
             AwesomeVersionStrategy, AwesomeVersionStrategyDescription
         ] = {}
@@ -458,6 +457,36 @@ class AwesomeVersion(str):
     def simple(self) -> bool:
         """Return True if the version string is simple."""
         return generate_full_string_regex(RE_SIMPLE).match(self.string) is not None
+
+    def _ensure_awesome_version(
+        self, version: VersionType, error_msg: str = "Not a valid AwesomeVersion object"
+    ) -> AwesomeVersion:
+        """Convert input to AwesomeVersion if needed, with validation."""
+        if isinstance(version, AwesomeVersion):
+            return version
+        if isinstance(version, (str, float, int)):
+            return AwesomeVersion(version)
+        raise AwesomeVersionCompareException(error_msg)
+
+    def _validate_comparison_strategy(self, other: AwesomeVersion) -> None:
+        """Validate that both versions can be compared."""
+        if AwesomeVersionStrategy.UNKNOWN in (self.strategy, other.strategy):
+            raise AwesomeVersionCompareException(
+                f"Can't compare <{self.strategy.value} {self._version}> and "
+                f"<{other.strategy.value} {other.string}>"
+            )
+
+    def _get_version_section(
+        self,
+        section_index: int,
+        valid_strategies: frozenset[AwesomeVersionStrategy],
+    ) -> AwesomeVersion | None:
+        """Helper method to get version section if strategy and section count are valid."""
+        if self.strategy not in valid_strategies:
+            return None
+        if section_index > 0 and self.sections < (section_index + 1):
+            return None
+        return AwesomeVersion(self.section(section_index))
 
 
 class AwesomeVersionDiff:

@@ -1,4 +1,5 @@
 //   Copyright (C) 2004 Midori (midori -- a-t -- paipai dot net)
+//   Copyright (C) 2017-2025 Ludovic Rousseau (ludovic.rousseau@free.fr)
 //
 // This file is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -15,8 +16,6 @@
 // Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
 
 // PyKCS11.cpp : Defines the entry point for the DLL application.
-//
-#include "stdafx.h"
 
 #if defined(WIN32) || defined(_WIN32)
 #include <windows.h>
@@ -28,4 +27,3 @@ BOOL WINAPI DllMain( HMODULE hModule,
     return TRUE;
 }
 #endif
-

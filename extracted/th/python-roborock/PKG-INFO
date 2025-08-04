@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-roborock
-Version: 2.25.1
+Version: 2.27.0
 Summary: A package to control Roborock vacuums.
 Home-page: https://github.com/humbertogontijo/python-roborock
 License: GPL-3.0-only

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2015 Roman Pasechnik
 #   Copyright (C) 2018 Ludovic Rousseau
 #
@@ -16,9 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from PyKCS11 import *
 import binascii
+
+from PyKCS11 import (
+    CKA_CLASS,
+    CKF_RW_SESSION,
+    CKF_SERIAL_SESSION,
+    CKM_SHA256_RSA_PKCS,
+    CKO_PRIVATE_KEY,
+    CKO_PUBLIC_KEY,
+    Mechanism,
+    PyKCS11Lib,
+)
+
+# pylint: disable=duplicate-code
 
 pkcs11 = PyKCS11Lib()
 pkcs11.load()  # define environment variable PYKCS11LIB=YourPKCS11Lib
@@ -36,7 +50,7 @@ mechanism = Mechanism(CKM_SHA256_RSA_PKCS, None)
 # find first private key and compute signature
 privKey = session.findObjects([(CKA_CLASS, CKO_PRIVATE_KEY)])[0]
 signature = session.sign(privKey, toSign, mechanism)
-print("\nsignature: {}".format(binascii.hexlify(bytearray(signature))))
+print(f"\nsignature: {binascii.hexlify(bytearray(signature))}")
 
 # find first public key and verify signature
 pubKey = session.findObjects([(CKA_CLASS, CKO_PUBLIC_KEY)])[0]

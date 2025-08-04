@@ -66,14 +66,13 @@ class KafkaUtils:
             "bootstrap.servers": self.bootstrap_servers,
             "acks": "1",
             "retries": 1,
-            "retry.backoff.ms": 500,
-            "request.timeout.ms": 30000,
+            "retry.backoff.ms": 100,
             "max.in.flight.requests.per.connection": 1,
             "linger.ms": 50,
             "batch.size": 8388608, # 8MB
-            "queue.buffering.max.ms": 100,
+            "queue.buffering.max.ms": 50,
             "message.max.bytes": 25000000, # 25MB
-            'queue.buffering.max.messages': 10000,
+            'queue.buffering.max.messages': 100000,
             "delivery.timeout.ms": 600000,
             "request.timeout.ms": 600000,
             "compression.type": "snappy"
@@ -182,6 +181,8 @@ class KafkaUtils:
             "session.timeout.ms": 60000,
             "heartbeat.interval.ms": 20000,
             "max.poll.interval.ms": 600000,
+            "fetch.max.bytes": 25000000,
+            "max.partition.fetch.bytes": 25000000,
             "partition.assignment.strategy": "cooperative-sticky",
         }
 
@@ -326,6 +327,17 @@ class KafkaUtils:
         key_bytes = self._serialize_key(key)
 
         try:
+            # Check queue length before producing
+            queue_len = len(self.producer)
+            if queue_len > 40000:
+                logging.warning(f"Producer queue is getting full: {queue_len} messages")
+                # Perform aggressive polling to drain queue
+                for _ in range(10):
+                    self.producer.poll(0.001)
+                    if len(self.producer) < 30000:
+                        break
+                    time.sleep(0.001)
+            
             self.producer.produce(
                 topic,
                 value=value_bytes,
@@ -457,12 +469,20 @@ class KafkaUtils:
         """Close Kafka producer and consumer connections."""
         try:
             if self.producer:
+                # Poll aggressively before flushing to process any pending callbacks
+                logging.info("Processing pending producer callbacks before close...")
+                for _ in range(20):
+                    self.producer.poll(0.1)
+                
                 # First attempt with standard timeout
-                remaining = int(self.producer.flush(timeout=5))
+                remaining = int(self.producer.flush(timeout=10))  # Increased initial timeout
                 
                 # If messages still remain, try with extended timeout
                 if remaining > 0:
                     logging.warning("%d messages still in queue, extending flush timeout", remaining)
+                    # More aggressive polling during extended flush
+                    for _ in range(50):
+                        self.producer.poll(0.1)
                     remaining = int(self.producer.flush(timeout=30))  # Extended timeout
                     
                     if remaining > 0:
@@ -534,11 +554,11 @@ class AsyncKafkaUtils:
         """
         producer_config = {
             "bootstrap_servers": self.bootstrap_servers,
-            "acks": "all",
+            "acks": 1,  # Changed from "all" for better throughput
             "enable_idempotence": True,
-            "request_timeout_ms": 30000,
-            "retry_backoff_ms": 500,
-            "max_batch_size": 65536,
+            "request_timeout_ms": 60000,  # Increased timeout
+            "retry_backoff_ms": 100,  # Reduced backoff
+            "max_batch_size": 1048576,  # Increased batch size (1MB)
             "linger_ms": 5,
             "max_request_size": 25000000,
             # "compression_type": "snappy"

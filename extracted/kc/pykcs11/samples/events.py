@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2009-2014 Ludovic Rousseau (ludovic.rousseau@free.fr)
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,17 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from __future__ import print_function
+
+import getinfo
 
 import PyKCS11
-import getinfo
 
 if __name__ == "__main__":
     import getopt
     import sys
 
     def usage():
+        """usage"""
         print("Usage:", sys.argv[0], end=" ")
         print("[-p pin][--pin=pin] (use 'NULL' for pinpad)", end=" ")
         print("[-c lib][--lib=lib]", end=" ")
@@ -83,7 +86,7 @@ if __name__ == "__main__":
         slot = gi.pkcs11.waitForSlotEvent()
 
         try:
-            print("Slot %d changed" % slot)
+            print(f"Slot {slot} changed")
             gi.getSlotInfo(slot, 0, len(slots))
             if full:
                 gi.getSessionInfo(slot, pin)

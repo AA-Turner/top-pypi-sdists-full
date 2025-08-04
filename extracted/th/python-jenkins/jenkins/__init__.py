@@ -59,11 +59,13 @@ import multi_key_dict
 import requests
 import requests.exceptions as req_exc
 import urllib3.util.timeout
+from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from six.moves.http_client import BadStatusLine
-from six.moves.urllib.error import URLError
-from six.moves.urllib.parse import quote, urlencode, urljoin, urlparse
+from http.client import BadStatusLine
+from urllib.error import URLError
+from urllib.parse import quote, urlencode, urljoin, urlparse
 import xml.etree.ElementTree as ET
+from urllib3.util import parse_url, Retry
 
 from jenkins import plugins
 
@@ -83,8 +85,8 @@ except ImportError:
 
 logging.getLogger(__name__).addHandler(NullHandler())
 
-if sys.version_info < (2, 7, 0):
-    warnings.warn("Support for python 2.6 is deprecated and will be removed.")
+if sys.version_info < (3, 8, 0):
+    warnings.warn("Support for python 3.7 is deprecated and will be removed.")
 
 
 LAUNCHER_SSH = 'hudson.plugins.sshslaves.SSHLauncher'
@@ -93,6 +95,7 @@ LAUNCHER_JNLP = 'hudson.slaves.JNLPLauncher'
 LAUNCHER_WINDOWS_SERVICE = 'hudson.os.windows.ManagedWindowsServiceLauncher'
 DEFAULT_HEADERS = {'Content-Type': 'text/xml; charset=utf-8'}
 DEFAULT_TIMEOUT = getattr(urllib3.util.timeout, '_DEFAULT_TIMEOUT', socket._GLOBAL_DEFAULT_TIMEOUT)
+DEFAULT_RETRIES = 0
 
 # REST Endpoints
 INFO = 'api/json'
@@ -302,7 +305,7 @@ class Jenkins(object):
     _timeout_warning_issued = False
 
     def __init__(self, url, username=None, password=None,
-                 timeout=DEFAULT_TIMEOUT):
+                 timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRIES):
         '''Create handle to Jenkins instance.
 
         All methods will raise :class:`JenkinsException` on failure.
@@ -335,6 +338,11 @@ class Jenkins(object):
         self.crumb = None
         self.timeout = timeout
         self._session = WrappedSession()
+
+        self._session.mount(
+            parse_url(self.server).scheme,
+            HTTPAdapter(max_retries=Retry(total=retries, backoff_factor=0.1))
+        )
 
         extra_headers = os.environ.get("JENKINS_API_EXTRA_HEADERS", "")
         if extra_headers:
@@ -699,17 +707,22 @@ class Jenkins(object):
             # This can happen on workflow jobs, or if InjectEnvVars plugin not installed
             return None
 
-    def get_build_test_report(self, name, number, depth=0):
+    def get_build_test_report(self, name, number, depth=0, tree=None):
         '''Get test results report.
 
         :param name: Job name, ``str``
         :param number: Build number, ``str`` (also accepts ``int``)
+        :param depth: depth parameter for the api/json call, default 0
+        :param tree: tree parameter for the api/json call used to limit returned fields
         :returns: dictionary of test report results, ``dict`` or None if there is no Test Report
         '''
         folder_url, short_name = self._get_job_folder(name)
+        params = {'tree': tree} if tree else {}
         try:
             response = self.jenkins_open(requests.Request(
-                'GET', self._build_url(BUILD_TEST_REPORT, locals())))
+                'GET',
+                self._build_url(BUILD_TEST_REPORT, locals()),
+                params=params))
             if response:
                 return json.loads(response)
             else:
@@ -830,7 +843,7 @@ class Jenkins(object):
         """Get information on this Master or item on Master.
 
         This information includes job list and view information and can be
-        used to retreive information on items such as job folders.
+        used to retrieve information on items such as job folders.
 
         :param item: item to get information about on this Master
         :param query: xpath to extract information about on this Master
@@ -1498,7 +1511,7 @@ class Jenkins(object):
         """
         folder_url, short_name = self._get_job_folder(name)
         self.jenkins_open(requests.Request('POST',
-                          self._build_url(DELETE_BUILD, locals()), b''))
+                          self._build_url(DELETE_BUILD, locals())))
 
     def wipeout_job_workspace(self, name):
         """Wipe out workspace for given Jenkins job.
@@ -1508,7 +1521,7 @@ class Jenkins(object):
         folder_url, short_name = self._get_job_folder(name)
         self.jenkins_open(requests.Request('POST',
                           self._build_url(WIPEOUT_JOB_WORKSPACE,
-                                          locals()), b''))
+                                          locals())))
 
     def get_running_builds(self):
         '''Return list of running builds.
@@ -1542,6 +1555,10 @@ class Jenkins(object):
                 if ('[500]' in str(e) and
                         self.get_node_info(node_name, depth=0)):
                     continue
+                # ephemeral nodes may disapear
+                elif ('] does not exist' in str(e) and
+                        node_name not in [nd['name'] for nd in self.get_nodes()]):
+                    continue
                 else:
                     raise
             for executor in info['executors']:
@@ -1558,6 +1575,36 @@ class Jenkins(object):
                                    'node': node_name,
                                    'executor': executor_number})
         return builds
+
+    def get_nodes_with_info(self, depth=0):
+        '''Get a list of nodes connected to the Master
+
+        Each node is a dictionary of node info
+
+        :returns: List of nodes
+        '''
+        try:
+            nodes_data = json.loads(self.jenkins_open(
+                requests.Request('GET', self._build_url(NODE_LIST, locals()))))
+            return [
+                        {
+                            "name": c["displayName"],
+                            "description": c["description"],
+                            "assignedLabels": c["assignedLabels"],
+                            "idle": c["idle"],
+                            "offline": c["offline"],
+                            "offlineCause": c["offlineCause"],
+                            "temporarilyOffline": c["temporarilyOffline"],
+                            "icon": c["icon"],
+                        }
+                        for c in nodes_data["computer"]
+                    ]
+        except (req_exc.HTTPError, BadStatusLine):
+            raise BadHTTPException("Error communicating with server[%s]"
+                                   % self.server)
+        except ValueError:
+            raise JenkinsException("Could not parse JSON info for server[%s]"
+                                   % self.server)
 
     def get_nodes(self, depth=0):
         '''Get a list of nodes connected to the Master
@@ -1827,7 +1874,7 @@ class Jenkins(object):
             return None
         else:
             actual = json.loads(response)['name']
-            if actual == 'all':
+            if actual == 'all' and short_name == 'All':
                 actual = 'All'
             if actual != short_name:
                 raise JenkinsException(
@@ -2110,7 +2157,7 @@ class Jenkins(object):
         :param exception_message: Message to use for the exception.
                                   Formatted with ``name``, ``domain_name``,
                                   and ``folder_name``
-        :throws: :class:`JenkinsException` whenever the credentail
+        :throws: :class:`JenkinsException` whenever the credential
             does not exist in domain of folder
         '''
         if not self.credential_exists(name, folder_name, domain_name):
@@ -2118,12 +2165,12 @@ class Jenkins(object):
                                    % (name, domain_name, folder_name))
 
     def credential_exists(self, name, folder_name, domain_name='_'):
-        '''Check whether a credentail exists in domain of folder
+        '''Check whether a credential exists in domain of folder
 
-        :param name: Name of credentail, ``str``
+        :param name: Name of credential, ``str``
         :param folder_name: Folder name, ``str``
         :param domain_name: Domain name, default is '_', ``str``
-        :returns: ``True`` if credentail exists, ``False`` otherwise
+        :returns: ``True`` if credential exists, ``False`` otherwise
         '''
         try:
             return self.get_credential_info(name, folder_name,
@@ -2134,7 +2181,7 @@ class Jenkins(object):
     def get_credential_info(self, name, folder_name, domain_name='_'):
         '''Get credential information dictionary in domain of folder
 
-        :param name: Name of credentail, ``str``
+        :param name: Name of credential, ``str``
         :param folder_name: folder_name, ``str``
         :param domain_name: Domain name, default is '_', ``str``
         :returns: Dictionary of credential info, ``dict``
@@ -2165,7 +2212,7 @@ class Jenkins(object):
     def get_credential_config(self, name, folder_name, domain_name='_'):
         '''Get configuration of credential in domain of folder.
 
-        :param name: Name of credentail, ``str``
+        :param name: Name of credential, ``str``
         :param folder_name: Folder name, ``str``
         :param domain_name: Domain name, default is '_', ``str``
         :returns: Credential configuration (XML format)
@@ -2178,7 +2225,7 @@ class Jenkins(object):
 
     def create_credential(self, folder_name, config_xml,
                           domain_name='_'):
-        '''Create credentail in domain of folder
+        '''Create credential in domain of folder
 
         :param folder_name: Folder name, ``str``
         :param config_xml: New XML configuration, ``str``
@@ -2203,7 +2250,7 @@ class Jenkins(object):
     def delete_credential(self, name, folder_name, domain_name='_'):
         '''Delete credential from domain of folder
 
-        :param name: Name of credentail, ``str``
+        :param name: Name of credential, ``str``
         :param folder_name: Folder name, ``str``
         :param domain_name: Domain name, default is '_', ``str``
         '''

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+"""
 #   Copyright (C) 2015 Roman Pasechnik
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -15,11 +16,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA.
+"""
 
-from __future__ import print_function
 
-from PyKCS11 import *
 import binascii
+
+from PyKCS11 import (
+    CKA_CLASS,
+    CKA_ID,
+    CKA_MODULUS,
+    CKF_RW_SESSION,
+    CKF_SERIAL_SESSION,
+    CKO_PUBLIC_KEY,
+    PyKCS11Lib,
+)
 
 pkcs11 = PyKCS11Lib()
 pkcs11.load()  # define environment variable PYKCS11LIB=YourPKCS11Lib
@@ -36,7 +46,7 @@ keyID = (0x22,)
 # find public key and print modulus
 pubKey = session.findObjects([(CKA_CLASS, CKO_PUBLIC_KEY), (CKA_ID, keyID)])[0]
 modulus = session.getAttributeValue(pubKey, [CKA_MODULUS])[0]
-print("\nmodulus: {}".format(binascii.hexlify(bytearray(modulus))))
+print(f"\nmodulus: {binascii.hexlify(bytearray(modulus))}")
 
 # logout
 session.logout()

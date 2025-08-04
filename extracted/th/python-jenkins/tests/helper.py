@@ -2,11 +2,11 @@ import functools
 import json
 from multiprocess import Process
 from multiprocess import Queue
+import socketserver
 import traceback
+from unittest.mock import Mock
 
-from mock import Mock
 import requests
-from six.moves import socketserver
 
 
 class TestsTimeoutException(Exception):

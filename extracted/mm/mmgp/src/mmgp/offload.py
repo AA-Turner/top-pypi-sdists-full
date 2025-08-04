@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.5.3 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.5.5 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -642,6 +642,7 @@ def _pin_to_memory(model, model_id, partialPinning = False, pinnedPEFTLora = Tru
             else:
                 length = torch.numel(p.data) * p.data.element_size() 
                 p.data = _move_to_pinned_tensor(p.data, current_big_tensor, offset, length)
+
             tensor_no += 1
         del p
     del dummy_pinned_tensor
@@ -667,7 +668,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.3) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.5) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1145,6 +1146,8 @@ def load_loras_into_model(model, lora_path, lora_multi = None, activate_all_lora
                         break
                 elif diff_b != None:
                     rank = diff_b.shape[0] 
+                    if not hasattr(module, "bias"):
+                        pass
                     if module.bias == None:
                         msg = f"Lora '{path}': Lora Basis is defined while it doesnt exist in model '{_get_module_name(model)}'. It is likely this Lora has been made for another version of this model."
                         fail = True
@@ -1248,6 +1251,7 @@ def sync_models_loras(model, model2):
     model2._loras_scaling = model._loras_scaling 
 
 def unload_loras_from_model(model):
+    if model is None: return
     for _, v in model._loras_model_data.items():
         v.clear()
     for _, v in model._loras_model_shortcuts.items():
@@ -2087,13 +2091,16 @@ class offload:
             if data == None:
                 continue
             diff_w , _ , diff_b, alpha = data
+            scaling = self._get_lora_scaling( loras_scaling, model, active_adapter) * alpha
+            if scaling == 0:
+                continue
             if first_weight:
                 original_weight= weight.clone() if weight != None else None
                 first_weight = False
             if first_bias:
                 original_bias= bias.clone() if bias != None else None
                 first_bias = False
-            scaling = self._get_lora_scaling( loras_scaling, model, active_adapter) * alpha
+
             if diff_w != None:
                 weight.add_(diff_w, alpha= scaling)
                 diff_w = None
@@ -2131,6 +2138,8 @@ class offload:
                         continue                    
                     lora_A_weight, lora_B_weight, diff_b, alpha = data
                     scaling = self._get_lora_scaling(loras_scaling, model, active_adapter) * alpha
+                    if scaling == 0:
+                        continue
                     if lora_A_weight != None:
                         weight.addmm_(lora_B_weight, lora_A_weight, alpha= scaling )
                     
@@ -2162,6 +2171,8 @@ class offload:
                     lora_A, lora_B, diff_b, alpha = data
                     # dropout = self.lora_dropout[active_adapter]
                     scaling = self._get_lora_scaling(loras_scaling, model, active_adapter) * alpha
+                    if scaling == 0:
+                        continue
                     if lora_A == None:
                         result.add_(diff_b, alpha=scaling)
                     else:
@@ -2193,7 +2204,7 @@ class offload:
                 if len(loras_data) == 0:
                     return old_forward(*args, **kwargs)
                 else:
-                    # submodule.aaa = submodule_name
+                    submodule.aaa = submodule_name
                     return self._lora_linear_forward(current_model, submodule, loras_data,  *args, **kwargs)
             target_fn = lora_linear_forward
         else:

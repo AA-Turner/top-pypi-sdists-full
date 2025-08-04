@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-openai
-Version: 0.43.1
+Version: 0.44.0
 Summary: OpenTelemetry OpenAI instrumentation
 License: Apache-2.0
 Author: Gal Kleinman
@@ -18,7 +18,6 @@ Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0)
 Requires-Dist: opentelemetry-instrumentation (>=0.50b0)
 Requires-Dist: opentelemetry-semantic-conventions (>=0.50b0)
 Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.11)
-Requires-Dist: tiktoken (>=0.6.0,<1)
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-openai
 Description-Content-Type: text/markdown
 

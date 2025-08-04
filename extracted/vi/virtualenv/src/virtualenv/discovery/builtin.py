@@ -96,9 +96,23 @@ def propose_interpreters(  # noqa: C901, PLR0912, PLR0915
     app_data: AppData | None = None,
     env: Mapping[str, str] | None = None,
 ) -> Generator[tuple[PythonInfo, bool], None, None]:
-    # 0. try with first
+    # 0. if it's a path and exists, and is absolute path, this is the only option we consider
     env = os.environ if env is None else env
     tested_exes: set[str] = set()
+    if spec.is_abs:
+        try:
+            os.lstat(spec.path)  # Windows Store Python does not work with os.path.exists, but does for os.lstat
+        except OSError:
+            pass
+        else:
+            exe_raw = os.path.abspath(spec.path)
+            exe_id = fs_path_id(exe_raw)
+            if exe_id not in tested_exes:
+                tested_exes.add(exe_id)
+                yield PythonInfo.from_exe(exe_raw, app_data, env=env), True
+        return
+
+    # 1. try with first
     for py_exe in try_first_with:
         path = os.path.abspath(py_exe)
         try:
@@ -186,7 +200,7 @@ def get_paths(env: Mapping[str, str]) -> Generator[Path, None, None]:
     if path:
         for p in map(Path, path.split(os.pathsep)):
             with suppress(OSError):
-                if next(p.iterdir(), None):
+                if p.is_dir() and next(p.iterdir(), None):
                     yield p
 
 
@@ -202,7 +216,13 @@ class LazyPathDump:
             content += " with =>"
             for file_path in self.path.iterdir():
                 try:
-                    if file_path.is_dir() or not (file_path.stat().st_mode & os.X_OK):
+                    if file_path.is_dir():
+                        continue
+                    if IS_WIN:
+                        pathext = self.env.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
+                        if not any(file_path.name.upper().endswith(ext) for ext in pathext):
+                            continue
+                    elif not (file_path.stat().st_mode & os.X_OK):
                         continue
                 except OSError:
                     pass

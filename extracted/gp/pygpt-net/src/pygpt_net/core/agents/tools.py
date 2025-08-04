@@ -10,17 +10,11 @@
 # ================================================== #
 
 import json
-import os
-import re
 from typing import List, Dict, Any
-from pydantic import BaseModel, create_model
-from inspect import Signature, Parameter
-from functools import wraps
 
 from agents import (
     FunctionTool as OpenAIFunctionTool,
     RunContextWrapper,
-    function_tool
 )
 from llama_index.core.chat_engine.types import AgentChatResponse
 from llama_index.core.tools import BaseTool, FunctionTool, QueryEngineTool, ToolMetadata
@@ -179,10 +173,24 @@ class Tools:
                     }
                     return self.window.controller.plugins.apply_cmds_all(ctx, [cmd])
 
+                schema = json.loads(item['params'])  # from JSON to dict
+                # fix schema for OpenAI FunctionTool
+                if "properties" in schema:
+                    for property_name, property_value in schema["properties"].items():
+                        if "enum" in property_value:
+                            del property_value["enum"]  # remove enum for OpenAI FunctionTool
+                        if property_value["type"] == "object":
+                            if "properties" not in property_value:
+                                property_value["properties"] = {}
+                            if "required" not in property_value:
+                                property_value["required"] = []
+                            if "additionalProperties" not in property_value:
+                                property_value["additionalProperties"] = False
+                schema["additionalProperties"] = False
                 tool = OpenAIFunctionTool(
                     name=name,
                     description=description,
-                    params_json_schema=json.loads(item['params']),
+                    params_json_schema=schema,
                     on_invoke_tool=run_function,
                 )
                 tools.append(tool)
@@ -387,9 +395,9 @@ class Tools:
 
         :return: last tool output
         """
-        if self.window.core.agents.tools.last_tool_output is None:
+        if self.last_tool_output is None:
             return {}
-        return self.window.core.agents.tools.last_tool_output
+        return self.last_tool_output
 
     def has_last_tool_output(self) -> bool:
         """
@@ -397,11 +405,11 @@ class Tools:
 
         :return: True if last tool output exists, False otherwise
         """
-        return self.window.core.agents.tools.last_tool_output is not None
+        return self.last_tool_output is not None
 
     def clear_last_tool_output(self):
         """Clear last tool output"""
-        self.window.core.agents.tools.last_tool_output = None
+        self.last_tool_output = None
 
     def append_tool_outputs(self, ctx: CtxItem, clear: bool = True):
         """
